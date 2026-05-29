@@ -13,6 +13,7 @@ const CHEST_STEP_INTERVAL = 100;
 const CAVE_STEP_INTERVAL = 500;
 const CAVE_START_Z = -780;
 const CAVE_CENTER_Z = -850;
+const SAVE_KEY = "ai-game-lab:wilderness-save-v1";
 
 type ItemId = string;
 type ObjectType =
@@ -63,6 +64,58 @@ interface WorldObject {
   attackCooldown?: number;
   digDepth?: number;
   maxDigDepth?: number;
+}
+
+interface SavedVector {
+  x: number;
+  y: number;
+  z: number;
+}
+
+interface SavedObject {
+  type: ObjectType;
+  name: string;
+  position: SavedVector;
+  hp?: number;
+  armor?: number;
+  ore?: ItemId;
+  opened?: boolean;
+  mineRich?: boolean;
+  caveReturn?: SavedVector | null;
+  collidable?: boolean;
+  collisionRadius?: number;
+  collisionHeight?: number;
+  villageId?: string;
+  foodRemaining?: number;
+  angryRemainingMs?: number;
+  attackCooldown?: number;
+  digDepth?: number;
+  maxDigDepth?: number;
+}
+
+interface SavedGame {
+  version: 1;
+  savedAt: string;
+  player: {
+    position: SavedVector;
+    previousPosition: SavedVector;
+    yaw: number;
+    pitch: number;
+    health: number;
+    maxHealth: number;
+    totalSteps: number;
+    chestStepBank: number;
+    caveStepBank: number;
+    equippedArmor: ItemId | null;
+    locationMode: LocationMode;
+    caveReturnPosition: SavedVector | null;
+    selectedHotbarIndex: number;
+    hotbar: Slot[];
+    bagSlots: Slot[];
+    craftSlots: Slot[];
+  };
+  mountains: { position: SavedVector; radius: number; height: number }[];
+  objects: SavedObject[];
 }
 
 interface Recipe {
@@ -403,6 +456,7 @@ const TUTORIAL_SECTIONS = [
   "흑요석은 다이아몬드 곡괭이로만 캘 수 있습니다. 흑요석 단검 데미지는 50, 흑요석 검 데미지는 100입니다.",
   "플레이어 기본 체력은 10, 방어력은 0입니다. 갑옷을 만들면 자동으로 가장 좋은 갑옷을 입습니다.",
   "마을에는 주민, 집, 식량창고, 마을기사가 있습니다. 식량창고에서 고기를 가져오거나 기사를 공격하면 기사들이 공격합니다.",
+  "왼쪽 위 버튼이나 Ctrl+S로 저장, Ctrl+L로 불러오기, N으로 새로시작을 할 수 있습니다.",
 ];
 
 class WildernessGame {
@@ -417,6 +471,7 @@ class WildernessGame {
   private readonly objects = new Map<string, WorldObject>();
   private readonly raycastTargets: THREE.Object3D[] = [];
   private readonly mountains: { position: THREE.Vector3; radius: number; height: number }[] = [];
+  private readonly mountainMeshes: THREE.Object3D[] = [];
   private readonly hotbar: Slot[] = [
     { item: "tutorial_book", count: 1 },
     { item: null, count: 0 },
@@ -431,6 +486,7 @@ class WildernessGame {
   private readonly hotbarEl = document.createElement("div");
   private readonly messageEl = document.createElement("div");
   private readonly panelEl = document.createElement("div");
+  private readonly saveControlsEl = document.createElement("div");
   private readonly handGroup = new THREE.Group();
   private selectedHotbarIndex = 0;
   private selectedCraftItem: ItemId | null = null;
@@ -538,9 +594,28 @@ class WildernessGame {
     this.hotbarEl.className = "hotbar";
     this.messageEl.className = "message";
     this.panelEl.className = "panel-layer";
+    this.saveControlsEl.className = "save-controls";
+    this.saveControlsEl.innerHTML = `
+      <button data-new-game>새로시작</button>
+      <button data-save-game>저장</button>
+      <button data-load-game>불러오기</button>
+    `;
     this.uiRoot.innerHTML = '<div class="crosshair"></div>';
-    this.uiRoot.append(this.statsEl, this.promptEl, this.hotbarEl, this.messageEl, this.panelEl);
+    this.uiRoot.append(this.statsEl, this.saveControlsEl, this.promptEl, this.hotbarEl, this.messageEl, this.panelEl);
     this.container.appendChild(this.uiRoot);
+
+    this.saveControlsEl.querySelector<HTMLButtonElement>("[data-new-game]")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.newGame();
+    });
+    this.saveControlsEl.querySelector<HTMLButtonElement>("[data-save-game]")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.saveGame();
+    });
+    this.saveControlsEl.querySelector<HTMLButtonElement>("[data-load-game]")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.loadGame();
+    });
   }
 
   private setupEvents() {
@@ -589,11 +664,22 @@ class WildernessGame {
   }
 
   private handleKeyDown(event: KeyboardEvent) {
+    if (event.ctrlKey && event.code === "KeyS") {
+      event.preventDefault();
+      this.saveGame();
+      return;
+    }
+    if (event.ctrlKey && event.code === "KeyL") {
+      event.preventDefault();
+      this.loadGame();
+      return;
+    }
     this.keys.add(event.code);
     if (event.code === "Escape") {
       this.closePanel();
       return;
     }
+    if (event.code === "KeyN" && this.currentPanel === null) this.newGame();
     if (event.code === "KeyI") this.togglePanel("inventory");
     if (event.code === "KeyB") this.togglePanel("book");
     if (event.code === "KeyE") this.interact();
@@ -799,7 +885,7 @@ class WildernessGame {
 
     const lockText =
       document.pointerLockElement === this.renderer.domElement
-        ? "WASD 이동 | Space 점프 | I 인벤토리 | B 책 | E 상호작용 | P 설치"
+        ? "WASD 이동 | Space 점프 | I 인벤토리 | B 책 | E 상호작용 | Ctrl+S 저장"
         : "화면 클릭: 1인칭 시점 고정";
 
     if (!target) {
@@ -1111,6 +1197,250 @@ class WildernessGame {
     this.currentStationId = null;
     this.renderPanel();
     this.renderHud();
+  }
+
+  private newGame() {
+    if (!window.confirm("현재 진행 중인 게임을 새로 시작할까요? 저장된 게임은 삭제되지 않습니다.")) return;
+    this.resetGameState();
+    this.seedOverworld();
+    this.showMessage("새 게임을 시작했습니다.");
+    this.renderPanel();
+    this.renderHud();
+  }
+
+  private saveGame() {
+    try {
+      const save = this.createSaveData();
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+      this.showMessage(`저장 완료: ${new Date(save.savedAt).toLocaleString()}`);
+    } catch (error) {
+      console.error(error);
+      this.showMessage("저장에 실패했습니다. 브라우저 저장 공간을 확인해보세요.");
+    }
+  }
+
+  private loadGame() {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) {
+      this.showMessage("불러올 저장 파일이 없습니다.");
+      return;
+    }
+
+    try {
+      const save = JSON.parse(raw) as SavedGame;
+      this.restoreSaveData(save);
+      this.showMessage(`불러오기 완료: ${new Date(save.savedAt).toLocaleString()}`);
+    } catch (error) {
+      console.error(error);
+      this.showMessage("저장 파일을 불러오지 못했습니다.");
+    }
+  }
+
+  private createSaveData(): SavedGame {
+    const now = performance.now();
+    return {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      player: {
+        position: this.toSavedVector(this.playerPosition),
+        previousPosition: this.toSavedVector(this.previousPosition),
+        yaw: this.yaw,
+        pitch: this.pitch,
+        health: this.health,
+        maxHealth: this.maxHealth,
+        totalSteps: this.totalSteps,
+        chestStepBank: this.chestStepBank,
+        caveStepBank: this.caveStepBank,
+        equippedArmor: this.equippedArmor,
+        locationMode: this.locationMode,
+        caveReturnPosition: this.caveReturnPosition ? this.toSavedVector(this.caveReturnPosition) : null,
+        selectedHotbarIndex: this.selectedHotbarIndex,
+        hotbar: this.cloneSlots(this.hotbar),
+        bagSlots: this.cloneSlots(this.bagSlots),
+        craftSlots: this.cloneSlots(this.craftSlots),
+      },
+      mountains: this.mountains.map((mountain) => ({
+        position: this.toSavedVector(mountain.position),
+        radius: mountain.radius,
+        height: mountain.height,
+      })),
+      objects: [...this.objects.values()]
+        .filter((object) => !this.caveObjectIds.includes(object.id) && object.type !== "caveExit")
+        .map((object) => ({
+          type: object.type,
+          name: object.name,
+          position: this.toSavedVector(object.root.position),
+          hp: object.hp,
+          armor: object.armor,
+          ore: object.ore,
+          opened: object.opened,
+          mineRich: object.mineRich,
+          caveReturn: object.caveReturn ? this.toSavedVector(object.caveReturn) : null,
+          collidable: object.collidable,
+          collisionRadius: object.collisionRadius,
+          collisionHeight: object.collisionHeight,
+          villageId: object.villageId,
+          foodRemaining: object.foodRemaining,
+          angryRemainingMs: object.angryUntil && object.angryUntil > now ? object.angryUntil - now : undefined,
+          attackCooldown: object.attackCooldown,
+          digDepth: object.digDepth,
+          maxDigDepth: object.maxDigDepth,
+        })),
+    };
+  }
+
+  private restoreSaveData(save: SavedGame) {
+    if (save.version !== 1) throw new Error("Unsupported save version.");
+    this.resetGameState({ reseed: false });
+
+    for (const mountain of save.mountains) {
+      this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height);
+    }
+
+    for (const savedObject of save.objects) {
+      this.restoreWorldObject(savedObject);
+    }
+
+    this.hotbar.splice(0, this.hotbar.length, ...this.cloneSlots(save.player.hotbar));
+    this.bagSlots.splice(0, this.bagSlots.length, ...this.cloneSlots(save.player.bagSlots));
+    for (let index = 0; index < this.craftSlots.length; index += 1) {
+      const savedSlot = save.player.craftSlots[index] ?? { item: null, count: 0 };
+      this.craftSlots[index].item = savedSlot.item;
+      this.craftSlots[index].count = savedSlot.count;
+    }
+
+    this.playerPosition.copy(this.fromSavedVector(save.player.position));
+    this.previousPosition.copy(this.fromSavedVector(save.player.previousPosition));
+    this.yaw = save.player.yaw;
+    this.pitch = save.player.pitch;
+    this.health = save.player.health;
+    this.maxHealth = save.player.maxHealth;
+    this.totalSteps = save.player.totalSteps;
+    this.chestStepBank = save.player.chestStepBank;
+    this.caveStepBank = save.player.caveStepBank;
+    this.equippedArmor = save.player.equippedArmor;
+    this.locationMode = save.player.locationMode;
+    this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
+    this.selectedHotbarIndex = Math.min(save.player.selectedHotbarIndex, this.hotbar.length - 1);
+    this.verticalVelocity = 0;
+    this.isGrounded = true;
+    this.camera.position.copy(this.playerPosition);
+    this.camera.rotation.set(this.pitch, this.yaw, 0, "YXZ");
+
+    if (this.locationMode === "cave") {
+      this.setCaveAtmosphere();
+      this.createCaveInterior();
+    } else {
+      this.setOverworldAtmosphere();
+    }
+
+    this.renderPanel();
+    this.renderHud();
+  }
+
+  private resetGameState(options: { reseed?: boolean } = {}) {
+    const reseed = options.reseed ?? true;
+    this.closePanel();
+    this.clearWorld();
+    this.keys.clear();
+    this.hotbar.splice(0, this.hotbar.length, { item: "tutorial_book", count: 1 }, { item: null, count: 0 }, { item: null, count: 0 }, { item: null, count: 0 });
+    this.bagSlots.splice(0, this.bagSlots.length);
+    for (const slot of this.craftSlots) {
+      slot.item = null;
+      slot.count = 0;
+    }
+    this.selectedHotbarIndex = 0;
+    this.selectedCraftItem = null;
+    this.currentPanel = null;
+    this.currentStationId = null;
+    this.yaw = 0;
+    this.pitch = 0;
+    this.playerPosition.set(0, PLAYER_HEIGHT, 12);
+    this.previousPosition.copy(this.playerPosition);
+    this.verticalVelocity = 0;
+    this.isGrounded = true;
+    this.jumpWasDown = false;
+    this.totalSteps = 0;
+    this.chestStepBank = 0;
+    this.caveStepBank = 0;
+    this.health = 10;
+    this.maxHealth = 10;
+    this.equippedArmor = null;
+    this.locationMode = "overworld";
+    this.caveReturnPosition = null;
+    this.messageTimer = 0;
+    this.lastTargetId = null;
+    this.actionTimer = 0;
+    this.setOverworldAtmosphere();
+    this.camera.position.copy(this.playerPosition);
+    this.camera.rotation.set(0, 0, 0, "YXZ");
+    this.panelEl.innerHTML = "";
+    if (reseed) this.renderHud();
+  }
+
+  private clearWorld() {
+    this.clearCaveObjects();
+    for (const id of [...this.objects.keys()]) this.removeObject(id);
+    for (const mesh of this.mountainMeshes) this.scene.remove(mesh);
+    this.mountainMeshes.splice(0, this.mountainMeshes.length);
+    this.mountains.splice(0, this.mountains.length);
+    this.raycastTargets.splice(0, this.raycastTargets.length);
+    this.caveObjectIds.splice(0, this.caveObjectIds.length);
+    this.objects.clear();
+  }
+
+  private restoreWorldObject(savedObject: SavedObject) {
+    const position = this.fromSavedVector(savedObject.position);
+    const villageId = savedObject.villageId ?? `loaded-village-${crypto.randomUUID()}`;
+    let object: WorldObject | null = null;
+
+    if (savedObject.type === "smallTree" || savedObject.type === "bigTree") object = this.spawnTree(savedObject.type, position);
+    if (savedObject.type === "chest" || savedObject.type === "mineChest") object = this.spawnChest(position, savedObject.type === "mineChest" || Boolean(savedObject.mineRich));
+    if (savedObject.type === "cave") object = this.spawnCave(position);
+    if (savedObject.type === "dirtPatch") object = this.spawnDirtPatch(position);
+    if (savedObject.type === "ore") object = this.spawnOre(savedObject.ore ?? "stone", position);
+    if (savedObject.type === "miner") object = this.spawnMiner(position);
+    if (savedObject.type === "animal") object = this.spawnAnimal(position);
+    if (savedObject.type === "villager") object = this.spawnVillager(position, villageId);
+    if (savedObject.type === "villageKnight") object = this.spawnKnight(position, villageId);
+    if (savedObject.type === "foodStorage" || savedObject.type === "villageHouse") {
+      object = this.spawnVillageHouse(position, savedObject.name, savedObject.type === "foodStorage", villageId);
+    }
+    if (savedObject.type === "workbench" || savedObject.type === "extendedWorkbench") object = this.spawnWorkbench(position, savedObject.type === "extendedWorkbench");
+    if (savedObject.type === "smelter" || savedObject.type === "specialSmelter") object = this.spawnSmelter(position, savedObject.type === "specialSmelter");
+
+    if (!object) return;
+    object.name = savedObject.name;
+    object.hp = savedObject.hp;
+    object.armor = savedObject.armor;
+    object.ore = savedObject.ore;
+    object.opened = savedObject.opened;
+    object.mineRich = savedObject.mineRich;
+    object.caveReturn = savedObject.caveReturn ? this.fromSavedVector(savedObject.caveReturn) : undefined;
+    object.collidable = savedObject.collidable;
+    object.collisionRadius = savedObject.collisionRadius;
+    object.collisionHeight = savedObject.collisionHeight;
+    object.villageId = savedObject.villageId;
+    object.foodRemaining = savedObject.foodRemaining;
+    object.attackCooldown = savedObject.attackCooldown;
+    object.digDepth = savedObject.digDepth;
+    object.maxDigDepth = savedObject.maxDigDepth;
+    object.root.position.copy(position);
+    if (savedObject.angryRemainingMs) object.angryUntil = performance.now() + savedObject.angryRemainingMs;
+    if (object.opened && (object.type === "chest" || object.type === "mineChest")) this.tintObject(object.root, object.type === "mineChest" ? 0x4f4636 : 0x6a5940);
+    if (object.type === "dirtPatch") this.updateDirtPatchVisual(object);
+  }
+
+  private toSavedVector(vector: THREE.Vector3): SavedVector {
+    return { x: vector.x, y: vector.y, z: vector.z };
+  }
+
+  private fromSavedVector(vector: SavedVector): THREE.Vector3 {
+    return new THREE.Vector3(vector.x, vector.y, vector.z);
+  }
+
+  private cloneSlots(slots: Slot[]): Slot[] {
+    return slots.map((slot) => ({ item: slot.item, count: slot.count }));
   }
 
   private renderHud() {
@@ -1542,6 +1872,7 @@ class WildernessGame {
     mountain.position.set(position.x, height / 2 - 0.1, position.z);
     mountain.scale.y = 0.9;
     this.scene.add(mountain);
+    this.mountainMeshes.push(mountain);
 
     const cap = new THREE.Mesh(
       new THREE.ConeGeometry(radius * 0.36, height * 0.32, 18),
@@ -1549,6 +1880,7 @@ class WildernessGame {
     );
     cap.position.set(position.x, height * 0.82, position.z);
     this.scene.add(cap);
+    this.mountainMeshes.push(cap);
   }
 
   private spawnDirtPatch(position: THREE.Vector3) {
@@ -1560,7 +1892,7 @@ class WildernessGame {
     patch.position.y = 0.05;
     group.add(patch);
     group.position.copy(position);
-    this.addWorldObject("dirtPatch", "흙 지역", group, {
+    return this.addWorldObject("dirtPatch", "흙 지역", group, {
       digDepth: 0,
       maxDigDepth: 3,
       collisionRadius: 0,
@@ -1610,7 +1942,7 @@ class WildernessGame {
       group.add(marker);
     }
     group.position.copy(position);
-    this.addWorldObject(type, type === "bigTree" ? "큰 나무" : "작은 나무", group, {
+    return this.addWorldObject(type, type === "bigTree" ? "큰 나무" : "작은 나무", group, {
       collidable: true,
       collisionRadius: type === "bigTree" ? 1.2 : 0.55,
       collisionHeight: type === "bigTree" ? 7.5 : 1.4,
@@ -1631,7 +1963,7 @@ class WildernessGame {
     band.position.y = 0.82;
     group.add(base, band);
     group.position.copy(position);
-    this.addWorldObject(mineRich ? "mineChest" : "chest", mineRich ? "광산 상자" : "상자", group, {
+    return this.addWorldObject(mineRich ? "mineChest" : "chest", mineRich ? "광산 상자" : "상자", group, {
       mineRich,
       collidable: true,
       collisionRadius: 0.95,
@@ -1658,7 +1990,7 @@ class WildernessGame {
       group.add(rock);
     }
     group.position.copy(position);
-    this.addWorldObject("cave", "동굴 입구", group, {
+    return this.addWorldObject("cave", "동굴 입구", group, {
       caveReturn: position.clone().add(new THREE.Vector3(0, PLAYER_HEIGHT, 5)),
       collidable: true,
       collisionRadius: 2.4,
@@ -1759,6 +2091,7 @@ class WildernessGame {
       collisionHeight: 1.35,
     });
     if (this.locationMode === "cave") this.caveObjectIds.push(object.id);
+    return object;
   }
 
   private spawnMiner(position: THREE.Vector3) {
@@ -1786,6 +2119,7 @@ class WildernessGame {
       collisionHeight: 2.2,
     });
     this.caveObjectIds.push(object.id);
+    return object;
   }
 
   private spawnAnimal(position: THREE.Vector3) {
@@ -1802,7 +2136,7 @@ class WildernessGame {
     head.position.set(0.95, 0.92, 0);
     group.add(body, head);
     group.position.copy(position);
-    this.addWorldObject("animal", Math.random() < 0.5 ? "소" : "말", group, {
+    return this.addWorldObject("animal", Math.random() < 0.5 ? "소" : "말", group, {
       hp: 8,
       collidable: true,
       collisionRadius: 0.9,
@@ -1864,7 +2198,7 @@ class WildernessGame {
     door.position.set(0, 0.72, depth / 2 + 0.045);
     house.add(hut, roof, door);
     house.position.copy(position);
-    this.addWorldObject(isStorage ? "foodStorage" : "villageHouse", name, house, {
+    return this.addWorldObject(isStorage ? "foodStorage" : "villageHouse", name, house, {
       collidable: true,
       collisionRadius: Math.max(width, depth) * 0.56,
       collisionHeight: 3.4,
@@ -1888,7 +2222,7 @@ class WildernessGame {
     head.position.y = 1.75;
     group.add(body, head);
     group.position.copy(position);
-    this.addWorldObject("villager", "주민", group, { collidable: true, collisionRadius: 0.5, collisionHeight: 1.9, villageId });
+    return this.addWorldObject("villager", "주민", group, { collidable: true, collisionRadius: 0.5, collisionHeight: 1.9, villageId });
   }
 
   private spawnKnight(position: THREE.Vector3, villageId: string) {
@@ -1911,7 +2245,7 @@ class WildernessGame {
     shield.position.set(-0.6, 1.1, 0);
     group.add(body, head, shield);
     group.position.copy(position);
-    this.addWorldObject("villageKnight", "마을기사", group, {
+    return this.addWorldObject("villageKnight", "마을기사", group, {
       hp: 10,
       armor: 5,
       collidable: true,
@@ -1935,7 +2269,7 @@ class WildernessGame {
     top.position.y = extended ? 1.16 : 0.96;
     group.add(table, top);
     group.position.copy(position);
-    this.addWorldObject(extended ? "extendedWorkbench" : "workbench", extended ? "확장 제작대" : "제작대", group, {
+    return this.addWorldObject(extended ? "extendedWorkbench" : "workbench", extended ? "확장 제작대" : "제작대", group, {
       collidable: true,
       collisionRadius: 1.15,
       collisionHeight: extended ? 1.3 : 1.05,
@@ -1960,7 +2294,7 @@ class WildernessGame {
     core.position.set(0, 0.75, 0.76);
     group.add(body, core);
     group.position.copy(position);
-    this.addWorldObject(special ? "specialSmelter" : "smelter", special ? "특수 재련대" : "재련대", group, {
+    return this.addWorldObject(special ? "specialSmelter" : "smelter", special ? "특수 재련대" : "재련대", group, {
       collidable: true,
       collisionRadius: 1.05,
       collisionHeight: 1.45,
