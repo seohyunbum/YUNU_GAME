@@ -130,9 +130,9 @@ function Draw-IconBitmap([int]$size) {
 function Get-PngBytes([System.Drawing.Bitmap]$bitmap) {
   $stream = New-Object System.IO.MemoryStream
   $bitmap.Save($stream, [System.Drawing.Imaging.ImageFormat]::Png)
-  $bytes = $stream.ToArray()
+  [byte[]]$bytes = $stream.ToArray()
   $stream.Dispose()
-  return $bytes
+  Write-Output -NoEnumerate $bytes
 }
 
 $sizes = @(16, 24, 32, 48, 64, 128, 256)
