@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .vite/
+artifacts/
 .env
 .DS_Store
 Thumbs.db
