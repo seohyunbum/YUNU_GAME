@@ -5,6 +5,8 @@
 ## 지금 들어 있는 것
 
 - Vite + TypeScript + Phaser 기반의 브라우저 게임 환경
+- React 기반 메뉴/설정 화면을 붙일 수 있는 준비
+- Three.js 기반 3D/블록형 실험을 붙일 수 있는 준비
 - 바로 실행 가능한 샘플 게임 `별 정원`
 - 아이디어를 정리하는 문서 템플릿
 - AI에게 변경을 요청할 때 쓸 수 있는 프롬프트 예시
@@ -42,7 +44,8 @@ C:\ai-game-lab
 │  └─ style.css
 ├─ docs
 │  ├─ ai-prompts.md
-│  └─ game-idea-canvas.md
+│  ├─ game-idea-canvas.md
+│  └─ minecraft-roblox-readiness.md
 ├─ index.html
 ├─ package.json
 └─ tsconfig.json
@@ -55,6 +58,16 @@ C:\ai-game-lab
 3. `npm run dev` 화면에서 바로 놀아봅니다.
 4. 한 번에 한 가지씩 바꿉니다. 예: 주인공, 배경, 점수 규칙, 장애물.
 5. 재미있어진 순간을 저장하려면 Git 커밋을 만듭니다.
+
+## Minecraft/Roblox를 좋아한다면
+
+처음부터 Minecraft 모드나 Roblox 공개 게임을 만들기보다, 먼저 로컬 웹 게임에서 작게 흉내 내는 편이 좋습니다.
+
+- Minecraft 느낌: 블록 놓기, 자원 모으기, 제작법, 밤낮, 나만의 월드 규칙
+- Roblox 느낌: 아바타 이동, 장애물 코스, 역할 놀이, 상점, 친구와 하는 미션
+- 첫 목표: 30분 안에 한 가지 재미만 구현하기
+
+자세한 점검표는 `docs/minecraft-roblox-readiness.md`에 있습니다.
 
 ## 아이와 함께할 때 좋은 약속
 
