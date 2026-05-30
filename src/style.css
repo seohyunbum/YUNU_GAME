@@ -73,6 +73,7 @@ body {
 }
 
 .stats,
+.objective,
 .prompt,
 .message {
   position: absolute;
@@ -93,6 +94,15 @@ body {
 .stats {
   top: auto;
   bottom: 104px;
+  font-size: clamp(12px, 1.7vw, 15px);
+}
+
+.objective {
+  top: auto;
+  bottom: 150px;
+  border-color: rgba(250, 204, 21, 0.46);
+  background: rgba(30, 41, 59, 0.8);
+  color: #fde68a;
   font-size: clamp(12px, 1.7vw, 15px);
 }
 
@@ -123,7 +133,7 @@ body {
 }
 
 .prompt {
-  bottom: 154px;
+  bottom: 198px;
   font-size: clamp(12px, 1.8vw, 15px);
 }
 
@@ -269,6 +279,14 @@ body {
     repeating-linear-gradient(90deg, #5c3a23 0 26px, #4f311d 26px 52px);
 }
 
+.workbench-panel {
+  width: min(1120px, 94vw);
+  border-color: rgba(180, 124, 64, 0.54);
+  background:
+    linear-gradient(rgba(30, 23, 17, 0.94), rgba(30, 23, 17, 0.94)),
+    repeating-linear-gradient(90deg, #5b3821 0 26px, #4a2d1a 26px 52px);
+}
+
 .inventory-subtitle {
   margin-bottom: 0;
   color: #d9c5a8;
@@ -281,8 +299,17 @@ body {
   gap: 16px;
 }
 
+.workbench-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
 .inventory-board,
-.craft-board {
+.craft-board,
+.workbench-crafting-board,
+.recipe-book-board {
   padding: 12px;
   border: 2px solid rgba(120, 78, 44, 0.78);
   border-radius: 8px;
@@ -387,6 +414,37 @@ body {
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.2), inset 2px 2px 0 rgba(255, 255, 255, 0.12);
 }
 
+.inventory-cell[draggable="true"],
+.item-button[draggable="true"] {
+  cursor: grab;
+}
+
+.inventory-cell[draggable="true"]:active,
+.item-button[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.ground-drop-zone {
+  display: grid;
+  place-items: center;
+  min-height: 54px;
+  margin-top: 10px;
+  border: 2px dashed rgba(250, 204, 21, 0.64);
+  border-radius: 8px;
+  background: rgba(29, 21, 16, 0.68);
+  color: #fde68a;
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.ground-drop-zone.drag-over {
+  border-color: #ffffff;
+  background: rgba(146, 64, 14, 0.9);
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.22);
+}
+
 .icon-button {
   width: 72px;
 }
@@ -457,15 +515,54 @@ body {
   font-weight: 900;
 }
 
+.craft-result.ready {
+  border-color: rgba(250, 204, 21, 0.8);
+  background: rgba(120, 78, 22, 0.82);
+  color: #fff7cc;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.14);
+}
+
+.workbench-crafting-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px 90px;
+  gap: 8px;
+  align-items: center;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.workbench-grid.extended {
+  grid-template-columns: repeat(6, minmax(42px, 1fr));
+  gap: 5px;
+}
+
+.workbench-grid.extended .craft-slot {
+  min-height: 48px;
+  padding: 2px;
+}
+
 .recipe-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 92px;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   background: rgba(30, 41, 59, 0.82);
+}
+
+.recipe-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.recipe-actions button {
+  min-width: 92px;
 }
 
 .recipe-card p,
@@ -535,6 +632,7 @@ body {
 
   .panel-grid,
   .inventory-layout,
+  .workbench-layout,
   .recipe-card {
     grid-template-columns: 1fr;
   }
@@ -561,8 +659,13 @@ body {
     max-width: min(94vw, 560px);
   }
 
+  .objective {
+    bottom: 118px;
+    max-width: min(94vw, 560px);
+  }
+
   .prompt {
-    bottom: 130px;
+    bottom: 164px;
     max-width: min(94vw, 560px);
   }
 

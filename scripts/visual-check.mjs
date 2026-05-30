@@ -67,6 +67,235 @@ async function inspectCanvas(page) {
   });
 }
 
+async function inspectGameplayUi(page, viewportName) {
+  const ui = {
+    objectiveVisible: false,
+    hotbarSlotsAfterMigration: 0,
+    workbenchSlots: 0,
+    workbenchSubtitle: "",
+    ironSmelted: false,
+    specialSmelterHasObsidian: false,
+    droppedItemPickedUp: false,
+  };
+
+  await page.waitForSelector(".objective", { timeout: 10_000 });
+  ui.objectiveVisible = await page.locator(".objective").evaluate((element) => element.textContent?.includes("현재 목표") ?? false);
+
+  if (viewportName !== "desktop") return ui;
+
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "ai-game-lab:wilderness-save-v1",
+      JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        player: {
+          position: { x: 0, y: 1.7, z: 12 },
+          previousPosition: { x: 0, y: 1.7, z: 12 },
+          yaw: 0,
+          pitch: 0,
+          health: 10,
+          maxHealth: 10,
+          totalSteps: 0,
+          chestStepBank: 0,
+          caveStepBank: 0,
+          equippedArmor: null,
+          locationMode: "overworld",
+          caveReturnPosition: null,
+          selectedHotbarIndex: 0,
+          hotbar: [
+            { item: "tutorial_book", count: 1 },
+            { item: "diamond_pickaxe", count: 2 },
+            { item: "iron", count: 1 },
+            { item: null, count: 0 },
+          ],
+          bagSlots: [],
+          craftSlots: Array.from({ length: 4 }, () => ({ item: null, count: 0 })),
+          toolUses: { diamond_pickaxe: 3 },
+        },
+        mountains: [],
+        objects: [
+          {
+            type: "specialSmelter",
+            name: "특수 재련대",
+            position: { x: 0, y: 0, z: 8 },
+            collidable: true,
+            collisionRadius: 1.18,
+            collisionHeight: 2.05,
+          },
+        ],
+      }),
+    );
+  });
+  await page.click("[data-load-game]");
+  await page.waitForTimeout(400);
+  ui.hotbarSlotsAfterMigration = await page.locator(".hotbar button").count();
+
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "ai-game-lab:wilderness-save-v1",
+      JSON.stringify({
+        version: 2,
+        savedAt: new Date().toISOString(),
+        player: {
+          position: { x: 0, y: 1.7, z: 12 },
+          previousPosition: { x: 0, y: 1.7, z: 12 },
+          yaw: 0,
+          pitch: 0,
+          health: 10,
+          maxHealth: 10,
+          hunger: 5,
+          hungerTimer: 0,
+          worldTimeSeconds: 1200,
+          totalSteps: 0,
+          chestStepBank: 0,
+          caveStepBank: 0,
+          equippedArmor: null,
+          locationMode: "overworld",
+          caveReturnPosition: null,
+          selectedHotbarIndex: 0,
+          hotbar: [{ item: "tutorial_book", count: 1 }, ...Array.from({ length: 7 }, () => ({ item: null, count: 0 }))],
+          bagSlots: [],
+          craftSlots: Array.from({ length: 4 }, () => ({ item: null, count: 0 })),
+          workbenchSlots: Array.from({ length: 36 }, () => ({ item: null, count: 0 })),
+        },
+        mountains: [],
+        objects: [
+          {
+            type: "droppedItem",
+            name: "망치",
+            position: { x: 0, y: 0, z: 10 },
+            droppedItem: "hammer",
+            droppedCount: 1,
+            collisionRadius: 0.8,
+            collisionHeight: 0.8,
+          },
+        ],
+      }),
+    );
+  });
+  await page.click("[data-load-game]");
+  await page.waitForTimeout(400);
+  await page.keyboard.press("KeyE");
+  await page.waitForTimeout(300);
+  await page.click("[data-save-game]");
+  await page.waitForTimeout(150);
+  ui.droppedItemPickedUp = await page.evaluate(() => {
+    const rawSave = localStorage.getItem("ai-game-lab:wilderness-save-v1");
+    if (!rawSave) return false;
+    const save = JSON.parse(rawSave);
+    const slots = [...(save.player?.hotbar ?? []), ...(save.player?.bagSlots ?? [])];
+    return slots.some((slot) => slot?.item === "hammer");
+  });
+
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "ai-game-lab:wilderness-save-v1",
+      JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        player: {
+          position: { x: 0, y: 1.7, z: 12 },
+          previousPosition: { x: 0, y: 1.7, z: 12 },
+          yaw: 0,
+          pitch: 0,
+          health: 10,
+          maxHealth: 10,
+          totalSteps: 0,
+          chestStepBank: 0,
+          caveStepBank: 0,
+          equippedArmor: null,
+          locationMode: "overworld",
+          caveReturnPosition: null,
+          selectedHotbarIndex: 0,
+          hotbar: [
+            { item: "tutorial_book", count: 1 },
+            { item: "diamond_pickaxe", count: 2 },
+            { item: "iron", count: 1 },
+            { item: null, count: 0 },
+          ],
+          bagSlots: [],
+          craftSlots: Array.from({ length: 4 }, () => ({ item: null, count: 0 })),
+          toolUses: { diamond_pickaxe: 3 },
+        },
+        mountains: [],
+        objects: [
+          {
+            type: "specialSmelter",
+            name: "특수 재련대",
+            position: { x: 0, y: 0, z: 8 },
+            collidable: true,
+            collisionRadius: 1.18,
+            collisionHeight: 2.05,
+          },
+        ],
+      }),
+    );
+  });
+  await page.click("[data-load-game]");
+  await page.waitForTimeout(400);
+  await page.keyboard.down("KeyC");
+  await page.waitForTimeout(500);
+  await page.mouse.click(Math.floor(page.viewportSize().width / 2), Math.floor(page.viewportSize().height / 2), { button: "right" });
+  await page.waitForSelector('[data-smelt="iron"]', { timeout: 5_000 });
+  ui.specialSmelterHasObsidian = (await page.locator('[data-smelt="obsidian"]').count()) === 1;
+  await page.click('[data-smelt="iron"]');
+  await page.waitForTimeout(250);
+  ui.ironSmelted = !(await page.locator('[data-smelt="iron"]').isEnabled());
+  await page.keyboard.up("KeyC");
+  await page.keyboard.press("Escape");
+
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "ai-game-lab:wilderness-save-v1",
+      JSON.stringify({
+        version: 2,
+        savedAt: new Date().toISOString(),
+        player: {
+          position: { x: 0, y: 1.7, z: 12 },
+          previousPosition: { x: 0, y: 1.7, z: 12 },
+          yaw: 0,
+          pitch: 0,
+          health: 10,
+          maxHealth: 10,
+          hunger: 5,
+          hungerTimer: 0,
+          worldTimeSeconds: 1200,
+          totalSteps: 0,
+          chestStepBank: 0,
+          caveStepBank: 0,
+          equippedArmor: null,
+          locationMode: "overworld",
+          caveReturnPosition: null,
+          selectedHotbarIndex: 0,
+          hotbar: [{ item: "tutorial_book", count: 1 }, ...Array.from({ length: 7 }, () => ({ item: null, count: 0 }))],
+          bagSlots: [],
+          craftSlots: Array.from({ length: 4 }, () => ({ item: null, count: 0 })),
+          workbenchSlots: Array.from({ length: 36 }, () => ({ item: null, count: 0 })),
+        },
+        mountains: [],
+        objects: [],
+      }),
+    );
+  });
+  await page.click("[data-load-game]");
+  await page.waitForTimeout(400);
+
+  await page.keyboard.press("F4");
+  await page.click('[data-cheat-item="extended_workbench"][data-cheat-count="1"]');
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("KeyP");
+  await page.keyboard.down("KeyC");
+  await page.waitForTimeout(300);
+  await page.mouse.click(Math.floor(page.viewportSize().width / 2), Math.floor(page.viewportSize().height / 2), { button: "right" });
+  await page.waitForSelector(".workbench-grid [data-workbench-slot]", { timeout: 5_000 });
+  ui.workbenchSlots = await page.locator(".workbench-grid [data-workbench-slot]").count();
+  ui.workbenchSubtitle = (await page.locator(".workbench-panel .inventory-subtitle").textContent()) ?? "";
+  await page.keyboard.up("KeyC");
+
+  return ui;
+}
+
 const browserPath = await findBrowserPath();
 const browser = await chromium.launch({
   executablePath: browserPath,
@@ -92,7 +321,28 @@ for (const viewport of [
   await page.waitForTimeout(1_200);
   await page.screenshot({ path: `artifacts/${viewport.name}.png`, fullPage: true });
   const canvas = await inspectCanvas(page);
-  results.push({ viewport, canvas });
+  const gameplay = await inspectGameplayUi(page, viewport.name);
+  if (!gameplay.objectiveVisible) errors.push(`${viewport.name}: objective HUD missing`);
+  if (viewport.name === "desktop" && gameplay.hotbarSlotsAfterMigration !== 8) {
+    errors.push(`desktop: old save migration did not normalize hotbar to 8 slots`);
+  }
+  if (viewport.name === "desktop" && !gameplay.ironSmelted) {
+    errors.push(`desktop: iron did not smelt in the smelter`);
+  }
+  if (viewport.name === "desktop" && !gameplay.specialSmelterHasObsidian) {
+    errors.push(`desktop: special smelter did not expose obsidian smelting`);
+  }
+  if (viewport.name === "desktop" && !gameplay.droppedItemPickedUp) {
+    errors.push(`desktop: dropped item was not picked up with E`);
+  }
+  if (viewport.name === "desktop" && gameplay.workbenchSlots !== 36) {
+    errors.push(`desktop: extended workbench did not expose 36 crafting slots`);
+  }
+  if (viewport.name === "desktop" && !gameplay.workbenchSubtitle.includes("6x6")) {
+    errors.push(`desktop: extended workbench subtitle did not explain 6x6 crafting`);
+  }
+  if (viewport.name === "desktop") await page.screenshot({ path: "artifacts/workbench-3x3.png", fullPage: true });
+  results.push({ viewport, canvas, gameplay });
   await page.close();
 }
 
