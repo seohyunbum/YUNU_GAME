@@ -76,6 +76,7 @@ async function inspectGameplayUi(page, viewportName) {
     ironSmelted: false,
     specialSmelterHasObsidian: false,
     droppedItemPickedUp: false,
+    bedSleptWithRightClick: false,
   };
 
   await page.waitForSelector(".objective", { timeout: 10_000 });
@@ -192,6 +193,58 @@ async function inspectGameplayUi(page, viewportName) {
     localStorage.setItem(
       "ai-game-lab:wilderness-save-v1",
       JSON.stringify({
+        version: 2,
+        savedAt: new Date().toISOString(),
+        player: {
+          position: { x: 0, y: 1.7, z: 12 },
+          previousPosition: { x: 0, y: 1.7, z: 12 },
+          yaw: 0,
+          pitch: 0,
+          health: 5,
+          maxHealth: 10,
+          hunger: 5,
+          hungerTimer: 0,
+          worldTimeSeconds: 1200,
+          totalSteps: 0,
+          chestStepBank: 0,
+          caveStepBank: 0,
+          equippedArmor: null,
+          locationMode: "overworld",
+          caveReturnPosition: null,
+          selectedHotbarIndex: 0,
+          hotbar: [{ item: "tutorial_book", count: 1 }, ...Array.from({ length: 7 }, () => ({ item: null, count: 0 }))],
+          bagSlots: [],
+          craftSlots: Array.from({ length: 4 }, () => ({ item: null, count: 0 })),
+          workbenchSlots: Array.from({ length: 36 }, () => ({ item: null, count: 0 })),
+        },
+        mountains: [],
+        objects: [
+          {
+            type: "bed",
+            name: "침대",
+            position: { x: 0, y: 0, z: 8 },
+            rotationY: 0,
+            collidable: true,
+            collisionRadius: 1.45,
+            collisionHeight: 0.9,
+          },
+        ],
+      }),
+    );
+  });
+  await page.click("[data-load-game]");
+  await page.waitForTimeout(400);
+  await page.mouse.click(Math.floor(page.viewportSize().width / 2), Math.floor(page.viewportSize().height / 2), { button: "right" });
+  await page.waitForTimeout(250);
+  ui.bedSleptWithRightClick = ((await page.locator(".stats").textContent()) ?? "").includes("체력 10/10");
+  await page.keyboard.press("Escape");
+  await page.evaluate(() => document.exitPointerLock?.());
+  await page.waitForTimeout(150);
+
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "ai-game-lab:wilderness-save-v1",
+      JSON.stringify({
         version: 1,
         savedAt: new Date().toISOString(),
         player: {
@@ -274,24 +327,25 @@ async function inspectGameplayUi(page, viewportName) {
           workbenchSlots: Array.from({ length: 36 }, () => ({ item: null, count: 0 })),
         },
         mountains: [],
-        objects: [],
+        objects: [
+          {
+            type: "extendedWorkbench",
+            name: "확장 제작대",
+            position: { x: 0, y: 0, z: 8 },
+            collidable: true,
+            collisionRadius: 1.35,
+            collisionHeight: 1.38,
+          },
+        ],
       }),
     );
   });
   await page.click("[data-load-game]");
   await page.waitForTimeout(400);
-
-  await page.keyboard.press("F4");
-  await page.click('[data-cheat-item="extended_workbench"][data-cheat-count="1"]');
-  await page.keyboard.press("Escape");
-  await page.keyboard.press("KeyP");
-  await page.keyboard.down("KeyC");
-  await page.waitForTimeout(300);
   await page.mouse.click(Math.floor(page.viewportSize().width / 2), Math.floor(page.viewportSize().height / 2), { button: "right" });
   await page.waitForSelector(".workbench-grid [data-workbench-slot]", { timeout: 5_000 });
   ui.workbenchSlots = await page.locator(".workbench-grid [data-workbench-slot]").count();
   ui.workbenchSubtitle = (await page.locator(".workbench-panel .inventory-subtitle").textContent()) ?? "";
-  await page.keyboard.up("KeyC");
 
   return ui;
 }
@@ -318,6 +372,8 @@ for (const viewport of [
 
   await page.goto("http://127.0.0.1:5173/", { waitUntil: "networkidle" });
   await page.waitForSelector("canvas", { timeout: 10_000 });
+  await page.waitForSelector(".title-screen", { timeout: 10_000 });
+  await page.click("[data-title-new]");
   await page.waitForTimeout(1_200);
   await page.screenshot({ path: `artifacts/${viewport.name}.png`, fullPage: true });
   const canvas = await inspectCanvas(page);
@@ -334,6 +390,9 @@ for (const viewport of [
   }
   if (viewport.name === "desktop" && !gameplay.droppedItemPickedUp) {
     errors.push(`desktop: dropped item was not picked up with E`);
+  }
+  if (viewport.name === "desktop" && !gameplay.bedSleptWithRightClick) {
+    errors.push(`desktop: bed did not sleep with right click`);
   }
   if (viewport.name === "desktop" && gameplay.workbenchSlots !== 36) {
     errors.push(`desktop: extended workbench did not expose 36 crafting slots`);

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createMirrorModel } from "./avatar";
 import { currentObjective } from "./objectives";
 import "./style.css";
 
@@ -32,9 +33,11 @@ const WORKBENCH_SLOT_COUNT = 9;
 const EXTENDED_WORKBENCH_SLOT_COUNT = 36;
 
 type ItemId = string;
-type TerrainKind = "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp";
+type TerrainKind = "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp" | "lava";
 type GuardMode = "melee" | "ranged";
 type AnimalKind = "horse" | "cow" | "pig" | "chicken";
+type PredatorKind = "wolf" | "lion" | "spider";
+type HouseKind = "home" | "blacksmith" | "twoStory";
 type ObjectType =
   | "smallTree"
   | "bigTree"
@@ -47,11 +50,18 @@ type ObjectType =
   | "water"
   | "droppedItem"
   | "bed"
+  | "grinder"
+  | "antHill"
+  | "wildPredator"
   | "ore"
   | "mineChest"
   | "miner"
   | "animal"
   | "villager"
+  | "villageKing"
+  | "villageFence"
+  | "blacksmith"
+  | "blacksmithNpc"
   | "villageHouse"
   | "villageKnight"
   | "villageArcher"
@@ -64,7 +74,7 @@ type ObjectType =
   | "extendedWorkbench"
   | "smelter"
   | "specialSmelter";
-type PanelType = "inventory" | "book" | "workbench" | "smelter" | "cheat" | null;
+type PanelType = "inventory" | "book" | "workbench" | "smelter" | "grinder" | "trade" | "cheat" | null;
 type LocationMode = "overworld" | "cave" | "house";
 
 interface Slot {
@@ -87,6 +97,13 @@ interface WalkCycle {
   parts: (WalkPartSetup & { baseRotation: number; baseY: number })[];
 }
 
+interface CollisionSegment {
+  start: THREE.Vector3;
+  end: THREE.Vector3;
+  halfWidth: number;
+  height: number;
+}
+
 interface WorldObject {
   id: string;
   type: ObjectType;
@@ -101,6 +118,7 @@ interface WorldObject {
   collidable?: boolean;
   collisionRadius?: number;
   collisionHeight?: number;
+  collisionSegments?: CollisionSegment[];
   villageId?: string;
   foodRemaining?: number;
   angryUntil?: number;
@@ -122,6 +140,11 @@ interface WorldObject {
   roamRadius?: number;
   enterable?: boolean;
   houseChestRich?: boolean;
+  houseKind?: HouseKind;
+  lockedStation?: boolean;
+  harvestProgress?: number;
+  antMeatRemaining?: number;
+  predatorKind?: PredatorKind;
   trainAngle?: number;
   trainRadius?: number;
   trainSpeed?: number;
@@ -169,6 +192,11 @@ interface SavedObject {
   roamRadius?: number;
   enterable?: boolean;
   houseChestRich?: boolean;
+  houseKind?: HouseKind;
+  lockedStation?: boolean;
+  harvestProgress?: number;
+  antMeatRemaining?: number;
+  predatorKind?: PredatorKind;
   trainAngle?: number;
   trainRadius?: number;
   trainSpeed?: number;
@@ -197,6 +225,7 @@ interface SavedGame {
     caveStepBank: number;
     equippedArmor: ItemId | null;
     locationMode: LocationMode;
+    currentHouseKind?: HouseKind;
     caveReturnPosition: SavedVector | null;
     houseReturnPosition?: SavedVector | null;
     toolUses?: Record<ItemId, number>;
@@ -223,8 +252,24 @@ interface Recipe {
   note: string;
 }
 
+interface TradeOffer {
+  id: string;
+  name: string;
+  give: Record<ItemId, number>;
+  receive: Record<ItemId, number>;
+}
+
+interface HouseBuildOption {
+  id: string;
+  name: string;
+  description: string;
+  ingredients: Record<ItemId, number>;
+  houseKind: HouseKind;
+  variant: number;
+}
+
 interface BiomeConfig {
-  kind: "bamboo" | "mountain" | "mushroom" | "swamp" | "snow";
+  kind: "bamboo" | "mountain" | "mushroom" | "swamp" | "snow" | "lava";
   center: THREE.Vector3;
   radius: number;
 }
@@ -235,6 +280,7 @@ const BIOMES: BiomeConfig[] = [
   { kind: "mushroom", center: new THREE.Vector3(165, 0, 190), radius: 38 },
   { kind: "swamp", center: new THREE.Vector3(-205, 0, 170), radius: 46 },
   { kind: "snow", center: new THREE.Vector3(20, 0, -250), radius: 54 },
+  { kind: "lava", center: new THREE.Vector3(305, 0, -268), radius: 48 },
 ];
 
 const WATER_ZONES = [
@@ -253,6 +299,8 @@ const ITEM_NAMES: Record<ItemId, string> = {
   extended_workbench: "확장 제작대",
   smelter: "재련대",
   special_smelter: "특수 재련대",
+  grinder: "분쇄기",
+  mirror: "거울",
   bag: "가방",
   leather: "가죽",
   meat: "고기",
@@ -265,6 +313,14 @@ const ITEM_NAMES: Record<ItemId, string> = {
   gold: "금",
   diamond: "다이아몬드",
   obsidian: "흑요석",
+  stone_powder: "돌 가루",
+  coal_powder: "석탄 가루",
+  copper_powder: "구리 가루",
+  iron_powder: "철 가루",
+  gold_powder: "금 가루",
+  diamond_powder: "다이아몬드 가루",
+  obsidian_powder: "흑요석 가루",
+  mineral_compound: "광물 혼합물",
   refined_wood: "재련된 나무",
   refined_stone: "재련된 돌",
   refined_copper: "재련된 구리",
@@ -315,6 +371,7 @@ const ITEM_NAMES: Record<ItemId, string> = {
 
 const RAW_MATERIALS: ItemId[] = ["wood", "stone", "copper", "iron", "gold", "diamond"];
 const SPECIAL_SMELTER_MATERIALS: ItemId[] = [...RAW_MATERIALS, "obsidian"];
+const GRINDABLE_MATERIALS: ItemId[] = ["stone", "coal", "copper", "iron", "gold", "diamond", "obsidian"];
 const REFINED_BY_RAW: Record<ItemId, ItemId> = {
   wood: "refined_wood",
   stone: "refined_stone",
@@ -322,6 +379,15 @@ const REFINED_BY_RAW: Record<ItemId, ItemId> = {
   iron: "refined_iron",
   gold: "refined_gold",
   diamond: "refined_diamond",
+};
+const POWDER_BY_MINERAL: Record<ItemId, ItemId> = {
+  stone: "stone_powder",
+  coal: "coal_powder",
+  copper: "copper_powder",
+  iron: "iron_powder",
+  gold: "gold_powder",
+  diamond: "diamond_powder",
+  obsidian: "obsidian_powder",
 };
 
 const MATERIALS = [
@@ -394,6 +460,17 @@ const SHOVEL_POWER: Record<ItemId, number> = {
   diamond_shovel: 5,
 };
 
+const HARVEST_HARDNESS: Record<ItemId, number> = {
+  wood: 3,
+  stone: 4,
+  coal: 4,
+  copper: 5,
+  iron: 7,
+  gold: 8,
+  diamond: 10,
+  obsidian: 14,
+};
+
 const DURABLE_TOOL_TABLES = [AXE_POWER, PICKAXE_POWER, SHOVEL_POWER];
 const DEFAULT_TOOL_DURABILITY = 10;
 const TOOL_DURABILITY: Record<ItemId, number> = {
@@ -423,6 +500,7 @@ const PLACEABLE_TYPES: Record<ItemId, ObjectType> = {
   extended_workbench: "extendedWorkbench",
   smelter: "smelter",
   special_smelter: "specialSmelter",
+  grinder: "grinder",
   bed: "bed",
 };
 
@@ -454,6 +532,38 @@ const MINI_RECIPES: Recipe[] = [
 ];
 
 const WORKBENCH_RECIPES: Recipe[] = [
+  {
+    id: "mirror",
+    name: "거울",
+    output: "mirror",
+    count: 1,
+    ingredients: { diamond_powder: 6, refined_wood: 6, stone: 6 },
+    note: "내 캐릭터 모습을 확인할 수 있습니다. 향후 멀티플레이 캐릭터 표시에도 쓰일 모델입니다.",
+  },
+  {
+    id: "grinder",
+    name: "분쇄기",
+    output: "grinder",
+    count: 1,
+    ingredients: { hammer: 2, iron: 6 },
+    note: "광물을 가루로 만들 수 있는 설치형 도구입니다.",
+  },
+  {
+    id: "mineral_compound",
+    name: "광물 혼합물",
+    output: "mineral_compound",
+    count: 1,
+    ingredients: { stone_powder: 2, iron_powder: 1, coal_powder: 1 },
+    note: "가루 광물로 만드는 제작 재료입니다.",
+  },
+  {
+    id: "powder_iron_dagger",
+    name: "철 가루 단검",
+    output: "iron_dagger",
+    count: 1,
+    ingredients: { iron_powder: 3, stick: 1 },
+    note: "분쇄한 철 가루를 압축해 만든 단검입니다.",
+  },
   {
     id: "extended_workbench",
     name: "확장 제작대",
@@ -525,6 +635,58 @@ const WORKBENCH_RECIPES: Recipe[] = [
     count: 1,
     ingredients: { leather: 8 },
     note: "방어력 +5.",
+  },
+];
+
+const TRADE_OFFERS: TradeOffer[] = [
+  { id: "meat_for_iron", name: "고기와 철 교환", give: { meat: 2 }, receive: { iron: 1 } },
+  { id: "iron_powder_for_meat", name: "철 가루와 고기 교환", give: { iron_powder: 3 }, receive: { meat: 2 } },
+  { id: "copper_powder_for_leather", name: "구리 가루와 가죽 교환", give: { copper_powder: 4 }, receive: { leather: 1 } },
+  { id: "coal_powder_for_wood", name: "석탄 가루와 나무 교환", give: { coal_powder: 3 }, receive: { wood: 2 } },
+  { id: "diamond_powder_for_gold", name: "다이아몬드 가루와 금 교환", give: { diamond_powder: 1 }, receive: { gold: 3 } },
+];
+
+const BLACKSMITH_TRADE_OFFERS: TradeOffer[] = [
+  { id: "stone_powder_for_hammer", name: "돌 가루로 망치 교환", give: { stone_powder: 20 }, receive: { hammer: 1 } },
+  { id: "copper_powder_for_hammer", name: "구리 가루로 망치 교환", give: { copper_powder: 10 }, receive: { hammer: 1 } },
+  { id: "iron_powder_for_hammer", name: "철 가루로 망치 교환", give: { iron_powder: 5 }, receive: { hammer: 1 } },
+  { id: "diamond_powder_for_hammer", name: "다이아몬드 가루로 망치 교환", give: { diamond_powder: 1 }, receive: { hammer: 1 } },
+  { id: "stone_powder_for_workbench", name: "돌 가루로 제작대 교환", give: { stone_powder: 50 }, receive: { crafting_table: 1 } },
+  { id: "copper_powder_for_workbench", name: "구리 가루로 제작대 교환", give: { copper_powder: 25 }, receive: { crafting_table: 1 } },
+  { id: "iron_powder_for_workbench", name: "철 가루로 제작대 교환", give: { iron_powder: 12 }, receive: { crafting_table: 1 } },
+  { id: "diamond_powder_for_workbench", name: "다이아몬드 가루로 제작대 교환", give: { diamond_powder: 3 }, receive: { crafting_table: 1 } },
+  { id: "iron_powder_for_grinder", name: "철/구리 가루로 분쇄기 교환", give: { iron_powder: 18, copper_powder: 12 }, receive: { grinder: 1 } },
+  { id: "gold_powder_for_extended_workbench", name: "금/철 가루로 확장 제작대 교환", give: { gold_powder: 8, iron_powder: 8 }, receive: { extended_workbench: 1 } },
+  { id: "diamond_powder_for_extended_workbench", name: "다이아몬드 가루로 확장 제작대 교환", give: { diamond_powder: 4, stone_powder: 20 }, receive: { extended_workbench: 1 } },
+  { id: "stone_powder_for_smelter", name: "돌/석탄 가루로 제련대 교환", give: { stone_powder: 70, coal_powder: 10 }, receive: { smelter: 1 } },
+  { id: "iron_powder_for_smelter", name: "철/석탄 가루로 제련대 교환", give: { iron_powder: 20, coal_powder: 5 }, receive: { smelter: 1 } },
+  { id: "obsidian_powder_for_special_smelter", name: "흑요석/다이아몬드 가루로 특수 제련대 교환", give: { obsidian_powder: 6, diamond_powder: 2 }, receive: { special_smelter: 1 } },
+];
+
+const HOUSE_BUILD_OPTIONS: HouseBuildOption[] = [
+  {
+    id: "wood_cabin",
+    name: "작은 통나무집",
+    description: "가장 기본적인 내 집입니다. 내부에는 상자 하나가 있습니다.",
+    ingredients: { wood: 120, stick: 60, stone: 40, hammer: 2 },
+    houseKind: "home",
+    variant: 0,
+  },
+  {
+    id: "stone_house",
+    name: "튼튼한 돌집",
+    description: "돌과 철을 많이 쓰는 단단한 집입니다.",
+    ingredients: { wood: 120, stone: 150, iron: 24, hammer: 3 },
+    houseKind: "home",
+    variant: 1,
+  },
+  {
+    id: "two_story_house",
+    name: "이층집",
+    description: "계단으로 2층까지 오르내릴 수 있는 큰 집입니다.",
+    ingredients: { wood: 240, refined_wood: 80, stone: 180, iron: 40, hammer: 4 },
+    houseKind: "twoStory",
+    variant: 3,
   },
 ];
 
@@ -623,24 +785,35 @@ const TUTORIAL_SECTIONS = [
   "이 게임은 3D 1인칭 야생 생존 게임입니다. 화면을 클릭하면 마우스로 시점을 돌릴 수 있고, WASD로 움직입니다.",
   "시점이 고정된 뒤에는 E키 또는 마우스 좌클릭으로 보고 있는 대상과 상호작용할 수 있습니다.",
   "처음부터 하단 핫바는 8칸입니다. 책은 튜토리얼입니다. I를 눌러 인벤토리, B를 눌러 책을 엽니다.",
-  "선택한 핫바 아이템은 우클릭으로 땅에 내려놓을 수 있습니다. 인벤토리 창에서는 아이템을 드래그해서 '땅에 내려놓기' 칸에 놓으면 됩니다.",
+  "인벤토리의 집짓기 버튼으로 내 집을 지을 수 있습니다. 작은 통나무집, 튼튼한 돌집, 이층집은 각각 필요한 재료가 다릅니다.",
+  "이층집은 내부 계단을 따라 2층으로 오르내릴 수 있습니다.",
+  "우클릭은 설치물 사용과 주민/대장장이 거래입니다. 버리기와 설치는 인벤토리에서 아이템을 아래 드롭존으로 드래그앤드롭합니다.",
+  "설치한 침대, 제작대, 재련대, 분쇄기는 좌클릭 또는 E로 회수하고 우클릭으로 사용합니다.",
   "작은 나무는 맨손으로 캘 수 있고 나무 1개를 줍니다. 큰 나무는 도끼가 필요하고 나무 5개를 줍니다.",
+  "작은 나무도 한 번에 캐지지 않고 기본 3번 휘둘러야 합니다. 고급 도구를 손에 들면 필요한 횟수가 줄어듭니다.",
   "상자는 100걸음마다 50% 확률로 주변에 생깁니다. 상자 안에는 망치가 50%, 재련대가 2% 확률로 들어 있습니다.",
   "인벤토리의 2x2 미니 제작칸은 재료 위치와 상관없이 조합만 맞으면 제작됩니다. 나무 3개와 망치 1개로 제작대를 만듭니다.",
   "제작대를 설치한 뒤 E로 상호작용하면 레시피북이 열립니다. 제작대 2개를 합치면 확장 제작대가 됩니다.",
   "재련대는 나무, 돌, 구리, 철, 금, 다이아몬드를 재련된 재료로 바꿉니다. 특수 재련대는 흑요석을 날카로운 흑요석으로 바꿉니다.",
+  "분쇄기는 망치 2개와 철 6개로 만들고, 돌/석탄/구리/철/금/다이아몬드/흑요석을 가루로 바꿉니다. 가루는 제작과 주민 거래에 씁니다.",
+  "거울은 다이아몬드 가루 6개, 재련된 나무 6개, 돌 6개로 만들며 내 캐릭터 모습을 확인합니다.",
+  "대장간 안의 대장장이는 광물 가루를 망치, 제작대, 확장 제작대, 제련대, 특수 제련대, 분쇄기 같은 제작 도구로 교환해줍니다.",
   "재련된 나무 3개와 막대기 2개는 날카로운 나무 도끼가 됩니다. 일반 나무 3개와 막대기 2개는 약한 나무 도끼가 됩니다.",
   "동굴은 500걸음마다 20% 확률로 주변에 생깁니다. 동굴 안은 좁고 긴 돌 통로이며, 끝 출구나 입구로 야생에 돌아올 수 있습니다.",
   "동굴에는 돌, 석탄, 구리, 철이 나오고 금, 다이아몬드, 흑요석은 드물게 나옵니다. 광물은 모두 곡괭이로만 캘 수 있습니다.",
   "흙과 잔디 지형은 손으로도 팔 수 있습니다. 삽을 만들면 더 깊이, 더 빠르게 팔 수 있고 돌층이 나오면 더 팔 수 없습니다.",
   "광산 상자는 구리 50%, 철 20%, 금 10%, 다이아몬드 5%, 석탄 15% 확률로 광물이 나옵니다. 5% 확률로 여러 광물이 같이 나옵니다.",
   "가방은 가죽 13개로 제작대에서 만듭니다. 가방을 만들면 인벤토리 가방 공간 40칸이 열립니다.",
-  "침대는 제작대에서 가죽 3개, 나무 3개, 나무 막대기 3개로 만듭니다. 설치한 침대는 우클릭으로 자고, 좌클릭/E로 다시 회수합니다.",
+  "침대는 제작대에서 가죽 3개, 나무 3개, 나무 막대기 3개로 만듭니다. 설치한 침대는 우클릭으로 잠시 자서 체력을 회복합니다.",
   "갑옷은 제작대에서 해당 재료 8개로 만듭니다. 예: 가죽 8개는 가죽 갑옷, 구리 8개는 구리 갑옷입니다.",
   "흑요석은 다이아몬드 곡괭이로만 캘 수 있습니다. 흑요석 단검 데미지는 50, 흑요석 검 데미지는 100입니다.",
   "플레이어 기본 체력은 10, 방어력은 0입니다. 갑옷을 만들면 자동으로 가장 좋은 갑옷을 입습니다.",
   "마을에는 주민, 집, 식량창고, 마을기사, 수호신 골렘이 있습니다. 주민은 체력 10이고 마을 안에서 천천히 움직입니다.",
   "마을마다 수호신 골렘이 1마리 있습니다. 골렘은 체력 100, 근거리 피해 9, 공격 간격 5초입니다.",
+  "집이 15채 이상인 큰 마을에는 1% 확률로 왕이 나타납니다. 마을 주변에는 울타리가 둘러져 있습니다.",
+  "마을에는 50% 확률로 대장간이 있습니다. 대장간 안의 특수 제련대, 확장 제작대, 분쇄기는 회수할 수 없지만 사용할 수 있습니다.",
+  "밤에는 늑대, 사자, 거미 같은 위험한 야생동물이 나타납니다. 저녁에는 100걸음마다 10% 확률로 개미굴이 생기고, 개미굴에서 고기를 최대 5번 얻을 수 있습니다.",
+  "죽으면 튜토리얼 책을 제외한 모든 아이템이 죽은 자리에 떨어집니다. 다시 찾아가면 주울 수 있습니다.",
   "식량창고를 털거나 주민, 기사, 골렘을 공격하면 기사와 골렘이 반격합니다.",
   "잔디와 흙은 손이나 삽으로 팔 수 있고, 돌 지형과 광석 지형은 곡괭이로만 캘 수 있습니다.",
   "Shift+W를 누르면 달리기, Shift만 누르면 웅크리기, C를 누르면 엎드리기 상태가 됩니다.",
@@ -651,6 +824,7 @@ const TUTORIAL_SECTIONS = [
   "주민 집은 들어갈 수 있습니다. 집 안에는 일반 상자 또는 광산 상자가 하나 있습니다.",
   "일반 마을기사는 가까이 붙어야 공격합니다. 궁수와 마법사는 집이 10채 이상인 큰 마을에서만 나타납니다.",
   "대나무숲, 산악, 버섯, 늪, 눈 지형은 색과 식물이 다릅니다. 특히 대나무 지형에는 대나무가 아주 빽빽합니다.",
+  "용암 지대는 검은 암석과 뜨거운 용암으로 이루어진 위험 지역입니다. 오래 밟고 있으면 체력이 줄어듭니다.",
   "테스트용 치트가 필요하면 F4를 눌러 원하는 아이템을 바로 받을 수 있습니다.",
   "왼쪽 위 버튼이나 Ctrl+S로 저장, Ctrl+L로 불러오기, N으로 새로시작을 할 수 있습니다.",
 ];
@@ -697,6 +871,8 @@ class WildernessGame {
   private readonly messageEl = document.createElement("div");
   private readonly panelEl = document.createElement("div");
   private readonly saveControlsEl = document.createElement("div");
+  private readonly titleScreenEl = document.createElement("div");
+  private readonly mirrorView = new THREE.Group();
   private readonly handGroup = new THREE.Group();
   private readonly heldItemGroup = new THREE.Group();
   private heldItemKey: ItemId | null = null;
@@ -714,6 +890,7 @@ class WildernessGame {
   private totalSteps = 0;
   private chestStepBank = 0;
   private caveStepBank = 0;
+  private antStepBank = 0;
   private worldTimeSeconds = DAY_LENGTH_SECONDS * (8 / 24);
   private timeHudTimer = 0;
   private health = 10;
@@ -722,8 +899,10 @@ class WildernessGame {
   private hungerTimer = 0;
   private starvationTimer = 0;
   private starvationNoticeTimer = 0;
+  private lavaDamageTimer = 0;
   private equippedArmor: ItemId | null = null;
   private locationMode: LocationMode = "overworld";
+  private currentHouseKind: HouseKind = "home";
   private caveReturnPosition: THREE.Vector3 | null = null;
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
@@ -736,6 +915,12 @@ class WildernessGame {
   private actionTimer = 0;
   private ctrlWBlocked = false;
   private readonly damageParticles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number }[] = [];
+  private gameStarted = false;
+  private nightSpawnTimer = 0;
+  private mirrorViewTimer = 0;
+  private audioContext: AudioContext | null = null;
+  private bgmOscillator: OscillatorNode | null = null;
+  private bgmGain: GainNode | null = null;
 
   constructor(container: HTMLDivElement) {
     this.container = container;
@@ -765,6 +950,7 @@ class WildernessGame {
     this.scene.add(this.sunLight);
     this.scene.add(this.camera);
     this.createFirstPersonHand();
+    this.setupMirrorView();
 
     this.groundMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 48, 48),
@@ -809,6 +995,20 @@ class WildernessGame {
     }
 
     this.scene.add(this.cloudLayer);
+  }
+
+  private setupMirrorView() {
+    const mirrorFrame = createMirrorModel(1.35);
+    mirrorFrame.position.set(0, 1.25, -0.08);
+    const avatar = createAvatarModel(DEFAULT_AVATAR_APPEARANCE);
+    avatar.position.set(0, -0.48, 0.22);
+    avatar.rotation.y = 0;
+    avatar.scale.setScalar(0.64);
+    this.mirrorView.add(mirrorFrame, avatar);
+    this.mirrorView.position.set(0, -0.18, -3.4);
+    this.mirrorView.rotation.set(0, 0, 0);
+    this.mirrorView.visible = false;
+    this.camera.add(this.mirrorView);
   }
 
   private updateTimeOfDay(delta: number) {
@@ -874,6 +1074,11 @@ class WildernessGame {
         child.material.needsUpdate = true;
       }
     });
+    if (this.bgmOscillator && this.audioContext && this.bgmGain) {
+      const night = hour >= 20 || hour < 5;
+      this.bgmOscillator.frequency.setTargetAtTime(night ? 72 : 96, this.audioContext.currentTime, 0.8);
+      this.bgmGain.gain.setTargetAtTime(night ? 0.024 : 0.016, this.audioContext.currentTime, 0.8);
+    }
   }
 
   private gameHour() {
@@ -975,8 +1180,28 @@ class WildernessGame {
       <button data-save-game>저장</button>
       <button data-load-game>불러오기</button>
     `;
+    this.titleScreenEl.className = "title-screen";
+    this.titleScreenEl.innerHTML = `
+      <div class="title-village-scene" aria-hidden="true">
+        <div class="title-sun"></div>
+        <div class="title-hut title-hut-a"></div>
+        <div class="title-hut title-hut-b"></div>
+        <div class="title-king"></div>
+        <div class="title-crowd">
+          ${Array.from({ length: 10 }, (_, index) => `<span style="--i:${index}"></span>`).join("")}
+        </div>
+      </div>
+      <div class="title-menu">
+        <h1>AI 야생 마을</h1>
+        <p>마을, 동굴, 기차, 밤의 야생동물을 탐험하는 1인칭 생존 게임</p>
+        <div class="title-actions">
+          <button data-title-new>새로시작</button>
+          <button data-title-load>불러오기</button>
+        </div>
+      </div>
+    `;
     this.uiRoot.innerHTML = '<div class="crosshair"></div>';
-    this.uiRoot.append(this.objectiveEl, this.statsEl, this.saveControlsEl, this.promptEl, this.hotbarEl, this.messageEl, this.panelEl);
+    this.uiRoot.append(this.objectiveEl, this.statsEl, this.saveControlsEl, this.promptEl, this.hotbarEl, this.messageEl, this.panelEl, this.titleScreenEl);
     this.container.appendChild(this.uiRoot);
 
     this.saveControlsEl.querySelector<HTMLButtonElement>("[data-new-game]")?.addEventListener("click", (event) => {
@@ -991,11 +1216,20 @@ class WildernessGame {
       event.stopPropagation();
       this.loadGame();
     });
+    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-title-new]")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.startGame("new");
+    });
+    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-title-load]")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.startGame("load");
+    });
   }
 
   private setupEvents() {
     window.addEventListener("resize", () => this.resize());
     this.renderer.domElement.addEventListener("click", () => {
+      if (!this.gameStarted) return;
       if (this.currentPanel === null) this.renderer.domElement.requestPointerLock();
     });
     this.renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -1004,9 +1238,12 @@ class WildernessGame {
       if (event.button === 2) {
         event.preventDefault();
         if (this.sleepInLookedBed()) return;
+        if (this.tradeWithExactLookedNpc()) return;
         if (this.useLookedWorkbench()) return;
         if (this.useLookedSmelter()) return;
-        this.dropSelectedHotbarItem();
+        if (this.useLookedGrinder()) return;
+        if (this.tradeWithLookedNpc()) return;
+        this.showMessage("우클릭은 설치물 사용과 주민/대장장이 거래에만 쓰입니다. 버리기/설치는 인벤토리에서 드래그앤드롭하세요.");
         return;
       }
       if (event.button === 0) {
@@ -1014,7 +1251,7 @@ class WildernessGame {
           this.interact();
           return;
         }
-        if (this.getLookTarget() || this.nearbyDroppedItemInView()) this.interact();
+        if (this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench"]) || this.getLookTarget() || this.nearbyDroppedItemInView()) this.interact();
       }
     });
     document.addEventListener("pointerlockchange", () => this.renderHud());
@@ -1053,7 +1290,7 @@ class WildernessGame {
     for (let i = 0; i < 28; i += 1) this.spawnAnimal(this.randomGroundPoint());
     this.spawnVillage(new THREE.Vector3(58, 0, -76));
     this.spawnVillage(new THREE.Vector3(-96, 0, 120));
-    this.spawnVillage(new THREE.Vector3(245, 0, 138), 11, true);
+    this.spawnVillage(new THREE.Vector3(245, 0, 138), 16, true);
   }
 
   private handleMouseMove(event: MouseEvent) {
@@ -1094,7 +1331,7 @@ class WildernessGame {
     if (event.code === "KeyI") this.togglePanel("inventory");
     if (event.code === "KeyB") this.togglePanel("book");
     if (event.code === "KeyE") this.interact();
-    if (event.code === "KeyP") this.placeSelectedObject();
+    if (event.code === "KeyP") this.showMessage("설치는 인벤토리에서 아이템을 아래 드롭존으로 드래그하세요.");
     if (event.code.startsWith("Digit") && !event.repeat) this.selectHotbarByKey(event.code);
   }
 
@@ -1130,7 +1367,11 @@ class WildernessGame {
     }
     if (this.currentPanel !== null) return;
     if (PLACEABLE_TYPES[item]) {
-      this.placeSelectedObject();
+      this.showMessage("설치 아이템은 인벤토리에서 아래 드롭존으로 드래그하면 설치됩니다.");
+      return;
+    }
+    if (item === "mirror") {
+      this.showMirrorView();
       return;
     }
     if (item === "meat") {
@@ -1151,13 +1392,6 @@ class WildernessGame {
       this.equippedArmor = item;
       this.showMessage(`${ITEM_NAMES[item] ?? item}을 착용했습니다.`);
       this.renderHud();
-    }
-  }
-
-  private dropSelectedHotbarItem() {
-    if (this.currentPanel !== null) return;
-    if (!this.dropItemFromSlot(this.hotbar[this.selectedHotbarIndex])) {
-      this.showMessage("선택한 핫바 칸에 내려놓을 아이템이 없습니다.");
     }
   }
 
@@ -1195,15 +1429,58 @@ class WildernessGame {
     return true;
   }
 
+  private placeItemFromSlot(slot: Slot | null | undefined) {
+    if (!slot?.item || slot.count <= 0 || !PLACEABLE_TYPES[slot.item]) return false;
+    const item = slot.item;
+    slot.count -= 1;
+    if (slot.count <= 0) {
+      slot.item = null;
+      slot.count = 0;
+      slot.durabilityUsed = undefined;
+    }
+    this.syncEquippedArmor(item);
+    this.spawnPlaceableItem(item);
+    this.renderPanel();
+    this.renderHud();
+    return true;
+  }
+
+  private placeItemFromInventory(item: ItemId) {
+    if (!PLACEABLE_TYPES[item]) return false;
+    if (!this.removeItem(item, 1)) {
+      this.showMessage("설치할 아이템을 찾지 못했습니다.");
+      return false;
+    }
+    this.spawnPlaceableItem(item);
+    this.renderPanel();
+    this.renderHud();
+    return true;
+  }
+
+  private spawnPlaceableItem(item: ItemId) {
+    const position = this.pointInFront(4);
+    if (item === "crafting_table") this.spawnWorkbench(position, false);
+    if (item === "extended_workbench") this.spawnWorkbench(position, true);
+    if (item === "smelter") this.spawnSmelter(position, false);
+    if (item === "special_smelter") this.spawnSmelter(position, true);
+    if (item === "grinder") this.spawnGrinder(position);
+    if (item === "bed") this.spawnBed(position, this.yaw);
+    this.playHandAction();
+    this.showMessage(`${ITEM_NAMES[item] ?? item}를 설치했습니다. 좌클릭/E로 회수하고 우클릭으로 사용합니다.`);
+    this.playTone(420, 0.09, "triangle", 0.035);
+  }
+
   private sleepInLookedBed() {
-    const target = this.getLookTarget();
+    const exactTarget = this.getLookTarget();
+    const target = exactTarget?.type === "bed" ? exactTarget : this.nearbyObjectInView(["bed"]);
     if (target?.type !== "bed") return false;
     this.sleepInBed(target);
     return true;
   }
 
   private useLookedWorkbench() {
-    const target = this.getLookTarget();
+    const exactTarget = this.getLookTarget();
+    const target = exactTarget?.type === "workbench" || exactTarget?.type === "extendedWorkbench" ? exactTarget : this.nearbyObjectInView(["workbench", "extendedWorkbench"]);
     if (target?.type !== "workbench" && target?.type !== "extendedWorkbench") return false;
     this.openStation("workbench", target.id);
     this.playHandAction();
@@ -1211,11 +1488,43 @@ class WildernessGame {
   }
 
   private useLookedSmelter() {
-    const target = this.getLookTarget();
+    const exactTarget = this.getLookTarget();
+    const target = exactTarget?.type === "smelter" || exactTarget?.type === "specialSmelter" ? exactTarget : this.nearbyObjectInView(["smelter", "specialSmelter"]);
     if (target?.type !== "smelter" && target?.type !== "specialSmelter") return false;
     this.openStation("smelter", target.id);
     this.playHandAction();
     return true;
+  }
+
+  private useLookedGrinder() {
+    const exactTarget = this.getLookTarget();
+    const target = exactTarget?.type === "grinder" ? exactTarget : this.nearbyObjectInView(["grinder"]);
+    if (target?.type !== "grinder") return false;
+    this.openStation("grinder", target.id);
+    this.playHandAction();
+    return true;
+  }
+
+  private tradeWithLookedNpc() {
+    const exactTarget = this.getLookTarget();
+    const target = exactTarget?.type === "villager" || exactTarget?.type === "blacksmithNpc" ? exactTarget : this.nearbyObjectInView(["villager", "blacksmithNpc"]);
+    if (target?.type !== "villager" && target?.type !== "blacksmithNpc") return false;
+    this.openTrade(target);
+    this.playHandAction();
+    return true;
+  }
+
+  private tradeWithExactLookedNpc() {
+    const target = this.getLookTarget();
+    if (target?.type !== "villager" && target?.type !== "blacksmithNpc") return false;
+    this.openTrade(target);
+    this.playHandAction();
+    return true;
+  }
+
+  private openTrade(target: WorldObject) {
+    this.currentStationId = target.id;
+    this.openPanel("trade");
   }
 
   private pickUpDroppedItem(target: WorldObject) {
@@ -1227,6 +1536,7 @@ class WildernessGame {
       return;
     }
     this.removeObject(target.id);
+    this.playTone(520, 0.06, "triangle", 0.025);
     this.showMessage(`${ITEM_NAMES[item] ?? item}을 다시 주웠습니다.`);
     this.renderHud();
   }
@@ -1251,9 +1561,14 @@ class WildernessGame {
     this.updateTrains(delta);
     this.updateAnimals(delta);
     this.updateVillagers(delta);
+    this.updateAnts(delta);
+    this.updatePredators(delta);
+    this.updateNightSpawns(delta);
     this.updateMovement(delta);
+    this.updateEnvironmentHazards(delta);
     this.updateKnights(delta);
     this.updateHand(delta);
+    this.updateMirrorView(delta);
     this.updateHunger(delta);
     this.updateDamageParticles(delta);
     this.updateMessages(delta);
@@ -1290,6 +1605,16 @@ class WildernessGame {
       this.starvationNoticeTimer = 0;
       this.showMessage("너무 배고파서 체력이 줄고 있습니다. 고기를 먹어야 합니다.");
     }
+  }
+
+  private isPointInLava(point: THREE.Vector3) {
+    for (const object of this.objects.values()) {
+      if (object.terrainKind !== "lava") continue;
+      const radius = object.terrainRadius ?? 0;
+      if (radius <= 0) continue;
+      if (Math.hypot(point.x - object.root.position.x, point.z - object.root.position.z) <= radius * 0.92) return true;
+    }
+    return false;
   }
 
   private updateMovement(delta: number) {
@@ -1363,6 +1688,22 @@ class WildernessGame {
     }
   }
 
+  private updateEnvironmentHazards(delta: number) {
+    if (this.locationMode !== "overworld") {
+      this.lavaDamageTimer = 0;
+      return;
+    }
+    if (!this.isPointInLava(this.playerPosition)) {
+      this.lavaDamageTimer = 0;
+      return;
+    }
+    this.lavaDamageTimer += delta;
+    if (this.lavaDamageTimer < 1) return;
+    this.lavaDamageTimer = 0;
+    if (this.damagePlayer(2, true, "용암 지역의 열기에 체력이 모두 떨어졌습니다.")) return;
+    this.showMessage("용암 지역은 너무 뜨겁습니다. 체력이 줄었습니다.");
+  }
+
   private currentPlayerHeight() {
     if (this.keys.has("KeyC")) return PRONE_HEIGHT;
     if (this.isShiftDown() && !this.isSprinting()) return CROUCH_HEIGHT;
@@ -1380,6 +1721,7 @@ class WildernessGame {
   private checkStepEvents(moved: number) {
     this.chestStepBank += moved;
     this.caveStepBank += moved;
+    this.antStepBank += moved;
 
     while (this.chestStepBank >= CHEST_STEP_INTERVAL) {
       this.chestStepBank -= CHEST_STEP_INTERVAL;
@@ -1396,6 +1738,15 @@ class WildernessGame {
         this.showMessage("멀리 동굴 입구가 보입니다. (500걸음 20%)");
       }
     }
+
+    while (this.antStepBank >= CHEST_STEP_INTERVAL) {
+      this.antStepBank -= CHEST_STEP_INTERVAL;
+      const hour = this.gameHour();
+      if (hour >= 17 && hour < 20 && Math.random() < 0.1) {
+        this.spawnAntHill(this.pointNearPlayer(12, 24));
+        this.showMessage("저녁 풀숲 사이로 개미굴과 개미들이 보입니다. (100걸음 10%)");
+      }
+    }
   }
 
   private resolveCollisions(position: THREE.Vector3) {
@@ -1403,6 +1754,10 @@ class WildernessGame {
       let changed = false;
       for (const object of this.objects.values()) {
         if (!object.collidable) continue;
+        if (object.collisionSegments?.length) {
+          if (this.resolveSegmentCollisions(position, object)) changed = true;
+          continue;
+        }
         const radius = object.collisionRadius ?? 1;
         const combined = radius + PLAYER_RADIUS;
         const dx = position.x - object.root.position.x;
@@ -1424,9 +1779,66 @@ class WildernessGame {
     }
   }
 
+  private resolveSegmentCollisions(position: THREE.Vector3, object: WorldObject) {
+    let changed = false;
+    const segments = object.collisionSegments ?? [];
+    for (const segment of segments) {
+      const startX = object.root.position.x + segment.start.x;
+      const startZ = object.root.position.z + segment.start.z;
+      const endX = object.root.position.x + segment.end.x;
+      const endZ = object.root.position.z + segment.end.z;
+      const dx = endX - startX;
+      const dz = endZ - startZ;
+      const lengthSq = dx * dx + dz * dz;
+      if (lengthSq <= 0.0001) continue;
+
+      const t = THREE.MathUtils.clamp(((position.x - startX) * dx + (position.z - startZ) * dz) / lengthSq, 0, 1);
+      const closestX = startX + dx * t;
+      const closestZ = startZ + dz * t;
+      const awayX = position.x - closestX;
+      const awayZ = position.z - closestZ;
+      const distanceSq = awayX * awayX + awayZ * awayZ;
+      const combined = segment.halfWidth + PLAYER_RADIUS;
+      if (distanceSq >= combined * combined) continue;
+
+      const segmentGroundY = object.root.position.y + Math.max(segment.start.y, segment.end.y);
+      const obstacleTop = segmentGroundY + segment.height;
+      const feetY = position.y - this.currentPlayerHeight();
+      if (feetY > obstacleTop + 0.12) continue;
+
+      const distance = Math.sqrt(Math.max(distanceSq, 0.0001));
+      let normalX = awayX / distance;
+      let normalZ = awayZ / distance;
+      if (!Number.isFinite(normalX) || !Number.isFinite(normalZ)) {
+        normalX = position.x - object.root.position.x;
+        normalZ = position.z - object.root.position.z;
+        const normalLength = Math.hypot(normalX, normalZ) || 1;
+        normalX /= normalLength;
+        normalZ /= normalLength;
+      }
+      const push = combined - distance;
+      position.x += normalX * push;
+      position.z += normalZ * push;
+      changed = true;
+    }
+    return changed;
+  }
+
   private getGroundHeightAt(x: number, z: number) {
-    if (this.locationMode === "cave" || this.locationMode === "house") return 0;
+    if (this.locationMode === "cave") return 0;
+    if (this.locationMode === "house") return this.getHouseGroundHeightAt(x, z);
     return this.getOverworldHeightAt(x, z);
+  }
+
+  private getHouseGroundHeightAt(x: number, z: number) {
+    if (this.currentHouseKind !== "twoStory") return 0;
+    const localZ = z - HOUSE_CENTER_Z;
+    if (localZ < -1.7 && Math.abs(x) < 5.15) return 2.55;
+    if (x > -4.75 && x < -2.05 && localZ <= 2.65 && localZ >= -1.85) {
+      const t = THREE.MathUtils.clamp((2.65 - localZ) / 4.5, 0, 1);
+      return 2.55 * t;
+    }
+    return 0;
   }
 
   private getOverworldHeightAt(x: number, z: number) {
@@ -1524,11 +1936,13 @@ class WildernessGame {
   private isTrainObstacle(object: WorldObject) {
     return (
       object.type === "villageHouse" ||
+      object.type === "blacksmith" ||
       object.type === "foodStorage" ||
       object.type === "workbench" ||
       object.type === "extendedWorkbench" ||
       object.type === "smelter" ||
       object.type === "specialSmelter" ||
+      object.type === "grinder" ||
       object.type === "chest" ||
       object.type === "mineChest" ||
       object.type === "cave"
@@ -1584,6 +1998,62 @@ class WildernessGame {
       villager.root.rotation.y = -angle + Math.PI / 2;
       this.animateWalkCycle(villager, delta, 0.34);
     }
+  }
+
+  private updateAnts(delta: number) {
+    for (const hill of this.objects.values()) {
+      if (hill.type !== "antHill") continue;
+      hill.root.children.forEach((child, index) => {
+        if (index < 2) return;
+        child.rotation.y += delta * 8;
+        const angle = Math.atan2(child.position.z, child.position.x) + delta * (0.9 + index * 0.05);
+        const radius = Math.hypot(child.position.x, child.position.z);
+        child.position.x = Math.cos(angle) * radius;
+        child.position.z = Math.sin(angle) * radius;
+      });
+    }
+  }
+
+  private updatePredators(delta: number) {
+    for (const predator of this.objects.values()) {
+      if (predator.type !== "wildPredator") continue;
+      const toPlayer = this.playerPosition.clone().sub(predator.root.position);
+      const distance = Math.hypot(toPlayer.x, toPlayer.z);
+      if (distance > 34) {
+        predator.wanderAngle = (predator.wanderAngle ?? 0) + THREE.MathUtils.randFloatSpread(0.08);
+      }
+      const angle =
+        distance < 30
+          ? Math.atan2(toPlayer.z, toPlayer.x)
+          : predator.wanderAngle ?? 0;
+      const speed = predator.predatorKind === "spider" ? 2.2 : predator.predatorKind === "lion" ? 3.3 : 2.8;
+      const next = predator.root.position.clone();
+      next.x += Math.cos(angle) * speed * delta;
+      next.z += Math.sin(angle) * speed * delta;
+      next.y = this.getGroundHeightAt(next.x, next.z);
+      predator.root.position.copy(next);
+      predator.root.rotation.y = -angle + Math.PI / 2;
+      this.animateWalkCycle(predator, delta, distance < 30 ? 0.82 : 0.36);
+      predator.attackCooldown = Math.max(0, (predator.attackCooldown ?? 0) - delta);
+      if (distance < (predator.predatorKind === "spider" ? 1.7 : 2.2) && (predator.attackCooldown ?? 0) <= 0) {
+        predator.attackCooldown = predator.predatorKind === "lion" ? 1.15 : 1.45;
+        this.damagePlayer(predator.predatorKind === "lion" ? 3 : 2, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
+      }
+    }
+  }
+
+  private updateNightSpawns(delta: number) {
+    if (this.locationMode !== "overworld") return;
+    this.nightSpawnTimer += delta;
+    if (this.nightSpawnTimer < 10) return;
+    this.nightSpawnTimer = 0;
+    const hour = this.gameHour();
+    const isNight = hour >= 20 || hour < 5;
+    if (!isNight) return;
+    const predatorCount = [...this.objects.values()].filter((object) => object.type === "wildPredator").length;
+    if (predatorCount >= 10 || Math.random() > 0.45) return;
+    this.spawnPredator(this.pointNearPlayer(26, 42));
+    this.showMessage("밤의 야생동물이 근처에서 움직입니다.");
   }
 
   private createWalkCycle(parts: WalkPartSetup[], amplitude = 0.42, speed = 8, lift = 0.035): WalkCycle {
@@ -1694,6 +2164,24 @@ class WildernessGame {
     this.heldItemGroup.add(this.createHeldItemModel(visibleItem));
   }
 
+  private showMirrorView() {
+    this.mirrorViewTimer = 8;
+    this.mirrorView.visible = true;
+    this.playHandAction();
+    this.playTone(720, 0.1, "triangle", 0.025);
+    this.showMessage("거울에 비친 내 모습을 확인합니다. 이 캐릭터 모델은 향후 멀티플레이어 표시와 커스터마이즈에 재사용됩니다.");
+  }
+
+  private updateMirrorView(delta: number) {
+    if (this.mirrorViewTimer <= 0) {
+      this.mirrorView.visible = false;
+      return;
+    }
+    this.mirrorViewTimer -= delta;
+    this.mirrorView.visible = true;
+    this.mirrorView.rotation.y = Math.sin(performance.now() * 0.0015) * 0.06;
+  }
+
   private createHeldItemModel(item: ItemId) {
     const group = new THREE.Group();
     const materialColor = this.heldItemMaterialColor(item);
@@ -1757,6 +2245,11 @@ class WildernessGame {
       const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.05, 0.1), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.86 }));
       pillow.position.set(0, 0.29, -0.14);
       group.add(base, mat, cover, pillow);
+    } else if (item === "mirror") {
+      const mirror = createMirrorModel(0.45);
+      mirror.position.y = 0.34;
+      mirror.rotation.x = -0.16;
+      group.add(mirror);
     } else if (item === "smelter" || item === "special_smelter") {
       const smelter = this.createSmelterVisual(item === "special_smelter", 0.22);
       smelter.position.y = 0.08;
@@ -1790,6 +2283,7 @@ class WildernessGame {
     if (item.includes("leather")) return 0x8a4f2d;
     if (item.includes("wood") || item.includes("stick")) return 0x8b5a2b;
     if (item === "bed") return 0xb91c1c;
+    if (item === "mirror") return 0xa7d8ff;
     if (item === "smelter" || item === "special_smelter") return item === "special_smelter" ? 0x6d3a9c : 0x545b5f;
     return 0x9ca3af;
   }
@@ -1804,7 +2298,11 @@ class WildernessGame {
     this.promptRefreshTimer -= delta;
     if (!force && this.promptRefreshTimer > 0) return;
     this.promptRefreshTimer = LOOK_TARGET_REFRESH_SECONDS;
-    const target = this.getLookTarget();
+    const exactTarget = this.getLookTarget();
+    const target =
+      this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder"]) ??
+      exactTarget ??
+      this.nearbyDroppedItemInView();
     if (target?.id === this.lastTargetId) return;
     this.lastTargetId = target?.id ?? null;
 
@@ -1827,7 +2325,7 @@ class WildernessGame {
     if (target.type === "bigTree") return "E: 큰 나무 캐기(도끼 필요)";
     if (target.type === "chest") return target.opened ? "이미 연 상자" : "E: 상자 열기";
     if (target.type === "droppedItem") return `좌클릭/E: ${target.name} 줍기`;
-    if (target.type === "bed") return "좌클릭/E: 침대 회수 | 우클릭: 잠자기";
+    if (target.type === "bed") return "좌클릭/E/우클릭: 잠자기";
     if (target.type === "cave") return "E: 동굴 들어가기";
     if (target.type === "caveExit") return "E: 동굴 나가기";
     if (target.type === "houseExit") return "E: 집 밖으로 나가기";
@@ -1835,6 +2333,7 @@ class WildernessGame {
     if (target.type === "water") return target.name;
     if (target.type === "dirtPatch") return target.digDepth === target.maxDigDepth ? "돌층: 더 팔 수 없음" : "E: 흙 파기";
     if (target.type === "terrainPatch") {
+      if (target.terrainKind === "lava") return "용암 지대: 너무 뜨거워서 팔 수 없음";
       if (target.digDepth === target.maxDigDepth) return target.requiresPickaxe ? "암반: 더 캘 수 없음" : "돌층: 더 팔 수 없음";
       return target.requiresPickaxe ? `E: ${target.name} 캐기(곡괭이 필요)` : `E: ${target.name} 파기`;
     }
@@ -1842,12 +2341,17 @@ class WildernessGame {
     if (target.type === "mineChest") return target.opened ? "이미 연 광산 상자" : "E: 광산 상자 열기";
     if (target.type === "miner") return "E: 광부와 대화";
     if (target.type === "animal") return `E: ${target.name} 사냥`;
-    if (target.type === "villager") return "E: 주민 공격";
+    if (target.type === "villager") return "좌클릭/E: 주민 공격 | 우클릭: 거래";
+    if (target.type === "blacksmithNpc") return "좌클릭/E/우클릭: 대장장이 거래";
+    if (target.type === "blacksmith") return "E: 대장간 들어가기";
     if (target.type === "villageHouse") return target.enterable ? "E: 주민 집 들어가기" : target.name;
     if (this.isVillageGuard(target)) return `E: ${target.name} 공격`;
     if (target.type === "foodStorage") return "E: 식량창고 열기";
     if (target.type === "workbench" || target.type === "extendedWorkbench") return "좌클릭/E: 제작대 회수 | 우클릭: 제작대 사용";
     if (target.type === "smelter" || target.type === "specialSmelter") return "좌클릭/E: 재련대 회수 | 우클릭: 재련대 사용";
+    if (target.type === "grinder") return "좌클릭/E: 분쇄기 회수 | 우클릭: 분쇄기 사용";
+    if (target.type === "antHill") return target.antMeatRemaining === 0 ? "빈 개미굴" : "좌클릭/E: 개미굴에서 고기 얻기";
+    if (target.type === "wildPredator") return `좌클릭/E: ${target.name} 공격`;
     return "E: 상호작용";
   }
 
@@ -1856,7 +2360,11 @@ class WildernessGame {
       this.leaveTrain();
       return;
     }
-    const target = this.getLookTarget();
+    const exactTarget = this.getLookTarget();
+    const target =
+      exactTarget?.type === "blacksmithNpc"
+        ? exactTarget
+        : this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "antHill", "wildPredator"]) ?? exactTarget;
     if (!target) {
       const droppedItem = this.nearbyDroppedItemInView();
       if (droppedItem) {
@@ -1885,6 +2393,18 @@ class WildernessGame {
       this.pickUpSmelter(target);
       return;
     }
+    if (target.type === "grinder") {
+      this.pickUpGrinder(target);
+      return;
+    }
+    if (target.type === "antHill") {
+      this.harvestAntHill(target);
+      return;
+    }
+    if (target.type === "wildPredator") {
+      this.attackPredator(target);
+      return;
+    }
     if (target.type === "smallTree") this.harvestSmallTree(target);
     if (target.type === "bigTree") this.harvestBigTree(target);
     if (target.type === "chest") this.openChest(target);
@@ -1899,7 +2419,11 @@ class WildernessGame {
     if (target.type === "miner") this.showMessage("광부: 이 동굴 어딘가에 광산이 있을지도 몰라. 아주 드물지만!");
     if (target.type === "animal") this.attackAnimal(target);
     if (target.type === "villager") this.attackVillager(target);
-    if (target.type === "villageHouse" && target.enterable) this.enterHouse(target);
+    if (target.type === "blacksmithNpc") {
+      this.openTrade(target);
+      return;
+    }
+    if ((target.type === "villageHouse" || target.type === "blacksmith") && target.enterable) this.enterHouse(target);
     if (this.isVillageGuard(target)) this.attackKnight(target);
     if (target.type === "foodStorage") this.openFoodStorage();
     this.renderHud();
@@ -1926,6 +2450,11 @@ class WildernessGame {
 
   private pickUpWorkbench(target: WorldObject) {
     if (target.type !== "workbench" && target.type !== "extendedWorkbench") return;
+    if (target.lockedStation) {
+      this.openStation("workbench", target.id);
+      this.showMessage("대장간의 제작 도구는 회수할 수 없지만 사용할 수 있습니다.");
+      return;
+    }
     const item: ItemId = target.type === "extendedWorkbench" ? "extended_workbench" : "crafting_table";
     this.clearWorkbenchSlots(true, false);
     if (!this.addItem(item, 1)) return;
@@ -1938,6 +2467,11 @@ class WildernessGame {
 
   private pickUpSmelter(target: WorldObject) {
     if (target.type !== "smelter" && target.type !== "specialSmelter") return;
+    if (target.lockedStation) {
+      this.openStation("smelter", target.id);
+      this.showMessage("대장간의 제련 도구는 회수할 수 없지만 사용할 수 있습니다.");
+      return;
+    }
     const item: ItemId = target.type === "specialSmelter" ? "special_smelter" : "smelter";
     if (!this.addItem(item, 1)) return;
     this.removeObject(target.id);
@@ -1947,16 +2481,42 @@ class WildernessGame {
     this.renderHud();
   }
 
+  private pickUpGrinder(target: WorldObject) {
+    if (target.type !== "grinder") return;
+    if (target.lockedStation) {
+      this.openStation("grinder", target.id);
+      this.showMessage("대장간의 분쇄기는 회수할 수 없지만 사용할 수 있습니다.");
+      return;
+    }
+    if (!this.addItem("grinder", 1)) return;
+    this.removeObject(target.id);
+    this.playHandAction();
+    this.showMessage("분쇄기를 회수해서 인벤토리에 넣었습니다.");
+    this.renderHud();
+  }
+
   private harvestSmallTree(target: WorldObject) {
+    const axe = this.selectedTool(AXE_POWER);
+    const axePower = axe ? AXE_POWER[axe] ?? 0 : 0;
+    if (!this.advanceHarvest(target, "wood", HARVEST_HARDNESS.wood, axePower, "작은 나무")) {
+      if (axe) this.consumeDurability(axe, "작은 나무를 쳤습니다.");
+      return;
+    }
     this.addItem("wood", 1);
+    if (axe) this.consumeDurability(axe, "작은 나무를 캤습니다.");
     this.removeObject(target.id);
     this.showMessage("작은 나무를 캐서 나무 1개를 얻었습니다.");
   }
 
   private harvestBigTree(target: WorldObject) {
-    const axe = this.bestTool(AXE_POWER);
+    const axe = this.activeTool(AXE_POWER);
     if (!axe) {
       this.showMessage("큰 나무는 도끼가 있어야 캘 수 있습니다.");
+      return;
+    }
+    const axePower = AXE_POWER[axe] ?? 0;
+    if (!this.advanceHarvest(target, "wood", HARVEST_HARDNESS.wood + 5, axePower, "큰 나무")) {
+      this.consumeDurability(axe, "큰 나무를 쳤습니다.");
       return;
     }
     this.addItem("wood", 5);
@@ -1965,11 +2525,28 @@ class WildernessGame {
     this.showMessage("큰 나무를 베어 나무 5개를 얻었습니다.");
   }
 
+  private advanceHarvest(target: WorldObject, material: ItemId, baseHits: number, toolPower: number, label: string) {
+    const requiredHits = Math.max(1, baseHits - toolPower);
+    target.harvestProgress = (target.harvestProgress ?? 0) + 1;
+    if (target.harvestProgress >= requiredHits) {
+      target.harvestProgress = 0;
+      return true;
+    }
+    const remaining = requiredHits - target.harvestProgress;
+    const toolText = toolPower > 0 ? "장비 덕분에 더 빠르게 캐고 있습니다." : "맨손으로는 조금 더 휘둘러야 합니다.";
+    this.showMessage(`${label}: ${target.harvestProgress}/${requiredHits}번 쳤습니다. ${ITEM_NAMES[material] ?? material} 채집까지 ${remaining}번 남았습니다. ${toolText}`);
+    return false;
+  }
+
   private digDirt(target: WorldObject) {
     this.digTerrain(target);
   }
 
   private digTerrain(target: WorldObject) {
+    if (target.terrainKind === "lava") {
+      this.showMessage("용암 지대는 너무 뜨거워서 팔 수 없습니다.");
+      return;
+    }
     const maxDepth = target.maxDigDepth ?? 3;
     const currentDepth = target.digDepth ?? 0;
     if (currentDepth >= maxDepth) {
@@ -2090,14 +2667,23 @@ class WildernessGame {
     this.playerPosition.set(0, PLAYER_HEIGHT, HOUSE_CENTER_Z + 3.7);
     this.previousPosition.copy(this.playerPosition);
     this.camera.position.copy(this.playerPosition);
-    if (target.houseChestRich === undefined) target.houseChestRich = Math.random() < 0.01;
-    this.createHouseInterior(target.houseChestRich);
-    this.showMessage("주민 집 안으로 들어왔습니다. 집 안에는 상자가 하나 있습니다.");
+    const houseKind = target.type === "blacksmith" ? "blacksmith" : target.houseKind ?? "home";
+    this.currentHouseKind = houseKind;
+    if (target.houseChestRich === undefined) target.houseChestRich = houseKind === "blacksmith" || Math.random() < 0.01;
+    this.createHouseInterior(target.houseChestRich, houseKind);
+    this.showMessage(
+      houseKind === "blacksmith"
+        ? "대장간 안으로 들어왔습니다. 고정 제작 도구와 광산상자가 있습니다."
+        : houseKind === "twoStory"
+          ? "이층집 안으로 들어왔습니다. 계단으로 2층을 오르내릴 수 있습니다."
+          : "주민 집 안으로 들어왔습니다. 집 안에는 상자가 하나 있습니다.",
+    );
     this.renderHud();
   }
 
   private leaveHouse() {
     this.locationMode = "overworld";
+    this.currentHouseKind = "home";
     this.clearHouseObjects();
     this.setOverworldAtmosphere();
     this.playerPosition.copy(this.houseReturnPosition ?? new THREE.Vector3(0, PLAYER_HEIGHT, 12));
@@ -2117,6 +2703,11 @@ class WildernessGame {
     }
     if (!pickaxe) {
       this.showMessage("돌과 석탄을 포함한 광물은 곡괭이로만 캘 수 있습니다.");
+      return;
+    }
+    const requiredBaseHits = HARVEST_HARDNESS[target.ore] ?? 5;
+    if (!this.advanceHarvest(target, target.ore, requiredBaseHits, pickaxePower, ITEM_NAMES[target.ore] ?? "광물")) {
+      this.consumeDurability(pickaxe, `${ITEM_NAMES[target.ore]}을 캤습니다.`);
       return;
     }
     this.addItem(target.ore, target.ore === "stone" ? 2 : 1);
@@ -2155,6 +2746,34 @@ class WildernessGame {
     if (target.animalKind === "pig" || target.animalKind === "chicken" || Math.random() < 0.35) this.addItem("meat", target.animalKind === "chicken" ? 1 : THREE.MathUtils.randInt(1, 2));
     this.removeObject(target.id);
     this.showMessage(`${target.name}을 사냥해 재료를 얻었습니다.`);
+  }
+
+  private attackPredator(target: WorldObject) {
+    if (target.type !== "wildPredator") return;
+    const damage = this.currentDamage();
+    target.hp = (target.hp ?? 10) - damage;
+    this.playTone(120, 0.08, "square", 0.035);
+    if (target.hp > 0) {
+      this.showMessage(`${target.name}에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
+      return;
+    }
+    const loot = target.predatorKind === "spider" ? "coal" : "meat";
+    this.addItem(loot, target.predatorKind === "lion" ? 3 : 1);
+    this.removeObject(target.id);
+    this.showMessage(`${target.name}를 물리치고 ${ITEM_NAMES[loot]}을 얻었습니다.`);
+  }
+
+  private harvestAntHill(target: WorldObject) {
+    if (target.type !== "antHill") return;
+    const remaining = target.antMeatRemaining ?? 5;
+    if (remaining <= 0) {
+      this.showMessage("개미굴은 비어 있습니다.");
+      return;
+    }
+    target.antMeatRemaining = remaining - 1;
+    this.addItem("meat", 1);
+    this.playTone(480, 0.08, "triangle", 0.03);
+    this.showMessage(`개미굴에서 고기 1개를 얻었습니다. 남은 횟수 ${target.antMeatRemaining}/5.`);
   }
 
   private attackVillager(target: WorldObject) {
@@ -2204,7 +2823,7 @@ class WildernessGame {
     this.showMessage(`식량창고에서 고기 ${amount}개를 얻었습니다. 수호자들이 공격합니다. 남은 고기 ${target.foodRemaining}/10.`);
   }
 
-  private openStation(panel: "workbench" | "smelter", stationId: string) {
+  private openStation(panel: "workbench" | "smelter" | "grinder", stationId: string) {
     this.currentStationId = stationId;
     this.togglePanel(panel);
   }
@@ -2226,10 +2845,13 @@ class WildernessGame {
 
   private damagePlayer(amount: number, showParticles = true, deathReason = "체력이 모두 떨어졌습니다.") {
     if (showParticles) this.spawnDamageParticles();
+    if (showParticles) this.playTone(90, 0.12, "sawtooth", 0.03);
     const armor = this.equippedArmor ? ARMOR_VALUE[this.equippedArmor] ?? 0 : 0;
     const damage = Math.max(1, amount - Math.floor(armor / 10));
     this.health = Math.max(0, this.health - damage);
     if (this.health <= 0) {
+      const deathPosition = this.locationMode === "overworld" ? this.playerPosition.clone() : (this.caveReturnPosition ?? this.houseReturnPosition ?? new THREE.Vector3(0, PLAYER_HEIGHT, 12)).clone();
+      this.dropInventoryOnDeath(deathPosition);
       this.health = this.maxHealth;
       this.hunger = HUNGER_MAX;
       this.hungerTimer = 0;
@@ -2241,18 +2863,38 @@ class WildernessGame {
       }
       if (this.locationMode === "house") {
         this.locationMode = "overworld";
+        this.currentHouseKind = "home";
         this.clearHouseObjects();
         this.setOverworldAtmosphere();
       }
       this.playerPosition.set(0, PLAYER_HEIGHT, 12);
       this.previousPosition.copy(this.playerPosition);
       this.camera.position.copy(this.playerPosition);
-      this.showMessage(`사망 원인: ${deathReason} 시작 지점으로 돌아왔습니다.`);
+      this.showMessage(`사망 원인: ${deathReason} 튜토리얼 책을 제외한 아이템이 죽은 자리에 떨어졌습니다.`);
       this.renderHud();
       return true;
     }
     this.renderHud();
     return false;
+  }
+
+  private dropInventoryOnDeath(position: THREE.Vector3) {
+    position.y = this.getOverworldHeightAt(position.x, position.z) + 0.08;
+    for (const slot of this.allStorageSlots()) {
+      if (!slot.item || slot.count <= 0) continue;
+      if (slot.item === "tutorial_book") {
+        slot.count = 1;
+        slot.durabilityUsed = undefined;
+        continue;
+      }
+      const scatter = new THREE.Vector3(THREE.MathUtils.randFloatSpread(2.6), 0, THREE.MathUtils.randFloatSpread(2.6));
+      this.spawnDroppedItem(slot.item, slot.count, position.clone().add(scatter));
+      slot.item = null;
+      slot.count = 0;
+      slot.durabilityUsed = undefined;
+    }
+    if (!this.hotbar.some((slot) => slot.item === "tutorial_book")) this.hotbar[0] = { item: "tutorial_book", count: 1 };
+    this.equippedArmor = null;
   }
 
   private spawnDamageParticles() {
@@ -2298,34 +2940,37 @@ class WildernessGame {
     }
   }
 
-  private placeSelectedObject() {
-    const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
-    const selectedPlaceable = selectedItem && PLACEABLE_TYPES[selectedItem] ? selectedItem : null;
-    const fallback = selectedPlaceable ?? this.firstAvailablePlaceable();
-
-    if (!fallback) {
-      this.showMessage("설치할 아이템이 없습니다.");
+  private ensureAudio() {
+    if (this.audioContext) {
+      void this.audioContext.resume();
       return;
     }
-
-    if (!this.removeItem(fallback, 1)) {
-      this.showMessage("설치할 아이템을 찾지 못했습니다.");
-      return;
-    }
-
-    const position = this.pointInFront(4);
-    if (fallback === "crafting_table") this.spawnWorkbench(position, false);
-    if (fallback === "extended_workbench") this.spawnWorkbench(position, true);
-    if (fallback === "smelter") this.spawnSmelter(position, false);
-    if (fallback === "special_smelter") this.spawnSmelter(position, true);
-    if (fallback === "bed") this.spawnBed(position, this.yaw);
-    this.playHandAction();
-    this.showMessage(`${ITEM_NAMES[fallback]}를 설치했습니다.`);
-    this.renderHud();
+    const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return;
+    this.audioContext = new AudioContextCtor();
+    const oscillator = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 92;
+    gain.gain.value = 0.018;
+    oscillator.connect(gain).connect(this.audioContext.destination);
+    oscillator.start();
+    this.bgmOscillator = oscillator;
+    this.bgmGain = gain;
   }
 
-  private firstAvailablePlaceable() {
-    return ["crafting_table", "extended_workbench", "special_smelter", "smelter", "bed"].find((item) => this.countItem(item) > 0) ?? null;
+  private playTone(frequency: number, duration = 0.08, type: OscillatorType = "sine", volume = 0.03) {
+    this.ensureAudio();
+    if (!this.audioContext) return;
+    const oscillator = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+    oscillator.type = type;
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(volume, this.audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+    oscillator.connect(gain).connect(this.audioContext.destination);
+    oscillator.start();
+    oscillator.stop(this.audioContext.currentTime + duration);
   }
 
   private getLookTarget() {
@@ -2354,6 +2999,43 @@ class WildernessGame {
       targets.push(...meshes);
     }
     return targets;
+  }
+
+  private nearbyObjectInView(types: readonly ObjectType[], maxDistance = INTERACT_DISTANCE + 1.2) {
+    const allowedTypes = new Set<ObjectType>(types);
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    let best: WorldObject | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    for (const object of this.objects.values()) {
+      if (!allowedTypes.has(object.type)) continue;
+      const radius = Math.max(object.collisionRadius ?? object.terrainRadius ?? 0.75, 0.75);
+      const height = Math.max(object.collisionHeight ?? 1, 0.5);
+      const center = object.root.position.clone();
+      center.y += Math.min(height * 0.55, 1.35);
+
+      const toObject = center.sub(this.camera.position);
+      const distanceSquared = toObject.lengthSq();
+      if (distanceSquared <= 0.0001) continue;
+      const distance = Math.sqrt(distanceSquared);
+      if (distance > maxDistance + radius) continue;
+
+      const direction = toObject.clone().multiplyScalar(1 / distance);
+      const facing = direction.dot(forward);
+      if (facing <= 0) continue;
+
+      const rayDistance = distance * facing;
+      if (rayDistance > maxDistance + radius * 0.5) continue;
+      const perpendicularDistance = Math.sqrt(Math.max(0, distanceSquared - rayDistance * rayDistance));
+      if (perpendicularDistance > radius + 0.9) continue;
+
+      const score = rayDistance + perpendicularDistance * 0.7 - radius * 0.2;
+      if (score >= bestScore) continue;
+      best = object;
+      bestScore = score;
+    }
+
+    return best;
   }
 
   private nearbyDroppedItemInView() {
@@ -2406,6 +3088,21 @@ class WildernessGame {
     this.currentStationId = null;
     this.renderPanel();
     this.renderHud();
+  }
+
+  private startGame(mode: "new" | "load") {
+    this.gameStarted = true;
+    this.titleScreenEl.classList.add("hidden");
+    this.ensureAudio();
+    if (mode === "new") {
+      this.resetGameState();
+      this.seedOverworld();
+      this.showMessage("새 게임을 시작했습니다.");
+      this.renderPanel();
+      this.renderHud();
+      return;
+    }
+    this.loadGame();
   }
 
   private newGame() {
@@ -2465,6 +3162,7 @@ class WildernessGame {
         caveStepBank: this.caveStepBank,
         equippedArmor: this.equippedArmor,
         locationMode: this.locationMode,
+        currentHouseKind: this.currentHouseKind,
         caveReturnPosition: this.caveReturnPosition ? this.toSavedVector(this.caveReturnPosition) : null,
         houseReturnPosition: this.houseReturnPosition ? this.toSavedVector(this.houseReturnPosition) : null,
         toolUses: { ...this.toolUses },
@@ -2512,6 +3210,11 @@ class WildernessGame {
           roamRadius: object.roamRadius,
           enterable: object.enterable,
           houseChestRich: object.houseChestRich,
+          houseKind: object.houseKind,
+          lockedStation: object.lockedStation,
+          harvestProgress: object.harvestProgress,
+          antMeatRemaining: object.antMeatRemaining,
+          predatorKind: object.predatorKind,
           trainAngle: object.trainAngle,
           trainRadius: object.trainRadius,
           trainSpeed: object.trainSpeed,
@@ -2553,6 +3256,7 @@ class WildernessGame {
         caveStepBank: typeof player.caveStepBank === "number" ? player.caveStepBank : 0,
         equippedArmor: player.equippedArmor ?? null,
         locationMode: player.locationMode ?? "overworld",
+        currentHouseKind: player.currentHouseKind ?? "home",
         caveReturnPosition: player.caveReturnPosition ?? null,
         houseReturnPosition: player.houseReturnPosition ?? null,
         toolUses: {},
@@ -2608,11 +3312,13 @@ class WildernessGame {
     this.timeHudTimer = 0;
     this.starvationTimer = 0;
     this.starvationNoticeTimer = 0;
+    this.lavaDamageTimer = 0;
     this.totalSteps = save.player.totalSteps;
     this.chestStepBank = save.player.chestStepBank;
     this.caveStepBank = save.player.caveStepBank;
     this.equippedArmor = save.player.equippedArmor;
     this.locationMode = save.player.locationMode;
+    this.currentHouseKind = save.player.currentHouseKind ?? "home";
     this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
     this.houseReturnPosition = save.player.houseReturnPosition ? this.fromSavedVector(save.player.houseReturnPosition) : null;
     Object.keys(this.toolUses).forEach((item) => delete this.toolUses[item]);
@@ -2628,7 +3334,7 @@ class WildernessGame {
       this.createCaveInterior();
     } else if (this.locationMode === "house") {
       this.setHouseAtmosphere();
-      this.createHouseInterior(false);
+      this.createHouseInterior(false, this.currentHouseKind);
     } else {
       this.setOverworldAtmosphere();
     }
@@ -2679,6 +3385,7 @@ class WildernessGame {
     this.totalSteps = 0;
     this.chestStepBank = 0;
     this.caveStepBank = 0;
+    this.antStepBank = 0;
     this.health = 10;
     this.maxHealth = 10;
     this.hunger = HUNGER_MAX;
@@ -2687,8 +3394,10 @@ class WildernessGame {
     this.timeHudTimer = 0;
     this.starvationTimer = 0;
     this.starvationNoticeTimer = 0;
+    this.lavaDamageTimer = 0;
     this.equippedArmor = null;
     this.locationMode = "overworld";
+    this.currentHouseKind = "home";
     this.caveReturnPosition = null;
     this.houseReturnPosition = null;
     this.ridingTrainId = null;
@@ -2697,6 +3406,7 @@ class WildernessGame {
     this.lastTargetId = null;
     this.promptRefreshTimer = 0;
     this.actionTimer = 0;
+    this.nightSpawnTimer = 0;
     this.setOverworldAtmosphere();
     this.camera.position.copy(this.playerPosition);
     this.camera.rotation.set(0, 0, 0, "YXZ");
@@ -2756,14 +3466,21 @@ class WildernessGame {
     if (savedObject.type === "miner") object = this.spawnMiner(position);
     if (savedObject.type === "animal") object = this.spawnAnimal(position, savedObject.animalKind);
     if (savedObject.type === "villager") object = this.spawnVillager(position, villageId, savedObject.homePosition ? this.fromSavedVector(savedObject.homePosition) : position, savedObject.roamRadius);
+    if (savedObject.type === "blacksmithNpc") object = this.spawnBlacksmithNpc(position, villageId);
     if (savedObject.type === "villageKnight") object = this.spawnKnight(position, villageId);
     if (savedObject.type === "villageArcher" || savedObject.type === "villageMage") object = this.spawnRangedGuard(position, villageId, savedObject.type);
     if (savedObject.type === "villageGolem") object = this.spawnGolem(position, villageId);
     if (savedObject.type === "foodStorage" || savedObject.type === "villageHouse") {
-      object = this.spawnVillageHouse(position, savedObject.name, savedObject.type === "foodStorage", villageId);
+      object = this.spawnVillageHouse(position, savedObject.name, savedObject.type === "foodStorage", villageId, savedObject.houseKind === "twoStory" ? 3 : 0);
     }
+    if (savedObject.type === "blacksmith") object = this.spawnBlacksmith(position, villageId);
     if (savedObject.type === "workbench" || savedObject.type === "extendedWorkbench") object = this.spawnWorkbench(position, savedObject.type === "extendedWorkbench");
     if (savedObject.type === "smelter" || savedObject.type === "specialSmelter") object = this.spawnSmelter(position, savedObject.type === "specialSmelter");
+    if (savedObject.type === "grinder") object = this.spawnGrinder(position);
+    if (savedObject.type === "antHill") object = this.spawnAntHill(position, savedObject.antMeatRemaining);
+    if (savedObject.type === "wildPredator") object = this.spawnPredator(position, savedObject.predatorKind);
+    if (savedObject.type === "villageKing") object = this.spawnKing(position, villageId);
+    if (savedObject.type === "villageFence") object = this.spawnVillageFence(position, savedObject.terrainRadius ?? 20, villageId);
 
     if (!object) return;
     object.name = savedObject.name;
@@ -2773,9 +3490,11 @@ class WildernessGame {
     object.opened = savedObject.opened;
     object.mineRich = savedObject.mineRich;
     object.caveReturn = savedObject.caveReturn ? this.fromSavedVector(savedObject.caveReturn) : undefined;
-    object.collidable = savedObject.collidable;
-    object.collisionRadius = savedObject.collisionRadius;
-    object.collisionHeight = savedObject.collisionHeight;
+    if (savedObject.type !== "villageFence") {
+      object.collidable = savedObject.collidable;
+      object.collisionRadius = savedObject.collisionRadius;
+      object.collisionHeight = savedObject.collisionHeight;
+    }
     object.villageId = savedObject.villageId;
     object.foodRemaining = savedObject.foodRemaining;
     object.attackCooldown = savedObject.attackCooldown;
@@ -2793,6 +3512,11 @@ class WildernessGame {
     object.roamRadius = savedObject.roamRadius;
     object.enterable = savedObject.enterable;
     object.houseChestRich = savedObject.houseChestRich;
+    object.houseKind = savedObject.houseKind;
+    object.lockedStation = savedObject.lockedStation;
+    object.harvestProgress = savedObject.harvestProgress;
+    object.antMeatRemaining = savedObject.antMeatRemaining;
+    object.predatorKind = savedObject.predatorKind;
     object.trainAngle = savedObject.trainAngle;
     object.trainRadius = savedObject.trainRadius;
     object.trainSpeed = savedObject.trainSpeed;
@@ -2905,16 +3629,19 @@ class WildernessGame {
     if (this.currentPanel === "book") this.renderBookPanel();
     if (this.currentPanel === "workbench") this.renderWorkbenchPanel();
     if (this.currentPanel === "smelter") this.renderSmelterPanel();
+    if (this.currentPanel === "grinder") this.renderGrinderPanel();
+    if (this.currentPanel === "trade") this.renderTradePanel();
     if (this.currentPanel === "cheat") this.renderCheatPanel();
   }
 
   private renderInventoryPanel() {
     const slotHtml = (slot: Slot, extraClass = "", source?: "hotbar" | "bag" | "craft", index?: number) => {
+      const targetAttrs = source !== undefined && index !== undefined ? ` data-slot-source="${source}" data-slot-index="${index}"` : "";
       const dragAttrs =
         slot.item && source !== undefined && index !== undefined
-          ? ` draggable="true" data-drop-item="${slot.item}" data-slot-source="${source}" data-slot-index="${index}"`
+          ? ` draggable="true" data-drop-item="${slot.item}"`
           : "";
-      return `<div class="mini-slot inventory-cell${extraClass}"${dragAttrs}>${
+      return `<div class="mini-slot inventory-cell${extraClass}"${targetAttrs}${dragAttrs}>${
         slot.item ? `<span class="slot-name">${this.shortName(slot.item)}</span><span class="slot-count">${slot.count}</span>` : ""
       }</div>`;
     };
@@ -2942,6 +3669,17 @@ class WildernessGame {
       this.bagSlots.length > 0
         ? this.bagSlots.map((slot, index) => slotHtml(slot, "", "bag", index)).join("")
         : Array.from({ length: 40 }, () => '<div class="mini-slot inventory-cell locked-slot"></div>').join("");
+    const buildOptions = HOUSE_BUILD_OPTIONS.map((option) => {
+      const disabled = this.hasIngredients(option.ingredients) && this.locationMode === "overworld" ? "" : "disabled";
+      return `<article class="recipe-card house-build-card">
+        <div>
+          <strong>${option.name}</strong>
+          <p>${option.description}</p>
+          <small>${this.formatItemBundle(option.ingredients)}</small>
+        </div>
+        <button data-build-house="${option.id}" ${disabled}>집짓기</button>
+      </article>`;
+    }).join("");
 
     this.panelEl.innerHTML = `
       <section class="panel inventory-panel">
@@ -2953,6 +3691,10 @@ class WildernessGame {
           <button class="icon-button" data-close>닫기</button>
         </header>
         <div class="inventory-layout">
+          <section class="craft-board house-build-panel">
+            <div class="inventory-label">집짓기</div>
+            <div class="recipes house-build-list">${buildOptions}</div>
+          </section>
           <section class="inventory-board">
             <div class="inventory-label">하단 핫바 ${this.hotbar.length}칸</div>
             <div class="inventory-hotbar inventory-grid">${this.hotbar.map((slot, index) => slotHtml(slot, " hotbar-cell", "hotbar", index)).join("")}</div>
@@ -2973,7 +3715,7 @@ class WildernessGame {
             </div>
             <div class="inventory-label">재료 선택</div>
             <div class="item-list item-slot-grid">${itemButtons || '<div class="empty-inventory">비어 있음</div>'}</div>
-            <div class="ground-drop-zone" data-ground-drop>여기로 드래그하면 땅에 내려놓기</div>
+            <div class="ground-drop-zone" data-ground-drop>여기로 드래그하면 일반 아이템은 버리고 설치 아이템은 설치</div>
           </section>
         </div>
       </section>
@@ -2991,6 +3733,9 @@ class WildernessGame {
     });
     this.panelEl.querySelector<HTMLButtonElement>("[data-mini-craft]")?.addEventListener("click", () => this.craftMiniRecipe());
     this.panelEl.querySelector<HTMLButtonElement>("[data-clear-craft]")?.addEventListener("click", () => this.clearCraftSlots());
+    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-build-house]").forEach((button) => {
+      button.addEventListener("click", () => this.buildPlayerHouse(button.dataset.buildHouse ?? ""));
+    });
     this.bindInventoryDragDrop();
   }
 
@@ -3009,6 +3754,8 @@ class WildernessGame {
           <p>나무 3개 + 망치 1개 -> 제작대 1개</p>
           <p>제작대 2개 -> 확장 제작대 1개</p>
           <p>재련대 1개 + 망치 1개 -> 특수 재련대 1개</p>
+          <p>망치 2개 + 철 6개 -> 분쇄기 1개</p>
+          <p>다이아몬드 가루 6개 + 재련된 나무 6개 + 돌 6개 -> 거울 1개</p>
           <p>재련된 나무 3개 + 막대기 2개 -> 날카로운 나무 도끼</p>
           <p>일반 나무 3개 + 막대기 2개 -> 약한 나무 도끼</p>
           <p>돌 3개 + 막대기 2개 -> 돌 곡괭이</p>
@@ -3067,7 +3814,7 @@ class WildernessGame {
             </div>
             <div class="inventory-label">재료 선택</div>
             <div class="item-list item-slot-grid">${itemButtons || '<div class="empty-inventory">비어 있음</div>'}</div>
-            <div class="ground-drop-zone" data-ground-drop>여기로 드래그하면 땅에 내려놓기</div>
+            <div class="ground-drop-zone" data-ground-drop>여기로 드래그하면 일반 아이템은 버리고 설치 아이템은 설치</div>
           </section>
 
           <section class="recipe-book-board">
@@ -3151,6 +3898,83 @@ class WildernessGame {
     });
   }
 
+  private renderGrinderPanel() {
+    this.panelEl.innerHTML = `
+      <section class="panel smelter-panel">
+        <header>
+          <h2>분쇄기</h2>
+          <button class="icon-button" data-close>닫기</button>
+        </header>
+        <div class="recipes">
+          ${GRINDABLE_MATERIALS.map((item) => {
+            const output = POWDER_BY_MINERAL[item];
+            const disabled = this.countItem(item) <= 0 ? "disabled" : "";
+            return `<article class="recipe-card">
+              <div>
+                <strong>${ITEM_NAMES[item]} 분쇄</strong>
+                <p>${ITEM_NAMES[item]} 1 -> ${ITEM_NAMES[output]} 2</p>
+              </div>
+              <button data-grind="${item}" ${disabled}>분쇄</button>
+            </article>`;
+          }).join("")}
+        </div>
+      </section>
+    `;
+    this.bindPanelBasics();
+    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-grind]").forEach((button) => {
+      button.addEventListener("click", () => this.grindItem(button.dataset.grind ?? ""));
+    });
+  }
+
+  private renderTradePanel() {
+    const trade = this.currentTradeCatalog();
+    this.panelEl.innerHTML = `
+      <section class="panel trade-panel">
+        <header>
+          <div>
+            <h2>${trade.title}</h2>
+            <p class="inventory-subtitle">${trade.subtitle}</p>
+          </div>
+          <button class="icon-button" data-close>닫기</button>
+        </header>
+        <div class="recipes">
+          ${trade.offers.map((offer) => {
+            const give = this.formatItemBundle(offer.give);
+            const receive = this.formatItemBundle(offer.receive);
+            const disabled = this.hasIngredients(offer.give) ? "" : "disabled";
+            return `<article class="recipe-card">
+              <div>
+                <strong>${offer.name}</strong>
+                <p>${give} -> ${receive}</p>
+              </div>
+              <button data-trade="${offer.id}" ${disabled}>거래</button>
+            </article>`;
+          }).join("")}
+        </div>
+      </section>
+    `;
+    this.bindPanelBasics();
+    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-trade]").forEach((button) => {
+      button.addEventListener("click", () => this.performTrade(button.dataset.trade ?? ""));
+    });
+  }
+
+  private currentTradeCatalog() {
+    const partner = this.currentStationId ? this.objects.get(this.currentStationId) : null;
+    if (partner?.type === "blacksmithNpc") {
+      return {
+        title: "대장장이 거래",
+        subtitle: "광물 가루를 제작 도구로 교환합니다. 희귀 가루일수록 더 높은 가치로 계산됩니다.",
+        offers: BLACKSMITH_TRADE_OFFERS,
+      };
+    }
+    return {
+      title: "주민 거래",
+      subtitle: "가루 광물과 재료를 마을 물자로 교환합니다.",
+      offers: TRADE_OFFERS,
+    };
+  }
+
   private renderCheatPanel() {
     const items = Object.entries(ITEM_NAMES)
       .map(
@@ -3214,6 +4038,43 @@ class WildernessGame {
       });
     });
 
+    this.panelEl.querySelectorAll<HTMLElement>("[data-slot-source][data-slot-index]").forEach((element) => {
+      const targetSource = element.dataset.slotSource;
+      const targetIndex = Number(element.dataset.slotIndex);
+      if (!this.isStorageSlotSource(targetSource) || !Number.isInteger(targetIndex)) return;
+      element.addEventListener("dragover", (event) => {
+        const raw = event.dataTransfer?.getData("application/json");
+        if (!raw) {
+          event.preventDefault();
+          element.classList.add("drag-over");
+          return;
+        }
+        try {
+          const payload = JSON.parse(raw) as { source?: string | null; index?: string | null };
+          if (!this.isStorageSlotSource(payload.source) || payload.index === null || payload.index === undefined) return;
+          event.preventDefault();
+          element.classList.add("drag-over");
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        } catch {
+          // Ignore malformed drag payloads from outside the inventory.
+        }
+      });
+      element.addEventListener("dragleave", () => element.classList.remove("drag-over"));
+      element.addEventListener("drop", (event) => {
+        event.preventDefault();
+        element.classList.remove("drag-over");
+        const raw = event.dataTransfer?.getData("application/json");
+        if (!raw) return;
+        try {
+          const payload = JSON.parse(raw) as { source?: string | null; index?: string | null };
+          if (!this.isStorageSlotSource(payload.source) || payload.index === null || payload.index === undefined) return;
+          this.swapStorageSlots(payload.source, Number(payload.index), targetSource, targetIndex);
+        } catch {
+          this.showMessage("아이템 위치를 바꾸지 못했습니다.");
+        }
+      });
+    });
+
     const dropZone = this.panelEl.querySelector<HTMLElement>("[data-ground-drop]");
     if (!dropZone) return;
     dropZone.addEventListener("dragover", (event) => {
@@ -3230,10 +4091,15 @@ class WildernessGame {
       try {
         const payload = JSON.parse(raw) as { item?: ItemId; source?: string | null; index?: string | null };
         if (payload.source && payload.index !== null && payload.index !== undefined) {
-          this.dropItemFromSlot(this.inventorySlotBySource(payload.source, Number(payload.index)));
+          const slot = this.inventorySlotBySource(payload.source, Number(payload.index));
+          if (payload.item && PLACEABLE_TYPES[payload.item]) this.placeItemFromSlot(slot);
+          else this.dropItemFromSlot(slot);
           return;
         }
-        if (payload.item) this.dropItemFromInventory(payload.item);
+        if (payload.item) {
+          if (PLACEABLE_TYPES[payload.item]) this.placeItemFromInventory(payload.item);
+          else this.dropItemFromInventory(payload.item);
+        }
       } catch {
         this.showMessage("아이템을 내려놓지 못했습니다.");
       }
@@ -3247,6 +4113,78 @@ class WildernessGame {
     if (source === "craft") return this.craftSlots[index] ?? null;
     if (source === "workbench") return this.workbenchSlots[index] ?? null;
     return null;
+  }
+
+  private isStorageSlotSource(source: string | null | undefined): source is "hotbar" | "bag" {
+    return source === "hotbar" || source === "bag";
+  }
+
+  private swapStorageSlots(source: string, sourceIndex: number, targetSource: string, targetIndex: number) {
+    if (!this.isStorageSlotSource(source) || !this.isStorageSlotSource(targetSource)) return;
+    if (source === targetSource && sourceIndex === targetIndex) return;
+    const sourceSlot = this.inventorySlotBySource(source, sourceIndex);
+    const targetSlot = this.inventorySlotBySource(targetSource, targetIndex);
+    if (!sourceSlot || !targetSlot) return;
+    const sourceCopy = this.copySlot(sourceSlot);
+    const targetCopy = this.copySlot(targetSlot);
+    this.assignSlot(sourceSlot, targetCopy);
+    this.assignSlot(targetSlot, sourceCopy);
+    this.showMessage("핫바와 가방 아이템 위치를 바꿨습니다.");
+    this.renderInventoryPanel();
+    this.renderHud();
+  }
+
+  private copySlot(slot: Slot): Slot {
+    return {
+      item: slot.item,
+      count: slot.count,
+      ...(slot.durabilityUsed && slot.durabilityUsed > 0 ? { durabilityUsed: slot.durabilityUsed } : {}),
+    };
+  }
+
+  private assignSlot(target: Slot, source: Slot) {
+    target.item = source.item;
+    target.count = source.count;
+    target.durabilityUsed = source.durabilityUsed;
+  }
+
+  private buildPlayerHouse(optionId: string) {
+    const option = HOUSE_BUILD_OPTIONS.find((candidate) => candidate.id === optionId);
+    if (!option) return;
+    if (this.locationMode !== "overworld") {
+      this.showMessage("집은 야생 필드에서만 지을 수 있습니다.");
+      return;
+    }
+    if (!this.hasIngredients(option.ingredients)) {
+      this.showMessage(`집짓기 재료가 부족합니다. 필요 재료: ${this.formatItemBundle(option.ingredients)}`);
+      return;
+    }
+    const position = this.pointInFront(7.5);
+    if (!this.isBuildSiteClear(position, option.houseKind === "twoStory" ? 4.8 : 4.0)) {
+      this.showMessage("이 위치에는 집을 지을 수 없습니다. 물, 용암, 지형 경계, 기존 구조물에서 조금 떨어져 주세요.");
+      return;
+    }
+    for (const [item, count] of Object.entries(option.ingredients)) this.removeItem(item, count);
+    const house = this.spawnVillageHouse(position, option.name, false, `player-house-${crypto.randomUUID()}`, option.variant);
+    house.houseKind = option.houseKind;
+    house.name = option.name;
+    house.houseChestRich = false;
+    this.showMessage(`${option.name}을 지었습니다. 문을 보고 E를 누르면 들어갈 수 있습니다.`);
+    this.renderInventoryPanel();
+    this.renderHud();
+  }
+
+  private isBuildSiteClear(position: THREE.Vector3, radius: number) {
+    if (Math.abs(position.x) > WORLD_SIZE / 2 - radius - 4 || Math.abs(position.z) > WORLD_SIZE / 2 - radius - 4) return false;
+    if (this.isNaturalSpawnBlocked(position, radius + 1.5)) return false;
+    for (const object of this.objects.values()) {
+      if (object.type === "droppedItem") continue;
+      const objectRadius = Math.max(object.collisionRadius ?? 0, object.terrainRadius ?? 0.75);
+      if (objectRadius <= 0) continue;
+      const distance = Math.hypot(position.x - object.root.position.x, position.z - object.root.position.z);
+      if (distance < radius + objectRadius + 2) return false;
+    }
+    return true;
   }
 
   private handleCraftSlotClick(index: number) {
@@ -3456,6 +4394,44 @@ class WildernessGame {
     this.renderHud();
   }
 
+  private grindItem(item: ItemId) {
+    if (!GRINDABLE_MATERIALS.includes(item)) {
+      this.showMessage("이 재료는 분쇄할 수 없습니다.");
+      return;
+    }
+    const output = POWDER_BY_MINERAL[item];
+    if (!output || !this.removeItem(item, 1)) {
+      this.showMessage("분쇄할 재료가 없습니다.");
+      return;
+    }
+    this.addItem(output, 2);
+    this.playTone(160, 0.07, "sawtooth", 0.04);
+    this.showMessage(`${ITEM_NAMES[item]}을 ${ITEM_NAMES[output]} 2개로 분쇄했습니다.`);
+    this.renderPanel();
+    this.renderHud();
+  }
+
+  private performTrade(offerId: string) {
+    const offer = this.currentTradeCatalog().offers.find((candidate) => candidate.id === offerId);
+    if (!offer) return;
+    if (!this.hasIngredients(offer.give)) {
+      this.showMessage("거래에 필요한 물건이 부족합니다.");
+      return;
+    }
+    for (const [item, count] of Object.entries(offer.give)) this.removeItem(item, count);
+    for (const [item, count] of Object.entries(offer.receive)) this.addItem(item, count);
+    this.playTone(620, 0.12, "triangle", 0.035);
+    this.showMessage(`거래 완료: ${this.formatItemBundle(offer.receive)} 획득.`);
+    this.renderPanel();
+    this.renderHud();
+  }
+
+  private formatItemBundle(bundle: Record<ItemId, number>) {
+    return Object.entries(bundle)
+      .map(([item, count]) => `${ITEM_NAMES[item] ?? item} ${count}`)
+      .join(" + ");
+  }
+
   private smelterMaterials(isSpecial = false) {
     return isSpecial ? SPECIAL_SMELTER_MATERIALS : RAW_MATERIALS;
   }
@@ -3625,6 +4601,15 @@ class WildernessGame {
     }, null);
   }
 
+  private selectedTool(table: Record<ItemId, number>) {
+    const item = this.hotbar[this.selectedHotbarIndex]?.item;
+    return item && table[item] ? item : null;
+  }
+
+  private activeTool(table: Record<ItemId, number>) {
+    return this.selectedTool(table) ?? this.bestTool(table);
+  }
+
   private consumeDurability(item: ItemId | null, reason: string) {
     if (!item || !DURABLE_TOOL_TABLES.some((table) => table[item])) return;
     const slot = this.findDurableToolSlot(item);
@@ -3755,8 +4740,14 @@ class WildernessGame {
       group.add(pages, cover, spine, title);
     } else if (item === "smelter" || item === "special_smelter") {
       group.add(this.createSmelterVisual(item === "special_smelter", 0.42));
+    } else if (item === "grinder") {
+      group.add(this.createGrinderVisual(0.4));
+    } else if (item === "mirror") {
+      group.add(createMirrorModel(0.48));
     } else if (item === "crafting_table" || item === "extended_workbench") {
       group.add(this.createWorkbenchVisual(item === "extended_workbench", 0.38));
+    } else if (item === "bed") {
+      group.add(this.createBedVisual(0.34));
     } else {
       const mesh = new THREE.Mesh(
         new THREE.DodecahedronGeometry(0.22),
@@ -3830,7 +4821,7 @@ class WildernessGame {
       }
     }
     const train = this.addWorldObject("train", "탑승 가능한 기차", group, {
-      collidable: true,
+      collidable: false,
       collisionRadius: 1.9,
       collisionHeight: 2.4,
       trainAngle: angle,
@@ -3860,8 +4851,9 @@ class WildernessGame {
       ore: 0x5c6670,
       snow: 0xdcecf1,
       swamp: 0x4f6b52,
+      lava: 0xe64a19,
     };
-    const nameByTerrain: Record<TerrainKind, string> = {
+    const nameByTerrain: Record<string, string> = {
       grass: "잔디 지형",
       dirt: "흙 지역",
       stone: "돌 지형",
@@ -3869,9 +4861,15 @@ class WildernessGame {
       snow: "눈 지형",
       swamp: "늪 흙",
     };
+    nameByTerrain.lava = "용암 지대";
     const patch = new THREE.Mesh(
       new THREE.CylinderGeometry(radius, radius, 0.16, 24),
-      new THREE.MeshStandardMaterial({ color: colorByTerrain[terrainKind], roughness: 1 }),
+      new THREE.MeshStandardMaterial({
+        color: colorByTerrain[terrainKind],
+        roughness: terrainKind === "lava" ? 0.42 : 1,
+        emissive: terrainKind === "lava" ? 0xff3d00 : 0x000000,
+        emissiveIntensity: terrainKind === "lava" ? 0.72 : 0,
+      }),
     );
     patch.userData.digSurface = true;
     patch.position.y = 0.05;
@@ -3908,6 +4906,7 @@ class WildernessGame {
       ore: 0x5c6670,
       snow: 0xdcecf1,
       swamp: 0x4f6b52,
+      lava: 0xe64a19,
     };
     const midColors: Record<TerrainKind, number> = {
       grass: 0x73512f,
@@ -3916,6 +4915,7 @@ class WildernessGame {
       ore: 0x4f5962,
       snow: 0xb6c9cf,
       swamp: 0x59633f,
+      lava: 0x9f2d15,
     };
     const color = depth >= maxDepth ? 0x777b80 : depth > 0 ? midColors[kind] : baseColors[kind];
     target.root.traverse((child) => {
@@ -3959,6 +4959,13 @@ class WildernessGame {
         this.spawnTerrainPatch(center, "snow", biome.radius, false, "terrainPatch", true);
         this.spawnTerrainPatch(center.clone().add(new THREE.Vector3(-14, 0, 11)), "stone", biome.radius * 0.24, true, "terrainPatch", true);
       }
+      if (biome.kind === "lava") {
+        this.spawnTerrainPatch(center, "lava", biome.radius, false, "terrainPatch", true);
+        this.spawnTerrainPatch(center.clone().add(new THREE.Vector3(16, 0, -10)), "stone", biome.radius * 0.36, true, "terrainPatch", true);
+        for (let i = 0; i < 3; i += 1) {
+          this.spawnMountain(this.randomPointInCircle(biome.center, biome.radius * 0.72), THREE.MathUtils.randFloat(11, 22), THREE.MathUtils.randFloat(4, 10));
+        }
+      }
     }
   }
 
@@ -3970,6 +4977,7 @@ class WildernessGame {
       if (biome.kind === "swamp") this.createSwampBiome(biome);
       if (biome.kind === "snow") this.createSnowBiome(biome);
       if (biome.kind === "mountain") this.createMountainBiomeDecor(biome);
+      if (biome.kind === "lava") this.createLavaBiome(biome);
     }
   }
 
@@ -4079,6 +5087,41 @@ class WildernessGame {
     this.addBiomeMesh(group);
   }
 
+  private createLavaBiome(biome: BiomeConfig) {
+    const group = new THREE.Group();
+    const lavaMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff5a1f,
+      emissive: 0xff2d00,
+      emissiveIntensity: 1.05,
+      roughness: 0.36,
+      metalness: 0.05,
+    });
+    const crustMaterial = new THREE.MeshStandardMaterial({ color: 0x23201e, roughness: 0.95 });
+    const emberMaterial = new THREE.MeshStandardMaterial({ color: 0xffc857, emissive: 0xff6a00, emissiveIntensity: 0.9, roughness: 0.5 });
+
+    for (let i = 0; i < 11; i += 1) {
+      const point = this.randomPointInCircle(biome.center, biome.radius * 0.82);
+      const poolRadius = THREE.MathUtils.randFloat(2.4, 6.8);
+      const pool = new THREE.Mesh(new THREE.CylinderGeometry(poolRadius, poolRadius * THREE.MathUtils.randFloat(0.72, 1.1), 0.08, 28), lavaMaterial);
+      pool.position.set(point.x, point.y + 0.12, point.z);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(poolRadius * 1.1, poolRadius * 1.05, 0.12, 28), crustMaterial);
+      rim.position.set(point.x, point.y + 0.06, point.z);
+      group.add(rim, pool);
+    }
+
+    for (let i = 0; i < 46; i += 1) {
+      const point = this.randomPointInCircle(biome.center, biome.radius * 0.92);
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(THREE.MathUtils.randFloat(0.45, 1.55)), crustMaterial);
+      rock.position.set(point.x, point.y + THREE.MathUtils.randFloat(0.22, 0.85), point.z);
+      rock.scale.y = THREE.MathUtils.randFloat(0.45, 1.05);
+      const ember = new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.05, 0.14), 8, 6), emberMaterial);
+      ember.position.set(point.x + THREE.MathUtils.randFloatSpread(0.45), point.y + THREE.MathUtils.randFloat(0.18, 0.75), point.z + THREE.MathUtils.randFloatSpread(0.45));
+      group.add(rock, ember);
+    }
+
+    this.addBiomeMesh(group);
+  }
+
   private addBiomeMesh(object: THREE.Object3D) {
     this.scene.add(object);
     this.biomeMeshes.push(object);
@@ -4128,7 +5171,7 @@ class WildernessGame {
     }
     group.position.copy(position);
     return this.addWorldObject(type, type === "bigTree" ? "큰 나무" : "작은 나무", group, {
-      collidable: true,
+      collidable: false,
       collisionRadius: type === "bigTree" ? 2.55 : 1.85,
       collisionHeight: type === "bigTree" ? 9.5 : 4.7,
     });
@@ -4295,8 +5338,9 @@ class WildernessGame {
     return group;
   }
 
-  private createHouseInterior(chestRich: boolean) {
+  private createHouseInterior(chestRich: boolean, houseKind: HouseKind = "home") {
     const room = new THREE.Group();
+    const twoStory = houseKind === "twoStory";
     const floor = new THREE.Mesh(
       new THREE.BoxGeometry(11.5, 0.16, 11.5),
       new THREE.MeshStandardMaterial({ color: 0x7a5233, roughness: 0.88 }),
@@ -4306,7 +5350,7 @@ class WildernessGame {
       new THREE.BoxGeometry(11.5, 0.18, 11.5),
       new THREE.MeshStandardMaterial({ color: 0x4b3322, roughness: 0.9 }),
     );
-    ceiling.position.set(0, 3.65, HOUSE_CENTER_Z);
+    ceiling.position.set(0, twoStory ? 6.25 : 3.65, HOUSE_CENTER_Z);
     room.add(floor, ceiling);
 
     for (const wall of [
@@ -4316,16 +5360,16 @@ class WildernessGame {
       { x: 5.75, z: 0, w: 0.2, d: 11.5 },
     ]) {
       const mesh = new THREE.Mesh(
-        new THREE.BoxGeometry(wall.w, 3.5, wall.d),
+        new THREE.BoxGeometry(wall.w, twoStory ? 6.0 : 3.5, wall.d),
         new THREE.MeshStandardMaterial({ color: 0x9b7655, roughness: 0.82 }),
       );
-      mesh.position.set(wall.x, 1.75, HOUSE_CENTER_Z + wall.z);
+      mesh.position.set(wall.x, twoStory ? 3.0 : 1.75, HOUSE_CENTER_Z + wall.z);
       room.add(mesh);
     }
 
     const bed = new THREE.Mesh(
       new THREE.BoxGeometry(2.4, 0.55, 1.25),
-      new THREE.MeshStandardMaterial({ color: 0x3d5a80, roughness: 0.75 }),
+      new THREE.MeshStandardMaterial({ color: houseKind === "blacksmith" ? 0x5b3428 : 0x3d5a80, roughness: 0.75 }),
     );
     bed.position.set(-3.15, 0.38, HOUSE_CENTER_Z - 2.9);
     const table = new THREE.Mesh(
@@ -4345,12 +5389,64 @@ class WildernessGame {
     rug.position.set(0, 0.02, HOUSE_CENTER_Z + 0.4);
     rug.scale.z = 0.6;
     room.add(bed, table, lamp, rug);
+    if (twoStory) {
+      const upperFloor = new THREE.Mesh(
+        new THREE.BoxGeometry(10.8, 0.18, 4.05),
+        new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.86 }),
+      );
+      upperFloor.position.set(0, 2.55, HOUSE_CENTER_Z - 3.55);
+      const upperRug = new THREE.Mesh(
+        new THREE.BoxGeometry(2.4, 0.05, 1.45),
+        new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.8 }),
+      );
+      upperRug.position.set(1.6, 2.66, HOUSE_CENTER_Z - 3.55);
+      const desk = new THREE.Mesh(
+        new THREE.BoxGeometry(1.7, 0.22, 0.92),
+        new THREE.MeshStandardMaterial({ color: 0x5d3a22, roughness: 0.84 }),
+      );
+      desk.position.set(3.2, 3.05, HOUSE_CENTER_Z - 4.4);
+      const bedUpper = new THREE.Mesh(
+        new THREE.BoxGeometry(2.15, 0.45, 1.05),
+        new THREE.MeshStandardMaterial({ color: 0x2f5f9f, roughness: 0.75 }),
+      );
+      bedUpper.position.set(-1.2, 2.88, HOUSE_CENTER_Z - 4.55);
+      room.add(upperFloor, upperRug, desk, bedUpper);
+
+      for (let i = 0; i < 9; i += 1) {
+        const step = new THREE.Mesh(
+          new THREE.BoxGeometry(2.2, 0.18, 0.52),
+          new THREE.MeshStandardMaterial({ color: 0x5b341d, roughness: 0.86 }),
+        );
+        const t = i / 8;
+        step.position.set(-3.25, 0.18 + t * 2.45, HOUSE_CENTER_Z + 2.3 - t * 4.0);
+        room.add(step);
+      }
+      for (const x of [-4.45, 4.45]) {
+        const rail = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, 0.72, 4.0),
+          new THREE.MeshStandardMaterial({ color: 0x3f2718, roughness: 0.84 }),
+        );
+        rail.position.set(x, 3.0, HOUSE_CENTER_Z - 3.55);
+        room.add(rail);
+      }
+    }
     this.scene.add(room);
     this.houseObjectIds.push(`loose-${room.uuid}`);
 
     const exitId = this.addWorldObject("houseExit", "문으로 나가기", this.createHouseExit(new THREE.Vector3(0, 0, HOUSE_CENTER_Z + 5.2))).id;
-    const chest = this.spawnChest(new THREE.Vector3(2.4, 0, HOUSE_CENTER_Z - 3.15), chestRich);
+    const chest = this.spawnChest(new THREE.Vector3(2.4, 0, HOUSE_CENTER_Z - 3.15), houseKind === "blacksmith" || chestRich);
     this.houseObjectIds.push(exitId, chest.id);
+    if (houseKind === "blacksmith") {
+      const workbench = this.spawnWorkbench(new THREE.Vector3(-3.15, 0, HOUSE_CENTER_Z + 1.9), true);
+      const smelter = this.spawnSmelter(new THREE.Vector3(0, 0, HOUSE_CENTER_Z - 2.55), true);
+      const grinder = this.spawnGrinder(new THREE.Vector3(3.15, 0, HOUSE_CENTER_Z + 1.7));
+      const smith = this.spawnBlacksmithNpc(new THREE.Vector3(0, 0, HOUSE_CENTER_Z + 1.35));
+      for (const station of [workbench, smelter, grinder]) {
+        station.lockedStation = true;
+        this.houseObjectIds.push(station.id);
+      }
+      this.houseObjectIds.push(smith.id);
+    }
   }
 
   private createHouseExit(position: THREE.Vector3) {
@@ -4541,16 +5637,99 @@ class WildernessGame {
     });
   }
 
+  private spawnPredator(position: THREE.Vector3, preferredType?: PredatorKind) {
+    position.y = this.getGroundHeightAt(position.x, position.z);
+    const predatorKind = preferredType ?? (Math.random() < 0.5 ? "wolf" : Math.random() < 0.72 ? "spider" : "lion");
+    const group = new THREE.Group();
+    const walkParts: WalkPartSetup[] = [];
+    const isSpider = predatorKind === "spider";
+    const color = predatorKind === "lion" ? 0xb77935 : predatorKind === "wolf" ? 0x6b7280 : 0x27272a;
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(isSpider ? 1.15 : predatorKind === "lion" ? 1.9 : 1.45, isSpider ? 0.32 : 0.72, isSpider ? 0.9 : 0.56),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.86 }),
+    );
+    body.position.y = isSpider ? 0.42 : 0.82;
+    const head = new THREE.Mesh(
+      new THREE.BoxGeometry(isSpider ? 0.46 : 0.5, isSpider ? 0.28 : 0.42, isSpider ? 0.5 : 0.42),
+      new THREE.MeshStandardMaterial({ color: predatorKind === "lion" ? 0xc88a45 : color, roughness: 0.84 }),
+    );
+    head.position.set(isSpider ? 0.72 : 0.98, isSpider ? 0.46 : 0.95, 0);
+    group.add(body, head);
+    const legCount = isSpider ? 8 : 4;
+    for (let index = 0; index < legCount; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const row = Math.floor(index / 2);
+      const leg = new THREE.Mesh(
+        new THREE.BoxGeometry(isSpider ? 0.08 : 0.14, isSpider ? 0.12 : 0.62, isSpider ? 0.62 : 0.14),
+        new THREE.MeshStandardMaterial({ color: isSpider ? 0x111827 : 0x2f2a25, roughness: 0.9 }),
+      );
+      leg.position.set(isSpider ? -0.36 + row * 0.28 : side * (row < 1 ? 0.48 : -0.48), isSpider ? 0.24 : 0.34, side * (isSpider ? 0.52 : 0.22));
+      leg.rotation.x = side * (isSpider ? 0.55 : 0);
+      walkParts.push({ object: leg, side: side * (row % 2 === 0 ? 1 : -1), axis: isSpider ? "z" : "x" });
+      group.add(leg);
+    }
+    for (const z of [-0.13, 0.13]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshStandardMaterial({ color: 0xfff7ed, roughness: 0.35 }));
+      eye.position.set(head.position.x + 0.26, head.position.y + 0.04, z);
+      group.add(eye);
+    }
+    if (predatorKind === "lion") {
+      const mane = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 8), new THREE.MeshStandardMaterial({ color: 0x7c3f18, roughness: 0.9 }));
+      mane.position.set(0.82, 0.95, 0);
+      mane.scale.set(0.8, 0.9, 0.8);
+      group.add(mane);
+    }
+    group.position.copy(position);
+    const nameByKind: Record<PredatorKind, string> = { wolf: "늑대", lion: "사자", spider: "거미" };
+    return this.addWorldObject("wildPredator", nameByKind[predatorKind], group, {
+      hp: predatorKind === "lion" ? 24 : predatorKind === "wolf" ? 14 : 10,
+      predatorKind,
+      collidable: true,
+      collisionRadius: isSpider ? 0.78 : predatorKind === "lion" ? 1.2 : 0.9,
+      collisionHeight: isSpider ? 0.7 : 1.25,
+      wanderAngle: Math.random() * Math.PI * 2,
+      attackDamage: predatorKind === "lion" ? 3 : 2,
+      walkCycle: this.createWalkCycle(walkParts, isSpider ? 0.9 : 0.55, isSpider ? 10 : 8, isSpider ? 0.045 : 0.035),
+    });
+  }
+
+  private spawnAntHill(position: THREE.Vector3, remaining = 5) {
+    position.y = this.getGroundHeightAt(position.x, position.z);
+    const group = new THREE.Group();
+    const dirt = new THREE.MeshStandardMaterial({ color: 0x7c4a2d, roughness: 0.96 });
+    const mound = new THREE.Mesh(new THREE.ConeGeometry(0.72, 0.5, 14), dirt);
+    mound.position.y = 0.25;
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.04, 10), new THREE.MeshStandardMaterial({ color: 0x1f130c, roughness: 1 }));
+    hole.position.y = 0.52;
+    group.add(mound, hole);
+    for (let i = 0; i < 7; i += 1) {
+      const ant = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 4), new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.7 }));
+      const angle = (i / 7) * Math.PI * 2;
+      ant.position.set(Math.cos(angle) * THREE.MathUtils.randFloat(0.35, 0.7), 0.56, Math.sin(angle) * THREE.MathUtils.randFloat(0.35, 0.7));
+      group.add(ant);
+    }
+    group.position.copy(position);
+    return this.addWorldObject("antHill", "개미굴", group, {
+      antMeatRemaining: remaining,
+      collisionRadius: 0.95,
+      collisionHeight: 0.6,
+    });
+  }
+
   private spawnVillage(position: THREE.Vector3, houseCount = 5, special = false) {
     const villageId = `village-${crypto.randomUUID()}`;
     position.y = this.getGroundHeightAt(position.x, position.z);
     this.spawnVillageHouse(position.clone().add(new THREE.Vector3(0, 0, 0)), "마을 식량창고", true, villageId);
 
     const ringRadius = special ? 27 : 18;
+    this.spawnVillageFence(position.clone(), ringRadius + 7, villageId);
     for (let i = 0; i < houseCount; i += 1) {
       const angle = (i / houseCount) * Math.PI * 2 + (special ? 0.16 : 0.32);
       const offset = new THREE.Vector3(Math.cos(angle) * ringRadius, 0, Math.sin(angle) * ringRadius);
-      this.spawnVillageHouse(position.clone().add(offset), special ? "큰 마을 집" : "주민의 집", false, villageId);
+      this.spawnVillageHouse(position.clone().add(offset), special ? "큰 마을 집" : "주민의 집", false, villageId, i % 4);
+    }
+    if (Math.random() < 0.5) {
+      this.spawnBlacksmith(position.clone().add(new THREE.Vector3(-ringRadius * 0.62, 0, ringRadius * 0.54)), villageId);
     }
 
     const well = new THREE.Group();
@@ -4593,24 +5772,121 @@ class WildernessGame {
       this.spawnRangedGuard(position.clone().add(new THREE.Vector3(14, 0, 18)), villageId, "villageArcher");
       this.spawnRangedGuard(position.clone().add(new THREE.Vector3(-18, 0, 12)), villageId, "villageMage");
     }
+    if (houseCount >= 15 && Math.random() < 0.01) this.spawnKing(position.clone().add(new THREE.Vector3(0, 0, 6)), villageId);
     this.spawnGolem(position.clone().add(new THREE.Vector3(-5, 0, 5)), villageId);
   }
 
-  private spawnVillageHouse(position: THREE.Vector3, name: string, isStorage: boolean, villageId: string) {
+  private spawnVillageFence(position: THREE.Vector3, radius: number, villageId: string) {
+    position.y = this.getGroundHeightAt(position.x, position.z);
+    const group = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x5b341d, roughness: 0.9 });
+    const darkWood = new THREE.MeshStandardMaterial({ color: 0x3f2718, roughness: 0.88 });
+    const stone = new THREE.MeshStandardMaterial({ color: 0x7a6f62, roughness: 0.96 });
+    const segments = 36;
+    const collisionSegments: CollisionSegment[] = [];
+    const gateIndices = new Set([0, 1, segments - 1, segments / 2 - 1, segments / 2, segments / 2 + 1]);
+
+    const makePost = (x: number, z: number, height: number) => {
+      const groundY = this.getGroundHeightAt(position.x + x, position.z + z) - position.y;
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.34, height, 0.34), wood);
+      post.position.set(x, groundY + height / 2 - 0.05, z);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.29, 0.34, 4), darkWood);
+      cap.position.set(x, groundY + height + 0.08, z);
+      cap.rotation.y = Math.PI / 4;
+      group.add(post, cap);
+    };
+    for (let i = 0; i < segments; i += 1) {
+      const angle = (i / segments) * Math.PI * 2;
+      if (gateIndices.has(i)) {
+        makePost(Math.cos(angle) * radius, Math.sin(angle) * radius, 1.95);
+        continue;
+      }
+      const nextAngle = ((i + 1) / segments) * Math.PI * 2;
+      const start = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+      const end = new THREE.Vector3(Math.cos(nextAngle) * radius, 0, Math.sin(nextAngle) * radius);
+      start.y = this.getGroundHeightAt(position.x + start.x, position.z + start.z) - position.y;
+      end.y = this.getGroundHeightAt(position.x + end.x, position.z + end.z) - position.y;
+      const mid = start.clone().add(end).multiplyScalar(0.5);
+      const length = Math.hypot(end.x - start.x, end.z - start.z);
+      const chordAngle = Math.atan2(end.z - start.z, end.x - start.x);
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(length + 0.08, 0.58, 0.5), stone);
+      base.position.set(mid.x, mid.y + 0.28, mid.z);
+      base.rotation.y = -chordAngle;
+      const lowerRail = new THREE.Mesh(new THREE.BoxGeometry(length + 0.18, 0.18, 0.22), darkWood);
+      lowerRail.position.set(mid.x, mid.y + 0.84, mid.z);
+      lowerRail.rotation.y = -chordAngle;
+      const upperRail = new THREE.Mesh(new THREE.BoxGeometry(length + 0.18, 0.18, 0.22), darkWood);
+      upperRail.position.set(mid.x, mid.y + 1.28, mid.z);
+      upperRail.rotation.y = -chordAngle;
+      group.add(base, lowerRail, upperRail);
+      makePost(start.x, start.z, 1.7);
+      makePost(end.x, end.z, 1.7);
+      collisionSegments.push({ start, end, halfWidth: 0.38, height: 1.62 });
+    }
+    group.position.copy(position);
+    return this.addWorldObject("villageFence", "마을 울타리", group, {
+      collidable: true,
+      collisionRadius: 0,
+      collisionHeight: 1.65,
+      collisionSegments,
+      terrainRadius: radius,
+      villageId,
+    });
+  }
+
+  private spawnKing(position: THREE.Vector3, villageId: string) {
+    position.y = this.getGroundHeightAt(position.x, position.z);
+    const group = new THREE.Group();
+    const robe = new THREE.MeshStandardMaterial({ color: 0x7c2d12, roughness: 0.76 });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.32, roughness: 0.35 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0xd1a17a, roughness: 0.78 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.25, 0.5), robe);
+    body.position.y = 0.98;
+    const cape = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.18, 0.08), new THREE.MeshStandardMaterial({ color: 0x3b0764, roughness: 0.82 }));
+    cape.position.set(0, 1.02, -0.3);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 10), skin);
+    head.position.y = 1.8;
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.34, 7), gold);
+    crown.position.y = 2.18;
+    const scepter = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 1.05, 8), gold);
+    scepter.position.set(0.58, 1.08, 0.18);
+    scepter.rotation.z = -0.18;
+    group.add(cape, body, head, crown, scepter);
+    group.position.copy(position);
+    return this.addWorldObject("villageKing", "왕", group, {
+      hp: 35,
+      armor: 8,
+      collidable: true,
+      collisionRadius: 0.72,
+      collisionHeight: 2.35,
+      villageId,
+    });
+  }
+
+  private spawnVillageHouse(position: THREE.Vector3, name: string, isStorage: boolean, villageId: string, variant = Math.floor(Math.random() * 4)) {
     position.y = this.getGroundHeightAt(position.x, position.z);
     const house = new THREE.Group();
-    const width = isStorage ? 6.2 : 4.8;
-    const depth = isStorage ? 4.6 : 4.2;
+    const isTwoStory = !isStorage && variant % 4 === 3;
+    const houseStyles = [
+      { width: 4.6, depth: 4.1, wall: 0x9f7650, roof: 0x6f3d2b, roofHeight: 1.65, chimneyX: 0.24, bodyHeight: 2.7 },
+      { width: 5.3, depth: 3.8, wall: 0x8f6847, roof: 0x42526b, roofHeight: 1.35, chimneyX: -0.22, bodyHeight: 2.7 },
+      { width: 4.2, depth: 4.9, wall: 0xa66a3f, roof: 0x5b341d, roofHeight: 1.9, chimneyX: 0.1, bodyHeight: 2.7 },
+      { width: 5.6, depth: 4.9, wall: 0x8b6f47, roof: 0x334155, roofHeight: 1.55, chimneyX: 0.25, bodyHeight: 4.85 },
+    ];
+    const style = isStorage ? { width: 7.1, depth: 5.5, wall: 0x8a5a32, roof: 0xb45309, roofHeight: 1.45, chimneyX: 0.28, bodyHeight: 2.7 } : houseStyles[variant % houseStyles.length];
+    const width = style.width;
+    const depth = style.depth;
     const hut = new THREE.Mesh(
-      new THREE.BoxGeometry(width, 2.7, depth),
-      new THREE.MeshStandardMaterial({ color: isStorage ? 0xb17b49 : 0x9f7650, roughness: 0.8 }),
+      new THREE.BoxGeometry(width, style.bodyHeight, depth),
+      new THREE.MeshStandardMaterial({ color: style.wall, roughness: 0.8 }),
     );
-    hut.position.y = 1.35;
+    hut.position.y = style.bodyHeight / 2;
     const roof = new THREE.Mesh(
-      new THREE.ConeGeometry(Math.max(width, depth) * 0.76, 1.7, 4),
-      new THREE.MeshStandardMaterial({ color: isStorage ? 0x7f3f2b : 0x6f3d2b, roughness: 0.85 }),
+      new THREE.ConeGeometry(Math.max(width, depth) * 0.76, style.roofHeight, 4),
+      new THREE.MeshStandardMaterial({ color: style.roof, roughness: 0.85 }),
     );
-    roof.position.y = 3.4;
+    roof.position.y = style.bodyHeight + style.roofHeight * 0.5;
     roof.rotation.y = Math.PI / 4;
     const door = new THREE.Mesh(
       new THREE.BoxGeometry(0.9, 1.45, 0.08),
@@ -4626,16 +5902,170 @@ class WildernessGame {
       new THREE.BoxGeometry(0.48, 1.05, 0.48),
       new THREE.MeshStandardMaterial({ color: 0x5b3428, roughness: 0.9 }),
     );
-    chimney.position.set(width * 0.24, 4.05, -depth * 0.18);
+    chimney.position.set(width * style.chimneyX, style.bodyHeight + 0.68, -depth * 0.18);
     house.add(hut, roof, door, windowA, windowB, chimney);
+    if (isStorage) {
+      const doubleDoor = new THREE.Mesh(new THREE.BoxGeometry(1.65, 1.75, 0.1), new THREE.MeshStandardMaterial({ color: 0x3f2415, roughness: 0.88 }));
+      doubleDoor.position.set(0, 0.88, depth / 2 + 0.07);
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.42, 0.1), new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0x7c2d12, emissiveIntensity: 0.12, roughness: 0.62 }));
+      sign.position.set(0, 2.35, depth / 2 + 0.09);
+      const awning = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.12, 0.72), new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.82 }));
+      awning.position.set(0, 2.0, depth / 2 + 0.42);
+      house.add(doubleDoor, sign, awning);
+      for (const x of [-2.8, 2.8]) {
+        const crate = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.62, 0.8), new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.9 }));
+        crate.position.set(x, 0.31, depth / 2 + 0.72);
+        const sack = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 7), new THREE.MeshStandardMaterial({ color: 0xd6b171, roughness: 0.95 }));
+        sack.position.set(x * 0.82, 0.34, depth / 2 + 0.98);
+        sack.scale.set(0.82, 1.05, 0.72);
+        house.add(crate, sack);
+      }
+    } else {
+      if (isTwoStory) {
+        const secondBand = new THREE.Mesh(new THREE.BoxGeometry(width * 1.04, 0.12, depth * 1.04), new THREE.MeshStandardMaterial({ color: 0x4b2e1c, roughness: 0.84 }));
+        secondBand.position.y = 2.55;
+        const upperWindowA = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.56, 0.08), windowMaterial);
+        upperWindowA.position.set(-width * 0.24, 3.55, depth / 2 + 0.058);
+        const upperWindowB = upperWindowA.clone();
+        upperWindowB.position.x = width * 0.24;
+        const balcony = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.15, 0.72), new THREE.MeshStandardMaterial({ color: 0x5b341d, roughness: 0.86 }));
+        balcony.position.set(0, 2.62, depth / 2 + 0.45);
+        const balconyRail = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.42, 0.1), new THREE.MeshStandardMaterial({ color: 0x3f2718, roughness: 0.84 }));
+        balconyRail.position.set(0, 2.92, depth / 2 + 0.78);
+        house.add(secondBand, upperWindowA, upperWindowB, balcony, balconyRail);
+      }
+      if (variant % 3 === 1) {
+        const porch = new THREE.Mesh(new THREE.BoxGeometry(width * 0.82, 0.16, 0.92), new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.9 }));
+        porch.position.set(0, 0.12, depth / 2 + 0.55);
+        const railA = new THREE.Mesh(new THREE.BoxGeometry(width * 0.78, 0.12, 0.12), new THREE.MeshStandardMaterial({ color: 0x4b2e1c, roughness: 0.86 }));
+        railA.position.set(0, 0.68, depth / 2 + 0.96);
+        house.add(porch, railA);
+      }
+      if (variant % 3 === 2) {
+        const sideShed = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.45, 1.55), new THREE.MeshStandardMaterial({ color: 0x7c5132, roughness: 0.84 }));
+        sideShed.position.set(-width / 2 - 0.55, 0.72, -0.25);
+        const planter = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.22, 0.34), new THREE.MeshStandardMaterial({ color: 0x5b341d, roughness: 0.9 }));
+        planter.position.set(width * 0.28, 0.55, depth / 2 + 0.14);
+        house.add(sideShed, planter);
+      }
+    }
     house.position.copy(position);
     return this.addWorldObject(isStorage ? "foodStorage" : "villageHouse", name, house, {
       collidable: true,
       collisionRadius: Math.max(width, depth) * 0.56,
-      collisionHeight: 3.4,
+      collisionHeight: isTwoStory ? 6.2 : 3.4,
       villageId,
       enterable: !isStorage,
+      houseKind: isTwoStory ? "twoStory" : "home",
       foodRemaining: isStorage ? 10 : undefined,
+    });
+  }
+
+  private spawnBlacksmith(position: THREE.Vector3, villageId: string) {
+    position.y = this.getGroundHeightAt(position.x, position.z);
+    const forge = new THREE.Group();
+    const width = 6.4;
+    const depth = 5.1;
+    const stone = new THREE.MeshStandardMaterial({ color: 0x6b7076, roughness: 0.88 });
+    const darkRoof = new THREE.MeshStandardMaterial({ color: 0x2f2f34, roughness: 0.82 });
+    const ember = new THREE.MeshStandardMaterial({ color: 0xff8a3d, emissive: 0xb45309, emissiveIntensity: 0.8, roughness: 0.45 });
+    const hut = new THREE.Mesh(new THREE.BoxGeometry(width, 2.9, depth), stone);
+    hut.position.y = 1.45;
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(width, depth) * 0.78, 1.55, 4), darkRoof);
+    roof.position.y = 3.42;
+    roof.rotation.y = Math.PI / 4;
+    const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.65, 0.7), darkRoof);
+    chimney.position.set(width * 0.25, 4.0, -depth * 0.12);
+    const forgeGlow = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.44, 0.1), ember);
+    forgeGlow.position.set(-width * 0.18, 0.9, depth / 2 + 0.06);
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.38, 0.08), new THREE.MeshStandardMaterial({ color: 0x3f2415, roughness: 0.78 }));
+    sign.position.set(0, 2.35, depth / 2 + 0.08);
+    const anvil = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.24, 0.42), new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.45, roughness: 0.4 }));
+    anvil.position.set(width * 0.24, 0.55, depth / 2 + 0.08);
+    forge.add(hut, roof, chimney, forgeGlow, sign, anvil);
+    forge.position.copy(position);
+    return this.addWorldObject("blacksmith", "대장간", forge, {
+      collidable: true,
+      collisionRadius: Math.max(width, depth) * 0.58,
+      collisionHeight: 3.5,
+      villageId,
+      enterable: true,
+      houseChestRich: true,
+      houseKind: "blacksmith",
+    });
+  }
+
+  private spawnBlacksmithNpc(position: THREE.Vector3, villageId = `blacksmith-${crypto.randomUUID()}`) {
+    position.y = this.locationMode === "house" ? 0 : this.getGroundHeightAt(position.x, position.z);
+    const group = new THREE.Group();
+    const skin = new THREE.MeshStandardMaterial({ color: 0xc58b64, roughness: 0.78 });
+    const sootSkin = new THREE.MeshStandardMaterial({ color: 0x8d5b3d, roughness: 0.82 });
+    const shirt = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.82 });
+    const apron = new THREE.MeshStandardMaterial({ color: 0x4a2d1a, roughness: 0.9 });
+    const leather = new THREE.MeshStandardMaterial({ color: 0x6b3f22, roughness: 0.86 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.72 });
+    const steel = new THREE.MeshStandardMaterial({ color: 0xb8c1cc, metalness: 0.45, roughness: 0.34 });
+    const ember = new THREE.MeshStandardMaterial({ color: 0xff8a2a, emissive: 0xc2410c, emissiveIntensity: 0.8, roughness: 0.45 });
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.92, 1.08, 0.52), shirt);
+    torso.position.y = 1.05;
+    const apronFront = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.86, 0.055), apron);
+    apronFront.position.set(0, 0.98, 0.3);
+    const apronNeck = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.07), leather);
+    apronNeck.position.set(0, 1.43, 0.31);
+    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.12, 0.58), leather);
+    belt.position.y = 0.58;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.33, 16, 12), skin);
+    head.position.y = 1.84;
+    const beard = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 8), dark);
+    beard.position.set(0, 1.68, 0.19);
+    beard.scale.set(1.05, 0.7, 0.72);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.35, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), dark);
+    hair.position.y = 1.95;
+    const goggles = new THREE.Mesh(new THREE.BoxGeometry(0.43, 0.09, 0.06), steel);
+    goggles.position.set(0, 1.86, 0.31);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), sootSkin);
+    nose.position.set(0, 1.78, 0.34);
+    group.add(torso, apronFront, apronNeck, belt, head, beard, hair, goggles, nose);
+
+    for (const x of [-0.12, 0.12]) {
+      const lens = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), dark);
+      lens.position.set(x, 1.86, 0.35);
+      group.add(lens);
+    }
+
+    for (const side of [-1, 1]) {
+      const upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.58, 0.22), shirt);
+      upperArm.position.set(side * 0.6, 1.08, 0.02);
+      upperArm.rotation.z = side * -0.22;
+      const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.105, 0.46, 10), sootSkin);
+      forearm.position.set(side * 0.72, 0.73, 0.08);
+      forearm.rotation.z = side * -0.18;
+      const glove = new THREE.Mesh(new THREE.SphereGeometry(0.105, 8, 6), dark);
+      glove.position.set(side * 0.76, 0.48, 0.12);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.58, 0.22), dark);
+      leg.position.set(side * 0.2, 0.28, 0);
+      const boot = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.32), leather);
+      boot.position.set(side * 0.2, 0.04, 0.06);
+      group.add(upperArm, forearm, glove, leg, boot);
+    }
+
+    const hammerHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.62, 8), leather);
+    hammerHandle.position.set(0.83, 0.55, 0.2);
+    hammerHandle.rotation.z = -0.72;
+    const hammerHead = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.14, 0.16), steel);
+    hammerHead.position.set(1.02, 0.78, 0.2);
+    hammerHead.rotation.z = -0.72;
+    const coalDust = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.03, 0.04), ember);
+    coalDust.position.set(-0.15, 1.28, 0.335);
+    group.add(hammerHandle, hammerHead, coalDust);
+
+    group.position.copy(position);
+    return this.addWorldObject("blacksmithNpc", "대장장이", group, {
+      collidable: true,
+      collisionRadius: 0.62,
+      collisionHeight: 2.25,
+      villageId,
     });
   }
 
@@ -5049,13 +6479,14 @@ class WildernessGame {
     });
   }
 
-  private spawnBed(position: THREE.Vector3, rotationY = 0) {
+  private createBedVisual(scale = 1) {
     const group = new THREE.Group();
     const wood = new THREE.MeshStandardMaterial({ color: 0x7a4a25, roughness: 0.82 });
     const darkWood = new THREE.MeshStandardMaterial({ color: 0x4b2e1c, roughness: 0.88 });
     const mattress = new THREE.MeshStandardMaterial({ color: 0xf3ead8, roughness: 0.9 });
     const blanket = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.78 });
     const pillow = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.86 });
+    const seam = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.82 });
 
     const frame = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.22, 2.65), wood);
     frame.position.y = 0.22;
@@ -5071,7 +6502,15 @@ class WildernessGame {
     headboard.position.set(0, 0.47, -1.5);
     const footboard = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.42, 0.16), darkWood);
     footboard.position.set(0, 0.28, 1.5);
-    group.add(base, frame, mat, cover, pillowMesh, headboard, footboard);
+    const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.24, 2.7), darkWood);
+    leftRail.position.set(-0.91, 0.26, 0);
+    const rightRail = leftRail.clone();
+    rightRail.position.x = 0.91;
+    const blanketFold = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.045, 0.08), seam);
+    blanketFold.position.set(0, 0.66, -0.22);
+    const pillowStripe = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.025, 0.045), mattress);
+    pillowStripe.position.set(0, 0.735, -0.72);
+    group.add(base, frame, mat, cover, blanketFold, pillowMesh, pillowStripe, headboard, footboard, leftRail, rightRail);
 
     for (const x of [-0.68, 0.68]) {
       for (const z of [-1.18, 1.18]) {
@@ -5081,6 +6520,12 @@ class WildernessGame {
       }
     }
 
+    group.scale.setScalar(scale);
+    return group;
+  }
+
+  private spawnBed(position: THREE.Vector3, rotationY = 0) {
+    const group = this.createBedVisual();
     group.position.copy(position);
     group.rotation.y = rotationY;
     return this.addWorldObject("bed", "침대", group, {
@@ -5156,6 +6601,40 @@ class WildernessGame {
       collisionRadius: 1.18,
       collisionHeight: 2.05,
     });
+  }
+
+  private spawnGrinder(position: THREE.Vector3) {
+    const group = this.createGrinderVisual();
+    group.position.copy(position);
+    return this.addWorldObject("grinder", "분쇄기", group, {
+      collidable: true,
+      collisionRadius: 1.15,
+      collisionHeight: 1.4,
+    });
+  }
+
+  private createGrinderVisual(scale = 1) {
+    const group = new THREE.Group();
+    const stone = new THREE.MeshStandardMaterial({ color: 0x5f666d, roughness: 0.9 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x2f3439, roughness: 0.82 });
+    const iron = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.25, roughness: 0.45 });
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.92, 0.22, 14), dark);
+    base.position.y = 0.11;
+    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.58, 0.62, 14), stone);
+    bowl.position.y = 0.52;
+    const topStone = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.18, 14), stone);
+    topStone.position.y = 0.92;
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.08, 10), iron);
+    axle.position.y = 0.94;
+    axle.rotation.z = Math.PI / 2;
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 0.72), iron);
+    handle.position.set(0.66, 0.94, 0);
+    const hopper = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.42, 4), dark);
+    hopper.position.set(-0.28, 1.23, 0);
+    hopper.rotation.y = Math.PI / 4;
+    group.add(base, bowl, topStone, axle, handle, hopper);
+    group.scale.setScalar(scale);
+    return group;
   }
 
   private createSmelterVisual(special: boolean, scale = 1) {
@@ -5360,6 +6839,7 @@ class WildernessGame {
     if (biome.kind === "mushroom") return terrainKind === "dirt";
     if (biome.kind === "swamp") return terrainKind === "swamp";
     if (biome.kind === "snow") return terrainKind === "snow" || terrainKind === "stone";
+    if (biome.kind === "lava") return terrainKind === "lava" || terrainKind === "stone";
     return false;
   }
 
