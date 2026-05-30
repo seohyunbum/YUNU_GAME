@@ -91,7 +91,8 @@ body {
 }
 
 .stats {
-  top: 14px;
+  top: auto;
+  bottom: 104px;
   font-size: clamp(12px, 1.7vw, 15px);
 }
 
@@ -122,14 +123,42 @@ body {
 }
 
 .prompt {
-  bottom: 92px;
+  bottom: 154px;
   font-size: clamp(12px, 1.8vw, 15px);
 }
 
 .message {
-  top: 58px;
-  min-height: 38px;
-  font-size: clamp(12px, 1.8vw, 15px);
+  top: 64px;
+  min-height: 46px;
+  padding: 12px 18px;
+  border: 2px solid rgba(250, 204, 21, 0.88);
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.34), 0 0 0 3px rgba(250, 204, 21, 0.18);
+  color: #fff7cc;
+  font-size: clamp(15px, 2vw, 20px);
+}
+
+.message:empty {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.message-pop {
+  animation: message-pop 0.22s ease-out;
+}
+
+@keyframes message-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .hotbar {
@@ -232,6 +261,99 @@ body {
   gap: 18px;
 }
 
+.inventory-panel {
+  width: min(980px, 94vw);
+  border-color: rgba(180, 124, 64, 0.48);
+  background:
+    linear-gradient(rgba(31, 24, 18, 0.92), rgba(31, 24, 18, 0.92)),
+    repeating-linear-gradient(90deg, #5c3a23 0 26px, #4f311d 26px 52px);
+}
+
+.inventory-subtitle {
+  margin-bottom: 0;
+  color: #d9c5a8;
+  font-size: 13px;
+}
+
+.inventory-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 16px;
+}
+
+.inventory-board,
+.craft-board {
+  padding: 12px;
+  border: 2px solid rgba(120, 78, 44, 0.78);
+  border-radius: 8px;
+  background: rgba(78, 52, 32, 0.74);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.04);
+}
+
+.inventory-label {
+  margin: 2px 0 8px;
+  color: #f8e7c9;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.inventory-grid,
+.item-slot-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.inventory-cell,
+.item-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-height: 56px;
+  border: 2px solid #2f2218;
+  border-radius: 6px;
+  background:
+    linear-gradient(145deg, rgba(71, 85, 105, 0.82), rgba(15, 23, 42, 0.92));
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.12),
+    inset -3px -3px 0 rgba(0, 0, 0, 0.32);
+}
+
+.slot-name {
+  display: block;
+  max-width: 100%;
+  padding: 0 3px;
+  overflow: hidden;
+  color: #fff7ed;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+}
+
+.slot-count {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  min-width: 18px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.hotbar-cell {
+  border-color: rgba(250, 204, 21, 0.56);
+}
+
+.locked-slot {
+  background:
+    repeating-linear-gradient(135deg, rgba(30, 23, 18, 0.82) 0 8px, rgba(55, 40, 29, 0.82) 8px 16px);
+  opacity: 0.42;
+}
+
 .item-list,
 .recipes,
 .recipe-lines {
@@ -252,12 +374,17 @@ body {
 }
 
 .item-button {
-  background: rgba(30, 41, 59, 0.95);
+  min-height: 56px;
+  padding: 4px;
+  background:
+    linear-gradient(145deg, rgba(71, 85, 105, 0.86), rgba(15, 23, 42, 0.94));
 }
 
 .item-button.selected {
   border-color: #facc15;
-  background: rgba(113, 63, 18, 0.95);
+  background:
+    linear-gradient(145deg, rgba(146, 64, 14, 0.92), rgba(69, 26, 3, 0.96));
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.2), inset 2px 2px 0 rgba(255, 255, 255, 0.12);
 }
 
 .icon-button {
@@ -272,6 +399,7 @@ body {
 
 .craft-slot {
   min-height: 76px;
+  padding: 4px;
   cursor: pointer;
 }
 
@@ -283,8 +411,9 @@ body {
 
 .inventory-hotbar {
   display: grid;
-  grid-template-columns: repeat(8, minmax(46px, 1fr));
+  grid-template-columns: repeat(8, minmax(52px, 1fr));
   gap: 6px;
+  margin-bottom: 16px;
 }
 
 .bag-grid {
@@ -294,8 +423,38 @@ body {
 }
 
 .mini-slot {
-  min-height: 44px;
   padding: 4px;
+}
+
+.item-slot-grid {
+  grid-template-columns: repeat(4, minmax(54px, 1fr));
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.crafting-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px 74px;
+  gap: 8px;
+  align-items: center;
+}
+
+.inventory-craft-grid {
+  grid-template-columns: repeat(2, minmax(72px, 1fr));
+}
+
+.craft-arrow,
+.craft-result,
+.empty-inventory {
+  display: grid;
+  place-items: center;
+  min-height: 54px;
+  border: 2px solid rgba(47, 34, 24, 0.78);
+  border-radius: 6px;
+  background: rgba(29, 21, 16, 0.56);
+  color: #f8e7c9;
+  font-weight: 900;
 }
 
 .recipe-card {
@@ -326,12 +485,56 @@ body {
   line-height: 1.5;
 }
 
+.cheat-panel {
+  width: min(1040px, 94vw);
+}
+
+.cheat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cheat-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.82);
+}
+
+.cheat-card strong,
+.cheat-card small {
+  display: block;
+}
+
+.cheat-card small {
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.cheat-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.cheat-actions button {
+  min-width: 46px;
+  min-height: 34px;
+}
+
 @media (max-width: 720px) {
   .panel {
     padding: 14px;
   }
 
   .panel-grid,
+  .inventory-layout,
   .recipe-card {
     grid-template-columns: 1fr;
   }
@@ -341,8 +544,26 @@ body {
     grid-template-columns: repeat(4, minmax(46px, 1fr));
   }
 
+  .item-slot-grid {
+    grid-template-columns: repeat(4, minmax(46px, 1fr));
+  }
+
+  .cheat-grid {
+    grid-template-columns: 1fr;
+  }
+
   .hotbar {
     grid-auto-columns: minmax(48px, 58px);
+  }
+
+  .stats {
+    bottom: 82px;
+    max-width: min(94vw, 560px);
+  }
+
+  .prompt {
+    bottom: 130px;
+    max-width: min(94vw, 560px);
   }
 
   .save-controls {
@@ -354,5 +575,10 @@ body {
   .save-controls button {
     min-width: 60px;
     padding: 0 8px;
+  }
+
+  .message {
+    top: 112px;
+    max-width: min(92vw, 560px);
   }
 }
