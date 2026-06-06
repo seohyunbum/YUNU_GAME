@@ -237,6 +237,7 @@ import {
   writeSaveSlots as writeRepositorySaveSlots,
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
+import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView } from "./ui/loadGamePanel";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import "./style.css";
@@ -6588,115 +6589,61 @@ class WildernessGame {
   }
 
   private renderInventoryPanel() {
-    const slotHtml = (slot: Slot, extraClass = "", source?: "hotbar" | "bag" | "craft", index?: number) => {
-      const targetAttrs = source !== undefined && index !== undefined ? ` data-slot-source="${source}" data-slot-index="${index}"` : "";
-      const moveSelected =
-        source !== undefined &&
-        index !== undefined &&
-        this.pendingStorageMove?.source === source &&
-        this.pendingStorageMove.index === index
-          ? " move-selected"
-          : "";
-      const dragAttrs =
-        slot.item && source !== undefined && index !== undefined
-          ? ` draggable="true" data-drop-item="${slot.item}"`
-          : "";
-      return `<div class="mini-slot inventory-cell${extraClass}${moveSelected}"${targetAttrs}${dragAttrs}>${
-        slot.item ? `<span class="slot-name">${this.shortName(slot.item)}</span><span class="slot-count">${slot.count}</span>` : ""
-      }</div>`;
-    };
-
-    const itemButtons = Object.entries(this.itemCounts())
-      .filter(([item]) => item !== "tutorial_book")
-      .map(([item, count]) => {
-        const selected = this.selectedCraftItem === item ? " selected" : "";
-        return `<button class="item-button item-slot${selected}" draggable="true" data-drop-item="${item}" data-select-item="${item}">
-          <span class="slot-name">${this.shortName(item)}</span>
-          <span class="slot-count">${count}</span>
-        </button>`;
-      })
-      .join("");
-
-    const craftSlots = this.craftSlots
-      .map((slot, index) => {
-        const label = slot.item ? `<span class="slot-name">${this.shortName(slot.item)}</span><span class="slot-count">${slot.count}</span>` : "";
-        const dragAttrs = slot.item ? ` draggable="true" data-drop-item="${slot.item}" data-slot-source="craft" data-slot-index="${index}"` : "";
-        return `<button class="craft-slot inventory-cell" data-craft-slot="${index}"${dragAttrs}>${label}</button>`;
-      })
-      .join("");
-
-    const bagGrid =
+    const slotView = (slot: Slot, source: "hotbar" | "bag", index: number, extraClass = "") => ({
+      item: slot.item,
+      label: slot.item ? this.shortName(slot.item) : "",
+      count: slot.count,
+      source,
+      index,
+      extraClass,
+      moveSelected: this.pendingStorageMove?.source === source && this.pendingStorageMove.index === index,
+    });
+    const bagSlots =
       this.bagSlots.length > 0
-        ? this.bagSlots.map((slot, index) => slotHtml(slot, "", "bag", index)).join("")
-        : Array.from({ length: 40 }, () => '<div class="mini-slot inventory-cell locked-slot"></div>').join("");
-    const buildOptions = HOUSE_BUILD_OPTIONS.map((option) => {
-      const disabled = this.hasIngredients(option.ingredients) && this.locationMode === "overworld" ? "" : "disabled";
-      return `<article class="recipe-card house-build-card">
-        <div>
-          <strong>${option.name}</strong>
-          <p>${option.description}</p>
-          <small>${this.formatItemBundle(option.ingredients)}</small>
-        </div>
-        <button data-build-house="${option.id}" ${disabled}>집짓기</button>
-      </article>`;
-    }).join("");
+        ? this.bagSlots.map((slot, index) => slotView(slot, "bag", index))
+        : Array.from({ length: 40 }, () => ({ item: null, label: "", count: 0, locked: true }));
 
-    this.panelEl.innerHTML = `
-      <section class="panel inventory-panel">
-        <header>
-          <div>
-            <h2>인벤토리</h2>
-            <p class="inventory-subtitle">재료 위치는 상관없고 조합만 맞으면 제작됩니다.</p>
-          </div>
-          <button class="icon-button" data-close>닫기</button>
-        </header>
-        <div class="inventory-layout">
-          <section class="craft-board house-build-panel">
-            <div class="inventory-label">집짓기</div>
-            <div class="recipes house-build-list">${buildOptions}</div>
-          </section>
-          <section class="inventory-board">
-            <div class="inventory-label">하단 핫바 ${this.hotbar.length}칸</div>
-            <div class="inventory-hotbar inventory-grid">${this.hotbar.map((slot, index) => slotHtml(slot, " hotbar-cell", "hotbar", index)).join("")}</div>
-            <div class="inventory-label">가방 ${this.bagSlots.length > 0 ? "40칸" : "잠김"}</div>
-            <div class="bag-grid inventory-grid">${bagGrid}</div>
-          </section>
-
-          <section class="craft-board">
-            <div class="inventory-label">미니 제작대 2x2</div>
-            <div class="crafting-flow">
-              <div class="craft-grid inventory-craft-grid">${craftSlots}</div>
-              <div class="craft-arrow">→</div>
-              <div class="craft-result">제작</div>
-            </div>
-            <div class="panel-actions">
-              <button data-mini-craft>제작</button>
-              <button data-clear-craft>재료 빼기</button>
-            </div>
-            <div class="inventory-label">재료 선택</div>
-            <div class="item-list item-slot-grid">${itemButtons || '<div class="empty-inventory">비어 있음</div>'}</div>
-            <div class="ground-drop-zone" data-ground-drop>여기로 드래그하면 일반 아이템은 버리고 설치 아이템은 설치</div>
-          </section>
-        </div>
-      </section>
-    `;
-
-    this.bindPanelBasics();
-    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-select-item]").forEach((button) => {
-      button.addEventListener("click", () => {
-        this.selectedCraftItem = button.dataset.selectItem ?? null;
-        this.renderInventoryPanel();
-      });
-    });
-    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-craft-slot]").forEach((button) => {
-      button.addEventListener("click", () => this.handleCraftSlotClick(Number(button.dataset.craftSlot)));
-    });
-    this.panelEl.querySelector<HTMLButtonElement>("[data-mini-craft]")?.addEventListener("click", () => this.craftMiniRecipe());
-    this.panelEl.querySelector<HTMLButtonElement>("[data-clear-craft]")?.addEventListener("click", () => this.clearCraftSlots());
-    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-build-house]").forEach((button) => {
-      button.addEventListener("click", () => this.buildPlayerHouse(button.dataset.buildHouse ?? ""));
-    });
-    this.bindInventoryDragDrop();
+    renderInventoryPanelView(
+      this.panelEl,
+      {
+        hotbarCount: this.hotbar.length,
+        hotbar: this.hotbar.map((slot, index) => slotView(slot, "hotbar", index, " hotbar-cell")),
+        bagLabel: this.bagSlots.length > 0 ? "40칸" : "잠김",
+        bagSlots,
+        craftSlots: this.craftSlots.map((slot) => ({
+          item: slot.item,
+          label: slot.item ? this.shortName(slot.item) : "",
+          count: slot.count,
+        })),
+        materials: Object.entries(this.itemCounts())
+          .filter(([item]) => item !== "tutorial_book")
+          .map(([item, count]) => ({
+            item,
+            label: this.shortName(item),
+            count,
+            selected: this.selectedCraftItem === item,
+          })),
+        houseBuildOptions: HOUSE_BUILD_OPTIONS.map((option) => ({
+          id: option.id,
+          name: option.name,
+          description: option.description,
+          ingredientsLabel: this.formatItemBundle(option.ingredients),
+          canBuild: this.hasIngredients(option.ingredients) && this.locationMode === "overworld",
+        })),
+      },
+      {
+        onClose: () => this.closePanel(),
+        onSelectItem: (item) => {
+          this.selectedCraftItem = item;
+          this.renderInventoryPanel();
+        },
+        onCraftSlotClick: (index) => this.handleCraftSlotClick(index),
+        onMiniCraft: () => this.craftMiniRecipe(),
+        onClearCraft: () => this.clearCraftSlots(),
+        onBuildHouse: (id) => this.buildPlayerHouse(id),
+        bindDragDrop: () => this.bindInventoryDragDrop(),
+      },
+    );
   }
 
   private renderBookPanel() {
