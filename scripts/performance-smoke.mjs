@@ -4,11 +4,11 @@ import { chromium } from "playwright-core";
 // 성능 예산 (ratchet: 내려가기만) — AGENTS.md §10 참조.
 // 씬 카운트는 런-간 분산 <1% 라 신뢰 가능한 게이트. 프레임타임은 머신 의존이라 느슨한 상한만 둔다.
 const PERF_BUDGET = {
-  fieldVisibleMeshes: 6600, // baseline ~6175
+  fieldVisibleMeshes: 6200, // baseline ~5805 after invisible raycast targets are hidden from rendering
   fieldObjects: 1520, // baseline ~1414
   fieldRaycastTargets: 4400, // baseline ~4100
-  villageVisibleMeshes: 6200, // baseline ~5700
-  villageVisibleOutlines: 1500, // baseline ~1350
+  villageVisibleMeshes: 4400, // baseline ~4046 after adaptive outline hiding
+  villageVisibleOutlines: 50, // balanced/performance quality should hide cartoon outlines
   fieldAvgMsCeiling: 45, // 머신 의존 — 파국 방지용 느슨한 상한 (현재 ~30)
 };
 
