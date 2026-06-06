@@ -2791,25 +2791,19 @@ class WildernessGame {
     return true;
   }
 
+  // 데이터주도 스킬 디스패치 — Record<PlayerClassId> 라 새 직업을 추가하면
+  // 여기에 핸들러를 안 넣는 한 컴파일 에러가 난다(누락 방지). (AGENTS.md §1, 거버넌스 P2)
+  private readonly classSkillHandlers: Record<PlayerClassId, () => void> = {
+    warrior: () => this.useWarriorSkill(),
+    healer: () => this.useHealerSkill(),
+    mage: () => this.useMageSkill(),
+    summoner: () => this.useSummonerSkill(),
+    gunner: () => this.useGunnerSkill(),
+  };
+
   private useClassSkill() {
     if (!this.gameStarted || this.currentPanel !== null) return;
-    if (this.playerClass === "healer") {
-      this.useHealerSkill();
-      return;
-    }
-    if (this.playerClass === "summoner") {
-      this.useSummonerSkill();
-      return;
-    }
-    if (this.playerClass === "warrior") {
-      this.useWarriorSkill();
-      return;
-    }
-    if (this.playerClass === "gunner") {
-      this.useGunnerSkill();
-      return;
-    }
-    this.useMageSkill();
+    this.classSkillHandlers[this.playerClass]?.();
   }
 
   private useHealerSkill() {
