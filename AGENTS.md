@@ -65,11 +65,11 @@
 - 커밋은 **pathspec 으로 대상 한정**. 무관한 staged 파일을 섞지 않는다.
 - `SavedGame` 형태를 바꿨으면 → `SAVE_VERSION` 올리고 마이그레이션 + roundtrip 테스트 추가.
 
-## 7. main.ts 크기 예산 (ratchet)
+## 7. main.ts 예산 (ratchet — 줄 수 + 메서드 수)
 
-- `npm run check:size` 가 예산 초과 시 실패한다. 예산은 **내려가기만** 한다.
-- main.ts 를 줄였으면 `scripts/check-main-size.mjs` 의 `MAX_MAIN_LINES` 를 새 줄 수로 낮춘다.
-- 새 메서드를 넣었으면 다른 곳에서 그만큼 빼서 갚는다.
+- `npm run check:size` = 줄 수, `npm run check:methods` = **메서드 수**(= God Object 의 책임 수). 둘 다 초과 시 실패하며 **내려가기만** 한다.
+- **줄 수는 비주얼/순수부만 빼도 줄지만, 메서드 수는 "메서드 통째 이동" 때만 줄어든다.** 그래서 둘을 함께 본다 — 줄만 줄고 메서드가 안 줄면 God Object 는 그대로다.
+- main.ts 를 줄였으면 `MAX_MAIN_LINES`·`MAX_METHODS` 를 새 값으로 낮춰 조인다.
 
 ## 8. 테스트·게이트
 

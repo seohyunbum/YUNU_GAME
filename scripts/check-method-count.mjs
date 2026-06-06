@@ -1,0 +1,23 @@
+import { readFileSync } from "node:fs";
+
+// WildernessGame 의 메서드 수 = God Object 의 "책임 수" 직접 지표.
+// 줄 수(check:size)는 비주얼/순수부만 빼도 줄지만, 메서드 수는 "메서드 통째 이동" 때만 줄어든다.
+// 그래서 둘을 함께 본다. 예산은 ratchet: 내려가기만. (AGENTS.md §1·§7)
+const MAX_METHODS = 490;
+
+const file = new URL("../src/main.ts", import.meta.url);
+const text = readFileSync(file, "utf8");
+const methodPattern = /^ {2}(?:private |public |protected |readonly |async )*[A-Za-z0-9_]+\s*\(/;
+const count = text.split("\n").filter((line) => methodPattern.test(line)).length;
+const headroom = MAX_METHODS - count;
+
+if (count > MAX_METHODS) {
+  console.error(`✗ src/main.ts 메서드 ${count}개로 예산(${MAX_METHODS}) 초과 (+${count - MAX_METHODS}).`);
+  console.error("  비주얼/순수부만 빼지 말고, 메서드를 통째로 src/game/·src/ui/ 로 옮겨 클래스에서 제거하세요. (AGENTS.md §1)");
+  process.exit(1);
+}
+
+console.log(`✓ src/main.ts 메서드 ${count}개 / 예산 ${MAX_METHODS} (여유 ${headroom}).`);
+if (headroom >= 15) {
+  console.log(`  ↓ 여유가 큽니다. scripts/check-method-count.mjs 의 MAX_METHODS 를 ${count} 근처로 낮춰 조이세요.`);
+}
