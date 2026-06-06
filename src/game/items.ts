@@ -1,4 +1,4 @@
-import { BOW_DAMAGE, MAGIC_WAND_DAMAGE } from "./constants";
+import { BOW_DAMAGE, MAGIC_WAND_DAMAGE, PISTOL_DAMAGE } from "./constants";
 import type { ItemId, ObjectType } from "./types";
 
 export const ITEM_NAMES: Record<ItemId, string> = {
@@ -19,6 +19,7 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   building_block: "쌓기블록",
   bow: "활",
   magic_wand: "마법봉",
+  pistol: "권총",
   bucket: "양동이",
   water_bucket: "물 양동이",
   lava_bucket: "용암 양동이",
@@ -138,6 +139,7 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   obsidian_sword: 100,
   bow: BOW_DAMAGE,
   magic_wand: MAGIC_WAND_DAMAGE,
+  pistol: PISTOL_DAMAGE,
   weak_wood_axe: 3,
   sharp_wood_axe: 6,
   stone_axe: 8,
@@ -146,7 +148,7 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   gold_axe: 14,
   diamond_axe: 22,
 };
-export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => item !== "bow" && item !== "magic_wand")) as Record<ItemId, number>;
+export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => item !== "bow" && item !== "magic_wand" && item !== "pistol")) as Record<ItemId, number>;
 
 export const ARMOR_VALUE: Record<ItemId, number> = {
   leather_armor: 5,

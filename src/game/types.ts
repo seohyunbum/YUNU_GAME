@@ -8,7 +8,7 @@ export type PredatorKind = "wolf" | "lion" | "spider";
 export type BossKind = "dragon" | "fire_dragon" | "red_dragon" | "laser_dragon" | "dark_dragon" | "immortal";
 export type HouseKind = "home" | "blacksmith" | "twoStory";
 export type QualityMode = "high" | "balanced" | "performance";
-export type PlayerClassId = "warrior" | "healer" | "mage" | "summoner";
+export type PlayerClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner";
 export type ObjectType =
   | "smallTree"
   | "bigTree"

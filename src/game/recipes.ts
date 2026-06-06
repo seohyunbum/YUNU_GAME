@@ -40,6 +40,15 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     extendedOnly: true,
   },
   {
+    id: "pistol",
+    name: "권총",
+    output: "pistol",
+    count: 1,
+    ingredients: { refined_iron: 18, obsidian: 5 },
+    note: "확장 제작대 전용입니다. 거너의 주력 원거리 무기입니다.",
+    extendedOnly: true,
+  },
+  {
     id: "grinder",
     name: "분쇄기",
     output: "grinder",

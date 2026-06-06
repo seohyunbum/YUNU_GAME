@@ -90,6 +90,7 @@ export const MAGE_TNT_RADIUS = PLAYER_RADIUS * 7.2;
 export const GUNNER_SKILL_COST = 50;
 export const GUNNER_SKILL_COOLDOWN = 500;
 export const GUNNER_SKILL_DAMAGE = 100;
+export const PISTOL_DAMAGE = 2;
 export const BASE_PLAYER_MAX_HEALTH = 10;
 export const BUILDING_BLOCK_SIZE = 1;
 export const BUILDING_BLOCK_REACH = 6.2;
