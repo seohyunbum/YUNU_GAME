@@ -4,12 +4,12 @@ import { chromium } from "playwright-core";
 // 성능 예산 (ratchet: 내려가기만) — AGENTS.md §10 참조.
 // 씬 카운트는 런-간 분산 <1% 라 신뢰 가능한 게이트. 프레임타임은 머신 의존이라 느슨한 상한만 둔다.
 const PERF_BUDGET = {
-  fieldVisibleMeshes: 6200, // baseline ~5805 after invisible raycast targets are hidden from rendering
+  fieldVisibleMeshes: 4500, // baseline ~4018 after non-interactive biome decor instancing
   fieldObjects: 1520, // baseline ~1414
   fieldRaycastTargets: 4400, // baseline ~4100
-  villageVisibleMeshes: 4400, // baseline ~4046 after adaptive outline hiding
+  villageVisibleMeshes: 4000, // baseline ~3592 after non-interactive biome decor instancing
   villageVisibleOutlines: 50, // balanced/performance quality should hide cartoon outlines
-  fieldAvgMsCeiling: 45, // 머신 의존 — 파국 방지용 느슨한 상한 (현재 ~30)
+  fieldAvgMsCeiling: 40, // 머신 의존 — 파국 방지용 느슨한 상한 (현재 ~21)
 };
 
 const chromeCandidates = [
@@ -265,7 +265,9 @@ if (startingProfile.available) {
 }
 if (villageProfile.available) {
   checkBudget("village.visibleMeshCount", villageProfile.visibleMeshCount, PERF_BUDGET.villageVisibleMeshes);
-  checkBudget("village.visibleOutlineCount", villageProfile.visibleOutlineCount, PERF_BUDGET.villageVisibleOutlines);
+  if (villageProfile.qualityMode !== "high") {
+    checkBudget("village.visibleOutlineCount", villageProfile.visibleOutlineCount, PERF_BUDGET.villageVisibleOutlines);
+  }
 }
 checkBudget("field.averageMs", field.averageMs, PERF_BUDGET.fieldAvgMsCeiling);
 

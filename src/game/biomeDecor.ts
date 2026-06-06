@@ -21,6 +21,13 @@ export function createBiomeDecor(context: BiomeDecorContext) {
   }
 }
 
+function finalizeInstances(...meshes: THREE.InstancedMesh[]) {
+  for (const mesh of meshes) {
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }
+}
+
 function createBambooBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   const group = new THREE.Group();
   const count = 575;
@@ -70,80 +77,145 @@ function createBambooBiome(context: BiomeDecorContext, biome: BiomeConfig) {
 
 function createMushroomBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   const group = new THREE.Group();
-  for (let i = 0; i < 34; i += 1) {
+  const count = 34;
+  const redCount = Math.ceil(count / 3);
+  const purpleCount = count - redCount;
+  const stemMesh = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.12, 0.18, 1, 10),
+    new THREE.MeshStandardMaterial({ color: 0xe8d2b4, roughness: 0.86 }),
+    count,
+  );
+  const redCapMesh = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(0.5, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0xb93848, roughness: 0.78 }),
+    redCount,
+  );
+  const purpleCapMesh = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(0.5, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x7b4ab0, roughness: 0.78 }),
+    purpleCount,
+  );
+  const dummy = new THREE.Object3D();
+  let redIndex = 0;
+  let purpleIndex = 0;
+  for (let i = 0; i < count; i += 1) {
     const point = context.randomPointInCircle(biome.center, biome.radius * 0.86);
     const height = THREE.MathUtils.randFloat(0.7, 2.4);
-    const stem = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12 * height, 0.18 * height, height, 10),
-      new THREE.MeshStandardMaterial({ color: 0xe8d2b4, roughness: 0.86 }),
-    );
-    stem.position.set(point.x, point.y + height / 2, point.z);
-    const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5 * height, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: i % 3 === 0 ? 0xb93848 : 0x7b4ab0, roughness: 0.78 }),
-    );
-    cap.position.set(point.x, point.y + height, point.z);
-    group.add(stem, cap);
+    dummy.position.set(point.x, point.y + height / 2, point.z);
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(height, height, height);
+    dummy.updateMatrix();
+    stemMesh.setMatrixAt(i, dummy.matrix);
+
+    dummy.position.set(point.x, point.y + height, point.z);
+    dummy.rotation.set(0, THREE.MathUtils.randFloat(0, Math.PI * 2), 0);
+    dummy.scale.set(height, height, height);
+    dummy.updateMatrix();
+    if (i % 3 === 0) {
+      redCapMesh.setMatrixAt(redIndex, dummy.matrix);
+      redIndex += 1;
+    } else {
+      purpleCapMesh.setMatrixAt(purpleIndex, dummy.matrix);
+      purpleIndex += 1;
+    }
   }
+  finalizeInstances(stemMesh, redCapMesh, purpleCapMesh);
+  group.add(stemMesh, redCapMesh, purpleCapMesh);
   context.addBiomeMesh(group);
 }
 
 function createSwampBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   const group = new THREE.Group();
-  for (let i = 0; i < 7; i += 1) {
+  const pondCount = 7;
+  const trunkCount = 18;
+  const pondMesh = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(1, 1, 0.05, 24),
+    new THREE.MeshStandardMaterial({ color: 0x365f62, roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.7 }),
+    pondCount,
+  );
+  const trunkMesh = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.12, 0.22, 1, 7),
+    new THREE.MeshStandardMaterial({ color: 0x4b3824, roughness: 1 }),
+    trunkCount,
+  );
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < pondCount; i += 1) {
     const point = context.randomPointInCircle(biome.center, biome.radius * 0.72);
-    const pond = new THREE.Mesh(
-      new THREE.CylinderGeometry(THREE.MathUtils.randFloat(3.2, 6.8), THREE.MathUtils.randFloat(3.2, 6.8), 0.05, 24),
-      new THREE.MeshStandardMaterial({ color: 0x365f62, roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.7 }),
-    );
-    pond.position.set(point.x, point.y + 0.035, point.z);
-    group.add(pond);
+    const radius = THREE.MathUtils.randFloat(3.2, 6.8);
+    dummy.position.set(point.x, point.y + 0.035, point.z);
+    dummy.rotation.set(0, THREE.MathUtils.randFloat(0, Math.PI * 2), 0);
+    dummy.scale.set(radius, 1, radius * THREE.MathUtils.randFloat(0.72, 1.1));
+    dummy.updateMatrix();
+    pondMesh.setMatrixAt(i, dummy.matrix);
   }
-  for (let i = 0; i < 18; i += 1) {
+  for (let i = 0; i < trunkCount; i += 1) {
     const point = context.randomPointInCircle(biome.center, biome.radius * 0.88);
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.22, THREE.MathUtils.randFloat(1.2, 2.4), 7),
-      new THREE.MeshStandardMaterial({ color: 0x4b3824, roughness: 1 }),
-    );
-    trunk.position.set(point.x, point.y + 0.8, point.z);
-    trunk.rotation.z = THREE.MathUtils.randFloat(-0.28, 0.28);
-    group.add(trunk);
+    const height = THREE.MathUtils.randFloat(1.2, 2.4);
+    dummy.position.set(point.x, point.y + 0.8, point.z);
+    dummy.rotation.set(0, 0, THREE.MathUtils.randFloat(-0.28, 0.28));
+    dummy.scale.set(1, height, 1);
+    dummy.updateMatrix();
+    trunkMesh.setMatrixAt(i, dummy.matrix);
   }
+  finalizeInstances(pondMesh, trunkMesh);
+  group.add(pondMesh, trunkMesh);
   context.addBiomeMesh(group);
 }
 
 function createSnowBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   const group = new THREE.Group();
-  for (let i = 0; i < 34; i += 1) {
+  const count = 34;
+  const trunkMesh = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.08, 0.14, 1, 8),
+    new THREE.MeshStandardMaterial({ color: 0x5b321f, roughness: 0.9 }),
+    count,
+  );
+  const snowTopMesh = new THREE.InstancedMesh(
+    new THREE.ConeGeometry(0.72, 1, 9),
+    new THREE.MeshStandardMaterial({ color: 0xe9f5f7, roughness: 0.9 }),
+    count,
+  );
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < count; i += 1) {
     const point = context.randomPointInCircle(biome.center, biome.radius * 0.86);
     const height = THREE.MathUtils.randFloat(1.8, 3.5);
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.14, height * 0.6, 8),
-      new THREE.MeshStandardMaterial({ color: 0x5b321f, roughness: 0.9 }),
-    );
-    trunk.position.set(point.x, point.y + height * 0.3, point.z);
-    const snowTop = new THREE.Mesh(
-      new THREE.ConeGeometry(0.72, height, 9),
-      new THREE.MeshStandardMaterial({ color: 0xe9f5f7, roughness: 0.9 }),
-    );
-    snowTop.position.set(point.x, point.y + height * 0.78, point.z);
-    group.add(trunk, snowTop);
+    dummy.position.set(point.x, point.y + height * 0.3, point.z);
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(1, height * 0.6, 1);
+    dummy.updateMatrix();
+    trunkMesh.setMatrixAt(i, dummy.matrix);
+
+    dummy.position.set(point.x, point.y + height * 0.78, point.z);
+    dummy.rotation.set(0, THREE.MathUtils.randFloat(0, Math.PI * 2), 0);
+    dummy.scale.set(1, height, 1);
+    dummy.updateMatrix();
+    snowTopMesh.setMatrixAt(i, dummy.matrix);
   }
+  finalizeInstances(trunkMesh, snowTopMesh);
+  group.add(trunkMesh, snowTopMesh);
   context.addBiomeMesh(group);
 }
 
 function createMountainBiomeDecor(context: BiomeDecorContext, biome: BiomeConfig) {
   const group = new THREE.Group();
-  for (let i = 0; i < 28; i += 1) {
+  const count = 28;
+  const rockMesh = new THREE.InstancedMesh(
+    new THREE.DodecahedronGeometry(1),
+    new THREE.MeshStandardMaterial({ color: 0x697178, roughness: 1 }),
+    count,
+  );
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < count; i += 1) {
     const point = context.randomPointInCircle(biome.center, biome.radius * 0.9);
-    const rock = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(THREE.MathUtils.randFloat(0.7, 2.1)),
-      new THREE.MeshStandardMaterial({ color: 0x697178, roughness: 1 }),
-    );
-    rock.position.set(point.x, point.y + THREE.MathUtils.randFloat(0.4, 1.1), point.z);
-    rock.scale.y = THREE.MathUtils.randFloat(0.55, 1.25);
-    group.add(rock);
+    const size = THREE.MathUtils.randFloat(0.7, 2.1);
+    dummy.position.set(point.x, point.y + THREE.MathUtils.randFloat(0.4, 1.1), point.z);
+    dummy.rotation.set(THREE.MathUtils.randFloatSpread(0.5), THREE.MathUtils.randFloat(0, Math.PI * 2), THREE.MathUtils.randFloatSpread(0.5));
+    dummy.scale.set(size, size * THREE.MathUtils.randFloat(0.55, 1.25), size);
+    dummy.updateMatrix();
+    rockMesh.setMatrixAt(i, dummy.matrix);
   }
+  finalizeInstances(rockMesh);
+  group.add(rockMesh);
   context.addBiomeMesh(group);
 }
 
@@ -159,25 +231,48 @@ function createLavaBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   const crustMaterial = new THREE.MeshStandardMaterial({ color: 0x23201e, roughness: 0.95 });
   const emberMaterial = new THREE.MeshStandardMaterial({ color: 0xffc857, emissive: 0xff6a00, emissiveIntensity: 0.9, roughness: 0.5 });
 
-  for (let i = 0; i < 11; i += 1) {
+  const poolCount = 11;
+  const emberCount = 46;
+  const poolMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 0.08, 28), lavaMaterial, poolCount);
+  const rimMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.1, 1.05, 0.12, 28), crustMaterial, poolCount);
+  const rockMesh = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1), crustMaterial, emberCount);
+  const emberMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), emberMaterial, emberCount);
+  const dummy = new THREE.Object3D();
+
+  for (let i = 0; i < poolCount; i += 1) {
     const point = context.randomPointInCircle(biome.center, biome.radius * 0.82);
     const poolRadius = THREE.MathUtils.randFloat(2.4, 6.8);
-    const pool = new THREE.Mesh(new THREE.CylinderGeometry(poolRadius, poolRadius * THREE.MathUtils.randFloat(0.72, 1.1), 0.08, 28), lavaMaterial);
-    pool.position.set(point.x, point.y + 0.12, point.z);
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(poolRadius * 1.1, poolRadius * 1.05, 0.12, 28), crustMaterial);
-    rim.position.set(point.x, point.y + 0.06, point.z);
-    group.add(rim, pool);
+    const stretch = THREE.MathUtils.randFloat(0.72, 1.1);
+    dummy.position.set(point.x, point.y + 0.12, point.z);
+    dummy.rotation.set(0, THREE.MathUtils.randFloat(0, Math.PI * 2), 0);
+    dummy.scale.set(poolRadius, 1, poolRadius * stretch);
+    dummy.updateMatrix();
+    poolMesh.setMatrixAt(i, dummy.matrix);
+
+    dummy.position.set(point.x, point.y + 0.06, point.z);
+    dummy.scale.set(poolRadius, 1, poolRadius * stretch);
+    dummy.updateMatrix();
+    rimMesh.setMatrixAt(i, dummy.matrix);
   }
 
-  for (let i = 0; i < 46; i += 1) {
+  for (let i = 0; i < emberCount; i += 1) {
     const point = context.randomPointInCircle(biome.center, biome.radius * 0.92);
-    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(THREE.MathUtils.randFloat(0.45, 1.55)), crustMaterial);
-    rock.position.set(point.x, point.y + THREE.MathUtils.randFloat(0.22, 0.85), point.z);
-    rock.scale.y = THREE.MathUtils.randFloat(0.45, 1.05);
-    const ember = new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.05, 0.14), 8, 6), emberMaterial);
-    ember.position.set(point.x + THREE.MathUtils.randFloatSpread(0.45), point.y + THREE.MathUtils.randFloat(0.18, 0.75), point.z + THREE.MathUtils.randFloatSpread(0.45));
-    group.add(rock, ember);
+    const rockSize = THREE.MathUtils.randFloat(0.45, 1.55);
+    dummy.position.set(point.x, point.y + THREE.MathUtils.randFloat(0.22, 0.85), point.z);
+    dummy.rotation.set(THREE.MathUtils.randFloatSpread(0.7), THREE.MathUtils.randFloat(0, Math.PI * 2), THREE.MathUtils.randFloatSpread(0.7));
+    dummy.scale.set(rockSize, rockSize * THREE.MathUtils.randFloat(0.45, 1.05), rockSize);
+    dummy.updateMatrix();
+    rockMesh.setMatrixAt(i, dummy.matrix);
+
+    const emberSize = THREE.MathUtils.randFloat(0.05, 0.14);
+    dummy.position.set(point.x + THREE.MathUtils.randFloatSpread(0.45), point.y + THREE.MathUtils.randFloat(0.18, 0.75), point.z + THREE.MathUtils.randFloatSpread(0.45));
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.setScalar(emberSize);
+    dummy.updateMatrix();
+    emberMesh.setMatrixAt(i, dummy.matrix);
   }
 
+  finalizeInstances(poolMesh, rimMesh, rockMesh, emberMesh);
+  group.add(rimMesh, poolMesh, rockMesh, emberMesh);
   context.addBiomeMesh(group);
 }
