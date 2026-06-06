@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 //
 // 이 예산은 ratchet: 내려가기만 한다.
 // main.ts 를 줄였으면 아래 MAX_MAIN_LINES 를 새 줄 수로 낮춰 예산을 조여라.
-const MAX_MAIN_LINES = 11000;
+const MAX_MAIN_LINES = 10550;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

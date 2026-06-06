@@ -1,0 +1,18 @@
+# https://editorconfig.org — 에디터의 사람 편집을 .gitattributes 와 같은 규칙으로 맞춘다.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# 마크다운: 줄 끝 공백 2칸이 줄바꿈 의미를 가지므로 보존한다.
+[*.md]
+trim_trailing_whitespace = false
+
+# Windows 런처 스크립트는 CRLF.
+[*.{ps1,cmd,bat}]
+end_of_line = crlf

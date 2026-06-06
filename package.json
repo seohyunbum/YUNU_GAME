@@ -14,8 +14,10 @@
     "test:save-migration": "node scripts/save-migration-test.mjs",
     "test:save-roundtrip": "node scripts/save-roundtrip-test.mjs",
     "test:save-repository": "node scripts/save-repository-test.mjs",
+    "check:architecture": "node scripts/check-architecture.mjs",
     "check:size": "node scripts/check-main-size.mjs",
-    "verify": "npm run typecheck && npm run check:size && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository"
+    "verify": "npm run typecheck && npm run check:size && npm run check:architecture && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository",
+    "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check"
   },
   "dependencies": {
     "phaser": "^4.1.0",

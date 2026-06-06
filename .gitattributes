@@ -1,0 +1,12 @@
+# 줄바꿈·인코딩을 repo 레벨에서 고정한다 (PC별 core.autocrlf 설정과 무관하게 강제).
+# 텍스트는 LF 로 정규화하여 커밋하고, 바이너리는 변환하지 않는다.
+* text=auto eol=lf
+
+# Windows 런처 스크립트는 CRLF 유지(일부 환경에서 안전).
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 바이너리 자산: eol 변환 금지(파일 손상 방지).
+*.png binary
+*.ico binary
