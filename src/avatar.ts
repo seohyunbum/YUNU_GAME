@@ -19,14 +19,26 @@ export const DEFAULT_AVATAR_APPEARANCE: AvatarAppearance = {
   accentColor: ASSET_PALETTE.gold,
 };
 
-export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE) {
+export type AvatarClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner";
+
+// 직업별 외형 팔레트 — 거울/파티 표시에서 직업을 한눈에 구분한다.
+export const CLASS_APPEARANCE: Record<AvatarClassId, AvatarAppearance> = {
+  warrior: { skinColor: ASSET_PALETTE.skin, hairColor: 0x3a2c22, shirtColor: 0x70798a, pantsColor: 0x2b2f36, bootColor: 0x20242b, accentColor: 0xc0392b },
+  healer: { skinColor: ASSET_PALETTE.skin, hairColor: 0x8a6b3f, shirtColor: 0xeaf2ec, pantsColor: 0x8aa0a8, bootColor: 0x6c7c80, accentColor: 0x49b58f },
+  mage: { skinColor: ASSET_PALETTE.skin, hairColor: 0x2a2440, shirtColor: 0x553a8b, pantsColor: 0x2c2347, bootColor: 0x241d3a, accentColor: 0x8e6bd6 },
+  summoner: { skinColor: ASSET_PALETTE.skin, hairColor: 0x3a2a1c, shirtColor: 0x6b4a2f, pantsColor: 0x3f2e1f, bootColor: 0x2c2016, accentColor: 0xcf9b3a },
+  gunner: { skinColor: ASSET_PALETTE.skin, hairColor: 0x2c241d, shirtColor: 0x4a3a2c, pantsColor: 0x2f2820, bootColor: 0x1f1a14, accentColor: 0xb9925a },
+};
+
+export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE, classId?: AvatarClassId) {
+  const pal = classId ? CLASS_APPEARANCE[classId] : appearance;
   const group = new THREE.Group();
-  const skin = makeToonMaterial(appearance.skinColor, { roughness: 0.72 });
-  const hair = makeToonMaterial(appearance.hairColor, { roughness: 0.82 });
-  const shirt = makeToonMaterial(appearance.shirtColor, { roughness: 0.76 });
-  const pants = makeToonMaterial(appearance.pantsColor, { roughness: 0.8 });
-  const boots = makeToonMaterial(appearance.bootColor, { roughness: 0.86 });
-  const accent = makeMetalMaterial(appearance.accentColor, { metalness: 0.18, roughness: 0.38 });
+  const skin = makeToonMaterial(pal.skinColor, { roughness: 0.72 });
+  const hair = makeToonMaterial(pal.hairColor, { roughness: 0.82 });
+  const shirt = makeToonMaterial(pal.shirtColor, { roughness: 0.76 });
+  const pants = makeToonMaterial(pal.pantsColor, { roughness: 0.8 });
+  const boots = makeToonMaterial(pal.bootColor, { roughness: 0.86 });
+  const accent = makeMetalMaterial(pal.accentColor, { metalness: 0.18, roughness: 0.38 });
 
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.82, 1.08, 0.44), shirt);
   torso.position.y = 1.04;
@@ -100,6 +112,142 @@ export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_
   strapB.position.x = 0.26;
   strapB.rotation.z = -0.08;
   group.add(backPack, strapA, strapB);
+
+  if (classId) addClassAccessories(group, classId, pal);
+  return group;
+}
+
+// 직업 특징을 살린 장신구/장비 — 거울에서 직업이 즉시 드러나게 한다.
+function addClassAccessories(group: THREE.Group, classId: AvatarClassId, pal: AvatarAppearance) {
+  const accentMetal = makeMetalMaterial(pal.accentColor, { metalness: 0.5, roughness: 0.3 });
+  const accentGlow = makeGlowMaterial(pal.accentColor, pal.accentColor, { emissiveIntensity: 0.4, roughness: 0.3 });
+
+  if (classId === "warrior") {
+    const helm = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), makeMetalMaterial(0x8a93a3, { metalness: 0.6, roughness: 0.32 }));
+    helm.position.y = 2.0;
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.12), makeMetalMaterial(0x6f7785, { metalness: 0.6, roughness: 0.34 }));
+    visor.position.set(0, 1.94, 0.27);
+    const crest = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.32), accentMetal);
+    crest.position.set(0, 2.18, 0);
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.62, 0.12), makeMetalMaterial(0x9aa3b2, { metalness: 0.58, roughness: 0.34 }));
+    plate.position.set(0, 1.12, 0.24);
+    group.add(helm, visor, crest, plate);
+    return;
+  }
+
+  if (classId === "healer") {
+    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.5, 14), makeToonMaterial(pal.shirtColor, { roughness: 0.7 }));
+    hood.position.y = 2.18;
+    const hoodTrim = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 8, 16), accentMetal);
+    hoodTrim.position.y = 1.98;
+    hoodTrim.rotation.x = Math.PI / 2;
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 1.5, 8), makeToonMaterial(ASSET_PALETTE.woodDark, { roughness: 0.8 }));
+    staff.position.set(0.62, 1.0, 0.18);
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), accentGlow);
+    orb.position.set(0.62, 1.82, 0.18);
+    group.add(hood, hoodTrim, staff, orb);
+    return;
+  }
+
+  if (classId === "mage") {
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.05, 18), makeToonMaterial(pal.shirtColor, { roughness: 0.72 }));
+    brim.position.y = 2.06;
+    const hat = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.78, 16), makeToonMaterial(pal.shirtColor, { roughness: 0.72 }));
+    hat.position.set(0.04, 2.42, 0);
+    hat.rotation.z = -0.12;
+    const star = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), accentGlow);
+    star.position.set(0.12, 2.78, 0);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.04, 8, 16), accentMetal);
+    band.position.y = 2.1;
+    band.rotation.x = Math.PI / 2;
+    group.add(brim, hat, star, band);
+    return;
+  }
+
+  if (classId === "summoner") {
+    const hood = new THREE.Mesh(new THREE.SphereGeometry(0.36, 14, 8, 0, Math.PI * 2, 0, Math.PI / 1.7), makeToonMaterial(pal.shirtColor, { roughness: 0.78 }));
+    hood.position.y = 1.96;
+    const emblem = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), accentGlow);
+    emblem.position.set(0, 1.18, 0.25);
+    emblem.scale.set(1.1, 0.7, 0.4);
+    for (const side of [-1, 1]) {
+      const feather = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.4, 7), makeToonMaterial(pal.accentColor, { roughness: 0.6 }));
+      feather.position.set(side * 0.34, 1.6, -0.1);
+      feather.rotation.set(0.5, 0, side * 0.6);
+      group.add(feather);
+    }
+    group.add(hood, emblem);
+    return;
+  }
+
+  // gunner: 챙모자 + 권총 홀스터 + 탄띠
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.3, 0.26, 14), makeToonMaterial(0x3a2e22, { roughness: 0.78 }));
+  crown.position.y = 2.12;
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.045, 18), makeToonMaterial(0x2e241b, { roughness: 0.8 }));
+  brim.position.y = 1.99;
+  const hatBand = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.035, 8, 16), accentMetal);
+  hatBand.position.y = 2.02;
+  hatBand.rotation.x = Math.PI / 2;
+  const bandolier = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.92, 0.06), makeToonMaterial(ASSET_PALETTE.leatherDark, { roughness: 0.84 }));
+  bandolier.position.set(0, 1.08, 0.23);
+  bandolier.rotation.z = 0.5;
+  const holster = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.12), makeToonMaterial(ASSET_PALETTE.leatherDark, { roughness: 0.84 }));
+  holster.position.set(0.32, 0.5, 0.12);
+  const pistolGrip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.09), makeMetalMaterial(0x4a4f57, { metalness: 0.55, roughness: 0.34 }));
+  pistolGrip.position.set(0.32, 0.62, 0.12);
+  pistolGrip.rotation.x = 0.25;
+  group.add(crown, brim, hatBand, bandolier, holster, pistolGrip);
+}
+
+// 소환사가 독수리에 빙의했을 때 거울/파티에 보일 모습.
+export function createEagleAvatarModel() {
+  const group = new THREE.Group();
+  const feather = makeToonMaterial(0x6b4a2f, { roughness: 0.7 });
+  const featherLight = makeToonMaterial(0x9a7444, { roughness: 0.68 });
+  const headFeather = makeToonMaterial(0xf2ead8, { roughness: 0.66 });
+  const beakMat = makeToonMaterial(0xf2c14e, { roughness: 0.5 });
+  const talonMat = makeMetalMaterial(0xe0a93a, { metalness: 0.4, roughness: 0.4 });
+  const eyeMat = makeGlowMaterial(0xffd34d, 0x6b3b00, { emissiveIntensity: 0.4, roughness: 0.3 });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), feather);
+  body.position.y = 1.2;
+  body.scale.set(0.9, 1.2, 0.9);
+  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.36, 14, 10), featherLight);
+  chest.position.set(0, 1.18, 0.22);
+  chest.scale.set(0.8, 1.0, 0.6);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), headFeather);
+  head.position.set(0, 1.78, 0.06);
+  const beakUpper = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.34, 10), beakMat);
+  beakUpper.position.set(0, 1.74, 0.34);
+  beakUpper.rotation.x = Math.PI / 2;
+  const beakHook = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.14, 8), beakMat);
+  beakHook.position.set(0, 1.68, 0.42);
+  beakHook.rotation.x = Math.PI / 2 + 0.6;
+  group.add(body, chest, head, beakUpper, beakHook);
+
+  for (const side of [-1, 1]) {
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.06), feather);
+    brow.position.set(side * 0.13, 1.86, 0.24);
+    brow.rotation.z = side * 0.3;
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), eyeMat);
+    eye.position.set(side * 0.13, 1.8, 0.26);
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.5), feather);
+    wing.position.set(side * 0.55, 1.2, -0.05);
+    wing.rotation.z = side * 0.4;
+    wing.scale.set(1, 1, 1.1);
+    const wingTip = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 6), featherLight);
+    wingTip.position.set(side * 0.82, 0.78, -0.05);
+    wingTip.rotation.z = side * (Math.PI / 2 - 0.3);
+    const talon = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 0.3, 7), talonMat);
+    talon.position.set(side * 0.18, 0.5, 0.1);
+    group.add(brow, eye, wing, wingTip, talon);
+  }
+
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.7, 8), feather);
+  tail.position.set(0, 0.85, -0.42);
+  tail.rotation.x = -1.2;
+  tail.scale.set(1.2, 1, 0.4);
+  group.add(tail);
   return group;
 }
 
