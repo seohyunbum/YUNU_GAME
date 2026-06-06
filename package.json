@@ -23,15 +23,10 @@
     "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run perf-check"
   },
   "dependencies": {
-    "phaser": "^4.1.0",
     "postprocessing": "^6.39.1",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
     "three": "^0.184.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.15",
-    "@types/react-dom": "^19.2.3",
     "@types/three": "^0.184.1",
     "playwright-core": "^1.60.0",
     "typescript": "^6.0.3",
