@@ -14,7 +14,7 @@ import {
   SMAAPreset,
   VignetteEffect,
 } from "postprocessing";
-import { DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createMirrorModel } from "./avatar";
+import { DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
 import { getRewardTuning, type RewardSource } from "./operatorConfig";
 import { currentObjective } from "./objectives";
 import {
@@ -41,6 +41,13 @@ import {
   spawnSmelter as spawnSmelterObject,
   spawnWorkbench as spawnWorkbenchObject,
 } from "./game/placeableSpawns";
+import {
+  applyShadowQuality,
+  precompileSceneShaders,
+  refreshTrackedVisualVisibility,
+  shouldHideInvisibleMeshFromRender,
+  shouldShowPerformanceHiddenVisual,
+} from "./game/renderPerformance";
 import {
   createChestVisual,
   createTrainVisual,
@@ -105,6 +112,10 @@ import {
   DRAGON_BOSS_BAR_DISTANCE,
   EAGLE_ARMOR,
   EAGLE_ATTACK,
+  GUNNER_SKILL_COST,
+  GUNNER_SKILL_COOLDOWN,
+  GUNNER_SKILL_DAMAGE,
+  PISTOL_DAMAGE,
   EAGLE_MAX_HP,
   EXTENDED_WORKBENCH_SLOT_COUNT,
   FIELD_ANIMAL_COUNT,
@@ -444,6 +455,7 @@ class WildernessGame {
   private movementHudTimer = 0;
   private lastHudStepCount = 0;
   private readonly sprintHiddenVisuals: THREE.Object3D[] = [];
+  private readonly outlineVisuals: THREE.Object3D[] = [];
   private sprintRenderOptimized = false;
   private shadowMapEnabledBeforeSprint = true;
   private performanceSampleTimer = 0;
@@ -512,6 +524,7 @@ class WildernessGame {
   private gameStarted = false;
   private nightSpawnTimer = 0;
   private mirrorViewTimer = 0;
+  private mirrorAvatar: THREE.Object3D | null = null;
   private audioContext: AudioContext | null = null;
   private bgmMasterGain: GainNode | null = null;
   private sfxMasterGain: GainNode | null = null;
@@ -603,6 +616,7 @@ class WildernessGame {
     );
     this.setupEvents();
     this.seedOverworld();
+    precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.renderHud();
     this.animate();
   }
@@ -649,6 +663,7 @@ class WildernessGame {
     this.sunLight.shadow.camera.bottom = -165;
     this.sunLight.shadow.bias = -0.00012;
     this.sunLight.shadow.normalBias = 0.035;
+    applyShadowQuality(this.sunLight, this.qualityMode);
     this.scene.add(this.sunLight);
     this.fillLight.position.set(-90, 62, -120);
     this.scene.add(this.fillLight);
@@ -768,15 +783,27 @@ class WildernessGame {
   private setupMirrorView() {
     const mirrorFrame = createMirrorModel(1.35);
     mirrorFrame.position.set(0, 1.25, -0.08);
-    const avatar = createAvatarModel(DEFAULT_AVATAR_APPEARANCE);
-    avatar.position.set(0, -0.48, 0.22);
-    avatar.rotation.y = 0;
-    avatar.scale.setScalar(0.64);
-    this.mirrorView.add(mirrorFrame, avatar);
+    this.mirrorView.add(mirrorFrame);
+    this.refreshMirrorAvatar();
     this.mirrorView.position.set(0, -0.18, -3.4);
     this.mirrorView.rotation.set(0, 0, 0);
     this.mirrorView.visible = false;
     this.camera.add(this.mirrorView);
+  }
+
+  private refreshMirrorAvatar() {
+    if (this.mirrorAvatar) {
+      this.mirrorView.remove(this.mirrorAvatar);
+      this.mirrorAvatar = null;
+    }
+    const model = this.possessedEagleId
+      ? createEagleAvatarModel()
+      : createAvatarModel(DEFAULT_AVATAR_APPEARANCE, this.playerClass);
+    model.position.set(0, -0.48, 0.22);
+    model.rotation.y = 0;
+    model.scale.setScalar(this.possessedEagleId ? 0.5 : 0.64);
+    this.mirrorView.add(model);
+    this.mirrorAvatar = model;
   }
 
   private updateTimeOfDay(delta: number) {
@@ -1960,7 +1987,7 @@ class WildernessGame {
   }
 
   private isRangedWeapon(item: ItemId | null | undefined) {
-    return item === "bow" || item === "magic_wand";
+    return item === "bow" || item === "magic_wand" || item === "pistol";
   }
 
   private useDragonSpawnItem() {
@@ -2461,7 +2488,7 @@ class WildernessGame {
         this.sprintHiddenVisuals.splice(index, 1);
         continue;
       }
-      visual.visible = !active;
+      visual.visible = shouldShowPerformanceHiddenVisual(visual, this.qualityMode, this.sprintRenderOptimized);
     }
   }
 
@@ -2558,6 +2585,8 @@ class WildernessGame {
     this.postProcessingActive = mode !== "performance";
     this.shadowRefreshInterval = mode === "high" ? 0.4 : mode === "balanced" ? 0.65 : 1.1;
     this.renderer.setPixelRatio(this.pixelRatioForQuality(mode));
+    applyShadowQuality(this.sunLight, mode);
+    refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, this.sprintRenderOptimized);
     this.renderer.shadowMap.needsUpdate = true;
     this.composer?.setSize(this.container.clientWidth, this.container.clientHeight);
   }
@@ -2767,6 +2796,10 @@ class WildernessGame {
       this.useWarriorSkill();
       return;
     }
+    if (this.playerClass === "gunner") {
+      this.useGunnerSkill();
+      return;
+    }
     this.useMageSkill();
   }
 
@@ -2822,6 +2855,32 @@ class WildernessGame {
     if (!this.trySpendClassSkill(MAGE_TNT_COST, MAGE_TNT_COOLDOWN)) return;
     this.fireTntSkill();
     this.showMessage("TNT발사!");
+  }
+
+  private useGunnerSkill() {
+    if (!this.trySpendClassSkill(GUNNER_SKILL_COST, GUNNER_SKILL_COOLDOWN)) return;
+    this.fireStrongShot();
+    this.showMessage(`강탄! ${GUNNER_SKILL_DAMAGE} 피해의 강한 탄환을 발사했습니다.`);
+  }
+
+  private fireStrongShot() {
+    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion).normalize();
+    const origin = this.camera.position.clone().addScaledVector(direction, 0.86).addScaledVector(right, 0.2).addScaledVector(up, -0.16);
+    const projectile: CombatProjectile = {
+      kind: "arrow",
+      mesh: createArrowProjectile(direction),
+      velocity: direction.multiplyScalar(58),
+      damage: GUNNER_SKILL_DAMAGE,
+      radius: 0.22,
+      life: PROJECTILE_MAX_LIFE,
+    };
+    projectile.mesh.position.copy(origin);
+    this.scene.add(projectile.mesh);
+    this.projectiles.push(projectile);
+    this.playHandAction("bow");
+    this.playBowShotSound();
   }
 
   private spawnHealEffect(position: THREE.Vector3) {
@@ -3726,6 +3785,7 @@ class WildernessGame {
   }
 
   private showMirrorView() {
+    this.refreshMirrorAvatar();
     this.mirrorViewTimer = 8;
     this.mirrorView.visible = true;
     this.playHandAction();
@@ -4175,6 +4235,7 @@ class WildernessGame {
     this.playerPosition.set(0, PLAYER_HEIGHT, CAVE_START_Z);
     this.settlePlayerAfterTeleport();
     this.createCaveInterior();
+    precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.playTransitionSound("enter");
     this.showMessage("동굴 안으로 들어왔습니다. 돌과 석탄을 찾아보세요.");
     this.renderHud();
@@ -4224,6 +4285,7 @@ class WildernessGame {
     this.currentHouseKind = houseKind;
     if (target.houseChestRich === undefined) target.houseChestRich = houseKind === "blacksmith" || Math.random() < 0.01;
     this.createHouseInterior(target.houseChestRich, houseKind);
+    precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.playTransitionSound("enter");
     this.showMessage(
       houseKind === "blacksmith"
@@ -4557,7 +4619,7 @@ class WildernessGame {
   }
 
   private currentRangedDamage(item: ItemId) {
-    const base = item === "magic_wand" ? MAGIC_WAND_DAMAGE : BOW_DAMAGE;
+    const base = item === "magic_wand" ? MAGIC_WAND_DAMAGE : item === "pistol" ? PISTOL_DAMAGE : BOW_DAMAGE;
     return base + this.levelStatBonus();
   }
 
@@ -5449,6 +5511,7 @@ class WildernessGame {
     this.enterGameplayMode();
     this.resetGameState();
     this.seedOverworld();
+    precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.showMessage("새 게임을 시작했습니다.");
     this.renderPanel();
     this.renderHud();
@@ -5470,6 +5533,7 @@ class WildernessGame {
     this.playerClass = this.pendingPlayerClass ?? this.playerClass;
     this.resetGameState();
     this.seedOverworld();
+    precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.showMessage("새 게임을 시작했습니다.");
     this.renderPanel();
     this.renderHud();
@@ -5521,6 +5585,7 @@ class WildernessGame {
       this.enterGameplayMode();
       this.currentPanel = null;
       this.restoreSaveData(slot.save);
+      precompileSceneShaders(this.renderer, this.scene, this.camera);
       this.showMessage(`불러오기 완료: ${this.formatSaveDate(slot.save.savedAt)}`);
     } catch (error) {
       console.error(error);
@@ -5793,6 +5858,9 @@ class WildernessGame {
     this.performanceHitchFrames = 0;
     this.postProcessingActive = true;
     this.renderer.setPixelRatio(this.pixelRatioForQuality());
+    applyShadowQuality(this.sunLight, this.qualityMode);
+    refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, this.sprintRenderOptimized);
+    this.renderer.shadowMap.needsUpdate = true;
     this.composer?.setSize(this.container.clientWidth, this.container.clientHeight);
     this.nightSpawnTimer = 0;
     this.applyClassStarterLoadout();
@@ -5829,6 +5897,7 @@ class WildernessGame {
     this.waterRippleMeshes.splice(0, this.waterRippleMeshes.length);
     this.waterSurfaceMeshes.splice(0, this.waterSurfaceMeshes.length);
     this.sprintHiddenVisuals.splice(0, this.sprintHiddenVisuals.length);
+    this.outlineVisuals.splice(0, this.outlineVisuals.length);
     this.sprintRenderOptimized = false;
     this.caveObjectIds.splice(0, this.caveObjectIds.length);
     this.objects.clear();
@@ -9314,6 +9383,7 @@ class WildernessGame {
     root.traverse((child) => {
       child.userData.objectId = id;
       if (child instanceof THREE.Mesh) {
+        if (shouldHideInvisibleMeshFromRender(child)) child.visible = false;
         if (raycastable && !child.userData.skipRaycastTarget) {
           this.raycastTargets.push(child);
           raycastMeshes.push(child);
@@ -9417,7 +9487,9 @@ class WildernessGame {
       outline.receiveShadow = false;
       outline.userData.skipRaycastTarget = true;
       outline.userData.isCartoonOutline = true;
+      outline.visible = shouldShowPerformanceHiddenVisual(outline, this.qualityMode, this.sprintRenderOptimized);
       mesh.parent?.add(outline);
+      this.outlineVisuals.push(outline);
       this.sprintHiddenVisuals.push(outline);
     }
   }
