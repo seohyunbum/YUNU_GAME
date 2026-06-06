@@ -1,4 +1,5 @@
 export * from "./classes";
+export * from "./combat";
 export * from "./constants";
 export * from "./content";
 export * from "./worldData";
@@ -9,4 +10,5 @@ export * from "./smithing";
 export * from "./housing";
 export * from "./tutorial";
 export * from "./monsters";
+export * from "./saveManager";
 export * from "./types";

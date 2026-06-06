@@ -50,6 +50,7 @@ import {
   createPredatorVisual,
 } from "./game/creatureVisuals";
 import { createDragonVisual } from "./game/bossVisuals";
+import { calculateCombatDamage as calculateDamage } from "./game/combat";
 import {
   ARCADE_POINTS_KEY,
   BASE_MAX_MANA,
@@ -117,9 +118,7 @@ import {
   PROJECTILE_MAX_LIFE,
   RANGED_ATTACK_COOLDOWN,
   RUN_MULTIPLIER,
-  SAVE_BUILD_ID,
   SAVE_KEY,
-  SAVE_VERSION,
   SMITHING_HITS_REQUIRED,
   SMITHING_ROUND_SECONDS,
   SMITHING_SUCCESS_POINTS,
@@ -213,6 +212,7 @@ import { SMITHING_PRODUCTS } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { TUTORIAL_SECTIONS } from "./game/tutorial";
 import { migrateSaveData as migratePartialSaveData, savedVector as normalizeSavedVector } from "./game/saveMigration";
+import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
 import {
   backupLatestSave as backupLatestSaveInRepository,
   createSaveSlot as createRepositorySaveSlot,
@@ -4692,12 +4692,7 @@ class WildernessGame {
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
-    const attack = Math.max(0, Math.floor(attackPower));
-    const armor = Math.max(0, Math.floor(defense));
-    const gap = attack - armor;
-    if (gap <= -20) return 0;
-    if (gap < 0) return Math.max(1, Math.floor((attack * (20 + gap)) / 20));
-    return Math.max(1, attack + Math.floor(gap / 10));
+    return calculateDamage(attackPower, defense);
   }
 
   private fireRangedWeapon(item: ItemId) {
@@ -6076,14 +6071,12 @@ class WildernessGame {
 
   private createSaveData(): SavedGame {
     const now = performance.now();
-    const savedPlayerPosition = this.playerBodyPosition ?? this.playerPosition;
-    return {
-      version: SAVE_VERSION,
-      buildId: SAVE_BUILD_ID,
-      savedAt: new Date().toISOString(),
+    return createSaveDataFromSnapshot({
+      nowMs: now,
       player: {
-        position: this.toSavedVector(savedPlayerPosition),
-        previousPosition: this.toSavedVector(this.playerBodyPosition ?? this.previousPosition),
+        position: this.playerPosition,
+        previousPosition: this.previousPosition,
+        bodyPosition: this.playerBodyPosition,
         yaw: this.yaw,
         pitch: this.pitch,
         health: this.health,
@@ -6093,7 +6086,7 @@ class WildernessGame {
         playerClass: this.playerClass,
         mana: this.mana,
         maxMana: this.maxMana,
-        classSkillCooldownRemainingMs: Math.max(0, this.classSkillCooldownUntil - now),
+        classSkillCooldownUntil: this.classSkillCooldownUntil,
         hunger: this.hunger,
         hungerTimer: this.hungerTimer,
         worldTimeSeconds: this.worldTimeSeconds,
@@ -6103,69 +6096,19 @@ class WildernessGame {
         equippedArmor: this.equippedArmor,
         locationMode: this.locationMode,
         currentHouseKind: this.currentHouseKind,
-        caveReturnPosition: this.caveReturnPosition ? this.toSavedVector(this.caveReturnPosition) : null,
-        houseReturnPosition: this.houseReturnPosition ? this.toSavedVector(this.houseReturnPosition) : null,
+        caveReturnPosition: this.caveReturnPosition,
+        houseReturnPosition: this.houseReturnPosition,
         toolUses: { ...this.toolUses },
         selectedHotbarIndex: this.selectedHotbarIndex,
-        hotbar: this.cloneSlots(this.hotbar),
-        bagSlots: this.cloneSlots(this.bagSlots),
-        craftSlots: this.cloneSlots(this.craftSlots),
-        workbenchSlots: this.cloneSlots(this.workbenchSlots),
+        hotbar: this.hotbar,
+        bagSlots: this.bagSlots,
+        craftSlots: this.craftSlots,
+        workbenchSlots: this.workbenchSlots,
       },
-      mountains: this.mountains.map((mountain) => ({
-        position: this.toSavedVector(mountain.position),
-        radius: mountain.radius,
-        height: mountain.height,
-      })),
-      objects: [...this.objects.values()]
-        .filter((object) => !this.caveObjectIds.includes(object.id) && !this.houseObjectIds.includes(object.id) && object.type !== "caveExit" && object.type !== "houseExit" && object.type !== "legoHazard" && object.type !== "eagleSummon")
-        .map((object) => ({
-          type: object.type,
-          name: object.name,
-          position: this.toSavedVector(object.root.position),
-          hp: object.hp,
-          armor: object.armor,
-          ore: object.ore,
-          opened: object.opened,
-          mineRich: object.mineRich,
-          caveReturn: object.caveReturn ? this.toSavedVector(object.caveReturn) : null,
-          collidable: object.collidable,
-          collisionRadius: object.collisionRadius,
-          collisionHeight: object.collisionHeight,
-          villageId: object.villageId,
-          foodRemaining: object.foodRemaining,
-          angryRemainingMs: object.angryUntil && object.angryUntil > now ? object.angryUntil - now : undefined,
-          attackCooldown: object.attackCooldown,
-          digDepth: object.digDepth,
-          maxDigDepth: object.maxDigDepth,
-          terrainKind: object.terrainKind,
-          requiresPickaxe: object.requiresPickaxe,
-          terrainRadius: object.terrainRadius,
-          guardMode: object.guardMode,
-          attackRange: object.attackRange,
-          attackDamage: object.attackDamage,
-          attackInterval: object.attackInterval,
-          animalKind: object.animalKind,
-          homePosition: object.homePosition ? this.toSavedVector(object.homePosition) : undefined,
-          roamRadius: object.roamRadius,
-          enterable: object.enterable,
-          houseChestRich: object.houseChestRich,
-          houseKind: object.houseKind,
-          lockedStation: object.lockedStation,
-          harvestProgress: object.harvestProgress,
-          antMeatRemaining: object.antMeatRemaining,
-          predatorKind: object.predatorKind,
-          bossKind: object.bossKind,
-          trainAngle: object.trainAngle,
-          trainRadius: object.trainRadius,
-          trainSpeed: object.trainSpeed,
-          trainDirection: object.trainDirection,
-          trainPause: object.trainPause,
-          droppedItem: object.droppedItem,
-          droppedCount: object.droppedCount,
-          rotationY: object.root.rotation.y,
-        })),
-    };
+      mountains: this.mountains,
+      objects: this.objects.values(),
+      excludedObjectIds: [...this.caveObjectIds, ...this.houseObjectIds],
+    });
   }
 
   private migrateSaveData(save: PartialSavedGame): SavedGame {
