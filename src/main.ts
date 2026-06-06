@@ -48,15 +48,16 @@ import {
   createBuildingSign as createBuildingSignModel,
   type BuildingSignKind,
 } from "./game/buildingSigns";
-import {
-  createAnimalVisual,
-  createEagleVisual,
-  createJamminiVisual,
-  createPredatorVisual,
-} from "./game/creatureVisuals";
+import { createEagleVisual } from "./game/creatureVisuals";
 import { createRangedGuardVisual } from "./game/guardVisuals";
-import { createDragonVisual } from "./game/bossVisuals";
 import { createBiomeDecor, type BiomeDecorContext } from "./game/biomeDecor";
+import {
+  spawnAnimal as spawnAnimalEntity,
+  spawnDragon as spawnDragonEntity,
+  spawnJammini as spawnJamminiEntity,
+  spawnPredator as spawnPredatorEntity,
+  type EntitySpawnContext,
+} from "./game/entitySpawns";
 import {
   applyProjectileDamage as applyProjectileDamageWithContext,
   calculateCombatDamage as calculateDamage,
@@ -272,6 +273,14 @@ class WildernessGame {
   private readonly objects = new Map<string, WorldObject>();
   private readonly spawnContext: SpawnContext = {
     addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
+  };
+  private readonly entitySpawnContext: EntitySpawnContext = {
+    addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
+    getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
+    createWalkCycle: (parts, amplitude, speed, lift) => this.createWalkCycle(parts, amplitude, speed, lift),
+    predatorStats: (kind) => this.predatorStats(kind),
+    predatorAggroRange: (kind) => this.predatorAggroRange(kind),
+    bossStats: (kind) => this.bossStats(kind),
   };
   private readonly raycastTargets: THREE.Object3D[] = [];
   private readonly raycastTargetsByObject = new Map<string, THREE.Object3D[]>();
@@ -1774,9 +1783,9 @@ class WildernessGame {
     this.spawnTrain(0.1);
     for (let i = 0; i < 6; i += 1) this.spawnChest(this.randomGroundPoint(), false);
     for (let i = 0; i < 3; i += 1) this.spawnCave(this.randomGroundPoint());
-    for (let i = 0; i < FIELD_ANIMAL_COUNT; i += 1) this.spawnAnimal(this.randomGroundPoint());
+    for (let i = 0; i < FIELD_ANIMAL_COUNT; i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     this.spawnStarterAnimalHerds();
-    for (let i = 0; i < JAMMINI_FIELD_COUNT; i += 1) this.spawnJammini(this.randomGroundPoint());
+    for (let i = 0; i < JAMMINI_FIELD_COUNT; i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
     this.spawnVillage(new THREE.Vector3(58, 0, -76));
     this.spawnVillage(new THREE.Vector3(-96, 0, 120));
     this.spawnVillage(new THREE.Vector3(245, 0, 138), 16, true);
@@ -1803,7 +1812,7 @@ class WildernessGame {
             }
           }
           if (occupied) continue;
-          this.spawnAnimal(point, animal);
+          spawnAnimalEntity(this.entitySpawnContext, point, animal);
           break;
         }
       }
@@ -1814,7 +1823,7 @@ class WildernessGame {
     for (const biome of BIOMES) {
       if (biome.kind !== "lava" || Math.random() >= LAVA_DRAGON_SPAWN_CHANCE) continue;
       const point = this.randomPointInCircle(biome.center, biome.radius * 0.64);
-      this.spawnDragon(point);
+      spawnDragonEntity(this.entitySpawnContext, point);
     }
   }
 
@@ -1835,7 +1844,7 @@ class WildernessGame {
         occupied = true;
         break;
       }
-      if (!occupied) this.spawnDragon(point, placement.kind);
+      if (!occupied) spawnDragonEntity(this.entitySpawnContext, point, placement.kind);
     }
   }
 
@@ -2026,7 +2035,7 @@ class WildernessGame {
     }
     const spawnPoint = point.clone();
     spawnPoint.y = this.getGroundHeightAt(spawnPoint.x, spawnPoint.z);
-    this.spawnDragon(spawnPoint);
+    spawnDragonEntity(this.entitySpawnContext, spawnPoint);
     this.playHandAction();
     this.playTone(120, 0.2, "sawtooth", 0.04);
     this.showMessage("용 스폰 아이템을 사용했습니다. 앞쪽에 용 보스가 소환되었습니다!");
@@ -3026,7 +3035,7 @@ class WildernessGame {
     if (lavaBiome?.kind !== "lava") return;
     const point = this.randomPointInCircle(lavaBiome.center, lavaBiome.radius * 0.62);
     point.y = this.getGroundHeightAt(point.x, point.z);
-    this.spawnDragon(point);
+    spawnDragonEntity(this.entitySpawnContext, point);
     this.showMessage("용암 위의 하늘이 갈라지며 용이 나타났습니다!");
   }
 
@@ -3616,7 +3625,7 @@ class WildernessGame {
     if (predatorCount >= NIGHT_PREDATOR_MAX_COUNT || Math.random() > 0.25) return;
     const point = this.randomPredatorSpawnPoint();
     if (!point) return;
-    this.spawnPredator(point);
+    spawnPredatorEntity(this.entitySpawnContext, point);
     this.showMessage("밤의 야생동물들이 멀리 숲과 들판에 퍼져 있습니다.");
   }
 
@@ -5958,7 +5967,7 @@ class WildernessGame {
     }
     if (savedObject.type === "ore") object = this.spawnOre(savedObject.ore ?? "stone", position);
     if (savedObject.type === "miner") object = this.spawnMiner(position);
-    if (savedObject.type === "animal") object = this.spawnAnimal(position, savedObject.animalKind);
+    if (savedObject.type === "animal") object = spawnAnimalEntity(this.entitySpawnContext, position, savedObject.animalKind);
     if (savedObject.type === "villager") object = this.spawnVillager(position, villageId, savedObject.homePosition ? this.fromSavedVector(savedObject.homePosition) : position, savedObject.roamRadius);
     if (savedObject.type === "blacksmithNpc") object = this.spawnBlacksmithNpc(position, villageId);
     if (savedObject.type === "villageKnight") object = this.spawnKnight(position, villageId);
@@ -5974,9 +5983,9 @@ class WildernessGame {
     if (savedObject.type === "smelter" || savedObject.type === "specialSmelter") object = this.spawnSmelter(position, savedObject.type === "specialSmelter");
     if (savedObject.type === "grinder") object = this.spawnGrinder(position);
     if (savedObject.type === "antHill") object = this.spawnAntHill(position, savedObject.antMeatRemaining);
-    if (savedObject.type === "wildPredator") object = this.spawnPredator(position, savedObject.predatorKind);
-    if (savedObject.type === "dragon") object = this.spawnDragon(position, savedObject.bossKind);
-    if (savedObject.type === "jammini") object = this.spawnJammini(position);
+    if (savedObject.type === "wildPredator") object = spawnPredatorEntity(this.entitySpawnContext, position, savedObject.predatorKind);
+    if (savedObject.type === "dragon") object = spawnDragonEntity(this.entitySpawnContext, position, savedObject.bossKind);
+    if (savedObject.type === "jammini") object = spawnJamminiEntity(this.entitySpawnContext, position);
     if (savedObject.type === "legoHazard") object = this.spawnLegoHazard(position);
     if (savedObject.type === "villageKing") object = this.spawnKing(position, villageId);
     if (savedObject.type === "villageFence") {
@@ -8317,73 +8326,6 @@ class WildernessGame {
     });
     this.caveObjectIds.push(object.id);
     return object;
-  }
-
-  private spawnAnimal(position: THREE.Vector3, preferredType?: AnimalKind) {
-    const visual = createAnimalVisual(preferredType);
-    visual.group.position.copy(position);
-    return this.addWorldObject("animal", visual.name, visual.group, {
-      hp: visual.hp,
-      animalKind: visual.animalType,
-      wanderAngle: Math.random() * Math.PI * 2,
-      collidable: true,
-      collisionRadius: visual.collisionRadius,
-      collisionHeight: visual.collisionHeight,
-      walkCycle: this.createWalkCycle(visual.walkParts, visual.walk.amplitude, visual.walk.speed, visual.walk.lift),
-    });
-  }
-
-  private spawnPredator(position: THREE.Vector3, preferredType?: PredatorKind) {
-    position.y = this.getGroundHeightAt(position.x, position.z);
-    const visual = createPredatorVisual(preferredType);
-    visual.group.position.copy(position);
-    const stats = this.predatorStats(visual.predatorKind);
-    return this.addWorldObject("wildPredator", visual.name, visual.group, {
-      hp: stats.hp,
-      predatorKind: visual.predatorKind,
-      collidable: true,
-      collisionRadius: visual.collisionRadius,
-      collisionHeight: visual.collisionHeight,
-      wanderAngle: Math.random() * Math.PI * 2,
-      attackRange: this.predatorAggroRange(visual.predatorKind),
-      attackDamage: stats.attackDamage,
-      walkCycle: this.createWalkCycle(visual.walkParts, visual.walk.amplitude, visual.walk.speed, visual.walk.lift),
-    });
-  }
-
-  private spawnDragon(position: THREE.Vector3, bossKind: BossKind = "dragon") {
-    position.y = this.getGroundHeightAt(position.x, position.z);
-    const stats = this.bossStats(bossKind);
-    const group = createDragonVisual(bossKind, stats);
-    group.position.copy(position);
-    return this.addWorldObject("dragon", stats.name, group, {
-      hp: stats.maxHp,
-      armor: stats.armor,
-      collidable: true,
-      collisionRadius: stats.collisionRadius,
-      collisionHeight: stats.collisionHeight,
-      attackRange: stats.attackRange,
-      attackDamage: stats.fireDamage,
-      bossKind,
-    });
-  }
-
-  private spawnJammini(position: THREE.Vector3) {
-    position.y = this.getGroundHeightAt(position.x, position.z);
-    const visual = createJamminiVisual();
-    visual.group.position.copy(position);
-    return this.addWorldObject("jammini", "잼미니", visual.group, {
-      hp: JAMMINI_MAX_HP,
-      armor: 0,
-      collidable: true,
-      collisionRadius: 0.72,
-      collisionHeight: 1.95,
-      wanderAngle: Math.random() * Math.PI * 2,
-      attackRange: 18,
-      attackDamage: 5,
-      attackCooldown: THREE.MathUtils.randFloat(0.4, 1.7),
-      walkCycle: this.createWalkCycle(visual.walkParts, visual.walk.amplitude, visual.walk.speed, visual.walk.lift),
-    });
   }
 
   private spawnLegoHazard(position: THREE.Vector3, thrownFrom?: THREE.Vector3) {

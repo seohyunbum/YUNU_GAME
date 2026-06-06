@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 // WildernessGame 의 메서드 수 = God Object 의 "책임 수" 직접 지표.
 // 줄 수(check:size)는 비주얼/순수부만 빼도 줄지만, 메서드 수는 "메서드 통째 이동" 때만 줄어든다.
 // 그래서 둘을 함께 본다. 예산은 ratchet: 내려가기만. (AGENTS.md §1·§7)
-const MAX_METHODS = 490;
+const MAX_METHODS = 484;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");
