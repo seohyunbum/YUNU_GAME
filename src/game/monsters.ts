@@ -59,7 +59,7 @@ export const BOSS_STATS: Record<
   laser_dragon: {
     name: "레이저 드래곤",
     maxHp: 1150,
-    armor: 95,
+    armor: 90,
     fireDamage: 25,
     clawDamage: 19,
     attackRange: 42,
@@ -74,7 +74,7 @@ export const BOSS_STATS: Record<
   dark_dragon: {
     name: "다크 드래곤",
     maxHp: 1450,
-    armor: 115,
+    armor: 90,
     fireDamage: 34,
     clawDamage: 26,
     attackRange: 45,
@@ -89,7 +89,7 @@ export const BOSS_STATS: Record<
   immortal: {
     name: "불멸의 존재",
     maxHp: 2200,
-    armor: 145,
+    armor: 90,
     fireDamage: 46,
     clawDamage: 38,
     attackRange: 50,

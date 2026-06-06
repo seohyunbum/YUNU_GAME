@@ -19,7 +19,7 @@
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:size": "node scripts/check-main-size.mjs",
     "check:methods": "node scripts/check-method-count.mjs",
-    "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content",
+    "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:balance",
     "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run perf-check"
   },
   "dependencies": {

@@ -140,13 +140,13 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   bow: BOW_DAMAGE,
   magic_wand: MAGIC_WAND_DAMAGE,
   pistol: PISTOL_DAMAGE,
-  weak_wood_axe: 3,
-  sharp_wood_axe: 6,
-  stone_axe: 8,
-  copper_axe: 12,
-  iron_axe: 16,
-  gold_axe: 14,
-  diamond_axe: 22,
+  weak_wood_axe: 1,
+  sharp_wood_axe: 1,
+  stone_axe: 1,
+  copper_axe: 1,
+  iron_axe: 2,
+  gold_axe: 1,
+  diamond_axe: 2,
 };
 export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => item !== "bow" && item !== "magic_wand" && item !== "pistol")) as Record<ItemId, number>;
 
