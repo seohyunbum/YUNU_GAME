@@ -1,6 +1,17 @@
 import { access } from "node:fs/promises";
 import { chromium } from "playwright-core";
 
+// 성능 예산 (ratchet: 내려가기만) — AGENTS.md §10 참조.
+// 씬 카운트는 런-간 분산 <1% 라 신뢰 가능한 게이트. 프레임타임은 머신 의존이라 느슨한 상한만 둔다.
+const PERF_BUDGET = {
+  fieldVisibleMeshes: 6600, // baseline ~6175
+  fieldObjects: 1520, // baseline ~1414
+  fieldRaycastTargets: 4400, // baseline ~4100
+  villageVisibleMeshes: 6200, // baseline ~5700
+  villageVisibleOutlines: 1500, // baseline ~1350
+  fieldAvgMsCeiling: 45, // 머신 의존 — 파국 방지용 느슨한 상한 (현재 ~30)
+};
+
 const chromeCandidates = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -241,4 +252,23 @@ const result = {
 };
 
 console.log(JSON.stringify(result, null, 2));
-if (errors.length > 0) process.exitCode = 1;
+
+// 성능 예산 게이트 (AGENTS.md §10) — 초과 시 실패해 업그레이드발 렉을 막는다.
+const budgetFailures = [];
+const checkBudget = (label, value, max) => {
+  if (typeof value === "number" && value > max) budgetFailures.push(`${label} ${value} > 예산 ${max}`);
+};
+if (startingProfile.available) {
+  checkBudget("field.visibleMeshCount", startingProfile.visibleMeshCount, PERF_BUDGET.fieldVisibleMeshes);
+  checkBudget("field.objects", startingProfile.objects, PERF_BUDGET.fieldObjects);
+  checkBudget("field.raycastTargets", startingProfile.raycastTargets, PERF_BUDGET.fieldRaycastTargets);
+}
+if (villageProfile.available) {
+  checkBudget("village.visibleMeshCount", villageProfile.visibleMeshCount, PERF_BUDGET.villageVisibleMeshes);
+  checkBudget("village.visibleOutlineCount", villageProfile.visibleOutlineCount, PERF_BUDGET.villageVisibleOutlines);
+}
+checkBudget("field.averageMs", field.averageMs, PERF_BUDGET.fieldAvgMsCeiling);
+
+for (const failure of budgetFailures) console.error(`PERF BUDGET ✗ ${failure}`);
+if (budgetFailures.length === 0) console.log("PERF BUDGET ✓ 모든 예산 통과");
+if (errors.length > 0 || budgetFailures.length > 0) process.exitCode = 1;

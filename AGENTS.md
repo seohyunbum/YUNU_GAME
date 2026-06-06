@@ -74,10 +74,37 @@
 ## 8. 테스트·게이트
 
 - `npm run verify` = `typecheck` + `check:size` + 단위 테스트(`combat`·`save-migration`·`save-roundtrip`·`save-repository`). **커밋 전 필수.**
-- `npm run visual-check` = 브라우저 픽셀 검사. UI 변경 시 추가 실행.
+- `npm run visual-check` = 브라우저 픽셀/E2E 검사. UI 변경 시 추가 실행.
+- `npm run perf-check` = 프레임·메시·객체 측정 + **성능 예산 게이트**(§10). 엔티티·메시·매 프레임 작업 추가 시 필수.
+- `npm run verify:full` = `verify` + 서버 점검 + `visual-check` + `perf-check`. UI/성능 영향 변경의 종합 게이트.
 - 규칙: 순수 로직(전투·세이브·경제·레시피)은 **의존되기 전에 테스트부터**. 위험 시스템은 **리팩터 전에 테스트**.
 
 ## 9. 기술 사실 (stale 금지)
 
 - 엔진은 **Three.js**. `phaser`·`react`·`react-dom` 은 **미사용 — 제거 예정**(새 코드에서 쓰지 말 것).
 - Vite + TypeScript **strict**(`any` 금지 유지). 저장은 localStorage + 버전 마이그레이션.
+
+## 10. 성능 예산 (렉 방지)
+
+업그레이드가 렉을 유발하지 않도록 **성능도 기계적으로 강제**한다.
+(현재 개방 필드는 이미 ~30fps · 가시 메시 ~6,160 — 헤드룸이 거의 없어 엔티티/메시 증가에 민감하다.)
+
+### 핫패스 규칙 (`update*` · `animate*` · 매 프레임)
+
+1. **할당 금지** — `new THREE.Vector3/Color/Quaternion`, 새 `{}`/`[]`/클로저를 매 프레임 만들지 않는다. **풀링된 스크래치 필드 재사용**(예: `sunPosition`).
+2. **머티리얼/지오메트리/텍스처 생성 금지** — `update` 나 대량 `spawn` 루프에서 `new *Material/*Texture/*Geometry` 금지. 한 번 만들어 공유(`makeToonMaterial`·`sharedMaterials`).
+3. **반복 정적 오브젝트는 머지/인스턴싱**(`mergeGeometries`). 가시 메시 1개 ≈ draw call 1개.
+4. **DOM 은 변경 시에만** — `hudRenderCache` 같은 변경감지 캐시 유지. 매 프레임 `innerHTML` 금지.
+5. **모든 spawn 은 제거 경로 보유 + 배열 상한** — `projectiles`·`damageParticles` 등이 무한 증가하지 않게.
+6. **컬링·throttle·적응형 화질 우회 금지** — `updateVisibilityCulling`·`shadowRefreshInterval`·`updateAdaptiveQuality` 를 무력화하지 않는다.
+
+### 추출 시 성능 규칙
+
+- **컨텍스트/facade 객체는 생성자에서 1회만** 만든다(`spawnContext` 처럼 `readonly` 필드). 매 프레임·매 호출 생성 금지.
+- 추출은 **성능 캐시·throttle 을 보존**한다. "동작 보존(move)"에는 **성능 보존이 포함**된다 — 매 프레임 할당이나 draw call 1개라도 늘리면 동작 보존이 아니다.
+
+### 기계적 게이트
+
+- `npm run perf-check` 가 **성능 예산 초과 시 실패**한다(`scripts/performance-smoke.mjs` 의 `PERF_BUDGET`). 씬 카운트(메시/객체/raycast)는 런-간 분산 <1% 라 신뢰 가능; 프레임타임은 머신 의존이라 느슨한 상한만 둔다.
+- 예산은 **내려가기만** 한다(ratchet). 최적화로 메시가 줄면 `PERF_BUDGET` 를 낮춰 조인다.
+- `verify:full` 에 포함된다. **엔티티·메시·매 프레임 작업을 추가/변경하면 perf-check 전후를 비교**한다.
