@@ -14,7 +14,7 @@ import {
   SMAAPreset,
   VignetteEffect,
 } from "postprocessing";
-import { DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
+import { CLASS_APPEARANCE, DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
 import { getRewardTuning, type RewardSource } from "./operatorConfig";
 import { currentObjective } from "./objectives";
 import {
@@ -371,6 +371,7 @@ class WildernessGame {
   private readonly titleScreenEl = document.createElement("div");
   private readonly mirrorView = new THREE.Group();
   private readonly handGroup = new THREE.Group();
+  private readonly handClothMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly heldItemGroup = new THREE.Group();
   private heldItemKey: ItemId | null = null;
   private selectedHotbarIndex = 0;
@@ -904,26 +905,24 @@ class WildernessGame {
   }
 
   private createFirstPersonHand() {
-    const upperArm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.16, 0.14, 0.28),
-      new THREE.MeshStandardMaterial({ color: 0x2f4668, roughness: 0.78 }),
-    );
+    const upperArmMat = new THREE.MeshStandardMaterial({ color: 0x2f4668, roughness: 0.78 });
+    const forearmMat = new THREE.MeshStandardMaterial({ color: 0x3d5a80, roughness: 0.75 });
+    const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x243b5a, roughness: 0.75 });
+    this.handClothMaterials.length = 0;
+    this.handClothMaterials.push(upperArmMat, forearmMat, sleeveMat);
+
+    const upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.28), upperArmMat);
     upperArm.position.set(0.47, -0.34, -1.0);
     upperArm.rotation.set(-0.48, -0.14, 0.18);
 
-    const forearm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.14, 0.12, 0.34),
-      new THREE.MeshStandardMaterial({ color: 0x3d5a80, roughness: 0.75 }),
-    );
+    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.34), forearmMat);
     forearm.position.set(0.36, -0.4, -1.18);
     forearm.rotation.set(-0.46, -0.2, 0.16);
 
-    const sleeve = new THREE.Mesh(
-      new THREE.BoxGeometry(0.13, 0.1, 0.12),
-      new THREE.MeshStandardMaterial({ color: 0x243b5a, roughness: 0.75 }),
-    );
+    const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.1, 0.12), sleeveMat);
     sleeve.position.set(0.27, -0.45, -1.35);
     sleeve.rotation.set(-0.38, -0.22, 0.13);
+    this.refreshHandColor();
 
     const hand = new THREE.Mesh(
       new THREE.BoxGeometry(0.12, 0.09, 0.13),
@@ -937,6 +936,11 @@ class WildernessGame {
     this.handGroup.add(upperArm, forearm, sleeve, hand, this.heldItemGroup);
     this.handGroup.position.set(0, 0, 0);
     this.camera.add(this.handGroup);
+  }
+
+  private refreshHandColor() {
+    const shirt = CLASS_APPEARANCE[this.playerClass]?.shirtColor ?? DEFAULT_AVATAR_APPEARANCE.shirtColor;
+    for (const material of this.handClothMaterials) material.color.setHex(shirt);
   }
 
   private setOverworldAtmosphere() {
@@ -5508,6 +5512,7 @@ class WildernessGame {
       return;
     }
     this.playerClass = this.pendingPlayerClass;
+    this.refreshHandColor();
     this.enterGameplayMode();
     this.resetGameState();
     this.seedOverworld();
@@ -5714,6 +5719,7 @@ class WildernessGame {
     this.health = Math.min(save.player.health, this.maxHealth);
     this.playerClass = save.player.playerClass ?? "warrior";
     this.pendingPlayerClass = this.playerClass;
+    this.refreshHandColor();
     this.maxMana = save.player.maxMana ?? BASE_MAX_MANA;
     this.mana = Math.min(save.player.mana ?? this.maxMana, this.maxMana);
     this.classSkillCooldownUntil = performance.now() + (save.player.classSkillCooldownRemainingMs ?? 0);

@@ -32,6 +32,7 @@ export function heldItemMaterialColor(item: ItemId) {
   if (item === "plastic_block") return 0xfacc15;
   if (item === "building_block") return 0xb7793c;
   if (item === "smelter" || item === "special_smelter") return item === "special_smelter" ? 0x6d3a9c : 0x545b5f;
+  if (item === "pistol") return 0x4a4f57;
   return 0x9ca3af;
 }
 
@@ -102,6 +103,23 @@ export function createHeldItemModel(item: ItemId) {
     const cap = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.08, 12), headMaterial);
     cap.position.set(0.02, 0.55, 0);
     group.add(staff, cap, orb, ring);
+  } else if (item === "pistol") {
+    const metal = new THREE.MeshStandardMaterial({ color: 0x4a4f57, metalness: 0.55, roughness: 0.34 });
+    const gripMat = new THREE.MeshStandardMaterial({ color: 0x26262b, roughness: 0.72 });
+    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.4, 0.12), metal);
+    slide.position.set(0.02, 0.42, 0);
+    const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.1, 10), metal);
+    muzzle.position.set(0.02, 0.64, 0);
+    muzzle.rotation.x = Math.PI / 2;
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.11), gripMat);
+    grip.position.set(0.0, 0.2, -0.07);
+    grip.rotation.x = -0.34;
+    const guard = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.011, 8, 14), gripMat);
+    guard.position.set(0.01, 0.3, -0.02);
+    guard.rotation.x = Math.PI / 2;
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.025, 0.03), metal);
+    sight.position.set(0.02, 0.6, -0.05);
+    group.add(slide, muzzle, grip, guard, sight);
   } else if (AXE_POWER[item]) {
     addHandle(0.58);
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.06), headMaterial);
