@@ -44,9 +44,11 @@ import {
 import {
   applyShadowQuality,
   precompileSceneShaders,
+  registerDistanceCulledVisual,
   refreshTrackedVisualVisibility,
   shouldHideInvisibleMeshFromRender,
   shouldShowPerformanceHiddenVisual,
+  updateDistanceCulledVisuals,
 } from "./game/renderPerformance";
 import {
   createChestVisual,
@@ -2658,6 +2660,9 @@ class WildernessGame {
     }
     this.visibilityCullCursor = (this.visibilityCullCursor + scanned) % objects.length;
     if (changes >= maxChanges && scanned < objects.length) this.visibilityCullTimer = interval;
+    const fogFar = this.scene.fog instanceof THREE.Fog ? this.scene.fog.far : 480;
+    updateDistanceCulledVisuals(this.biomeMeshes, this.playerPosition, fogFar);
+    updateDistanceCulledVisuals(this.mountainMeshes, this.playerPosition, fogFar);
   }
 
   private visibilityDistanceForType(type: ObjectType) {
@@ -7370,8 +7375,9 @@ class WildernessGame {
     );
     mountain.position.set(position.x, height / 2 - 0.1, position.z);
     mountain.scale.y = 0.9;
-    applyStylizedMeshDefaults(mountain);
+    applyStylizedMeshDefaults(mountain, { castShadow: false, receiveShadow: true });
     this.scene.add(mountain);
+    registerDistanceCulledVisual(mountain);
     this.mountainMeshes.push(mountain);
 
     const cap = new THREE.Mesh(
@@ -7379,8 +7385,9 @@ class WildernessGame {
       gameMaterial(0xe4f2f0, { roughness: 0.9, metalness: 0 }),
     );
     cap.position.set(position.x, height * 0.82, position.z);
-    applyStylizedMeshDefaults(cap);
+    applyStylizedMeshDefaults(cap, { castShadow: false, receiveShadow: true });
     this.scene.add(cap);
+    registerDistanceCulledVisual(cap);
     this.mountainMeshes.push(cap);
   }
 
@@ -7738,16 +7745,10 @@ class WildernessGame {
     }
   }
 
-
-
-
-
-
-
-
   private addBiomeMesh(object: THREE.Object3D) {
     applyStylizedMeshDefaults(object, { castShadow: false, receiveShadow: false });
     this.scene.add(object);
+    registerDistanceCulledVisual(object);
     this.biomeMeshes.push(object);
   }
 
@@ -9430,13 +9431,13 @@ class WildernessGame {
       "legoHazard",
     ]);
     if (noShadowTypes.has(type)) return { castShadow: false, receiveShadow: false };
-    const receiveOnlyTypes = new Set<ObjectType>(["villageFence", "villageHouse", "foodStorage", "blacksmith", "villageShop", "villageSellShop", "cave", "caveExit", "houseExit"]);
+    const receiveOnlyTypes = new Set<ObjectType>(["villageFence", "villageHouse", "foodStorage", "blacksmith", "villageShop", "villageSellShop", "cave", "caveExit", "houseExit", "buildingBlock"]);
     if (receiveOnlyTypes.has(type)) return { castShadow: false, receiveShadow: true };
     return { castShadow: true, receiveShadow: true };
   }
 
   private shouldOutlineType(type: ObjectType) {
-    return !new Set<ObjectType>(["water", "terrainPatch", "dirtPatch", "mountain", "caveExit", "houseExit", "smallTree", "bigTree"]).has(type);
+    return !new Set<ObjectType>(["water", "terrainPatch", "dirtPatch", "mountain", "caveExit", "houseExit", "smallTree", "bigTree", "villageFence", "buildingBlock"]).has(type);
   }
 
   private cacheWaterVisuals(root: THREE.Object3D) {

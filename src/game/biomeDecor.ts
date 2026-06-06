@@ -28,6 +28,12 @@ function finalizeInstances(...meshes: THREE.InstancedMesh[]) {
   }
 }
 
+function markBiomeDistanceCull(group: THREE.Object3D, biome: BiomeConfig, padding = 18) {
+  group.userData.distanceCullCenterX = biome.center.x;
+  group.userData.distanceCullCenterZ = biome.center.z;
+  group.userData.distanceCullRadius = biome.radius + padding;
+}
+
 function createBambooBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   const group = new THREE.Group();
   const count = 575;
@@ -68,10 +74,9 @@ function createBambooBiome(context: BiomeDecorContext, biome: BiomeConfig) {
     dummy.updateMatrix();
     leafMesh.setMatrixAt(i, dummy.matrix);
   }
-  stemMesh.instanceMatrix.needsUpdate = true;
-  jointMesh.instanceMatrix.needsUpdate = true;
-  leafMesh.instanceMatrix.needsUpdate = true;
+  finalizeInstances(stemMesh, jointMesh, leafMesh);
   group.add(stemMesh, jointMesh, leafMesh);
+  markBiomeDistanceCull(group, biome);
   context.addBiomeMesh(group);
 }
 
@@ -121,6 +126,7 @@ function createMushroomBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   }
   finalizeInstances(stemMesh, redCapMesh, purpleCapMesh);
   group.add(stemMesh, redCapMesh, purpleCapMesh);
+  markBiomeDistanceCull(group, biome);
   context.addBiomeMesh(group);
 }
 
@@ -159,6 +165,7 @@ function createSwampBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   }
   finalizeInstances(pondMesh, trunkMesh);
   group.add(pondMesh, trunkMesh);
+  markBiomeDistanceCull(group, biome);
   context.addBiomeMesh(group);
 }
 
@@ -193,6 +200,7 @@ function createSnowBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   }
   finalizeInstances(trunkMesh, snowTopMesh);
   group.add(trunkMesh, snowTopMesh);
+  markBiomeDistanceCull(group, biome);
   context.addBiomeMesh(group);
 }
 
@@ -216,6 +224,7 @@ function createMountainBiomeDecor(context: BiomeDecorContext, biome: BiomeConfig
   }
   finalizeInstances(rockMesh);
   group.add(rockMesh);
+  markBiomeDistanceCull(group, biome);
   context.addBiomeMesh(group);
 }
 
@@ -274,5 +283,6 @@ function createLavaBiome(context: BiomeDecorContext, biome: BiomeConfig) {
 
   finalizeInstances(poolMesh, rimMesh, rockMesh, emberMesh);
   group.add(rimMesh, poolMesh, rockMesh, emberMesh);
+  markBiomeDistanceCull(group, biome);
   context.addBiomeMesh(group);
 }
