@@ -33,6 +33,8 @@ export function heldItemMaterialColor(item: ItemId) {
   if (item === "building_block") return 0xb7793c;
   if (item === "smelter" || item === "special_smelter") return item === "special_smelter" ? 0x6d3a9c : 0x545b5f;
   if (item === "pistol") return 0x4a4f57;
+  if (item === "rifle") return 0x44484f;
+  if (item.endsWith("_staff")) return 0x6cc8ff;
   return 0x9ca3af;
 }
 
@@ -65,8 +67,8 @@ export function createHeldItemModel(item: ItemId) {
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.13, 0.15), headMaterial);
     head.position.set(0.02, 0.48, 0);
     group.add(head);
-  } else if (item === "bow") {
-    const bowMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.66 });
+  } else if (item === "bow" || item.endsWith("_bow")) {
+    const bowMaterial = new THREE.MeshStandardMaterial({ color: item === "bow" ? 0x8b5a2b : materialColor, metalness: item === "bow" ? 0 : 0.32, roughness: 0.6 });
     const stringMaterial = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
     const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.028, 0.46, 10), bowMaterial);
     upper.position.set(0.08, 0.42, 0);
@@ -120,6 +122,34 @@ export function createHeldItemModel(item: ItemId) {
     const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.025, 0.03), metal);
     sight.position.set(0.02, 0.6, -0.05);
     group.add(slide, muzzle, grip, guard, sight);
+  } else if (item === "rifle") {
+    const metal = new THREE.MeshStandardMaterial({ color: 0x44484f, metalness: 0.5, roughness: 0.36 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.7 });
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.6, 10), metal);
+    barrel.position.set(0.02, 0.52, 0);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.1), metal);
+    body.position.set(0.02, 0.26, 0);
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.09), woodMat);
+    stock.position.set(0.0, 0.1, -0.04);
+    stock.rotation.x = 0.22;
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.08), woodMat);
+    grip.position.set(0.01, 0.17, -0.02);
+    grip.rotation.x = -0.3;
+    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.02), metal);
+    sight.position.set(0.02, 0.78, 0);
+    group.add(barrel, body, stock, grip, sight);
+  } else if (item.endsWith("_staff")) {
+    const arcane = item === "arcane_staff";
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.034, 0.72, 10), handleMaterial);
+    shaft.position.y = 0.36;
+    const orbColor = arcane ? 0x9b5cff : 0x5cc8ff;
+    const orbMat = new THREE.MeshStandardMaterial({ color: orbColor, emissive: orbColor, emissiveIntensity: 1.4, roughness: 0.28 });
+    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), orbMat);
+    orb.position.set(0.02, 0.8, 0);
+    const prongs = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.012, 8, 18), new THREE.MeshStandardMaterial({ color: 0xd9c46a, metalness: 0.4, roughness: 0.4 }));
+    prongs.position.copy(orb.position);
+    prongs.rotation.x = Math.PI / 2;
+    group.add(shaft, orb, prongs);
   } else if (AXE_POWER[item]) {
     addHandle(0.58);
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.06), headMaterial);

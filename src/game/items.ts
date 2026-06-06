@@ -20,6 +20,11 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   bow: "활",
   magic_wand: "마법봉",
   pistol: "권총",
+  iron_bow: "강철 활",
+  diamond_bow: "다이아 활",
+  rifle: "소총",
+  crystal_staff: "수정 지팡이",
+  arcane_staff: "비전 지팡이",
   bucket: "양동이",
   water_bucket: "물 양동이",
   lava_bucket: "용암 양동이",
@@ -140,15 +145,28 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   bow: BOW_DAMAGE,
   magic_wand: MAGIC_WAND_DAMAGE,
   pistol: PISTOL_DAMAGE,
-  weak_wood_axe: 1,
-  sharp_wood_axe: 1,
-  stone_axe: 1,
-  copper_axe: 1,
-  iron_axe: 2,
-  gold_axe: 1,
-  diamond_axe: 2,
+  iron_bow: 5,
+  diamond_bow: 8,
+  rifle: 7,
+  crystal_staff: 6,
+  arcane_staff: 9,
+  weak_wood_axe: 2,
+  sharp_wood_axe: 4,
+  stone_axe: 5,
+  copper_axe: 6,
+  iron_axe: 7,
+  gold_axe: 8,
+  diamond_axe: 9,
 };
-export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => item !== "bow" && item !== "magic_wand" && item !== "pistol")) as Record<ItemId, number>;
+export const RANGED_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>([
+  "bow", "magic_wand", "pistol", "iron_bow", "diamond_bow", "rifle", "crystal_staff", "arcane_staff",
+]);
+export const RANGED_PROJECTILE: Record<ItemId, "arrow" | "magic"> = {
+  magic_wand: "magic",
+  crystal_staff: "magic",
+  arcane_staff: "magic",
+};
+export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => !RANGED_WEAPONS.has(item))) as Record<ItemId, number>;
 
 export const ARMOR_VALUE: Record<ItemId, number> = {
   leather_armor: 5,

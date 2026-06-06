@@ -115,7 +115,6 @@ import {
   GUNNER_SKILL_COST,
   GUNNER_SKILL_COOLDOWN,
   GUNNER_SKILL_DAMAGE,
-  PISTOL_DAMAGE,
   EAGLE_MAX_HP,
   EXTENDED_WORKBENCH_SLOT_COUNT,
   FIELD_ANIMAL_COUNT,
@@ -140,7 +139,6 @@ import {
   LEGO_HAZARD_DURATION_MS,
   LEGO_HAZARD_TRIGGER_RADIUS,
   LOOK_TARGET_REFRESH_SECONDS,
-  MAGIC_WAND_DAMAGE,
   MAGE_TNT_COOLDOWN,
   MAGE_TNT_COST,
   MAGE_TNT_DAMAGE,
@@ -243,6 +241,8 @@ import {
   SPECIAL_SMELTER_MATERIALS,
   TOOL_DURABILITY,
   WEAPON_DAMAGE,
+  RANGED_WEAPONS,
+  RANGED_PROJECTILE,
 } from "./game/items";
 import { MINI_RECIPES, WORKBENCH_RECIPES } from "./game/recipes";
 import {
@@ -1990,8 +1990,8 @@ class WildernessGame {
     return item === "bucket" || item === "water_bucket" || item === "lava_bucket";
   }
 
-  private isRangedWeapon(item: ItemId | null | undefined) {
-    return item === "bow" || item === "magic_wand" || item === "pistol";
+  private isRangedWeapon(item: ItemId | null | undefined): item is ItemId {
+    return !!item && RANGED_WEAPONS.has(item);
   }
 
   private useDragonSpawnItem() {
@@ -3832,7 +3832,7 @@ class WildernessGame {
 
     const bucketItem = this.hotbar[this.selectedHotbarIndex]?.item;
     if (!target && this.isRangedWeapon(bucketItem)) {
-      this.promptEl.textContent = `${bucketItem === "magic_wand" ? "좌클릭/E/숫자키: 초록 마법 발사" : "좌클릭/E/숫자키: 화살 발사"} | ${lockText}`;
+      this.promptEl.textContent = `${bucketItem && RANGED_PROJECTILE[bucketItem] === "magic" ? "좌클릭/E/숫자키: 마법 발사" : "좌클릭/E/숫자키: 발사"} | ${lockText}`;
       return;
     }
     if (!target && bucketItem === "dragon_spawn") {
@@ -3874,7 +3874,7 @@ class WildernessGame {
 
   private actionTextFor(target: WorldObject) {
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
-    if (this.isRangedWeapon(selectedItem) && this.isCombatTarget(target)) return selectedItem === "magic_wand" ? "좌클릭/E: 초록 마법 발사" : "좌클릭/E: 화살 발사";
+    if (this.isRangedWeapon(selectedItem) && this.isCombatTarget(target)) return selectedItem && RANGED_PROJECTILE[selectedItem] === "magic" ? "좌클릭/E: 마법 발사" : "좌클릭/E: 발사";
     if (target.type === "smallTree") return "E: 작은 나무 캐기";
     if (target.type === "bigTree") return "E: 큰 나무 캐기(도끼 필요)";
     if (target.type === "chest") return target.opened ? "이미 연 상자" : "E: 상자 열기";
@@ -4623,7 +4623,7 @@ class WildernessGame {
   }
 
   private currentRangedDamage(item: ItemId) {
-    const base = item === "magic_wand" ? MAGIC_WAND_DAMAGE : item === "pistol" ? PISTOL_DAMAGE : BOW_DAMAGE;
+    const base = WEAPON_DAMAGE[item] ?? BOW_DAMAGE;
     return base + this.levelStatBonus();
   }
 
@@ -4661,7 +4661,7 @@ class WildernessGame {
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
     this.rangedCooldown = RANGED_ATTACK_COOLDOWN;
-    const kind: CombatProjectile["kind"] = item === "magic_wand" ? "magic" : "arrow";
+    const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion).normalize();
