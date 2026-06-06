@@ -62,6 +62,21 @@ import {
   type ProjectileDamageContext,
 } from "./game/combat";
 import {
+  createArrowProjectile,
+  createMagicProjectile,
+  createTntProjectile,
+  spawnDamageParticles,
+  spawnDragonClawBurst,
+  spawnDragonFireBurst,
+  spawnEnemyHitParticles,
+  spawnExplosionVisual,
+  spawnMagicTrail,
+  spawnMeleeSlashTrail,
+  spawnProjectileImpact,
+  spawnTntTrail,
+  type CombatEffectContext,
+} from "./game/combatEffects";
+import {
   ARCADE_POINTS_KEY,
   BASE_MAX_MANA,
   BASE_PLAYER_MAX_HEALTH,
@@ -461,11 +476,17 @@ class WildernessGame {
   };
   private smithingLastRenderedSecond = SMITHING_ROUND_SECONDS;
   private readonly damageParticles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number }[] = [];
+  private readonly combatEffectContext: CombatEffectContext = {
+    scene: this.scene,
+    camera: this.camera,
+    playerPosition: this.playerPosition,
+    damageParticles: this.damageParticles,
+    getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
+  };
   private readonly projectiles: CombatProjectile[] = [];
   private readonly areaSkillEffects: AreaSkillEffect[] = [];
   private actionMode: HandActionMode = "use";
   private rangedCooldown = 0;
-  private slashTrailTexture: THREE.Texture | null = null;
   private gameStarted = false;
   private nightSpawnTimer = 0;
   private mirrorViewTimer = 0;
@@ -2816,7 +2837,7 @@ class WildernessGame {
     position.y = this.getGroundHeightAt(position.x, position.z) + 0.08;
     this.spawnWarriorExplosion(position);
     this.playHandAction("melee");
-    this.spawnMeleeSlashTrail();
+    spawnMeleeSlashTrail(this.combatEffectContext);
     this.playMeleeWhoosh();
     this.showMessage(`무거운공격! ${WARRIOR_EXPLOSION_SECONDS}초 동안 폭발 지대가 생성됩니다.`);
   }
@@ -4372,12 +4393,12 @@ class WildernessGame {
     const distance = Math.hypot(target.root.position.x - this.playerPosition.x, target.root.position.z - this.playerPosition.z);
     const claw = distance <= 5.2 && Math.random() < 0.55;
     if (claw) {
-      this.spawnDragonClawBurst(target.root.position);
+      spawnDragonClawBurst(this.combatEffectContext, target.root.position);
       this.damagePlayer(stats.clawDamage, true, `${stats.name}의 손톱 공격을 받아 체력이 모두 떨어졌습니다.`);
       this.showMessage(this.lastDamageBlocked ? "용의 손톱 공격을 방어구가 막았습니다." : `용의 손톱 공격! 피해 ${this.lastDamageTaken}.`);
       return;
     }
-    this.spawnDragonFireBurst(this.playerPosition.clone());
+    spawnDragonFireBurst(this.combatEffectContext, this.playerPosition.clone());
     this.damagePlayer(stats.fireDamage, true, `${stats.name}의 원거리 공격을 받아 체력이 모두 떨어졌습니다.`);
     this.showMessage(this.lastDamageBlocked ? "용의 불 공격을 방어구가 막았습니다." : `용이 하늘에서 불을 쏟았습니다! 피해 ${this.lastDamageTaken}.`);
   }
@@ -4610,7 +4631,7 @@ class WildernessGame {
     const speed = kind === "magic" ? 29 : 41;
     const projectile: CombatProjectile = {
       kind,
-      mesh: kind === "magic" ? this.createMagicProjectile(direction) : this.createArrowProjectile(direction),
+      mesh: kind === "magic" ? createMagicProjectile(direction) : createArrowProjectile(direction),
       velocity: direction.multiplyScalar(speed),
       damage: this.currentRangedDamage(item),
       radius: kind === "magic" ? 0.36 : 0.16,
@@ -4624,77 +4645,8 @@ class WildernessGame {
     else this.playBowShotSound();
   }
 
-  private createArrowProjectile(direction: THREE.Vector3) {
-    const group = new THREE.Group();
-    const shaftMaterial = new THREE.MeshStandardMaterial({ color: 0xd7b98d, roughness: 0.55 });
-    const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.48, roughness: 0.34 });
-    const featherMaterial = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.92 });
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.84, 8), shaftMaterial);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.052, 0.16, 12), metalMaterial);
-    tip.position.y = 0.5;
-    const featherA = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.04, 0.018), featherMaterial);
-    featherA.position.set(0.05, -0.42, 0);
-    featherA.rotation.z = 0.28;
-    const featherB = featherA.clone();
-    featherB.position.x = -0.05;
-    featherB.rotation.z = -0.28;
-    group.add(shaft, tip, featherA, featherB);
-    group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
-    applyStylizedMeshDefaults(group, { castShadow: true, receiveShadow: false });
-    return group;
-  }
 
-  private createMagicProjectile(direction: THREE.Vector3) {
-    const group = new THREE.Group();
-    const core = new THREE.Mesh(
-      new THREE.SphereGeometry(0.18, 18, 12),
-      new THREE.MeshBasicMaterial({ color: 0x42ff9b, transparent: true, opacity: 0.92, depthWrite: false }),
-    );
-    const glow = new THREE.Mesh(
-      new THREE.SphereGeometry(0.31, 18, 12),
-      new THREE.MeshBasicMaterial({
-        color: 0x7dffbf,
-        transparent: true,
-        opacity: 0.28,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.24, 0.018, 8, 28),
-      new THREE.MeshBasicMaterial({ color: 0xc4ffe3, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
-    ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction.clone().normalize());
-    group.add(glow, core, ring);
-    return group;
-  }
 
-  private createTntProjectile(direction: THREE.Vector3) {
-    const group = new THREE.Group();
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(0.34, 0.42, 0.34),
-      new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.58 }),
-    );
-    const band = new THREE.Mesh(
-      new THREE.BoxGeometry(0.38, 0.1, 0.38),
-      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 }),
-    );
-    const fuse = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.025, 0.025, 0.28, 7),
-      new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.78 }),
-    );
-    fuse.position.y = 0.34;
-    fuse.rotation.z = 0.38;
-    const spark = new THREE.Mesh(
-      new THREE.SphereGeometry(0.065, 10, 8),
-      new THREE.MeshBasicMaterial({ color: 0xfff3a1, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
-    spark.position.set(0.08, 0.48, 0);
-    group.add(body, band, fuse, spark);
-    group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction.clone().normalize());
-    applyStylizedMeshDefaults(group, { castShadow: true, receiveShadow: false });
-    return group;
-  }
 
   private fireTntSkill() {
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
@@ -4707,7 +4659,7 @@ class WildernessGame {
       .addScaledVector(up, -0.12);
     const projectile: CombatProjectile = {
       kind: "tnt",
-      mesh: this.createTntProjectile(direction),
+      mesh: createTntProjectile(direction),
       velocity: direction.multiplyScalar(24),
       damage: MAGE_TNT_DAMAGE,
       radius: 0.42,
@@ -4781,7 +4733,7 @@ class WildernessGame {
       return false;
     }
     eagle.hp = Math.max(0, (eagle.hp ?? EAGLE_MAX_HP) - damage);
-    if (showParticles) this.spawnEnemyHitParticles(eagle);
+    if (showParticles) spawnEnemyHitParticles(this.combatEffectContext, eagle);
     if (showParticles) this.playTone(130, 0.08, "sawtooth", 0.024);
     if (eagle.hp <= 0) {
       this.endEaglePossession(true);
@@ -4816,7 +4768,7 @@ class WildernessGame {
       damage: WARRIOR_EXPLOSION_DAMAGE,
       damagedThisTick: new Set<string>(),
     });
-    this.spawnExplosionVisual(position, WARRIOR_EXPLOSION_RADIUS * 0.55);
+    spawnExplosionVisual(this.combatEffectContext, position, WARRIOR_EXPLOSION_RADIUS * 0.55);
     this.playExplosionSound();
   }
 
@@ -4838,7 +4790,7 @@ class WildernessGame {
       }
       if (effect.nextTickAt <= 0 || now >= effect.nextTickAt) {
         effect.damagedThisTick.clear();
-        this.spawnExplosionVisual(effect.mesh.position, effect.radius * 0.38);
+        spawnExplosionVisual(this.combatEffectContext, effect.mesh.position, effect.radius * 0.38);
         this.applyAreaDamage(effect.mesh.position, effect.radius, effect.damage, effect.damagedThisTick, "tnt");
         effect.nextTickAt = now + 1000;
       }
@@ -4858,7 +4810,7 @@ class WildernessGame {
       const distance = Math.hypot(target.root.position.x - position.x, target.root.position.z - position.z);
       if (distance > radius + targetRadius) continue;
       damagedThisTick.add(target.id);
-      this.spawnEnemyHitParticles(target, target.root.position.clone().add(new THREE.Vector3(0, 1.0, 0)));
+      spawnEnemyHitParticles(this.combatEffectContext, target, target.root.position.clone().add(new THREE.Vector3(0, 1.0, 0)));
       this.applyProjectileDamage(target, damage, kind);
     }
   }
@@ -4866,40 +4818,11 @@ class WildernessGame {
   private explodeTntProjectile(position: THREE.Vector3, damage: number, radius: number) {
     const impact = position.clone();
     impact.y = Math.max(impact.y, this.getGroundHeightAt(impact.x, impact.z) + 0.2);
-    this.spawnExplosionVisual(impact, radius);
+    spawnExplosionVisual(this.combatEffectContext, impact, radius);
     this.applyAreaDamage(impact, radius, damage, new Set<string>(), "tnt");
     this.playExplosionSound();
   }
 
-  private spawnExplosionVisual(position: THREE.Vector3, radius: number) {
-    const colorSet = [0xfff3a1, 0xff7a1a, 0xdc2626, 0xf97316];
-    for (let index = 0; index < 38; index += 1) {
-      const material = new THREE.MeshBasicMaterial({
-        color: colorSet[index % colorSet.length],
-        transparent: true,
-        opacity: THREE.MathUtils.randFloat(0.62, 0.94),
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-      const particle = new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.06, 0.16), 8, 6), material);
-      const angle = Math.random() * Math.PI * 2;
-      const spread = THREE.MathUtils.randFloat(0.1, radius * 0.75);
-      particle.position.copy(position).add(new THREE.Vector3(Math.cos(angle) * spread, THREE.MathUtils.randFloat(0.2, 1.7), Math.sin(angle) * spread));
-      particle.renderOrder = 24;
-      const velocity = new THREE.Vector3(Math.cos(angle) * THREE.MathUtils.randFloat(0.6, 1.8), THREE.MathUtils.randFloat(0.5, 2.2), Math.sin(angle) * THREE.MathUtils.randFloat(0.6, 1.8));
-      this.scene.add(particle);
-      this.damageParticles.push({ mesh: particle, velocity, life: THREE.MathUtils.randFloat(0.42, 0.78), maxLife: 0.78 });
-    }
-    const flash = new THREE.Mesh(
-      new THREE.RingGeometry(radius * 0.12, radius, 42),
-      new THREE.MeshBasicMaterial({ color: 0xffb703, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
-    );
-    flash.position.copy(position).setY(position.y + 0.04);
-    flash.rotation.x = -Math.PI / 2;
-    flash.renderOrder = 24;
-    this.scene.add(flash);
-    this.damageParticles.push({ mesh: flash, velocity: new THREE.Vector3(0, 0.08, 0), life: 0.34, maxLife: 0.34 });
-  }
 
   private playExplosionSound() {
     this.playTone(82, 0.18, "sawtooth", 0.045);
@@ -4912,19 +4835,19 @@ class WildernessGame {
       const projectile = this.projectiles[index];
       projectile.life -= delta;
       projectile.mesh.position.addScaledVector(projectile.velocity, delta);
-      if (projectile.kind === "magic") this.spawnMagicTrail(projectile.mesh.position);
+      if (projectile.kind === "magic") spawnMagicTrail(this.combatEffectContext, projectile.mesh.position);
       if (projectile.kind === "tnt") {
         projectile.mesh.rotation.x += delta * 5.5;
         projectile.mesh.rotation.z += delta * 3.2;
-        this.spawnTntTrail(projectile.mesh.position);
+        spawnTntTrail(this.combatEffectContext, projectile.mesh.position);
       }
       const target = this.projectileHitTarget(projectile);
       if (target) {
         if (projectile.kind === "tnt") {
           this.explodeTntProjectile(projectile.mesh.position, projectile.damage, projectile.explosionRadius ?? MAGE_TNT_RADIUS);
         } else {
-          this.spawnEnemyHitParticles(target, projectile.mesh.position);
-          this.spawnProjectileImpact(projectile.mesh.position, projectile.kind);
+          spawnEnemyHitParticles(this.combatEffectContext, target, projectile.mesh.position);
+          spawnProjectileImpact(this.combatEffectContext, projectile.mesh.position, projectile.kind);
           this.applyProjectileDamage(target, projectile.damage, projectile.kind);
         }
         this.removeProjectile(index);
@@ -4937,17 +4860,6 @@ class WildernessGame {
     }
   }
 
-  private spawnTntTrail(position: THREE.Vector3) {
-    if (Math.random() > 0.72) return;
-    const particle = new THREE.Mesh(
-      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.035, 0.085), 8, 6),
-      new THREE.MeshBasicMaterial({ color: Math.random() > 0.45 ? 0xfff3a1 : 0xff7a1a, transparent: true, opacity: 0.58, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
-    particle.position.copy(position).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.16), THREE.MathUtils.randFloatSpread(0.16), THREE.MathUtils.randFloatSpread(0.16)));
-    particle.renderOrder = 18;
-    this.scene.add(particle);
-    this.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(0, -0.03, 0), life: 0.22, maxLife: 0.22 });
-  }
 
   private projectileHitTarget(projectile: CombatProjectile) {
     const point = projectile.mesh.position;
@@ -4987,119 +4899,15 @@ class WildernessGame {
 
   private playMeleeAttackEffects(target: WorldObject) {
     this.playHandAction("melee");
-    this.spawnMeleeSlashTrail();
-    this.spawnEnemyHitParticles(target);
+    spawnMeleeSlashTrail(this.combatEffectContext);
+    spawnEnemyHitParticles(this.combatEffectContext, target);
     this.playMeleeWhoosh();
   }
 
-  private spawnMeleeSlashTrail() {
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion).normalize();
-    const slash = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.92, 0.38),
-      new THREE.MeshBasicMaterial({
-        map: this.getSlashTrailTexture(),
-        transparent: true,
-        opacity: 0.82,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      }),
-    );
-    slash.position
-      .copy(this.camera.position)
-      .addScaledVector(forward, 0.95)
-      .addScaledVector(right, 0.15)
-      .addScaledVector(up, -0.08);
-    slash.quaternion.copy(this.camera.quaternion);
-    slash.rotation.z += THREE.MathUtils.randFloat(-0.32, 0.32);
-    slash.renderOrder = 24;
-    this.scene.add(slash);
-    this.damageParticles.push({ mesh: slash, velocity: forward.multiplyScalar(0.32), life: 0.2, maxLife: 0.2 });
-  }
 
-  private getSlashTrailTexture() {
-    if (this.slashTrailTexture) return this.slashTrailTexture;
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 96;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const gradient = ctx.createLinearGradient(24, 48, 238, 48);
-      gradient.addColorStop(0, "rgba(255,255,255,0)");
-      gradient.addColorStop(0.38, "rgba(255,255,255,0.92)");
-      gradient.addColorStop(0.68, "rgba(195,225,255,0.62)");
-      gradient.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = 16;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(22, 70);
-      ctx.quadraticCurveTo(120, 8, 238, 36);
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(255,255,255,0.48)";
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(42, 78);
-      ctx.quadraticCurveTo(138, 28, 218, 50);
-      ctx.stroke();
-    }
-    this.slashTrailTexture = new THREE.CanvasTexture(canvas);
-    this.slashTrailTexture.needsUpdate = true;
-    return this.slashTrailTexture;
-  }
 
-  private spawnEnemyHitParticles(target: WorldObject, hitPosition?: THREE.Vector3) {
-    const base = hitPosition?.clone() ?? target.root.position.clone();
-    if (!hitPosition) {
-      const toPlayer = this.playerPosition.clone().sub(target.root.position).setY(0);
-      if (toPlayer.lengthSq() > 0.001) {
-        toPlayer.normalize();
-        base.addScaledVector(toPlayer, Math.max(0.35, target.collisionRadius ?? 0.6));
-      }
-      base.y += target.type === "dragon" ? Math.min((target.collisionHeight ?? 5.4) * 0.42, 3.4) : target.type === "villageGolem" ? 1.55 : 1.0;
-    }
-    for (let i = 0; i < 26; i += 1) {
-      const color = i % 4 === 0 ? 0xfff1f2 : i % 3 === 0 ? 0xff7a1f : 0xef233c;
-      const particle = new THREE.Mesh(
-        new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.035, 0.09), 8, 6),
-        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: THREE.MathUtils.randFloat(0.72, 0.96), depthWrite: false }),
-      );
-      particle.position
-        .copy(base)
-        .add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.35), THREE.MathUtils.randFloatSpread(0.28), THREE.MathUtils.randFloatSpread(0.35)));
-      particle.renderOrder = 23;
-      const velocity = new THREE.Vector3(THREE.MathUtils.randFloatSpread(1.2), THREE.MathUtils.randFloat(0.35, 1.25), THREE.MathUtils.randFloatSpread(1.2));
-      this.scene.add(particle);
-      this.damageParticles.push({ mesh: particle, velocity, life: THREE.MathUtils.randFloat(0.34, 0.58), maxLife: 0.58 });
-    }
-  }
 
-  private spawnProjectileImpact(position: THREE.Vector3, kind: CombatProjectile["kind"]) {
-    const color = kind === "magic" ? 0x64ffad : kind === "tnt" ? 0xff7a1a : 0xfff1f2;
-    const flash = new THREE.Mesh(
-      new THREE.RingGeometry(0.1, kind === "magic" ? 0.48 : kind === "tnt" ? 0.72 : 0.34, 28),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
-    );
-    flash.position.copy(position);
-    flash.quaternion.copy(this.camera.quaternion);
-    flash.renderOrder = 23;
-    this.scene.add(flash);
-    this.damageParticles.push({ mesh: flash, velocity: new THREE.Vector3(0, 0.1, 0), life: 0.18, maxLife: 0.18 });
-  }
 
-  private spawnMagicTrail(position: THREE.Vector3) {
-    if (Math.random() > 0.62) return;
-    const particle = new THREE.Mesh(
-      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.035, 0.075), 8, 6),
-      new THREE.MeshBasicMaterial({ color: 0x86ffc2, transparent: true, opacity: 0.52, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
-    particle.position.copy(position).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.18), THREE.MathUtils.randFloatSpread(0.18), THREE.MathUtils.randFloatSpread(0.18)));
-    particle.renderOrder = 18;
-    this.scene.add(particle);
-    this.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(0, 0.06, 0), life: 0.24, maxLife: 0.24 });
-  }
 
   private playBowShotSound() {
     this.playTone(190, 0.045, "triangle", 0.03);
@@ -5141,7 +4949,7 @@ class WildernessGame {
       this.renderHud();
       return false;
     }
-    if (showParticles) this.spawnDamageParticles();
+    if (showParticles) spawnDamageParticles(this.combatEffectContext);
     if (showParticles) this.playTone(90, 0.12, "sawtooth", 0.03);
     this.health = Math.max(0, this.health - damage);
     if (this.health <= 0) {
@@ -5217,82 +5025,8 @@ class WildernessGame {
     this.equippedArmor = null;
   }
 
-  private spawnDamageParticles() {
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
-    for (let i = 0; i < 22; i += 1) {
-      const material = new THREE.MeshBasicMaterial({
-        color: 0xff1f35,
-        transparent: true,
-        opacity: THREE.MathUtils.randFloat(0.65, 0.95),
-        depthTest: false,
-      });
-      const particle = new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.025, 0.06), 8, 6), material);
-      particle.position
-        .copy(this.camera.position)
-        .addScaledVector(forward, THREE.MathUtils.randFloat(0.7, 1.15))
-        .addScaledVector(right, THREE.MathUtils.randFloatSpread(0.85))
-        .addScaledVector(up, THREE.MathUtils.randFloatSpread(0.55));
-      particle.renderOrder = 20;
-      const velocity = right
-        .clone()
-        .multiplyScalar(THREE.MathUtils.randFloatSpread(0.95))
-        .addScaledVector(up, THREE.MathUtils.randFloatSpread(0.7))
-        .addScaledVector(forward, THREE.MathUtils.randFloat(0.25, 0.75));
-      this.scene.add(particle);
-      this.damageParticles.push({ mesh: particle, velocity, life: 0.48, maxLife: 0.48 });
-    }
-  }
 
-  private spawnDragonFireBurst(position: THREE.Vector3) {
-    const center = position.clone();
-    center.y = this.getGroundHeightAt(center.x, center.z) + 1.35;
-    for (let index = 0; index < 34; index += 1) {
-      const color = index % 3 === 0 ? 0xfff3a1 : index % 3 === 1 ? 0xff6b1a : 0xdc2626;
-      const material = new THREE.MeshBasicMaterial({
-        color,
-        transparent: true,
-        opacity: THREE.MathUtils.randFloat(0.62, 0.92),
-        depthWrite: false,
-      });
-      const particle = new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.045, 0.14), 8, 6), material);
-      particle.position
-        .copy(center)
-        .add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(1.25), THREE.MathUtils.randFloat(0.4, 2.2), THREE.MathUtils.randFloatSpread(1.25)));
-      particle.renderOrder = 19;
-      const velocity = new THREE.Vector3(
-        THREE.MathUtils.randFloatSpread(0.8),
-        THREE.MathUtils.randFloat(-1.3, -0.35),
-        THREE.MathUtils.randFloatSpread(0.8),
-      );
-      this.scene.add(particle);
-      this.damageParticles.push({ mesh: particle, velocity, life: 0.78, maxLife: 0.78 });
-    }
-  }
 
-  private spawnDragonClawBurst(origin: THREE.Vector3) {
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
-    for (let index = 0; index < 3; index += 1) {
-      const slash = new THREE.Mesh(
-        new THREE.BoxGeometry(0.055, 0.86, 0.035),
-        new THREE.MeshBasicMaterial({ color: index === 1 ? 0xfff1a8 : 0xff3b30, transparent: true, opacity: 0.78, depthWrite: false }),
-      );
-      slash.position
-        .copy(this.camera.position)
-        .addScaledVector(forward, 0.95)
-        .addScaledVector(right, (index - 1) * 0.22)
-        .addScaledVector(up, THREE.MathUtils.randFloat(-0.12, 0.24));
-      slash.quaternion.copy(this.camera.quaternion);
-      slash.rotation.z += -0.72 + index * 0.42;
-      slash.renderOrder = 21;
-      const velocity = origin.clone().sub(this.playerPosition).setY(0).normalize().multiplyScalar(0.12);
-      this.scene.add(slash);
-      this.damageParticles.push({ mesh: slash, velocity, life: 0.32, maxLife: 0.32 });
-    }
-  }
 
   private updateDamageParticles(delta: number) {
     for (let index = this.damageParticles.length - 1; index >= 0; index -= 1) {
