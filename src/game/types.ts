@@ -26,6 +26,7 @@ export type ObjectType =
   | "antHill"
   | "wildPredator"
   | "eagleSummon"
+  | "summonerPet"
   | "dragon"
   | "jammini"
   | "legoHazard"
@@ -235,6 +236,7 @@ export interface SavedGame {
     mana?: number;
     maxMana?: number;
     classSkillCooldownRemainingMs?: number;
+    companionProgress?: CompanionProgress;
     hunger?: number;
     hungerTimer?: number;
     worldTimeSeconds?: number;
@@ -274,6 +276,15 @@ export interface StoredSaveSlot {
 export type PartialSavedGame = Partial<Omit<SavedGame, "player">> & {
   player?: Partial<SavedGame["player"]>;
 };
+
+export interface SummonerPetProgress {
+  level: number;
+  experience: number;
+}
+
+export interface CompanionProgress {
+  summoner: SummonerPetProgress;
+}
 
 export interface Recipe {
   id: string;

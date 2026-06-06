@@ -71,6 +71,7 @@ try {
   assert.equal(legacy.player.maxMana, BASE_MAX_MANA);
   assert.equal(legacy.player.mana, BASE_MAX_MANA);
   assert.equal(legacy.player.classSkillCooldownRemainingMs, 0);
+  assert.deepEqual(legacy.player.companionProgress, { summoner: { level: 1, experience: 0 } });
   assert.equal(legacy.player.level, 12);
   assert.equal(legacy.player.experience, 42);
   assert.equal(legacy.player.maxHealth, maxHealthForLevel(12));
@@ -114,6 +115,7 @@ try {
       mana: 999,
       maxMana: 120,
       classSkillCooldownRemainingMs: 999_999_999,
+      companionProgress: { summoner: { level: -4, experience: -99 } },
       hunger: -2,
       hungerTimer: -1,
       worldTimeSeconds: 999_999,
@@ -146,6 +148,7 @@ try {
   assert.equal(current.player.maxMana, 120);
   assert.equal(current.player.mana, 120);
   assert.equal(current.player.classSkillCooldownRemainingMs, 24 * 60 * 60 * 1000);
+  assert.deepEqual(current.player.companionProgress, { summoner: { level: 1, experience: 0 } });
   assert.equal(current.player.hunger, 0);
   assert.equal(current.player.hungerTimer, 0);
   assert.equal(current.player.worldTimeSeconds, DAY_LENGTH_SECONDS);

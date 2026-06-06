@@ -3,6 +3,8 @@ export interface TitlePlayerClassView {
   name: string;
   skillName: string;
   tagline: string;
+  passiveLabel: string;
+  passiveSummary: string;
 }
 
 export interface TitleScreenView {
@@ -161,6 +163,7 @@ export function renderTitleScreen(titleScreenEl: HTMLElement, view: TitleScreenV
                   <span>${escapeHtml(playerClass.name)}</span>
                   <b>${escapeHtml(playerClass.skillName)}</b>
                   <small>${escapeHtml(playerClass.tagline)}</small>
+                  <em>${escapeHtml(playerClass.passiveLabel)} · ${escapeHtml(playerClass.passiveSummary)}</em>
                 </button>
               `,
             )

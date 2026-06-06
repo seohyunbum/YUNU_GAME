@@ -28,6 +28,8 @@ export interface HudViewModel {
   experience: number;
   requiredExperience: number;
   skillStatus: string;
+  passiveStatus: string;
+  petStatus?: string;
   equipmentArmor: number;
   statBonus: number;
   eagleHp?: number;
@@ -98,6 +100,8 @@ function renderStatsMarkup(view: HudViewModel) {
         <div class="stats-detail">
           <span>EXP ${view.experience}/${view.requiredExperience}</span>
           <span>스킬 ${escapeHtml(view.skillStatus)}</span>
+          <span>패시브 ${escapeHtml(view.passiveStatus)}</span>
+          ${view.petStatus ? `<span>${escapeHtml(view.petStatus)}</span>` : ""}
           <span>장비 방어 ${view.equipmentArmor}</span>
           <span>레벨 보너스 +${view.statBonus}</span>
           ${eagleMarkup}

@@ -7,6 +7,7 @@ import type {
   SavedGame,
   SavedVector,
   Slot,
+  CompanionProgress,
   WorldObject,
 } from "./types";
 
@@ -33,6 +34,7 @@ export interface SaveDataSnapshot {
     mana: number;
     maxMana: number;
     classSkillCooldownUntil: number;
+    companionProgress: CompanionProgress;
     hunger: number;
     hungerTimer: number;
     worldTimeSeconds: number;
@@ -74,7 +76,8 @@ function shouldPersistObject(object: WorldObject, excludedObjectIds: ReadonlySet
     object.type !== "caveExit" &&
     object.type !== "houseExit" &&
     object.type !== "legoHazard" &&
-    object.type !== "eagleSummon"
+    object.type !== "eagleSummon" &&
+    object.type !== "summonerPet"
   );
 }
 
@@ -100,6 +103,9 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       mana: snapshot.player.mana,
       maxMana: snapshot.player.maxMana,
       classSkillCooldownRemainingMs: Math.max(0, snapshot.player.classSkillCooldownUntil - snapshot.nowMs),
+      companionProgress: {
+        summoner: { ...snapshot.player.companionProgress.summoner },
+      },
       hunger: snapshot.player.hunger,
       hungerTimer: snapshot.player.hungerTimer,
       worldTimeSeconds: snapshot.player.worldTimeSeconds,

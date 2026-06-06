@@ -12,7 +12,8 @@ import {
 } from "./constants";
 import { DURABLE_TOOL_TABLES } from "./items";
 import { PLAYER_CLASSES } from "./classes";
-import type { HouseKind, ItemId, LocationMode, PartialSavedGame, PlayerClassId, SavedGame, SavedObject, SavedVector, Slot } from "./types";
+import { DEFAULT_SUMMONER_PET_PROGRESS } from "./classPassives";
+import type { CompanionProgress, HouseKind, ItemId, LocationMode, PartialSavedGame, PlayerClassId, SavedGame, SavedObject, SavedVector, Slot } from "./types";
 
 const DEFAULT_POSITION: SavedVector = { x: 0, y: PLAYER_HEIGHT, z: 12 };
 const DEFAULT_WORLD_TIME = DAY_LENGTH_SECONDS * (8 / 24);
@@ -100,6 +101,17 @@ export function normalizeSavedObjects(source: unknown) {
   });
 }
 
+export function normalizeCompanionProgress(source: unknown): CompanionProgress {
+  const companion = source && typeof source === "object" ? source as Partial<CompanionProgress> : {};
+  const summoner = companion.summoner && typeof companion.summoner === "object" ? companion.summoner as Partial<CompanionProgress["summoner"]> : {};
+  return {
+    summoner: {
+      level: savedInteger(summoner.level, DEFAULT_SUMMONER_PET_PROGRESS.level, 1, 999),
+      experience: savedInteger(summoner.experience, DEFAULT_SUMMONER_PET_PROGRESS.experience, 0, Number.POSITIVE_INFINITY),
+    },
+  };
+}
+
 function isSlotLike(value: unknown): value is Slot {
   if (!value || typeof value !== "object") return false;
   const slot = value as Partial<Slot>;
@@ -178,6 +190,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       mana: migratedMana,
       maxMana: migratedMaxMana,
       classSkillCooldownRemainingMs: migratedClassCooldown,
+      companionProgress: normalizeCompanionProgress(player.companionProgress),
       hunger: savedNumber(player.hunger, HUNGER_MAX, 0, HUNGER_MAX),
       hungerTimer: savedNumber(player.hungerTimer, 0, 0, HUNGER_TICK_SECONDS),
       worldTimeSeconds: savedNumber(player.worldTimeSeconds, DEFAULT_WORLD_TIME, 0, DAY_LENGTH_SECONDS),

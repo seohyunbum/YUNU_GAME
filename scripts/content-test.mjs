@@ -10,11 +10,13 @@ try {
   const items = await server.ssrLoadModule("/src/game/items.ts");
   const recipes = await server.ssrLoadModule("/src/game/recipes.ts");
   const classes = await server.ssrLoadModule("/src/game/classes.ts");
+  const classPassives = await server.ssrLoadModule("/src/game/classPassives.ts");
   const trading = await server.ssrLoadModule("/src/game/trading.ts");
 
   const { ITEM_NAMES, WEAPON_DAMAGE } = items;
   const { MINI_RECIPES, WORKBENCH_RECIPES } = recipes;
   const { PLAYER_CLASSES } = classes;
+  const { CLASS_PASSIVES, summonerPetDamage, experienceForNextPetLevel } = classPassives;
   const { POINT_SHOP_OFFERS, TRADE_OFFERS, BLACKSMITH_TRADE_OFFERS } = trading;
 
   const isItem = (id) => Object.prototype.hasOwnProperty.call(ITEM_NAMES, id);
@@ -33,6 +35,29 @@ try {
     if (!(typeof c.manaCost === "number" && c.manaCost >= 0)) problems.push(`class '${id}': invalid manaCost`);
     if (!(typeof c.cooldown === "number" && c.cooldown > 0)) problems.push(`class '${id}': invalid cooldown`);
     if (!c.name || !c.skillName) problems.push(`class '${id}': missing name/skillName`);
+
+    const passive = CLASS_PASSIVES[id];
+    if (!passive) {
+      problems.push(`class '${id}': missing passive`);
+    } else {
+      if (!passive.label || !passive.summary) problems.push(`class '${id}': passive missing label/summary`);
+      if (!(typeof passive.armorBonus === "number" && passive.armorBonus >= 0)) problems.push(`class '${id}': invalid armorBonus`);
+      if (!(typeof passive.rangedCooldownScale === "number" && passive.rangedCooldownScale > 0)) problems.push(`class '${id}': invalid rangedCooldownScale`);
+      if (!(typeof passive.manaRegenScale === "number" && passive.manaRegenScale > 0)) problems.push(`class '${id}': invalid manaRegenScale`);
+      if (!(typeof passive.healthRegenPerSec === "number" && passive.healthRegenPerSec >= 0)) problems.push(`class '${id}': invalid healthRegenPerSec`);
+    }
+  }
+
+  const summonerPet = CLASS_PASSIVES.summoner?.pet;
+  if (!summonerPet) {
+    problems.push("summoner: missing passive pet");
+  } else {
+    const shareTotal = summonerPet.playerXpShare + summonerPet.petXpShare;
+    if (Math.abs(shareTotal - 1) > 0.0001) problems.push(`summoner pet: xp shares total ${shareTotal}, expected 1`);
+    if (summonerPet.baseDamage !== 2) problems.push(`summoner pet: baseDamage ${summonerPet.baseDamage}, expected 2`);
+    if (summonerPet.attackInterval <= 0 || summonerPet.attackRange <= 0) problems.push("summoner pet: invalid attack timing/range");
+    if (summonerPetDamage({ level: 1, experience: 0 }) !== 2) problems.push("summoner pet: level 1 damage should be 2");
+    if (experienceForNextPetLevel(1) <= 0) problems.push("summoner pet: next level xp should be positive");
   }
 
   // 3. 무기: WEAPON_DAMAGE 키가 이름을 갖고 데미지 >= 1
@@ -58,7 +83,7 @@ try {
   } else {
     console.log(JSON.stringify({
       ok: true,
-      checks: ["recipe items exist", "class starter/skill valid", "weapons named", "trade/shop items exist"],
+      checks: ["recipe items exist", "class starter/skill/passive valid", "weapons named", "trade/shop items exist"],
     }, null, 2));
   }
 } finally {

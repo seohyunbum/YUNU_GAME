@@ -41,6 +41,7 @@ function stableSaveShape(save) {
       playerClass: save.player.playerClass,
       mana: save.player.mana,
       maxMana: save.player.maxMana,
+      companionProgress: save.player.companionProgress,
       hunger: save.player.hunger,
       hungerTimer: save.player.hungerTimer,
       worldTimeSeconds: save.player.worldTimeSeconds,
@@ -119,6 +120,7 @@ try {
     game.pendingPlayerClass = "mage";
     game.mana = 42;
     game.maxMana = 120;
+    game.summonerCompanion.restore({ summoner: { level: 4, experience: 17 } });
     game.hunger = 3;
     game.hungerTimer = 77;
     game.worldTimeSeconds = 2400;

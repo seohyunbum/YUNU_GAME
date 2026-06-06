@@ -651,7 +651,8 @@ body {
 
 .class-card span,
 .class-card b,
-.class-card small {
+.class-card small,
+.class-card em {
   display: block;
 }
 
@@ -672,6 +673,15 @@ body {
   color: rgba(226, 232, 240, 0.88);
   font-size: 11px;
   line-height: 1.32;
+}
+
+.class-card em {
+  margin-top: 7px;
+  color: #a7f3d0;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .title-actions button {
