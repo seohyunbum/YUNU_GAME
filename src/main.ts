@@ -2,18 +2,6 @@ import * as THREE from "three";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { Water } from "three/examples/jsm/objects/Water.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import {
-  BlendFunction,
-  BloomEffect,
-  BrightnessContrastEffect,
-  EffectComposer,
-  EffectPass,
-  HueSaturationEffect,
-  RenderPass,
-  SMAAEffect,
-  SMAAPreset,
-  VignetteEffect,
-} from "postprocessing";
 import { CLASS_APPEARANCE, DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
 import { getRewardTuning, type RewardSource } from "./operatorConfig";
 import { currentObjective } from "./objectives";
@@ -284,8 +272,6 @@ class WildernessGame {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(75, 16 / 9, 0.1, 1200);
   private readonly renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: false });
-  private composer: EffectComposer | null = null;
-  private postProcessingActive = true;
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2(0, 0);
   private readonly clock = new THREE.Clock();
@@ -685,7 +671,6 @@ class WildernessGame {
     this.gridHelper.visible = false;
     this.scene.add(this.gridHelper);
     this.createCloudLayer();
-    this.setupPostProcessing();
     this.applyTimeOfDay();
   }
 
@@ -697,31 +682,6 @@ class WildernessGame {
     uniforms.mieCoefficient.value = 0.0045;
     uniforms.mieDirectionalG.value = 0.72;
     this.scene.add(this.sky);
-  }
-
-  private setupPostProcessing() {
-    this.composer = new EffectComposer(this.renderer, {
-      multisampling: 0,
-      frameBufferType: THREE.HalfFloatType,
-    });
-    const renderPass = new RenderPass(this.scene, this.camera);
-    const bloom = new BloomEffect({
-      blendFunction: BlendFunction.SCREEN,
-      intensity: 0.34,
-      luminanceThreshold: 0.66,
-      luminanceSmoothing: 0.34,
-      mipmapBlur: true,
-      radius: 0.68,
-    });
-    const saturation = new HueSaturationEffect({ saturation: 0.26 });
-    const contrast = new BrightnessContrastEffect({ brightness: 0.025, contrast: 0.14 });
-    const vignette = new VignetteEffect({ offset: 0.2, darkness: 0.28 });
-    const smaa = new SMAAEffect({ preset: SMAAPreset.MEDIUM });
-    const effectPass = new EffectPass(this.camera, bloom, saturation, contrast, vignette, smaa);
-    effectPass.renderToScreen = true;
-    this.composer.addPass(renderPass);
-    this.composer.addPass(effectPass);
-    this.composer.setSize(this.container.clientWidth, this.container.clientHeight);
   }
 
   private pixelRatioForQuality(mode: QualityMode = this.qualityMode) {
@@ -2461,7 +2421,6 @@ class WildernessGame {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(this.pixelRatioForQuality());
-    this.composer?.setSize(width, height);
   }
 
   private animate = () => {
@@ -2472,11 +2431,7 @@ class WildernessGame {
     this.update(delta);
     const preferFastRender = this.gameStarted && this.isSprinting();
     this.setSprintRenderOptimizations(preferFastRender);
-    if (this.composer && this.postProcessingActive && !preferFastRender) {
-      this.composer.render(delta);
-    } else {
-      this.renderer.render(this.scene, this.camera);
-    }
+    this.renderer.render(this.scene, this.camera);
   };
 
   private setSprintRenderOptimizations(active: boolean) {
@@ -2588,13 +2543,11 @@ class WildernessGame {
   private applyQualityMode(mode: QualityMode) {
     if (this.qualityMode === mode) return;
     this.qualityMode = mode;
-    this.postProcessingActive = mode !== "performance";
     this.shadowRefreshInterval = mode === "high" ? 0.4 : mode === "balanced" ? 0.65 : 1.1;
     this.renderer.setPixelRatio(this.pixelRatioForQuality(mode));
     applyShadowQuality(this.sunLight, mode);
     refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, this.sprintRenderOptimized);
     this.renderer.shadowMap.needsUpdate = true;
-    this.composer?.setSize(this.container.clientWidth, this.container.clientHeight);
   }
 
   private updateVisualEffects(delta: number) {
@@ -5861,12 +5814,10 @@ class WildernessGame {
     this.performanceSampleSum = 0;
     this.performanceSlowFrames = 0;
     this.performanceHitchFrames = 0;
-    this.postProcessingActive = true;
     this.renderer.setPixelRatio(this.pixelRatioForQuality());
     applyShadowQuality(this.sunLight, this.qualityMode);
     refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, this.sprintRenderOptimized);
     this.renderer.shadowMap.needsUpdate = true;
-    this.composer?.setSize(this.container.clientWidth, this.container.clientHeight);
     this.nightSpawnTimer = 0;
     this.applyClassStarterLoadout();
     this.setOverworldAtmosphere();

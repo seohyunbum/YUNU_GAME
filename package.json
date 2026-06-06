@@ -23,7 +23,6 @@
     "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run perf-check"
   },
   "dependencies": {
-    "postprocessing": "^6.39.1",
     "three": "^0.184.0"
   },
   "devDependencies": {
