@@ -255,7 +255,7 @@ import {
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView } from "./ui/loadGamePanel";
-import { renderSaveControls, renderTitleScreen } from "./ui/titleScreen";
+import { setupGameUi } from "./ui/setupUi";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import "./style.css";
 
@@ -520,7 +520,80 @@ class WildernessGame {
     }
     this.setupRenderer();
     this.setupScene();
-    this.setupUi();
+    setupGameUi(
+      {
+        container: this.container,
+        uiRoot: this.uiRoot,
+        statsEl: this.statsEl,
+        objectiveEl: this.objectiveEl,
+        promptEl: this.promptEl,
+        hotbarEl: this.hotbarEl,
+        messageEl: this.messageEl,
+        panelEl: this.panelEl,
+        bossBarEl: this.bossBarEl,
+        saveControlsEl: this.saveControlsEl,
+        titleScreenEl: this.titleScreenEl,
+      },
+      {
+        lavaLaneCount: LAVA_LANE_COUNT,
+        playerClasses: Object.entries(PLAYER_CLASSES).map(([id, playerClass]) => ({
+          id,
+          name: playerClass.name,
+          skillName: playerClass.skillName,
+          tagline: playerClass.tagline,
+        })),
+      },
+      {
+        onNewGame: () => this.newGame(),
+        onSaveGame: () => this.saveGame(),
+        onLoadGame: () => this.loadGame(),
+        onTitleNew: () => this.startGame("new"),
+        onClassChoice: (choice) => {
+          if (!this.isPlayerClassId(choice)) return;
+          this.pendingPlayerClass = choice;
+          this.titleScreenEl.querySelector<HTMLElement>("[data-class-select]")?.classList.remove("needs-choice");
+          this.renderClassSelection();
+          this.playTone(520, 0.06, "triangle", 0.018);
+        },
+        onTitleLoad: () => this.startGame("load"),
+        onShowMiniGame: () => this.showMiniGame(),
+        onShowLavaMiniGame: () => this.showLavaMiniGame(),
+        onShowSmithingMiniGame: () => this.showSmithingMiniGame(),
+        onHideMiniGame: () => this.hideMiniGame(),
+        onStartMiniGame: (event) => {
+          this.startMiniGameRound();
+          this.releaseMiniGameButtonFocus(event);
+        },
+        onResetMiniGame: (event) => {
+          this.startMiniGameRound();
+          this.releaseMiniGameButtonFocus(event);
+        },
+        onHideLavaMiniGame: () => this.hideLavaMiniGame(),
+        onStartLavaMiniGame: (event) => {
+          this.startLavaMiniGameRound();
+          this.releaseMiniGameButtonFocus(event);
+        },
+        onResetLavaMiniGame: (event) => {
+          this.startLavaMiniGameRound();
+          this.releaseMiniGameButtonFocus(event);
+        },
+        onHideSmithingMiniGame: () => this.hideSmithingMiniGame(),
+        onStartSmithingMiniGame: (event) => {
+          this.startSmithingMiniGameRound();
+          this.releaseMiniGameButtonFocus(event);
+        },
+        onResetSmithingMiniGame: (event) => {
+          this.startSmithingMiniGameRound();
+          this.releaseMiniGameButtonFocus(event);
+        },
+        onBindSmithingMiniGameEvents: () => this.bindSmithingMiniGameEvents(),
+        onRenderTitlePoints: () => this.renderTitlePoints(),
+        onRenderClassSelection: () => this.renderClassSelection(),
+        onRenderMiniGame: () => this.renderMiniGame(),
+        onRenderLavaMiniGame: () => this.renderLavaMiniGame(),
+        onRenderSmithingMiniGame: () => this.renderSmithingMiniGame(),
+      },
+    );
     this.setupEvents();
     this.seedOverworld();
     this.renderHud();
@@ -867,125 +940,6 @@ class WildernessGame {
     this.sky.visible = false;
     this.cloudLayer.visible = false;
     for (const mesh of this.biomeMeshes) mesh.visible = false;
-  }
-
-  private setupUi() {
-    this.uiRoot.className = "game-ui";
-    this.statsEl.className = "stats";
-    this.objectiveEl.className = "objective";
-    this.promptEl.className = "prompt";
-    this.hotbarEl.className = "hotbar";
-    this.messageEl.className = "message";
-    this.panelEl.className = "panel-layer";
-    this.bossBarEl.className = "boss-bar hidden";
-    this.saveControlsEl.className = "save-controls";
-    renderSaveControls(this.saveControlsEl);
-    this.titleScreenEl.className = "title-screen";
-    renderTitleScreen(this.titleScreenEl, {
-      lavaLaneCount: LAVA_LANE_COUNT,
-      playerClasses: Object.entries(PLAYER_CLASSES).map(([id, playerClass]) => ({
-        id,
-        name: playerClass.name,
-        skillName: playerClass.skillName,
-        tagline: playerClass.tagline,
-      })),
-    });
-    this.uiRoot.innerHTML = '<div class="crosshair"></div>';
-    this.uiRoot.classList.add("title-active");
-    this.uiRoot.append(this.bossBarEl, this.objectiveEl, this.statsEl, this.saveControlsEl, this.promptEl, this.hotbarEl, this.messageEl, this.panelEl, this.titleScreenEl);
-    this.container.appendChild(this.uiRoot);
-
-    this.saveControlsEl.querySelector<HTMLButtonElement>("[data-new-game]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.newGame();
-    });
-    this.saveControlsEl.querySelector<HTMLButtonElement>("[data-save-game]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.saveGame();
-    });
-    this.saveControlsEl.querySelector<HTMLButtonElement>("[data-load-game]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.loadGame();
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-title-new]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.startGame("new");
-    });
-    this.titleScreenEl.querySelectorAll<HTMLButtonElement>("[data-class-choice]").forEach((button) => {
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const choice = button.dataset.classChoice;
-        if (!this.isPlayerClassId(choice)) return;
-        this.pendingPlayerClass = choice;
-        this.titleScreenEl.querySelector<HTMLElement>("[data-class-select]")?.classList.remove("needs-choice");
-        this.renderClassSelection();
-        this.playTone(520, 0.06, "triangle", 0.018);
-      });
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-title-load]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.startGame("load");
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-title-mini]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.showMiniGame();
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-title-lava]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.showLavaMiniGame();
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-title-smith]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.showSmithingMiniGame();
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-mini-back]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.hideMiniGame();
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-mini-start]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.startMiniGameRound();
-      this.releaseMiniGameButtonFocus(event);
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-mini-reset]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.startMiniGameRound();
-      this.releaseMiniGameButtonFocus(event);
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-lava-back]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.hideLavaMiniGame();
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-lava-start]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.startLavaMiniGameRound();
-      this.releaseMiniGameButtonFocus(event);
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-lava-reset]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.startLavaMiniGameRound();
-      this.releaseMiniGameButtonFocus(event);
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-smith-back]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.hideSmithingMiniGame();
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-smith-start]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.startSmithingMiniGameRound();
-      this.releaseMiniGameButtonFocus(event);
-    });
-    this.titleScreenEl.querySelector<HTMLButtonElement>("[data-smith-reset]")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.startSmithingMiniGameRound();
-      this.releaseMiniGameButtonFocus(event);
-    });
-    this.bindSmithingMiniGameEvents();
-    this.renderTitlePoints();
-    this.renderClassSelection();
-    this.renderMiniGame();
-    this.renderLavaMiniGame();
-    this.renderSmithingMiniGame();
   }
 
   private renderTitlePoints() {
