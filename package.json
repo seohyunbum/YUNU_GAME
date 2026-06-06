@@ -8,10 +8,14 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
-    "visual-check": "node scripts/visual-check.mjs"
+    "visual-check": "node scripts/visual-check.mjs",
+    "perf-check": "node scripts/performance-smoke.mjs",
+    "test:save-migration": "node scripts/save-migration-test.mjs",
+    "test:save-repository": "node scripts/save-repository-test.mjs"
   },
   "dependencies": {
     "phaser": "^4.1.0",
+    "postprocessing": "^6.39.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "three": "^0.184.0"

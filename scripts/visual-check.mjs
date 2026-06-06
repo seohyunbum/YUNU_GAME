@@ -20,51 +20,46 @@ async function findBrowserPath() {
 }
 
 async function inspectCanvas(page) {
-  return page.evaluate(() => {
-    const canvas = document.querySelector("canvas");
-    if (!(canvas instanceof HTMLCanvasElement)) {
-      return { ok: false, reason: "canvas missing" };
-    }
-
-    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
-    if (!gl) {
-      return { ok: false, reason: "webgl context missing" };
-    }
-
-    const width = gl.drawingBufferWidth;
-    const height = gl.drawingBufferHeight;
-    const first = new Uint8Array(4);
-    const sample = new Uint8Array(4);
-    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, first);
-
-    let differentPixels = 0;
-    let brightPixels = 0;
-    for (let y = 1; y <= 8; y += 1) {
-      for (let x = 1; x <= 8; x += 1) {
-        gl.readPixels(
-          Math.floor((width * x) / 9),
-          Math.floor((height * y) / 9),
-          1,
-          1,
-          gl.RGBA,
-          gl.UNSIGNED_BYTE,
-          sample,
-        );
-        const different =
-          sample[0] !== first[0] || sample[1] !== first[1] || sample[2] !== first[2] || sample[3] !== first[3];
-        if (different) differentPixels += 1;
-        if (sample[0] + sample[1] + sample[2] > 30) brightPixels += 1;
-      }
-    }
-
-    return {
-      ok: width > 0 && height > 0 && brightPixels > 10 && differentPixels > 4,
-      width,
-      height,
-      brightPixels,
-      differentPixels,
-    };
-  });
+  const screenshot = await page.screenshot({ type: "png" });
+  return page.evaluate(
+    async (dataUrl) =>
+      new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext("2d");
+          if (!context) {
+            resolve({ ok: false, reason: "2d context missing" });
+            return;
+          }
+          context.drawImage(image, 0, 0);
+          const first = context.getImageData(0, 0, 1, 1).data;
+          let differentPixels = 0;
+          let brightPixels = 0;
+          for (let y = 1; y <= 8; y += 1) {
+            for (let x = 1; x <= 8; x += 1) {
+              const sample = context.getImageData(Math.floor((image.width * x) / 9), Math.floor((image.height * y) / 9), 1, 1).data;
+              const different =
+                sample[0] !== first[0] || sample[1] !== first[1] || sample[2] !== first[2] || sample[3] !== first[3];
+              if (different) differentPixels += 1;
+              if (sample[0] + sample[1] + sample[2] > 30) brightPixels += 1;
+            }
+          }
+          resolve({
+            ok: image.width > 0 && image.height > 0 && brightPixels > 10 && differentPixels > 4,
+            width: image.width,
+            height: image.height,
+            brightPixels,
+            differentPixels,
+          });
+        };
+        image.onerror = () => resolve({ ok: false, reason: "screenshot decode failed" });
+        image.src = dataUrl;
+      }),
+    `data:image/png;base64,${screenshot.toString("base64")}`,
+  );
 }
 
 async function inspectGameplayUi(page, viewportName) {
@@ -85,6 +80,8 @@ async function inspectGameplayUi(page, viewportName) {
   if (viewportName !== "desktop") return ui;
 
   await page.evaluate(() => {
+    localStorage.removeItem("ai-game-lab:wilderness-saves-v1");
+    localStorage.removeItem("ai-game-lab:wilderness-save-backup-v1");
     localStorage.setItem(
       "ai-game-lab:wilderness-save-v1",
       JSON.stringify({
@@ -133,6 +130,8 @@ async function inspectGameplayUi(page, viewportName) {
   ui.hotbarSlotsAfterMigration = await page.locator(".hotbar button").count();
 
   await page.evaluate(() => {
+    localStorage.removeItem("ai-game-lab:wilderness-saves-v1");
+    localStorage.removeItem("ai-game-lab:wilderness-save-backup-v1");
     localStorage.setItem(
       "ai-game-lab:wilderness-save-v1",
       JSON.stringify({
@@ -190,6 +189,8 @@ async function inspectGameplayUi(page, viewportName) {
   });
 
   await page.evaluate(() => {
+    localStorage.removeItem("ai-game-lab:wilderness-saves-v1");
+    localStorage.removeItem("ai-game-lab:wilderness-save-backup-v1");
     localStorage.setItem(
       "ai-game-lab:wilderness-save-v1",
       JSON.stringify({
@@ -242,6 +243,8 @@ async function inspectGameplayUi(page, viewportName) {
   await page.waitForTimeout(150);
 
   await page.evaluate(() => {
+    localStorage.removeItem("ai-game-lab:wilderness-saves-v1");
+    localStorage.removeItem("ai-game-lab:wilderness-save-backup-v1");
     localStorage.setItem(
       "ai-game-lab:wilderness-save-v1",
       JSON.stringify({
@@ -299,6 +302,8 @@ async function inspectGameplayUi(page, viewportName) {
   await page.keyboard.press("Escape");
 
   await page.evaluate(() => {
+    localStorage.removeItem("ai-game-lab:wilderness-saves-v1");
+    localStorage.removeItem("ai-game-lab:wilderness-save-backup-v1");
     localStorage.setItem(
       "ai-game-lab:wilderness-save-v1",
       JSON.stringify({
@@ -373,6 +378,7 @@ for (const viewport of [
   await page.goto("http://127.0.0.1:5173/", { waitUntil: "networkidle" });
   await page.waitForSelector("canvas", { timeout: 10_000 });
   await page.waitForSelector(".title-screen", { timeout: 10_000 });
+  await page.click('[data-class-choice="warrior"]');
   await page.click("[data-title-new]");
   await page.waitForTimeout(1_200);
   await page.screenshot({ path: `artifacts/${viewport.name}.png`, fullPage: true });

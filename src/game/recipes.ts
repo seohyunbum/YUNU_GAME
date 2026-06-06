@@ -1,0 +1,272 @@
+import { BOW_DAMAGE, MAGIC_WAND_DAMAGE } from "./constants";
+import type { Recipe } from "./types";
+import { MATERIALS } from "./items";
+
+export const MINI_RECIPES: Recipe[] = [
+  {
+    id: "stick",
+    name: "나무 막대기",
+    output: "stick",
+    count: 2,
+    ingredients: { wood: 1 },
+    note: "미니 제작대에서 나무를 막대기로 쪼갭니다.",
+  },
+  {
+    id: "crafting_table",
+    name: "제작대",
+    output: "crafting_table",
+    count: 1,
+    ingredients: { wood: 3, hammer: 1 },
+    note: "재료 위치와 상관없이 나무 3개와 망치 1개를 조합합니다.",
+  },
+  {
+    id: "special_smelter",
+    name: "특수 재련대",
+    output: "special_smelter",
+    count: 1,
+    ingredients: { smelter: 1, hammer: 1 },
+    note: "재련대와 망치를 조합합니다.",
+  },
+];
+
+export const WORKBENCH_RECIPES: Recipe[] = [
+  {
+    id: "mirror",
+    name: "거울",
+    output: "mirror",
+    count: 1,
+    ingredients: { diamond_powder: 6, refined_wood: 6, stone: 6 },
+    note: "내 캐릭터 모습을 확인할 수 있습니다. 향후 멀티플레이 캐릭터 표시에도 쓰일 모델입니다.",
+    extendedOnly: true,
+  },
+  {
+    id: "grinder",
+    name: "분쇄기",
+    output: "grinder",
+    count: 1,
+    ingredients: { hammer: 2, iron: 6 },
+    note: "광물을 가루로 만들 수 있는 설치형 도구입니다.",
+  },
+  {
+    id: "bucket",
+    name: "\uc591\ub3d9\uc774",
+    output: "bucket",
+    count: 1,
+    ingredients: { refined_iron: 3 },
+    note: "\ubb3c\uc774\ub098 \uc6a9\uc554 \uac19\uc740 \uc561\uccb4\ub97c \ub2f4\uc744 \uc218 \uc788\uc2b5\ub2c8\ub2e4. \ubb3c \uc591\ub3d9\uc774\ub97c \uc6a9\uc554\uc9c0\ub300\uc5d0 \uc0ac\uc6a9\ud558\uba74 \ud751\uc694\uc11d\uc774 \ub9cc\ub4e4\uc5b4\uc9d1\ub2c8\ub2e4.",
+  },
+  {
+    id: "dragon_spawn",
+    name: "용 스폰",
+    output: "dragon_spawn",
+    count: 1,
+    ingredients: { obsidian_powder: 6, diamond_powder: 6, gold_powder: 6, lava_bucket: 6, water_bucket: 6 },
+    note: "확장 제작대 전용입니다. 사용하면 앞쪽에 용 보스를 소환합니다.",
+    extendedOnly: true,
+  },
+  {
+    id: "mineral_compound",
+    name: "광물 혼합물",
+    output: "mineral_compound",
+    count: 1,
+    ingredients: { stone_powder: 2, iron_powder: 1, coal_powder: 1 },
+    note: "가루 광물로 만드는 제작 재료입니다.",
+  },
+  {
+    id: "powder_iron_dagger",
+    name: "철 가루 단검",
+    output: "iron_dagger",
+    count: 1,
+    ingredients: { iron_powder: 3, stick: 1 },
+    note: "분쇄한 철 가루를 압축해 만든 단검입니다.",
+  },
+  {
+    id: "extended_workbench",
+    name: "확장 제작대",
+    output: "extended_workbench",
+    count: 1,
+    ingredients: { crafting_table: 2 },
+    note: "제작대 2개를 합쳐 더 큰 제작대로 만듭니다.",
+  },
+  {
+    id: "bag",
+    name: "가방",
+    output: "bag",
+    count: 1,
+    ingredients: { leather: 13 },
+    note: "인벤토리 가방 공간 40칸을 엽니다.",
+  },
+  {
+    id: "bed",
+    name: "침대",
+    output: "bed",
+    count: 1,
+    ingredients: { leather: 3, wood: 3, stick: 3 },
+    note: "필드에 설치한 뒤 우클릭으로 자면 체력이 회복됩니다.",
+  },
+  {
+    id: "building_block",
+    name: "쌓기블록",
+    output: "building_block",
+    count: 4,
+    ingredients: { refined_wood: 2 },
+    note: "오른쪽 클릭으로 붙여 놓습니다. 옆으로 이어 붙일 수 있고, 계단식으로 쌓으면 점프로 올라갈 수 있습니다.",
+  },
+  {
+    id: "bow",
+    name: "활",
+    output: "bow",
+    count: 1,
+    ingredients: { stick: 3, wood: 2, leather: 2 },
+    note: `화살을 발사하는 원거리 무기입니다. 데미지 ${BOW_DAMAGE}.`,
+  },
+  {
+    id: "magic_wand",
+    name: "마법봉",
+    output: "magic_wand",
+    count: 1,
+    ingredients: { refined_wood: 2, diamond_powder: 1, gold_powder: 1 },
+    note: `초록색 마법 투사체를 발사합니다. 데미지 ${MAGIC_WAND_DAMAGE}.`,
+  },
+  {
+    id: "weak_wood_axe",
+    name: "약한 나무 도끼",
+    output: "weak_wood_axe",
+    count: 1,
+    ingredients: { wood: 3, stick: 2 },
+    note: "큰 나무를 캘 수 있는 첫 도끼입니다.",
+  },
+  {
+    id: "sharp_wood_axe",
+    name: "날카로운 나무 도끼",
+    output: "sharp_wood_axe",
+    count: 1,
+    ingredients: { refined_wood: 3, stick: 2 },
+    note: "재련된 나무로 만든 더 좋은 도끼입니다.",
+  },
+  {
+    id: "special_smelter",
+    name: "특수 재련대",
+    output: "special_smelter",
+    count: 1,
+    ingredients: { smelter: 1, hammer: 1 },
+    note: "흑요석을 재련할 수 있습니다.",
+  },
+  {
+    id: "obsidian_dagger",
+    name: "날카로운 흑요석 단검",
+    output: "obsidian_dagger",
+    count: 1,
+    ingredients: { sharp_obsidian: 1, stick: 1 },
+    note: "데미지 50.",
+  },
+  {
+    id: "obsidian_sword",
+    name: "날카로운 흑요석 검",
+    output: "obsidian_sword",
+    count: 1,
+    ingredients: { sharp_obsidian: 2, stick: 1 },
+    note: "데미지 100.",
+  },
+  {
+    id: "leather_armor",
+    name: "가죽 갑옷",
+    output: "leather_armor",
+    count: 1,
+    ingredients: { leather: 8 },
+    note: "방어력 +5.",
+  },
+];
+
+for (const material of MATERIALS) {
+  if (material.prefix !== "wood") {
+    WORKBENCH_RECIPES.push({
+      id: `${material.prefix}_axe`,
+      name: `${material.name} 도끼`,
+      output: `${material.prefix}_axe`,
+      count: 1,
+      ingredients: { [material.refined]: 3, stick: 2 },
+      note: "큰 나무를 더 빠르게 캘 수 있습니다.",
+    });
+  }
+
+  WORKBENCH_RECIPES.push(
+    {
+      id: `${material.prefix}_pickaxe`,
+      name: `${material.name} 곡괭이`,
+      output: `${material.prefix}_pickaxe`,
+      count: 1,
+      ingredients: material.prefix === "stone" ? { stone: 4, stick: 2 } : { [material.refined]: 4, stick: 2 },
+      note: material.prefix === "diamond" ? "흑요석을 캘 수 있습니다." : "광물을 캘 수 있습니다.",
+    },
+    {
+      id: `${material.prefix}_shovel`,
+      name: `${material.name} 삽`,
+      output: `${material.prefix}_shovel`,
+      count: 1,
+      ingredients: material.prefix === "wood" ? { wood: 1, stick: 2 } : { [material.refined]: 1, stick: 2 },
+      note: "흙을 더 빠르게 팔 수 있습니다.",
+    },
+    {
+      id: `${material.prefix}_dagger`,
+      name: `${material.name} 단검`,
+      output: `${material.prefix}_dagger`,
+      count: 1,
+      ingredients: { [material.refined]: 1, stick: 1 },
+      note: `데미지 ${material.dagger}.`,
+    },
+    {
+      id: `${material.prefix}_sword`,
+      name: `${material.name} 검`,
+      output: `${material.prefix}_sword`,
+      count: 1,
+      ingredients: { [material.refined]: 2, stick: 1 },
+      note: `데미지 ${material.dagger * 2}.`,
+    },
+  );
+}
+
+WORKBENCH_RECIPES.push(
+  {
+    id: "copper_armor",
+    name: "구리 갑옷",
+    output: "copper_armor",
+    count: 1,
+    ingredients: { copper: 8 },
+    note: "방어력 +12.",
+  },
+  {
+    id: "iron_armor",
+    name: "철 갑옷",
+    output: "iron_armor",
+    count: 1,
+    ingredients: { iron: 8 },
+    note: "방어력 +22.",
+  },
+  {
+    id: "gold_armor",
+    name: "금 갑옷",
+    output: "gold_armor",
+    count: 1,
+    ingredients: { gold: 8 },
+    note: "방어력 +30. 높은 등급의 방어구입니다.",
+  },
+  {
+    id: "diamond_armor",
+    name: "다이아몬드 갑옷",
+    output: "diamond_armor",
+    count: 1,
+    ingredients: { diamond: 8 },
+    note: "방어력 +45.",
+  },
+  {
+    id: "obsidian_armor",
+    name: "흑요석 갑옷",
+    output: "obsidian_armor",
+    count: 1,
+    ingredients: { obsidian: 8 },
+    note: "방어력 +65.",
+    extendedOnly: true,
+  },
+);
+

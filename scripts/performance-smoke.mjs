@@ -1,0 +1,244 @@
+import { access } from "node:fs/promises";
+import { chromium } from "playwright-core";
+
+const chromeCandidates = [
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+];
+
+async function findBrowserPath() {
+  for (const candidate of chromeCandidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // Try next candidate.
+    }
+  }
+  throw new Error("No local Chrome or Edge executable was found.");
+}
+
+async function sampleFrames(page, label, durationMs = 3000) {
+  return page.evaluate(
+    ({ label: sampleLabel, durationMs: sampleDuration }) =>
+      new Promise((resolve) => {
+        const frames = [];
+        let last = performance.now();
+        const startedAt = last;
+        function tick(now) {
+          frames.push(now - last);
+          last = now;
+          if (now - startedAt < sampleDuration) {
+            requestAnimationFrame(tick);
+            return;
+          }
+          const sorted = [...frames].sort((a, b) => a - b);
+          const average = frames.reduce((sum, frame) => sum + frame, 0) / Math.max(1, frames.length);
+          resolve({
+            label: sampleLabel,
+            frames: frames.length,
+            averageMs: Number(average.toFixed(2)),
+            p95Ms: Number(sorted[Math.floor(sorted.length * 0.95)]?.toFixed(2) ?? 0),
+            maxMs: Number(Math.max(...frames).toFixed(2)),
+            slowFrames: frames.filter((frame) => frame > 33.4).length,
+            hitches: frames.filter((frame) => frame > 50).length,
+          });
+        }
+        requestAnimationFrame(tick);
+      }),
+    { label, durationMs },
+  );
+}
+
+async function profileGame(page) {
+  return page.evaluate(() => {
+    const game = window.__wildernessGame;
+    if (!game) return { available: false };
+    let meshCount = 0;
+    let visibleMeshCount = 0;
+    let outlineCount = 0;
+    let visibleOutlineCount = 0;
+    game.scene.traverse((child) => {
+      if (child.isMesh) meshCount += 1;
+      let effectivelyVisible = child.visible;
+      let current = child.parent;
+      while (effectivelyVisible && current) {
+        effectivelyVisible = current.visible;
+        current = current.parent;
+      }
+      if (child.isMesh && effectivelyVisible) visibleMeshCount += 1;
+      if (child.userData?.isCartoonOutline) {
+        outlineCount += 1;
+        if (effectivelyVisible) visibleOutlineCount += 1;
+      }
+    });
+    return {
+      available: true,
+      objects: game.objects?.size ?? 0,
+      raycastTargets: game.raycastTargets?.length ?? 0,
+      meshCount,
+      visibleMeshCount,
+      outlineCount,
+      visibleOutlineCount,
+      waterRipples: game.waterRippleMeshes?.length ?? 0,
+      waterSurfaces: game.waterSurfaceMeshes?.length ?? 0,
+      qualityMode: game.qualityMode,
+    };
+  });
+}
+
+async function teleportToVillage(page) {
+  const moved = await page.evaluate(() => {
+    const game = window.__wildernessGame;
+    if (!game) return false;
+    const x = 58;
+    const z = -76;
+    const y = (game.getOverworldHeightAt?.(x, z) ?? 0) + 1.7;
+    game.playerPosition.set(x, y, z);
+    game.previousPosition.copy(game.playerPosition);
+    game.yaw = 0;
+    game.pitch = 0;
+    game.camera.rotation.set(0, 0, 0, "YXZ");
+    game.settlePlayerAfterTeleport?.();
+    return true;
+  });
+  if (!moved) throw new Error("Development game hook was not available.");
+}
+
+async function setMovementKeys(page, codes) {
+  await page.evaluate((nextCodes) => {
+    const game = window.__wildernessGame;
+    if (!game) return;
+    for (const code of ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft", "ShiftRight", "KeyC", "Space"]) {
+      game.keys?.delete(code);
+    }
+    for (const code of nextCodes) game.keys?.add(code);
+  }, codes);
+}
+
+async function sampleMovement(page, label, codes, durationMs = 3000) {
+  await setMovementKeys(page, codes);
+  const result = await sampleFrames(page, label, durationMs);
+  await setMovementKeys(page, []);
+  return result;
+}
+
+async function installProfiler(page) {
+  await page.evaluate(() => {
+    const game = window.__wildernessGame;
+    if (!game || game.__perfProfilerInstalled) return;
+    game.__perfProfilerInstalled = true;
+    game.__perfProfile = {};
+    const wrap = (owner, name, label = name) => {
+      const original = owner?.[name];
+      if (typeof original !== "function") return;
+      owner[name] = function profiledFunction(...args) {
+        const startedAt = performance.now();
+        try {
+          return original.apply(this, args);
+        } finally {
+          const elapsed = performance.now() - startedAt;
+          const entry = game.__perfProfile[label] ?? { calls: 0, totalMs: 0, maxMs: 0 };
+          entry.calls += 1;
+          entry.totalMs += elapsed;
+          entry.maxMs = Math.max(entry.maxMs, elapsed);
+          game.__perfProfile[label] = entry;
+        }
+      };
+    };
+    for (const name of [
+      "update",
+      "updateMovement",
+      "updateVisibilityCulling",
+      "updatePrompt",
+      "updateVillagers",
+      "updateKnights",
+      "updateAnimals",
+      "updateTrains",
+      "updateHand",
+      "updateBossBar",
+      "renderHud",
+      "getLookTarget",
+      "nearbyRaycastTargets",
+      "resolveCollisions",
+    ]) {
+      wrap(game, name);
+    }
+    wrap(game.composer, "render", "composer.render");
+    wrap(game.renderer, "render", "renderer.render");
+  });
+}
+
+async function resetProfiler(page) {
+  await page.evaluate(() => {
+    const game = window.__wildernessGame;
+    if (game) game.__perfProfile = {};
+  });
+}
+
+async function readProfiler(page) {
+  return page.evaluate(() => {
+    const profile = window.__wildernessGame?.__perfProfile ?? {};
+    return Object.fromEntries(
+      Object.entries(profile)
+        .map(([name, entry]) => [
+          name,
+          {
+            calls: entry.calls,
+            averageMs: Number((entry.totalMs / Math.max(1, entry.calls)).toFixed(3)),
+            maxMs: Number(entry.maxMs.toFixed(3)),
+          },
+        ])
+        .sort((a, b) => b[1].maxMs - a[1].maxMs),
+    );
+  });
+}
+
+const browserPath = await findBrowserPath();
+const browser = await chromium.launch({ executablePath: browserPath, headless: true });
+const page = await browser.newPage({ viewport: { width: 1366, height: 768 } });
+const errors = [];
+
+page.on("pageerror", (error) => errors.push(error.message));
+page.on("console", (message) => {
+  if (message.type() === "error") errors.push(message.text());
+});
+
+await page.goto("http://127.0.0.1:5173/", { waitUntil: "networkidle" });
+await page.waitForSelector(".title-screen", { timeout: 10_000 });
+await page.click('[data-class-choice="warrior"]');
+await page.click("[data-title-new]");
+await page.waitForTimeout(4200);
+await installProfiler(page);
+
+const startingProfile = await profileGame(page);
+const field = await sampleFrames(page, "field");
+const fieldSprint = await sampleMovement(page, "field-sprint", ["KeyW", "ShiftLeft"]);
+await teleportToVillage(page);
+await page.waitForTimeout(600);
+const villageProfile = await profileGame(page);
+const village = await sampleFrames(page, "village");
+await resetProfiler(page);
+const villageSprint = await sampleMovement(page, "village-sprint", ["KeyW", "ShiftLeft"]);
+const villageSprintProfile = await readProfiler(page);
+await resetProfiler(page);
+const villageSprintRepeat = await sampleMovement(page, "village-sprint-repeat", ["KeyW", "ShiftLeft"]);
+const villageSprintRepeatProfile = await readProfiler(page);
+
+await browser.close();
+
+const result = {
+  profiles: {
+    field: startingProfile,
+    village: villageProfile,
+  },
+  samples: [field, fieldSprint, village, villageSprint, villageSprintRepeat],
+  profiler: {
+    villageSprint: villageSprintProfile,
+    villageSprintRepeat: villageSprintRepeatProfile,
+  },
+  errors,
+};
+
+console.log(JSON.stringify(result, null, 2));
+if (errors.length > 0) process.exitCode = 1;
