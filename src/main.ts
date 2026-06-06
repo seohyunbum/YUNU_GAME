@@ -35,6 +35,13 @@ import {
   createWorkbenchVisual as createPlaceableWorkbenchVisual,
 } from "./game/placeableVisuals";
 import {
+  spawnBed as spawnBedObject,
+  spawnBuildingBlock as spawnBuildingBlockObject,
+  spawnGrinder as spawnGrinderObject,
+  spawnSmelter as spawnSmelterObject,
+  spawnWorkbench as spawnWorkbenchObject,
+} from "./game/placeableSpawns";
+import {
   createChestVisual,
   createTrainVisual,
   createVillageHouseVisual,
@@ -2159,13 +2166,13 @@ class WildernessGame {
 
   private spawnPlaceableItem(item: ItemId) {
     const position = this.pointInFront(4);
-    if (item === "crafting_table") this.spawnWorkbench(position, false);
-    if (item === "extended_workbench") this.spawnWorkbench(position, true);
-    if (item === "smelter") this.spawnSmelter(position, false);
-    if (item === "special_smelter") this.spawnSmelter(position, true);
-    if (item === "grinder") this.spawnGrinder(position);
-    if (item === "bed") this.spawnBed(position, this.yaw);
-    if (item === "building_block") this.spawnBuildingBlock(position);
+    if (item === "crafting_table") spawnWorkbenchObject(this.spawnContext, position, false);
+    if (item === "extended_workbench") spawnWorkbenchObject(this.spawnContext, position, true);
+    if (item === "smelter") spawnSmelterObject(this.spawnContext, position, false);
+    if (item === "special_smelter") spawnSmelterObject(this.spawnContext, position, true);
+    if (item === "grinder") spawnGrinderObject(this.spawnContext, position);
+    if (item === "bed") spawnBedObject(this.spawnContext, position, this.yaw);
+    if (item === "building_block") spawnBuildingBlockObject(this.spawnContext, position);
     this.playHandAction();
     this.showMessage(`${ITEM_NAMES[item] ?? item}를 설치했습니다. 좌클릭/E로 회수하고 우클릭으로 사용합니다.`);
     this.playTone(420, 0.09, "triangle", 0.035);
@@ -2188,7 +2195,7 @@ class WildernessGame {
       slot.count = 0;
       slot.durabilityUsed = undefined;
     }
-    this.spawnBuildingBlock(placement);
+    spawnBuildingBlockObject(this.spawnContext, placement);
     this.playHandAction();
     this.playTone(360, 0.07, "triangle", 0.028);
     this.playTone(180, 0.045, "square", 0.016);
@@ -2205,7 +2212,7 @@ class WildernessGame {
       this.showMessage("설치할 쌓기블록을 찾지 못했습니다.");
       return false;
     }
-    this.spawnBuildingBlock(placement);
+    spawnBuildingBlockObject(this.spawnContext, placement);
     this.playHandAction();
     this.playTone(360, 0.07, "triangle", 0.028);
     this.showMessage("쌓기블록을 설치했습니다.");
@@ -5905,8 +5912,8 @@ class WildernessGame {
     if (savedObject.type === "cave") object = this.spawnCave(position);
     if (savedObject.type === "water") object = this.spawnWaterBody(position, this.restoredWaterRadius(position, savedObject.terrainRadius ?? 12, savedObject.name), savedObject.name);
     if (savedObject.type === "droppedItem") object = this.spawnDroppedItem(savedObject.droppedItem ?? "tutorial_book", savedObject.droppedCount ?? 1, position);
-    if (savedObject.type === "bed") object = this.spawnBed(position, savedObject.rotationY ?? 0);
-    if (savedObject.type === "buildingBlock") object = this.spawnBuildingBlock(position);
+    if (savedObject.type === "bed") object = spawnBedObject(this.spawnContext, position, savedObject.rotationY ?? 0);
+    if (savedObject.type === "buildingBlock") object = spawnBuildingBlockObject(this.spawnContext, position);
     if (savedObject.type === "train") object = this.spawnTrain(savedObject.trainAngle ?? 0);
     if (savedObject.type === "dirtPatch") object = this.spawnDirtPatch(position);
     if (savedObject.type === "terrainPatch") {
@@ -5933,9 +5940,9 @@ class WildernessGame {
     if (savedObject.type === "blacksmith") object = this.spawnBlacksmith(position, villageId);
     if (savedObject.type === "villageShop") object = this.spawnVillageShop(position, villageId);
     if (savedObject.type === "villageSellShop") object = this.spawnVillageSellShop(position, villageId);
-    if (savedObject.type === "workbench" || savedObject.type === "extendedWorkbench") object = this.spawnWorkbench(position, savedObject.type === "extendedWorkbench");
-    if (savedObject.type === "smelter" || savedObject.type === "specialSmelter") object = this.spawnSmelter(position, savedObject.type === "specialSmelter");
-    if (savedObject.type === "grinder") object = this.spawnGrinder(position);
+    if (savedObject.type === "workbench" || savedObject.type === "extendedWorkbench") object = spawnWorkbenchObject(this.spawnContext, position, savedObject.type === "extendedWorkbench");
+    if (savedObject.type === "smelter" || savedObject.type === "specialSmelter") object = spawnSmelterObject(this.spawnContext, position, savedObject.type === "specialSmelter");
+    if (savedObject.type === "grinder") object = spawnGrinderObject(this.spawnContext, position);
     if (savedObject.type === "antHill") object = this.spawnAntHill(position, savedObject.antMeatRemaining);
     if (savedObject.type === "wildPredator") object = spawnPredatorEntity(this.entitySpawnContext, position, savedObject.predatorKind);
     if (savedObject.type === "dragon") object = spawnDragonEntity(this.entitySpawnContext, position, savedObject.bossKind);
@@ -8130,9 +8137,9 @@ class WildernessGame {
     const chest = this.spawnChest(new THREE.Vector3(2.4, 0, HOUSE_CENTER_Z - 3.15), houseKind === "blacksmith" || chestRich);
     this.houseObjectIds.push(exitId, chest.id);
     if (houseKind === "blacksmith") {
-      const workbench = this.spawnWorkbench(new THREE.Vector3(-3.15, 0, HOUSE_CENTER_Z + 1.9), true);
-      const smelter = this.spawnSmelter(new THREE.Vector3(0, 0, HOUSE_CENTER_Z - 2.55), true);
-      const grinder = this.spawnGrinder(new THREE.Vector3(3.15, 0, HOUSE_CENTER_Z + 1.7));
+      const workbench = spawnWorkbenchObject(this.spawnContext, new THREE.Vector3(-3.15, 0, HOUSE_CENTER_Z + 1.9), true);
+      const smelter = spawnSmelterObject(this.spawnContext, new THREE.Vector3(0, 0, HOUSE_CENTER_Z - 2.55), true);
+      const grinder = spawnGrinderObject(this.spawnContext, new THREE.Vector3(3.15, 0, HOUSE_CENTER_Z + 1.7));
       const smith = this.spawnBlacksmithNpc(new THREE.Vector3(0, 0, HOUSE_CENTER_Z + 1.35));
       for (const station of [workbench, smelter, grinder]) {
         station.lockedStation = true;
@@ -9084,57 +9091,6 @@ class WildernessGame {
         attackDamage: visual.attackDamage,
         walkCycle: this.createWalkCycle(visual.walkParts, visual.walk.amplitude, visual.walk.speed, visual.walk.lift),
       },
-    });
-  }
-
-  private spawnBed(position: THREE.Vector3, rotationY = 0) {
-    const group = createPlaceableBedVisual();
-    group.position.copy(position);
-    group.rotation.y = rotationY;
-    return this.addWorldObject("bed", "침대", group, {
-      collidable: true,
-      collisionRadius: 1.45,
-      collisionHeight: 0.9,
-    });
-  }
-
-  private spawnBuildingBlock(position: THREE.Vector3) {
-    const group = createPlaceableBuildingBlockVisual();
-    group.position.copy(position);
-    return this.addWorldObject("buildingBlock", "쌓기블록", group, {
-      collidable: true,
-      collisionRadius: 0.62,
-      collisionHeight: BUILDING_BLOCK_SIZE,
-    });
-  }
-
-  private spawnWorkbench(position: THREE.Vector3, extended: boolean) {
-    const group = createPlaceableWorkbenchVisual(extended);
-    group.position.copy(position);
-    return this.addWorldObject(extended ? "extendedWorkbench" : "workbench", extended ? "확장 제작대" : "제작대", group, {
-      collidable: true,
-      collisionRadius: extended ? 1.35 : 1.15,
-      collisionHeight: extended ? 1.38 : 1.05,
-    });
-  }
-
-  private spawnSmelter(position: THREE.Vector3, special: boolean) {
-    const group = createPlaceableSmelterVisual(special);
-    group.position.copy(position);
-    return this.addWorldObject(special ? "specialSmelter" : "smelter", special ? "특수 재련대" : "재련대", group, {
-      collidable: true,
-      collisionRadius: 1.18,
-      collisionHeight: 2.05,
-    });
-  }
-
-  private spawnGrinder(position: THREE.Vector3) {
-    const group = createPlaceableGrinderVisual();
-    group.position.copy(position);
-    return this.addWorldObject("grinder", "분쇄기", group, {
-      collidable: true,
-      collisionRadius: 1.15,
-      collisionHeight: 1.4,
     });
   }
 
