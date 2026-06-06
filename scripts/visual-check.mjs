@@ -115,7 +115,7 @@ async function inspectGameplayUi(page, viewportName) {
         objects: [
           {
             type: "specialSmelter",
-            name: "특수 재련대",
+            name: "특수 제련대",
             position: { x: 0, y: 0, z: 8 },
             collidable: true,
             collisionRadius: 1.18,
@@ -278,7 +278,7 @@ async function inspectGameplayUi(page, viewportName) {
         objects: [
           {
             type: "specialSmelter",
-            name: "특수 재련대",
+            name: "특수 제련대",
             position: { x: 0, y: 0, z: 8 },
             collidable: true,
             collisionRadius: 1.18,

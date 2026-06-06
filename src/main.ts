@@ -3861,7 +3861,7 @@ class WildernessGame {
     if (this.isVillageGuard(target)) return `E: ${target.name} 공격`;
     if (target.type === "foodStorage") return "E: 식량창고 열기";
     if (target.type === "workbench" || target.type === "extendedWorkbench") return "좌클릭/E: 제작대 회수 | 우클릭: 제작대 사용";
-    if (target.type === "smelter" || target.type === "specialSmelter") return "좌클릭/E: 재련대 회수 | 우클릭: 재련대 사용";
+    if (target.type === "smelter" || target.type === "specialSmelter") return "좌클릭/E: 제련대 회수 | 우클릭: 제련대 사용";
     if (target.type === "grinder") return "좌클릭/E: 분쇄기 회수 | 우클릭: 분쇄기 사용";
     if (target.type === "antHill") return target.antMeatRemaining === 0 ? "빈 개미굴" : "좌클릭/E: 개미굴에서 고기 얻기";
     if (target.type === "wildPredator") return `좌클릭/E: ${target.name} 공격`;
@@ -4174,7 +4174,7 @@ class WildernessGame {
 
     const loot: string[] = [];
     if (Math.random() < 0.5 && this.addItem("hammer", 1)) loot.push("망치");
-    if (Math.random() < 0.02 && this.addItem("smelter", 1)) loot.push("재련대");
+    if (Math.random() < 0.02 && this.addItem("smelter", 1)) loot.push("제련대");
     if (Math.random() < 0.45 && this.addItem("wood", THREE.MathUtils.randInt(1, 3))) loot.push("나무");
     if (Math.random() < 0.35 && this.addItem("stick", THREE.MathUtils.randInt(1, 2))) loot.push("나무 막대기");
     if (Math.random() < 0.38 && this.addItem("stone", THREE.MathUtils.randInt(1, 3))) loot.push("돌");
@@ -6254,10 +6254,10 @@ class WildernessGame {
           <p>나무 1개 -> 나무 막대기 2개</p>
           <p>나무 3개 + 망치 1개 -> 제작대 1개</p>
           <p>제작대 2개 -> 확장 제작대 1개</p>
-          <p>재련대 1개 + 망치 1개 -> 특수 재련대 1개</p>
+          <p>제련대 1개 + 망치 1개 -> 특수 제련대 1개</p>
           <p>망치 2개 + 철 6개 -> 분쇄기 1개</p>
-          <p>다이아몬드 가루 6개 + 재련된 나무 6개 + 돌 6개 -> 거울 1개</p>
-          <p>재련된 나무 3개 + 막대기 2개 -> 날카로운 나무 도끼</p>
+          <p>다이아몬드 가루 6개 + 제련된 나무 6개 + 돌 6개 -> 거울 1개</p>
+          <p>제련된 나무 3개 + 막대기 2개 -> 날카로운 나무 도끼</p>
           <p>일반 나무 3개 + 막대기 2개 -> 약한 나무 도끼</p>
           <p>돌 4개 + 막대기 2개 -> 돌 곡괭이</p>
           <p>날카로운 흑요석 1개 + 막대기 1개 -> 흑요석 단검</p>
@@ -6329,7 +6329,7 @@ class WildernessGame {
     this.panelEl.innerHTML = `
       <section class="panel smelter-panel">
         <header>
-          <h2>${isSpecial ? "특수 재련대" : "재련대"}</h2>
+          <h2>${isSpecial ? "특수 제련대" : "제련대"}</h2>
           <button class="icon-button" data-close>닫기</button>
         </header>
         <div class="recipes">
@@ -6339,10 +6339,10 @@ class WildernessGame {
               const disabled = this.countItem(item) <= 0 ? "disabled" : "";
               return `<article class="recipe-card">
                 <div>
-                  <strong>${ITEM_NAMES[item]} 재련</strong>
+                  <strong>${ITEM_NAMES[item]} 제련</strong>
                   <p>${ITEM_NAMES[item]} 1 -> ${ITEM_NAMES[output]} 1</p>
                 </div>
-                <button data-smelt="${item}" ${disabled}>재련</button>
+                <button data-smelt="${item}" ${disabled}>제련</button>
               </article>`;
             })
             .join("")}
@@ -6954,17 +6954,17 @@ class WildernessGame {
     const station = this.currentStationId ? this.objects.get(this.currentStationId) : null;
     const isSpecial = station?.type === "specialSmelter";
     if (!this.smelterMaterials(isSpecial).includes(item)) {
-      this.showMessage("이 재료는 현재 재련대에서 재련할 수 없습니다.");
+      this.showMessage("이 재료는 현재 제련대에서 제련할 수 없습니다.");
       return;
     }
     const output = this.smeltOutputFor(item);
     if (!output || !this.removeItem(item, 1)) {
-      this.showMessage("재련할 재료가 없습니다.");
+      this.showMessage("제련할 재료가 없습니다.");
       return;
     }
     this.addItem(output, 1);
     this.playSmeltSound();
-    this.showMessage(`${ITEM_NAMES[item]}을 ${ITEM_NAMES[output]}으로 재련했습니다.`);
+    this.showMessage(`${ITEM_NAMES[item]}을 ${ITEM_NAMES[output]}으로 제련했습니다.`);
     this.renderPanel();
     this.renderHud();
   }
