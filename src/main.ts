@@ -82,6 +82,8 @@ import {
   spawnTntTrail,
   type CombatEffectContext,
 } from "./game/combatEffects";
+import { celebrateLevelUp, celebrateRareDrop } from "./game/juice";
+import { createBannerElement } from "./ui/banner";
 import {
   ARCADE_POINTS_KEY,
   BASE_MAX_MANA,
@@ -506,6 +508,12 @@ class WildernessGame {
     damageParticles: this.damageParticles,
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
   };
+  private readonly bannerEl = createBannerElement();
+  private readonly juiceDeps = {
+    context: this.combatEffectContext,
+    banner: this.bannerEl,
+    playTone: (frequency: number, duration?: number, type?: OscillatorType, volume?: number) => this.playTone(frequency, duration, type, volume),
+  };
   private readonly projectiles: CombatProjectile[] = [];
   private readonly areaSkillEffects: AreaSkillEffect[] = [];
   private actionMode: HandActionMode = "use";
@@ -632,6 +640,7 @@ class WildernessGame {
     this.renderer.shadowMap.needsUpdate = true;
     this.renderer.domElement.className = "game-canvas";
     this.container.appendChild(this.renderer.domElement);
+    this.uiRoot.appendChild(this.bannerEl);
     this.camera.position.copy(this.playerPosition);
   }
 
@@ -4459,6 +4468,7 @@ class WildernessGame {
       this.maxHealth = Math.max(this.maxHealth, this.maxHealthForLevel());
       this.health = Math.min(this.maxHealth, this.health + Math.max(0, this.maxHealth - previousMaxHealth));
       this.showMessage(`레벨업! Lv ${this.level}. 체력/방어/공격이 ${levelUps}씩 올랐습니다.`);
+      celebrateLevelUp(this.juiceDeps, this.level);
     }
 
     this.renderHud();
@@ -7155,7 +7165,9 @@ class WildernessGame {
 
   private grantRewardItem(item: ItemId, baseCount: number, source: RewardSource) {
     const count = this.rewardQuantity(item, baseCount, source);
-    return this.addItem(item, count) ? count : 0;
+    if (!this.addItem(item, count)) return 0;
+    if (count > 0) celebrateRareDrop(this.juiceDeps, item);
+    return count;
   }
 
   private rewardQuantity(item: ItemId, baseCount: number, source: RewardSource) {

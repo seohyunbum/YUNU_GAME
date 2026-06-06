@@ -270,6 +270,57 @@ export function spawnDamageParticles(context: CombatEffectContext) {
   }
 }
 
+// 레벨업 축하 — 발밑에서 금빛 링+상승 스파크.
+export function celebrationBurst(context: CombatEffectContext) {
+  const base = context.playerPosition.clone();
+  base.y = context.getGroundHeightAt(base.x, base.z) + 0.1;
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.7, 0.045, 10, 40),
+    new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  ring.position.copy(base);
+  ring.rotation.x = Math.PI / 2;
+  ring.renderOrder = 26;
+  context.scene.add(ring);
+  context.damageParticles.push({ mesh: ring, velocity: new THREE.Vector3(0, 1.4, 0), life: 0.7, maxLife: 0.7 });
+  for (let i = 0; i < 28; i += 1) {
+    const color = i % 2 === 0 ? 0xffe066 : 0xfff7cc;
+    const particle = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.04, 0.09), 8, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    particle.position.copy(base).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.8), THREE.MathUtils.randFloat(0, 0.4), THREE.MathUtils.randFloatSpread(0.8)));
+    particle.renderOrder = 26;
+    const velocity = new THREE.Vector3(THREE.MathUtils.randFloatSpread(1.1), THREE.MathUtils.randFloat(2.2, 3.6), THREE.MathUtils.randFloatSpread(1.1));
+    context.scene.add(particle);
+    context.damageParticles.push({ mesh: particle, velocity, life: 0.9, maxLife: 0.9 });
+  }
+}
+
+// 희귀 드랍 — 카메라 앞에 반짝이는 별 파티클.
+export function sparkleBurst(context: CombatEffectContext, epic = false) {
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(context.camera.quaternion);
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(context.camera.quaternion);
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(context.camera.quaternion);
+  const color = epic ? 0xffd34d : 0x9fe8ff;
+  const count = epic ? 26 : 16;
+  for (let i = 0; i < count; i += 1) {
+    const particle = new THREE.Mesh(
+      new THREE.OctahedronGeometry(THREE.MathUtils.randFloat(0.03, 0.07)),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    particle.position
+      .copy(context.camera.position)
+      .addScaledVector(forward, THREE.MathUtils.randFloat(1.0, 1.6))
+      .addScaledVector(right, THREE.MathUtils.randFloatSpread(1.0))
+      .addScaledVector(up, THREE.MathUtils.randFloatSpread(0.7));
+    particle.renderOrder = 26;
+    const velocity = new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.9), THREE.MathUtils.randFloat(0.4, 1.4), THREE.MathUtils.randFloatSpread(0.9));
+    context.scene.add(particle);
+    context.damageParticles.push({ mesh: particle, velocity, life: 0.8, maxLife: 0.8 });
+  }
+}
+
 export function spawnDragonFireBurst(context: CombatEffectContext, position: THREE.Vector3) {
   const center = position.clone();
   center.y = context.getGroundHeightAt(center.x, center.z) + 1.35;

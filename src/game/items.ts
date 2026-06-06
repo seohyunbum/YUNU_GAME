@@ -168,6 +168,30 @@ export const RANGED_PROJECTILE: Record<ItemId, "arrow" | "magic"> = {
 };
 export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => !RANGED_WEAPONS.has(item))) as Record<ItemId, number>;
 
+// 희귀 등급 — 주스(큰 순간 연출)용. 등재 안 된 아이템은 common.
+export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
+  diamond: "rare",
+  diamond_powder: "rare",
+  refined_diamond: "rare",
+  obsidian: "rare",
+  obsidian_powder: "rare",
+  sharp_obsidian: "rare",
+  dragon_scale: "rare",
+  dragon_tail: "rare",
+  dragon_horn: "epic",
+  diamond_sword: "rare",
+  diamond_armor: "rare",
+  diamond_bow: "rare",
+  rifle: "rare",
+  obsidian_sword: "epic",
+  obsidian_dagger: "epic",
+  obsidian_armor: "epic",
+  arcane_staff: "epic",
+};
+export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
+  return ITEM_RARITY[item] ?? "common";
+}
+
 export const ARMOR_VALUE: Record<ItemId, number> = {
   leather_armor: 5,
   copper_armor: 12,
