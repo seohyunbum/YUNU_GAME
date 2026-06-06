@@ -56,7 +56,11 @@ import {
 } from "./game/creatureVisuals";
 import { createRangedGuardVisual } from "./game/guardVisuals";
 import { createDragonVisual } from "./game/bossVisuals";
-import { calculateCombatDamage as calculateDamage } from "./game/combat";
+import {
+  applyProjectileDamage as applyProjectileDamageWithContext,
+  calculateCombatDamage as calculateDamage,
+  type ProjectileDamageContext,
+} from "./game/combat";
 import {
   ARCADE_POINTS_KEY,
   BASE_MAX_MANA,
@@ -360,6 +364,27 @@ class WildernessGame {
   private dragonSpawnTimer = 0;
   private lastDamageTaken = 0;
   private lastDamageBlocked = false;
+  private readonly projectileDamageContext: ProjectileDamageContext = {
+    playerPosition: this.playerPosition,
+    playImpactSound: (kind) => this.playImpactSound(kind),
+    showMessage: (text) => this.showMessage(text),
+    grantAnimalLoot: (target, actionLabel) => this.grantAnimalLoot(target, actionLabel),
+    removeObject: (id) => this.removeObject(id),
+    grantExperienceForTarget: (target) => this.grantExperienceForTarget(target),
+    renderHud: () => this.renderHud(),
+    rollRewardChance: (baseChance, source, item) => this.rollRewardChance(baseChance, source, item),
+    grantRewardItem: (item, baseCount, source) => this.grantRewardItem(item, baseCount, source),
+    bossStats: (kind) => this.bossStats(kind),
+    dragonCounterAttack: (target) => this.dragonCounterAttack(target),
+    playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
+    updateBossBar: () => this.updateBossBar(),
+    rollDragonLoot: () => this.rollDragonLoot(),
+    enrageVillage: (villageId, message) => this.enrageVillage(villageId, message),
+    isVillageGuard: (target) => this.isVillageGuard(target),
+    damagePlayer: (amount, showParticles, deathReason, ignoreArmor) => this.damagePlayer(amount, showParticles, deathReason, ignoreArmor),
+    getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }),
+    now: () => performance.now(),
+  };
   private equippedArmor: ItemId | null = null;
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home";
@@ -5085,123 +5110,7 @@ class WildernessGame {
   }
 
   private applyProjectileDamage(target: WorldObject, attackPower: number, kind: CombatProjectile["kind"]) {
-    const label = kind === "magic" ? "마법" : kind === "tnt" ? "폭발" : "화살";
-    this.playImpactSound(kind);
-    if (target.type === "animal") {
-      target.hp = (target.hp ?? 8) - attackPower;
-      target.fleeUntil = performance.now() + 6_000;
-      target.fleeFrom = this.playerPosition.clone();
-      if (target.hp > 0) {
-        this.showMessage(`${target.name}에게 ${label} ${attackPower} 피해. 도망갑니다. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
-        return;
-      }
-      this.grantAnimalLoot(target, `${label}로 사냥했습니다`);
-      this.removeObject(target.id);
-      this.grantExperienceForTarget(target);
-      this.renderHud();
-      return;
-    }
-
-    if (target.type === "wildPredator") {
-      target.hp = (target.hp ?? 10) - attackPower;
-      target.angryUntil = performance.now() + 8_000;
-      if (target.hp > 0) {
-        this.showMessage(`${target.name}에게 ${label} ${attackPower} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
-        return;
-      }
-      const loot = target.predatorKind === "spider" ? "coal" : "meat";
-      const lootCount = this.rollRewardChance(1, "predator", loot) ? this.grantRewardItem(loot, target.predatorKind === "lion" ? 3 : 1, "predator") : 0;
-      this.removeObject(target.id);
-      this.showMessage(lootCount > 0 ? `${target.name}을 쓰러뜨리고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}을 쓰러뜨렸지만 재료는 나오지 않았습니다.`);
-      this.grantExperienceForTarget(target);
-      this.renderHud();
-      return;
-    }
-
-    if (target.type === "dragon") {
-      const stats = this.bossStats(target.bossKind);
-      const defense = target.armor ?? stats.armor;
-      const damage = this.calculateCombatDamage(attackPower, defense);
-      if (damage <= 0) {
-        this.showMessage(`용의 방어력 ${defense}이 ${label} 공격 ${attackPower}을 막았습니다. 용이 반격합니다.`);
-        this.dragonCounterAttack(target);
-        return;
-      }
-      target.hp = (target.hp ?? stats.maxHp) - damage;
-      if (target.hp > 0) {
-        this.showMessage(`${stats.name}에게 ${label} ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${stats.maxHp}. ${stats.name}이 반격합니다.`);
-        this.dragonCounterAttack(target);
-        return;
-      }
-      const loot = this.rollDragonLoot();
-      const lootCount = this.grantRewardItem(loot, 1, "boss");
-      this.removeObject(target.id);
-      this.playTone(760, 0.24, "triangle", 0.045);
-      this.showMessage(`용을 쓰러뜨렸습니다. ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
-      this.grantExperienceForTarget(target);
-      this.updateBossBar();
-      this.renderHud();
-      return;
-    }
-
-    if (target.type === "jammini") {
-      target.hp = (target.hp ?? JAMMINI_MAX_HP) - attackPower;
-      target.angryUntil = performance.now() + 12_000;
-      if (target.hp > 0) {
-        this.showMessage(`잼미니에게 ${label} ${attackPower} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${JAMMINI_MAX_HP}.`);
-        return;
-      }
-      const plasticCount = this.grantRewardItem("plastic_block", 1, "jammini");
-      this.removeObject(target.id);
-      this.showMessage(`잼미니를 물리쳤습니다. 레고 조각 ${plasticCount}개를 얻었습니다.`);
-      this.grantExperienceForTarget(target);
-      this.renderHud();
-      return;
-    }
-
-    if (target.type === "villager" || target.type === "villageKing") {
-      target.hp = (target.hp ?? 10) - attackPower;
-      if (target.villageId) this.enrageVillage(target.villageId, `${target.name ?? "주민"}을 공격하자 마을 수호자들이 반격합니다.`);
-      if (target.hp > 0) {
-        this.showMessage(`${target.name ?? "주민"}에게 ${label} ${attackPower} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
-        return;
-      }
-      this.removeObject(target.id);
-      this.showMessage(`${target.name ?? "주민"}이 쓰러졌습니다. 마을 수호자들이 계속 추격합니다.`);
-      this.renderHud();
-      return;
-    }
-
-    if (this.isVillageGuard(target)) {
-      const defense = target.armor ?? 0;
-      const damage = this.calculateCombatDamage(attackPower, defense);
-      if (target.villageId) this.enrageVillage(target.villageId, `${target.name}을 원거리로 공격하자 경비들이 몰려옵니다.`);
-      if (damage <= 0) {
-        this.showMessage(`${target.name}의 방어력 ${defense}이 ${label} 공격 ${attackPower}을 막았습니다.`);
-        return;
-      }
-      target.hp = (target.hp ?? 10) - damage;
-      if (target.hp > 0) {
-        const range = target.attackRange ?? (target.guardMode === "ranged" ? 18 : 2.05);
-        if (target.root.position.distanceTo(this.playerPosition) <= range) {
-          const counterDamage = target.attackDamage ?? 1;
-          if (this.damagePlayer(counterDamage, true, `${target.name}의 반격을 받아 체력이 모두 떨어졌습니다.`)) return;
-          this.showMessage(
-            this.lastDamageBlocked
-              ? `${target.name}에게 ${label} ${damage} 피해. 방어구가 반격을 막았습니다.`
-              : `${target.name}에게 ${label} ${damage} 피해. 반격 피해 ${this.lastDamageTaken}.`,
-          );
-        } else {
-          this.showMessage(`${target.name}에게 ${label} ${damage} 피해. 아직 반격 사거리 밖입니다.`);
-        }
-        return;
-      }
-      const ironCount = this.rollRewardChance(1, "guard", "iron") ? this.grantRewardItem("iron", 1, "guard") : 0;
-      this.removeObject(target.id);
-      this.showMessage(ironCount > 0 ? `${target.name}을 물리치고 철 ${ironCount}개를 얻었습니다.` : `${target.name}을 물리쳤지만 철은 나오지 않았습니다.`);
-      this.grantExperienceForTarget(target);
-      this.renderHud();
-    }
+    applyProjectileDamageWithContext(this.projectileDamageContext, target, attackPower, kind);
   }
 
   private isCombatTarget(target: WorldObject) {
