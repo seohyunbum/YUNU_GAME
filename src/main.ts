@@ -211,8 +211,13 @@ import {
 import { SMITHING_PRODUCTS } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { TUTORIAL_SECTIONS } from "./game/tutorial";
-import { migrateSaveData as migratePartialSaveData, savedVector as normalizeSavedVector } from "./game/saveMigration";
+import { migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
+import {
+  copySavedSlot,
+  fromSavedVector as restoreVectorFromSave,
+  restoreSlots,
+} from "./game/saveRestore";
 import {
   backupLatestSave as backupLatestSaveInRepository,
   createSaveSlot as createRepositorySaveSlot,
@@ -6135,20 +6140,14 @@ class WildernessGame {
     }
     this.ensureVillageShops();
 
-    this.hotbar.splice(0, this.hotbar.length, ...this.cloneSlots(save.player.hotbar));
+    restoreSlots(this.hotbar, save.player.hotbar);
     this.ensureHotbarSize();
-    this.bagSlots.splice(0, this.bagSlots.length, ...this.cloneSlots(save.player.bagSlots));
+    restoreSlots(this.bagSlots, save.player.bagSlots);
     for (let index = 0; index < this.craftSlots.length; index += 1) {
-      const savedSlot = save.player.craftSlots[index] ?? { item: null, count: 0 };
-      this.craftSlots[index].item = savedSlot.item;
-      this.craftSlots[index].count = savedSlot.count;
-      this.craftSlots[index].durabilityUsed = savedSlot.durabilityUsed;
+      copySavedSlot(this.craftSlots[index], save.player.craftSlots[index]);
     }
     for (let index = 0; index < this.workbenchSlots.length; index += 1) {
-      const savedSlot = save.player.workbenchSlots?.[index] ?? { item: null, count: 0 };
-      this.workbenchSlots[index].item = savedSlot.item;
-      this.workbenchSlots[index].count = savedSlot.count;
-      this.workbenchSlots[index].durabilityUsed = savedSlot.durabilityUsed;
+      copySavedSlot(this.workbenchSlots[index], save.player.workbenchSlots?.[index]);
     }
 
     this.playerPosition.copy(this.fromSavedVector(save.player.position));
@@ -6533,21 +6532,8 @@ class WildernessGame {
     return geometry;
   }
 
-  private toSavedVector(vector: THREE.Vector3): SavedVector {
-    return { x: vector.x, y: vector.y, z: vector.z };
-  }
-
   private fromSavedVector(vector: SavedVector | null | undefined, fallback = new THREE.Vector3()): THREE.Vector3 {
-    const safe = normalizeSavedVector(vector, this.toSavedVector(fallback));
-    return new THREE.Vector3(safe.x, safe.y, safe.z);
-  }
-
-  private cloneSlots(slots: Slot[]): Slot[] {
-    return slots.map((slot) => ({
-      item: slot.item,
-      count: slot.count,
-      ...(slot.durabilityUsed && slot.durabilityUsed > 0 ? { durabilityUsed: slot.durabilityUsed } : {}),
-    }));
+    return restoreVectorFromSave(vector, fallback);
   }
 
   private renderHud() {
