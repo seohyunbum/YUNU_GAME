@@ -12,4 +12,5 @@ export * from "./tutorial";
 export * from "./monsters";
 export * from "./saveManager";
 export * from "./saveRestore";
+export * from "./spawnContext";
 export * from "./types";
