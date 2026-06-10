@@ -20,20 +20,34 @@ export interface PredatorAiContext {
 
 const nextPosition = new THREE.Vector3();
 
-// 종 특성별 공격 모션 길이 — 무거운 종일수록 길게 (예열이 보여야 회피가 공정하다)
-const ATTACK_DURATIONS: Partial<Record<NonNullable<WorldObject["predatorKind"]>, number>> = {
-  spider: 520,
-  lion: 420,
-  wolf: 360,
-  boar: 460,
-  snake: 500,
-  bat: 430,
-  scorpion: 560,
-  bear: 660,
-  zombie: 520,
-  ghost: 470,
+// 종 특성별 공격 모션 — 2단계: 예열(웅크리고 뒤로 빠지며 부르르 떪) → 도약(플레이어 방향으로 실제 전진).
+// 후퇴·전진 거리는 월드 단위라 멀리서도 또렷하게 읽힌다. 무거운 종일수록 예열이 길다.
+interface AttackMotionProfile {
+  duration: number; // ms
+  pullBack: number; // 예열 후퇴 거리
+  lunge: number; // 도약 전진 거리
+  crouch: number; // 예열 웅크림 (y 스케일 감소율)
+  rise: number; // 예열 상승 (곰 일어서기, 박쥐 치솟기)
+  jump: number; // 도약 수직 이동 (박쥐는 음수 = 내리꽂기)
+  pitch: number; // 도약 시 앞으로 숙이는 각
+  stretch: number; // 도약 시 전방 신장률
+}
+
+const ATTACK_PROFILES: Record<NonNullable<WorldObject["predatorKind"]>, AttackMotionProfile> = {
+  spider: { duration: 580, pullBack: 0.32, lunge: 0.85, crouch: 0.32, rise: 0, jump: 0.6, pitch: 0.3, stretch: 0.26 },
+  wolf: { duration: 520, pullBack: 0.42, lunge: 1.0, crouch: 0.26, rise: 0, jump: 0.34, pitch: 0.36, stretch: 0.3 },
+  lion: { duration: 560, pullBack: 0.48, lunge: 1.15, crouch: 0.28, rise: 0, jump: 0.4, pitch: 0.42, stretch: 0.32 },
+  boar: { duration: 640, pullBack: 0.6, lunge: 1.55, crouch: 0.18, rise: 0, jump: 0.12, pitch: 0.2, stretch: 0.46 },
+  snake: { duration: 620, pullBack: 0.55, lunge: 1.3, crouch: 0.38, rise: 0, jump: 0.16, pitch: 0.3, stretch: 0.62 },
+  bat: { duration: 540, pullBack: 0.2, lunge: 1.05, crouch: 0.08, rise: 0.5, jump: -0.85, pitch: 0.5, stretch: 0.2 },
+  scorpion: { duration: 660, pullBack: 0.28, lunge: 0.5, crouch: 0.22, rise: 0, jump: 0.1, pitch: 0.12, stretch: 0.12 },
+  bear: { duration: 760, pullBack: 0.3, lunge: 0.75, crouch: 0, rise: 0.55, jump: 0.15, pitch: 0.55, stretch: 0.12 },
+  zombie: { duration: 660, pullBack: 0.38, lunge: 0.9, crouch: 0.2, rise: 0, jump: 0.12, pitch: 0.26, stretch: 0.2 },
+  ghost: { duration: 580, pullBack: 0.5, lunge: 1.25, crouch: 0.16, rise: 0.2, jump: 0.26, pitch: 0.12, stretch: 0.3 },
+  drake: { duration: 580, pullBack: 0.42, lunge: 1.1, crouch: 0.24, rise: 0.25, jump: 0.5, pitch: 0.36, stretch: 0.3 },
 };
 
+const WINDUP_END = 0.42;
 const GHOST_BASE_OPACITY = 0.52;
 const ZOMBIE_ARM_REST = -0.08;
 
@@ -50,9 +64,11 @@ function resetAttackExtras(predator: WorldObject) {
   }
 }
 
-export function triggerPredatorAttackMotion(predator: WorldObject, now: number) {
+export function triggerPredatorAttackMotion(predator: WorldObject, now: number, forwardX = 0, forwardZ = 0) {
   predator.root.userData.attackStartedAt = now;
-  predator.root.userData.attackDuration = ATTACK_DURATIONS[predator.predatorKind ?? "wolf"] ?? 360;
+  predator.root.userData.attackDuration = (ATTACK_PROFILES[predator.predatorKind ?? "wolf"] ?? ATTACK_PROFILES.wolf).duration;
+  predator.root.userData.attackForwardX = forwardX;
+  predator.root.userData.attackForwardZ = forwardZ;
   if (!predator.root.userData.baseScale) predator.root.userData.baseScale = predator.root.scale.clone();
 }
 
@@ -62,78 +78,55 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
   const baseScale = predator.root.userData.baseScale instanceof THREE.Vector3 ? predator.root.userData.baseScale : predator.root.scale;
   if (duration <= 0 || now - startedAt >= duration) {
     predator.root.rotation.x = 0;
+    predator.root.rotation.z = 0;
     predator.root.scale.copy(baseScale);
     resetAttackExtras(predator);
     return;
   }
   const phase = THREE.MathUtils.clamp((now - startedAt) / duration, 0, 1);
-  const strike = Math.sin(phase * Math.PI);
-  const kind = predator.predatorKind;
-  if (kind === "spider") {
-    predator.root.rotation.x = -strike * 0.16;
-    predator.root.scale.set(baseScale.x * (1 + strike * 0.2), baseScale.y * (1 - strike * 0.1), baseScale.z * (1 + strike * 0.16));
-    predator.root.position.y += strike * 0.24;
-    return;
-  }
-  if (kind === "boar") {
-    // 돌진 — 머리를 숙이고 몸을 앞으로 쭉 뻗는다
-    predator.root.rotation.x = -strike * 0.1;
-    predator.root.scale.set(baseScale.x * (1 + strike * 0.34), baseScale.y * (1 - strike * 0.08), baseScale.z);
-    return;
-  }
-  if (kind === "snake") {
-    // 전반 움츠림 → 후반 런지
-    const lunge = Math.max(0, Math.sin(phase * Math.PI * 2 - Math.PI / 2));
-    predator.root.rotation.x = -lunge * 0.2;
-    predator.root.scale.set(baseScale.x * (1 - strike * 0.12 + lunge * 0.5), baseScale.y, baseScale.z);
-    predator.root.position.y += strike * 0.08;
-    return;
-  }
-  if (kind === "bat") {
-    // 급강하 스윕
-    predator.root.rotation.x = -strike * 0.4;
-    predator.root.position.y -= strike * 0.5;
-    return;
-  }
+  const kind = predator.predatorKind ?? "wolf";
+  const profile = ATTACK_PROFILES[kind] ?? ATTACK_PROFILES.wolf;
+  // 예열: 0→정점→도약 직후 소멸 / 도약: 예열이 끝나는 지점에서 폭발적으로
+  const windup = phase < WINDUP_END ? Math.sin((phase / WINDUP_END) * (Math.PI / 2)) : Math.max(0, 1 - (phase - WINDUP_END) / 0.16);
+  const strike = phase <= WINDUP_END ? 0 : Math.sin(((phase - WINDUP_END) / (1 - WINDUP_END)) * Math.PI);
+  const shake = windup * Math.sin(phase * 46) * 0.085; // 예열 떨림 — "곧 덤빈다"는 신호
+  const forwardX = Number(predator.root.userData.attackForwardX ?? 0);
+  const forwardZ = Number(predator.root.userData.attackForwardZ ?? 0);
+  const advance = strike * profile.lunge - windup * profile.pullBack;
+
+  predator.root.position.x += forwardX * advance;
+  predator.root.position.z += forwardZ * advance;
+  predator.root.position.y += windup * profile.rise + strike * profile.jump;
+  predator.root.rotation.x = windup * 0.14 - strike * profile.pitch - windup * (profile.rise > 0.3 ? 0.5 : 0);
+  predator.root.rotation.z = shake;
+  predator.root.scale.set(
+    baseScale.x * (1 + strike * profile.stretch - windup * 0.1),
+    baseScale.y * (1 - windup * profile.crouch + strike * 0.06 + windup * (profile.rise > 0.3 ? 0.16 : 0)),
+    baseScale.z * (1 + strike * profile.stretch * 0.4),
+  );
+
   if (kind === "scorpion") {
-    // 꼬리를 머리 위로 휘둘러 내려찍는다
+    // 꼬리를 더 치켜들었다가 머리 위로 강하게 내려찍는다
     const tail = predator.root.userData.scorpionTail;
-    if (tail instanceof THREE.Object3D) tail.rotation.z = -strike * 1.15;
-    predator.root.rotation.x = -strike * 0.08;
-    return;
-  }
-  if (kind === "bear") {
-    // 일어섰다가 앞발로 내려찍는다
-    const rise = Math.sin(Math.min(phase * 1.6, 1) * (Math.PI / 2));
-    const slam = phase > 0.62 ? Math.sin(((phase - 0.62) / 0.38) * Math.PI) : 0;
-    predator.root.rotation.x = rise * -0.55 + slam * 0.7;
-    predator.root.position.y += rise * 0.35;
-    predator.root.scale.set(baseScale.x, baseScale.y * (1 + rise * 0.12), baseScale.z);
+    if (tail instanceof THREE.Object3D) tail.rotation.z = windup * 0.5 - strike * 1.6;
     return;
   }
   if (kind === "zombie") {
-    // 양팔을 들었다가 함께 내려친다
-    const bite = Math.sin(phase * Math.PI * 2);
+    // 양팔을 높이 들었다가 함께 내려친다
     const arms = predator.root.userData.zombieArms;
     if (Array.isArray(arms)) {
-      for (const arm of arms) if (arm instanceof THREE.Object3D) arm.rotation.z = ZOMBIE_ARM_REST - strike * 0.55 + Math.max(0, bite) * 0.45;
+      for (const arm of arms) if (arm instanceof THREE.Object3D) arm.rotation.z = ZOMBIE_ARM_REST - windup * 0.95 + strike * 0.8;
     }
-    predator.root.rotation.x = -strike * 0.14;
     return;
   }
   if (kind === "ghost") {
-    // 반투명해지며 확 들이닥친다
+    // 예열에 깜박이고 도약에 반투명해지며 들이닥친다
     const ghostMaterials = predator.root.userData.ghostMaterials;
     if (Array.isArray(ghostMaterials)) {
-      for (const material of ghostMaterials) if (material instanceof THREE.MeshStandardMaterial) material.opacity = GHOST_BASE_OPACITY - strike * 0.32;
+      const opacity = GHOST_BASE_OPACITY - strike * 0.32 - windup * Math.abs(Math.sin(phase * 40)) * 0.18;
+      for (const material of ghostMaterials) if (material instanceof THREE.MeshStandardMaterial) material.opacity = opacity;
     }
-    predator.root.scale.set(baseScale.x * (1 + strike * 0.22), baseScale.y * (1 + strike * 0.22), baseScale.z * (1 + strike * 0.22));
-    predator.root.position.y += strike * 0.18;
-    return;
   }
-  const bite = Math.sin(phase * Math.PI * 2);
-  predator.root.rotation.x = -strike * (kind === "lion" ? 0.24 : 0.18);
-  predator.root.scale.set(baseScale.x * (1 + strike * 0.16), baseScale.y * (1 - strike * 0.04), baseScale.z * (1 + Math.max(0, bite) * 0.08));
 }
 
 export function updatePredatorAi(context: PredatorAiContext, delta: number) {
@@ -166,7 +159,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     predator.attackCooldown = Math.max(0, (predator.attackCooldown ?? 0) - delta);
     if (aggroed && distance < context.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
       predator.attackCooldown = predatorStats.cooldown;
-      triggerPredatorAttackMotion(predator, now);
+      triggerPredatorAttackMotion(predator, now, dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
       context.damagePlayer(predatorStats.attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
     }
   }

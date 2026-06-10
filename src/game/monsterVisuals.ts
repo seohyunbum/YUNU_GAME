@@ -397,6 +397,77 @@ function createGhostVisual(): PredatorVisual {
   };
 }
 
+function createDrakeVisual(): PredatorVisual {
+  const group = new THREE.Group();
+  const walkParts: WalkPartSetup[] = [];
+  const scaleHide = gameMaterial(0x65a30d, { roughness: 0.72 });
+  const bellyHide = gameMaterial(0xd9f99d, { roughness: 0.8 });
+  const membrane = gameMaterial(0x3f6212, { roughness: 0.62 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.62, 0.66), scaleHide);
+  body.position.y = 0.72;
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.26, 0.5), bellyHide);
+  belly.position.y = 0.5;
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.42, 0.3), scaleHide);
+  neck.position.set(0.62, 1.06, 0);
+  neck.rotation.z = -0.35;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.32, 0.36), scaleHide);
+  head.position.set(0.92, 1.24, 0);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 0.26), bellyHide);
+  snout.position.set(1.22, 1.18, 0);
+  group.add(body, belly, neck, head, snout);
+
+  const hornMaterial = gameMaterial(0xfef3c7, { roughness: 0.45 });
+  for (const z of [-0.12, 0.12]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 6), hornMaterial);
+    horn.position.set(0.78, 1.46, z);
+    horn.rotation.z = 0.4;
+    group.add(horn);
+    group.add(eye(0xfbbf24, 0xb45309, 1.08, 1.3, z * 1.2, 0.05));
+  }
+
+  for (const z of [-1, 1]) {
+    const wing = new THREE.Group();
+    wing.position.set(-0.05, 1.05, z * 0.3);
+    const wingArm = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.06, 0.55), membrane);
+    wingArm.position.z = z * 0.35;
+    wingArm.rotation.x = z * 0.25;
+    const wingTip = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.045, 0.45), membrane);
+    wingTip.position.set(-0.04, 0.1, z * 0.78);
+    wingTip.rotation.x = z * 0.55;
+    wing.add(wingArm, wingTip);
+    walkParts.push({ object: wing, side: z, axis: "x" });
+    group.add(wing);
+  }
+
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.13, 0.85, 7), scaleHide);
+  tail.position.set(-0.78, 0.66, 0);
+  tail.rotation.z = 1.25;
+  const tailFin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.3, 4), membrane);
+  tailFin.position.set(-1.2, 0.55, 0);
+  tailFin.rotation.z = -Math.PI / 2;
+  group.add(tail, tailFin);
+
+  for (let index = 0; index < 4; index += 1) {
+    const side = index % 2 === 0 ? -1 : 1;
+    const front = index < 2;
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.16), membrane);
+    leg.position.set(front ? 0.4 : -0.4, 0.2, side * 0.26);
+    walkParts.push({ object: leg, side: side * (front ? 1 : -1), axis: "x" });
+    group.add(leg);
+  }
+
+  return {
+    group,
+    predatorKind: "drake",
+    name: "새끼용",
+    collisionRadius: 0.85,
+    collisionHeight: 1.5,
+    walkParts,
+    walk: { amplitude: 0.6, speed: 9.5, lift: 0.06 },
+  };
+}
+
 const FACTORIES: Partial<Record<PredatorKind, () => PredatorVisual>> = {
   boar: createBoarVisual,
   snake: createSnakeVisual,
@@ -405,6 +476,7 @@ const FACTORIES: Partial<Record<PredatorKind, () => PredatorVisual>> = {
   bear: createBearVisual,
   zombie: createZombieVisual,
   ghost: createGhostVisual,
+  drake: createDrakeVisual,
 };
 
 export function createExtendedPredatorVisual(kind: PredatorKind): PredatorVisual | null {

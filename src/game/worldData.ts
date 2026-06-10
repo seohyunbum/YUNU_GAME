@@ -18,6 +18,10 @@ export const BIOMES_BY_WORLD_MAP: Record<WorldMapId, BiomeConfig[]> = {
     b("mountain", -240, -220, 36),
     b("mushroom", 230, 210, 26),
   ],
+  dragon_plains: [
+    b("mountain", -280, -240, 34),
+    b("bamboo", 290, 220, 26),
+  ],
   bamboo_frontier: [
     b("bamboo", 185, -115, 88),
     b("bamboo", -210, 170, 72),
@@ -73,6 +77,7 @@ export const BIOMES_BY_WORLD_MAP: Record<WorldMapId, BiomeConfig[]> = {
 
 export const WATER_ZONES_BY_WORLD_MAP: Record<WorldMapId, WaterZone[]> = {
   starter_valley: [w(-58, -46, 23, "호수"), w(112, 78, 17, "작은 호수"), w(-330, 315, 68, "바다")],
+  dragon_plains: [w(-80, 60, 20, "용용 연못"), w(260, -240, 26, "비늘 호수")],
   bamboo_frontier: [w(-310, 290, 54, "대나무 호수"), w(320, 130, 34, "맑은 연못")],
   mushroom_glen: [w(-300, 260, 46, "보랏빛 호수"), w(270, -250, 28, "버섯 연못")],
   toxic_swamp: [w(-260, 250, 58, "늪 호수"), w(315, -300, 42, "진흙 연못")],

@@ -9,6 +9,9 @@ export interface WorldMapDefinition {
   levelRange: [number, number];
   regionIds: readonly string[];
   spawn: THREE.Vector3;
+  treeScale?: number; // 나무 밀도 배율 (기본 1)
+  caveScale?: number; // 동굴 생성 배율 (기본 1)
+  xpScale?: number; // 처치 경험치 배율 (기본 1)
 }
 
 export const DEFAULT_WORLD_MAP_ID: WorldMapId = "starter_valley";
@@ -22,6 +25,17 @@ export const WORLD_MAPS: readonly WorldMapDefinition[] = [
     levelRange: [1, 18],
     regionIds: ["central_plains", "wild_fields"],
     spawn: new THREE.Vector3(0, 0, 12),
+  },
+  {
+    id: "dragon_plains",
+    name: "용용 평원",
+    description: "새끼용 무리가 우글대는 사냥 전용 평원입니다. 나무와 동굴은 드물지만 경험치를 3배로 줍니다.",
+    levelRange: [10, 25],
+    regionIds: ["dragon_plains_roost", "dragon_plains_field"],
+    spawn: new THREE.Vector3(0, 0, 18),
+    treeScale: 0.12,
+    caveScale: 0.15,
+    xpScale: 3,
   },
   {
     id: "bamboo_frontier",

@@ -177,7 +177,7 @@ function updateBurrowZombie(context: GraveTrapContext, delta: number) {
   zombie.attackCooldown = Math.max(0, (zombie.attackCooldown ?? 0) - delta);
   if (distance < ZOMBIE_STRIKE_RANGE && (zombie.attackCooldown ?? 0) <= 0) {
     zombie.attackCooldown = ZOMBIE_ATTACK_COOLDOWN;
-    triggerPredatorAttackMotion(zombie, context.now());
+    triggerPredatorAttackMotion(zombie, context.now(), dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
     context.damagePlayer(zombie.attackDamage ?? 28, true, "무덤 속 좀비에게 당해 체력이 모두 떨어졌습니다.");
   }
 }

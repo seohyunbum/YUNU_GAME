@@ -98,6 +98,7 @@ try {
   const regions = await server.ssrLoadModule("/src/game/regions.ts");
   const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
   const graveTrap = await server.ssrLoadModule("/src/game/graveTrap.ts");
+  const predatorAi = await server.ssrLoadModule("/src/game/predatorAi.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -112,6 +113,7 @@ try {
   const { REGIONS } = regions;
   const { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER, applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } = bossChapters;
   const { GRAVE_HAND_COUNT, createGraveTrapState, updateGraveTrap } = graveTrap;
+  const { animatePredatorAttackMotion, triggerPredatorAttackMotion } = predatorAi;
 
   assert(HEAL_ITEMS.medkit === 15, "medkit should heal 15 HP");
   assert(HUNGER_HP_REGEN.length === HUNGER_MAX + 1, "hunger regen table should cover every hunger level");
@@ -323,6 +325,31 @@ try {
     assert(added > 0 && added <= GRAVE_HAND_COUNT, `graveyard should replenish green hands (added ${added})`);
   }
 
+  {
+    // 공격 모션 인지성 골든: 예열은 또렷한 후퇴+떨림+웅크림, 도약은 큰 전진+신장. 끝나면 원상복구.
+    for (const kind of ["wolf", "boar", "zombie", "drake", "ghost"]) {
+      const fake = { root: new THREE.Group(), predatorKind: kind, name: kind };
+      triggerPredatorAttackMotion(fake, 0, 1, 0);
+      const duration = Number(fake.root.userData.attackDuration ?? 0);
+      assert(duration >= 500, `${kind}: attack motion should run at least 500ms for a readable telegraph (got ${duration})`);
+
+      animatePredatorAttackMotion(fake, duration * 0.25);
+      assert(fake.root.position.x < -0.12, `${kind}: windup should visibly pull back (x=${fake.root.position.x.toFixed(2)})`);
+      assert(Math.abs(fake.root.rotation.z) > 0.005, `${kind}: windup should tremble`);
+      assert(fake.root.scale.y < 1 || kind === "bear", `${kind}: windup should crouch`);
+
+      fake.root.position.set(0, 0, 0);
+      animatePredatorAttackMotion(fake, duration * 0.7);
+      assert(fake.root.position.x > 0.45, `${kind}: strike should lunge forward (x=${fake.root.position.x.toFixed(2)})`);
+      assert(fake.root.scale.x > 1.08, `${kind}: strike should stretch forward`);
+
+      fake.root.position.set(0, 0, 0);
+      animatePredatorAttackMotion(fake, duration + 50);
+      assert(fake.root.rotation.x === 0 && fake.root.rotation.z === 0, `${kind}: motion should reset cleanly`);
+      assert(Math.abs(fake.root.scale.y - 1) < 0.001, `${kind}: scale should restore after the attack`);
+    }
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -339,6 +366,7 @@ try {
         "region predator count and at-level TTK guard",
         "boss chapter gating golden scenario",
         "grave trap pull-in, zombie kill exit, and hand replenish",
+        "attack motion windup/lunge perceptibility golden values",
       ],
     }, null, 2));
   }

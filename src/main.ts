@@ -221,7 +221,7 @@ import type {
   WorldMapId,
   WorldObject,
 } from "./game/types";
-import { applyPredatorMonsterDefinition, BOSS_STATS, predatorKindForMonster, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
+import { applyPredatorMonsterDefinition, BOSS_STATS, predatorExperienceReward, predatorKindForMonster, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -1761,7 +1761,8 @@ class WildernessGame {
     this.spawnBiomeTerrains();
     createBiomeDecor(this.biomeDecorContext);
     if (this.currentWorldMapId === "dragon_lands") { this.spawnInitialLavaDragons(); this.spawnBossProgression(); }
-    for (let i = 0; i < 1144; i += 1) this.spawnTree(Math.random() < 0.78 ? "smallTree" : "bigTree", this.randomGroundPoint());
+    const mapDef = getWorldMapById(this.currentWorldMapId);
+    for (let i = 0; i < Math.round(1144 * (mapDef.treeScale ?? 1)); i += 1) this.spawnTree(Math.random() < 0.78 ? "smallTree" : "bigTree", this.randomGroundPoint());
     for (const point of [
       new THREE.Vector3(-10, 0, -8),
       new THREE.Vector3(-16, 0, 4),
@@ -1783,7 +1784,7 @@ class WildernessGame {
     for (const waterZone of this.activeWaterZones) this.spawnWaterBody(waterZone.center.clone(), this.waterZoneRadius(waterZone), waterZone.name);
     this.spawnTrain(0.1);
     for (let i = 0; i < 6; i += 1) this.spawnChest(this.randomGroundPoint(), false);
-    for (let i = 0; i < 3; i += 1) this.spawnCave(this.randomGroundPoint());
+    for (let i = 0; i < Math.round(3 * (mapDef.caveScale ?? 1)); i += 1) this.spawnCave(this.randomGroundPoint());
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? JAMMINI_FIELD_COUNT : Math.ceil(JAMMINI_FIELD_COUNT * 0.4)); i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
@@ -3054,7 +3055,7 @@ class WildernessGame {
 
     while (this.caveStepBank >= CAVE_STEP_INTERVAL) {
       this.caveStepBank -= CAVE_STEP_INTERVAL;
-      if (Math.random() < 0.2) {
+      if (Math.random() < 0.2 * (getWorldMapById(this.currentWorldMapId).caveScale ?? 1)) {
         this.spawnCave(this.pointNearPlayer(26, 44));
         this.showMessage("멀리 동굴 입구가 보입니다. (500걸음 20%)");
       }
@@ -4375,12 +4376,7 @@ class WildernessGame {
       return 8;
     }
 
-    if (target.type === "wildPredator") {
-      if (target.predatorKind === "spider") return 18;
-      if (target.predatorKind === "wolf") return 45;
-      if (target.predatorKind === "lion") return 60;
-      return 24;
-    }
+    if (target.type === "wildPredator") return predatorExperienceReward(target.predatorKind, target.monsterLevel);
 
     if (target.type === "jammini") return 75;
 
@@ -4403,7 +4399,7 @@ class WildernessGame {
   }
 
   private grantExperienceForTarget(target: WorldObject) {
-    this.summonerCompanion.awardExperience(this.experienceRewardFor(target), this.summonerPetContext);
+    this.summonerCompanion.awardExperience(Math.round(this.experienceRewardFor(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
   }
 
   private gainExperience(amount: number) {

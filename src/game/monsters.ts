@@ -13,6 +13,7 @@ export const PREDATOR_STATS: Record<PredatorKind, { hp: number; attackDamage: nu
   bear: { hp: 200, attackDamage: 12, aggroRange: 12, strikeRange: 2.5, speed: 2.75, cooldown: 1.9 },
   zombie: { hp: 660, attackDamage: 28, aggroRange: 14, strikeRange: 1.95, speed: 2.0, cooldown: 1.5 },
   ghost: { hp: 500, attackDamage: 34, aggroRange: 18, strikeRange: 2.15, speed: 3.1, cooldown: 1.35 },
+  drake: { hp: 70, attackDamage: 7, aggroRange: 13, strikeRange: 2.1, speed: 3.2, cooldown: 1.4 },
 };
 
 // 포식자 처치 전리품 — 종 특성에 맞는 재료 (양쪽 전투 경로가 공유)
@@ -20,8 +21,17 @@ export function predatorLootForKind(kind: PredatorKind | undefined): { item: "me
   if (kind === "spider" || kind === "bat" || kind === "ghost") return { item: "coal", count: 1 };
   if (kind === "zombie") return { item: "leather", count: 2 };
   if (kind === "lion" || kind === "bear") return { item: "meat", count: 3 };
-  if (kind === "boar") return { item: "meat", count: 2 };
+  if (kind === "boar" || kind === "drake") return { item: "meat", count: 2 };
   return { item: "meat", count: 1 };
+}
+
+// 포식자 처치 경험치 — 기본 3종은 기존 수치를 보존하고, 변종/신규 종은 몬스터 레벨 비례(레벨×3).
+export function predatorExperienceReward(kind: PredatorKind | undefined, monsterLevel?: number): number {
+  if (kind === "spider" && !monsterLevel) return 18;
+  if (kind === "wolf" && !monsterLevel) return 45;
+  if (kind === "lion" && !monsterLevel) return 60;
+  const level = monsterLevel ?? (kind && MONSTER_DEFS[kind as MonsterId] ? MONSTER_DEFS[kind as MonsterId].level : 8);
+  return Math.round(level * 3);
 }
 
 export type MonsterId =
@@ -52,9 +62,13 @@ export type MonsterId =
   | "ghost"
   | "frost_bear"
   | "wraith"
+  | "drake"
+  | "gale_drake"
+  | "rock_drake"
+  | "gold_drake"
   | BossKind;
 
-export type MonsterArchetype = "spider" | "wolf" | "lion" | "golem" | "dragon" | "jammini" | "boar" | "snake" | "bat" | "scorpion" | "bear" | "zombie" | "ghost";
+export type MonsterArchetype = "spider" | "wolf" | "lion" | "golem" | "dragon" | "jammini" | "boar" | "snake" | "bat" | "scorpion" | "bear" | "zombie" | "ghost" | "drake";
 
 export interface MonsterDef {
   id: MonsterId;
@@ -94,6 +108,10 @@ export const MONSTER_DEFS: Record<MonsterId, MonsterDef> = {
   ghost: { id: "ghost", name: "묘지귀신", archetype: "ghost", level: 80, tint: 0xc7d2fe, predatorKind: "ghost" },
   frost_bear: { id: "frost_bear", name: "서리곰", archetype: "bear", level: 95, tint: 0x93c5fd, predatorKind: "bear" },
   wraith: { id: "wraith", name: "망령", archetype: "ghost", level: 110, tint: 0x67e8f9, predatorKind: "ghost" },
+  drake: { id: "drake", name: "풀빛 새끼용", archetype: "drake", level: 12, tint: 0x65a30d, predatorKind: "drake" },
+  gale_drake: { id: "gale_drake", name: "바람 새끼용", archetype: "drake", level: 16, tint: 0x7dd3fc, predatorKind: "drake" },
+  rock_drake: { id: "rock_drake", name: "바위 새끼용", archetype: "drake", level: 20, tint: 0xa8a29e, predatorKind: "drake" },
+  gold_drake: { id: "gold_drake", name: "황금 새끼용", archetype: "drake", level: 24, tint: 0xfacc15, predatorKind: "drake" },
   dragon: { id: "dragon", name: "용", archetype: "dragon", level: 60, tint: 0xef4444, bossKind: "dragon" },
   fire_dragon: { id: "fire_dragon", name: "파이어 드래곤", archetype: "dragon", level: 130, tint: 0xff6b1a, bossKind: "fire_dragon" },
   red_dragon: { id: "red_dragon", name: "레드 드래곤", archetype: "dragon", level: 170, tint: 0xdc2626, bossKind: "red_dragon" },
