@@ -30,7 +30,7 @@ import {
   spawnWorkbench as spawnWorkbenchObject,
 } from "./game/placeableSpawns";
 import {
-  applyShadowQuality,
+  applyShadowQuality, shouldSkipTinyRaycastDetail,
   precompileSceneShaders,
   registerDistanceCulledVisual,
   refreshTrackedVisualVisibility,
@@ -547,6 +547,7 @@ class WildernessGame {
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
   private houseObjectIds: string[] = [];
+  private readonly frameScratch = { titleFocus: new THREE.Vector3(58, 2.8, -76), moveDirection: new THREE.Vector3(), moveForward: new THREE.Vector3(), moveRight: new THREE.Vector3(), legoTarget: new THREE.Vector3() };
   private currentHouseOwned = false;
   private homeStorage = normalizeHomeStorage();
   private homeSupplyCooldownSeconds = 0;
@@ -2516,7 +2517,7 @@ class WildernessGame {
   private updateTitleCamera() {
     this.handGroup.visible = false;
     const t = this.clock.elapsedTime * 0.08;
-    const focus = new THREE.Vector3(58, 2.8, -76);
+    const focus = this.frameScratch.titleFocus;
     const cameraX = focus.x + Math.cos(t) * 42;
     const cameraZ = focus.z + Math.sin(t) * 30 + 18;
     const cameraY = 7.6 + Math.sin(t * 0.7) * 0.8;
@@ -2905,9 +2906,9 @@ class WildernessGame {
       return;
     }
 
-    const direction = new THREE.Vector3();
-    const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    const direction = this.frameScratch.moveDirection.set(0, 0, 0);
+    const forward = this.frameScratch.moveForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    const right = this.frameScratch.moveRight.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
     if (this.keys.has("KeyW")) direction.add(forward);
     if (this.keys.has("KeyS")) direction.sub(forward);
@@ -3509,8 +3510,7 @@ class WildernessGame {
           jammini.attackCooldown = 2.2;
           const throwAngle = Math.atan2(toPlayer.z, toPlayer.x) + THREE.MathUtils.randFloatSpread(1.15);
           const throwDistance = THREE.MathUtils.randFloat(1.25, 2.8);
-          const target = this.playerPosition.clone().add(new THREE.Vector3(Math.cos(throwAngle) * throwDistance, 0, Math.sin(throwAngle) * throwDistance));
-          target.y = this.getGroundHeightAt(target.x, target.z) + 0.03;
+          const target = this.frameScratch.legoTarget.set(this.playerPosition.x + Math.cos(throwAngle) * throwDistance, 0, this.playerPosition.z + Math.sin(throwAngle) * throwDistance);
           this.spawnLegoHazard(target, jammini.root.position);
           this.showMessage("잼미니가 레고를 던졌습니다. 노란 경고 표시를 보고 피하세요!");
           this.playTone(560, 0.06, "square", 0.02);
@@ -9171,7 +9171,7 @@ class WildernessGame {
       child.userData.objectId = id;
       if (child instanceof THREE.Mesh) {
         if (shouldHideInvisibleMeshFromRender(child)) child.visible = false;
-        if (raycastable && !child.userData.skipRaycastTarget) {
+        if (raycastable && !child.userData.skipRaycastTarget && !shouldSkipTinyRaycastDetail(type, child)) {
           this.raycastTargets.push(child);
           raycastMeshes.push(child);
         }

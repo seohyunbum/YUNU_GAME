@@ -117,3 +117,27 @@ export function shouldHideInvisibleMeshFromRender(mesh: THREE.Mesh) {
   const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
   return materials.some((material) => material instanceof THREE.MeshBasicMaterial && material.colorWrite === false);
 }
+
+// 생물류는 개체당 15~24개 메쉬(눈·코·수염 같은 미세 장식 포함)를 가진다.
+// 미세 장식은 레이캐스트 대상에서 제외해 클릭 판정 비용을 낮춘다 — 몸통/머리/팔다리는 남으므로 조준에는 지장 없다.
+const TINY_DETAIL_SKIP_TYPES = new Set([
+  "animal",
+  "wildPredator",
+  "villager",
+  "villageKnight",
+  "villageArcher",
+  "villageMage",
+  "villageGolem",
+  "villageKing",
+  "blacksmithNpc",
+  "jammini",
+  "miner",
+  "dragon",
+]);
+
+export function shouldSkipTinyRaycastDetail(type: string, mesh: THREE.Mesh) {
+  if (!TINY_DETAIL_SKIP_TYPES.has(type)) return false;
+  if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+  const radius = (mesh.geometry.boundingSphere?.radius ?? 1) * Math.max(Math.abs(mesh.scale.x), Math.abs(mesh.scale.y), Math.abs(mesh.scale.z));
+  return radius < 0.09;
+}

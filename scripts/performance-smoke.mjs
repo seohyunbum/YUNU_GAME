@@ -6,7 +6,7 @@ import { chromium } from "playwright-core";
 const PERF_BUDGET = {
   fieldVisibleMeshes: 4400, // baseline ~4192 after fog-distance large visual culling
   fieldObjects: 1520, // baseline ~1414
-  fieldRaycastTargets: 4400, // baseline ~4100
+  fieldRaycastTargets: 4250, // baseline ~4024 — 미세 장식 레이캐스트 제외 후. (4400 시절 콘텐츠 증가로 flaky 했음)
   villageVisibleMeshes: 3850, // baseline ~3683 after outline pruning + fog-distance large visual culling
   villageVisibleOutlines: 50, // balanced/performance quality should hide cartoon outlines
   villageShiftOnlyHitches: 0,

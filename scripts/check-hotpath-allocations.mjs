@@ -4,7 +4,7 @@ import { join, relative, resolve } from "node:path";
 // Fast, browser-free ratchet for AGENTS.md §10.
 // Counts explicit THREE allocations inside per-frame update*/animate* functions.
 // Lower this budget after cleanup; do not raise it for new gameplay features.
-const MAX_HOTPATH_ALLOCATIONS = 5;
+const MAX_HOTPATH_ALLOCATIONS = 0;
 const MAX_HOTPATH_MATERIAL_UPDATES = 0;
 
 const projectRoot = resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
