@@ -10,6 +10,7 @@ const server = await createServer({
 try {
   const migration = await server.ssrLoadModule("/src/game/saveMigration.ts");
   const constants = await server.ssrLoadModule("/src/game/constants.ts");
+  const worldMaps = await server.ssrLoadModule("/src/game/worldMaps.ts");
 
   const {
     migrateSaveData,
@@ -22,12 +23,14 @@ try {
     EXTENDED_WORKBENCH_SLOT_COUNT,
     HUNGER_MAX,
     HUNGER_TICK_SECONDS,
+    IRON_GUARD_DURATION_SECONDS,
     SAVE_BUILD_ID,
     SAVE_VERSION,
     WORLD_SIZE,
   } = constants;
+  const { DEFAULT_WORLD_MAP_ID } = worldMaps;
 
-  assert.equal(experienceForNextLevel(10), 1007, "level 10 xp requirement should stay stable");
+  assert.equal(experienceForNextLevel(10), 503, "level 10 xp requirement should stay stable");
 
   const legacy = migrateSaveData({
     version: 1,
@@ -71,6 +74,9 @@ try {
   assert.equal(legacy.player.maxMana, BASE_MAX_MANA);
   assert.equal(legacy.player.mana, BASE_MAX_MANA);
   assert.equal(legacy.player.classSkillCooldownRemainingMs, 0);
+  assert.equal(legacy.player.equippedShield, null);
+  assert.equal(legacy.player.shieldDurabilityUsed, 0);
+  assert.equal(legacy.player.ironGuardRemainingMs, 0);
   assert.deepEqual(legacy.player.companionProgress, { summoner: { level: 1, experience: 0 } });
   assert.equal(legacy.player.level, 12);
   assert.equal(legacy.player.experience, 42);
@@ -79,6 +85,7 @@ try {
   assert.equal(legacy.player.hunger, HUNGER_MAX);
   assert.equal(legacy.player.hungerTimer, HUNGER_TICK_SECONDS);
   assert.equal(legacy.player.worldTimeSeconds, DAY_LENGTH_SECONDS * (8 / 24));
+  assert.equal(legacy.player.worldMapId, DEFAULT_WORLD_MAP_ID);
   assert.equal(legacy.player.totalSteps, 0);
   assert.equal(legacy.player.chestStepBank, 0);
   assert.equal(legacy.player.caveStepBank, 30);
@@ -98,6 +105,8 @@ try {
   assert.equal(legacy.mountains[0].height, 1);
   assert.equal(legacy.objects.length, 1);
   assert.equal(legacy.objects[0].type, "dragon");
+  assert.equal(legacy.worldStates[DEFAULT_WORLD_MAP_ID].mountains.length, 1);
+  assert.equal(legacy.worldStates[DEFAULT_WORLD_MAP_ID].objects.length, 1);
 
   const current = migrateSaveData({
     version: SAVE_VERSION,
@@ -119,10 +128,14 @@ try {
       hunger: -2,
       hungerTimer: -1,
       worldTimeSeconds: 999_999,
+      worldMapId: "snowfield",
       totalSteps: 3,
       chestStepBank: 4,
       caveStepBank: 5,
       equippedArmor: "diamond_armor",
+      equippedShield: "iron_shield",
+      shieldDurabilityUsed: 999,
+      ironGuardRemainingMs: 999_999,
       locationMode: "cave",
       currentHouseKind: "twoStory",
       caveReturnPosition: { x: 7, y: 8, z: 9 },
@@ -135,6 +148,16 @@ try {
     },
     mountains: [],
     objects: [],
+    worldStates: {
+      dragon_lands: {
+        mountains: [{ position: { x: 3, y: 0, z: 4 }, radius: 12, height: 5 }],
+        objects: [
+          { type: "droppedItem", name: "drop", position: { x: 1, y: 2, z: 3 }, droppedItem: "hammer", droppedCount: 1 },
+          { type: "broken" },
+        ],
+      },
+      not_a_map: { mountains: [{ broken: true }], objects: [{ type: "chest" }] },
+    },
   });
 
   assert.equal(current.migratedFromVersion, undefined);
@@ -148,15 +171,24 @@ try {
   assert.equal(current.player.maxMana, 120);
   assert.equal(current.player.mana, 120);
   assert.equal(current.player.classSkillCooldownRemainingMs, 24 * 60 * 60 * 1000);
+  assert.equal(current.player.equippedShield, "iron_shield");
+  assert.equal(current.player.shieldDurabilityUsed, 200);
+  assert.equal(current.player.ironGuardRemainingMs, IRON_GUARD_DURATION_SECONDS * 1000);
   assert.deepEqual(current.player.companionProgress, { summoner: { level: 1, experience: 0 } });
   assert.equal(current.player.hunger, 0);
   assert.equal(current.player.hungerTimer, 0);
   assert.equal(current.player.worldTimeSeconds, DAY_LENGTH_SECONDS);
+  assert.equal(current.player.worldMapId, "snowfield");
   assert.equal(current.player.selectedHotbarIndex, 0);
   assert.equal(current.player.hotbar.length, 8);
   assert.deepEqual(current.player.hotbar[0], { item: "magic_wand", count: 1 });
   assert.equal(current.player.locationMode, "cave");
   assert.equal(current.player.currentHouseKind, "twoStory");
+  assert.equal(current.worldStates.snowfield.mountains.length, 0);
+  assert.equal(current.worldStates.dragon_lands.mountains[0].radius, 12);
+  assert.equal(current.worldStates.dragon_lands.objects.length, 1);
+  assert.equal(current.worldStates.dragon_lands.objects[0].droppedItem, "hammer");
+  assert.equal(current.worldStates.not_a_map, undefined);
 
   assert.throws(
     () => migrateSaveData({ version: SAVE_VERSION + 1, player: {} }),
@@ -172,6 +204,7 @@ try {
     checks: [
       "legacy v1 defaults and clamps",
       "legacy durable toolUses migration",
+      "world state migration",
       "current version clamps without migratedFromVersion",
       "future/missing saves rejected",
     ],

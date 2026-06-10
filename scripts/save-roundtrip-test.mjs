@@ -45,10 +45,14 @@ function stableSaveShape(save) {
       hunger: save.player.hunger,
       hungerTimer: save.player.hungerTimer,
       worldTimeSeconds: save.player.worldTimeSeconds,
+      worldMapId: save.player.worldMapId,
       totalSteps: save.player.totalSteps,
       chestStepBank: save.player.chestStepBank,
       caveStepBank: save.player.caveStepBank,
       equippedArmor: save.player.equippedArmor,
+      equippedShield: save.player.equippedShield,
+      shieldDurabilityUsed: save.player.shieldDurabilityUsed,
+      ironGuardRemainingSeconds: Math.round((save.player.ironGuardRemainingMs ?? 0) / 1000),
       locationMode: save.player.locationMode,
       currentHouseKind: save.player.currentHouseKind,
       selectedHotbarIndex: save.player.selectedHotbarIndex,
@@ -69,6 +73,20 @@ function stableSaveShape(save) {
         droppedItem: object.droppedItem,
         droppedCount: object.droppedCount,
       })),
+    worldStates: Object.fromEntries(Object.entries(save.worldStates ?? {}).sort().map(([id, state]) => [id, {
+      mountains: state.mountains.map((mountain) => ({
+        position: roundVector(mountain.position),
+        radius: mountain.radius,
+        height: mountain.height,
+      })),
+      droppedItems: state.objects
+        .filter((object) => object.type === "droppedItem")
+        .map((object) => ({
+          position: roundVector(object.position),
+          droppedItem: object.droppedItem,
+          droppedCount: object.droppedCount,
+        })),
+    }])),
   };
 }
 
@@ -116,18 +134,22 @@ try {
     game.maxHealth = 40;
     game.level = 5;
     game.experience = 123;
-    game.playerClass = "mage";
-    game.pendingPlayerClass = "mage";
+    game.playerClass = "tanker";
+    game.pendingPlayerClass = "tanker";
     game.mana = 42;
     game.maxMana = 120;
     game.summonerCompanion.restore({ summoner: { level: 4, experience: 17 } });
     game.hunger = 3;
     game.hungerTimer = 77;
     game.worldTimeSeconds = 2400;
+    game.currentWorldMapId = "mushroom_glen";
     game.totalSteps = 321;
     game.chestStepBank = 22;
     game.caveStepBank = 33;
     game.equippedArmor = "diamond_armor";
+    game.equippedShield = "iron_shield";
+    game.shieldDurabilityUsed = 12;
+    game.ironGuardUntil = performance.now() + 43_000;
     game.locationMode = "overworld";
     game.currentHouseKind = "twoStory";
     game.selectedHotbarIndex = 2;
@@ -150,6 +172,11 @@ try {
       { item: "iron", count: 4 },
       { item: "gold_powder", count: 9 },
       { item: "water_bucket", count: 2 },
+      { item: null, count: 0 },
+      { item: null, count: 0 },
+      { item: null, count: 0 },
+      { item: null, count: 0 },
+      { item: null, count: 0 },
     );
 
     game.craftSlots[0] = { item: "wood", count: 1 };
@@ -171,6 +198,10 @@ try {
     const dropPosition = game.playerPosition.clone();
     dropPosition.z -= 3;
     game.spawnDroppedItem("hammer", 2, dropPosition);
+    game.worldStates.dragon_lands = {
+      mountains: [{ position: { x: 300, y: 0, z: -310 }, radius: 44, height: 12 }],
+      objects: [{ type: "droppedItem", name: "다른 맵 전리품", position: { x: 301, y: 1.7, z: -312 }, droppedItem: "diamond", droppedCount: 3 }],
+    };
 
     const before = game.createSaveData();
     game.restoreSaveData(before);
@@ -188,6 +219,7 @@ try {
       "hotbar/bag/crafting slots roundtrip",
       "mountain roundtrip",
       "dropped item roundtrip",
+      "world map state roundtrip",
     ],
   }, null, 2));
 } finally {

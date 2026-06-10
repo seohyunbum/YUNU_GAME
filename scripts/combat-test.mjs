@@ -10,6 +10,7 @@ const server = await createServer({
 try {
   const THREE = await import("three");
   const { applyProjectileDamage, calculateCombatDamage } = await server.ssrLoadModule("/src/game/combat.ts");
+  const { PREDATOR_RETALIATE_MS } = await server.ssrLoadModule("/src/game/constants.ts");
 
   const cases = [
     { attack: 8, defense: 0, expected: 8, label: "unarmored target takes base damage" },
@@ -87,7 +88,7 @@ try {
     const predator = { id: "predator-1", type: "wildPredator", name: "거미", root: createRoot(), hp: 2, predatorKind: "spider" };
     applyProjectileDamage(context, predator, 4, "magic");
     assert.equal(predator.hp, -2, "lethal predator hit applies raw projectile damage");
-    assert.equal(predator.angryUntil, 9_000, "predator anger timeout is set from injected clock");
+    assert.equal(predator.angryUntil, 1_000 + PREDATOR_RETALIATE_MS, "predator anger timeout is set from injected clock");
     assert.deepEqual(context.calls.map((call) => call[0]), ["sound", "remove", "message", "experience", "hud"], "lethal predator hit removes target and refreshes HUD");
   }
 

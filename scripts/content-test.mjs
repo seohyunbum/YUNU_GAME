@@ -11,13 +11,27 @@ try {
   const recipes = await server.ssrLoadModule("/src/game/recipes.ts");
   const classes = await server.ssrLoadModule("/src/game/classes.ts");
   const classPassives = await server.ssrLoadModule("/src/game/classPassives.ts");
+  const constants = await server.ssrLoadModule("/src/game/constants.ts");
+  const monsters = await server.ssrLoadModule("/src/game/monsters.ts");
+  const regions = await server.ssrLoadModule("/src/game/regions.ts");
   const trading = await server.ssrLoadModule("/src/game/trading.ts");
+  const recipeGuide = await server.ssrLoadModule("/src/game/recipeGuide.ts");
+  const worldMaps = await server.ssrLoadModule("/src/game/worldMaps.ts");
+  const worldData = await server.ssrLoadModule("/src/game/worldData.ts");
+  const objectives = await server.ssrLoadModule("/src/objectives.ts");
 
-  const { ITEM_NAMES, WEAPON_DAMAGE } = items;
+  const { HEAL_ITEMS, ITEM_NAMES, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE } = items;
   const { MINI_RECIPES, WORKBENCH_RECIPES } = recipes;
   const { PLAYER_CLASSES } = classes;
   const { CLASS_PASSIVES, summonerPetDamage, experienceForNextPetLevel } = classPassives;
+  const { HUNGER_HP_REGEN, HUNGER_MAX } = constants;
+  const { MONSTER_DEFS, isPredatorMonster } = monsters;
+  const { REGIONS } = regions;
   const { POINT_SHOP_OFFERS, TRADE_OFFERS, BLACKSMITH_TRADE_OFFERS } = trading;
+  const { buildRecipeGuideEntries, buildRecipeGuideEntriesForStations } = recipeGuide;
+  const { WORLD_MAPS, DEFAULT_WORLD_MAP_ID, regionsForWorldMap, canTeleportToWorldMap } = worldMaps;
+  const { biomesForWorldMap, waterZonesForWorldMap } = worldData;
+  const { TUTORIAL_STEPS } = objectives;
 
   const isItem = (id) => Object.prototype.hasOwnProperty.call(ITEM_NAMES, id);
 
@@ -56,14 +70,101 @@ try {
     if (Math.abs(shareTotal - 1) > 0.0001) problems.push(`summoner pet: xp shares total ${shareTotal}, expected 1`);
     if (summonerPet.baseDamage !== 2) problems.push(`summoner pet: baseDamage ${summonerPet.baseDamage}, expected 2`);
     if (summonerPet.attackInterval <= 0 || summonerPet.attackRange <= 0) problems.push("summoner pet: invalid attack timing/range");
+    if (
+      !(summonerPet.flightAhead > 0 && summonerPet.flightSide > 0 && Number.isFinite(summonerPet.flightRise))
+    ) {
+      problems.push("summoner pet: invalid flight screen placement");
+    }
     if (summonerPetDamage({ level: 1, experience: 0 }) !== 2) problems.push("summoner pet: level 1 damage should be 2");
     if (experienceForNextPetLevel(1) <= 0) problems.push("summoner pet: next level xp should be positive");
+  }
+
+  if (!Array.isArray(HUNGER_HP_REGEN)) {
+    problems.push("hunger regen: table should be an array");
+  } else {
+    if (HUNGER_HP_REGEN.length !== HUNGER_MAX + 1) {
+      problems.push(`hunger regen: table length ${HUNGER_HP_REGEN.length}, expected ${HUNGER_MAX + 1}`);
+    }
+    if (HUNGER_HP_REGEN[0] !== 0 || HUNGER_HP_REGEN[1] !== 0) {
+      problems.push("hunger regen: hunger 0 and 1 should not heal");
+    }
+    for (const [level, regen] of HUNGER_HP_REGEN.entries()) {
+      if (!(typeof regen === "number" && regen >= 0)) problems.push(`hunger regen: level ${level} invalid value ${regen}`);
+      if (level > 0 && regen < HUNGER_HP_REGEN[level - 1]) {
+        problems.push(`hunger regen: level ${level} is lower than previous level`);
+      }
+    }
   }
 
   // 3. 무기: WEAPON_DAMAGE 키가 이름을 갖고 데미지 >= 1
   for (const [id, dmg] of Object.entries(WEAPON_DAMAGE)) {
     if (!isItem(id)) problems.push(`weapon '${id}': no ITEM_NAMES entry`);
     if (!(typeof dmg === "number" && dmg >= 1)) problems.push(`weapon '${id}': damage ${dmg} < 1`);
+  }
+
+  for (const [id, defense] of Object.entries(SHIELD_DEFENSE)) {
+    if (!isItem(id)) problems.push(`shield '${id}': no ITEM_NAMES entry`);
+    if (!(typeof defense === "number" && defense > 0)) problems.push(`shield '${id}': defense ${defense} <= 0`);
+    const durability = SHIELD_DURABILITY[id];
+    if (!(typeof durability === "number" && durability > 0)) problems.push(`shield '${id}': invalid durability ${durability}`);
+  }
+
+  for (const [id, heal] of Object.entries(HEAL_ITEMS)) {
+    if (!isItem(id)) problems.push(`heal item '${id}': no ITEM_NAMES entry`);
+    if (!(typeof heal === "number" && heal > 0)) problems.push(`heal item '${id}': heal ${heal} <= 0`);
+  }
+
+  const guide = buildRecipeGuideEntries({ wood: 3, hammer: 1, iron: 1, stone: 1, obsidian: 1 });
+  if (!guide.some((entry) => entry.id.endsWith(":crafting_table") && entry.canMake)) {
+    problems.push("recipe guide: crafting_table should be visible and craftable from wood 3 + hammer 1");
+  }
+  if (!guide.some((entry) => entry.id.includes(":mirror") && entry.station.includes("확장 제작대"))) {
+    problems.push("recipe guide: extended-only recipes should show the extended workbench station");
+  }
+  if (!guide.some((entry) => entry.id.includes("smelt_iron") && entry.station.includes("제련대"))) {
+    problems.push("recipe guide: smelter conversions should be listed");
+  }
+  if (!guide.some((entry) => entry.id.includes("smelt_obsidian") && entry.station.includes("특수 제련대"))) {
+    problems.push("recipe guide: special smelter obsidian conversion should be listed");
+  }
+  if (!guide.some((entry) => entry.id.includes("grind_stone") && entry.station.includes("분쇄기"))) {
+    problems.push("recipe guide: grinder conversions should be listed");
+  }
+  const miniGuide = buildRecipeGuideEntriesForStations({ wood: 3, hammer: 1 }, ["mini"]);
+  if (!miniGuide.every((entry) => entry.stationKey === "mini")) problems.push("recipe guide: mini filter should only list mini recipes");
+  if (!miniGuide.some((entry) => entry.id === "mini:crafting_table" && entry.canMake)) problems.push("recipe guide: mini filter should directly craft crafting_table");
+
+  if (!Array.isArray(TUTORIAL_STEPS) || TUTORIAL_STEPS.length < 8) problems.push("tutorial: expected a multi-step early-game guide");
+  const tutorialIds = new Set();
+  for (const step of TUTORIAL_STEPS) {
+    if (!step.id || tutorialIds.has(step.id)) problems.push(`tutorial: invalid or duplicate step id '${step.id}'`);
+    tutorialIds.add(step.id);
+    if (!step.reward || !(step.reward.experience >= 0) || !step.reward.label) problems.push(`tutorial '${step.id}': invalid reward`);
+    for (const item of Object.keys(step.reward.items ?? {})) if (!isItem(item)) problems.push(`tutorial '${step.id}': unknown reward item '${item}'`);
+  }
+
+  for (const region of REGIONS) {
+    if (!region.id || !region.name) problems.push("region: missing id/name");
+    if (!(region.radius > 0 && region.level > 0 && region.lootTier >= 1)) problems.push(`region '${region.id}': invalid radius/level/lootTier`);
+    let predatorCount = 0;
+    for (const entry of region.monsters) {
+      if (!MONSTER_DEFS[entry.id]) problems.push(`region '${region.id}': unknown monster '${entry.id}'`);
+      if (!(entry.weight > 0)) problems.push(`region '${region.id}': monster '${entry.id}' has invalid weight`);
+      if (MONSTER_DEFS[entry.id] && isPredatorMonster(entry.id)) predatorCount += 1;
+    }
+    if (predatorCount <= 0) problems.push(`region '${region.id}': needs at least one predator-spawnable monster`);
+  }
+
+  if (!WORLD_MAPS.some((map) => map.id === DEFAULT_WORLD_MAP_ID)) problems.push("world maps: missing default map");
+  for (const map of WORLD_MAPS) {
+    const activeRegions = regionsForWorldMap(map.id);
+    if (activeRegions.length <= 0) problems.push(`world map '${map.id}': needs at least one active region`);
+    if (!canTeleportToWorldMap(map.levelRange[0], map)) problems.push(`world map '${map.id}': should be reachable at its minimum level`);
+    if (biomesForWorldMap(map.id).length <= 0) problems.push(`world map '${map.id}': needs themed biome data`);
+    if (waterZonesForWorldMap(map.id).length <= 0) problems.push(`world map '${map.id}': needs water-zone data`);
+    for (const region of activeRegions) {
+      if (!REGIONS.some((candidate) => candidate.id === region.id)) problems.push(`world map '${map.id}': unknown region '${region.id}'`);
+    }
   }
 
   // 4. 거래/상점: 주고받는 아이템이 실존 + 상점 가격 > 0
@@ -83,7 +184,7 @@ try {
   } else {
     console.log(JSON.stringify({
       ok: true,
-      checks: ["recipe items exist", "class starter/skill/passive valid", "weapons named", "trade/shop items exist"],
+      checks: ["recipe items exist", "recipe guide searchable", "tutorial steps valid", "class starter/skill/passive valid", "hunger regen table valid", "weapons/shields/heal items named", "regions/monsters valid", "world maps valid", "trade/shop items exist"],
     }, null, 2));
   }
 } finally {

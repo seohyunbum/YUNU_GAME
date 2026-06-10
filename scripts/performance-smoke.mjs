@@ -9,6 +9,8 @@ const PERF_BUDGET = {
   fieldRaycastTargets: 4400, // baseline ~4100
   villageVisibleMeshes: 3850, // baseline ~3683 after outline pruning + fog-distance large visual culling
   villageVisibleOutlines: 50, // balanced/performance quality should hide cartoon outlines
+  villageShiftOnlyHitches: 0,
+  villageSprintRepeatHitches: 0,
   fieldAvgMsCeiling: 40, // 머신 의존 — 파국 방지용 느슨한 상한 (현재 ~21)
 };
 
@@ -159,6 +161,7 @@ async function installProfiler(page) {
     };
     for (const name of [
       "update",
+      "updateAdaptiveQuality",
       "updateMovement",
       "updateVisibilityCulling",
       "updatePrompt",
@@ -172,6 +175,7 @@ async function installProfiler(page) {
       "getLookTarget",
       "nearbyRaycastTargets",
       "resolveCollisions",
+      "applyQualityMode",
     ]) {
       wrap(game, name);
     }
@@ -230,6 +234,9 @@ await page.waitForTimeout(600);
 const villageProfile = await profileGame(page);
 const village = await sampleFrames(page, "village");
 await resetProfiler(page);
+const villageShiftOnly = await sampleMovement(page, "village-shift-only", ["ShiftLeft"], 1200);
+const villageShiftOnlyProfile = await readProfiler(page);
+await resetProfiler(page);
 const villageSprint = await sampleMovement(page, "village-sprint", ["KeyW", "ShiftLeft"]);
 const villageSprintProfile = await readProfiler(page);
 await resetProfiler(page);
@@ -243,8 +250,9 @@ const result = {
     field: startingProfile,
     village: villageProfile,
   },
-  samples: [field, fieldSprint, village, villageSprint, villageSprintRepeat],
+  samples: [field, fieldSprint, village, villageShiftOnly, villageSprint, villageSprintRepeat],
   profiler: {
+    villageShiftOnly: villageShiftOnlyProfile,
     villageSprint: villageSprintProfile,
     villageSprintRepeat: villageSprintRepeatProfile,
   },
@@ -270,6 +278,8 @@ if (villageProfile.available) {
   }
 }
 checkBudget("field.averageMs", field.averageMs, PERF_BUDGET.fieldAvgMsCeiling);
+checkBudget("village-shift-only.hitches", villageShiftOnly.hitches, PERF_BUDGET.villageShiftOnlyHitches);
+checkBudget("village-sprint-repeat.hitches", villageSprintRepeat.hitches, PERF_BUDGET.villageSprintRepeatHitches);
 
 for (const failure of budgetFailures) console.error(`PERF BUDGET ✗ ${failure}`);
 if (budgetFailures.length === 0) console.log("PERF BUDGET ✓ 모든 예산 통과");
