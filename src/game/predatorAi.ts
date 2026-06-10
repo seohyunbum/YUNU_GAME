@@ -50,13 +50,13 @@ function resetAttackExtras(predator: WorldObject) {
   }
 }
 
-function triggerPredatorAttackMotion(predator: WorldObject, now: number) {
+export function triggerPredatorAttackMotion(predator: WorldObject, now: number) {
   predator.root.userData.attackStartedAt = now;
   predator.root.userData.attackDuration = ATTACK_DURATIONS[predator.predatorKind ?? "wolf"] ?? 360;
   if (!predator.root.userData.baseScale) predator.root.userData.baseScale = predator.root.scale.clone();
 }
 
-function animatePredatorAttackMotion(predator: WorldObject, now: number) {
+export function animatePredatorAttackMotion(predator: WorldObject, now: number) {
   const startedAt = Number(predator.root.userData.attackStartedAt ?? 0);
   const duration = Number(predator.root.userData.attackDuration ?? 0);
   const baseScale = predator.root.userData.baseScale instanceof THREE.Vector3 ? predator.root.userData.baseScale : predator.root.scale;

@@ -177,6 +177,23 @@ export function applyProjectileDamage(
   }
 }
 
+export function applyMeleePredatorAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
+  if (target.type !== "wildPredator") return;
+  target.hp = (target.hp ?? 10) - attackPower;
+  target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
+  context.playTone(120, 0.08, "square", 0.035);
+  if (target.hp > 0) {
+    context.showMessage(`${target.name}에게 ${attackPower} 피해. 남은 체력 ${target.hp}.`);
+    return;
+  }
+  const predatorLoot = predatorLootForKind(target.predatorKind);
+  const lootCount = context.rollRewardChance(1, "predator", predatorLoot.item) ? context.grantRewardItem(predatorLoot.item, predatorLoot.count, "predator") : 0;
+  const loot = predatorLoot.item;
+  context.removeObject(target.id);
+  context.showMessage(lootCount > 0 ? `${target.name}를 물리치고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}를 물리쳤지만 재료는 나오지 않았습니다.`);
+  context.grantExperienceForTarget(target);
+}
+
 export function applyMeleeDragonAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
   if (target.type !== "dragon") return;
   const lockMessage = context.bossLockMessage(target.bossKind);

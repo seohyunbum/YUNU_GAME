@@ -97,6 +97,8 @@ try {
   const monsters = await server.ssrLoadModule("/src/game/monsters.ts");
   const regions = await server.ssrLoadModule("/src/game/regions.ts");
   const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
+  const graveTrap = await server.ssrLoadModule("/src/game/graveTrap.ts");
+  const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
   const { HEAL_ITEMS, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE } = items;
@@ -109,6 +111,7 @@ try {
   const { isPredatorMonster, predatorStatsForMonster } = monsters;
   const { REGIONS } = regions;
   const { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER, applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } = bossChapters;
+  const { GRAVE_HAND_COUNT, createGraveTrapState, updateGraveTrap } = graveTrap;
 
   assert(HEAL_ITEMS.medkit === 15, "medkit should heal 15 HP");
   assert(HUNGER_HP_REGEN.length === HUNGER_MAX + 1, "hunger regen table should cover every hunger level");
@@ -241,6 +244,85 @@ try {
     assert(isBossUnlocked("immortal", FINAL_BOSS_CHAPTER - 1), "final boss should unlock after the four kings");
   }
 
+  {
+    // 초록손 무덤 함정 시나리오: 밟으면 지하 진입 → 좀비 사망 시 출구 → 지상 복귀 시 상태 정리
+    const makeObject = (type, x, z) => ({
+      id: `${type}-${x}-${z}`,
+      type,
+      name: type,
+      hp: 660,
+      root: new THREE.Group(),
+    });
+    const state = createGraveTrapState();
+    const calls = [];
+    let mode = "overworld";
+    const hand = makeObject("graveHand", 0.4, 0.3);
+    hand.root.position.set(0.4, 0, 0.3);
+    let hands = [hand];
+    let zombie = null;
+    const context = {
+      state,
+      playerPosition: new THREE.Vector3(0, 1.7, 0),
+      locationMode: () => mode,
+      worldMapId: () => "graveyard",
+      now: () => 1_000,
+      graveHands: () => hands,
+      getObject: (id) => (zombie && zombie.id === id && zombie.hp > 0 ? zombie : undefined),
+      removeObject: (id) => {
+        calls.push(["remove", id]);
+        hands = hands.filter((entry) => entry.id !== id);
+      },
+      addWorldObject: (type, name, root) => {
+        calls.push(["add", type]);
+        return { id: `${type}-added`, type, name, root };
+      },
+      addCaveDressing: () => calls.push(["dressing"]),
+      spawnZombie: (position) => {
+        zombie = makeObject("wildPredator", position.x, position.z);
+        zombie.root.position.copy(position);
+        return zombie;
+      },
+      enterUnderground: () => {
+        mode = "cave";
+        calls.push(["enter"]);
+      },
+      getGroundHeightAt: () => 0,
+      animateWalkCycle: () => {},
+      refreshSpatialObject: () => {},
+      damagePlayer: (amount) => {
+        calls.push(["damage", amount]);
+        return false;
+      },
+      showMessage: (text) => calls.push(["message", text]),
+      renderHud: () => {},
+    };
+
+    updateGraveTrap(context, 0.016);
+    assert(state.active && mode === "cave", "stepping on a green hand should pull the player underground");
+    assert(calls.some(([kind]) => kind === "enter") && calls.some(([kind]) => kind === "dressing"), "trap should enter underground and build the burrow");
+    assert(zombie !== null && state.zombieId === zombie.id, "trap should spawn one burrow zombie");
+    assert(hands.length === 0, "triggered hand grave should be consumed");
+
+    updateGraveTrap(context, 0.016);
+    assert(!state.exitSpawned, "exit should stay closed while the zombie lives");
+    zombie.hp = 0;
+    updateGraveTrap(context, 0.016);
+    assert(state.exitSpawned, "killing the burrow zombie should open the exit");
+    assert(calls.some(([kind, value]) => kind === "add" && value === "caveExit"), "exit portal should be spawned as a caveExit");
+
+    mode = "overworld";
+    updateGraveTrap(context, 0.016);
+    assert(!state.active && state.zombieId === null, "leaving the burrow should reset the trap state");
+
+    // 손 무덤 자동 충원: 묘지 지상에서 부족분이 채워진다 (플레이어 주변 제외)
+    context.playerPosition.set(999, 1.7, 999);
+    hands = [];
+    const handAddsBefore = calls.filter(([kind, value]) => kind === "add" && value === "graveHand").length;
+    updateGraveTrap(context, 0.016);
+    const added = calls.filter(([kind, value]) => kind === "add" && value === "graveHand").length - handAddsBefore;
+    assert(added > 0 && added <= GRAVE_HAND_COUNT, `graveyard should replenish green hands (added ${added})`);
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -256,6 +338,7 @@ try {
         "crafting output capacity blocks item loss",
         "region predator count and at-level TTK guard",
         "boss chapter gating golden scenario",
+        "grave trap pull-in, zombie kill exit, and hand replenish",
       ],
     }, null, 2));
   }

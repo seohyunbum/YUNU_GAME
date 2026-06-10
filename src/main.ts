@@ -64,11 +64,13 @@ import {
 } from "./game/entitySpawns";
 import {
   applyMeleeDragonAttack,
+  applyMeleePredatorAttack,
   applyProjectileDamage as applyProjectileDamageWithContext,
   calculateCombatDamage as calculateDamage,
   type ProjectileDamageContext,
 } from "./game/combat";
 import { applyBossDefeat, bossLockMessage, isBossUnlocked, normalizeBossChapter } from "./game/bossChapters";
+import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
 import {
   createArrowProjectile,
   createMagicProjectile,
@@ -156,7 +158,6 @@ import {
   NIGHT_PREDATOR_SPAWN_SECONDS,
   PLAYER_HEIGHT,
   PLAYER_RADIUS,
-  PREDATOR_RETALIATE_MS,
   PRONE_HEIGHT,
   PROJECTILE_MAX_LIFE,
   RANGED_ATTACK_COOLDOWN,
@@ -220,7 +221,7 @@ import type {
   WorldMapId,
   WorldObject,
 } from "./game/types";
-import { applyPredatorMonsterDefinition, BOSS_STATS, predatorKindForMonster, predatorLootForKind, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
+import { applyPredatorMonsterDefinition, BOSS_STATS, predatorKindForMonster, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -466,6 +467,38 @@ class WildernessGame {
     damagePlayer: (amount, showParticles, deathReason, ignoreArmor) => this.damagePlayer(amount, showParticles, deathReason, ignoreArmor),
     getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }),
     now: () => performance.now(),
+  };
+  private readonly graveTrapContext: GraveTrapContext = {
+    state: createGraveTrapState(),
+    playerPosition: this.playerPosition,
+    locationMode: () => this.locationMode,
+    worldMapId: () => this.currentWorldMapId,
+    now: () => performance.now(),
+    graveHands: () => this.objectsOfType("graveHand"),
+    getObject: (id) => this.objects.get(id),
+    removeObject: (id) => this.removeObject(id),
+    addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
+    addCaveDressing: (object) => {
+      applyStylizedMeshDefaults(object);
+      this.scene.add(object);
+      this.caveObjectIds.push(`loose-${object.uuid}`);
+    },
+    spawnZombie: (position) => spawnPredatorEntity(this.entitySpawnContext, position, "zombie"),
+    enterUnderground: (point) => {
+      this.caveReturnPosition = this.playerPosition.clone();
+      this.clearCaveObjects();
+      this.locationMode = "cave";
+      this.setCaveAtmosphere();
+      this.playerPosition.set(point.x, PLAYER_HEIGHT, point.z);
+      this.settlePlayerAfterTeleport();
+      this.playTransitionSound("enter");
+    },
+    getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
+    animateWalkCycle: (object, delta, movementSpeed) => this.animateWalkCycle(object, delta, movementSpeed),
+    refreshSpatialObject: (object) => this.refreshSpatialObject(object),
+    damagePlayer: (amount, showParticles, deathReason) => this.damagePlayer(amount, showParticles, deathReason),
+    showMessage: (text) => this.showMessage(text),
+    renderHud: () => this.renderHud(),
   };
   private equippedArmor: ItemId | null = null;
   private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0;
@@ -2443,6 +2476,7 @@ class WildernessGame {
     this.updateVillagers(delta);
     this.updateAnts(delta);
     this.updatePredators(delta);
+    updateGraveTrap(this.graveTrapContext, delta);
     this.updateDragons(delta);
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
@@ -4305,21 +4339,7 @@ class WildernessGame {
   }
 
   private attackPredator(target: WorldObject) {
-    if (target.type !== "wildPredator") return;
-    const damage = this.currentDamage();
-    target.hp = (target.hp ?? 10) - damage;
-    target.angryUntil = performance.now() + PREDATOR_RETALIATE_MS;
-    this.playTone(120, 0.08, "square", 0.035);
-    if (target.hp > 0) {
-      this.showMessage(`${target.name}에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
-      return;
-    }
-    const predatorLoot = predatorLootForKind(target.predatorKind);
-    const lootCount = this.rollRewardChance(1, "predator", predatorLoot.item) ? this.grantRewardItem(predatorLoot.item, predatorLoot.count, "predator") : 0;
-    const loot = predatorLoot.item;
-    this.removeObject(target.id);
-    this.showMessage(lootCount > 0 ? `${target.name}를 물리치고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}를 물리쳤지만 재료는 나오지 않았습니다.`);
-    this.grantExperienceForTarget(target);
+    applyMeleePredatorAttack(this.projectileDamageContext, target, this.currentDamage());
   }
 
   private attackDragon(target: WorldObject) {

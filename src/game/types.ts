@@ -17,6 +17,7 @@ export type ObjectType =
   | "chest"
   | "cave"
   | "caveExit"
+  | "graveHand"
   | "houseExit"
   | "dirtPatch"
   | "terrainPatch"
