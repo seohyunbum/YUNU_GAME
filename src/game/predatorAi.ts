@@ -160,7 +160,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     if (aggroed && distance < context.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
       predator.attackCooldown = predatorStats.cooldown;
       triggerPredatorAttackMotion(predator, now, dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
-      context.damagePlayer(predatorStats.attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
+      context.damagePlayer(predator.attackDamage ?? predatorStats.attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
     }
   }
 }

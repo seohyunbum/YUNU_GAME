@@ -153,6 +153,7 @@ export interface WorldObject {
   antMeatRemaining?: number;
   predatorKind?: PredatorKind;
   bossKind?: BossKind;
+  fieldBossId?: string;
   regionId?: string;
   monsterId?: string;
   monsterLevel?: number;
@@ -265,6 +266,7 @@ export interface SavedGame {
     worldTimeSeconds?: number;
     worldMapId?: WorldMapId;
     bossChapter?: number;
+    defeatedFieldBosses?: string[];
     totalSteps: number;
     chestStepBank: number;
     caveStepBank: number;

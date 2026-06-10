@@ -18,6 +18,7 @@ import { PLAYER_CLASSES } from "./classes";
 import { DEFAULT_SUMMONER_PET_PROGRESS } from "./classPassives";
 import { DEFAULT_WORLD_MAP_ID, isWorldMapId } from "./worldMaps";
 import { normalizeBossChapter } from "./bossChapters";
+import { normalizeDefeatedFieldBosses } from "./fieldBosses";
 import type { CompanionProgress, HouseKind, ItemId, LocationMode, PartialSavedGame, PlayerClassId, SavedGame, SavedObject, SavedVector, SavedWorldState, Slot, TutorialProgress, WorldMapId } from "./types";
 
 const DEFAULT_POSITION: SavedVector = { x: 0, y: PLAYER_HEIGHT, z: 12 };
@@ -246,6 +247,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       worldTimeSeconds: savedNumber(player.worldTimeSeconds, DEFAULT_WORLD_TIME, 0, DAY_LENGTH_SECONDS),
       worldMapId: migratedWorldMapId,
       bossChapter: normalizeBossChapter(player.bossChapter),
+      defeatedFieldBosses: normalizeDefeatedFieldBosses(player.defeatedFieldBosses),
       totalSteps: savedNumber(player.totalSteps, 0, 0),
       chestStepBank: savedNumber(player.chestStepBank, 0, 0),
       caveStepBank: savedNumber(player.caveStepBank, 0, 0),

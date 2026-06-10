@@ -73,7 +73,8 @@ import {
 } from "./game/combat";
 import { applyBossDefeat, bossLockMessage, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter } from "./game/bossChapters";
 import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
-import { createFinaleState, startFinale, updateFinale, type FinaleContext } from "./game/finale";
+import { createFinaleState, startFinale, startMiniFanfare, updateFinale, type FinaleContext } from "./game/finale";
+import { fieldBossDefeatMessage, fieldBossQuestFor, updateFieldBosses, type FieldBossContext } from "./game/fieldBosses";
 import { showEndingScreen } from "./ui/endingScreen";
 import {
   createArrowProjectile,
@@ -225,7 +226,7 @@ import type {
   WorldMapId,
   WorldObject,
 } from "./game/types";
-import { applyPredatorMonsterDefinition, BOSS_STATS, predatorExperienceReward, predatorKindForMonster, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
+import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, predatorKindForMonster, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -511,6 +512,14 @@ class WildernessGame {
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
     showCredits: () => showEndingScreen(this.uiRoot, () => this.renderHud()), showMessage: (text) => this.showMessage(text),
   };
+  private defeatedFieldBosses: string[] = [];
+  private readonly fieldBossContext: FieldBossContext = {
+    locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
+    defeatedFieldBosses: () => this.defeatedFieldBosses,
+    liveFieldBoss: () => { for (const object of this.objectsOfType("wildPredator")) if (object.fieldBossId) return object; return null; },
+    spawnPredator: (kind, position) => spawnPredatorEntity(this.entitySpawnContext, position, kind),
+    getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
+  };
   private equippedArmor: ItemId | null = null;
   private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0;
   private locationMode: LocationMode = "overworld";
@@ -628,7 +637,7 @@ class WildernessGame {
     itemName: (item) => ITEM_NAMES[item] ?? item,
     rollRewardChance: (baseChance, source, item) => this.rollRewardChance(baseChance, source, item),
     grantRewardItem: (item, baseCount, source) => this.grantRewardItem(item, baseCount, source),
-    experienceRewardFor: (target) => this.experienceRewardFor(target),
+    experienceRewardFor: (target) => experienceRewardForTarget(target),
     gainPlayerExperience: (amount) => this.gainExperience(amount),
     celebratePetLevel: (level) => celebrateLevelUp(this.juiceDeps, level),
     renderHud: () => this.renderHud(),
@@ -2491,6 +2500,7 @@ class WildernessGame {
     this.updatePredators(delta);
     updateGraveTrap(this.graveTrapContext, delta);
     updateFinale(this.finaleContext);
+    updateFieldBosses(this.fieldBossContext);
     this.updateDragons(delta);
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
@@ -4375,37 +4385,14 @@ class WildernessGame {
     this.showMessage(this.lastDamageBlocked ? "용의 불 공격을 방어구가 막았습니다." : `용이 하늘에서 불을 쏟았습니다! 피해 ${this.lastDamageTaken}.`);
   }
 
-  private experienceRewardFor(target: WorldObject) {
-    if (target.type === "animal") {
-      if (target.animalKind === "chicken") return 4;
-      if (target.animalKind === "pig" || target.animalKind === "cow") return 6;
-      return 8;
-    }
-
-    if (target.type === "wildPredator") return predatorExperienceReward(target.predatorKind, target.monsterLevel);
-
-    if (target.type === "jammini") return 75;
-
-    if (target.type === "dragon") {
-      const rewards: Record<BossKind, number> = {
-        dragon: 500,
-        fire_dragon: 900,
-        red_dragon: 1300,
-        laser_dragon: 1800,
-        dark_dragon: 2400,
-        immortal: 3500,
-      };
-      return rewards[target.bossKind ?? "dragon"];
-    }
-
-    if (target.type === "villageGolem") return 280;
-    if (target.type === "villageMage" || target.type === "villageArcher") return 125;
-    if (target.type === "villageKnight") return 110;
-    return 0;
-  }
-
   private grantExperienceForTarget(target: WorldObject) {
-    this.summonerCompanion.awardExperience(Math.round(this.experienceRewardFor(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
+    this.summonerCompanion.awardExperience(Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
+    if (target.fieldBossId && !this.defeatedFieldBosses.includes(target.fieldBossId)) {
+      this.defeatedFieldBosses.push(target.fieldBossId);
+      startMiniFanfare(this.finaleContext);
+      this.showMessage(fieldBossDefeatMessage(target.fieldBossId));
+      this.renderHud();
+    }
   }
 
   private gainExperience(amount: number) {
@@ -5537,6 +5524,7 @@ class WildernessGame {
         worldTimeSeconds: this.worldTimeSeconds,
         worldMapId: this.currentWorldMapId,
         bossChapter: this.bossChapter,
+        defeatedFieldBosses: this.defeatedFieldBosses,
         totalSteps: this.totalSteps,
         chestStepBank: this.chestStepBank,
         caveStepBank: this.caveStepBank,
@@ -5571,6 +5559,7 @@ class WildernessGame {
     this.resetGameState({ reseed: false });
     this.currentWorldMapId = save.player.worldMapId ?? DEFAULT_WORLD_MAP_ID;
     this.bossChapter = normalizeBossChapter(save.player.bossChapter);
+    this.defeatedFieldBosses.splice(0, this.defeatedFieldBosses.length, ...(save.player.defeatedFieldBosses ?? []));
     this.activeRegions = regionsForWorldMap(this.currentWorldMapId);
     this.activeBiomes = biomesForWorldMap(this.currentWorldMapId); this.activeWaterZones = waterZonesForWorldMap(this.currentWorldMapId); this.biomeDecorContext.biomes = this.activeBiomes;
     installWorldStates(this.worldStates, save.worldStates, this.currentWorldMapId, { mountains: save.mountains, objects: save.objects });
@@ -5713,6 +5702,7 @@ class WildernessGame {
     this.caveStepBank = 0;
     this.antStepBank = 0;
     this.bossChapter = 0;
+    this.defeatedFieldBosses.splice(0, this.defeatedFieldBosses.length);
     this.level = 1;
     this.experience = 0;
     this.health = BASE_PLAYER_MAX_HEALTH;
@@ -6120,6 +6110,7 @@ class WildernessGame {
       hasSmelter: this.hasWorldObjectType("smelter", "specialSmelter"),
       smelter: this.countItem("smelter"),
       bossChapter: this.bossChapter,
+      fieldBossQuest: fieldBossQuestFor(this.currentWorldMapId, this.defeatedFieldBosses),
       completedStepIds: this.tutorialProgress.completedStepIds,
     });
   }
@@ -6150,6 +6141,7 @@ class WildernessGame {
   private renderRegionMapPanel() {
     const nextBossKind = nextBossTarget(this.bossChapter)?.kind;
     const bosses = [...this.objectsOfType("dragon")].map((dragon) => ({ name: this.bossStats(dragon.bossKind).name, x: dragon.root.position.x, z: dragon.root.position.z, sealed: !isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter), next: (dragon.bossKind ?? "dragon") === nextBossKind }));
+    for (const predator of this.objectsOfType("wildPredator")) if (predator.fieldBossId) bosses.push({ name: predator.name, x: predator.root.position.x, z: predator.root.position.z, sealed: false, next: false });
     renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: canTeleportToWorldMap(this.level, map), lockReason: worldMapLockReason(this.level, map) })), bosses }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
   }
 

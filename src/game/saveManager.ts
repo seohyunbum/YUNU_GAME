@@ -45,6 +45,7 @@ export interface SaveDataSnapshot {
     worldTimeSeconds: number;
     worldMapId: WorldMapId;
     bossChapter: number;
+    defeatedFieldBosses: readonly string[];
     totalSteps: number;
     chestStepBank: number;
     caveStepBank: number;
@@ -109,6 +110,8 @@ export function createSavedWorldState(snapshot: Pick<SaveDataSnapshot, "nowMs" |
     })),
     objects: [...snapshot.objects]
       .filter((object) => shouldPersistObject(object, excludedObjectIds))
+      // 필드 보스는 저장하지 않는다 — 처치 기록(defeatedFieldBosses)만 저장하고 스폰은 ensure 가 맡는다
+      .filter((object) => !object.fieldBossId)
       .filter((object) => object.expiresAt === undefined || object.expiresAt > snapshot.nowMs)
       .map((object) => ({
         type: object.type,
@@ -196,6 +199,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       worldTimeSeconds: snapshot.player.worldTimeSeconds,
       worldMapId: snapshot.player.worldMapId,
       bossChapter: normalizeBossChapter(snapshot.player.bossChapter),
+      defeatedFieldBosses: [...snapshot.player.defeatedFieldBosses],
       totalSteps: snapshot.player.totalSteps,
       chestStepBank: snapshot.player.chestStepBank,
       caveStepBank: snapshot.player.caveStepBank,

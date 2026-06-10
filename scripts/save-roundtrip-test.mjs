@@ -47,6 +47,7 @@ function stableSaveShape(save) {
       worldTimeSeconds: save.player.worldTimeSeconds,
       worldMapId: save.player.worldMapId,
       bossChapter: save.player.bossChapter,
+      defeatedFieldBosses: save.player.defeatedFieldBosses,
       totalSteps: save.player.totalSteps,
       chestStepBank: save.player.chestStepBank,
       caveStepBank: save.player.caveStepBank,

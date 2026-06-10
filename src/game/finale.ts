@@ -37,6 +37,7 @@ const burstPosition = new THREE.Vector3();
 
 export interface FinaleState {
   active: boolean;
+  mode: "full" | "mini";
   startedAt: number;
   nextBurstAt: number;
   melodyIndex: number;
@@ -45,8 +46,11 @@ export interface FinaleState {
 }
 
 export function createFinaleState(): FinaleState {
-  return { active: false, startedAt: 0, nextBurstAt: 0, melodyIndex: 0, nextNoteAt: 0, creditsShown: false };
+  return { active: false, mode: "full", startedAt: 0, nextBurstAt: 0, melodyIndex: 0, nextNoteAt: 0, creditsShown: false };
 }
+
+export const MINI_FANFARE_FIREWORKS_MS = 5_000;
+const MINI_FANFARE_NOTES = 6;
 
 export interface FinaleContext {
   state: FinaleState;
@@ -62,6 +66,7 @@ export interface FinaleContext {
 export function startFinale(context: FinaleContext) {
   const now = context.now();
   context.state.active = true;
+  context.state.mode = "full";
   context.state.startedAt = now;
   context.state.nextBurstAt = now;
   context.state.melodyIndex = 0;
@@ -70,13 +75,28 @@ export function startFinale(context: FinaleContext) {
   context.showMessage("🎆 불멸의 존재 토벌! 야생 마을의 전설이 되었습니다!");
 }
 
+// 중소규모 팡파레 — 맵 필드 보스 토벌용 (짧은 폭죽 + 팡파레 앞부분, 크레딧 없음)
+export function startMiniFanfare(context: FinaleContext) {
+  if (context.state.active && context.state.mode === "full") return; // 엔딩 중엔 양보
+  const now = context.now();
+  context.state.active = true;
+  context.state.mode = "mini";
+  context.state.startedAt = now;
+  context.state.nextBurstAt = now;
+  context.state.melodyIndex = 0;
+  context.state.nextNoteAt = now + 180;
+  context.state.creditsShown = true; // 미니 모드는 크레딧 없음
+}
+
 export function updateFinale(context: FinaleContext) {
   const state = context.state;
   if (!state.active) return;
   const now = context.now();
+  const fireworksMs = state.mode === "mini" ? MINI_FANFARE_FIREWORKS_MS : FINALE_FIREWORKS_MS;
+  const melodyLength = state.mode === "mini" ? MINI_FANFARE_NOTES : FANFARE.length;
 
   // 폭죽 연사 — 시야 전방 하늘 위주로, 좌우로 넓게
-  if (now <= state.startedAt + FINALE_FIREWORKS_MS && now >= state.nextBurstAt) {
+  if (now <= state.startedAt + fireworksMs && now >= state.nextBurstAt) {
     state.nextBurstAt = now + THREE.MathUtils.randFloat(240, 520);
     const forward = context.cameraForward();
     const distance = THREE.MathUtils.randFloat(9, 20);
@@ -90,7 +110,7 @@ export function updateFinale(context: FinaleContext) {
   }
 
   // 승리 팡파레
-  if (state.melodyIndex < FANFARE.length && now >= state.nextNoteAt) {
+  if (state.melodyIndex < melodyLength && now >= state.nextNoteAt) {
     const [frequency, duration, gap] = FANFARE[state.melodyIndex];
     context.playTone(frequency, duration, "triangle", 0.06);
     context.playTone(frequency / 2, duration, "sine", 0.03);
@@ -98,11 +118,11 @@ export function updateFinale(context: FinaleContext) {
     state.nextNoteAt = now + gap;
   }
 
-  // 크레딧
+  // 크레딧 (full 모드 전용)
   if (!state.creditsShown && now >= state.startedAt + FINALE_CREDITS_DELAY_MS) {
     state.creditsShown = true;
     context.showCredits();
   }
 
-  if (now > state.startedAt + FINALE_FIREWORKS_MS && state.melodyIndex >= FANFARE.length) state.active = false;
+  if (now > state.startedAt + fireworksMs && state.melodyIndex >= melodyLength) state.active = false;
 }

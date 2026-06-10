@@ -483,6 +483,7 @@ async function inspectNewSystems(page) {
     levelCardCompact: false,
     bossMarkers: 0,
     sealedBossMarkers: 0,
+    starterFieldBossMarker: 0,
     newGameReturnsToTitle: false,
   };
 
@@ -502,6 +503,7 @@ async function inspectNewSystems(page) {
   systems.mapPanelOpens = (await page.locator(".map-panel").count()) === 1;
   systems.mapTeleportButtons = await page.locator("[data-teleport-map]").count();
   systems.mapLockedButtons = await page.locator("[data-teleport-map][disabled]").count();
+  systems.starterFieldBossMarker = await page.locator('[data-boss-marker="open"]').count();
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 
@@ -618,6 +620,7 @@ for (const viewport of [
     if (!systems.levelCardCompact) errors.push("desktop: 3-digit level did not get the compact level-card font class");
     if (systems.bossMarkers < 1) errors.push("desktop: region map did not show any boss markers");
     if (systems.sealedBossMarkers < 1) errors.push("desktop: sealed boss was not marked as sealed on the region map");
+    if (systems.starterFieldBossMarker < 1) errors.push("desktop: starter map did not show its field boss on the region map");
     if (systems.graveyardSkyBrightness < 0 || systems.graveyardSkyBrightness > systems.daySkyBrightness - 40) {
       errors.push(`desktop: graveyard daytime sky (${systems.graveyardSkyBrightness}) was not gloomier than the plains day sky (${systems.daySkyBrightness})`);
     }

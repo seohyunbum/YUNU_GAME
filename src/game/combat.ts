@@ -84,10 +84,12 @@ export function applyProjectileDamage(
   }
 
   if (target.type === "wildPredator") {
-    target.hp = (target.hp ?? 10) - attackPower;
+    // 필드 보스만 방어력을 가진다 — 항상 최소 1 피해는 보장
+    const predatorDamage = target.armor ? Math.max(1, calculateCombatDamage(attackPower, target.armor)) : attackPower;
+    target.hp = (target.hp ?? 10) - predatorDamage;
     target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
     if (target.hp > 0) {
-      context.showMessage(`${target.name}에게 ${label} ${attackPower} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
+      context.showMessage(`${target.name}에게 ${label} ${predatorDamage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
       return;
     }
     const predatorLoot = predatorLootForKind(target.predatorKind);
@@ -195,11 +197,13 @@ export function applyProjectileDamage(
 
 export function applyMeleePredatorAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
   if (target.type !== "wildPredator") return;
-  target.hp = (target.hp ?? 10) - attackPower;
+  // 필드 보스만 방어력을 가진다 — 항상 최소 1 피해는 보장
+  const damage = target.armor ? Math.max(1, calculateCombatDamage(attackPower, target.armor)) : attackPower;
+  target.hp = (target.hp ?? 10) - damage;
   target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
   context.playTone(120, 0.08, "square", 0.035);
   if (target.hp > 0) {
-    context.showMessage(`${target.name}에게 ${attackPower} 피해. 남은 체력 ${target.hp}.`);
+    context.showMessage(`${target.name}에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
     return;
   }
   const predatorLoot = predatorLootForKind(target.predatorKind);

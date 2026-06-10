@@ -1,4 +1,5 @@
 import { FINAL_BOSS_CHAPTER, nextBossTarget } from "./game/bossChapters";
+import type { FieldBossQuestView } from "./game/fieldBosses";
 import { BOSS_STATS } from "./game/monsters";
 import type { ItemId, TutorialProgress } from "./game/types";
 
@@ -18,6 +19,7 @@ export interface ObjectiveSnapshot {
   hasSmelter: boolean;
   smelter: number;
   bossChapter: number;
+  fieldBossQuest: FieldBossQuestView | null;
   completedStepIds: readonly string[];
 }
 
@@ -140,6 +142,20 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
       kind: "tutorial",
     };
   }
+  // 맵 필드 보스 퀘스트 — 현재 맵의 보스가 살아 있거나(처치 안내) 처치 후 보상 미수령이면 표시
+  const fieldBossQuest = snapshot.fieldBossQuest;
+  if (fieldBossQuest && !completed(snapshot, fieldBossQuest.id)) {
+    return {
+      id: fieldBossQuest.id,
+      title: `${fieldBossQuest.mapName}의 ${fieldBossQuest.bossName} 처치하기 (${fieldBossQuest.defeated ? 1 : 0}/1)`,
+      detail: `이 맵 어딘가에 Lv ${fieldBossQuest.level} ${fieldBossQuest.bossName}이(가) 있습니다. 지도(M)에 위치가 표시됩니다. 한 번 처치하면 다시 나타나지 않습니다.`,
+      progress: fieldBossQuest.defeated ? "처치 완료 — 클릭해서 보상 받기" : "맵 보스",
+      reward: { experience: fieldBossQuest.rewardExperience, items: fieldBossQuest.rewardItems, label: fieldBossQuest.rewardLabel },
+      completed: fieldBossQuest.defeated,
+      kind: "tutorial",
+    };
+  }
+
   const nextBoss = nextBossTarget(snapshot.bossChapter);
   if (nextBoss) {
     return {

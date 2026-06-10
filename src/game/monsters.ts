@@ -25,6 +25,32 @@ export function predatorLootForKind(kind: PredatorKind | undefined): { item: "me
   return { item: "meat", count: 1 };
 }
 
+// 처치 경험치 — main.grantExperienceForTarget 가 소비하는 단일 표 (이동: main.ts → leaf)
+export function experienceRewardForTarget(target: WorldObject): number {
+  if (target.type === "animal") {
+    if (target.animalKind === "chicken") return 4;
+    if (target.animalKind === "pig" || target.animalKind === "cow") return 6;
+    return 8;
+  }
+  if (target.type === "wildPredator") return predatorExperienceReward(target.predatorKind, target.monsterLevel);
+  if (target.type === "jammini") return 75;
+  if (target.type === "dragon") {
+    const rewards: Record<BossKind, number> = {
+      dragon: 500,
+      fire_dragon: 900,
+      red_dragon: 1300,
+      laser_dragon: 1800,
+      dark_dragon: 2400,
+      immortal: 3500,
+    };
+    return rewards[target.bossKind ?? "dragon"];
+  }
+  if (target.type === "villageGolem") return 280;
+  if (target.type === "villageMage" || target.type === "villageArcher") return 125;
+  if (target.type === "villageKnight") return 110;
+  return 0;
+}
+
 // 포식자 처치 경험치 — 기본 3종은 기존 수치를 보존하고, 변종/신규 종은 몬스터 레벨 비례(레벨×3).
 export function predatorExperienceReward(kind: PredatorKind | undefined, monsterLevel?: number): number {
   if (kind === "spider" && !monsterLevel) return 18;

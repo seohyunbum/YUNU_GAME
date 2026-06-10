@@ -20,6 +20,7 @@ try {
   const worldData = await server.ssrLoadModule("/src/game/worldData.ts");
   const objectives = await server.ssrLoadModule("/src/objectives.ts");
   const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
+  const fieldBosses = await server.ssrLoadModule("/src/game/fieldBosses.ts");
 
   const { HEAL_ITEMS, ITEM_NAMES, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE } = items;
   const { MINI_RECIPES, WORKBENCH_RECIPES } = recipes;
@@ -178,6 +179,33 @@ try {
     }
   }
 
+  // 필드 보스: 최종맵 제외 모든 맵에 정확히 1마리, 맵 최대 레벨 스탯, 유효한 베이스 몬스터/보상
+  {
+    const { FIELD_BOSSES } = fieldBosses;
+    let previousReward = 0;
+    for (const map of WORLD_MAPS) {
+      const defs = FIELD_BOSSES.filter((def) => def.mapId === map.id);
+      if (map.id === "dragon_lands") {
+        if (defs.length !== 0) problems.push("field boss: dragon_lands must not have a field boss");
+        continue;
+      }
+      if (defs.length !== 1) problems.push(`field boss: map '${map.id}' should have exactly one boss (got ${defs.length})`);
+    }
+    for (const def of [...FIELD_BOSSES].sort((a, b) => a.level - b.level)) {
+      const map = WORLD_MAPS.find((candidate) => candidate.id === def.mapId);
+      if (!map) {
+        problems.push(`field boss '${def.id}': unknown map '${def.mapId}'`);
+        continue;
+      }
+      if (def.level !== map.levelRange[1]) problems.push(`field boss '${def.id}': level ${def.level} should equal map max ${map.levelRange[1]}`);
+      if (!MONSTER_DEFS[def.monsterId] || !MONSTER_DEFS[def.monsterId].predatorKind) problems.push(`field boss '${def.id}': base monster '${def.monsterId}' must be a predator`);
+      for (const item of Object.keys(def.rewardItems)) if (!isItem(item)) problems.push(`field boss '${def.id}': unknown reward item '${item}'`);
+      if (def.rewardExperience < previousReward) problems.push(`field boss '${def.id}': reward should escalate with level`);
+      previousReward = def.rewardExperience;
+      if (!def.rewardLabel.includes(`경험치 ${def.rewardExperience}`)) problems.push(`field boss '${def.id}': reward label mismatch`);
+    }
+  }
+
   // 경험치병은 치트(F4) 전용: 제작 레시피·상점·거래 어디에도 나오면 안 된다
   if ([...MINI_RECIPES, ...WORKBENCH_RECIPES].some((r) => r.output === "xp_bottle")) {
     problems.push("xp_bottle: must not be craftable (cheat-only item)");
@@ -221,7 +249,7 @@ try {
   } else {
     console.log(JSON.stringify({
       ok: true,
-      checks: ["recipe items exist", "recipe guide searchable", "tutorial steps valid", "class starter/skill/passive valid", "hunger regen table valid", "weapons/shields/heal items named", "regions/monsters valid", "world maps valid", "boss progression valid", "trade/shop items exist"],
+      checks: ["recipe items exist", "recipe guide searchable", "tutorial steps valid", "class starter/skill/passive valid", "hunger regen table valid", "weapons/shields/heal items named", "regions/monsters valid", "world maps valid", "boss progression valid", "field bosses valid", "trade/shop items exist"],
     }, null, 2));
   }
 } finally {

@@ -104,6 +104,7 @@ try {
   const graveTrap = await server.ssrLoadModule("/src/game/graveTrap.ts");
   const predatorAi = await server.ssrLoadModule("/src/game/predatorAi.ts");
   const finale = await server.ssrLoadModule("/src/game/finale.ts");
+  const fieldBosses = await server.ssrLoadModule("/src/game/fieldBosses.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -119,7 +120,8 @@ try {
   const { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER, applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } = bossChapters;
   const { GRAVE_HAND_COUNT, createGraveTrapState, updateGraveTrap } = graveTrap;
   const { animatePredatorAttackMotion, triggerPredatorAttackMotion } = predatorAi;
-  const { FINALE_CREDITS_DELAY_MS, createFinaleState, startFinale, updateFinale } = finale;
+  const { FINALE_CREDITS_DELAY_MS, MINI_FANFARE_FIREWORKS_MS, createFinaleState, startFinale, startMiniFanfare, updateFinale } = finale;
+  const { fieldBossQuestFor, normalizeDefeatedFieldBosses, updateFieldBosses } = fieldBosses;
 
   assert(HEAL_ITEMS.medkit === 15, "medkit should heal 15 HP");
   assert(HUNGER_HP_REGEN.length === HUNGER_MAX + 1, "hunger regen table should cover every hunger level");
@@ -420,6 +422,64 @@ try {
     assert(credits === 1, `ending credits should appear exactly once (got ${credits})`);
   }
 
+  {
+    // 필드 보스: ensure 스폰은 1회만, 처치 기록이 있으면 스폰 안 함, 보스 공식 스탯 적용
+    let spawned = null;
+    const defeated = [];
+    const context = {
+      locationMode: () => "overworld",
+      worldMapId: () => "starter_valley",
+      defeatedFieldBosses: () => defeated,
+      liveFieldBoss: () => spawned,
+      spawnPredator: () => {
+        spawned = { type: "wildPredator", name: "", root: new THREE.Group() };
+        return spawned;
+      },
+      getGroundHeightAt: () => 0,
+    };
+    updateFieldBosses(context);
+    assert(spawned !== null && spawned.fieldBossId === "boss_starter_valley", "starter valley should spawn its field boss");
+    assert(spawned.hp === 216 && spawned.armor === 24 && spawned.attackDamage === 13, `field boss should use boss-formula stats for Lv 18 (hp ${spawned.hp}, armor ${spawned.armor}, atk ${spawned.attackDamage})`);
+    const firstBoss = spawned;
+    updateFieldBosses(context);
+    assert(spawned === firstBoss, "live field boss should not be duplicated");
+    spawned = null;
+    defeated.push("boss_starter_valley");
+    updateFieldBosses(context);
+    assert(spawned === null, "defeated field boss should never respawn");
+
+    // 퀘스트 뷰: 처치 전→후 전환 + 최종맵 제외
+    const quest = fieldBossQuestFor("starter_valley", []);
+    assert(quest && quest.bossName === "멧돼지 대왕" && !quest.defeated, "starter valley quest should target its boss");
+    assert(fieldBossQuestFor("starter_valley", ["boss_starter_valley"])?.defeated === true, "quest should flip to defeated for the reward claim");
+    assert(fieldBossQuestFor("dragon_lands", []) === null, "final map must not have a field boss quest");
+    assert(normalizeDefeatedFieldBosses(["boss_starter_valley", "nope", "boss_starter_valley"]).length === 1, "defeated list should dedupe and drop unknown ids");
+  }
+
+  {
+    // 미니 팡파레: 짧은 폭죽 + 크레딧 없음 + 자동 종료
+    let nowMs = 0;
+    let credits = 0;
+    const particles = [];
+    const context = {
+      state: createFinaleState(),
+      effects: () => ({ scene: { add: () => {} }, camera: null, playerPosition: new THREE.Vector3(), damageParticles: particles, getGroundHeightAt: () => 0 }),
+      playerPosition: new THREE.Vector3(0, 1.7, 0),
+      cameraForward: () => ({ x: 0, z: -1 }),
+      now: () => nowMs,
+      playTone: () => {},
+      showCredits: () => {
+        credits += 1;
+      },
+      showMessage: () => {},
+    };
+    startMiniFanfare(context);
+    for (nowMs = 0; nowMs <= MINI_FANFARE_FIREWORKS_MS + 3_000; nowMs += 100) updateFinale(context);
+    assert(particles.length > 30, "mini fanfare should still pop fireworks");
+    assert(credits === 0, "mini fanfare must not roll the ending credits");
+    assert(!context.state.active, "mini fanfare should end on its own");
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -441,6 +501,7 @@ try {
         "xp bottle grants 15 levels and is consumed",
         "incoming damage floor and progressive monster attack scaling",
         "finale fireworks, fanfare, and single credits roll",
+        "field boss spawn-once, quest view, and mini fanfare",
       ],
     }, null, 2));
   }
