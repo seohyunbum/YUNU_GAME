@@ -15,7 +15,7 @@
 
 ## Next (가까운 우선)
 
-- **진행 척추 — 보스 게이팅.** `bossChapter` 저장 필드 + 이전 보스 처치로 다음 보스 개방 + 첫 10분 목표 가이드(`objectives`). 설계는 `docs/boss-chapter-economy-balance.md` 에 이미 있음 — 구현만. *(turn 2부터 지적된 핵심 제품 갭)*
+- ✅ **진행 척추 — 보스 게이팅.** `bossChapter` 저장 필드(SAVE_VERSION 7) + 봉인된 보스는 피해 0·반격 없음 + 처치 시 다음 보스 개방 + HUD 목표가 "챕터 N/6 · 권장 레벨" 표시. (`game/bossChapters.ts`, 2026-06-10)
 - **QA 사각 메우기.** ① 시각 검증 복구(preview 환경 or 수동 스크린샷 프로토콜 or `visual-check` 를 거너·신무기까지 확장). ② 자녀 플레이테스트 정례화 + 매회 관찰 3개 `docs/playtest-log.md`.
 - **데이터주도 확대 — 스킬 "행동".** `game/classSkills.ts` 로 스킬 로직을 좁은 `GameContext` 와 함께 추출 → 클래스 추가가 leaf-only 가 되게.
 
