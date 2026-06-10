@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { gameMaterial } from "../visuals";
+import { createExtendedPredatorVisual } from "./monsterVisuals";
 import type { AnimalKind, PredatorKind, WalkPartSetup } from "./types";
 
 export interface CreatureWalkConfig {
@@ -180,6 +181,8 @@ export function createAnimalVisual(preferredType?: AnimalKind): AnimalVisual {
 
 export function createPredatorVisual(preferredType?: PredatorKind): PredatorVisual {
   const predatorKind = preferredType ?? (Math.random() < 0.5 ? "wolf" : Math.random() < 0.72 ? "spider" : "lion");
+  const extended = createExtendedPredatorVisual(predatorKind);
+  if (extended) return extended;
   const group = new THREE.Group();
   const walkParts: WalkPartSetup[] = [];
   const isSpider = predatorKind === "spider";
@@ -266,11 +269,11 @@ export function createPredatorVisual(preferredType?: PredatorKind): PredatorVisu
     group.add(mane);
   }
 
-  const nameByKind: Record<PredatorKind, string> = { wolf: "\ub291\ub300", lion: "\uc0ac\uc790", spider: "\uac70\ubbf8" };
+  const nameByKind: Partial<Record<PredatorKind, string>> = { wolf: "\ub291\ub300", lion: "\uc0ac\uc790", spider: "\uac70\ubbf8" };
   return {
     group,
     predatorKind,
-    name: nameByKind[predatorKind],
+    name: nameByKind[predatorKind] ?? "늑대",
     collisionRadius: isSpider ? 0.78 : predatorKind === "lion" ? 1.2 : 0.9,
     collisionHeight: isSpider ? 0.7 : 1.25,
     walkParts,

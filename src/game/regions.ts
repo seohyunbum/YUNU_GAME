@@ -38,7 +38,7 @@ export const REGIONS: Region[] = [
     biome: "bamboo",
     lootTier: 2,
     color: 0x22c55e,
-    monsters: [{ id: "wolf", weight: 5 }, { id: "poison_spider", weight: 4 }, { id: "jammini", weight: 1 }],
+    monsters: [{ id: "wolf", weight: 4 }, { id: "poison_spider", weight: 3 }, { id: "bat", weight: 3 }, { id: "scorpion", weight: 2 }, { id: "jammini", weight: 1 }],
   },
   {
     id: "mushroom_glen",
@@ -50,7 +50,7 @@ export const REGIONS: Region[] = [
     biome: "mushroom",
     lootTier: 3,
     color: 0xd946ef,
-    monsters: [{ id: "red_wolf", weight: 5 }, { id: "giant_spider", weight: 4 }, { id: "poison_spider", weight: 2 }],
+    monsters: [{ id: "red_wolf", weight: 4 }, { id: "giant_spider", weight: 3 }, { id: "bear", weight: 3 }, { id: "scorpion", weight: 2 }, { id: "poison_spider", weight: 1 }],
   },
   {
     id: "toxic_swamp",
@@ -62,7 +62,7 @@ export const REGIONS: Region[] = [
     biome: "swamp",
     lootTier: 4,
     color: 0x15803d,
-    monsters: [{ id: "swamp_spider_king", weight: 5 }, { id: "giant_spider", weight: 3 }, { id: "red_wolf", weight: 1 }],
+    monsters: [{ id: "swamp_spider_king", weight: 4 }, { id: "swamp_snake", weight: 4 }, { id: "giant_spider", weight: 2 }, { id: "red_wolf", weight: 1 }],
   },
   {
     id: "mountain_ridge",
@@ -74,7 +74,7 @@ export const REGIONS: Region[] = [
     biome: "mountain",
     lootTier: 5,
     color: 0x94a3b8,
-    monsters: [{ id: "berserk_lion", weight: 5 }, { id: "lion", weight: 2 }, { id: "wolf", weight: 1 }],
+    monsters: [{ id: "berserk_lion", weight: 4 }, { id: "dune_scorpion", weight: 3 }, { id: "lava_boar", weight: 2 }, { id: "lion", weight: 1 }],
   },
   {
     id: "snowfield",
@@ -86,7 +86,7 @@ export const REGIONS: Region[] = [
     biome: "snow",
     lootTier: 5,
     color: 0x93c5fd,
-    monsters: [{ id: "frost_wolf", weight: 5 }, { id: "ice_spider", weight: 4 }, { id: "berserk_lion", weight: 1 }],
+    monsters: [{ id: "frost_wolf", weight: 4 }, { id: "ice_spider", weight: 3 }, { id: "frost_bear", weight: 3 }, { id: "wraith", weight: 2 }, { id: "berserk_lion", weight: 1 }],
   },
   {
     id: "bamboo_frontier_field",
@@ -98,7 +98,7 @@ export const REGIONS: Region[] = [
     biome: "bamboo",
     lootTier: 2,
     color: 0x16a34a,
-    monsters: [{ id: "wolf", weight: 5 }, { id: "poison_spider", weight: 3 }, { id: "jammini", weight: 1 }],
+    monsters: [{ id: "wolf", weight: 4 }, { id: "poison_spider", weight: 3 }, { id: "bat", weight: 2 }, { id: "scorpion", weight: 2 }, { id: "jammini", weight: 1 }],
   },
   {
     id: "mushroom_frontier_field",
@@ -110,7 +110,7 @@ export const REGIONS: Region[] = [
     biome: "mushroom",
     lootTier: 3,
     color: 0xc026d3,
-    monsters: [{ id: "red_wolf", weight: 5 }, { id: "giant_spider", weight: 4 }, { id: "poison_spider", weight: 1 }],
+    monsters: [{ id: "red_wolf", weight: 4 }, { id: "giant_spider", weight: 3 }, { id: "bear", weight: 3 }, { id: "poison_spider", weight: 1 }],
   },
   {
     id: "swamp_frontier_field",
@@ -122,7 +122,7 @@ export const REGIONS: Region[] = [
     biome: "swamp",
     lootTier: 4,
     color: 0x166534,
-    monsters: [{ id: "swamp_spider_king", weight: 4 }, { id: "giant_spider", weight: 3 }, { id: "red_wolf", weight: 2 }],
+    monsters: [{ id: "swamp_spider_king", weight: 4 }, { id: "swamp_snake", weight: 3 }, { id: "giant_spider", weight: 2 }, { id: "red_wolf", weight: 1 }],
   },
   {
     id: "mountain_frontier_field",
@@ -134,7 +134,7 @@ export const REGIONS: Region[] = [
     biome: "mountain",
     lootTier: 5,
     color: 0x64748b,
-    monsters: [{ id: "berserk_lion", weight: 5 }, { id: "lion", weight: 2 }, { id: "wolf", weight: 1 }],
+    monsters: [{ id: "berserk_lion", weight: 4 }, { id: "dune_scorpion", weight: 3 }, { id: "lava_boar", weight: 2 }, { id: "lion", weight: 1 }],
   },
   {
     id: "snow_frontier_field",
@@ -146,7 +146,7 @@ export const REGIONS: Region[] = [
     biome: "snow",
     lootTier: 5,
     color: 0x60a5fa,
-    monsters: [{ id: "frost_wolf", weight: 5 }, { id: "ice_spider", weight: 4 }, { id: "berserk_lion", weight: 1 }],
+    monsters: [{ id: "frost_wolf", weight: 4 }, { id: "ice_spider", weight: 3 }, { id: "frost_bear", weight: 3 }, { id: "wraith", weight: 2 }, { id: "berserk_lion", weight: 1 }],
   },
   {
     id: "lava_outer",
@@ -204,7 +204,7 @@ export const REGIONS: Region[] = [
     biome: "plains",
     lootTier: 2,
     color: 0x84cc16,
-    monsters: [{ id: "wolf", weight: 4 }, { id: "spider", weight: 3 }, { id: "lion", weight: 1 }],
+    monsters: [{ id: "wolf", weight: 3 }, { id: "spider", weight: 3 }, { id: "boar", weight: 3 }, { id: "snake", weight: 2 }, { id: "lion", weight: 1 }],
   },
   {
     id: "central_plains",
@@ -216,7 +216,7 @@ export const REGIONS: Region[] = [
     biome: "plains",
     lootTier: 1,
     color: 0x6ee7b7,
-    monsters: [{ id: "spider", weight: 5 }, { id: "wolf", weight: 2 }],
+    monsters: [{ id: "spider", weight: 5 }, { id: "boar", weight: 2 }, { id: "wolf", weight: 2 }],
   },
 ];
 

@@ -6,7 +6,23 @@ export const PREDATOR_STATS: Record<PredatorKind, { hp: number; attackDamage: nu
   spider: { hp: 25, attackDamage: 3, aggroRange: 8, strikeRange: 1.7, speed: 2.2, cooldown: 1.45 },
   wolf: { hp: 65, attackDamage: 6, aggroRange: 13, strikeRange: 2.05, speed: 3.05, cooldown: 1.35 },
   lion: { hp: 78, attackDamage: 7, aggroRange: 15, strikeRange: 2.35, speed: 3.3, cooldown: 1.15 },
+  boar: { hp: 48, attackDamage: 5, aggroRange: 11, strikeRange: 1.95, speed: 3.5, cooldown: 1.55 },
+  snake: { hp: 42, attackDamage: 6, aggroRange: 9, strikeRange: 2.3, speed: 2.7, cooldown: 1.7 },
+  bat: { hp: 50, attackDamage: 6, aggroRange: 17, strikeRange: 1.85, speed: 3.7, cooldown: 1.1 },
+  scorpion: { hp: 120, attackDamage: 9, aggroRange: 10, strikeRange: 2.1, speed: 2.45, cooldown: 1.8 },
+  bear: { hp: 200, attackDamage: 12, aggroRange: 12, strikeRange: 2.5, speed: 2.75, cooldown: 1.9 },
+  zombie: { hp: 660, attackDamage: 28, aggroRange: 14, strikeRange: 1.95, speed: 2.0, cooldown: 1.5 },
+  ghost: { hp: 500, attackDamage: 34, aggroRange: 18, strikeRange: 2.15, speed: 3.1, cooldown: 1.35 },
 };
+
+// 포식자 처치 전리품 — 종 특성에 맞는 재료 (양쪽 전투 경로가 공유)
+export function predatorLootForKind(kind: PredatorKind | undefined): { item: "meat" | "coal" | "leather"; count: number } {
+  if (kind === "spider" || kind === "bat" || kind === "ghost") return { item: "coal", count: 1 };
+  if (kind === "zombie") return { item: "leather", count: 2 };
+  if (kind === "lion" || kind === "bear") return { item: "meat", count: 3 };
+  if (kind === "boar") return { item: "meat", count: 2 };
+  return { item: "meat", count: 1 };
+}
 
 export type MonsterId =
   | "spider"
@@ -22,9 +38,23 @@ export type MonsterId =
   | "frost_wolf"
   | "ice_spider"
   | "golem"
+  | "boar"
+  | "snake"
+  | "bat"
+  | "scorpion"
+  | "bear"
+  | "swamp_snake"
+  | "dune_scorpion"
+  | "lava_boar"
+  | "zombie"
+  | "grave_bat"
+  | "ghoul"
+  | "ghost"
+  | "frost_bear"
+  | "wraith"
   | BossKind;
 
-export type MonsterArchetype = "spider" | "wolf" | "lion" | "golem" | "dragon" | "jammini";
+export type MonsterArchetype = "spider" | "wolf" | "lion" | "golem" | "dragon" | "jammini" | "boar" | "snake" | "bat" | "scorpion" | "bear" | "zombie" | "ghost";
 
 export interface MonsterDef {
   id: MonsterId;
@@ -50,6 +80,20 @@ export const MONSTER_DEFS: Record<MonsterId, MonsterDef> = {
   frost_wolf: { id: "frost_wolf", name: "서리늑대", archetype: "wolf", level: 100, tint: 0x93c5fd, predatorKind: "wolf" },
   ice_spider: { id: "ice_spider", name: "얼음거미", archetype: "spider", level: 115, tint: 0x67e8f9, predatorKind: "spider" },
   golem: { id: "golem", name: "마을 수호신 골렘", archetype: "golem", level: 40, tint: 0x94a3b8 },
+  boar: { id: "boar", name: "멧돼지", archetype: "boar", level: 8, tint: 0x8b5a33, predatorKind: "boar" },
+  snake: { id: "snake", name: "풀숲뱀", archetype: "snake", level: 10, tint: 0x4d7c0f, predatorKind: "snake" },
+  bat: { id: "bat", name: "동굴박쥐", archetype: "bat", level: 18, tint: 0x57534e, predatorKind: "bat" },
+  scorpion: { id: "scorpion", name: "바위전갈", archetype: "scorpion", level: 25, tint: 0xa16207, predatorKind: "scorpion" },
+  bear: { id: "bear", name: "불곰", archetype: "bear", level: 30, tint: 0x7c4a24, predatorKind: "bear" },
+  swamp_snake: { id: "swamp_snake", name: "늪독사", archetype: "snake", level: 45, tint: 0x65a30d, predatorKind: "snake" },
+  dune_scorpion: { id: "dune_scorpion", name: "모래전갈", archetype: "scorpion", level: 50, tint: 0xd9a441, predatorKind: "scorpion" },
+  lava_boar: { id: "lava_boar", name: "용암멧돼지", archetype: "boar", level: 60, tint: 0xff5a1f, predatorKind: "boar" },
+  zombie: { id: "zombie", name: "좀비", archetype: "zombie", level: 72, tint: 0x5b8a3c, predatorKind: "zombie" },
+  grave_bat: { id: "grave_bat", name: "무덤박쥐", archetype: "bat", level: 75, tint: 0x6d28d9, predatorKind: "bat" },
+  ghoul: { id: "ghoul", name: "구울", archetype: "zombie", level: 78, tint: 0x84cc16, predatorKind: "zombie" },
+  ghost: { id: "ghost", name: "묘지귀신", archetype: "ghost", level: 80, tint: 0xc7d2fe, predatorKind: "ghost" },
+  frost_bear: { id: "frost_bear", name: "서리곰", archetype: "bear", level: 95, tint: 0x93c5fd, predatorKind: "bear" },
+  wraith: { id: "wraith", name: "망령", archetype: "ghost", level: 110, tint: 0x67e8f9, predatorKind: "ghost" },
   dragon: { id: "dragon", name: "용", archetype: "dragon", level: 60, tint: 0xef4444, bossKind: "dragon" },
   fire_dragon: { id: "fire_dragon", name: "파이어 드래곤", archetype: "dragon", level: 130, tint: 0xff6b1a, bossKind: "fire_dragon" },
   red_dragon: { id: "red_dragon", name: "레드 드래곤", archetype: "dragon", level: 170, tint: 0xdc2626, bossKind: "red_dragon" },

@@ -220,7 +220,7 @@ import type {
   WorldMapId,
   WorldObject,
 } from "./game/types";
-import { applyPredatorMonsterDefinition, BOSS_STATS, predatorKindForMonster, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
+import { applyPredatorMonsterDefinition, BOSS_STATS, predatorKindForMonster, predatorLootForKind, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -4314,8 +4314,9 @@ class WildernessGame {
       this.showMessage(`${target.name}에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
       return;
     }
-    const loot = target.predatorKind === "spider" ? "coal" : "meat";
-    const lootCount = this.rollRewardChance(1, "predator", loot) ? this.grantRewardItem(loot, target.predatorKind === "lion" ? 3 : 1, "predator") : 0;
+    const predatorLoot = predatorLootForKind(target.predatorKind);
+    const lootCount = this.rollRewardChance(1, "predator", predatorLoot.item) ? this.grantRewardItem(predatorLoot.item, predatorLoot.count, "predator") : 0;
+    const loot = predatorLoot.item;
     this.removeObject(target.id);
     this.showMessage(lootCount > 0 ? `${target.name}를 물리치고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}를 물리쳤지만 재료는 나오지 않았습니다.`);
     this.grantExperienceForTarget(target);

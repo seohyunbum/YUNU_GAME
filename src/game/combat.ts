@@ -2,6 +2,7 @@ import type * as THREE from "three";
 import type { RewardSource } from "../operatorConfig";
 import { JAMMINI_MAX_HP, PREDATOR_RETALIATE_MS } from "./constants";
 import { ITEM_NAMES } from "./items";
+import { predatorLootForKind } from "./monsters";
 import type { BossKind, CombatProjectile, ItemId, WorldObject } from "./types";
 
 interface ProjectileDamageBossStats {
@@ -73,8 +74,9 @@ export function applyProjectileDamage(
       context.showMessage(`${target.name}에게 ${label} ${attackPower} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
       return;
     }
-    const loot = target.predatorKind === "spider" ? "coal" : "meat";
-    const lootCount = context.rollRewardChance(1, "predator", loot) ? context.grantRewardItem(loot, target.predatorKind === "lion" ? 3 : 1, "predator") : 0;
+    const predatorLoot = predatorLootForKind(target.predatorKind);
+    const loot = predatorLoot.item;
+    const lootCount = context.rollRewardChance(1, "predator", loot) ? context.grantRewardItem(loot, predatorLoot.count, "predator") : 0;
     context.removeObject(target.id);
     context.showMessage(lootCount > 0 ? `${target.name}을 쓰러뜨리고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}을 쓰러뜨렸지만 재료는 나오지 않았습니다.`);
     context.grantExperienceForTarget(target);
