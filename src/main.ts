@@ -239,7 +239,6 @@ import { BIOME_TERRAIN_PLANS, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZ
 import {
   ARMOR_VALUE,
   AXE_POWER,
-  DEFAULT_TOOL_DURABILITY,
   DURABLE_TOOL_TABLES,
   GRINDABLE_MATERIALS,
   HARVEST_HARDNESS,
@@ -251,8 +250,12 @@ import {
   RAW_MATERIALS,
   REFINED_BY_RAW,
   SHOVEL_POWER,
+  isDurableTool,
+  shortName,
+  repairMaterialFor,
+  repairPerMaterial,
+  toolMaxDurability,
   SPECIAL_SMELTER_MATERIALS,
-  TOOL_DURABILITY,
   WEAPON_DAMAGE,
   RANGED_WEAPONS,
   RANGED_PROJECTILE,
@@ -6026,7 +6029,7 @@ class WildernessGame {
         objective: this.currentObjectiveView(),
         selectedHotbarIndex: this.selectedHotbarIndex,
         hotbar: this.hotbar.map((slot) => ({
-          label: slot.item ? `${this.shortName(slot.item)} ${slot.count}` : "",
+          label: slot.item ? `${shortName(slot.item)} ${slot.count}` : "",
         })),
       },
       (index) => {
@@ -6151,7 +6154,7 @@ class WildernessGame {
   private renderInventoryPanel() {
     const slotView = (slot: Slot, source: "hotbar" | "bag", index: number, extraClass = "") => ({
       item: slot.item,
-      label: slot.item ? this.shortName(slot.item) : "",
+      label: slot.item ? shortName(slot.item) : "",
       count: slot.count,
       source,
       index,
@@ -6170,14 +6173,14 @@ class WildernessGame {
         bagSlots,
         craftSlots: this.craftSlots.map((slot) => ({
           item: slot.item,
-          label: slot.item ? this.shortName(slot.item) : "",
+          label: slot.item ? shortName(slot.item) : "",
           count: slot.count,
         })),
         materials: Object.entries(itemCounts)
           .filter(([item]) => item !== "tutorial_book")
           .map(([item, count]) => ({
             item,
-            label: this.shortName(item),
+            label: shortName(item),
             count,
             selected: this.selectedCraftItem === item,
           })),
@@ -6200,7 +6203,7 @@ class WildernessGame {
         onMiniCraft: () => this.craftMiniRecipe(),
         onClearCraft: () => this.clearCraftSlots(),
         onBuildHouse: (id) => this.buildPlayerHouse(id),
-        onCraftGuide: (guideId) => { const recipe = MINI_RECIPES.find((candidate) => guideId === `mini:${candidate.id}`); if (!recipe || !this.canCraft(recipe)) return; if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, (item) => this.isDurableTool(item), recipe.ingredients)) { this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요."); return; } for (const [item, count] of Object.entries(recipe.ingredients)) this.removeItem(item, count); this.addCraftedOutput(recipe); this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`); this.renderPanel(); this.renderHud(); },
+        onCraftGuide: (guideId) => { const recipe = MINI_RECIPES.find((candidate) => guideId === `mini:${candidate.id}`); if (!recipe || !this.canCraft(recipe)) return; if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, isDurableTool, recipe.ingredients)) { this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요."); return; } for (const [item, count] of Object.entries(recipe.ingredients)) this.removeItem(item, count); this.addCraftedOutput(recipe); this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`); this.renderPanel(); this.renderHud(); },
         bindDragDrop: () => this.bindInventoryDragDrop(),
       },
     );
@@ -6250,14 +6253,14 @@ class WildernessGame {
         resultReady: currentRecipe !== null,
         slots: this.activeWorkbenchSlots(isExtended).map((slot) => ({
           item: slot.item,
-          label: slot.item ? this.shortName(slot.item) : "",
+          label: slot.item ? shortName(slot.item) : "",
           count: slot.count,
         })),
         materials: Object.entries(this.itemCounts())
           .filter(([item]) => item !== "tutorial_book")
           .map(([item, count]) => ({
             item,
-            label: this.shortName(item),
+            label: shortName(item),
             count,
             selected: this.selectedCraftItem === item,
           })),
@@ -6271,6 +6274,7 @@ class WildernessGame {
           note: recipe.note,
           canCraft: this.canCraft(recipe),
         })),
+        repairSlots: this.wornToolSlots().map((slot) => ({ item: slot.item!, durabilityUsed: slot.durabilityUsed ?? 0 })),
       },
       {
         onClose: () => this.closePanel(),
@@ -6283,6 +6287,7 @@ class WildernessGame {
         onClear: () => this.clearWorkbenchSlots(),
         onFillRecipe: (recipeId) => this.fillWorkbenchRecipe(recipeId),
         onCraftRecipe: (recipeId) => this.craftWorkbenchRecipe(recipeId),
+        onRepair: (index) => this.repairToolSlot(index),
         bindDragDrop: () => this.bindInventoryDragDrop(),
       },
     );
@@ -6759,7 +6764,7 @@ class WildernessGame {
     const counts = this.craftCounts();
     const recipe = MINI_RECIPES.find((item) => this.countsMatchExactly(counts, item.ingredients));
     if (recipe) {
-      if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, (item) => this.isDurableTool(item))) {
+      if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, isDurableTool)) {
         this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요.");
         return;
       }
@@ -6824,7 +6829,7 @@ class WildernessGame {
       return;
     }
 
-    if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, (item) => this.isDurableTool(item))) {
+    if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, isDurableTool)) {
       this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요.");
       return;
     }
@@ -6912,7 +6917,7 @@ class WildernessGame {
     const isExtended = station?.type === "extendedWorkbench";
     const recipe = this.workbenchRecipesForStation(isExtended).find((item) => item.id === recipeId);
     if (!recipe || !this.canCraft(recipe)) return;
-    if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, (item) => this.isDurableTool(item), recipe.ingredients)) {
+    if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, isDurableTool, recipe.ingredients)) {
       this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요.");
       return;
     }
@@ -7098,7 +7103,7 @@ class WildernessGame {
       return true;
     }
 
-    if (this.isDurableTool(item)) {
+    if (isDurableTool(item)) {
       for (let index = 0; index < count; index += 1) {
         const emptySlot = this.allStorageSlots().find((slot) => !slot.item);
         if (!emptySlot) {
@@ -7264,11 +7269,26 @@ class WildernessGame {
     return this.selectedTool(table) ?? this.bestTool(table);
   }
 
+  private wornToolSlots() {
+    return this.allStorageSlots().filter((slot) => slot.item && (slot.durabilityUsed ?? 0) > 0 && repairMaterialFor(slot.item) !== null);
+  }
+
+  private repairToolSlot(index: number) {
+    const slot = this.wornToolSlots()[index];
+    const material = slot?.item ? repairMaterialFor(slot.item) : null;
+    if (!slot?.item || !material || this.countItem(material) <= 0) return;
+    this.removeItem(material, 1);
+    slot.durabilityUsed = Math.max(0, (slot.durabilityUsed ?? 0) - repairPerMaterial(slot.item));
+    this.showMessage(`${ITEM_NAMES[slot.item]} 수리 완료! 내구도 ${toolMaxDurability(slot.item) - slot.durabilityUsed}/${toolMaxDurability(slot.item)}.`);
+    this.renderWorkbenchPanel();
+    this.renderHud();
+  }
+
   private consumeDurability(item: ItemId | null, reason: string) {
     if (!item || !DURABLE_TOOL_TABLES.some((table) => table[item])) return;
     const slot = this.findDurableToolSlot(item);
     if (!slot) return;
-    const maxUses = TOOL_DURABILITY[item] ?? DEFAULT_TOOL_DURABILITY;
+    const maxUses = toolMaxDurability(item);
     slot.durabilityUsed = (slot.durabilityUsed ?? 0) + 1;
     const remaining = maxUses - slot.durabilityUsed;
     if (remaining > 0) {
@@ -7285,19 +7305,10 @@ class WildernessGame {
     this.showMessage(`${ITEM_NAMES[item]}의 내구도가 다해 부서졌습니다.`);
   }
 
-  private isDurableTool(item: ItemId | null) {
-    return Boolean(item && DURABLE_TOOL_TABLES.some((table) => table[item]));
-  }
-
   private findDurableToolSlot(item: ItemId) {
     const selectedSlot = this.hotbar[this.selectedHotbarIndex];
     if (selectedSlot?.item === item) return selectedSlot;
     return this.allStorageSlots().find((slot) => slot.item === item) ?? null;
-  }
-
-  private shortName(item: ItemId) {
-    const name = ITEM_NAMES[item] ?? item;
-    return name.length > 6 ? `${name.slice(0, 6)}` : name;
   }
 
   private showMessage(text: string) {

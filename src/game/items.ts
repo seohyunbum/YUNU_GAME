@@ -281,6 +281,31 @@ export const TOOL_DURABILITY: Record<ItemId, number> = {
   diamond_shovel: 80,
 };
 
+export function isDurableTool(item: ItemId | null) {
+  return Boolean(item && DURABLE_TOOL_TABLES.some((table) => table[item]));
+}
+
+export function toolMaxDurability(item: ItemId): number {
+  return TOOL_DURABILITY[item] ?? DEFAULT_TOOL_DURABILITY;
+}
+
+// 수리 시스템 (docs/repair-system.md) — 도구 id prefix 에서 등급 제련 재료를 파생한다.
+export function repairMaterialFor(item: ItemId): ItemId | null {
+  if (!DURABLE_TOOL_TABLES.some((table) => table[item])) return null;
+  if (item.startsWith("weak_wood_") || item.startsWith("sharp_wood_")) return "refined_wood";
+  return MATERIALS.find((material) => item.startsWith(`${material.prefix}_`))?.refined ?? null;
+}
+
+// 수리 1회 = 최대 내구도의 50% 회복(올림). 완전히 닳은 도구도 재료 2개로 반드시 완전 회복된다.
+export function repairPerMaterial(item: ItemId): number {
+  return Math.ceil(toolMaxDurability(item) * 0.5);
+}
+
+export function shortName(item: ItemId) {
+  const name = ITEM_NAMES[item] ?? item;
+  return name.length > 6 ? `${name.slice(0, 6)}` : name;
+}
+
 export const PLACEABLE_TYPES: Record<ItemId, ObjectType> = {
   crafting_table: "workbench",
   extended_workbench: "extendedWorkbench",

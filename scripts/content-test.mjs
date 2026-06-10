@@ -22,7 +22,7 @@ try {
   const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
   const fieldBosses = await server.ssrLoadModule("/src/game/fieldBosses.ts");
 
-  const { HEAL_ITEMS, ITEM_NAMES, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE } = items;
+  const { DURABLE_TOOL_TABLES, HEAL_ITEMS, ITEM_NAMES, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE, repairMaterialFor, repairPerMaterial, toolMaxDurability } = items;
   const { MINI_RECIPES, WORKBENCH_RECIPES } = recipes;
   const { PLAYER_CLASSES } = classes;
   const { CLASS_PASSIVES, summonerPetDamage, experienceForNextPetLevel } = classPassives;
@@ -205,6 +205,18 @@ try {
       if (!def.rewardLabel.includes(`경험치 ${def.rewardExperience}`)) problems.push(`field boss '${def.id}': reward label mismatch`);
     }
   }
+
+  // 수리 시스템: 모든 내구도 도구는 실존하는 수리 재료를 반환하고, 회복량은 양수여야 한다
+  for (const table of DURABLE_TOOL_TABLES) {
+    for (const tool of Object.keys(table)) {
+      const material = repairMaterialFor(tool);
+      if (!material) problems.push(`repair: durable tool '${tool}' has no repair material`);
+      else if (!isItem(material)) problems.push(`repair: tool '${tool}' repair material '${material}' is not a known item`);
+      if (!(repairPerMaterial(tool) > 0)) problems.push(`repair: tool '${tool}' repair amount must be positive`);
+      if (repairPerMaterial(tool) * 2 < toolMaxDurability(tool)) problems.push(`repair: tool '${tool}' should fully repair within 2 materials`);
+    }
+  }
+  if (repairMaterialFor("iron_sword") !== null) problems.push("repair: combat weapons have no durability and must not be repairable");
 
   // 경험치병은 치트(F4) 전용: 제작 레시피·상점·거래 어디에도 나오면 안 된다
   if ([...MINI_RECIPES, ...WORKBENCH_RECIPES].some((r) => r.output === "xp_bottle")) {

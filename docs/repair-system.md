@@ -1,7 +1,8 @@
 # 수리 시스템 설계 (Repair System)
 
-> 상태: **설계 확정 · 미구현**. 콘텐츠·밸런스 설계 문서.
-> 관련 코드: `src/main.ts` `consumeDurability`(현 L7279) · `src/game/items.ts` `TOOL_DURABILITY`/`DURABLE_TOOL_TABLES`.
+> 상태: **P1 구현 완료** (2026-06-11). P2(방패 등 확장)는 미착수.
+> 관련 코드: `src/game/items.ts` `repairMaterialFor`/`repairPerMaterial`/`toolMaxDurability` · `src/ui/workbenchPanel.ts` 수리 섹션 · `src/main.ts` `repairToolSlot`/`wornToolSlots`.
+> 구현 시 변경점: 회복량은 floor 가 아니라 **ceil(최대 × 0.5)** — 홀수 내구도(철 45, 금 25)에서도 "재료 2개로 완전 회복" 약속을 지키기 위함. `test:content` 가 이 불변식을 강제한다.
 
 ## 1. 목적
 좋은 도구가 내구도 소진으로 **사라지는 것을 줄인다.** 제작대에서 재료를 들여 내구도를 회복해, 비싼 도구를 오래 쓰게 한다.
@@ -38,12 +39,12 @@
 도구 id가 `{prefix}_axe` 꼴이라, 등급 재료·회복량을 **함수로 파생**(per-item 테이블 불필요):
 
 ```ts
-// src/game/items.ts
+// src/game/items.ts (구현됨)
 // 도구 prefix(wood/stone/copper/iron/gold/diamond) → 수리 재료(refined_X). MATERIALS 재사용.
 export function repairMaterialFor(item: ItemId): ItemId | null { /* prefix → refined, 없으면 null */ }
-// 수리 1회 회복량 = floor(최대 내구도 * 0.5)
+// 수리 1회 회복량 = ceil(최대 내구도 * 0.5) — 홀수 내구도도 2회로 완전 회복
 export function repairPerMaterial(item: ItemId): number {
-  return Math.floor((TOOL_DURABILITY[item] ?? DEFAULT_TOOL_DURABILITY) * 0.5);
+  return Math.ceil(toolMaxDurability(item) * 0.5);
 }
 ```
 
@@ -73,7 +74,7 @@ export function repairPerMaterial(item: ItemId): number {
 - 데이터-주도라 main.ts 거의 불변 → 줄/메서드 래칫 영향 미미.
 
 ## 10. 단계
-- **P1**: 제작대 수리(도구) — `repairItem` + `repairMaterialFor`/`repairPerMaterial` + 제작대 수리 UI.
+- **P1 ✅ 구현 완료**: 제작대 수리(도구) — `repairToolSlot`(main) + `repairMaterialFor`/`repairPerMaterial`(items) + 제작대 "도구 수리" 섹션(workbenchPanel). 닳은 도구가 있을 때만 섹션 노출.
 - **P2**: 방패(탱커)·향후 내구도 아이템으로 확장(동일 함수 재사용).
 
 ## 범위 밖

@@ -1,3 +1,5 @@
+import { ITEM_NAMES, repairMaterialFor, repairPerMaterial, toolMaxDurability } from "../game/items";
+
 export interface WorkbenchSlotView {
   item: string | null;
   label: string;
@@ -20,6 +22,11 @@ export interface WorkbenchRecipeView {
   canCraft: boolean;
 }
 
+export interface WorkbenchRepairSlotView {
+  item: string;
+  durabilityUsed: number;
+}
+
 export interface WorkbenchPanelView {
   isExtended: boolean;
   gridSize: string;
@@ -28,6 +35,7 @@ export interface WorkbenchPanelView {
   slots: WorkbenchSlotView[];
   materials: WorkbenchMaterialView[];
   recipes: WorkbenchRecipeView[];
+  repairSlots: WorkbenchRepairSlotView[];
 }
 
 export interface WorkbenchPanelCallbacks {
@@ -38,6 +46,7 @@ export interface WorkbenchPanelCallbacks {
   onClear: () => void;
   onFillRecipe: (recipeId: string) => void;
   onCraftRecipe: (recipeId: string) => void;
+  onRepair: (index: number) => void;
   bindDragDrop: () => void;
 }
 
@@ -88,6 +97,24 @@ function renderRecipeCard(recipe: WorkbenchRecipeView, index: number) {
                   </article>`;
 }
 
+function renderRepairCard(slot: WorkbenchRepairSlotView, index: number, materials: WorkbenchMaterialView[]) {
+  const max = toolMaxDurability(slot.item);
+  const remaining = Math.max(0, max - slot.durabilityUsed);
+  const material = repairMaterialFor(slot.item);
+  const materialCount = material ? materials.find((candidate) => candidate.item === material)?.count ?? 0 : 0;
+  const canRepair = material !== null && materialCount > 0;
+  return `<article class="recipe-card${canRepair ? " ready" : ""}">
+                    <div>
+                      <strong>🔧 ${escapeHtml(ITEM_NAMES[slot.item] ?? slot.item)}</strong>
+                      <p>내구도 ${remaining}/${max} · 수리 1회 +${repairPerMaterial(slot.item)}</p>
+                      <small>비용: ${escapeHtml(material ? ITEM_NAMES[material] ?? material : "?")} 1 (보유 ${materialCount})</small>
+                    </div>
+                    <div class="recipe-actions">
+                      <button data-repair-slot-index="${index}" ${canRepair ? "" : "disabled"}>수리</button>
+                    </div>
+                  </article>`;
+}
+
 export function renderWorkbenchPanel(
   panelEl: HTMLElement,
   view: WorkbenchPanelView,
@@ -95,6 +122,7 @@ export function renderWorkbenchPanel(
 ) {
   const workbenchSlots = view.slots.map(renderWorkbenchSlot).join("");
   const itemButtons = view.materials.map(renderMaterialButton).join("");
+  const repairCards = view.repairSlots.map((slot, index) => renderRepairCard(slot, index, view.materials)).join("");
   const sortedRecipes = [...view.recipes].sort((a, b) => Number(b.canCraft) - Number(a.canCraft) || a.name.localeCompare(b.name));
   const recipeCards = sortedRecipes.map(renderRecipeCard).join("");
 
@@ -127,6 +155,7 @@ export function renderWorkbenchPanel(
           <section class="recipe-book-board">
             <div class="inventory-label">제작대 레시피북</div>
             <div class="recipes">${recipeCards}</div>
+            ${repairCards ? `<div class="inventory-label">도구 수리</div><div class="recipes" data-repair-section>${repairCards}</div>` : ""}
           </section>
         </div>
       </section>
@@ -155,6 +184,9 @@ export function renderWorkbenchPanel(
       const recipe = sortedRecipes[Number(button.dataset.craftRecipeIndex)];
       if (recipe) callbacks.onCraftRecipe(recipe.id);
     });
+  });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-repair-slot-index]").forEach((button) => {
+    button.addEventListener("click", () => callbacks.onRepair(Number(button.dataset.repairSlotIndex)));
   });
   callbacks.bindDragDrop();
 }

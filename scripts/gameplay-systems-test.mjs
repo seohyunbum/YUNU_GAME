@@ -514,6 +514,20 @@ try {
     assert(!context.state.active, "mini fanfare should end on its own");
   }
 
+  {
+    // 수리 골든값: 등급 재료 매핑 + 50% 회복 + 완전 마모 도구는 재료 2개로 완전 회복
+    const { repairMaterialFor, repairPerMaterial, toolMaxDurability } = items;
+    assert(repairMaterialFor("iron_pickaxe") === "refined_iron", "iron pickaxe should repair with refined iron");
+    assert(repairMaterialFor("weak_wood_axe") === "refined_wood", "weak wood axe should repair with refined wood");
+    assert(repairMaterialFor("iron_sword") === null, "combat weapons must not be repairable");
+    almostEqual(repairPerMaterial("diamond_axe"), 40, "diamond axe repair per material");
+    almostEqual(repairPerMaterial("gold_shovel"), 13, "gold shovel repair per material");
+    let durabilityUsed = toolMaxDurability("iron_axe"); // 완전 마모(45) 직전 상태 가정
+    durabilityUsed = Math.max(0, durabilityUsed - repairPerMaterial("iron_axe"));
+    durabilityUsed = Math.max(0, durabilityUsed - repairPerMaterial("iron_axe"));
+    assert(durabilityUsed === 0, "fully worn iron axe should fully recover with 2 materials");
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -537,6 +551,7 @@ try {
         "incoming damage floor and progressive monster attack scaling",
         "finale fireworks, fanfare, and single credits roll",
         "field boss spawn-once, quest view, and mini fanfare",
+        "tool repair material mapping and 50% recovery golden values",
         "tutorial step completion latches across condition regression",
       ],
     }, null, 2));
