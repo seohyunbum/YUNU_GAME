@@ -9,6 +9,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "visual-check": "node scripts/visual-check.mjs",
+    "visual:weapons": "node scripts/weapon-visual-preview.mjs",
     "perf-check": "node scripts/performance-smoke.mjs",
     "test:combat": "node scripts/combat-test.mjs",
     "test:save-migration": "node scripts/save-migration-test.mjs",

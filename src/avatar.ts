@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createIronShieldModel } from "./game/weaponVisuals";
 import { ASSET_PALETTE, makeGlowMaterial, makeMetalMaterial, makeToonMaterial } from "./visuals";
 
 export interface AvatarAppearance {
@@ -145,16 +146,10 @@ function addClassAccessories(group: THREE.Group, classId: AvatarClassId, pal: Av
     brow.position.set(0, 1.96, 0.27);
     const plate = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.72, 0.14), armor);
     plate.position.set(0, 1.08, 0.25);
-    const shield = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.74, 0.1), darkArmor);
-    shield.position.set(-0.66, 1.02, 0.28);
+    const shield = createIronShieldModel();
+    shield.position.set(-0.66, 1.02, 0.3);
     shield.rotation.z = 0.08;
-    const shieldFace = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.6, 0.035), makeMetalMaterial(0xb9c1ce, { metalness: 0.55, roughness: 0.34 }));
-    shieldFace.position.set(-0.66, 1.02, 0.34);
-    shieldFace.rotation.z = shield.rotation.z;
-    const shieldMark = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.42, 0.05), accentMetal);
-    shieldMark.position.set(-0.66, 1.02, 0.37);
-    shieldMark.rotation.z = shield.rotation.z;
-    group.add(helm, brow, plate, shield, shieldFace, shieldMark);
+    group.add(helm, brow, plate, shield);
     return;
   }
 

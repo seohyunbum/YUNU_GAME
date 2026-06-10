@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createMirrorModel } from "../avatar";
 import { createBucketVisual } from "./bucketVisuals";
+import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
 import {
   createBuildingBlockVisual,
@@ -108,49 +109,22 @@ export function createHeldItemModel(item: ItemId) {
     cap.position.set(0.02, 0.55, 0);
     group.add(staff, cap, orb, ring);
   } else if (item === "pistol") {
-    const metal = new THREE.MeshStandardMaterial({ color: 0x4a4f57, metalness: 0.55, roughness: 0.34 });
-    const gripMat = new THREE.MeshStandardMaterial({ color: 0x26262b, roughness: 0.72 });
-    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.4, 0.12), metal);
-    slide.position.set(0.02, 0.42, 0);
-    const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.1, 10), metal);
-    muzzle.position.set(0.02, 0.64, 0);
-    muzzle.rotation.x = Math.PI / 2;
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.11), gripMat);
-    grip.position.set(0.0, 0.2, -0.07);
-    grip.rotation.x = -0.34;
-    const guard = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.011, 8, 14), gripMat);
-    guard.position.set(0.01, 0.3, -0.02);
-    guard.rotation.x = Math.PI / 2;
-    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.025, 0.03), metal);
-    sight.position.set(0.02, 0.6, -0.05);
-    group.add(slide, muzzle, grip, guard, sight);
+    // 총신이 화면 전방(-Z)을 향하도록 카메라 공간 보정 회전 (계산값)
+    const pistol = createGunnerPistolModel();
+    pistol.rotation.set(-0.05, 0.7, 0);
+    pistol.scale.setScalar(1.12);
+    group.add(pistol);
   } else if (item === "iron_shield") {
-    const face = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.08, 18), headMaterial);
-    face.scale.set(0.85, 1.18, 0.28);
-    face.rotation.x = Math.PI / 2;
-    face.position.set(0, 0.34, 0);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.018, 8, 24), new THREE.MeshStandardMaterial({ color: 0xd7d7cf, metalness: 0.36, roughness: 0.38 }));
-    rim.scale.set(0.78, 1.08, 1);
-    rim.position.copy(face.position);
-    const boss = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.45, roughness: 0.32 }));
-    boss.position.set(0, 0.34, -0.035);
-    group.add(face, rim, boss);
+    // 장식면이 3/4 시점으로 보이도록 보정 회전 (계산값)
+    const shield = createIronShieldModel();
+    shield.position.set(0.06, 0.34, 0);
+    shield.rotation.set(0, 0.25, 0);
+    group.add(shield);
   } else if (item === "rifle") {
-    const metal = new THREE.MeshStandardMaterial({ color: 0x44484f, metalness: 0.5, roughness: 0.36 });
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.7 });
-    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.6, 10), metal);
-    barrel.position.set(0.02, 0.52, 0);
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.1), metal);
-    body.position.set(0.02, 0.26, 0);
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.09), woodMat);
-    stock.position.set(0.0, 0.1, -0.04);
-    stock.rotation.x = 0.22;
-    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.08), woodMat);
-    grip.position.set(0.01, 0.17, -0.02);
-    grip.rotation.x = -0.3;
-    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.02), metal);
-    sight.position.set(0.02, 0.78, 0);
-    group.add(barrel, body, stock, grip, sight);
+    const rifle = createGunnerRifleModel();
+    rifle.rotation.set(-0.05, 0.7, 0);
+    rifle.scale.setScalar(1.12);
+    group.add(rifle);
   } else if (item.endsWith("_staff")) {
     const arcane = item === "arcane_staff";
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.034, 0.72, 10), handleMaterial);
