@@ -19,13 +19,15 @@ try {
   const worldMaps = await server.ssrLoadModule("/src/game/worldMaps.ts");
   const worldData = await server.ssrLoadModule("/src/game/worldData.ts");
   const objectives = await server.ssrLoadModule("/src/objectives.ts");
+  const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
 
   const { HEAL_ITEMS, ITEM_NAMES, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE } = items;
   const { MINI_RECIPES, WORKBENCH_RECIPES } = recipes;
   const { PLAYER_CLASSES } = classes;
   const { CLASS_PASSIVES, summonerPetDamage, experienceForNextPetLevel } = classPassives;
   const { HUNGER_HP_REGEN, HUNGER_MAX } = constants;
-  const { MONSTER_DEFS, isPredatorMonster } = monsters;
+  const { BOSS_STATS, MONSTER_DEFS, isPredatorMonster } = monsters;
+  const { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER } = bossChapters;
   const { REGIONS } = regions;
   const { POINT_SHOP_OFFERS, TRADE_OFFERS, BLACKSMITH_TRADE_OFFERS } = trading;
   const { buildRecipeGuideEntries, buildRecipeGuideEntriesForStations } = recipeGuide;
@@ -167,6 +169,24 @@ try {
     }
   }
 
+  // 보스 챕터 진행표: 모든 보스를 정확히 1회씩 포함 + 챕터/권장레벨 단조 증가
+  const bossKinds = Object.keys(BOSS_STATS);
+  if (BOSS_PROGRESSION.length !== bossKinds.length) {
+    problems.push(`boss progression: covers ${BOSS_PROGRESSION.length} bosses, expected ${bossKinds.length}`);
+  }
+  const seenBossKinds = new Set();
+  for (const [index, step] of BOSS_PROGRESSION.entries()) {
+    if (!BOSS_STATS[step.kind]) problems.push(`boss progression: unknown boss '${step.kind}'`);
+    if (seenBossKinds.has(step.kind)) problems.push(`boss progression: duplicate boss '${step.kind}'`);
+    seenBossKinds.add(step.kind);
+    if (step.chapter !== index + 1) problems.push(`boss progression: '${step.kind}' chapter ${step.chapter}, expected ${index + 1}`);
+    if (!(step.recommendedLevel > 0)) problems.push(`boss progression: '${step.kind}' invalid recommendedLevel`);
+    if (index > 0 && step.recommendedLevel <= BOSS_PROGRESSION[index - 1].recommendedLevel) {
+      problems.push(`boss progression: '${step.kind}' recommendedLevel should rise past the previous chapter`);
+    }
+  }
+  if (FINAL_BOSS_CHAPTER !== BOSS_PROGRESSION.length) problems.push("boss progression: FINAL_BOSS_CHAPTER mismatch");
+
   // 4. 거래/상점: 주고받는 아이템이 실존 + 상점 가격 > 0
   for (const o of [...TRADE_OFFERS, ...BLACKSMITH_TRADE_OFFERS]) {
     for (const id of [...Object.keys(o.give), ...Object.keys(o.receive)]) {
@@ -184,7 +204,7 @@ try {
   } else {
     console.log(JSON.stringify({
       ok: true,
-      checks: ["recipe items exist", "recipe guide searchable", "tutorial steps valid", "class starter/skill/passive valid", "hunger regen table valid", "weapons/shields/heal items named", "regions/monsters valid", "world maps valid", "trade/shop items exist"],
+      checks: ["recipe items exist", "recipe guide searchable", "tutorial steps valid", "class starter/skill/passive valid", "hunger regen table valid", "weapons/shields/heal items named", "regions/monsters valid", "world maps valid", "boss progression valid", "trade/shop items exist"],
     }, null, 2));
   }
 } finally {

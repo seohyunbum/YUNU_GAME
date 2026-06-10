@@ -96,6 +96,7 @@ try {
   const interactionPriority = await server.ssrLoadModule("/src/game/interactionPriority.ts");
   const monsters = await server.ssrLoadModule("/src/game/monsters.ts");
   const regions = await server.ssrLoadModule("/src/game/regions.ts");
+  const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
   const { HEAL_ITEMS, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE } = items;
@@ -107,6 +108,7 @@ try {
   const { shouldFireRangedDuringInteract } = interactionPriority;
   const { isPredatorMonster, predatorStatsForMonster } = monsters;
   const { REGIONS } = regions;
+  const { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER, applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } = bossChapters;
 
   assert(HEAL_ITEMS.medkit === 15, "medkit should heal 15 HP");
   assert(HUNGER_HP_REGEN.length === HUNGER_MAX + 1, "hunger regen table should cover every hunger level");
@@ -212,6 +214,33 @@ try {
     assert(state.hudRenders === 1, "equipping shield should render HUD");
   }
 
+  {
+    // 보스 챕터 게이팅 골든 시나리오
+    assert(normalizeBossChapter(undefined) === 0, "missing boss chapter should normalize to 0");
+    assert(normalizeBossChapter(-3) === 0 && normalizeBossChapter(99) === FINAL_BOSS_CHAPTER, "boss chapter should clamp to 0..final");
+    assert(normalizeBossChapter(2.9) === 2, "boss chapter should floor fractional values");
+    assert(isBossUnlocked("dragon", 0), "first dragon should be unlocked from the start");
+    assert(!isBossUnlocked("fire_dragon", 0), "fire dragon should be sealed before first dragon kill");
+    assert(bossLockMessage("dragon", 0) === null, "unlocked boss should have no lock message");
+    const fireLock = bossLockMessage("fire_dragon", 0);
+    assert(typeof fireLock === "string" && fireLock.includes("봉인"), "sealed boss should explain the seal");
+    assert(nextBossTarget(0)?.kind === "dragon" && nextBossTarget(0)?.recommendedLevel === 10, "chapter 0 target should be the first dragon at level 10");
+
+    let chapter = 0;
+    const offTarget = applyBossDefeat(chapter, "immortal");
+    assert(offTarget.bossChapter === 0 && offTarget.message === null, "defeating a non-target boss should not advance the chapter");
+    for (const step of BOSS_PROGRESSION) {
+      const result = applyBossDefeat(chapter, step.kind);
+      assert(result.bossChapter === chapter + 1, `defeating ${step.kind} should advance to chapter ${chapter + 1}`);
+      assert(typeof result.message === "string" && result.message.includes("클리어"), `chapter ${step.chapter} clear should announce progress`);
+      chapter = result.bossChapter;
+    }
+    assert(chapter === FINAL_BOSS_CHAPTER && nextBossTarget(chapter) === null, "clearing every boss should finish the progression");
+    const rekill = applyBossDefeat(chapter, "dragon");
+    assert(rekill.bossChapter === FINAL_BOSS_CHAPTER && rekill.message === null, "re-killing an earlier boss should not change a finished chapter");
+    assert(isBossUnlocked("immortal", FINAL_BOSS_CHAPTER - 1), "final boss should unlock after the four kings");
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -226,6 +255,7 @@ try {
         "ranged interact priority preserves noncombat interactions",
         "crafting output capacity blocks item loss",
         "region predator count and at-level TTK guard",
+        "boss chapter gating golden scenario",
       ],
     }, null, 2));
   }
