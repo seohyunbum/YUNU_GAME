@@ -30,9 +30,11 @@ export function heldItemMaterialColor(item: ItemId) {
   if (item === "dragon_horn") return 0xfff1c2;
   if (item === "dragon_spawn") return 0xff3b1f;
   if (item === "plastic_block") return 0xfacc15;
+  if (item === "medkit") return 0xf8fafc;
   if (item === "building_block") return 0xb7793c;
   if (item === "smelter" || item === "special_smelter") return item === "special_smelter" ? 0x6d3a9c : 0x545b5f;
   if (item === "pistol") return 0x4a4f57;
+  if (item === "iron_shield") return 0xb8b7b0;
   if (item === "rifle") return 0x44484f;
   if (item.endsWith("_staff")) return 0x6cc8ff;
   return 0x9ca3af;
@@ -122,6 +124,17 @@ export function createHeldItemModel(item: ItemId) {
     const sight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.025, 0.03), metal);
     sight.position.set(0.02, 0.6, -0.05);
     group.add(slide, muzzle, grip, guard, sight);
+  } else if (item === "iron_shield") {
+    const face = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.08, 18), headMaterial);
+    face.scale.set(0.85, 1.18, 0.28);
+    face.rotation.x = Math.PI / 2;
+    face.position.set(0, 0.34, 0);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.018, 8, 24), new THREE.MeshStandardMaterial({ color: 0xd7d7cf, metalness: 0.36, roughness: 0.38 }));
+    rim.scale.set(0.78, 1.08, 1);
+    rim.position.copy(face.position);
+    const boss = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.45, roughness: 0.32 }));
+    boss.position.set(0, 0.34, -0.035);
+    group.add(face, rim, boss);
   } else if (item === "rifle") {
     const metal = new THREE.MeshStandardMaterial({ color: 0x44484f, metalness: 0.5, roughness: 0.36 });
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.7 });
@@ -193,6 +206,18 @@ export function createHeldItemModel(item: ItemId) {
     mirror.position.y = 0.34;
     mirror.rotation.x = -0.16;
     group.add(mirror);
+  } else if (item === "medkit") {
+    const caseMaterial = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.62 });
+    const redMaterial = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.48 });
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.24, 0.16), caseMaterial);
+    box.position.y = 0.28;
+    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.05, 0.18), redMaterial);
+    latch.position.set(0, 0.43, 0);
+    const crossVertical = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.17, 0.018), redMaterial);
+    crossVertical.position.set(0, 0.29, -0.086);
+    const crossHorizontal = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.055, 0.02), redMaterial);
+    crossHorizontal.position.copy(crossVertical.position);
+    group.add(box, latch, crossVertical, crossHorizontal);
   } else if (item === "smelter" || item === "special_smelter") {
     const smelter = createSmelterVisual(item === "special_smelter", 0.22);
     smelter.position.y = 0.08;

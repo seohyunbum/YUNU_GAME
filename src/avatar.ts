@@ -19,7 +19,7 @@ export const DEFAULT_AVATAR_APPEARANCE: AvatarAppearance = {
   accentColor: ASSET_PALETTE.gold,
 };
 
-export type AvatarClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner";
+export type AvatarClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner" | "tanker";
 
 // 직업별 외형 팔레트 — 거울/파티 표시에서 직업을 한눈에 구분한다.
 export const CLASS_APPEARANCE: Record<AvatarClassId, AvatarAppearance> = {
@@ -28,6 +28,7 @@ export const CLASS_APPEARANCE: Record<AvatarClassId, AvatarAppearance> = {
   mage: { skinColor: ASSET_PALETTE.skin, hairColor: 0x2a2440, shirtColor: 0x553a8b, pantsColor: 0x2c2347, bootColor: 0x241d3a, accentColor: 0x8e6bd6 },
   summoner: { skinColor: ASSET_PALETTE.skin, hairColor: 0x3a2a1c, shirtColor: 0x6b4a2f, pantsColor: 0x3f2e1f, bootColor: 0x2c2016, accentColor: 0xcf9b3a },
   gunner: { skinColor: ASSET_PALETTE.skin, hairColor: 0x2c241d, shirtColor: 0x4a3a2c, pantsColor: 0x2f2820, bootColor: 0x1f1a14, accentColor: 0xb9925a },
+  tanker: { skinColor: ASSET_PALETTE.skin, hairColor: 0x29313a, shirtColor: 0x596473, pantsColor: 0x25313d, bootColor: 0x151a20, accentColor: 0xa8b3c7 },
 };
 
 export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE, classId?: AvatarClassId) {
@@ -132,6 +133,28 @@ function addClassAccessories(group: THREE.Group, classId: AvatarClassId, pal: Av
     const plate = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.62, 0.12), makeMetalMaterial(0x9aa3b2, { metalness: 0.58, roughness: 0.34 }));
     plate.position.set(0, 1.12, 0.24);
     group.add(helm, visor, crest, plate);
+    return;
+  }
+
+  if (classId === "tanker") {
+    const armor = makeMetalMaterial(0x9aa6b8, { metalness: 0.64, roughness: 0.3 });
+    const darkArmor = makeMetalMaterial(0x596372, { metalness: 0.58, roughness: 0.36 });
+    const helm = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), armor);
+    helm.position.y = 2.01;
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.09, 0.12), darkArmor);
+    brow.position.set(0, 1.96, 0.27);
+    const plate = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.72, 0.14), armor);
+    plate.position.set(0, 1.08, 0.25);
+    const shield = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.74, 0.1), darkArmor);
+    shield.position.set(-0.66, 1.02, 0.28);
+    shield.rotation.z = 0.08;
+    const shieldFace = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.6, 0.035), makeMetalMaterial(0xb9c1ce, { metalness: 0.55, roughness: 0.34 }));
+    shieldFace.position.set(-0.66, 1.02, 0.34);
+    shieldFace.rotation.z = shield.rotation.z;
+    const shieldMark = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.42, 0.05), accentMetal);
+    shieldMark.position.set(-0.66, 1.02, 0.37);
+    shieldMark.rotation.z = shield.rotation.z;
+    group.add(helm, brow, plate, shield, shieldFace, shieldMark);
     return;
   }
 

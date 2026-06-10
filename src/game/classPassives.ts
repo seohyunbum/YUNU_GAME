@@ -5,7 +5,9 @@ export interface SummonerPetPassive {
   baseDamage: number;
   attackInterval: number;
   attackRange: number;
-  followDistance: number;
+  flightAhead: number;
+  flightSide: number;
+  flightRise: number;
   playerXpShare: number;
   petXpShare: number;
   damagePerLevels: number;
@@ -59,7 +61,9 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
       baseDamage: 2,
       attackInterval: 1.5,
       attackRange: 13,
-      followDistance: 2.4,
+      flightAhead: 2.2,
+      flightSide: 1.3,
+      flightRise: 0.5,
       playerXpShare: 0.7,
       petXpShare: 0.3,
       damagePerLevels: 5,
@@ -71,6 +75,14 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     summary: "원거리 무기 연사 속도가 빨라집니다.",
     armorBonus: 0,
     rangedCooldownScale: 0.6,
+    manaRegenScale: 1,
+    healthRegenPerSec: 0,
+  },
+  tanker: {
+    label: "철벽",
+    summary: "방어력이 8 증가하고 방패를 더 잘 활용합니다.",
+    armorBonus: 8,
+    rangedCooldownScale: 1,
     manaRegenScale: 1,
     healthRegenPerSec: 0,
   },

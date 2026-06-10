@@ -15,11 +15,13 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   bag: "가방",
   leather: "가죽",
   meat: "고기",
+  medkit: "구급상자",
   bed: "침대",
   building_block: "쌓기블록",
   bow: "활",
   magic_wand: "마법봉",
   pistol: "권총",
+  iron_shield: "철 방패",
   iron_bow: "강철 활",
   diamond_bow: "다이아 활",
   rifle: "소총",
@@ -145,6 +147,7 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   bow: BOW_DAMAGE,
   magic_wand: MAGIC_WAND_DAMAGE,
   pistol: PISTOL_DAMAGE,
+  iron_shield: 3,
   iron_bow: 5,
   diamond_bow: 8,
   rifle: 7,
@@ -167,6 +170,10 @@ export const RANGED_PROJECTILE: Record<ItemId, "arrow" | "magic"> = {
   arcane_staff: "magic",
 };
 export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => !RANGED_WEAPONS.has(item))) as Record<ItemId, number>;
+
+export const HEAL_ITEMS: Record<ItemId, number> = {
+  medkit: 15,
+};
 
 // 희귀 등급 — 주스(큰 순간 연출)용. 등재 안 된 아이템은 common.
 export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
@@ -199,6 +206,14 @@ export const ARMOR_VALUE: Record<ItemId, number> = {
   gold_armor: 30,
   diamond_armor: 45,
   obsidian_armor: 65,
+};
+
+export const SHIELD_DEFENSE: Record<ItemId, number> = {
+  iron_shield: 5,
+};
+
+export const SHIELD_DURABILITY: Record<ItemId, number> = {
+  iron_shield: 200,
 };
 
 export const AXE_POWER: Record<ItemId, number> = {

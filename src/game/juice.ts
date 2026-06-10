@@ -17,8 +17,16 @@ function playSting(deps: JuiceDeps, notes: number[], type: OscillatorType, volum
 
 export function celebrateLevelUp(deps: JuiceDeps, level: number) {
   celebrationBurst(deps.context);
+  setTimeout(() => celebrationBurst(deps.context), 180);
+  setTimeout(() => sparkleBurst(deps.context, true), 360);
   showBanner(deps.banner, `레벨 업!  Lv ${level}`, "levelup");
-  playSting(deps, [523, 659, 784, 1047], "triangle", 0.05, 70);
+  playSting(deps, [392, 523, 659, 784, 1047, 1319, 1568], "triangle", 0.072, 82);
+  playSting(deps, [196, 262, 330, 392, 523], "sine", 0.04, 128);
+  setTimeout(() => {
+    deps.playTone(1047, 0.22, "triangle", 0.07);
+    deps.playTone(1319, 0.22, "sine", 0.045);
+    deps.playTone(1568, 0.26, "triangle", 0.052);
+  }, 620);
 }
 
 export function celebrateRareDrop(deps: JuiceDeps, item: ItemId) {

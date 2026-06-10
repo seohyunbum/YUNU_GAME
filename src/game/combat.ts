@@ -1,6 +1,6 @@
 import type * as THREE from "three";
 import type { RewardSource } from "../operatorConfig";
-import { JAMMINI_MAX_HP } from "./constants";
+import { JAMMINI_MAX_HP, PREDATOR_RETALIATE_MS } from "./constants";
 import { ITEM_NAMES } from "./items";
 import type { BossKind, CombatProjectile, ItemId, WorldObject } from "./types";
 
@@ -47,7 +47,7 @@ export function applyProjectileDamage(
   attackPower: number,
   kind: CombatProjectile["kind"],
 ) {
-  const label = kind === "magic" ? "마법" : kind === "tnt" ? "폭발" : "화살";
+  const label = kind === "magic" ? "\uB9C8\uBC95" : kind === "tnt" ? "\uD3ED\uBC1C" : kind === "wind" ? "\uC708\uB4DC\uCEE4\uD130" : "\uD22C\uC0AC\uCCB4";
   context.playImpactSound(kind);
   if (target.type === "animal") {
     target.hp = (target.hp ?? 8) - attackPower;
@@ -66,7 +66,7 @@ export function applyProjectileDamage(
 
   if (target.type === "wildPredator") {
     target.hp = (target.hp ?? 10) - attackPower;
-    target.angryUntil = context.now() + 8_000;
+    target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
     if (target.hp > 0) {
       context.showMessage(`${target.name}에게 ${label} ${attackPower} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
       return;

@@ -65,6 +65,22 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     note: "\ubb3c\uc774\ub098 \uc6a9\uc554 \uac19\uc740 \uc561\uccb4\ub97c \ub2f4\uc744 \uc218 \uc788\uc2b5\ub2c8\ub2e4. \ubb3c \uc591\ub3d9\uc774\ub97c \uc6a9\uc554\uc9c0\ub300\uc5d0 \uc0ac\uc6a9\ud558\uba74 \ud751\uc694\uc11d\uc774 \ub9cc\ub4e4\uc5b4\uc9d1\ub2c8\ub2e4.",
   },
   {
+    id: "medkit",
+    name: "구급상자",
+    output: "medkit",
+    count: 1,
+    ingredients: { refined_iron: 4 },
+    note: "사용 시 체력 15를 회복합니다. 체력이 가득 차 있으면 소모되지 않습니다.",
+  },
+  {
+    id: "iron_shield",
+    name: "철 방패",
+    output: "iron_shield",
+    count: 1,
+    ingredients: { refined_iron: 3, wood: 2 },
+    note: "장착하면 방어 +5. 피격 200회 후 부서집니다.",
+  },
+  {
     id: "dragon_spawn",
     name: "용 스폰",
     output: "dragon_spawn",
@@ -102,7 +118,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     name: "가방",
     output: "bag",
     count: 1,
-    ingredients: { leather: 13 },
+    ingredients: { leather: 7 },
     note: "인벤토리 가방 공간 40칸을 엽니다.",
   },
   {
@@ -321,4 +337,3 @@ WORKBENCH_RECIPES.push(
     extendedOnly: true,
   },
 );
-

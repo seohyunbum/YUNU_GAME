@@ -64,6 +64,37 @@ export function createMagicProjectile(direction: THREE.Vector3) {
   return group;
 }
 
+export function createWindCutterProjectile(direction: THREE.Vector3) {
+  const group = new THREE.Group();
+  const blade = new THREE.Mesh(
+    new THREE.TorusGeometry(0.34, 0.026, 8, 42, Math.PI * 1.28),
+    new THREE.MeshBasicMaterial({
+      color: 0xdffcff,
+      transparent: true,
+      opacity: 0.92,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  const glow = new THREE.Mesh(
+    new THREE.TorusGeometry(0.42, 0.04, 8, 42, Math.PI * 1.18),
+    new THREE.MeshBasicMaterial({
+      color: 0x8eefff,
+      transparent: true,
+      opacity: 0.32,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  blade.rotation.z = Math.PI * 0.12;
+  glow.rotation.z = Math.PI * 0.12;
+  group.add(glow, blade);
+  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction.clone().normalize());
+  return group;
+}
+
 export function createTntProjectile(direction: THREE.Vector3) {
   const group = new THREE.Group();
   const body = new THREE.Mesh(
@@ -218,9 +249,9 @@ export function spawnEnemyHitParticles(context: CombatEffectContext, target: Wor
 }
 
 export function spawnProjectileImpact(context: CombatEffectContext, position: THREE.Vector3, kind: CombatProjectile["kind"]) {
-  const color = kind === "magic" ? 0x64ffad : kind === "tnt" ? 0xff7a1a : 0xfff1f2;
+  const color = kind === "magic" ? 0x64ffad : kind === "tnt" ? 0xff7a1a : kind === "wind" ? 0xcffafe : 0xfff1f2;
   const flash = new THREE.Mesh(
-    new THREE.RingGeometry(0.1, kind === "magic" ? 0.48 : kind === "tnt" ? 0.72 : 0.34, 28),
+    new THREE.RingGeometry(0.1, kind === "magic" ? 0.48 : kind === "tnt" ? 0.72 : kind === "wind" ? 0.58 : 0.34, 28),
     new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
   );
   flash.position.copy(position);
@@ -228,6 +259,18 @@ export function spawnProjectileImpact(context: CombatEffectContext, position: TH
   flash.renderOrder = 23;
   context.scene.add(flash);
   context.damageParticles.push({ mesh: flash, velocity: new THREE.Vector3(0, 0.1, 0), life: 0.18, maxLife: 0.18 });
+}
+
+export function spawnWindCutterTrail(context: CombatEffectContext, position: THREE.Vector3) {
+  if (Math.random() > 0.68) return;
+  const particle = new THREE.Mesh(
+    new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.025, 0.06), 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xcffafe, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  particle.position.copy(position).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.24), THREE.MathUtils.randFloatSpread(0.12), THREE.MathUtils.randFloatSpread(0.24)));
+  particle.renderOrder = 18;
+  context.scene.add(particle);
+  context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(0, 0.07, 0), life: 0.22, maxLife: 0.22 });
 }
 
 export function spawnMagicTrail(context: CombatEffectContext, position: THREE.Vector3) {
@@ -274,26 +317,28 @@ export function spawnDamageParticles(context: CombatEffectContext) {
 export function celebrationBurst(context: CombatEffectContext) {
   const base = context.playerPosition.clone();
   base.y = context.getGroundHeightAt(base.x, base.z) + 0.1;
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.7, 0.045, 10, 40),
-    new THREE.MeshBasicMaterial({ color: 0xffe066, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }),
-  );
-  ring.position.copy(base);
-  ring.rotation.x = Math.PI / 2;
-  ring.renderOrder = 26;
-  context.scene.add(ring);
-  context.damageParticles.push({ mesh: ring, velocity: new THREE.Vector3(0, 1.4, 0), life: 0.7, maxLife: 0.7 });
-  for (let i = 0; i < 28; i += 1) {
-    const color = i % 2 === 0 ? 0xffe066 : 0xfff7cc;
-    const particle = new THREE.Mesh(
-      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.04, 0.09), 8, 6),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
+  for (let ringIndex = 0; ringIndex < 2; ringIndex += 1) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.76 + ringIndex * 0.42, 0.05, 10, 56),
+      new THREE.MeshBasicMaterial({ color: ringIndex === 0 ? 0xffe066 : 0x9fe8ff, transparent: true, opacity: ringIndex === 0 ? 0.98 : 0.72, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
-    particle.position.copy(base).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.8), THREE.MathUtils.randFloat(0, 0.4), THREE.MathUtils.randFloatSpread(0.8)));
+    ring.position.copy(base).add(new THREE.Vector3(0, ringIndex * 0.16, 0));
+    ring.rotation.x = Math.PI / 2;
+    ring.renderOrder = 26;
+    context.scene.add(ring);
+    context.damageParticles.push({ mesh: ring, velocity: new THREE.Vector3(0, 1.45 + ringIndex * 0.45, 0), life: 0.9 + ringIndex * 0.18, maxLife: 0.9 + ringIndex * 0.18 });
+  }
+  for (let i = 0; i < 54; i += 1) {
+    const color = i % 5 === 0 ? 0x9fe8ff : i % 2 === 0 ? 0xffe066 : 0xfff7cc;
+    const particle = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.045, 0.12), 8, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    particle.position.copy(base).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(1.15), THREE.MathUtils.randFloat(0, 0.55), THREE.MathUtils.randFloatSpread(1.15)));
     particle.renderOrder = 26;
-    const velocity = new THREE.Vector3(THREE.MathUtils.randFloatSpread(1.1), THREE.MathUtils.randFloat(2.2, 3.6), THREE.MathUtils.randFloatSpread(1.1));
+    const velocity = new THREE.Vector3(THREE.MathUtils.randFloatSpread(1.7), THREE.MathUtils.randFloat(2.7, 4.8), THREE.MathUtils.randFloatSpread(1.7));
     context.scene.add(particle);
-    context.damageParticles.push({ mesh: particle, velocity, life: 0.9, maxLife: 0.9 });
+    context.damageParticles.push({ mesh: particle, velocity, life: 1.15, maxLife: 1.15 });
   }
 }
 
