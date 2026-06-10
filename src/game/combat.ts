@@ -21,6 +21,8 @@ export interface ProjectileDamageContext {
   rollRewardChance(baseChance: number, source: RewardSource, item: ItemId): boolean;
   grantRewardItem(item: ItemId, baseCount: number, source: RewardSource): number;
   bossStats(kind?: BossKind): ProjectileDamageBossStats;
+  bossLockMessage(kind?: BossKind): string | null;
+  recordBossDefeat(kind?: BossKind): void;
   dragonCounterAttack(target: WorldObject): void;
   playTone(frequency: number, duration?: number, type?: OscillatorType, volume?: number): void;
   updateBossBar(): void;
@@ -81,6 +83,11 @@ export function applyProjectileDamage(
   }
 
   if (target.type === "dragon") {
+    const lockMessage = context.bossLockMessage(target.bossKind);
+    if (lockMessage) {
+      context.showMessage(lockMessage);
+      return;
+    }
     const stats = context.bossStats(target.bossKind);
     const defense = target.armor ?? stats.armor;
     const damage = calculateCombatDamage(attackPower, defense);
@@ -101,6 +108,7 @@ export function applyProjectileDamage(
     context.playTone(760, 0.24, "triangle", 0.045);
     context.showMessage(`용을 쓰러뜨렸습니다. ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
     context.grantExperienceForTarget(target);
+    context.recordBossDefeat(target.bossKind);
     context.updateBossBar();
     context.renderHud();
     return;
@@ -169,6 +177,11 @@ export function applyProjectileDamage(
 
 export function applyMeleeDragonAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
   if (target.type !== "dragon") return;
+  const lockMessage = context.bossLockMessage(target.bossKind);
+  if (lockMessage) {
+    context.showMessage(lockMessage);
+    return;
+  }
   const stats = context.bossStats(target.bossKind);
   const defense = target.armor ?? stats.armor;
   const damage = calculateCombatDamage(attackPower, defense);
@@ -190,5 +203,6 @@ export function applyMeleeDragonAttack(context: ProjectileDamageContext, target:
   context.playTone(760, 0.24, "triangle", 0.045);
   context.showMessage(`용을 쓰러뜨렸습니다! ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
   context.grantExperienceForTarget(target);
+  context.recordBossDefeat(target.bossKind);
   context.updateBossBar();
 }

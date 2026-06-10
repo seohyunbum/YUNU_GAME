@@ -68,7 +68,7 @@ import {
   calculateCombatDamage as calculateDamage,
   type ProjectileDamageContext,
 } from "./game/combat";
-import { normalizeBossChapter } from "./game/bossChapters";
+import { applyBossDefeat, bossLockMessage, isBossUnlocked, normalizeBossChapter } from "./game/bossChapters";
 import {
   createArrowProjectile,
   createMagicProjectile,
@@ -451,6 +451,12 @@ class WildernessGame {
     rollRewardChance: (baseChance, source, item) => this.rollRewardChance(baseChance, source, item),
     grantRewardItem: (item, baseCount, source) => this.grantRewardItem(item, baseCount, source),
     bossStats: (kind) => this.bossStats(kind),
+    bossLockMessage: (kind) => bossLockMessage(kind ?? "dragon", this.bossChapter),
+    recordBossDefeat: (kind) => {
+      const result = applyBossDefeat(this.bossChapter, kind ?? "dragon");
+      this.bossChapter = result.bossChapter;
+      if (result.message) this.showMessage(result.message);
+    },
     dragonCounterAttack: (target) => this.dragonCounterAttack(target),
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
     updateBossBar: () => this.updateBossBar(),
@@ -6068,7 +6074,7 @@ class WildernessGame {
     const ratio = THREE.MathUtils.clamp(hp / stats.maxHp, 0, 1);
     this.bossBarEl.classList.remove("hidden");
     const html = `
-      <div class="boss-title">${stats.name}</div>
+      <div class="boss-title">${stats.name}${isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter) ? "" : " · 봉인됨"}</div>
       <div class="boss-meter"><span style="width:${(ratio * 100).toFixed(1)}%"></span></div>
       <div class="boss-hp">${hp}/${stats.maxHp}</div>
     `;
@@ -6091,19 +6097,9 @@ class WildernessGame {
       hasBasicArmor: Boolean(this.equippedArmor) || ["leather_armor", "copper_armor", "iron_armor"].some((item) => this.countItem(item as ItemId) > 0),
       hasSmelter: this.hasWorldObjectType("smelter", "specialSmelter"),
       smelter: this.countItem("smelter"),
-      nextBossName: this.nextBossObjectiveName(),
+      bossChapter: this.bossChapter,
       completedStepIds: this.tutorialProgress.completedStepIds,
     });
-  }
-
-  private nextBossObjectiveName() {
-    const order: BossKind[] = ["dragon", "fire_dragon", "red_dragon", "laser_dragon", "dark_dragon", "immortal"];
-    for (const kind of order) {
-      for (const dragon of this.objectsOfType("dragon")) {
-        if ((dragon.bossKind ?? "dragon") === kind) return this.bossStats(kind).name;
-      }
-    }
-    return null;
   }
 
   private hasWorldObjectType(...types: ObjectType[]) {

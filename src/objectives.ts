@@ -1,3 +1,5 @@
+import { FINAL_BOSS_CHAPTER, nextBossTarget } from "./game/bossChapters";
+import { BOSS_STATS } from "./game/monsters";
 import type { ItemId, TutorialProgress } from "./game/types";
 
 export interface ObjectiveSnapshot {
@@ -15,7 +17,7 @@ export interface ObjectiveSnapshot {
   hasBasicArmor: boolean;
   hasSmelter: boolean;
   smelter: number;
-  nextBossName: string | null;
+  bossChapter: number;
   completedStepIds: readonly string[];
 }
 
@@ -138,12 +140,13 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
       kind: "tutorial",
     };
   }
-  if (snapshot.nextBossName) {
+  const nextBoss = nextBossTarget(snapshot.bossChapter);
+  if (nextBoss) {
     return {
       id: "boss_progression",
-      title: `${snapshot.nextBossName} 처치 준비하기`,
-      detail: "가방, 곡괭이, 무기, 방어구까지 익혔다면 더 높은 레벨 지역으로 이동해 장비를 강화하고 보스를 공략하세요.",
-      progress: "장기 목표",
+      title: `챕터 ${nextBoss.chapter}/${FINAL_BOSS_CHAPTER} — ${BOSS_STATS[nextBoss.kind].name} 처치 준비하기`,
+      detail: `권장 레벨 ${nextBoss.recommendedLevel} 이상. 장비를 강화한 뒤 보스를 찾아가 처치하면 다음 보스의 봉인이 풀립니다.`,
+      progress: `챕터 ${snapshot.bossChapter}/${FINAL_BOSS_CHAPTER} 클리어`,
       reward: { experience: 0, label: "보스 전리품과 다음 성장 단계" },
       completed: false,
       kind: "boss",

@@ -55,6 +55,8 @@ try {
         return baseCount;
       },
       bossStats: () => ({ name: "용", maxHp: 500, armor: 50 }),
+      bossLockMessage: () => null,
+      recordBossDefeat: (kind) => calls.push(["bossDefeat", kind]),
       dragonCounterAttack: (target) => calls.push(["dragonCounter", target.id]),
       playTone: (frequency) => calls.push(["tone", frequency]),
       updateBossBar: () => calls.push(["bossBar"]),
@@ -136,8 +138,23 @@ try {
     applyMeleeDragonAttack(context, dragon, 40);
     assert.deepEqual(
       context.calls.map((call) => call[0]),
-      ["tone", "reward", "remove", "tone", "message", "experience", "bossBar"],
-      "lethal melee dragon hit grants loot, removes boss, and refreshes boss bar",
+      ["tone", "reward", "remove", "tone", "message", "experience", "bossDefeat", "bossBar"],
+      "lethal melee dragon hit grants loot, records the chapter defeat, and refreshes boss bar",
+    );
+  }
+
+  {
+    const context = createProjectileContext({ bossLockMessage: () => "봉인되어 있습니다." });
+    const dragon = { id: "dragon-4", type: "dragon", name: "파이어 드래곤", root: createRoot(), hp: 100, bossKind: "fire_dragon" };
+    applyMeleeDragonAttack(context, dragon, 40);
+    assert.equal(dragon.hp, 100, "sealed boss takes no melee damage");
+    assert.deepEqual(context.calls.map((call) => call[0]), ["message"], "sealed boss melee hit only shows the lock message");
+    applyProjectileDamage(context, dragon, 40, "arrow");
+    assert.equal(dragon.hp, 100, "sealed boss takes no projectile damage");
+    assert.deepEqual(
+      context.calls.map((call) => call[0]),
+      ["message", "sound", "message"],
+      "sealed boss projectile hit shows the lock message without counterattack",
     );
   }
 
@@ -149,6 +166,7 @@ try {
       "projectile predator defeat behavior",
       "projectile guard counterattack behavior",
       "melee dragon attack behavior",
+      "sealed boss blocks melee and projectile damage",
     ],
   }, null, 2));
 } finally {
