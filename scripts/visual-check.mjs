@@ -498,6 +498,7 @@ async function inspectNewSystems(page) {
     bossMarkers: 0,
     sealedBossMarkers: 0,
     starterFieldBossMarker: 0,
+    loadPanelHasFileBackup: false,
     newGameReturnsToTitle: false,
   };
 
@@ -551,6 +552,21 @@ async function inspectNewSystems(page) {
   await page.waitForTimeout(600);
   systems.graveyardSkyBrightness = await sampleSkyBrightness(page);
   await page.screenshot({ path: "artifacts/graveyard.png", fullPage: true });
+
+  // 불러오기 패널에 세이브 파일 백업/가져오기 버튼이 있어야 한다 (저장 2회 → 슬롯 2개 → 패널 열림).
+  await page.click("[data-save-game]");
+  await page.waitForTimeout(300);
+  await page.click("[data-save-game]");
+  await page.waitForTimeout(300);
+  await page.click("[data-load-game]");
+  await page.waitForTimeout(400);
+  systems.loadPanelHasFileBackup =
+    (await page.locator("[data-export-save]").count()) === 1 &&
+    (await page.locator("[data-import-save]").count()) === 1 &&
+    (await page.locator("[data-import-input]").count()) === 1;
+  await page.screenshot({ path: "artifacts/load-panel.png", fullPage: true });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
 
   // 인게임 '새로시작' 버튼은 확인 후 타이틀 화면으로 돌아가야 한다.
   page.once("dialog", (dialog) => dialog.accept());
@@ -635,6 +651,7 @@ for (const viewport of [
     if (systems.bossMarkers < 1) errors.push("desktop: region map did not show any boss markers");
     if (systems.sealedBossMarkers < 1) errors.push("desktop: sealed boss was not marked as sealed on the region map");
     if (systems.starterFieldBossMarker < 1) errors.push("desktop: starter map did not show its field boss on the region map");
+    if (!systems.loadPanelHasFileBackup) errors.push("desktop: load panel did not expose save file export/import buttons");
     if (systems.graveyardSkyBrightness < 0 || systems.graveyardSkyBrightness > systems.daySkyBrightness - 40) {
       errors.push(`desktop: graveyard daytime sky (${systems.graveyardSkyBrightness}) was not gloomier than the plains day sky (${systems.daySkyBrightness})`);
     }

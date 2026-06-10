@@ -186,6 +186,18 @@ export function predatorStatsForMonster(id: MonsterId, fallbackKind: PredatorKin
   return def.statsOverride ? { ...result, ...def.statsOverride } : result;
 }
 
+export function predatorBaseStats(kind: PredatorKind = "wolf", monsterId?: MonsterId) {
+  return monsterId ? predatorStatsForMonster(monsterId, kind) : PREDATOR_STATS[kind] ?? PREDATOR_STATS.wolf;
+}
+
+export function predatorAggroRangeFor(kind: PredatorKind = "wolf") {
+  return predatorBaseStats(kind).aggroRange;
+}
+
+export function predatorStrikeRangeFor(kind: PredatorKind = "wolf") {
+  return predatorBaseStats(kind).strikeRange;
+}
+
 export function applyPredatorMonsterDefinition(
   object: WorldObject,
   region: { id: string; lootTier: number },

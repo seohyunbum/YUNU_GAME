@@ -9,6 +9,19 @@ export interface LoadGameSlotView {
 export interface LoadGamePanelCallbacks {
   onClose: () => void;
   onLoad: (slotId: string) => void;
+  // 파일 백업 — 브라우저 데이터가 지워져도 진행을 지킬 수 있게 한다
+  onExportSave: () => Promise<object | null>;
+  onImportSave: (save: object) => void;
+}
+
+function downloadJson(fileName: string, data: object) {
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function escapeHtml(value: string) {
@@ -32,8 +45,13 @@ export function renderLoadGamePanel(
             <h2>저장 파일 불러오기</h2>
             <p class="inventory-subtitle">${saves.length > 0 ? "불러올 시점을 선택하세요. 선택하면 그 저장 시점부터 이어서 플레이합니다." : "아직 불러올 저장 파일이 없습니다."}</p>
           </div>
-          <button class="icon-button" data-close>닫기</button>
+          <div class="save-file-actions">
+            <button data-export-save>파일로 백업</button>
+            <button data-import-save>파일 가져오기</button>
+            <button class="icon-button" data-close>닫기</button>
+          </div>
         </header>
+        <input type="file" accept=".json,application/json" data-import-input style="display:none" />
         ${
           saves.length > 0
             ? `<div class="save-list">
@@ -56,6 +74,18 @@ export function renderLoadGamePanel(
     `;
 
   panelEl.querySelector<HTMLButtonElement>("[data-close]")?.addEventListener("click", callbacks.onClose);
+  panelEl.querySelector<HTMLButtonElement>("[data-export-save]")?.addEventListener("click", () => {
+    void callbacks.onExportSave().then((save) => {
+      if (save) downloadJson("야생마을-세이브.json", save);
+    });
+  });
+  const importInput = panelEl.querySelector<HTMLInputElement>("[data-import-input]");
+  panelEl.querySelector<HTMLButtonElement>("[data-import-save]")?.addEventListener("click", () => importInput?.click());
+  importInput?.addEventListener("change", () => {
+    const file = importInput.files?.[0];
+    if (!file) return;
+    void file.text().then((text) => callbacks.onImportSave(JSON.parse(text) as object));
+  });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-load-slot-index]").forEach((button) => {
     button.addEventListener("click", () => {
       const index = Number(button.dataset.loadSlotIndex);

@@ -101,6 +101,10 @@ try {
   const resolved = await resolveSlotSave(slots[0]);
   assert.equal(resolved.player.position.x, 1, "packed slot should decompress back to the same save");
 
+  const exportedFile = JSON.stringify(migrateSaveData(resolved));
+  const importedSave = migrateSaveData(JSON.parse(exportedFile));
+  assert.deepEqual(importedSave, migrateSaveData(resolved), "file export/import roundtrip should preserve the migrated save");
+
   storage.setItem(SAVE_LIST_KEY, JSON.stringify([{ save: { version: 999 } }, { id: "slot-a", save }]));
   const recoveredSlots = readSaveSlots({
     migrateSaveData,
@@ -109,7 +113,7 @@ try {
   });
   assert.equal(recoveredSlots.length, 1, "broken slot list entries should be ignored");
 
-  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "slot dedupe", "broken slot recovery"] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "broken slot recovery"] }, null, 2));
 } finally {
   await server.close();
 }

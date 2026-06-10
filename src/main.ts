@@ -227,7 +227,7 @@ import type {
   WorldMapId,
   WorldObject,
 } from "./game/types";
-import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, predatorKindForMonster, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
+import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -320,8 +320,8 @@ class WildernessGame {
     addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
     createWalkCycle: (parts, amplitude, speed, lift) => this.createWalkCycle(parts, amplitude, speed, lift),
-    predatorStats: (kind) => this.predatorStats(kind),
-    predatorAggroRange: (kind) => this.predatorAggroRange(kind),
+    predatorStats: (kind) => predatorBaseStats(kind),
+    predatorAggroRange: (kind) => predatorAggroRangeFor(kind),
     bossStats: (kind) => this.bossStats(kind),
   };
   private readonly raycastTargets: THREE.Object3D[] = [];
@@ -657,7 +657,7 @@ class WildernessGame {
     celebratePetLevel: (level) => celebrateLevelUp(this.juiceDeps, level),
     renderHud: () => this.renderHud(),
   };
-  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => this.predatorAggroRange(kind), predatorStrikeRange: (kind) => this.predatorStrikeRange(kind), predatorStats: (kind, monsterId) => this.predatorStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason) };
+  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => predatorAggroRangeFor(kind), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason) };
   private readonly hotbarUseContext: HotbarUseContext = {
     currentPanel: () => this.currentPanel,
     health: () => this.health,
@@ -3551,18 +3551,6 @@ class WildernessGame {
     });
   }
 
-  private predatorAggroRange(kind: PredatorKind = "wolf") {
-    return this.predatorStats(kind).aggroRange;
-  }
-
-  private predatorStrikeRange(kind: PredatorKind = "wolf") {
-    return this.predatorStats(kind).strikeRange;
-  }
-
-  private predatorStats(kind: PredatorKind = "wolf", monsterId?: MonsterId) {
-    return monsterId ? predatorStatsForMonster(monsterId, kind) : PREDATOR_STATS[kind] ?? PREDATOR_STATS.wolf;
-  }
-
   private bossStats(kind: BossKind | undefined = "dragon") {
     return BOSS_STATS[kind ?? "dragon"] ?? BOSS_STATS.dragon;
   }
@@ -5435,15 +5423,20 @@ class WildernessGame {
       return;
     }
 
+    this.applyLoadedSave(slotSave, `불러오기 완료: ${formatSaveDate(slotSave.savedAt ?? slot.savedAt)}`);
+  }
+
+  private applyLoadedSave(rawSave: PartialSavedGame, successMessage: string) {
     const fallbackSave = this.gameStarted ? this.createSaveData() : null;
     try {
+      const save = migratePartialSaveData(rawSave);
       backupLatestSaveInRepository();
-      writeRepositoryJsonStorage(SAVE_KEY, slotSave);
+      writeRepositoryJsonStorage(SAVE_KEY, save);
       this.enterGameplayMode();
       this.currentPanel = null;
-      this.restoreSaveData(slotSave);
+      this.restoreSaveData(save);
       precompileSceneShaders(this.renderer, this.scene, this.camera);
-      this.showMessage(`불러오기 완료: ${formatSaveDate(slotSave.savedAt ?? slot.savedAt)}`);
+      this.showMessage(successMessage);
     } catch (error) {
       console.error(error);
       if (fallbackSave) {
@@ -5455,6 +5448,14 @@ class WildernessGame {
       }
       this.showMessage("저장 파일을 불러오지 못했습니다.");
     }
+  }
+
+  private async exportSaveData(): Promise<SavedGame | null> {
+    if (this.gameStarted) return this.createSaveData();
+    const slot = this.readSaveSlots()[0];
+    const save = slot ? await resolveRepositorySlotSave(slot) : null;
+    if (!save) this.showMessage("내보낼 저장 데이터가 없습니다.");
+    return save ? migratePartialSaveData(save) : null;
   }
 
   private readSaveSlots(): SaveSlot[] {
@@ -6493,6 +6494,8 @@ class WildernessGame {
       {
         onClose: () => this.closePanel(),
         onLoad: (slotId) => this.loadSaveSlot(slotId),
+        onExportSave: () => this.exportSaveData(),
+        onImportSave: (save) => this.applyLoadedSave(save as PartialSavedGame, "세이브 파일을 가져왔습니다."),
       },
     );
   }
