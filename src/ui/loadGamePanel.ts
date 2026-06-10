@@ -91,7 +91,14 @@ export function renderLoadGamePanel(
       const index = Number(button.dataset.loadSlotIndex);
       if (!Number.isInteger(index)) return;
       const slot = saves[index];
-      if (slot) callbacks.onLoad(slot.id);
+      if (!slot) return;
+      // 복원이 수 초 걸린다 — 클릭 즉시 전체 버튼을 잠그고 진행 중임을 표시해 중복 클릭을 막는다.
+      panelEl.querySelectorAll<HTMLButtonElement>("[data-load-slot-index]").forEach((other) => {
+        other.disabled = true;
+      });
+      button.textContent = "불러오는 중…";
+      button.classList.add("loading");
+      callbacks.onLoad(slot.id);
     });
   });
 }

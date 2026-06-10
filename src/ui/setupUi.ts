@@ -118,3 +118,12 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   callbacks.onRenderLavaMiniGame();
   callbacks.onRenderSmithingMiniGame();
 }
+
+// 불러오기류 버튼(타이틀·HUD 저장컨트롤) 공통 busy 표시 — 복원이 수 초 걸려 중복 클릭을 막고 진행 중임을 보여준다.
+export function setLoadButtonsBusy(busy: boolean) {
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-load-game], [data-title-load]")) {
+    button.disabled = busy;
+    if (busy && !button.dataset.idleLabel) button.dataset.idleLabel = button.textContent ?? "불러오기";
+    button.textContent = busy ? "불러오는 중…" : button.dataset.idleLabel ?? "불러오기";
+  }
+}

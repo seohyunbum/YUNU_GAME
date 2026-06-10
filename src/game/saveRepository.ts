@@ -1,4 +1,9 @@
+import { PLAYER_CLASSES } from "./classes";
+import { gameClockText, timeOfDayName } from "./timeOfDay";
 import {
+  BASE_MAX_MANA,
+  DAY_LENGTH_SECONDS,
+  HUNGER_MAX,
   MAX_SAVE_SLOTS,
   SAVE_BACKUP_KEY,
   SAVE_KEY,
@@ -165,4 +170,12 @@ export async function writeSaveSlots(slots: SaveSlot[], storage = localStorage) 
     }
   }
   throw lastError ?? new Error("No save slots could be written.");
+}
+
+export function saveSummary(save: SavedGame) {
+  const hour = (((save.player.worldTimeSeconds ?? DAY_LENGTH_SECONDS * (8 / 24)) / DAY_LENGTH_SECONDS) * 24) % 24;
+  const location = save.player.locationMode === "cave" ? "동굴" : save.player.locationMode === "house" ? "집 안" : "야생";
+  const className = PLAYER_CLASSES[save.player.playerClass ?? "warrior"]?.name ?? "전사";
+  const filledSlots = [...save.player.hotbar, ...save.player.bagSlots].filter((slot) => slot.item && slot.count > 0).length;
+  return `${className} · Lv ${save.player.level} · 체력 ${save.player.health}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${timeOfDayName(hour)} ${gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
 }

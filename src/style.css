@@ -2105,6 +2105,24 @@ body {
   width: min(920px, 94vw);
 }
 
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
+.save-card button.loading,
+button[data-load-game]:disabled,
+button[data-title-load]:disabled {
+  opacity: 0.75;
+  animation: load-button-pulse 0.9s ease-in-out infinite;
+  cursor: progress;
+}
+
+@keyframes load-button-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
 .home-storage-panel {
   width: min(980px, 94vw);
 }

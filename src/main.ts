@@ -293,13 +293,14 @@ import {
   resolveSlotSave as resolveRepositorySlotSave,
   writeJsonStorage as writeRepositoryJsonStorage,
   writeSaveSlots as writeRepositorySaveSlots,
+  saveSummary,
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView } from "./ui/loadGamePanel";
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
 import { renderRegionMapPanel } from "./ui/mapPanel";
-import { setupGameUi } from "./ui/setupUi";
+import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
@@ -549,6 +550,7 @@ class WildernessGame {
   private houseObjectIds: string[] = [];
   private readonly frameScratch = { titleFocus: new THREE.Vector3(58, 2.8, -76), moveDirection: new THREE.Vector3(), moveForward: new THREE.Vector3(), moveRight: new THREE.Vector3(), legoTarget: new THREE.Vector3() };
   private currentHouseOwned = false;
+  private saveLoadInProgress = false;
   private homeStorage = normalizeHomeStorage();
   private homeSupplyCooldownSeconds = 0;
   private ridingTrainId: string | null = null;
@@ -5488,7 +5490,7 @@ class WildernessGame {
         this.openPanel("saveOverwrite");
         return;
       }
-      const requestedSaves = [createRepositorySaveSlot(save, formatSaveDate, this.saveSummary(save)), ...existingSaves];
+      const requestedSaves = [createRepositorySaveSlot(save, formatSaveDate, saveSummary(save)), ...existingSaves];
       const storedCount = await writeRepositorySaveSlots(requestedSaves);
       const trimmedText = requestedSaves.length > storedCount ? ` 최근 ${storedCount}개 저장만 보관했습니다.` : "";
       this.tutorialSignals.saved = true;
@@ -5523,10 +5525,12 @@ class WildernessGame {
       return;
     }
 
-    this.applyLoadedSave(slotSave, `불러오기 완료: ${formatSaveDate(slotSave.savedAt ?? slot.savedAt)}`);
+    await this.applyLoadedSave(slotSave, `불러오기 완료: ${formatSaveDate(slotSave.savedAt ?? slot.savedAt)}`);
   }
 
-  private applyLoadedSave(rawSave: PartialSavedGame, successMessage: string) {
+  private async applyLoadedSave(rawSave: PartialSavedGame, successMessage: string) {
+    if (this.saveLoadInProgress) return; this.saveLoadInProgress = true;
+    setLoadButtonsBusy(true); await new Promise((resolve) => setTimeout(resolve, 40));
     const fallbackSave = this.gameStarted ? this.createSaveData() : null;
     try {
       const save = migratePartialSaveData(rawSave);
@@ -5547,6 +5551,9 @@ class WildernessGame {
         }
       }
       this.showMessage("저장 파일을 불러오지 못했습니다.");
+      this.renderPanel();
+    } finally {
+      this.saveLoadInProgress = false; setLoadButtonsBusy(false);
     }
   }
 
@@ -5565,13 +5572,6 @@ class WildernessGame {
     });
   }
 
-  private saveSummary(save: SavedGame) {
-    const hour = (((save.player.worldTimeSeconds ?? DAY_LENGTH_SECONDS * (8 / 24)) / DAY_LENGTH_SECONDS) * 24) % 24;
-    const location = save.player.locationMode === "cave" ? "동굴" : save.player.locationMode === "house" ? "집 안" : "야생";
-    const className = PLAYER_CLASSES[save.player.playerClass ?? "warrior"]?.name ?? "전사";
-    const filledSlots = [...save.player.hotbar, ...save.player.bagSlots].filter((slot) => slot.item && slot.count > 0).length;
-    return `${className} · Lv ${save.player.level} · 체력 ${save.player.health}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${timeOfDayName(hour)} ${gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
-  }
 
   private createSaveData(): SavedGame {
     const now = performance.now();
@@ -6221,12 +6221,12 @@ class WildernessGame {
     if (this.currentPanel === "map") this.renderRegionMapPanel();
     if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel();
     if (this.currentPanel === "saveOverwrite") {
-      renderSaveOverwritePanelView(this.panelEl, this.readSaveSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? this.saveSummary(slot.save) : slot.description ?? slot.label })), {
+      renderSaveOverwritePanelView(this.panelEl, this.readSaveSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label })), {
         onClose: () => { this.pendingOverwriteSave = null; this.closePanel(); },
         onOverwrite: async (slotId) => {
           const save = this.pendingOverwriteSave;
           if (!save) return;
-          await writeRepositorySaveSlots(this.readSaveSlots().map((slot) => (slot.id === slotId ? createRepositorySaveSlot(save, formatSaveDate, this.saveSummary(save)) : slot)));
+          await writeRepositorySaveSlots(this.readSaveSlots().map((slot) => (slot.id === slotId ? createRepositorySaveSlot(save, formatSaveDate, saveSummary(save)) : slot)));
           this.pendingOverwriteSave = null;
           this.closePanel();
           this.showMessage(`저장 완료(덮어쓰기): ${formatSaveDate(save.savedAt)}`);
@@ -6597,7 +6597,7 @@ class WildernessGame {
       saves.map((slot) => ({
         id: slot.id,
         label: slot.label,
-        summary: slot.save ? this.saveSummary(slot.save) : slot.description ?? slot.label,
+        summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label,
         objectCount: slot.save?.objects.length,
         mountainCount: slot.save?.mountains.length,
       })),
@@ -6605,7 +6605,7 @@ class WildernessGame {
         onClose: () => this.closePanel(),
         onLoad: (slotId) => this.loadSaveSlot(slotId),
         onExportSave: () => this.exportSaveData(),
-        onImportSave: (save) => this.applyLoadedSave(save as PartialSavedGame, "세이브 파일을 가져왔습니다."),
+        onImportSave: (save) => void this.applyLoadedSave(save as PartialSavedGame, "세이브 파일을 가져왔습니다."),
       },
     );
   }
