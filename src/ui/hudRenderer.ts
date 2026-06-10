@@ -31,6 +31,7 @@ export interface HudViewModel {
   passiveStatus: string;
   petStatus?: string;
   equipmentArmor: number;
+  equippedGearLabel?: string;
   statBonus: number;
   eagleHp?: number;
   eagleMaxHp: number;
@@ -116,7 +117,7 @@ function renderStatsMarkup(view: HudViewModel) {
           <span>스킬 ${escapeHtml(view.skillStatus)}</span>
           <span>패시브 ${escapeHtml(view.passiveStatus)}</span>
           ${view.petStatus ? `<span>${escapeHtml(view.petStatus)}</span>` : ""}
-          <span>장비 방어 ${view.equipmentArmor}</span>
+          <span>장비 방어 ${view.equipmentArmor}${view.equippedGearLabel ? ` · ${escapeHtml(view.equippedGearLabel)}` : ""}</span>
           <span>레벨 보너스 +${view.statBonus}</span>
           ${eagleMarkup}
           ${view.eagleSkillStatus ? `<span>${escapeHtml(view.eagleSkillStatus)}</span>` : ""}

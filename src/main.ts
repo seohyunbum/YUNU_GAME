@@ -6045,6 +6045,7 @@ class WildernessGame {
         passiveStatus: passive.label,
         petStatus: this.playerClass === "tanker" ? tankerStatus : petStatus,
         equipmentArmor,
+        equippedGearLabel: [this.equippedArmor, this.equippedShield].filter((item): item is ItemId => Boolean(item)).map((item) => ITEM_NAMES[item] ?? item).join(" · ") || undefined,
         statBonus,
         eagleHp: eagle ? eagle.hp ?? EAGLE_MAX_HP : undefined,
         eagleMaxHp: EAGLE_MAX_HP,
