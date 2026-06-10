@@ -71,7 +71,7 @@ import {
   rollDragonLoot as rollDragonLootItem,
   type ProjectileDamageContext,
 } from "./game/combat";
-import { applyBossDefeat, bossLockMessage, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter } from "./game/bossChapters";
+import { applyBossDefeat, bossLockMessage, ensureChapterBoss, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter, type ChapterBossContext } from "./game/bossChapters";
 import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
 import { createFinaleState, startFinale, startMiniFanfare, updateFinale, type FinaleContext } from "./game/finale";
 import { fieldBossDefeatMessage, fieldBossQuestFor, updateFieldBosses, type FieldBossContext } from "./game/fieldBosses";
@@ -521,6 +521,12 @@ class WildernessGame {
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
   private readonly tutorialSignals = { predatorKills: 0, mapOpened: false, saved: false, shopOpened: false };
+  private readonly chapterBossContext: ChapterBossContext = {
+    locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
+    hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
+    spawnDragon: (kind, position) => spawnDragonEntity(this.entitySpawnContext, position, kind),
+    getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
+  };
   private readonly fieldBossContext: FieldBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     defeatedFieldBosses: () => this.defeatedFieldBosses,
@@ -1774,7 +1780,7 @@ class WildernessGame {
     for (let i = 0; i < 8; i += 1) this.spawnMountain(this.randomGroundPoint(), THREE.MathUtils.randFloat(15, 34), THREE.MathUtils.randFloat(4, 14));
     this.spawnBiomeTerrains();
     createBiomeDecor(this.biomeDecorContext);
-    if (this.currentWorldMapId === "dragon_lands") { this.spawnInitialLavaDragons(); this.spawnBossProgression(); }
+    if (this.currentWorldMapId === "dragon_lands") this.spawnInitialLavaDragons();
     const mapDef = getWorldMapById(this.currentWorldMapId);
     for (let i = 0; i < Math.round(1144 * (mapDef.treeScale ?? 1)); i += 1) this.spawnTree(Math.random() < 0.78 ? "smallTree" : "bigTree", this.randomGroundPoint());
     for (const point of [
@@ -1848,27 +1854,6 @@ class WildernessGame {
       if (biome.kind !== "lava" || Math.random() >= LAVA_DRAGON_SPAWN_CHANCE) continue;
       const point = this.randomPointInCircle(biome.center, biome.radius * 0.64);
       spawnDragonEntity(this.entitySpawnContext, point);
-    }
-  }
-
-  private spawnBossProgression() {
-    const placements: { kind: BossKind; position: THREE.Vector3 }[] = [
-      { kind: "fire_dragon", position: new THREE.Vector3(305, 0, -268) },
-      { kind: "red_dragon", position: new THREE.Vector3(-310, 0, -245) },
-      { kind: "laser_dragon", position: new THREE.Vector3(295, 0, 250) },
-      { kind: "dark_dragon", position: new THREE.Vector3(-410, 0, -372) },
-      { kind: "immortal", position: new THREE.Vector3(420, 0, -392) },
-    ];
-    for (const placement of placements) {
-      const point = placement.position.clone();
-      point.y = this.getGroundHeightAt(point.x, point.z);
-      let occupied = false;
-      for (const object of this.objectsNear(point, 14)) {
-        if (object.type !== "dragon") continue;
-        occupied = true;
-        break;
-      }
-      if (!occupied) spawnDragonEntity(this.entitySpawnContext, point, placement.kind);
     }
   }
 
@@ -2494,6 +2479,7 @@ class WildernessGame {
     updateGraveTrap(this.graveTrapContext, delta);
     updateFinale(this.finaleContext);
     updateFieldBosses(this.fieldBossContext);
+    ensureChapterBoss(this.chapterBossContext);
     this.updateDragons(delta);
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);

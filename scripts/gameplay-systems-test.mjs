@@ -239,7 +239,8 @@ try {
     assert(bossLockMessage("dragon", 0) === null, "unlocked boss should have no lock message");
     const fireLock = bossLockMessage("fire_dragon", 0);
     assert(typeof fireLock === "string" && fireLock.includes("봉인"), "sealed boss should explain the seal");
-    assert(nextBossTarget(0)?.kind === "dragon" && nextBossTarget(0)?.recommendedLevel === 10, "chapter 0 target should be the first dragon at level 10");
+    assert(nextBossTarget(0)?.kind === "dragon" && nextBossTarget(0)?.recommendedLevel === 20, "chapter 0 target should be the first dragon at level 20");
+    assert(nextBossTarget(0)?.mapId === "dragon_plains", "first chapter boss should live in the dragon plains");
 
     let chapter = 0;
     const offTarget = applyBossDefeat(chapter, "immortal");

@@ -231,6 +231,17 @@ try {
     }
   }
   if (FINAL_BOSS_CHAPTER !== BOSS_PROGRESSION.length) problems.push("boss progression: FINAL_BOSS_CHAPTER mismatch");
+  // 도달성 불변식: 권장 레벨에서 그 보스의 맵으로 실제 텔레포트가 가능해야 한다
+  for (const step of BOSS_PROGRESSION) {
+    const map = WORLD_MAPS.find((candidate) => candidate.id === step.mapId);
+    if (!map) {
+      problems.push(`boss progression: '${step.kind}' references unknown map '${step.mapId}'`);
+      continue;
+    }
+    if (!canTeleportToWorldMap(step.recommendedLevel, map)) {
+      problems.push(`boss progression: '${step.kind}' recommended level ${step.recommendedLevel} cannot reach map '${step.mapId}' (gate Lv ${map.levelRange[0] - 20})`);
+    }
+  }
 
   // 4. 거래/상점: 주고받는 아이템이 실존 + 상점 가격 > 0
   for (const o of [...TRADE_OFFERS, ...BLACKSMITH_TRADE_OFFERS]) {

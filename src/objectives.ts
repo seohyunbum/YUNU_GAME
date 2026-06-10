@@ -1,4 +1,5 @@
 import { FINAL_BOSS_CHAPTER, nextBossTarget } from "./game/bossChapters";
+import { getWorldMapById } from "./game/worldMaps";
 import type { FieldBossQuestView } from "./game/fieldBosses";
 import { BOSS_STATS } from "./game/monsters";
 import type { ItemId, PlayerClassId, TutorialProgress } from "./game/types";
@@ -197,7 +198,7 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
     return {
       id: "boss_progression",
       title: `챕터 ${nextBoss.chapter}/${FINAL_BOSS_CHAPTER} — ${BOSS_STATS[nextBoss.kind].name} 처치 준비하기`,
-      detail: `권장 레벨 ${nextBoss.recommendedLevel} 이상. 장비를 강화한 뒤 보스를 찾아가 처치하면 다음 보스의 봉인이 풀립니다.`,
+      detail: `${getWorldMapById(nextBoss.mapId).name}에 있습니다 (지도 M에서 텔레포트, 권장 레벨 ${nextBoss.recommendedLevel} 이상). 장비를 강화한 뒤 처치하면 다음 보스의 봉인이 풀립니다.`,
       progress: `챕터 ${snapshot.bossChapter}/${FINAL_BOSS_CHAPTER} 클리어`,
       reward: { experience: 0, label: "보스 전리품과 다음 성장 단계" },
       completed: false,
