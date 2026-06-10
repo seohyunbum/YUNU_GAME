@@ -141,3 +141,7 @@
 - **인계 전 커밋 + 명시 선언.** 공유 파일을 넘기기 전 자기 변경을 커밋하고 "main.ts 비었음" 처럼 명시한다. "작업 완료" 안내만으론 부족하다 — 받는 쪽은 **`git status` 가 정적(미변경)인지 확인한 뒤** 편집한다.
 - **충돌하면 멈춘다.** Edit 가 "file modified since read" 로 실패하면 상대가 작업 중이라는 신호다. 재시도로 race 하지 말고 멈춰 상대의 커밋·정지를 기다린다.
 - **데이터/리프 우선 설계.** 가능하면 기능을 데이터(`game/`)로 표현해 `main.ts` 변경을 0 으로 만든다(예: 원거리 무기 = `RANGED_WEAPONS`). 그러면 두 에이전트가 다른 파일에서 충돌 없이 병행할 수 있다.
+
+### Runtime Shadow Toggle Rule
+
+- Runtime sprint/quality toggles must not change `renderer.shadowMap.enabled` or `renderer.shadowMap.type`; those are shader program keys and can cause full-scene recompilation hitches. Reduce shadow cost with `shadowMap.autoUpdate = false` plus scheduled `shadowMap.needsUpdate` intervals instead.
