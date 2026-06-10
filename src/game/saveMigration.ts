@@ -28,6 +28,19 @@ export function experienceForNextLevel(level: number) {
   return Math.floor(22.5 * Math.pow(Math.max(1, Math.floor(level)), 1.35));
 }
 
+// 현재 레벨/경험치에서 levelUps 만큼 레벨을 올리는 데 필요한 총 경험치 (경험치병 등 즉시 레벨업용)
+export function experienceForLevelUps(currentLevel: number, currentExperience: number, levelUps: number) {
+  let needed = 0;
+  let level = currentLevel;
+  let experience = currentExperience;
+  for (let i = 0; i < levelUps; i += 1) {
+    needed += experienceForNextLevel(level) - experience;
+    experience = 0;
+    level += 1;
+  }
+  return Math.max(0, needed);
+}
+
 export function levelStatBonus(level: number) {
   return Math.max(0, Math.floor(level) - 1);
 }

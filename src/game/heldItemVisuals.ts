@@ -180,6 +180,18 @@ export function createHeldItemModel(item: ItemId) {
     mirror.position.y = 0.34;
     mirror.rotation.x = -0.16;
     group.add(mirror);
+  } else if (item === "xp_bottle") {
+    const glassMaterial = new THREE.MeshStandardMaterial({ color: 0xbbf7d0, transparent: true, opacity: 0.5, roughness: 0.2 });
+    const liquidMaterial = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x16a34a, emissiveIntensity: 1.1, roughness: 0.3 });
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.3, 12), glassMaterial);
+    body.position.y = 0.3;
+    const fill = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.105, 0.2, 12), liquidMaterial);
+    fill.position.y = 0.27;
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.12, 10), glassMaterial);
+    neck.position.y = 0.5;
+    const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.07, 10), handleMaterial);
+    cork.position.y = 0.58;
+    group.add(body, fill, neck, cork);
   } else if (item === "medkit") {
     const caseMaterial = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.62 });
     const redMaterial = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.48 });

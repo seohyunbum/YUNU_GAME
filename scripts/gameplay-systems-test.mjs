@@ -21,6 +21,7 @@ function createHotbarContext(overrides = {}) {
     now: 1_000,
     itemCount: 1,
     removed: 0,
+    levelsGranted: 0,
     openedPanel: null,
     handActions: 0,
     healEffects: 0,
@@ -61,6 +62,9 @@ function createHotbarContext(overrides = {}) {
         state.itemCount -= 1;
         state.removed += 1;
         return true;
+      },
+      grantLevels: (count) => {
+        state.levelsGranted += count;
       },
       equipArmor: () => {},
       equipShield: (item) => {
@@ -326,6 +330,17 @@ try {
   }
 
   {
+    // 경험치병: 1병 = 15레벨, 소비형, 병이 없으면 아무 일도 없음
+    const { state, context } = createHotbarContext();
+    useHotbarItem("xp_bottle", context);
+    assert(state.levelsGranted === 15, `xp bottle should grant exactly 15 levels (got ${state.levelsGranted})`);
+    assert(state.itemCount === 0 && state.removed === 1, "xp bottle should be consumed on use");
+    assert(state.hudRenders === 1 && state.tones === 1, "xp bottle should give use feedback");
+    useHotbarItem("xp_bottle", context);
+    assert(state.levelsGranted === 15, "empty xp bottle stack should not grant more levels");
+  }
+
+  {
     // 기획 지정 스탯 오버라이드 골든: 맹견/독사는 레벨 공식 대신 지정 수치를 쓴다
     const hound = predatorStatsForMonster("hound");
     assert(hound.hp === 25 && hound.attackDamage === 6, `hound should keep designed stats (hp ${hound.hp}, atk ${hound.attackDamage})`);
@@ -377,6 +392,7 @@ try {
         "grave trap pull-in, zombie kill exit, and hand replenish",
         "attack motion windup/lunge perceptibility golden values",
         "designed stat overrides for hound and viper",
+        "xp bottle grants 15 levels and is consumed",
       ],
     }, null, 2));
   }

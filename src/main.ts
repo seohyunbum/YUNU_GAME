@@ -267,7 +267,7 @@ import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
 import { buildRecipeGuideEntriesForStations } from "./game/recipeGuide";
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
-import { migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
+import { experienceForLevelUps, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
 import {
   copySavedSlot,
@@ -640,6 +640,7 @@ class WildernessGame {
     useDragonSpawnItem: () => this.useDragonSpawnItem(),
     showMirrorView: () => this.showMirrorView(),
     removeItem: (item, count) => this.removeItem(item, count),
+    grantLevels: (count) => this.gainExperience(experienceForLevelUps(this.level, this.experience, count)),
     equipArmor: (item) => { this.equippedArmor = item; },
     equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
     playHandAction: () => this.playHandAction(),

@@ -12,6 +12,7 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   special_smelter: "특수 제련대",
   grinder: "분쇄기",
   mirror: "거울",
+  xp_bottle: "경험치병",
   bag: "가방",
   leather: "가죽",
   meat: "고기",
@@ -194,6 +195,7 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   obsidian_dagger: "epic",
   obsidian_armor: "epic",
   arcane_staff: "epic",
+  xp_bottle: "epic",
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";

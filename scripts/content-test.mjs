@@ -178,6 +178,14 @@ try {
     }
   }
 
+  // 경험치병은 치트(F4) 전용: 제작 레시피·상점·거래 어디에도 나오면 안 된다
+  if ([...MINI_RECIPES, ...WORKBENCH_RECIPES].some((r) => r.output === "xp_bottle")) {
+    problems.push("xp_bottle: must not be craftable (cheat-only item)");
+  }
+  for (const o of [...TRADE_OFFERS, ...BLACKSMITH_TRADE_OFFERS, ...POINT_SHOP_OFFERS]) {
+    if (Object.keys(o.receive ?? {}).includes("xp_bottle")) problems.push(`xp_bottle: must not be obtainable from '${o.id}' (cheat-only item)`);
+  }
+
   // 보스 챕터 진행표: 모든 보스를 정확히 1회씩 포함 + 챕터/권장레벨 단조 증가
   const bossKinds = Object.keys(BOSS_STATS);
   if (BOSS_PROGRESSION.length !== bossKinds.length) {
