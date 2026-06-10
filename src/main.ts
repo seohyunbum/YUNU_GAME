@@ -4,7 +4,7 @@ import { Water } from "three/examples/jsm/objects/Water.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CLASS_APPEARANCE, DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
 import { getRewardTuning, type RewardSource } from "./operatorConfig";
-import { currentObjective } from "./objectives";
+import { claimTutorialObjective, currentObjective, DEFAULT_TUTORIAL_PROGRESS, type TutorialObjective } from "./objectives";
 import {
   ASSET_PALETTE,
   VISUAL_THEME,
@@ -80,12 +80,14 @@ import {
   spawnMeleeSlashTrail,
   spawnProjectileImpact,
   spawnTntTrail,
+  spawnWindCutterTrail,
   type CombatEffectContext,
 } from "./game/combatEffects";
 import { celebrateLevelUp, celebrateRareDrop } from "./game/juice";
 import { createBannerElement } from "./ui/banner";
 import {
   ARCADE_POINTS_KEY,
+  BASE_BAG_SLOT_COUNT,
   BASE_MAX_MANA,
   BASE_PLAYER_MAX_HEALTH,
   BOW_DAMAGE,
@@ -103,11 +105,13 @@ import {
   DAY_LENGTH_SECONDS,
   DRAGON_BOSS_BAR_DISTANCE,
   EAGLE_ARMOR,
-  EAGLE_ATTACK,
   GUNNER_SKILL_COST,
   GUNNER_SKILL_COOLDOWN,
   GUNNER_SKILL_DAMAGE,
   EAGLE_MAX_HP,
+  EAGLE_POSSESSION_DURATION_SECONDS,
+  EAGLE_RAM_DAMAGE,
+  EXPANDED_BAG_SLOT_COUNT,
   EXTENDED_WORKBENCH_SLOT_COUNT,
   FIELD_ANIMAL_COUNT,
   GRAVITY,
@@ -115,6 +119,7 @@ import {
   HEALER_SKILL_COOLDOWN,
   HEALER_SKILL_COST,
   HOUSE_CENTER_Z,
+  HUNGER_HP_REGEN,
   HUNGER_MAX,
   HUNGER_TICK_SECONDS,
   INTERACT_DISTANCE,
@@ -149,6 +154,7 @@ import {
   NIGHT_PREDATOR_SPAWN_SECONDS,
   PLAYER_HEIGHT,
   PLAYER_RADIUS,
+  PREDATOR_RETALIATE_MS,
   PRONE_HEIGHT,
   PROJECTILE_MAX_LIFE,
   RANGED_ATTACK_COOLDOWN,
@@ -159,7 +165,6 @@ import {
   SMITHING_SUCCESS_POINTS,
   SPATIAL_CELL_SIZE,
   SPRINT_LOOK_TARGET_REFRESH_SECONDS,
-  SPRINT_SHADOW_REFRESH_INTERVAL,
   SPRINT_VISIBILITY_CHANGES_PER_PASS,
   SPRINT_VISIBILITY_CULL_INTERVAL,
   SUMMONER_SKILL_COOLDOWN,
@@ -210,13 +215,18 @@ import type {
   TerrainKind,
   WalkCycle,
   WalkPartSetup,
+  WorldMapId,
   WorldObject,
 } from "./game/types";
-import { BOSS_STATS, PREDATOR_STATS } from "./game/monsters";
+import { applyPredatorMonsterDefinition, BOSS_STATS, predatorKindForMonster, predatorStatsForMonster, PREDATOR_STATS, type MonsterId } from "./game/monsters";
+import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
+import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
+import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
+import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
 import { PLAYER_CLASSES } from "./game/classes";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
-import { BIOMES, WATER_RADIUS_MULTIPLIER, WATER_ZONES } from "./game/worldData";
+import { WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
   ARMOR_VALUE,
   AXE_POWER,
@@ -250,6 +260,10 @@ import { SMITHING_PRODUCTS } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { TUTORIAL_SECTIONS } from "./game/tutorial";
 import { spawnObject, type SpawnContext } from "./game/spawnContext";
+import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
+import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
+import { buildRecipeGuideEntriesForStations } from "./game/recipeGuide";
+import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
 import { migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
 import {
@@ -267,8 +281,13 @@ import {
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView } from "./ui/loadGamePanel";
+import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setupGameUi } from "./ui/setupUi";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
+import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
+import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
+import { eagleSkillStatus as formatEagleSkillStatus, possessedEagleDamage, tryEagleClaw, tryEagleWindCutter, type EagleActionContext } from "./game/eaglePossession";
+import { applyOverworldTimeOfDay } from "./game/timeOfDay";
 import "./style.css";
 
 class WildernessGame {
@@ -295,6 +314,7 @@ class WildernessGame {
   private readonly raycastTargets: THREE.Object3D[] = [];
   private readonly raycastTargetsByObject = new Map<string, THREE.Object3D[]>();
   private readonly objectIdsByType = new Map<ObjectType, Set<string>>();
+  private readonly respawnQueue: { dueAt: number; type: ObjectType; position: THREE.Vector3; villageId?: string; predatorKind?: PredatorKind; monsterId?: MonsterId; regionId?: string }[] = []; private suppressRespawn = false;
   private readonly spatialBuckets = new Map<string, Set<string>>();
   private readonly spatialKeysByObject = new Map<string, Set<string>>();
   private readonly waterObjects: WorldObject[] = [];
@@ -304,10 +324,11 @@ class WildernessGame {
   private readonly mountainMeshes: THREE.Object3D[] = [];
   private readonly biomeMeshes: THREE.Object3D[] = [];
   private readonly biomeDecorContext: BiomeDecorContext = {
-    biomes: BIOMES,
+    biomes: biomesForWorldMap(DEFAULT_WORLD_MAP_ID),
     clearBiomeMeshes: () => this.clearBiomeMeshes(),
     addBiomeMesh: (object) => this.addBiomeMesh(object),
     randomPointInCircle: (center, radius) => this.randomPointInCircle(center, radius),
+    isPointInWater: (point, margin) => this.isNearWater(point, margin),
   };
   private readonly treeVertexMaterial = gameMaterial(0xffffff, { vertexColors: true, roughness: 0.84, metalness: 0 });
   private readonly invisibleTargetMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
@@ -348,7 +369,7 @@ class WildernessGame {
     { item: null, count: 0 },
     { item: null, count: 0 },
   ];
-  private readonly bagSlots: Slot[] = [];
+  private readonly bagSlots: Slot[] = Array.from({ length: BASE_BAG_SLOT_COUNT }, () => ({ item: null, count: 0 }));
   private readonly craftSlots: Slot[] = Array.from({ length: 4 }, () => ({ item: null, count: 0 }));
   private readonly workbenchSlots: Slot[] = Array.from({ length: EXTENDED_WORKBENCH_SLOT_COUNT }, () => ({ item: null, count: 0 }));
   private readonly uiRoot = document.createElement("div");
@@ -371,6 +392,13 @@ class WildernessGame {
   private pendingStorageMove: { source: "hotbar" | "bag"; index: number } | null = null;
   private currentPanel: PanelType = null;
   private currentStationId: string | null = null;
+  private currentWorldMapId: WorldMapId = DEFAULT_WORLD_MAP_ID;
+  private activeRegions = regionsForWorldMap(DEFAULT_WORLD_MAP_ID);
+  private activeBiomes = biomesForWorldMap(DEFAULT_WORLD_MAP_ID);
+  private activeWaterZones = waterZonesForWorldMap(DEFAULT_WORLD_MAP_ID);
+  private readonly worldStates: WorldStateStore = {};
+  private readonly tutorialProgress = { completedStepIds: [...DEFAULT_TUTORIAL_PROGRESS.completedStepIds] };
+  private regionWarningState: RegionWarningState = { regionId: null, lastWarnAt: 0 };
   private yaw = 0;
   private pitch = 0;
   private pendingMouseX = 0;
@@ -397,14 +425,15 @@ class WildernessGame {
   private mana = BASE_MAX_MANA;
   private maxMana = BASE_MAX_MANA;
   private classSkillCooldownUntil = 0;
-  private possessedEagleId: string | null = null;
+  private healItemCooldownUntil = 0;
+  private possessedEagleId: string | null = null; private eaglePossessionEndsAt = 0;
+  private eagleClawCooldownUntil = 0; private windCutterCooldownUntil = 0;
   private readonly summonerCompanion = new SummonerCompanionController();
   private playerBodyPosition: THREE.Vector3 | null = null;
   private hunger = HUNGER_MAX;
   private hungerTimer = 0;
   private starvationTimer = 0;
   private starvationNoticeTimer = 0;
-  private lavaDamageTimer = 0;
   private dragonSpawnTimer = 0;
   private lastDamageTaken = 0;
   private lastDamageBlocked = false;
@@ -430,6 +459,7 @@ class WildernessGame {
     now: () => performance.now(),
   };
   private equippedArmor: ItemId | null = null;
+  private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0;
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home";
   private caveReturnPosition: THREE.Vector3 | null = null;
@@ -451,7 +481,6 @@ class WildernessGame {
   private readonly sprintHiddenVisuals: THREE.Object3D[] = [];
   private readonly outlineVisuals: THREE.Object3D[] = [];
   private sprintRenderOptimized = false;
-  private shadowMapEnabledBeforeSprint = true;
   private performanceSampleTimer = 0;
   private performanceSampleFrames = 0;
   private performanceSampleSum = 0;
@@ -504,12 +533,21 @@ class WildernessGame {
   };
   private smithingLastRenderedSecond = SMITHING_ROUND_SECONDS;
   private readonly damageParticles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number }[] = [];
+  private readonly projectiles: CombatProjectile[] = [];
   private readonly combatEffectContext: CombatEffectContext = {
     scene: this.scene,
     camera: this.camera,
     playerPosition: this.playerPosition,
     damageParticles: this.damageParticles,
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
+  };
+  private readonly eagleActionContext: EagleActionContext = {
+    possessedEagleId: () => this.possessedEagleId, selectedItem: () => this.hotbar[this.selectedHotbarIndex]?.item, levelBonus: () => this.levelStatBonus(),
+    clawCooldownUntil: () => this.eagleClawCooldownUntil, windCutterCooldownUntil: () => this.windCutterCooldownUntil,
+    setClawCooldownUntil: (value) => { this.eagleClawCooldownUntil = value; }, setWindCutterCooldownUntil: (value) => { this.windCutterCooldownUntil = value; },
+    target: () => this.eagleCombatTarget(), scene: this.scene, camera: this.camera, projectiles: this.projectiles, combatEffectContext: this.combatEffectContext,
+    applyDamage: (target, damage, kind) => this.applyProjectileDamage(target, damage, kind), playHandAction: (mode) => this.playHandAction(mode), playMeleeWhoosh: () => this.playMeleeWhoosh(),
+    playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(),
   };
   private readonly bannerEl = createBannerElement();
   private readonly juiceDeps = {
@@ -542,12 +580,37 @@ class WildernessGame {
     celebratePetLevel: (level) => celebrateLevelUp(this.juiceDeps, level),
     renderHud: () => this.renderHud(),
   };
-  private readonly projectiles: CombatProjectile[] = [];
+  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => this.predatorAggroRange(kind), predatorStrikeRange: (kind) => this.predatorStrikeRange(kind), predatorStats: (kind, monsterId) => this.predatorStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason) };
+  private readonly hotbarUseContext: HotbarUseContext = {
+    currentPanel: () => this.currentPanel,
+    health: () => this.health,
+    maxHealth: () => this.maxHealth,
+    hunger: () => this.hunger,
+    healItemCooldownUntil: () => this.healItemCooldownUntil,
+    now: () => performance.now(),
+    setHealth: (value) => { this.health = value; },
+    setHunger: (value) => { this.hunger = value; },
+    setHealItemCooldownUntil: (value) => { this.healItemCooldownUntil = value; },
+    resetStarvationTimer: () => { this.starvationTimer = 0; },
+    openPanel: (panel) => this.openPanel(panel),
+    fireRangedWeapon: (item) => this.fireRangedWeapon(item),
+    useSelectedBucketOnLook: () => this.useSelectedBucketOnLook(null, true),
+    useDragonSpawnItem: () => this.useDragonSpawnItem(),
+    showMirrorView: () => this.showMirrorView(),
+    removeItem: (item, count) => this.removeItem(item, count),
+    equipArmor: (item) => { this.equippedArmor = item; },
+    equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
+    playHandAction: () => this.playHandAction(),
+    spawnHealEffect: () => this.spawnHealEffect(this.playerPosition),
+    playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
+    showMessage: (text) => this.showMessage(text),
+    renderHud: () => this.renderHud(),
+  };
   private readonly areaSkillEffects: AreaSkillEffect[] = [];
   private actionMode: HandActionMode = "use";
   private rangedCooldown = 0;
   private gameStarted = false;
-  private nightSpawnTimer = 0;
+  private nightSpawnTimer = 0; private expirySweepTimer = 0;
   private mirrorViewTimer = 0;
   private mirrorAvatar: THREE.Object3D | null = null;
   private audioContext: AudioContext | null = null;
@@ -664,10 +727,10 @@ class WildernessGame {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.98;
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = false;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
-    this.renderer.shadowMap.needsUpdate = true;
+    this.renderer.shadowMap.needsUpdate = false;
     this.renderer.domElement.className = "game-canvas";
     this.container.appendChild(this.renderer.domElement);
     this.uiRoot.appendChild(this.bannerEl);
@@ -776,60 +839,7 @@ class WildernessGame {
 
   private applyTimeOfDay() {
     if (this.locationMode !== "overworld") return;
-    const hour = this.gameHour();
-    const stops = [
-      { hour: 0, sky: 0x06101f, fog: 0x050814, ambient: 0.36, sun: 0.02, cloud: 0x8695b6, opacity: 0.45, fogFar: 310 },
-      { hour: 4.6, sky: 0x233659, fog: 0x182944, ambient: 0.64, sun: 0.12, cloud: 0xaab7d6, opacity: 0.58, fogFar: 340 },
-      { hour: 6.2, sky: 0xf0a269, fog: 0xb7816b, ambient: 1.4, sun: 1.15, cloud: 0xffd5aa, opacity: 0.76, fogFar: 410 },
-      { hour: 8.5, sky: 0x9fd8ff, fog: 0x9fd8ff, ambient: 2.0, sun: 2.25, cloud: 0xffffff, opacity: 0.84, fogFar: 465 },
-      { hour: 13.0, sky: 0xaed8ff, fog: 0xaed8ff, ambient: 2.25, sun: 2.7, cloud: 0xffffff, opacity: 0.86, fogFar: 480 },
-      { hour: 17.8, sky: 0xf19a65, fog: 0xa86f68, ambient: 1.45, sun: 1.05, cloud: 0xffc49d, opacity: 0.74, fogFar: 405 },
-      { hour: 20.4, sky: 0x14213d, fog: 0x101827, ambient: 0.56, sun: 0.07, cloud: 0x8796b7, opacity: 0.5, fogFar: 320 },
-      { hour: 24, sky: 0x06101f, fog: 0x050814, ambient: 0.36, sun: 0.02, cloud: 0x8695b6, opacity: 0.45, fogFar: 310 },
-    ];
-    const nextIndex = stops.findIndex((stop) => hour <= stop.hour);
-    const after = stops[Math.max(1, nextIndex)];
-    const before = stops[Math.max(0, Math.max(1, nextIndex) - 1)];
-    const span = Math.max(0.001, after.hour - before.hour);
-    const rawT = THREE.MathUtils.clamp((hour - before.hour) / span, 0, 1);
-    const t = rawT * rawT * (3 - 2 * rawT);
-    const skyColor = new THREE.Color(before.sky).lerp(new THREE.Color(after.sky), t);
-    const fogColor = new THREE.Color(before.fog).lerp(new THREE.Color(after.fog), t);
-    const cloudColor = new THREE.Color(before.cloud).lerp(new THREE.Color(after.cloud), t);
-    const ambientIntensity = THREE.MathUtils.lerp(before.ambient, after.ambient, t);
-    const sunIntensity = THREE.MathUtils.lerp(before.sun, after.sun, t);
-    const fogFar = THREE.MathUtils.lerp(before.fogFar, after.fogFar, t);
-
-    this.scene.background = skyColor;
-    this.scene.fog = new THREE.Fog(fogColor, 70, fogFar);
-    this.sky.visible = true;
-    this.ambientLight.intensity = ambientIntensity;
-    this.ambientLight.color.copy(new THREE.Color(0xeaf7ff).lerp(skyColor, 0.24));
-    this.ambientLight.groundColor.copy(new THREE.Color(0x39542c).lerp(fogColor, 0.22));
-    this.sunLight.intensity = sunIntensity;
-    const sunAngle = ((hour - 6) / 24) * Math.PI * 2;
-    this.sunLight.position.set(Math.cos(sunAngle) * 120, Math.max(-28, Math.sin(sunAngle) * 150), 55);
-    const elevation = THREE.MathUtils.clamp(Math.sin(sunAngle) * 48 + 8, -8, 74);
-    const azimuth = THREE.MathUtils.radToDeg(sunAngle) - 80;
-    const phi = THREE.MathUtils.degToRad(90 - elevation);
-    const theta = THREE.MathUtils.degToRad(azimuth);
-    this.sunPosition.setFromSphericalCoords(1, phi, theta);
-    this.sky.material.uniforms.sunPosition.value.copy(this.sunPosition);
-    this.sky.material.uniforms.turbidity.value = THREE.MathUtils.lerp(9.2, 6.8, Math.min(1, sunIntensity / 2.7));
-    this.sky.material.uniforms.rayleigh.value = THREE.MathUtils.lerp(1.2, 3.0, Math.min(1, sunIntensity / 2.7));
-    this.fillLight.intensity = THREE.MathUtils.lerp(0.16, 0.72, Math.min(1, sunIntensity / 2.7));
-    this.fillLight.color.copy(new THREE.Color(0xffedd5).lerp(skyColor, 0.16));
-    const nightStrength = hour >= 20 || hour < 5 ? 1 : hour < 7 ? (7 - hour) / 2 : hour > 18 ? (hour - 18) / 2 : 0;
-    this.moonLight.intensity = THREE.MathUtils.clamp(nightStrength, 0, 1) * 0.38;
-
-    const cloudOpacity = THREE.MathUtils.lerp(before.opacity, after.opacity, t);
-    this.cloudLayer.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-        child.material.color.copy(cloudColor);
-        child.material.opacity = cloudOpacity;
-        child.material.needsUpdate = true;
-      }
-    });
+    applyOverworldTimeOfDay({ hour: this.gameHour(), scene: this.scene, sky: this.sky, ambientLight: this.ambientLight, sunLight: this.sunLight, fillLight: this.fillLight, moonLight: this.moonLight, cloudLayer: this.cloudLayer, sunPosition: this.sunPosition });
   }
 
   private gameHour() {
@@ -1637,6 +1647,15 @@ class WildernessGame {
 
   private setupEvents() {
     window.addEventListener("resize", () => this.resize());
+    this.objectiveEl.addEventListener("click", (event) => {
+      if (!(event.target as HTMLElement).closest(".objective-card")) return;
+      const completedTutorial = claimTutorialObjective(this.tutorialProgress, this.currentObjectiveView());
+      if (!completedTutorial) { this.showMessage("아직 완료되지 않은 목표입니다. 마우스를 올리면 상세 설명을 볼 수 있습니다."); return; }
+      if (completedTutorial.reward.experience > 0) this.gainExperience(completedTutorial.reward.experience);
+      for (const [item, count] of Object.entries(completedTutorial.reward.items ?? {})) if (!this.addItem(item as ItemId, count ?? 0)) this.spawnDroppedItem(item as ItemId, count ?? 0, this.playerPosition.clone());
+      this.showMessage(`튜토리얼 완료: ${completedTutorial.title}. 보상: ${completedTutorial.reward.label}`);
+      this.renderHud();
+    });
     this.renderer.domElement.addEventListener("click", () => {
       if (!this.gameStarted) return;
       if (this.currentPanel === null) this.requestGamePointerLock();
@@ -1646,6 +1665,7 @@ class WildernessGame {
       if (this.currentPanel !== null) return;
       if (event.button === 2) {
         event.preventDefault();
+        if (this.possessedEagleId) { tryEagleWindCutter(this.eagleActionContext); return; }
         if (this.placeSelectedBuildingBlock()) return;
         if (this.useSelectedBucketOnLook(this.getLookTarget(), true)) return;
         if (this.sleepInLookedBed()) return;
@@ -1694,11 +1714,11 @@ class WildernessGame {
   }
 
   private seedOverworld() {
+    this.biomeDecorContext.biomes = this.activeBiomes;
     for (let i = 0; i < 8; i += 1) this.spawnMountain(this.randomGroundPoint(), THREE.MathUtils.randFloat(15, 34), THREE.MathUtils.randFloat(4, 14));
     this.spawnBiomeTerrains();
     createBiomeDecor(this.biomeDecorContext);
-    this.spawnInitialLavaDragons();
-    this.spawnBossProgression();
+    if (this.currentWorldMapId === "dragon_lands") { this.spawnInitialLavaDragons(); this.spawnBossProgression(); }
     for (let i = 0; i < 1144; i += 1) this.spawnTree(Math.random() < 0.78 ? "smallTree" : "bigTree", this.randomGroundPoint());
     for (const point of [
       new THREE.Vector3(-10, 0, -8),
@@ -1718,13 +1738,21 @@ class WildernessGame {
     for (let i = 0; i < 26; i += 1) this.spawnDirtPatch(this.randomGroundPoint());
     for (let i = 0; i < 28; i += 1) this.spawnTerrainPatch(this.randomGroundPoint(), "grass", THREE.MathUtils.randFloat(2, 3.4), false);
     for (let i = 0; i < 16; i += 1) this.spawnTerrainPatch(this.randomGroundPoint(), Math.random() < 0.72 ? "stone" : "ore", THREE.MathUtils.randFloat(1.8, 3), true);
-    for (const waterZone of WATER_ZONES) this.spawnWaterBody(waterZone.center.clone(), this.waterZoneRadius(waterZone), waterZone.name);
+    for (const waterZone of this.activeWaterZones) this.spawnWaterBody(waterZone.center.clone(), this.waterZoneRadius(waterZone), waterZone.name);
     this.spawnTrain(0.1);
     for (let i = 0; i < 6; i += 1) this.spawnChest(this.randomGroundPoint(), false);
     for (let i = 0; i < 3; i += 1) this.spawnCave(this.randomGroundPoint());
-    for (let i = 0; i < FIELD_ANIMAL_COUNT; i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
-    this.spawnStarterAnimalHerds();
-    for (let i = 0; i < JAMMINI_FIELD_COUNT; i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
+    for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
+    if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
+    for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? JAMMINI_FIELD_COUNT : Math.ceil(JAMMINI_FIELD_COUNT * 0.4)); i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
+    for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? 36 : 48); i += 1) {
+      const region = this.activeRegions[Math.floor(Math.random() * this.activeRegions.length)];
+      const point = this.randomPredatorSpawnPoint(region);
+      if (!region || !point) continue;
+      const monsterId = chooseRegionPredatorMonster(region);
+      const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
+      applyPredatorMonsterDefinition(predator, region, monsterId);
+    }
     this.spawnVillage(new THREE.Vector3(58, 0, -76));
     this.spawnVillage(new THREE.Vector3(-96, 0, 120));
     this.spawnVillage(new THREE.Vector3(245, 0, 138), 16, true);
@@ -1759,7 +1787,7 @@ class WildernessGame {
   }
 
   private spawnInitialLavaDragons() {
-    for (const biome of BIOMES) {
+    for (const biome of this.activeBiomes) {
       if (biome.kind !== "lava" || Math.random() >= LAVA_DRAGON_SPAWN_CHANCE) continue;
       const point = this.randomPointInCircle(biome.center, biome.radius * 0.64);
       spawnDragonEntity(this.entitySpawnContext, point);
@@ -1849,8 +1877,10 @@ class WildernessGame {
     if (event.code === "KeyN" && this.currentPanel === null) this.newGame();
     if (event.code === "KeyI") this.togglePanel("inventory");
     if (event.code === "KeyB") this.togglePanel("book");
+    if (event.code === "KeyM") this.togglePanel("map");
     if (event.code === "KeyE") this.interact();
     if (event.code === "KeyR" && !event.repeat) this.useClassSkill();
+    if (event.code === "KeyX" && !event.repeat && this.possessedEagleId) { this.endEaglePossession(false); this.showMessage("독수리 빙의를 해제했습니다."); }
     if (event.code === "KeyP") this.showMessage("설치는 인벤토리에서 아이템을 아래 드롭존으로 드래그하세요.");
     if (event.code.startsWith("Digit") && !event.repeat) this.selectHotbarByKey(event.code);
   }
@@ -1881,56 +1911,7 @@ class WildernessGame {
   }
 
   private useSelectedHotbarItem() {
-    const item = this.hotbar[this.selectedHotbarIndex]?.item;
-    if (!item) return;
-    if (item === "tutorial_book") {
-      this.openPanel("book");
-      return;
-    }
-    if (this.currentPanel !== null) return;
-    if (this.isRangedWeapon(item)) {
-      this.fireRangedWeapon(item);
-      return;
-    }
-    if (this.isBucketItem(item)) {
-      this.useSelectedBucketOnLook(null, true);
-      return;
-    }
-    if (item === "dragon_spawn") {
-      this.useDragonSpawnItem();
-      return;
-    }
-    if (item === "building_block") {
-      this.showMessage("쌓기블록을 들었습니다. 오른쪽 클릭으로 바라보는 블록의 옆/위에 붙이고, 좌클릭/E로 회수합니다.");
-      return;
-    }
-    if (PLACEABLE_TYPES[item]) {
-      this.showMessage("설치 아이템은 인벤토리에서 아래 드롭존으로 드래그하면 설치됩니다.");
-      return;
-    }
-    if (item === "mirror") {
-      this.showMirrorView();
-      return;
-    }
-    if (item === "meat") {
-      if (this.hunger >= HUNGER_MAX) {
-        this.showMessage("배고픔이 이미 가득 차 있습니다.");
-        return;
-      }
-      if (this.removeItem("meat", 1)) {
-        this.hunger = Math.min(HUNGER_MAX, this.hunger + 1);
-        if (this.hunger > 0) this.starvationTimer = 0;
-        this.playHandAction();
-        this.showMessage(`고기를 먹어 배고픔이 회복되었습니다. 배고픔 ${this.hunger}/${HUNGER_MAX}.`);
-        this.renderHud();
-      }
-      return;
-    }
-    if (ARMOR_VALUE[item]) {
-      this.equippedArmor = item;
-      this.showMessage(`${ITEM_NAMES[item] ?? item}을 착용했습니다.`);
-      this.renderHud();
-    }
+    useHotbarItem(this.hotbar[this.selectedHotbarIndex]?.item, this.hotbarUseContext);
   }
 
   private isBucketItem(item: ItemId | null | undefined) {
@@ -2087,6 +2068,7 @@ class WildernessGame {
       slot.count = 0;
     }
     this.syncEquippedArmor(item);
+    this.syncEquippedShield(item);
 
     const position = this.pointInFront(2.0);
     this.spawnDroppedItem(item, 1, position);
@@ -2103,6 +2085,7 @@ class WildernessGame {
       return false;
     }
     this.syncEquippedArmor(item);
+    this.syncEquippedShield(item);
     const position = this.pointInFront(2.0);
     this.spawnDroppedItem(item, 1, position);
     this.playHandAction();
@@ -2123,6 +2106,7 @@ class WildernessGame {
       slot.durabilityUsed = undefined;
     }
     this.syncEquippedArmor(item);
+    this.syncEquippedShield(item);
     this.spawnPlaceableItem(item);
     this.renderPanel();
     this.renderHud();
@@ -2422,20 +2406,8 @@ class WildernessGame {
   private setSprintRenderOptimizations(active: boolean) {
     if (this.sprintRenderOptimized === active) return;
     this.sprintRenderOptimized = active;
-    if (active) {
-      this.shadowMapEnabledBeforeSprint = this.renderer.shadowMap.enabled;
-      this.renderer.shadowMap.enabled = false;
-    } else {
-      this.renderer.shadowMap.enabled = this.shadowMapEnabledBeforeSprint;
-    }
-    for (let index = this.sprintHiddenVisuals.length - 1; index >= 0; index -= 1) {
-      const visual = this.sprintHiddenVisuals[index];
-      if (!visual.parent) {
-        this.sprintHiddenVisuals.splice(index, 1);
-        continue;
-      }
-      visual.visible = shouldShowPerformanceHiddenVisual(visual, this.qualityMode, this.sprintRenderOptimized);
-    }
+    this.shadowRefreshTimer = 0;
+    if (active) this.renderer.shadowMap.needsUpdate = false;
   }
 
   private update(delta: number) {
@@ -2465,8 +2437,9 @@ class WildernessGame {
     this.updateDragons(delta);
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
-    this.updateNightSpawns(delta);
+    this.updateNightSpawns(delta); this.expirySweepTimer += delta; if (this.expirySweepTimer >= 1) { const now = performance.now(); this.expirySweepTimer = 0; for (const object of [...this.objects.values()]) if (object.expiresAt !== undefined && object.expiresAt <= now && (object.type === "chest" || object.type === "mineChest" || object.type === "cave")) this.removeObject(object.id); }
     this.updateMovement(delta);
+    if (this.locationMode === "overworld") this.regionWarningState = maybeWarnRegionLevel(this.regionWarningState, this.playerPosition, this.level, performance.now(), (message) => this.showMessage(message), this.activeRegions);
     this.updateVisibilityCulling(delta);
     this.summonerCompanion.update(this.summonerPetContext, delta);
     this.updateEnvironmentHazards(delta);
@@ -2532,15 +2505,15 @@ class WildernessGame {
     this.shadowRefreshInterval = mode === "high" ? 0.4 : mode === "balanced" ? 0.65 : 1.1;
     this.renderer.setPixelRatio(this.pixelRatioForQuality(mode));
     applyShadowQuality(this.sunLight, mode);
-    refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, this.sprintRenderOptimized);
+    refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, false);
     this.renderer.shadowMap.needsUpdate = true;
   }
 
   private updateVisualEffects(delta: number) {
     const time = this.clock.elapsedTime;
     this.shadowRefreshTimer += delta;
-    const shadowInterval = this.isSprinting() ? Math.max(this.shadowRefreshInterval, SPRINT_SHADOW_REFRESH_INTERVAL) : this.shadowRefreshInterval;
-    if (this.shadowRefreshTimer >= shadowInterval) {
+    if (this.isSprinting()) this.shadowRefreshTimer = 0;
+    if (!this.isSprinting() && this.shadowRefreshTimer >= this.shadowRefreshInterval) {
       this.renderer.shadowMap.needsUpdate = true;
       this.shadowRefreshTimer = 0;
     }
@@ -2704,8 +2677,9 @@ class WildernessGame {
   }
 
   private updateMana(delta: number) {
-    const healthRegen = CLASS_PASSIVES[this.playerClass].healthRegenPerSec;
-    if (healthRegen > 0 && this.health < this.maxHealth && this.hunger > 0) {
+    const hungerLevel = Math.min(HUNGER_HP_REGEN.length - 1, Math.max(0, Math.floor(this.hunger)));
+    const healthRegen = CLASS_PASSIVES[this.playerClass].healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel];
+    if (healthRegen > 0 && this.health < this.maxHealth) {
       const previousHealth = Math.floor(this.health);
       this.health = Math.min(this.maxHealth, this.health + healthRegen * delta);
       if (Math.floor(this.health) !== previousHealth) this.renderHud();
@@ -2746,10 +2720,12 @@ class WildernessGame {
     mage: () => this.useMageSkill(),
     summoner: () => this.useSummonerSkill(),
     gunner: () => this.useGunnerSkill(),
+    tanker: () => this.useTankerSkill(),
   };
 
   private useClassSkill() {
     if (!this.gameStarted || this.currentPanel !== null) return;
+    if (this.possessedEagleId) { tryEagleClaw(this.eagleActionContext); return; }
     this.classSkillHandlers[this.playerClass]?.();
   }
 
@@ -2779,12 +2755,14 @@ class WildernessGame {
     const spawnPosition = this.playerPosition.clone();
     spawnPosition.y = this.getGroundHeightAt(spawnPosition.x, spawnPosition.z) + 1.6;
     const eagle = this.spawnEagleSummon(spawnPosition);
-    this.possessedEagleId = eagle.id;
+    this.possessedEagleId = eagle.id; this.eaglePossessionEndsAt = performance.now() + EAGLE_POSSESSION_DURATION_SECONDS * 1000;
+    this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
     this.playerPosition.y = this.getGroundHeightAt(this.playerPosition.x, this.playerPosition.z) + PLAYER_HEIGHT + 0.55;
     this.camera.position.copy(this.playerPosition);
     this.syncPossessedEagle();
     this.playHandAction("magic");
     this.playTone(860, 0.18, "triangle", 0.032);
+    this.showMessage("\uBE59\uC758 \uC870\uC791: \uC88C\uD074\uB9AD/E \uBC15\uCE58\uAE30, R \uD560\uD034\uAE30, \uC6B0\uD074\uB9AD \uC708\uB4DC\uCEE4\uD130, X \uBE59\uC758 \uD574\uC81C.");
     this.showMessage("독수리소환술! 독수리에 빙의했습니다. 독수리가 쓰러지면 본체로 돌아갑니다.");
     this.renderHud();
   }
@@ -2811,6 +2789,12 @@ class WildernessGame {
     if (!this.trySpendClassSkill(GUNNER_SKILL_COST, GUNNER_SKILL_COOLDOWN)) return;
     this.fireStrongShot();
     this.showMessage(`강탄! ${GUNNER_SKILL_DAMAGE} 피해의 강한 탄환을 발사했습니다.`);
+  }
+
+  private useTankerSkill() {
+    if (!this.trySpendClassSkill(TANKER_SKILL_COST, TANKER_SKILL_COOLDOWN)) return;
+    this.ironGuardUntil = activateIronGuardUntil(performance.now());
+    this.playHandAction("melee"); this.playTone(220, 0.16, "triangle", 0.03); this.showMessage(ironGuardMessage()); this.renderHud();
   }
 
   private fireStrongShot() {
@@ -2975,22 +2959,11 @@ class WildernessGame {
   }
 
   private updateEnvironmentHazards(delta: number) {
-    if (this.locationMode !== "overworld") {
-      this.lavaDamageTimer = 0;
-      this.dragonSpawnTimer = 0;
-      return;
-    }
-    if (!this.isPointInLava(this.playerPosition)) {
-      this.lavaDamageTimer = 0;
+    if (this.locationMode !== "overworld" || !this.isPointInLava(this.playerPosition)) {
       this.dragonSpawnTimer = 0;
       return;
     }
     this.checkLavaDragonSpawn(delta);
-    this.lavaDamageTimer += delta;
-    if (this.lavaDamageTimer < 1) return;
-    this.lavaDamageTimer = 0;
-    if (this.damagePlayer(2, true, "용암 지역의 열기에 체력이 모두 떨어졌습니다.", true)) return;
-    this.showMessage("용암 지역은 너무 뜨겁습니다. 체력이 줄었습니다.");
   }
 
   private checkLavaDragonSpawn(delta: number) {
@@ -3419,39 +3392,7 @@ class WildernessGame {
   }
 
   private updatePredators(delta: number) {
-    if (this.locationMode !== "overworld") return;
-    for (const predator of this.objectsOfType("wildPredator")) {
-      const toPlayer = this.playerPosition.clone().sub(predator.root.position);
-      const distance = Math.hypot(toPlayer.x, toPlayer.z);
-      const aggroRange = predator.attackRange ?? this.predatorAggroRange(predator.predatorKind);
-      const aggroed = distance <= aggroRange || ((predator.angryUntil ?? 0) > performance.now() && distance <= aggroRange * 1.35);
-      if (!aggroed && Math.random() < 0.012) predator.wanderAngle = Math.random() * Math.PI * 2;
-      if (!aggroed && distance > aggroRange * 1.8) {
-        predator.wanderAngle = (predator.wanderAngle ?? 0) + THREE.MathUtils.randFloatSpread(0.08);
-      }
-      const angle =
-        aggroed
-          ? Math.atan2(toPlayer.z, toPlayer.x)
-          : predator.wanderAngle ?? 0;
-      const predatorStats = this.predatorStats(predator.predatorKind);
-      const baseSpeed = predatorStats.speed;
-      const speed = aggroed ? baseSpeed : baseSpeed * 0.28;
-      const next = predator.root.position.clone();
-      next.x += Math.cos(angle) * speed * delta;
-      next.z += Math.sin(angle) * speed * delta;
-      next.x = THREE.MathUtils.clamp(next.x, -WORLD_SIZE / 2 + 6, WORLD_SIZE / 2 - 6);
-      next.z = THREE.MathUtils.clamp(next.z, -WORLD_SIZE / 2 + 6, WORLD_SIZE / 2 - 6);
-      next.y = this.getGroundHeightAt(next.x, next.z);
-      predator.root.position.copy(next);
-      this.refreshSpatialObject(predator);
-      predator.root.rotation.y = -angle + Math.PI / 2;
-      this.animateWalkCycle(predator, delta, aggroed ? 0.82 : 0.28);
-      predator.attackCooldown = Math.max(0, (predator.attackCooldown ?? 0) - delta);
-      if (aggroed && distance < this.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
-        predator.attackCooldown = predatorStats.cooldown;
-        this.damagePlayer(predatorStats.attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
-      }
-    }
+    updatePredatorAi(this.predatorAiContext, delta);
   }
 
   private updateDragons(_delta: number) {
@@ -3575,8 +3516,8 @@ class WildernessGame {
     return this.predatorStats(kind).strikeRange;
   }
 
-  private predatorStats(kind: PredatorKind = "wolf") {
-    return PREDATOR_STATS[kind] ?? PREDATOR_STATS.wolf;
+  private predatorStats(kind: PredatorKind = "wolf", monsterId?: MonsterId) {
+    return monsterId ? predatorStatsForMonster(monsterId, kind) : PREDATOR_STATS[kind] ?? PREDATOR_STATS.wolf;
   }
 
   private bossStats(kind: BossKind | undefined = "dragon") {
@@ -3585,18 +3526,30 @@ class WildernessGame {
 
   private updateNightSpawns(delta: number) {
     if (this.locationMode !== "overworld") return;
+    const now = performance.now();
+    for (let index = this.respawnQueue.length - 1; index >= 0; index -= 1) {
+      const entry = this.respawnQueue[index]; if (entry.dueAt > now) continue; if (entry.position.distanceTo(this.playerPosition) < 42) { entry.dueAt = now + 10_000; continue; }
+      this.respawnQueue.splice(index, 1); const position = entry.position.clone(); position.y = this.getGroundHeightAt(position.x, position.z); const villageId = entry.villageId ?? "respawn-village";
+      if (entry.type === "wildPredator") { const region = this.activeRegions.find((candidate) => candidate.id === entry.regionId) ?? regionAtPosition(position, this.activeRegions); const monsterId = (entry.monsterId as MonsterId | undefined) ?? chooseRegionPredatorMonster(region); const predator = spawnPredatorEntity(this.entitySpawnContext, this.randomPredatorSpawnPoint(region) ?? position, entry.predatorKind ?? predatorKindForMonster(monsterId)); applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(predator.root.position, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId); }
+      else if (entry.type === "jammini") spawnJamminiEntity(this.entitySpawnContext, position);
+      else if (entry.type === "villageKnight") this.spawnKnight(position, villageId); else if (entry.type === "villageGolem") this.spawnGolem(position, villageId); else if (entry.type === "villageArcher" || entry.type === "villageMage") this.spawnRangedGuard(position, villageId, entry.type);
+    }
     this.nightSpawnTimer += delta;
     if (this.nightSpawnTimer < NIGHT_PREDATOR_SPAWN_SECONDS) return;
     this.nightSpawnTimer = 0;
     const hour = this.gameHour();
     const isNight = hour >= 20 || hour < 5;
-    if (!isNight) return;
-    const predatorCount = this.objectIdsByType.get("wildPredator")?.size ?? 0;
-    if (predatorCount >= NIGHT_PREDATOR_MAX_COUNT || Math.random() > 0.25) return;
-    const point = this.randomPredatorSpawnPoint();
+    const region = regionAtPosition(this.playerPosition, this.activeRegions);
+    if (!isNight && (!region || region.levelRange[1] < 10)) return;
+    let predatorCount = 0; for (const predator of this.objectsOfType("wildPredator")) if (!region || predator.regionId === region.id) predatorCount += 1;
+    const maxPredators = isNight ? NIGHT_PREDATOR_MAX_COUNT : NIGHT_PREDATOR_MAX_COUNT + 4;
+    if (predatorCount >= maxPredators || Math.random() > (isNight ? 0.36 : 0.3)) return;
+    const point = this.randomPredatorSpawnPoint(region);
     if (!point) return;
-    spawnPredatorEntity(this.entitySpawnContext, point);
-    this.showMessage("밤의 야생동물들이 멀리 숲과 들판에 퍼져 있습니다.");
+    const monsterId = chooseRegionPredatorMonster(region);
+    const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
+    applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(point, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId);
+    this.showMessage(isNight ? "밤의 야생동물들이 멀리 숲과 들판에 퍼져 있습니다." : "이 지역의 몬스터들이 멀리 퍼져 있습니다.");
   }
 
   private createWalkCycle(parts: WalkPartSetup[], amplitude = 0.42, speed = 8, lift = 0.035): WalkCycle {
@@ -3640,16 +3593,20 @@ class WildernessGame {
       const mode = guard.guardMode ?? "melee";
       const range = guard.attackRange ?? (mode === "ranged" ? 18 : 2.05);
       const damage = guard.attackDamage ?? (guard.type === "villageMage" ? 2 : guard.type === "villageGolem" ? 9 : 1);
-      const distance = guard.root.position.distanceTo(this.playerPosition);
+      const dx = this.playerPosition.x - guard.root.position.x;
+      const dz = this.playerPosition.z - guard.root.position.z;
+      const centerDistance = Math.hypot(dx, dz);
+      const attackDistance =
+        mode === "melee"
+          ? Math.max(0, centerDistance - (guard.collisionRadius ?? 0.75) - PLAYER_RADIUS)
+          : centerDistance;
       let movementSpeed = 0;
-      if (mode === "melee" && distance > range) {
-        const direction = this.playerPosition.clone().sub(guard.root.position);
-        direction.y = 0;
-        if (direction.lengthSq() > 0.01) {
-          direction.normalize();
+      if (mode === "melee" && attackDistance > range) {
+        if (centerDistance > 0.01) {
           const chaseSpeed = guard.type === "villageGolem" ? 1.85 : 2.4;
-          const step = Math.min(distance - range, chaseSpeed * delta);
-          guard.root.position.addScaledVector(direction, step);
+          const step = Math.min(attackDistance - range, chaseSpeed * delta);
+          guard.root.position.x += (dx / centerDistance) * step;
+          guard.root.position.z += (dz / centerDistance) * step;
           guard.root.position.y = this.getGroundHeightAt(guard.root.position.x, guard.root.position.z);
           this.refreshSpatialObject(guard);
           movementSpeed = step / Math.max(delta, 0.001);
@@ -3659,7 +3616,12 @@ class WildernessGame {
 
       guard.attackCooldown = Math.max(0, (guard.attackCooldown ?? 0) - delta);
       if (guard.attackCooldown > 0) continue;
-      if (guard.root.position.distanceTo(this.playerPosition) > range) continue;
+      const currentCenterDistance = Math.hypot(this.playerPosition.x - guard.root.position.x, this.playerPosition.z - guard.root.position.z);
+      const currentAttackDistance =
+        mode === "melee"
+          ? Math.max(0, currentCenterDistance - (guard.collisionRadius ?? 0.75) - PLAYER_RADIUS)
+          : currentCenterDistance;
+      if (currentAttackDistance > range) continue;
       guard.attackCooldown = guard.attackInterval ?? (mode === "ranged" ? 1.8 : 1.2);
       const died = this.damagePlayer(
         damage,
@@ -3871,15 +3833,16 @@ class WildernessGame {
       return;
     }
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
-    if (this.isRangedWeapon(selectedItem)) {
-      this.fireRangedWeapon(selectedItem);
-      return;
-    }
+    const selectedItemIsRanged = this.isRangedWeapon(selectedItem);
     const exactTarget = this.getLookTarget();
     const target =
       exactTarget?.type === "blacksmithNpc"
         ? exactTarget
         : this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "villageShop", "villageSellShop", "antHill", "wildPredator", "dragon", "jammini"]) ?? exactTarget;
+    if (!this.possessedEagleId && selectedItemIsRanged && shouldFireRangedDuringInteract(true, Boolean(target), target ? this.isCombatTarget(target) : false)) {
+      this.fireRangedWeapon(selectedItem);
+      return;
+    }
     if (!target) {
       if (this.useSelectedBucketOnLook(null, this.isBucketItem(this.hotbar[this.selectedHotbarIndex]?.item))) return;
       if (this.hotbar[this.selectedHotbarIndex]?.item === "dragon_spawn") {
@@ -4162,7 +4125,7 @@ class WildernessGame {
       this.showMessage("이미 연 상자입니다.");
       return;
     }
-    target.opened = true;
+    target.opened = true; target.expiresAt = performance.now() + 8_000;
     this.tintObject(target.root, 0x6a5940);
     this.playChestSound();
 
@@ -4290,7 +4253,7 @@ class WildernessGame {
       this.showMessage("이미 연 광산 상자입니다.");
       return;
     }
-    target.opened = true;
+    target.opened = true; target.expiresAt = performance.now() + 8_000;
     this.tintObject(target.root, 0x4f4636);
 
     const rolls = Math.random() < 0.05 ? THREE.MathUtils.randInt(2, 3) : 1;
@@ -4336,7 +4299,7 @@ class WildernessGame {
     if (target.type !== "wildPredator") return;
     const damage = this.currentDamage();
     target.hp = (target.hp ?? 10) - damage;
-    target.angryUntil = performance.now() + 8_000;
+    target.angryUntil = performance.now() + PREDATOR_RETALIATE_MS;
     this.playTone(120, 0.08, "square", 0.035);
     if (target.hp > 0) {
       this.showMessage(`${target.name}에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
@@ -4563,7 +4526,7 @@ class WildernessGame {
 
   private currentDamage() {
     const bonus = this.levelStatBonus();
-    if (this.possessedEagleId) return EAGLE_ATTACK + bonus;
+    if (this.possessedEagleId) return possessedEagleDamage(EAGLE_RAM_DAMAGE, this.hotbar[this.selectedHotbarIndex]?.item, bonus);
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     if (selectedItem && !this.isRangedWeapon(selectedItem) && WEAPON_DAMAGE[selectedItem]) return WEAPON_DAMAGE[selectedItem] + bonus;
     return Math.max(1, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus;
@@ -4574,8 +4537,14 @@ class WildernessGame {
     return base + this.levelStatBonus();
   }
 
+  private eagleCombatTarget() {
+    const exactTarget = this.getLookTarget();
+    if (exactTarget && this.isCombatTarget(exactTarget)) return exactTarget;
+    return this.nearbyObjectInView(["animal", "wildPredator", "dragon", "jammini", "villager", "villageKing", "villageKnight", "villageArcher", "villageMage", "villageGolem"]);
+  }
+
   private displayedAttackPower() {
-    if (this.possessedEagleId) return EAGLE_ATTACK + this.levelStatBonus();
+    if (this.possessedEagleId) return possessedEagleDamage(EAGLE_RAM_DAMAGE, this.hotbar[this.selectedHotbarIndex]?.item, this.levelStatBonus());
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     if (selectedItem && this.isRangedWeapon(selectedItem)) return this.currentRangedDamage(selectedItem);
     return this.currentDamage();
@@ -4590,11 +4559,11 @@ class WildernessGame {
   }
 
   private experienceForNextLevel(level = this.level) {
-    return Math.floor(45 * Math.pow(Math.max(1, Math.floor(level)), 1.35));
+    return Math.floor(22.5 * Math.pow(Math.max(1, Math.floor(level)), 1.35));
   }
 
   private equipmentArmorValue() {
-    return (this.equippedArmor ? ARMOR_VALUE[this.equippedArmor] ?? 0 : 0) + CLASS_PASSIVES[this.playerClass].armorBonus;
+    return equipmentArmorValueWithShield(this.equippedArmor, this.equippedShield, this.playerClass, this.ironGuardUntil, performance.now());
   }
 
   private equippedArmorValue() {
@@ -4691,18 +4660,19 @@ class WildernessGame {
       if (typeof side === "number") child.rotation.z = side * (0.36 + flap);
     });
     this.refreshSpatialObject(eagle);
+    if (this.eaglePossessionEndsAt > 0 && performance.now() >= this.eaglePossessionEndsAt) { this.endEaglePossession(false); this.showMessage("독수리 빙의 시간이 끝났습니다."); }
   }
 
   private endEaglePossession(showNotice: boolean) {
     const eagleId = this.possessedEagleId;
+    const eagle = eagleId ? this.objects.get(eagleId) : null;
+    if (eagle) this.playerPosition.set(eagle.root.position.x, this.getGroundHeightAt(eagle.root.position.x, eagle.root.position.z) + PLAYER_HEIGHT, eagle.root.position.z);
+    else this.playerPosition.y = this.getGroundHeightAt(this.playerPosition.x, this.playerPosition.z) + PLAYER_HEIGHT;
     if (eagleId) this.removeObject(eagleId);
-    this.possessedEagleId = null;
-    if (this.playerBodyPosition) {
-      this.playerPosition.copy(this.playerBodyPosition);
-      this.playerPosition.y = this.getGroundHeightAt(this.playerPosition.x, this.playerPosition.z) + PLAYER_HEIGHT;
-      this.playerBodyPosition = null;
-      this.settlePlayerAfterTeleport();
-    }
+    this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
+    this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
+    this.playerBodyPosition = null;
+    this.settlePlayerAfterTeleport();
     if (showNotice) this.showMessage("독수리가 쓰러져 본체로 돌아왔습니다.");
     this.renderHud();
   }
@@ -4825,6 +4795,10 @@ class WildernessGame {
       projectile.life -= delta;
       projectile.mesh.position.addScaledVector(projectile.velocity, delta);
       if (projectile.kind === "magic") spawnMagicTrail(this.combatEffectContext, projectile.mesh.position);
+      if (projectile.kind === "wind") {
+        projectile.mesh.rotation.z += delta * 8;
+        spawnWindCutterTrail(this.combatEffectContext, projectile.mesh.position);
+      }
       if (projectile.kind === "tnt") {
         projectile.mesh.rotation.x += delta * 5.5;
         projectile.mesh.rotation.z += delta * 3.2;
@@ -4923,13 +4897,25 @@ class WildernessGame {
       this.playTone(160, 0.05, "sawtooth", 0.018);
       return;
     }
+    if (kind === "wind") {
+      this.playTone(780, 0.055, "triangle", 0.024);
+      this.playTone(260, 0.065, "sine", 0.014);
+      return;
+    }
     this.playTone(140, 0.055, "square", 0.024);
+  }
+
+  private consumeShieldDurability() {
+    const result = consumeShieldHit(this.equippedShield, this.shieldDurabilityUsed);
+    this.equippedShield = result.equippedShield; this.shieldDurabilityUsed = result.shieldDurabilityUsed;
+    if (result.brokenItem) { this.removeItem(result.brokenItem, 1); this.showMessage(`${ITEM_NAMES[result.brokenItem] ?? result.brokenItem}이 부서졌습니다.`); }
   }
 
   private damagePlayer(amount: number, showParticles = true, deathReason = "체력이 모두 떨어졌습니다.", ignoreArmor = false) {
     if (this.possessedEagleId) return this.damagePossessedEagle(amount, showParticles, ignoreArmor);
     const armor = ignoreArmor ? 0 : this.equippedArmorValue();
     const damage = ignoreArmor ? Math.max(1, Math.floor(amount)) : this.calculateCombatDamage(amount, armor);
+    if (!ignoreArmor && this.equippedShield) this.consumeShieldDurability();
     this.lastDamageTaken = damage;
     this.lastDamageBlocked = damage <= 0;
     if (damage <= 0) {
@@ -4961,7 +4947,7 @@ class WildernessGame {
       }
       this.playerPosition.set(0, PLAYER_HEIGHT, 12);
       this.settlePlayerAfterTeleport();
-      this.showMessage(`사망 원인: ${deathReason} 튜토리얼 책을 제외한 아이템이 죽은 자리에 떨어졌습니다.`);
+      this.showMessage(`사망 원인: ${deathReason} 튜토리얼 책, 직업 기본무기, 구급상자를 제외한 아이템이 죽은 자리에 떨어졌습니다.`);
       this.renderHud();
       return true;
     }
@@ -4997,10 +4983,12 @@ class WildernessGame {
 
   private dropInventoryOnDeath(position: THREE.Vector3) {
     position.y = this.getOverworldHeightAt(position.x, position.z) + 0.08;
+    const starterItem = PLAYER_CLASSES[this.playerClass]?.starterItem ?? "iron_sword";
+    const protectedItems = new Set<ItemId>(["tutorial_book", "medkit", starterItem]);
     for (const slot of this.allStorageSlots()) {
       if (!slot.item || slot.count <= 0) continue;
-      if (slot.item === "tutorial_book") {
-        slot.count = 1;
+      if (protectedItems.has(slot.item)) {
+        if (slot.item === "tutorial_book") slot.count = 1;
         slot.durabilityUsed = undefined;
         continue;
       }
@@ -5012,6 +5000,7 @@ class WildernessGame {
     }
     if (!this.hotbar.some((slot) => slot.item === "tutorial_book")) this.hotbar[0] = { item: "tutorial_book", count: 1 };
     this.equippedArmor = null;
+    this.equippedShield = isShieldItem(starterItem) ? starterItem : null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0;
   }
 
 
@@ -5056,74 +5045,10 @@ class WildernessGame {
   private currentAudioProfile() {
     const hour = this.gameHour();
     const nearLava = this.locationMode === "overworld" && this.isPointInLava(this.playerPosition, 9);
-    if (nearLava) {
-      return {
-        root: 110,
-        melody: [0, 1, 5, 7, 10, 7, 5, 1],
-        chord: [0, 5, 10],
-        beat: 0.56,
-        master: 0.038,
-        lead: 0.011,
-        bass: 0.018,
-        pad: 0.008,
-        ambient: "lava" as const,
-      };
-    }
-    if (this.locationMode === "cave") {
-      return {
-        root: 146.83,
-        melody: [0, 3, 5, 7, 10, 7, 5, 3],
-        chord: [0, 3, 7],
-        beat: 0.74,
-        master: 0.034,
-        lead: 0.009,
-        bass: 0.017,
-        pad: 0.009,
-        ambient: "cave" as const,
-      };
-    }
-    if (this.locationMode === "house") {
-      return {
-        root: 220,
-        melody: [0, 4, 7, 9, 7, 4, 2, 0],
-        chord: [0, 4, 7],
-        beat: 0.68,
-        master: 0.029,
-        lead: 0.01,
-        bass: 0.011,
-        pad: 0.008,
-        ambient: "house" as const,
-      };
-    }
-    const night = hour >= 20 || hour < 5;
-    const dawnOrEvening = (hour >= 5 && hour < 8) || (hour >= 17 && hour < 20);
-    if (night) {
-      return {
-        root: 174.61,
-        melody: [0, 3, 7, 10, 12, 10, 7, 3],
-        chord: [0, 3, 7],
-        beat: 0.78,
-        master: 0.031,
-        lead: 0.009,
-        bass: 0.014,
-        pad: 0.009,
-        ambient: "night" as const,
-      };
-    }
-    return {
-      root: dawnOrEvening ? 196 : 261.63,
-      melody: dawnOrEvening ? [0, 2, 5, 7, 9, 7, 5, 2] : [0, 2, 4, 7, 9, 12, 9, 7],
-      chord: dawnOrEvening ? [0, 5, 9] : [0, 4, 7],
-      beat: dawnOrEvening ? 0.7 : 0.58,
-      master: dawnOrEvening ? 0.03 : 0.032,
-      lead: dawnOrEvening ? 0.01 : 0.012,
-      bass: 0.012,
-      pad: 0.008,
-      ambient: "day" as const,
-    };
+    return resolveAudioProfile(hour, this.locationMode, nearLava);
   }
 
-  private scheduleBgmStep(profile: ReturnType<WildernessGame["currentAudioProfile"]>, startTime: number) {
+  private scheduleBgmStep(profile: AudioProfile, startTime: number) {
     const step = this.bgmStep % 16;
     const note = profile.melody[step % profile.melody.length];
     if (step % 2 === 0) {
@@ -5139,7 +5064,7 @@ class WildernessGame {
     }
   }
 
-  private scheduleAmbientCue(profile: ReturnType<WildernessGame["currentAudioProfile"]>) {
+  private scheduleAmbientCue(profile: AudioProfile) {
     if (!this.audioContext) return;
     const now = this.audioContext.currentTime;
     if (profile.ambient === "day") {
@@ -5212,9 +5137,9 @@ class WildernessGame {
   }
 
   private playCraftSound() {
-    this.playTone(520, 0.055, "triangle", 0.026);
-    this.playTone(690, 0.08, "sine", 0.018);
-    this.playTone(880, 0.07, "triangle", 0.014);
+    this.playTone(520, 0.065, "triangle", 0.042);
+    this.playTone(720, 0.09, "sine", 0.032);
+    this.playTone(960, 0.085, "triangle", 0.026);
   }
 
   private playChestSound() {
@@ -5599,13 +5524,18 @@ class WildernessGame {
         maxMana: this.maxMana,
         classSkillCooldownUntil: this.classSkillCooldownUntil,
         companionProgress: this.summonerCompanion.companionProgress(),
+        tutorial: this.tutorialProgress,
         hunger: this.hunger,
         hungerTimer: this.hungerTimer,
         worldTimeSeconds: this.worldTimeSeconds,
+        worldMapId: this.currentWorldMapId,
         totalSteps: this.totalSteps,
         chestStepBank: this.chestStepBank,
         caveStepBank: this.caveStepBank,
         equippedArmor: this.equippedArmor,
+        equippedShield: this.equippedShield,
+        shieldDurabilityUsed: this.shieldDurabilityUsed,
+        ironGuardUntil: this.ironGuardUntil,
         locationMode: this.locationMode,
         currentHouseKind: this.currentHouseKind,
         caveReturnPosition: this.caveReturnPosition,
@@ -5620,6 +5550,7 @@ class WildernessGame {
       mountains: this.mountains,
       objects: this.objects.values(),
       excludedObjectIds: [...this.caveObjectIds, ...this.houseObjectIds],
+      worldStates: this.worldStates,
     });
   }
 
@@ -5630,14 +5561,15 @@ class WildernessGame {
   private restoreSaveData(sourceSave: SavedGame | PartialSavedGame) {
     const save = this.migrateSaveData(sourceSave);
     this.resetGameState({ reseed: false });
-
-    for (const mountain of save.mountains) {
-      this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height);
-    }
+    this.currentWorldMapId = save.player.worldMapId ?? DEFAULT_WORLD_MAP_ID;
+    this.activeRegions = regionsForWorldMap(this.currentWorldMapId);
+    this.activeBiomes = biomesForWorldMap(this.currentWorldMapId); this.activeWaterZones = waterZonesForWorldMap(this.currentWorldMapId); this.biomeDecorContext.biomes = this.activeBiomes;
+    installWorldStates(this.worldStates, save.worldStates, this.currentWorldMapId, { mountains: save.mountains, objects: save.objects });
+    const worldState = this.worldStates[this.currentWorldMapId] ?? { mountains: save.mountains, objects: save.objects };
+    for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height);
     createBiomeDecor(this.biomeDecorContext);
-
     let skippedObjects = 0;
-    for (const savedObject of save.objects) {
+    for (const savedObject of worldState.objects) {
       try {
         this.restoreWorldObject(savedObject);
       } catch (error) {
@@ -5671,8 +5603,10 @@ class WildernessGame {
     this.maxMana = save.player.maxMana ?? BASE_MAX_MANA;
     this.mana = Math.min(save.player.mana ?? this.maxMana, this.maxMana);
     this.classSkillCooldownUntil = performance.now() + (save.player.classSkillCooldownRemainingMs ?? 0);
-    this.possessedEagleId = null;
+    this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
+    this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
     this.summonerCompanion.restore(save.player.companionProgress);
+    this.tutorialProgress.completedStepIds.splice(0, this.tutorialProgress.completedStepIds.length, ...(save.player.tutorial?.completedStepIds ?? []));
     this.playerBodyPosition = null;
     this.renderClassSelection();
     this.hunger = save.player.hunger ?? HUNGER_MAX;
@@ -5681,8 +5615,6 @@ class WildernessGame {
     this.timeHudTimer = 0;
     this.starvationTimer = 0;
     this.starvationNoticeTimer = 0;
-    this.lavaDamageTimer = 0;
-    this.dragonSpawnTimer = 0;
     this.dragonSpawnTimer = 0;
     this.totalSteps = save.player.totalSteps;
     this.lastHudStepCount = Math.floor(this.totalSteps);
@@ -5690,6 +5622,9 @@ class WildernessGame {
     this.chestStepBank = save.player.chestStepBank;
     this.caveStepBank = save.player.caveStepBank;
     this.equippedArmor = save.player.equippedArmor;
+    this.equippedShield = save.player.equippedShield ?? null;
+    this.shieldDurabilityUsed = save.player.shieldDurabilityUsed ?? 0;
+    this.ironGuardUntil = performance.now() + (save.player.ironGuardRemainingMs ?? 0);
     this.locationMode = save.player.locationMode;
     this.currentHouseKind = save.player.currentHouseKind ?? "home";
     this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
@@ -5735,7 +5670,7 @@ class WildernessGame {
       { item: null, count: 0 },
       { item: null, count: 0 },
     );
-    this.bagSlots.splice(0, this.bagSlots.length);
+    this.bagSlots.splice(0, this.bagSlots.length, ...Array.from({ length: BASE_BAG_SLOT_COUNT }, () => ({ item: null, count: 0 })));
     for (const slot of this.craftSlots) {
       slot.item = null;
       slot.count = 0;
@@ -5755,6 +5690,11 @@ class WildernessGame {
     this.pendingMouseX = 0;
     this.pendingMouseY = 0;
     this.playerPosition.set(0, PLAYER_HEIGHT, 12);
+    this.currentWorldMapId = DEFAULT_WORLD_MAP_ID;
+    this.activeRegions = regionsForWorldMap(this.currentWorldMapId);
+    this.activeBiomes = biomesForWorldMap(this.currentWorldMapId); this.activeWaterZones = waterZonesForWorldMap(this.currentWorldMapId); this.biomeDecorContext.biomes = this.activeBiomes;
+    clearWorldStateStore(this.worldStates);
+    this.regionWarningState = { regionId: null, lastWarnAt: 0 };
     this.previousPosition.copy(this.playerPosition);
     this.verticalVelocity = 0;
     this.isGrounded = true;
@@ -5770,8 +5710,11 @@ class WildernessGame {
     this.maxMana = BASE_MAX_MANA;
     this.mana = this.maxMana;
     this.classSkillCooldownUntil = 0;
-    this.possessedEagleId = null;
+    this.healItemCooldownUntil = 0;
+    this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
+    this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
     this.summonerCompanion.reset();
+    this.tutorialProgress.completedStepIds.splice(0);
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
@@ -5779,8 +5722,8 @@ class WildernessGame {
     this.timeHudTimer = 0;
     this.starvationTimer = 0;
     this.starvationNoticeTimer = 0;
-    this.lavaDamageTimer = 0;
     this.equippedArmor = null;
+    this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0;
     this.locationMode = "overworld";
     this.currentHouseKind = "home";
     this.caveReturnPosition = null;
@@ -5814,7 +5757,7 @@ class WildernessGame {
     this.performanceHitchFrames = 0;
     this.renderer.setPixelRatio(this.pixelRatioForQuality());
     applyShadowQuality(this.sunLight, this.qualityMode);
-    refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, this.sprintRenderOptimized);
+    refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, false);
     this.renderer.shadowMap.needsUpdate = true;
     this.nightSpawnTimer = 0;
     this.applyClassStarterLoadout();
@@ -5828,11 +5771,13 @@ class WildernessGame {
   private applyClassStarterLoadout() {
     const starterItem = PLAYER_CLASSES[this.playerClass]?.starterItem ?? "iron_sword";
     this.hotbar[1] = { item: starterItem, count: 1 };
+    this.hotbar[2] = { item: "medkit", count: 15 };
+    if (isShieldItem(starterItem)) { this.equippedShield = starterItem; this.shieldDurabilityUsed = 0; }
     this.selectedHotbarIndex = 1;
   }
 
   private clearWorld() {
-    this.clearCaveObjects();
+    this.suppressRespawn = true; this.clearCaveObjects();
     this.clearHouseObjects();
     this.clearBiomeMeshes();
     this.clearAreaSkillEffects();
@@ -5855,6 +5800,7 @@ class WildernessGame {
     this.sprintRenderOptimized = false;
     this.caveObjectIds.splice(0, this.caveObjectIds.length);
     this.objects.clear();
+    this.respawnQueue.splice(0, this.respawnQueue.length); this.suppressRespawn = false;
   }
 
   private clearAreaSkillEffects() {
@@ -6014,6 +5960,10 @@ class WildernessGame {
     object.antMeatRemaining = savedObject.antMeatRemaining;
     object.predatorKind = savedObject.predatorKind;
     object.bossKind = savedObject.bossKind;
+    object.regionId = savedObject.regionId;
+    object.monsterId = savedObject.monsterId;
+    object.monsterLevel = savedObject.monsterLevel;
+    object.lootTier = savedObject.lootTier; object.expiresAt = savedObject.expiresRemainingMs !== undefined ? performance.now() + savedObject.expiresRemainingMs : object.opened && (object.type === "chest" || object.type === "mineChest") ? performance.now() + 8_000 : object.expiresAt;
     object.trainAngle = savedObject.trainAngle;
     object.trainRadius = savedObject.trainRadius;
     object.trainSpeed = savedObject.trainSpeed;
@@ -6060,11 +6010,13 @@ class WildernessGame {
     const passive = CLASS_PASSIVES[this.playerClass];
     const skillCooldown = this.classSkillCooldownRemaining();
     const eagle = this.possessedEagleId ? this.objects.get(this.possessedEagleId) : null;
+    const eagleSkillStatus = eagle ? formatEagleSkillStatus(this.eagleClawCooldownUntil, this.windCutterCooldownUntil) : undefined;
     const petProgress = this.summonerCompanion.petProgress();
     const petStatus =
       this.playerClass === "summoner"
         ? `펫 Lv ${petProgress.level} · ${petProgress.experience}/${experienceForNextPetLevel(petProgress.level)} XP · 공격 ${summonerPetDamage(petProgress)}`
         : undefined;
+    const tankerStatus = tankerHudStatus(this.equippedShield, this.shieldDurabilityUsed, this.ironGuardUntil, performance.now());
     renderHudView(
       {
         statsEl: this.statsEl,
@@ -6087,16 +6039,17 @@ class WildernessGame {
         requiredExperience: this.experienceForNextLevel(),
         skillStatus: skillCooldown > 0 ? `${Math.ceil(skillCooldown)}초` : `R ${playerClass.skillName}`,
         passiveStatus: passive.label,
-        petStatus,
+        petStatus: this.playerClass === "tanker" ? tankerStatus : petStatus,
         equipmentArmor,
         statBonus,
         eagleHp: eagle ? eagle.hp ?? EAGLE_MAX_HP : undefined,
         eagleMaxHp: EAGLE_MAX_HP,
+        eagleSkillStatus,
         timeLabel: `${this.timeOfDayName(hour)} ${this.gameClockText(hour)}`,
         locationLabel: this.locationMode === "cave" ? "동굴" : this.locationMode === "house" ? "집 안" : "야생",
         arcadePoints: this.arcadePoints,
         totalSteps: this.totalSteps,
-        objectiveText: this.currentObjectiveText(),
+        objective: this.currentObjectiveView(),
         selectedHotbarIndex: this.selectedHotbarIndex,
         hotbar: this.hotbar.map((slot) => ({
           label: slot.item ? `${this.shortName(slot.item)} ${slot.count}` : "",
@@ -6139,7 +6092,7 @@ class WildernessGame {
     if (this.bossBarEl.innerHTML !== html) this.bossBarEl.innerHTML = html;
   }
 
-  private currentObjectiveText() {
+  private currentObjectiveView(): TutorialObjective {
     return currentObjective({
       health: this.health,
       hunger: this.hunger,
@@ -6147,12 +6100,16 @@ class WildernessGame {
       hammer: this.countItem("hammer"),
       craftingTable: this.countItem("crafting_table"),
       leather: this.countItem("leather"),
+      stone: this.countItem("stone"),
       hasWorkbench: this.hasWorldObjectType("workbench", "extendedWorkbench"),
       hasPickaxe: ["stone_pickaxe", "copper_pickaxe", "iron_pickaxe", "diamond_pickaxe"].some((item) => this.countItem(item) > 0),
-      hasBag: this.bagSlots.length > 0,
+      hasBag: this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT,
+      hasBasicWeapon: ["wood_dagger", "wood_sword", "stone_dagger", "stone_sword"].some((item) => this.countItem(item as ItemId) > 0),
+      hasBasicArmor: Boolean(this.equippedArmor) || ["leather_armor", "copper_armor", "iron_armor"].some((item) => this.countItem(item as ItemId) > 0),
       hasSmelter: this.hasWorldObjectType("smelter", "specialSmelter"),
       smelter: this.countItem("smelter"),
       nextBossName: this.nextBossObjectiveName(),
+      completedStepIds: this.tutorialProgress.completedStepIds,
     });
   }
 
@@ -6186,6 +6143,24 @@ class WildernessGame {
     if (this.currentPanel === "sellShop") this.renderSellShopPanel();
     if (this.currentPanel === "loadGame") this.renderLoadGamePanel();
     if (this.currentPanel === "cheat") this.renderCheatPanel();
+    if (this.currentPanel === "map") this.renderRegionMapPanel();
+  }
+
+  private renderRegionMapPanel() {
+    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: canTeleportToWorldMap(this.level, map), lockReason: worldMapLockReason(this.level, map) })) }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
+  }
+
+  private teleportToWorldMap(mapId: string) {
+    const map = getWorldMapById(mapId);
+    if (map.id === this.currentWorldMapId) return;
+    if (!canTeleportToWorldMap(this.level, map)) { this.showMessage(worldMapLockReason(this.level, map)); this.renderRegionMapPanel(); return; }
+    rememberWorldState(this.worldStates, this.currentWorldMapId, this.createSaveData().worldStates?.[this.currentWorldMapId]);
+    this.currentWorldMapId = map.id; this.activeRegions = regionsForWorldMap(map.id); this.activeBiomes = biomesForWorldMap(map.id); this.activeWaterZones = waterZonesForWorldMap(map.id); this.biomeDecorContext.biomes = this.activeBiomes; this.regionWarningState = { regionId: null, lastWarnAt: 0 };
+    this.locationMode = "overworld"; this.clearWorld(); const worldState = this.worldStates[map.id];
+    if (worldState) { for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height); createBiomeDecor(this.biomeDecorContext); for (const savedObject of worldState.objects) this.restoreWorldObject(savedObject); this.ensureVillageShops(); } else this.seedOverworld();
+    this.playerPosition.copy(map.spawn); this.playerPosition.y = this.getOverworldHeightAt(map.spawn.x, map.spawn.z) + PLAYER_HEIGHT;
+    this.previousPosition.copy(this.playerPosition); this.setOverworldAtmosphere(); this.settlePlayerAfterTeleport(); this.closePanel();
+    this.showMessage(`${map.name}으로 텔레포트했습니다. 이 맵의 권장 레벨은 Lv ${map.levelRange[0]}-${map.levelRange[1]}입니다.`);
   }
 
   private renderInventoryPanel() {
@@ -6198,24 +6173,22 @@ class WildernessGame {
       extraClass,
       moveSelected: this.pendingStorageMove?.source === source && this.pendingStorageMove.index === index,
     });
-    const bagSlots =
-      this.bagSlots.length > 0
-        ? this.bagSlots.map((slot, index) => slotView(slot, "bag", index))
-        : Array.from({ length: 40 }, () => ({ item: null, label: "", count: 0, locked: true }));
+    const bagSlots = this.bagSlots.map((slot, index) => slotView(slot, "bag", index));
 
+    const itemCounts = this.itemCounts();
     renderInventoryPanelView(
       this.panelEl,
       {
         hotbarCount: this.hotbar.length,
         hotbar: this.hotbar.map((slot, index) => slotView(slot, "hotbar", index, " hotbar-cell")),
-        bagLabel: this.bagSlots.length > 0 ? "40칸" : "잠김",
+        bagLabel: this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT ? "40칸" : "기본 8칸",
         bagSlots,
         craftSlots: this.craftSlots.map((slot) => ({
           item: slot.item,
           label: slot.item ? this.shortName(slot.item) : "",
           count: slot.count,
         })),
-        materials: Object.entries(this.itemCounts())
+        materials: Object.entries(itemCounts)
           .filter(([item]) => item !== "tutorial_book")
           .map(([item, count]) => ({
             item,
@@ -6230,6 +6203,7 @@ class WildernessGame {
           ingredientsLabel: this.formatItemBundle(option.ingredients),
           canBuild: this.hasIngredients(option.ingredients) && this.locationMode === "overworld",
         })),
+        recipeGuide: buildRecipeGuideEntriesForStations(itemCounts, ["mini"]),
       },
       {
         onClose: () => this.closePanel(),
@@ -6241,6 +6215,7 @@ class WildernessGame {
         onMiniCraft: () => this.craftMiniRecipe(),
         onClearCraft: () => this.clearCraftSlots(),
         onBuildHouse: (id) => this.buildPlayerHouse(id),
+        onCraftGuide: (guideId) => { const recipe = MINI_RECIPES.find((candidate) => guideId === `mini:${candidate.id}`); if (!recipe || !this.canCraft(recipe)) return; if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, (item) => this.isDurableTool(item), recipe.ingredients)) { this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요."); return; } for (const [item, count] of Object.entries(recipe.ingredients)) this.removeItem(item, count); this.addCraftedOutput(recipe); this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`); this.renderPanel(); this.renderHud(); },
         bindDragDrop: () => this.bindInventoryDragDrop(),
       },
     );
@@ -6793,10 +6768,14 @@ class WildernessGame {
     const counts = this.craftCounts();
     const recipe = MINI_RECIPES.find((item) => this.countsMatchExactly(counts, item.ingredients));
     if (recipe) {
+      if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, (item) => this.isDurableTool(item))) {
+        this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요.");
+        return;
+      }
       this.clearCraftSlots(false);
       this.addItem(recipe.output, recipe.count);
       this.playCraftSound();
-      this.showMessage(`${recipe.name} 제작 완료.`);
+      this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`);
       this.renderPanel();
       this.renderHud();
       return;
@@ -6854,9 +6833,13 @@ class WildernessGame {
       return;
     }
 
+    if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, (item) => this.isDurableTool(item))) {
+      this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요.");
+      return;
+    }
     this.clearWorkbenchSlots(false, false);
     this.addCraftedOutput(recipe);
-    this.showMessage(`${recipe.name} 제작 완료.`);
+    this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`);
     this.renderPanel();
     this.renderHud();
   }
@@ -6938,10 +6921,14 @@ class WildernessGame {
     const isExtended = station?.type === "extendedWorkbench";
     const recipe = this.workbenchRecipesForStation(isExtended).find((item) => item.id === recipeId);
     if (!recipe || !this.canCraft(recipe)) return;
+    if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, (item) => this.isDurableTool(item), recipe.ingredients)) {
+      this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요.");
+      return;
+    }
 
     for (const [item, count] of Object.entries(recipe.ingredients)) this.removeItem(item, count);
     this.addCraftedOutput(recipe);
-    this.showMessage(`${recipe.name} 제작 완료.`);
+    this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`);
     this.renderPanel();
     this.renderHud();
   }
@@ -6950,10 +6937,11 @@ class WildernessGame {
     this.playCraftSound();
     if (recipe.output === "bag") {
       this.unlockBag();
-      return;
+      return true;
     }
-    this.addItem(recipe.output, recipe.count);
+    if (!this.addItem(recipe.output, recipe.count)) return false;
     this.autoEquip(recipe.output);
+    return true;
   }
 
   private smeltItem(item: ItemId) {
@@ -7178,7 +7166,8 @@ class WildernessGame {
 
   private rollRewardChance(baseChance: number, source: RewardSource, item: ItemId) {
     const tuning = getRewardTuning(source, item);
-    const chance = THREE.MathUtils.clamp(baseChance * tuning.chanceMultiplier, 0, 1);
+    const combatRegionScale = source === "predator" || source === "jammini" || source === "boss" || source === "guard" ? regionLootChanceScale(regionAtPosition(this.playerPosition, this.activeRegions)) : 1;
+    const chance = THREE.MathUtils.clamp(baseChance * tuning.chanceMultiplier * combatRegionScale, 0, 1);
     return Math.random() < chance;
   }
 
@@ -7199,6 +7188,7 @@ class WildernessGame {
       }
       if (remaining <= 0) {
         this.syncEquippedArmor(item);
+        this.syncEquippedShield(item);
         this.renderHud();
         return true;
       }
@@ -7230,8 +7220,8 @@ class WildernessGame {
   }
 
   private unlockBag() {
-    if (this.bagSlots.length === 0) {
-      this.bagSlots.push(...Array.from({ length: 40 }, () => ({ item: null, count: 0 })));
+    if (this.bagSlots.length < EXPANDED_BAG_SLOT_COUNT) {
+      while (this.bagSlots.length < EXPANDED_BAG_SLOT_COUNT) this.bagSlots.push({ item: null, count: 0 });
       this.showMessage("가방을 만들었습니다. 인벤토리 가방 공간 40칸이 열렸습니다.");
     } else {
       this.addItem("leather", 2);
@@ -7240,9 +7230,11 @@ class WildernessGame {
   }
 
   private autoEquip(item: ItemId) {
-    if (!ARMOR_VALUE[item]) return;
-    const current = this.equippedArmor ? ARMOR_VALUE[this.equippedArmor] ?? 0 : 0;
-    if (ARMOR_VALUE[item] > current) this.equippedArmor = item;
+    if (ARMOR_VALUE[item]) {
+      const current = this.equippedArmor ? ARMOR_VALUE[this.equippedArmor] ?? 0 : 0;
+      if (ARMOR_VALUE[item] > current) this.equippedArmor = item;
+    }
+    if (shouldAutoEquipShield(item, this.equippedShield)) { this.equippedShield = item; this.shieldDurabilityUsed = 0; }
   }
 
   private syncEquippedArmor(removedItem: ItemId) {
@@ -7252,6 +7244,12 @@ class WildernessGame {
       if (!best || ARMOR_VALUE[item] > (ARMOR_VALUE[best] ?? 0)) return item;
       return best;
     }, null);
+  }
+
+  private syncEquippedShield(removedItem: ItemId) {
+    if (this.equippedShield !== removedItem || this.countItem(removedItem) > 0) return;
+    this.equippedShield = bestShieldItem(this.itemCounts());
+    this.shieldDurabilityUsed = 0;
   }
 
   private bestPower(table: Record<ItemId, number>) {
@@ -7665,7 +7663,7 @@ class WildernessGame {
   }
 
   private spawnBiomeTerrains() {
-    for (const biome of BIOMES) {
+    for (const biome of this.activeBiomes) {
       const center = biome.center.clone();
       center.y = this.getGroundHeightAt(center.x, center.z);
       if (biome.kind === "bamboo") {
@@ -7786,7 +7784,7 @@ class WildernessGame {
       name: visual.name,
       root: visual.group,
       extra: {
-        mineRich: visual.mineRich,
+        mineRich: visual.mineRich, expiresAt: performance.now() + 300_000,
         collidable: true,
         collisionRadius: visual.collisionRadius,
         collisionHeight: visual.collisionHeight,
@@ -7927,7 +7925,7 @@ class WildernessGame {
     this.mergeStaticMeshes(group);
     group.position.copy(position);
     return this.addWorldObject("cave", "동굴 입구", group, {
-      caveReturn: position.clone().add(new THREE.Vector3(0, PLAYER_HEIGHT, 5)),
+      caveReturn: position.clone().add(new THREE.Vector3(0, PLAYER_HEIGHT, 5)), expiresAt: performance.now() + 600_000,
       collidable: true,
       collisionRadius: 3.05,
       collisionHeight: 4.25,
@@ -9028,7 +9026,7 @@ class WildernessGame {
       collidable: true,
       collisionRadius: 0.78,
       collisionHeight: 2.42,
-      villageId,
+      villageId, homePosition: position.clone(),
       guardMode: "melee",
       attackRange: 2.05,
       attackDamage: 8,
@@ -9092,7 +9090,7 @@ class WildernessGame {
       collidable: true,
       collisionRadius: 1.45,
       collisionHeight: 3.9,
-      villageId,
+      villageId, homePosition: position.clone(),
       guardMode: "melee",
       attackRange: 2.55,
       attackDamage: 14,
@@ -9114,7 +9112,7 @@ class WildernessGame {
         collidable: true,
         collisionRadius: visual.collisionRadius,
         collisionHeight: visual.collisionHeight,
-        villageId,
+        villageId, homePosition: position.clone(),
         guardMode: "ranged",
         attackRange: visual.attackRange,
         attackDamage: visual.attackDamage,
@@ -9447,7 +9445,7 @@ class WildernessGame {
       outline.receiveShadow = false;
       outline.userData.skipRaycastTarget = true;
       outline.userData.isCartoonOutline = true;
-      outline.visible = shouldShowPerformanceHiddenVisual(outline, this.qualityMode, this.sprintRenderOptimized);
+      outline.visible = shouldShowPerformanceHiddenVisual(outline, this.qualityMode, false);
       mesh.parent?.add(outline);
       this.outlineVisuals.push(outline);
       this.sprintHiddenVisuals.push(outline);
@@ -9515,6 +9513,10 @@ class WildernessGame {
   private removeObject(id: string) {
     const object = this.objects.get(id);
     if (!object) return;
+    if (!this.suppressRespawn && this.locationMode === "overworld") {
+      const position = (object.homePosition ?? object.root.position).clone(); const dueAt = performance.now() + (object.type === "wildPredator" || object.type === "jammini" ? 45_000 : 90_000);
+      if (object.type === "wildPredator" || object.type === "jammini" || object.type === "villageKnight" || object.type === "villageArcher" || object.type === "villageMage" || object.type === "villageGolem") this.respawnQueue.push({ dueAt, type: object.type, position, villageId: object.villageId, predatorKind: object.predatorKind, monsterId: object.monsterId as MonsterId | undefined, regionId: object.regionId });
+    }
     this.summonerCompanion.forgetObject(id);
     this.scene.remove(object.root);
     this.objects.delete(id);
@@ -9580,16 +9582,15 @@ class WildernessGame {
     return fallback;
   }
 
-  private randomPredatorSpawnPoint() {
+  private randomPredatorSpawnPoint(region: ReturnType<typeof regionAtPosition> = regionAtPosition(this.playerPosition, this.activeRegions)) {
     for (let attempt = 0; attempt < 80; attempt += 1) {
-      const point = new THREE.Vector3(
-        THREE.MathUtils.randFloatSpread(WORLD_SIZE - 90),
-        0,
-        THREE.MathUtils.randFloatSpread(WORLD_SIZE - 90),
-      );
+      const point = region
+        ? randomPointInRegion(region)
+        : new THREE.Vector3(THREE.MathUtils.randFloatSpread(WORLD_SIZE - 90), 0, THREE.MathUtils.randFloatSpread(WORLD_SIZE - 90));
       point.y = this.getGroundHeightAt(point.x, point.z);
-      if (point.distanceTo(this.playerPosition) < NIGHT_PREDATOR_MIN_PLAYER_DISTANCE) continue;
-      if (this.isNaturalSpawnBlocked(point, 8)) continue;
+      const minDistance = region ? Math.min(NIGHT_PREDATOR_MIN_PLAYER_DISTANCE, Math.max(28, region.radius * 0.52)) : NIGHT_PREDATOR_MIN_PLAYER_DISTANCE;
+      if (point.distanceTo(this.playerPosition) < minDistance) continue;
+      if (region ? this.isNearWater(point, 8) || this.isPointInLava(point, 2) : this.isNaturalSpawnBlocked(point, 8)) continue;
       let blocked = false;
       for (const object of this.objectsNear(point, 12)) {
         if (object.type === "wildPredator" || object.type === "animal") continue;
@@ -9629,35 +9630,36 @@ class WildernessGame {
   }
 
   private isNearWater(point: THREE.Vector3, margin = 0) {
-    for (const waterZone of WATER_ZONES) {
+    if (this.overlapsPriorityBiome(point, 0, margin)) return false;
+    for (const waterZone of this.activeWaterZones) {
       if (Math.hypot(point.x - waterZone.center.x, point.z - waterZone.center.z) < this.waterZoneRadius(waterZone) + margin) return true;
     }
     return false;
   }
 
   private isPriorityTerrainReserved(point: THREE.Vector3, radius: number, _terrainKind: TerrainKind) {
-    for (const waterZone of WATER_ZONES) {
+    for (const waterZone of this.activeWaterZones) {
       if (Math.hypot(point.x - waterZone.center.x, point.z - waterZone.center.z) < this.waterZoneRadius(waterZone) + radius + 2) return true;
     }
     return Boolean(this.overlapsPriorityBiome(point, radius, 2));
   }
 
-  private waterZoneRadius(waterZone: (typeof WATER_ZONES)[number]) {
+  private waterZoneRadius(waterZone: WaterZone) {
     return waterZone.radius * WATER_RADIUS_MULTIPLIER;
   }
 
   private restoredWaterRadius(position: THREE.Vector3, radius: number, name: string) {
-    const zone = WATER_ZONES.find((waterZone) => waterZone.name === name && Math.hypot(position.x - waterZone.center.x, position.z - waterZone.center.z) < 3);
+    const zone = this.activeWaterZones.find((waterZone) => waterZone.name === name && Math.hypot(position.x - waterZone.center.x, position.z - waterZone.center.z) < 3);
     if (!zone) return radius;
     return radius <= zone.radius * 1.2 ? this.waterZoneRadius(zone) : radius;
   }
 
   private overlapsPriorityBiome(point: THREE.Vector3, radius: number, margin = 0) {
-    return BIOMES.find((biome) => Math.hypot(point.x - biome.center.x, point.z - biome.center.z) < biome.radius + radius + margin) ?? null;
+    return this.activeBiomes.find((biome) => Math.hypot(point.x - biome.center.x, point.z - biome.center.z) < biome.radius + radius + margin) ?? null;
   }
 
   private priorityBiomeAt(point: THREE.Vector3, margin = 0) {
-    return BIOMES.find((biome) => Math.hypot(point.x - biome.center.x, point.z - biome.center.z) < biome.radius + margin) ?? null;
+    return this.activeBiomes.find((biome) => Math.hypot(point.x - biome.center.x, point.z - biome.center.z) < biome.radius + margin) ?? null;
   }
 
   private isSavedPriorityTerrainPatch(savedObject: SavedObject, position: THREE.Vector3) {
