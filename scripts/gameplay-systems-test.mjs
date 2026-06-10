@@ -426,11 +426,13 @@ try {
 
   {
     // 퀘스트 래치: 제작대를 설치(조건 달성)했다가 회수해도 "완료" 상태가 유지된다
-    const progress = { completedStepIds: ["gather_wood", "find_hammer", "craft_workbench_item"], achievedStepIds: ["gather_wood", "find_hammer", "craft_workbench_item"] };
+    const doneIds = ["first_steps", "gather_wood", "find_hammer", "craft_workbench_item"];
+    const progress = { completedStepIds: [...doneIds], achievedStepIds: [...doneIds] };
     const makeSnapshot = (hasWorkbench) => ({
-      health: 10, hunger: 5, wood: 0, hammer: 0, craftingTable: 0, leather: 0, stone: 0,
+      health: 10, hunger: 5, countItem: () => 0, totalSteps: 60, level: 1,
+      inCave: false, predatorKills: 0, mapOpened: false, saved: false, shopOpened: false,
       hasWorkbench, hasPickaxe: false, hasBag: false, playerClass: "warrior", classWeaponCount: 0, hasBasicArmor: false,
-      hasSmelter: false, smelter: 0, bossChapter: 0, fieldBossQuest: null,
+      hasSmelter: false, bossChapter: 0, fieldBossQuest: null,
       completedStepIds: progress.completedStepIds, achievedStepIds: progress.achievedStepIds,
     });
     latchAchievedObjectives(progress, makeSnapshot(true));

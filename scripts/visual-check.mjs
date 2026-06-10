@@ -397,15 +397,29 @@ async function startNewGameAs(page, classId) {
 }
 
 const ALL_TUTORIAL_STEP_IDS = [
+  "first_steps",
   "gather_wood",
   "find_hammer",
   "craft_workbench_item",
   "place_workbench",
+  "stock_meat",
   "gather_leather",
   "craft_bag",
+  "craft_shovel",
   "craft_pickaxe",
-  "craft_basic_weapon",
+  "mine_stone",
+  "mine_coal",
+  "visit_cave",
+  "get_smelter",
+  "smelt_iron",
+  "hunt_predators",
   "craft_basic_armor",
+  "craft_bed",
+  "open_map",
+  "save_game",
+  "visit_shop",
+  "reach_level8",
+  "craft_basic_weapon",
 ];
 
 function expeditionSave({ bossChapter, worldTimeSeconds, worldMapId = "dragon_lands", objects }) {

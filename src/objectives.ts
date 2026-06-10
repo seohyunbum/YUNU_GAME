@@ -16,11 +16,14 @@ export const CLASS_WEAPON_QUESTS: Record<PlayerClassId, { items: ItemId[]; title
 export interface ObjectiveSnapshot {
   health: number;
   hunger: number;
-  wood: number;
-  hammer: number;
-  craftingTable: number;
-  leather: number;
-  stone: number;
+  countItem(item: ItemId): number;
+  totalSteps: number;
+  level: number;
+  inCave: boolean;
+  predatorKills: number;
+  mapOpened: boolean;
+  saved: boolean;
+  shopOpened: boolean;
   hasWorkbench: boolean;
   hasPickaxe: boolean;
   hasBag: boolean;
@@ -28,7 +31,6 @@ export interface ObjectiveSnapshot {
   classWeaponCount: number;
   hasBasicArmor: boolean;
   hasSmelter: boolean;
-  smelter: number;
   bossChapter: number;
   fieldBossQuest: FieldBossQuestView | null;
   completedStepIds: readonly string[];
@@ -74,71 +76,82 @@ export function latchAchievedObjectives(progress: TutorialProgress, snapshot: Ob
 
 const stepAchieved = (snapshot: ObjectiveSnapshot, step: TutorialStep) => snapshot.achievedStepIds.includes(step.id) || step.completed(snapshot);
 
+// 단계 빌더 — 수량형(n/목표)과 체크형(0/1)
+function countQuest(id: string, goal: number, count: (snapshot: ObjectiveSnapshot) => number, titleText: string, detail: string, reward: TutorialReward): TutorialStep {
+  return {
+    id,
+    title: (snapshot) => `${titleText} (${Math.min(count(snapshot), goal)}/${goal})`,
+    detail,
+    progress: (snapshot) => `${Math.min(count(snapshot), goal)}/${goal}`,
+    completed: (snapshot) => count(snapshot) >= goal,
+    reward,
+  };
+}
+
+function checkQuest(id: string, done: (snapshot: ObjectiveSnapshot) => boolean, titleText: string, detail: string, reward: TutorialReward): TutorialStep {
+  return {
+    id,
+    title: (snapshot) => `${titleText} (${done(snapshot) ? 1 : 0}/1)`,
+    detail,
+    progress: (snapshot) => `${done(snapshot) ? 1 : 0}/1`,
+    completed: done,
+    reward,
+  };
+}
+
+const SHOVEL_ITEMS: ItemId[] = ["wood_shovel", "stone_shovel", "copper_shovel", "iron_shovel", "gold_shovel", "diamond_shovel"];
+
+// 23단계 초보자 가이드 — 이동·채집·제작·사냥·광질·동굴·제련·전투·회복·지도·저장·마을·성장·직업무기 순.
 export const TUTORIAL_STEPS: readonly TutorialStep[] = [
-  {
-    id: "gather_wood",
-    title: (snapshot) => `작은 나무를 캐서 나무 3개 모으기 (${Math.min(snapshot.wood, 3)}/3)`,
-    detail: "작은 나무는 맨손으로 캘 수 있습니다. 가까이 다가가서 십자선으로 바라본 뒤 E 또는 좌클릭을 눌러 여러 번 휘두르세요.",
-    progress: (snapshot) => `${Math.min(snapshot.wood, 3)}/3`,
-    completed: (snapshot) => snapshot.wood >= 3,
-    reward: { experience: 18, items: { stick: 4 }, label: "경험치 18 + 나무 막대기 4개" },
-  },
+  // ── 1장. 첫걸음 ──
+  countQuest("first_steps", 50, (s) => s.totalSteps, "주변을 50걸음 걸어보기", "WASD로 움직이고 마우스로 시점을 돌립니다. Space로 점프, Shift+W로 달릴 수 있습니다. 가볍게 주변을 둘러보세요.", { experience: 6, items: { meat: 1 }, label: "경험치 6 + 고기 1개" }),
+  countQuest("gather_wood", 3, (s) => s.countItem("wood"), "작은 나무를 캐서 나무 3개 모으기", "작은 나무는 맨손으로 캘 수 있습니다. 가까이 다가가서 십자선으로 바라본 뒤 E 또는 좌클릭을 눌러 여러 번 휘두르세요.", { experience: 10, items: { stick: 4 }, label: "경험치 10 + 나무 막대기 4개" }),
   {
     id: "find_hammer",
-    title: (snapshot) => `상자를 열어 망치 구하기 (${snapshot.hammer > 0 ? 1 : 0}/1)`,
+    title: (snapshot) => `상자를 열어 망치 구하기 (${snapshot.countItem("hammer") > 0 ? 1 : 0}/1)`,
     detail: "100걸음마다 상자가 나타날 수 있습니다. 상자를 바라보고 E 또는 좌클릭으로 열면 망치가 나올 수 있습니다.",
-    progress: (snapshot) => `${snapshot.hammer > 0 ? 1 : 0}/1`,
-    completed: (snapshot) => snapshot.hammer > 0 || snapshot.craftingTable > 0 || snapshot.hasWorkbench,
-    reward: { experience: 24, items: { meat: 4 }, label: "경험치 24 + 고기 4개" },
+    progress: (snapshot) => `${snapshot.countItem("hammer") > 0 ? 1 : 0}/1`,
+    completed: (snapshot) => snapshot.countItem("hammer") > 0 || snapshot.countItem("crafting_table") > 0 || snapshot.hasWorkbench,
+    reward: { experience: 14, items: { meat: 3 }, label: "경험치 14 + 고기 3개" },
   },
   {
     id: "craft_workbench_item",
-    title: (snapshot) => `인벤토리 2x2에서 제작대 만들기 (${snapshot.craftingTable > 0 || snapshot.hasWorkbench ? 1 : 0}/1)`,
+    title: (snapshot) => `인벤토리 2x2에서 제작대 만들기 (${snapshot.countItem("crafting_table") > 0 || snapshot.hasWorkbench ? 1 : 0}/1)`,
     detail: "I 키로 인벤토리를 열고 미니 제작대 2x2에 나무 3개와 망치 1개를 넣으세요. 재료 위치는 상관없습니다.",
-    progress: (snapshot) => `${snapshot.craftingTable > 0 || snapshot.hasWorkbench ? 1 : 0}/1`,
-    completed: (snapshot) => snapshot.craftingTable > 0 || snapshot.hasWorkbench,
-    reward: { experience: 30, items: { wood: 6 }, label: "경험치 30 + 나무 6개" },
+    progress: (snapshot) => `${snapshot.countItem("crafting_table") > 0 || snapshot.hasWorkbench ? 1 : 0}/1`,
+    completed: (snapshot) => snapshot.countItem("crafting_table") > 0 || snapshot.hasWorkbench,
+    reward: { experience: 18, items: { wood: 6 }, label: "경험치 18 + 나무 6개" },
   },
-  {
-    id: "place_workbench",
-    title: (snapshot) => `제작대를 설치하고 사용하기 (${snapshot.hasWorkbench ? 1 : 0}/1)`,
-    detail: "인벤토리에서 제작대를 아래 드롭존으로 드래그해 설치하세요. 설치된 제작대는 좌클릭 또는 E로 3x3 제작창을 열 수 있습니다.",
-    progress: (snapshot) => `${snapshot.hasWorkbench ? 1 : 0}/1`,
-    completed: (snapshot) => snapshot.hasWorkbench,
-    reward: { experience: 32, items: { leather: 5 }, label: "경험치 32 + 가죽 5개" },
-  },
+  checkQuest("place_workbench", (s) => s.hasWorkbench, "제작대를 설치하고 사용하기", "인벤토리에서 제작대를 우클릭하면 바로 설치됩니다. 설치된 제작대는 좌클릭 또는 E로 3x3 제작창을 열 수 있습니다.", { experience: 22, items: { leather: 3 }, label: "경험치 22 + 가죽 3개" }),
+  // ── 2장. 생존 기초 ──
+  countQuest("stock_meat", 5, (s) => s.countItem("meat"), "고기 5개 비축하기", "동물을 사냥하면 고기가 나옵니다. 배고픔이 낮아지면 고기를 핫바에서 선택해 먹으세요. 배고픔이 0이 되면 체력이 줄어듭니다.", { experience: 26, items: { medkit: 1 }, label: "경험치 26 + 구급상자 1개" }),
   {
     id: "gather_leather",
-    title: (snapshot) => `동물을 사냥해 가죽 7개 모으기 (${Math.min(snapshot.leather, 7)}/7)`,
+    title: (snapshot) => `동물을 사냥해 가죽 7개 모으기 (${Math.min(snapshot.countItem("leather"), 7)}/7)`,
     detail: "말, 소, 돼지 같은 동물은 공격하면 천천히 도망갑니다. 가죽은 가방 제작에 꼭 필요합니다.",
-    progress: (snapshot) => `${Math.min(snapshot.leather, 7)}/7`,
-    completed: (snapshot) => snapshot.leather >= 7 || snapshot.hasBag,
-    reward: { experience: 70, items: { medkit: 4, meat: 3 }, label: "경험치 70 + 구급상자 4개 + 고기 3개" },
+    progress: (snapshot) => `${Math.min(snapshot.countItem("leather"), 7)}/7`,
+    completed: (snapshot) => snapshot.countItem("leather") >= 7 || snapshot.hasBag,
+    reward: { experience: 40, items: { medkit: 3 }, label: "경험치 40 + 구급상자 3개" },
   },
-  {
-    id: "craft_bag",
-    title: (snapshot) => `제작대에서 가방 만들기 (${snapshot.hasBag ? 1 : 0}/1)`,
-    detail: "제작대에서 가죽 7개로 가방을 만들면 인벤토리 가방 칸이 40칸으로 확장됩니다.",
-    progress: (snapshot) => `${snapshot.hasBag ? 1 : 0}/1`,
-    completed: (snapshot) => snapshot.hasBag,
-    reward: { experience: 95, items: { stone: 12, stick: 6 }, label: "경험치 95 + 돌 12개 + 막대기 6개" },
-  },
-  {
-    id: "craft_pickaxe",
-    title: (snapshot) => `돌 곡괭이 만들기 (${snapshot.hasPickaxe ? 1 : 0}/1)`,
-    detail: "제작대 3x3에서 막대기 2개와 돌 4개를 조합하면 돌 곡괭이를 만들 수 있습니다. 광물 채집의 시작입니다.",
-    progress: (snapshot) => `${snapshot.hasPickaxe ? 1 : 0}/1`,
-    completed: (snapshot) => snapshot.hasPickaxe,
-    reward: { experience: 120, items: { coal: 8, iron: 2 }, label: "경험치 120 + 석탄 8개 + 철 2개" },
-  },
-  {
-    id: "craft_basic_armor",
-    title: (snapshot) => `초급 방어구 만들기 (${snapshot.hasBasicArmor ? 1 : 0}/1)`,
-    detail: "제작대에서 가죽 8개로 가죽 갑옷을 만들 수 있습니다. 방어력이 오르면 거미나 늑대의 피해를 더 잘 버팁니다.",
-    progress: (snapshot) => `${snapshot.hasBasicArmor ? 1 : 0}/1`,
-    completed: (snapshot) => snapshot.hasBasicArmor,
-    reward: { experience: 160, items: { leather: 6, iron: 3 }, label: "경험치 160 + 가죽 6개 + 철 3개" },
-  },
+  checkQuest("craft_bag", (s) => s.hasBag, "제작대에서 가방 만들기", "제작대에서 가죽 7개로 가방을 만들면 인벤토리 가방 칸이 40칸으로 확장됩니다.", { experience: 48, items: { stone: 12, stick: 6 }, label: "경험치 48 + 돌 12개 + 막대기 6개" }),
+  countQuest("craft_shovel", 1, (s) => SHOVEL_ITEMS.reduce((sum, item) => sum + s.countItem(item), 0), "나무 삽 만들기", "제작대에서 나무 1개 + 막대기 2개로 나무 삽을 만드세요. 삽이 있으면 흙을 훨씬 빠르게 팔 수 있습니다.", { experience: 55, items: { wood: 4 }, label: "경험치 55 + 나무 4개" }),
+  // ── 3장. 도구와 광물 ──
+  checkQuest("craft_pickaxe", (s) => s.hasPickaxe, "돌 곡괭이 만들기", "제작대 3x3에서 막대기 2개와 돌 4개를 조합하면 돌 곡괭이를 만들 수 있습니다. 광물 채집의 시작입니다.", { experience: 60, items: { coal: 4 }, label: "경험치 60 + 석탄 4개" }),
+  countQuest("mine_stone", 6, (s) => s.countItem("stone"), "곡괭이로 돌 6개 캐기", "산 지형의 회색 돌 바닥을 곡괭이로 캐면 돌이 나옵니다. 돌은 도구와 건축의 기본 재료입니다.", { experience: 70, items: { stone: 4 }, label: "경험치 70 + 돌 4개" }),
+  countQuest("mine_coal", 4, (s) => s.countItem("coal"), "석탄 4개 캐기", "검은 점이 박힌 석탄 광맥을 곡괭이로 캐세요. 석탄은 제련의 연료입니다.", { experience: 80, items: { iron: 2 }, label: "경험치 80 + 철 2개" }),
+  checkQuest("visit_cave", (s) => s.inCave, "동굴에 들어가보기", "500걸음마다 낮은 확률로 동굴 입구가 나타납니다. 동굴 안에는 돌·석탄·철은 물론 금과 다이아몬드도 있습니다.", { experience: 90, items: { medkit: 2 }, label: "경험치 90 + 구급상자 2개" }),
+  checkQuest("get_smelter", (s) => s.hasSmelter || s.countItem("smelter") > 0, "제련대 구하기", "제련대는 상자에서 낮은 확률로 나오거나, 마을 포인트 상점에서 2600P에 살 수 있습니다. 제련대가 있어야 철을 제련할 수 있습니다.", { experience: 100, items: { coal: 6 }, label: "경험치 100 + 석탄 6개" }),
+  countQuest("smelt_iron", 3, (s) => s.countItem("refined_iron"), "철 3개 제련하기", "설치한 제련대에 철과 석탄을 넣어 제련된 철을 만드세요. 제련된 철은 철 도구·무기·갑옷의 재료입니다.", { experience: 110, items: { iron: 4 }, label: "경험치 110 + 철 4개" }),
+  // ── 4장. 전투와 회복 ──
+  countQuest("hunt_predators", 3, (s) => s.predatorKills, "야생 몬스터 3마리 처치하기", "거미나 늑대 같은 야생 몬스터가 부르르 떨면 공격 신호입니다. 옆으로 피했다가 반격해 보세요.", { experience: 120, items: { meat: 6 }, label: "경험치 120 + 고기 6개" }),
+  checkQuest("craft_basic_armor", (s) => s.hasBasicArmor, "초급 방어구 만들기", "제작대에서 가죽 8개로 가죽 갑옷을 만들 수 있습니다. 방어력이 오르면 거미나 늑대의 피해를 더 잘 버팁니다.", { experience: 135, items: { leather: 6, iron: 3 }, label: "경험치 135 + 가죽 6개 + 철 3개" }),
+  countQuest("craft_bed", 1, (s) => s.countItem("bed"), "침대 만들기", "제작대에서 가죽 3 + 나무 3 + 막대기 3으로 침대를 만드세요. 설치한 침대에서 우클릭으로 자면 체력이 회복됩니다.", { experience: 140, items: { leather: 4 }, label: "경험치 140 + 가죽 4개" }),
+  // ── 5장. 세상 익히기 ──
+  checkQuest("open_map", (s) => s.mapOpened, "지도 열어보기", "M 키로 지역 지도를 엽니다. 지역별 권장 레벨, 보스 위치, 원정 맵 텔레포트를 확인할 수 있습니다.", { experience: 145, items: { meat: 4 }, label: "경험치 145 + 고기 4개" }),
+  checkQuest("save_game", (s) => s.saved, "게임 저장하기", "Ctrl+S 또는 왼쪽 위 저장 버튼으로 진행 상황을 저장하세요. 저장은 5개까지 보관됩니다.", { experience: 150, items: { medkit: 2 }, label: "경험치 150 + 구급상자 2개" }),
+  checkQuest("visit_shop", (s) => s.shopOpened, "마을 상점 구경하기", "들판의 마을을 찾아 상점 건물에 들어가 보세요. 미니게임 포인트로 물건을 사고팔 수 있습니다.", { experience: 160, items: { gold: 2 }, label: "경험치 160 + 금 2개" }),
+  countQuest("reach_level8", 8, (s) => s.level, "레벨 8 달성하기", "몬스터 사냥과 퀘스트 보상으로 경험치를 모으세요. 레벨이 오를 때마다 체력·공격·방어가 +1씩 늘어납니다.", { experience: 200, items: { iron: 6, gold: 3 }, label: "경험치 200 + 철 6개 + 금 3개" }),
+  // ── 졸업 과제 ──
   {
     id: "craft_basic_weapon",
     title: (snapshot) => `${CLASS_WEAPON_QUESTS[snapshot.playerClass].title} (${snapshot.classWeaponCount > 0 ? 1 : 0}/1)`,

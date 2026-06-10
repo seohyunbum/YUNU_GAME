@@ -519,6 +519,8 @@ class WildernessGame {
   };
   private defeatedFieldBosses: string[] = [];
   private pendingOverwriteSave: SavedGame | null = null;
+  // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
+  private readonly tutorialSignals = { predatorKills: 0, mapOpened: false, saved: false, shopOpened: false };
   private readonly fieldBossContext: FieldBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     defeatedFieldBosses: () => this.defeatedFieldBosses,
@@ -2488,7 +2490,7 @@ class WildernessGame {
     this.updateAnimals(delta);
     this.updateVillagers(delta);
     this.updateAnts(delta);
-    this.updatePredators(delta);
+    updatePredatorAi(this.predatorAiContext, delta);
     updateGraveTrap(this.graveTrapContext, delta);
     updateFinale(this.finaleContext);
     updateFieldBosses(this.fieldBossContext);
@@ -3449,10 +3451,6 @@ class WildernessGame {
     }
   }
 
-  private updatePredators(delta: number) {
-    updatePredatorAi(this.predatorAiContext, delta);
-  }
-
   private updateDragons(_delta: number) {
     if (this.locationMode !== "overworld") return;
     for (const dragon of this.objectsOfType("dragon")) {
@@ -4378,6 +4376,7 @@ class WildernessGame {
 
   private grantExperienceForTarget(target: WorldObject) {
     this.summonerCompanion.awardExperience(Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
+    if (target.type === "wildPredator") this.tutorialSignals.predatorKills += 1;
     if (target.fieldBossId && !this.defeatedFieldBosses.includes(target.fieldBossId)) {
       this.defeatedFieldBosses.push(target.fieldBossId);
       startMiniFanfare(this.finaleContext);
@@ -5333,6 +5332,7 @@ class WildernessGame {
 
   private openPanel(panel: Exclude<PanelType, null>) {
     this.currentPanel = panel;
+    if (panel === "shop" || panel === "sellShop" || panel === "trade") this.tutorialSignals.shopOpened = true;
     this.pendingStorageMove = null;
     if (document.pointerLockElement) document.exitPointerLock();
     this.renderPanel();
@@ -5416,6 +5416,7 @@ class WildernessGame {
       const requestedSaves = [createRepositorySaveSlot(save, formatSaveDate, this.saveSummary(save)), ...existingSaves];
       const storedCount = await writeRepositorySaveSlots(requestedSaves);
       const trimmedText = requestedSaves.length > storedCount ? ` 최근 ${storedCount}개 저장만 보관했습니다.` : "";
+      this.tutorialSignals.saved = true;
       this.showMessage(`저장 완료: ${formatSaveDate(save.savedAt)}.${trimmedText}`);
     } catch (error) {
       console.error(error);
@@ -5698,6 +5699,7 @@ class WildernessGame {
     this.summonerCompanion.reset();
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
+    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false;
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
@@ -6080,11 +6082,11 @@ class WildernessGame {
     const snapshot = {
       health: this.health,
       hunger: this.hunger,
-      wood: this.countItem("wood"),
-      hammer: this.countItem("hammer"),
-      craftingTable: this.countItem("crafting_table"),
-      leather: this.countItem("leather"),
-      stone: this.countItem("stone"),
+      countItem: (item: ItemId) => this.countItem(item),
+      totalSteps: this.totalSteps,
+      level: this.level,
+      inCave: this.locationMode === "cave",
+      ...this.tutorialSignals,
       hasWorkbench: this.hasWorldObjectType("workbench", "extendedWorkbench"),
       hasPickaxe: ["stone_pickaxe", "copper_pickaxe", "iron_pickaxe", "diamond_pickaxe"].some((item) => this.countItem(item) > 0),
       hasBag: this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT,
@@ -6092,7 +6094,6 @@ class WildernessGame {
       classWeaponCount: CLASS_WEAPON_QUESTS[this.playerClass].items.reduce((sum, item) => sum + this.countItem(item), 0),
       hasBasicArmor: Boolean(this.equippedArmor) || ["leather_armor", "copper_armor", "iron_armor"].some((item) => this.countItem(item as ItemId) > 0),
       hasSmelter: this.hasWorldObjectType("smelter", "specialSmelter"),
-      smelter: this.countItem("smelter"),
       bossChapter: this.bossChapter,
       fieldBossQuest: fieldBossQuestFor(this.currentWorldMapId, this.defeatedFieldBosses),
       completedStepIds: this.tutorialProgress.completedStepIds,
@@ -6139,6 +6140,7 @@ class WildernessGame {
   }
 
   private renderRegionMapPanel() {
+    this.tutorialSignals.mapOpened = true;
     const nextBossKind = nextBossTarget(this.bossChapter)?.kind;
     const bosses = [...this.objectsOfType("dragon")].map((dragon) => ({ name: this.bossStats(dragon.bossKind).name, x: dragon.root.position.x, z: dragon.root.position.z, sealed: !isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter), next: (dragon.bossKind ?? "dragon") === nextBossKind }));
     for (const predator of this.objectsOfType("wildPredator")) if (predator.fieldBossId) bosses.push({ name: predator.name, x: predator.root.position.x, z: predator.root.position.z, sealed: false, next: false });
