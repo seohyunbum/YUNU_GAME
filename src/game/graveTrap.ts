@@ -9,7 +9,7 @@ import { animatePredatorAttackMotion, triggerPredatorAttackMotion } from "./pred
 import { biomesForWorldMap } from "./worldData";
 import type { LocationMode, WorldMapId, WorldObject } from "./types";
 
-export const GRAVE_HAND_COUNT = 6; // 장식 묘비 ~290기 대비 ≈ 1/50
+export const GRAVE_HAND_COUNT = 20; // 장식 묘비 ~290기 대비 ≈ 1/15
 const TRIGGER_RADIUS = 1.15;
 const HAND_MIN_PLAYER_DISTANCE = 25;
 const BURROW_CENTER = new THREE.Vector3(80, 0, -845); // 동굴(z -780~-970)과 같은 지하 대역, x 로 분리
