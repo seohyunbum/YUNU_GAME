@@ -6,15 +6,30 @@ const distanceCullSphere = new THREE.Sphere();
 const DISTANCE_CULL_MARGIN = 72;
 
 export function precompileSceneShaders(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
-  const shadowEnabled = renderer.shadowMap.enabled;
+  const state: { object: THREE.Object3D; visible: boolean; frustumCulled: boolean }[] = [];
+  const previousTarget = renderer.getRenderTarget();
+  const previousShadowNeedsUpdate = renderer.shadowMap.needsUpdate;
+  const warmupTarget = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: true, stencilBuffer: false });
   try {
+    scene.traverse((object) => {
+      state.push({ object, visible: object.visible, frustumCulled: object.frustumCulled });
+      object.visible = true;
+      object.frustumCulled = false;
+    });
     renderer.compile(scene, camera);
-    renderer.shadowMap.enabled = false;
-    renderer.compile(scene, camera);
+    renderer.shadowMap.needsUpdate = false;
+    renderer.setRenderTarget(warmupTarget);
+    renderer.render(scene, camera);
   } catch (error) {
     console.warn("Shader precompile failed.", error);
   } finally {
-    renderer.shadowMap.enabled = shadowEnabled;
+    renderer.setRenderTarget(previousTarget);
+    renderer.shadowMap.needsUpdate = previousShadowNeedsUpdate;
+    warmupTarget.dispose();
+    for (const entry of state) {
+      entry.object.visible = entry.visible;
+      entry.object.frustumCulled = entry.frustumCulled;
+    }
   }
 }
 
