@@ -287,7 +287,7 @@ try {
         calls.push(["enter"]);
       },
       getGroundHeightAt: () => 0,
-      animateWalkCycle: () => {},
+      runWalkCycle: () => {},
       refreshSpatialObject: () => {},
       damagePlayer: (amount) => {
         calls.push(["damage", amount]);

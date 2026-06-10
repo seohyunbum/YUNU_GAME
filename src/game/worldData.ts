@@ -61,6 +61,7 @@ export const BIOMES_BY_WORLD_MAP: Record<WorldMapId, BiomeConfig[]> = {
     b("lava", -175, 410, 60),
   ],
   graveyard: [
+    b("graveyard", 0, 40, 72),
     b("graveyard", 150, -130, 96),
     b("graveyard", -190, 150, 84),
     b("graveyard", -230, -210, 64),

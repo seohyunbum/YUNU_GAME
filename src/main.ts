@@ -494,7 +494,7 @@ class WildernessGame {
       this.playTransitionSound("enter");
     },
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
-    animateWalkCycle: (object, delta, movementSpeed) => this.animateWalkCycle(object, delta, movementSpeed),
+    runWalkCycle: (object, delta, movementSpeed) => this.animateWalkCycle(object, delta, movementSpeed),
     refreshSpatialObject: (object) => this.refreshSpatialObject(object),
     damagePlayer: (amount, showParticles, deathReason) => this.damagePlayer(amount, showParticles, deathReason),
     showMessage: (text) => this.showMessage(text),

@@ -28,6 +28,9 @@
 
 ## 완료된 굵직한 작업 (참고)
 
+- 몬스터 2배 확장(2026-06-11): 7개 신규 아키타입(멧돼지·뱀·박쥐·전갈·곰·좀비·귀신) + 14종, 종별 공격 모션, `npm run visual:monsters` 스크린샷 QA
+- 공동묘지 맵(Lv 70-85) + 초록손 무덤 함정(지하 좀비 결투, 동굴 모드 재사용)
+
 - 거버넌스: typecheck + 10 게이트(size/method ratchet, architecture, content/balance 불변식, perf budget), work-history
 - 거너 직업 + 직업별 외형/거울, 평타 ÷10(+보스 방어 90), 도끼/원거리 무기 확대(데이터주도)
 - God Object 추출 다수(UI/스폰/전투효과/비주얼 모듈화), 비주얼 인스턴싱

@@ -408,7 +408,7 @@ const ALL_TUTORIAL_STEP_IDS = [
   "craft_basic_armor",
 ];
 
-function dragonLandsSave({ bossChapter, worldTimeSeconds }) {
+function expeditionSave({ bossChapter, worldTimeSeconds, worldMapId = "dragon_lands", objects }) {
   return {
     version: 7,
     savedAt: new Date().toISOString(),
@@ -422,7 +422,7 @@ function dragonLandsSave({ bossChapter, worldTimeSeconds }) {
       hunger: 5,
       hungerTimer: 0,
       worldTimeSeconds,
-      worldMapId: "dragon_lands",
+      worldMapId,
       bossChapter,
       tutorial: { completedStepIds: ALL_TUTORIAL_STEP_IDS },
       totalSteps: 0,
@@ -438,7 +438,7 @@ function dragonLandsSave({ bossChapter, worldTimeSeconds }) {
       workbenchSlots: Array.from({ length: 36 }, () => ({ item: null, count: 0 })),
     },
     mountains: [],
-    objects: [
+    objects: objects ?? [
       {
         type: "dragon",
         name: "파이어 드래곤",
@@ -478,6 +478,7 @@ async function inspectNewSystems(page) {
     nightTimeLabel: false,
     daySkyBrightness: -1,
     nightSkyBrightness: -1,
+    graveyardSkyBrightness: -1,
     newGameReturnsToTitle: false,
   };
 
@@ -500,20 +501,26 @@ async function inspectNewSystems(page) {
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 
-  await loadInjectedSave(page, dragonLandsSave({ bossChapter: 0, worldTimeSeconds: 1200 }));
+  await loadInjectedSave(page, expeditionSave({ bossChapter: 0, worldTimeSeconds: 1200 }));
   const sealedBossBar = (await page.locator(".boss-bar").textContent()) ?? "";
   systems.bossSealedMarked = sealedBossBar.includes("파이어 드래곤") && sealedBossBar.includes("봉인됨");
   systems.chapterObjectiveShown = ((await page.locator(".objective").textContent()) ?? "").includes("챕터 1/6");
   systems.daySkyBrightness = await sampleSkyBrightness(page);
 
-  await loadInjectedSave(page, dragonLandsSave({ bossChapter: 1, worldTimeSeconds: 1200 }));
+  await loadInjectedSave(page, expeditionSave({ bossChapter: 1, worldTimeSeconds: 1200 }));
   const unsealedBossBar = (await page.locator(".boss-bar").textContent()) ?? "";
   systems.bossUnsealsAfterChapter = unsealedBossBar.includes("파이어 드래곤") && !unsealedBossBar.includes("봉인됨");
 
-  await loadInjectedSave(page, dragonLandsSave({ bossChapter: 0, worldTimeSeconds: 3300 }));
+  await loadInjectedSave(page, expeditionSave({ bossChapter: 0, worldTimeSeconds: 3300 }));
   systems.nightTimeLabel = ((await page.locator(".stats-detail.muted").textContent()) ?? "").includes("밤");
   systems.nightSkyBrightness = await sampleSkyBrightness(page);
   await page.screenshot({ path: "artifacts/new-systems-night.png", fullPage: true });
+
+  // 공동묘지: 한낮에도 음산한 무드(하늘이 평원 낮보다 어둑)
+  await loadInjectedSave(page, expeditionSave({ bossChapter: 0, worldTimeSeconds: 1200, worldMapId: "graveyard", objects: [] }));
+  await page.waitForTimeout(600);
+  systems.graveyardSkyBrightness = await sampleSkyBrightness(page);
+  await page.screenshot({ path: "artifacts/graveyard.png", fullPage: true });
 
   // 인게임 '새로시작' 버튼은 확인 후 타이틀 화면으로 돌아가야 한다.
   page.once("dialog", (dialog) => dialog.accept());
@@ -594,6 +601,9 @@ for (const viewport of [
       errors.push(`desktop: night sky (${systems.nightSkyBrightness}) was not darker than day sky (${systems.daySkyBrightness})`);
     }
     if (!systems.newGameReturnsToTitle) errors.push("desktop: in-game new-game button did not return to the title screen");
+    if (systems.graveyardSkyBrightness < 0 || systems.graveyardSkyBrightness > systems.daySkyBrightness - 40) {
+      errors.push(`desktop: graveyard daytime sky (${systems.graveyardSkyBrightness}) was not gloomier than the plains day sky (${systems.daySkyBrightness})`);
+    }
   }
   results.push({ viewport, canvas, gameplay, systems });
   await page.close();

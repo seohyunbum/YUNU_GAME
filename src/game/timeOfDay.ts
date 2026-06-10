@@ -80,7 +80,7 @@ export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   context.scene.fog.color.copy(fogColor);
   context.scene.fog.near = 70;
   context.scene.fog.far = fogFar;
-  context.sky.visible = true;
+  context.sky.visible = context.mood !== "graveyard"; // 묘지는 하늘 돔을 끄고 음산한 배경색을 그대로 드러낸다
   context.ambientLight.intensity = ambientScaled;
   context.ambientLight.color.copy(ambientColor.setHex(0xeaf7ff).lerp(skyColor, 0.24));
   context.ambientLight.groundColor.copy(groundColor.setHex(0x39542c).lerp(fogColor, 0.22));

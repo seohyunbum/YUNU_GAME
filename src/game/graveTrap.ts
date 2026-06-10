@@ -42,7 +42,7 @@ export interface GraveTrapContext {
   spawnZombie(position: THREE.Vector3): WorldObject;
   enterUnderground(point: THREE.Vector3): void;
   getGroundHeightAt(x: number, z: number): number;
-  animateWalkCycle(object: WorldObject, delta: number, movementSpeed: number): void;
+  runWalkCycle(object: WorldObject, delta: number, movementSpeed: number): void;
   refreshSpatialObject(object: WorldObject): void;
   damagePlayer(amount: number, showParticles: boolean, deathReason: string): boolean;
   showMessage(text: string): void;
@@ -173,7 +173,7 @@ function updateBurrowZombie(context: GraveTrapContext, delta: number) {
   zombie.root.rotation.y = -angle + Math.PI / 2;
   animatePredatorAttackMotion(zombie, context.now());
   context.refreshSpatialObject(zombie);
-  context.animateWalkCycle(zombie, delta, 0.7);
+  context.runWalkCycle(zombie, delta, 0.7);
   zombie.attackCooldown = Math.max(0, (zombie.attackCooldown ?? 0) - delta);
   if (distance < ZOMBIE_STRIKE_RANGE && (zombie.attackCooldown ?? 0) <= 0) {
     zombie.attackCooldown = ZOMBIE_ATTACK_COOLDOWN;
