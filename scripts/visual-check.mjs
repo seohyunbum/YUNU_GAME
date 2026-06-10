@@ -499,6 +499,7 @@ async function inspectNewSystems(page) {
     sealedBossMarkers: 0,
     starterFieldBossMarker: 0,
     loadPanelHasFileBackup: false,
+    homeMarkers: 0,
     newGameReturnsToTitle: false,
   };
 
@@ -541,6 +542,21 @@ async function inspectNewSystems(page) {
   await loadInjectedSave(page, expeditionSave({ bossChapter: 1, worldTimeSeconds: 1200 }));
   const unsealedBossBar = (await page.locator(".boss-bar").textContent()) ?? "";
   systems.bossUnsealsAfterChapter = unsealedBossBar.includes("파이어 드래곤") && !unsealedBossBar.includes("봉인됨");
+
+  // 내가 지은 집(playerOwned)은 지역 지도에 🏠 마커로 표시된다
+  await loadInjectedSave(page, expeditionSave({
+    bossChapter: 0,
+    worldTimeSeconds: 1200,
+    objects: [
+      { type: "villageHouse", name: "작은 통나무집", position: { x: 30, y: 0, z: 30 }, enterable: true, playerOwned: true, houseKind: "home", villageId: "player-house-test", collidable: true, collisionRadius: 4, collisionHeight: 3 },
+    ],
+  }));
+  await page.keyboard.press("KeyM");
+  await page.waitForTimeout(350);
+  systems.homeMarkers = await page.locator("[data-home-marker]").count();
+  await page.screenshot({ path: "artifacts/map-home-marker.png", fullPage: true });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
 
   await loadInjectedSave(page, expeditionSave({ bossChapter: 0, worldTimeSeconds: 3300 }));
   systems.nightTimeLabel = ((await page.locator(".stats-detail.muted").textContent()) ?? "").includes("밤");
@@ -652,6 +668,7 @@ for (const viewport of [
     if (systems.sealedBossMarkers < 1) errors.push("desktop: sealed boss was not marked as sealed on the region map");
     if (systems.starterFieldBossMarker < 1) errors.push("desktop: starter map did not show its field boss on the region map");
     if (!systems.loadPanelHasFileBackup) errors.push("desktop: load panel did not expose save file export/import buttons");
+    if (systems.homeMarkers < 1) errors.push("desktop: player-built house was not marked on the region map");
     if (systems.graveyardSkyBrightness < 0 || systems.graveyardSkyBrightness > systems.daySkyBrightness - 40) {
       errors.push(`desktop: graveyard daytime sky (${systems.graveyardSkyBrightness}) was not gloomier than the plains day sky (${systems.daySkyBrightness})`);
     }

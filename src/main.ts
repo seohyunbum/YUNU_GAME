@@ -231,6 +231,8 @@ import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapByI
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
 import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
 import { createCaveInterior, createHouseInterior, type InteriorContext } from "./game/interiors";
+import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
+import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeStoragePanel";
 import { PLAYER_CLASSES } from "./game/classes";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
@@ -545,6 +547,9 @@ class WildernessGame {
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
   private houseObjectIds: string[] = [];
+  private currentHouseOwned = false;
+  private homeStorage = normalizeHomeStorage();
+  private homeSupplyCooldownSeconds = 0;
   private ridingTrainId: string | null = null;
   private readonly toolUses: Record<ItemId, number> = {};
   private messageTimer = 0;
@@ -901,6 +906,7 @@ class WildernessGame {
 
   private updateTimeOfDay(delta: number) {
     this.worldTimeSeconds = (this.worldTimeSeconds + delta) % DAY_LENGTH_SECONDS;
+    if (this.homeSupplyCooldownSeconds > 0) this.homeSupplyCooldownSeconds = Math.max(0, this.homeSupplyCooldownSeconds - delta);
     const wrap = WORLD_SIZE * 0.56;
     for (const cloud of this.cloudLayer.children) {
       cloud.position.x += (cloud.userData.speed ?? 0.8) * delta;
@@ -1751,7 +1757,7 @@ class WildernessGame {
           this.interact();
           return;
         }
-        if (this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench"]) || this.getLookTarget() || this.nearbyDroppedItemInView()) this.interact();
+        if (this.nearbyObjectInView(["bed", "homeStorage", "homeSupply", "workbench", "extendedWorkbench"]) || this.getLookTarget() || this.nearbyDroppedItemInView()) this.interact();
       }
     });
     document.addEventListener("pointerlockchange", () => {
@@ -3823,7 +3829,7 @@ class WildernessGame {
     if (target.type === "chest") return target.opened ? "이미 연 상자" : "E: 상자 열기";
     if (target.type === "droppedItem") return `좌클릭/E: ${target.name} 줍기`;
     if (target.type === "buildingBlock") return selectedItem === "building_block" ? "좌클릭/E: 쌓기블록 회수 | 우클릭: 바라보는 면에 이어 붙이기" : "좌클릭/E: 쌓기블록 회수";
-    if (target.type === "bed") return "좌클릭/E/우클릭: 잠자기";
+    if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에서 푹 쉬기 (완전 회복)" : "좌클릭/E/우클릭: 잠자기";
     if (target.type === "cave") return "E: 동굴 들어가기";
     if (target.type === "caveExit") return "E: 동굴 나가기";
     if (target.type === "houseExit") return "E: 집 밖으로 나가기";
@@ -3848,7 +3854,9 @@ class WildernessGame {
     if (target.type === "villageShop") return "좌클릭/E/우클릭: 마을 상점 열기";
     if (target.type === "villageSellShop") return "좌클릭/E/우클릭: 마을 판매소 열기";
     if (target.type === "blacksmith") return "E: 대장간 들어가기";
-    if (target.type === "villageHouse") return target.enterable ? "E: 주민 집 들어가기" : target.name;
+    if (target.type === "villageHouse") return target.enterable ? (target.playerOwned ? "E: 내 집 들어가기" : "E: 주민 집 들어가기") : target.name;
+    if (target.type === "homeStorage") return "E: 집 창고 열기";
+    if (target.type === "homeSupply") return this.homeSupplyCooldownSeconds <= 0 ? "E: 보급 상자 열기 (준비됨!)" : `보급 상자 — ${homeSupplyReadyLabel(this.homeSupplyCooldownSeconds)}`;
     if (this.isVillageGuard(target)) return `E: ${target.name} 공격`;
     if (target.type === "foodStorage") return "E: 식량창고 열기";
     if (target.type === "workbench" || target.type === "extendedWorkbench") return "좌클릭/E: 제작대 회수 | 우클릭: 제작대 사용";
@@ -3902,7 +3910,16 @@ class WildernessGame {
       return;
     }
     if (target.type === "bed") {
-      this.pickUpBed(target);
+      if (target.homeBed) this.sleepInBed(target);
+      else this.pickUpBed(target);
+      return;
+    }
+    if (target.type === "homeStorage") {
+      this.openPanel("homeStorage");
+      return;
+    }
+    if (target.type === "homeSupply") {
+      this.claimHomeSupply();
       return;
     }
     if (target.type === "buildingBlock") {
@@ -3969,8 +3986,74 @@ class WildernessGame {
     this.renderHud();
   }
 
+  private claimHomeSupply() {
+    if (this.homeSupplyCooldownSeconds > 0) {
+      this.showMessage(`아직 보급이 차지 않았습니다. ${homeSupplyReadyLabel(this.homeSupplyCooldownSeconds)}.`);
+      return;
+    }
+    const loot = rollHomeSupply(this.level);
+    const received: string[] = [];
+    for (const reward of loot) if (this.addItem(reward.item, reward.count)) received.push(`${ITEM_NAMES[reward.item] ?? reward.item} ${reward.count}`);
+    if (received.length === 0) {
+      this.showMessage("인벤토리가 가득 차서 보급품을 받을 수 없습니다. 칸을 비운 뒤 다시 여세요.");
+      return;
+    }
+    this.homeSupplyCooldownSeconds = HOME_SUPPLY_COOLDOWN_SECONDS;
+    this.playTone(880, 0.12, "triangle", 0.03);
+    this.showMessage(`보급 상자를 열었습니다: ${received.join(", ")}${received.length < loot.length ? " (일부는 가방이 가득 차 받지 못했습니다)" : ""}. 다음 보급은 30분 뒤!`);
+    this.renderHud();
+  }
+
+  private playerHomeMarkers() {
+    const homes: { name: string; x: number; z: number }[] = [];
+    for (const object of this.objectsOfType("villageHouse")) {
+      if (object.playerOwned) homes.push({ name: object.name, x: object.root.position.x, z: object.root.position.z });
+    }
+    return homes;
+  }
+
+  private renderHomeStoragePanel() {
+    const carry = this.allStorageSlots();
+    const toView = (slot: Slot) => ({ label: slot.item ? shortName(slot.item) : "", count: slot.count, empty: !slot.item || slot.count <= 0 });
+    renderHomeStoragePanelView(
+      this.panelEl,
+      { storage: this.homeStorage.map(toView), inventory: carry.map(toView) },
+      {
+        onClose: () => this.closePanel(),
+        onTake: (index) => {
+          const slot = this.homeStorage[index];
+          if (!slot?.item) return;
+          if (transferSlot(slot, carry)) {
+            this.renderHomeStoragePanel();
+            this.renderHud();
+          } else this.showMessage("인벤토리에 빈 칸이 없습니다.");
+        },
+        onStore: (index) => {
+          const slot = carry[index];
+          if (!slot?.item) return;
+          if (transferSlot(slot, this.homeStorage)) {
+            this.renderHomeStoragePanel();
+            this.renderHud();
+          } else this.showMessage("창고에 빈 칸이 없습니다.");
+        },
+      },
+    );
+  }
+
   private sleepInBed(target: WorldObject) {
     if (target.type !== "bed") return;
+    if (target.homeBed) {
+      const healed = this.maxHealth - this.health;
+      this.health = this.maxHealth;
+      this.mana = this.maxMana;
+      this.hunger = Math.min(HUNGER_MAX, this.hunger + 1);
+      this.starvationTimer = 0;
+      this.playHandAction();
+      this.playTone(660, 0.12, "triangle", 0.028);
+      this.showMessage(`내 침대에서 푹 쉬었습니다. 체력 ${healed} 회복 + 마나 가득 + 배고픔 1 회복!`);
+      this.renderHud();
+      return;
+    }
     const healed = this.maxHealth - this.health;
     this.health = this.maxHealth;
     this.starvationTimer = 0;
@@ -3981,6 +4064,10 @@ class WildernessGame {
 
   private pickUpBed(target: WorldObject) {
     if (target.type !== "bed") return;
+    if (target.homeBed) {
+      this.showMessage("집 침대는 회수할 수 없습니다. E나 우클릭으로 푹 쉴 수 있습니다.");
+      return;
+    }
     if (!this.addItem("bed", 1)) return;
     this.removeObject(target.id);
     this.playHandAction();
@@ -4231,12 +4318,15 @@ class WildernessGame {
     this.settlePlayerAfterTeleport();
     const houseKind = target.type === "blacksmith" ? "blacksmith" : target.houseKind ?? "home";
     this.currentHouseKind = houseKind;
+    this.currentHouseOwned = Boolean(target.playerOwned);
     if (target.houseChestRich === undefined) target.houseChestRich = houseKind === "blacksmith" || Math.random() < 0.01;
-    createHouseInterior(this.interiorContext, target.houseChestRich, houseKind);
+    createHouseInterior(this.interiorContext, target.houseChestRich, houseKind, this.currentHouseOwned);
     precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.playTransitionSound("enter");
     this.showMessage(
-      houseKind === "blacksmith"
+      this.currentHouseOwned
+        ? "내 집에 들어왔습니다. 집 안은 안전지대입니다 — 침대(푹 쉬기) · 집 창고 · 보급 상자를 쓸 수 있습니다."
+        : houseKind === "blacksmith"
         ? "대장간 안으로 들어왔습니다. 고정 제작 도구와 광산상자가 있습니다."
         : houseKind === "twoStory"
           ? "이층집 안으로 들어왔습니다. 계단으로 2층을 오르내릴 수 있습니다."
@@ -4248,6 +4338,7 @@ class WildernessGame {
   private leaveHouse() {
     this.locationMode = "overworld";
     this.currentHouseKind = "home";
+    this.currentHouseOwned = false;
     this.clearHouseObjects();
     this.setOverworldAtmosphere();
     this.playerPosition.copy(this.houseReturnPosition ?? new THREE.Vector3(0, PLAYER_HEIGHT, 12));
@@ -4907,10 +4998,15 @@ class WildernessGame {
       if (this.locationMode === "house") {
         this.locationMode = "overworld";
         this.currentHouseKind = "home";
+        this.currentHouseOwned = false;
         this.clearHouseObjects();
         this.setOverworldAtmosphere();
       }
-      this.playerPosition.set(0, PLAYER_HEIGHT, 12);
+      let homeHouse: WorldObject | null = null;
+      for (const object of this.objectsOfType("villageHouse")) if (object.playerOwned) { homeHouse = object; break; }
+      if (homeHouse && window.confirm("내 집 근처에서 부활할까요? (취소하면 마을에서 부활합니다)")) {
+        this.playerPosition.set(homeHouse.root.position.x + 4.5, PLAYER_HEIGHT, homeHouse.root.position.z + 6.5);
+      } else this.playerPosition.set(0, PLAYER_HEIGHT, 12);
       this.settlePlayerAfterTeleport();
       this.showMessage(`사망 원인: ${deathReason} 튜토리얼 책, 직업 기본무기, 구급상자를 제외한 아이템이 죽은 자리에 떨어졌습니다.`);
       this.renderHud();
@@ -5512,6 +5608,9 @@ class WildernessGame {
         ironGuardUntil: this.ironGuardUntil,
         locationMode: this.locationMode,
         currentHouseKind: this.currentHouseKind,
+        currentHouseOwned: this.currentHouseOwned,
+        homeStorage: this.homeStorage,
+        homeSupplyCooldownSeconds: this.homeSupplyCooldownSeconds,
         caveReturnPosition: this.caveReturnPosition,
         houseReturnPosition: this.houseReturnPosition,
         toolUses: { ...this.toolUses },
@@ -5600,6 +5699,9 @@ class WildernessGame {
     this.ironGuardUntil = performance.now() + (save.player.ironGuardRemainingMs ?? 0);
     this.locationMode = save.player.locationMode;
     this.currentHouseKind = save.player.currentHouseKind ?? "home";
+    this.currentHouseOwned = save.player.currentHouseOwned === true;
+    this.homeStorage = normalizeHomeStorage(save.player.homeStorage);
+    this.homeSupplyCooldownSeconds = Math.max(0, save.player.homeSupplyCooldownSeconds ?? 0);
     this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
     this.houseReturnPosition = save.player.houseReturnPosition ? this.fromSavedVector(save.player.houseReturnPosition) : null;
     Object.keys(this.toolUses).forEach((item) => delete this.toolUses[item]);
@@ -5615,7 +5717,7 @@ class WildernessGame {
       createCaveInterior(this.interiorContext);
     } else if (this.locationMode === "house") {
       this.setHouseAtmosphere();
-      createHouseInterior(this.interiorContext, false, this.currentHouseKind);
+      createHouseInterior(this.interiorContext, false, this.currentHouseKind, this.currentHouseOwned);
     } else {
       this.setOverworldAtmosphere();
     }
@@ -5932,6 +6034,7 @@ class WildernessGame {
     object.enterable = savedObject.enterable;
     object.houseChestRich = savedObject.houseChestRich;
     object.houseKind = savedObject.houseKind;
+    object.playerOwned = savedObject.playerOwned;
     object.lockedStation = savedObject.lockedStation;
     object.harvestProgress = savedObject.harvestProgress;
     object.antMeatRemaining = savedObject.antMeatRemaining;
@@ -6116,6 +6219,7 @@ class WildernessGame {
     if (this.currentPanel === "loadGame") this.renderLoadGamePanel();
     if (this.currentPanel === "cheat") this.renderCheatPanel();
     if (this.currentPanel === "map") this.renderRegionMapPanel();
+    if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel();
     if (this.currentPanel === "saveOverwrite") {
       renderSaveOverwritePanelView(this.panelEl, this.readSaveSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? this.saveSummary(slot.save) : slot.description ?? slot.label })), {
         onClose: () => { this.pendingOverwriteSave = null; this.closePanel(); },
@@ -6136,7 +6240,7 @@ class WildernessGame {
     const nextBossKind = nextBossTarget(this.bossChapter)?.kind;
     const bosses = [...this.objectsOfType("dragon")].map((dragon) => ({ name: this.bossStats(dragon.bossKind).name, x: dragon.root.position.x, z: dragon.root.position.z, sealed: !isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter), next: (dragon.bossKind ?? "dragon") === nextBossKind }));
     for (const predator of this.objectsOfType("wildPredator")) if (predator.fieldBossId) bosses.push({ name: predator.name, x: predator.root.position.x, z: predator.root.position.z, sealed: false, next: false });
-    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: canTeleportToWorldMap(this.level, map), lockReason: worldMapLockReason(this.level, map) })), bosses }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
+    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: canTeleportToWorldMap(this.level, map), lockReason: worldMapLockReason(this.level, map) })), bosses, homes: this.playerHomeMarkers() }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
   }
 
   private teleportToWorldMap(mapId: string) {
@@ -6713,7 +6817,8 @@ class WildernessGame {
     house.houseKind = option.houseKind;
     house.name = option.name;
     house.houseChestRich = false;
-    this.showMessage(`${option.name}을 지었습니다. 문을 보고 E를 누르면 들어갈 수 있습니다.`);
+    house.playerOwned = true;
+    this.showMessage(`${option.name}을 지었습니다! 내 집 = 안전지대 + 침대 완전 회복 + 집 창고 + 보급 상자 + 죽어도 집 앞 부활. 지도(M)에 표시됩니다.`);
     this.renderInventoryPanel();
     this.renderHud();
   }

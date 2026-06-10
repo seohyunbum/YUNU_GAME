@@ -169,7 +169,64 @@ export function createCaveInterior(context: InteriorContext) {
   }
 }
 
-export function createHouseInterior(context: InteriorContext, chestRich: boolean, houseKind: HouseKind = "home") {
+function createHomeStorageVisual(position: THREE.Vector3) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(1.45, 1.5, 0.7),
+    new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.78 }),
+  );
+  body.position.y = 0.75;
+  const trim = new THREE.Mesh(
+    new THREE.BoxGeometry(1.55, 0.12, 0.8),
+    new THREE.MeshStandardMaterial({ color: 0xd9b13b, metalness: 0.35, roughness: 0.5 }),
+  );
+  trim.position.y = 1.52;
+  group.add(body, trim);
+  for (const y of [0.45, 1.05]) {
+    const drawer = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.42, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.82 }),
+    );
+    drawer.position.set(0, y, 0.36);
+    const knob = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0xfcd34d, emissive: 0x92400e, emissiveIntensity: 0.4, roughness: 0.4 }),
+    );
+    knob.position.set(0, y, 0.42);
+    group.add(drawer, knob);
+  }
+  group.position.copy(position);
+  return group;
+}
+
+function createHomeSupplyVisual(position: THREE.Vector3) {
+  const group = new THREE.Group();
+  const crate = new THREE.Mesh(
+    new THREE.BoxGeometry(1.1, 0.85, 1.1),
+    new THREE.MeshStandardMaterial({ color: 0x3d6b4f, roughness: 0.8 }),
+  );
+  crate.position.y = 0.43;
+  const lid = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.16, 1.2),
+    new THREE.MeshStandardMaterial({ color: 0x2f5440, roughness: 0.78 }),
+  );
+  lid.position.y = 0.92;
+  const ribbon = new THREE.Mesh(
+    new THREE.BoxGeometry(1.14, 0.87, 0.18),
+    new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xb45309, emissiveIntensity: 0.35, roughness: 0.5 }),
+  );
+  ribbon.position.y = 0.43;
+  const bow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0xfcd34d, emissive: 0xb45309, emissiveIntensity: 0.5, roughness: 0.45 }),
+  );
+  bow.position.y = 1.05;
+  group.add(crate, lid, ribbon, bow);
+  group.position.copy(position);
+  return group;
+}
+
+export function createHouseInterior(context: InteriorContext, chestRich: boolean, houseKind: HouseKind = "home", playerOwned = false) {
   const room = new THREE.Group();
   const twoStory = houseKind === "twoStory";
   const floor = new THREE.Mesh(
@@ -202,7 +259,7 @@ export function createHouseInterior(context: InteriorContext, chestRich: boolean
     new THREE.BoxGeometry(2.4, 0.55, 1.25),
     new THREE.MeshStandardMaterial({ color: houseKind === "blacksmith" ? 0x5b3428 : 0x3d5a80, roughness: 0.75 }),
   );
-  bed.position.set(-3.15, 0.38, HOUSE_CENTER_Z - 2.9);
+  bed.position.set(playerOwned ? 0 : -3.15, 0.38, playerOwned ? 0 : HOUSE_CENTER_Z - 2.9);
   const table = new THREE.Mesh(
     new THREE.BoxGeometry(1.5, 0.18, 1.2),
     new THREE.MeshStandardMaterial({ color: 0x5d3a22, roughness: 0.84 }),
@@ -219,7 +276,22 @@ export function createHouseInterior(context: InteriorContext, chestRich: boolean
   );
   rug.position.set(0, 0.02, HOUSE_CENTER_Z + 0.4);
   rug.scale.z = 0.6;
-  room.add(bed, table, lamp, rug);
+  room.add(table, lamp, rug);
+  if (playerOwned) {
+    // 내 집 침대는 상호작용 오브젝트 — 푹 쉬기(완전 회복)가 가능하고 회수는 안 된다.
+    const bedGroup = new THREE.Group();
+    const pillow = new THREE.Mesh(
+      new THREE.BoxGeometry(0.62, 0.18, 0.92),
+      new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.7 }),
+    );
+    pillow.position.set(-0.8, 0.74, 0);
+    bedGroup.add(bed, pillow);
+    bedGroup.position.set(-3.15, 0, HOUSE_CENTER_Z - 2.9);
+    const bedObject = context.addWorldObject("bed", "내 침대", bedGroup, { homeBed: true, collidable: true, collisionRadius: 1.1, collisionHeight: 0.8 });
+    context.trackHouseObjects(bedObject.id);
+  } else {
+    room.add(bed);
+  }
   if (twoStory) {
     const upperFloor = new THREE.Mesh(
       new THREE.BoxGeometry(10.8, 0.18, 4.05),
@@ -266,8 +338,16 @@ export function createHouseInterior(context: InteriorContext, chestRich: boolean
   context.trackHouseObjects(`loose-${room.uuid}`);
 
   const exitId = context.addWorldObject("houseExit", "문으로 나가기", createHouseExit(new THREE.Vector3(0, 0, HOUSE_CENTER_Z + 5.2))).id;
-  const chest = context.spawnChest(new THREE.Vector3(2.4, 0, HOUSE_CENTER_Z - 3.15), houseKind === "blacksmith" || chestRich);
-  context.trackHouseObjects(exitId, chest.id);
+  context.trackHouseObjects(exitId);
+  if (playerOwned) {
+    // 내 집: 일회성 보물상자 대신 영구 창고 + 주기 보급 상자
+    const storage = context.addWorldObject("homeStorage", "집 창고", createHomeStorageVisual(new THREE.Vector3(2.6, 0, HOUSE_CENTER_Z - 3.3)), { collidable: true, collisionRadius: 0.85, collisionHeight: 1.6 });
+    const supply = context.addWorldObject("homeSupply", "보급 상자", createHomeSupplyVisual(new THREE.Vector3(4.35, 0, HOUSE_CENTER_Z - 0.6)), { collidable: true, collisionRadius: 0.75, collisionHeight: 1.1 });
+    context.trackHouseObjects(storage.id, supply.id);
+  } else {
+    const chest = context.spawnChest(new THREE.Vector3(2.4, 0, HOUSE_CENTER_Z - 3.15), houseKind === "blacksmith" || chestRich);
+    context.trackHouseObjects(chest.id);
+  }
   if (houseKind === "blacksmith") {
     const workbench = spawnWorkbench(context, new THREE.Vector3(-3.15, 0, HOUSE_CENTER_Z + 1.9), true);
     const smelter = spawnSmelter(context, new THREE.Vector3(0, 0, HOUSE_CENTER_Z - 2.55), true);

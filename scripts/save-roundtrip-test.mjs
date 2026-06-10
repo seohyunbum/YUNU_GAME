@@ -57,6 +57,9 @@ function stableSaveShape(save) {
       ironGuardRemainingSeconds: Math.round((save.player.ironGuardRemainingMs ?? 0) / 1000),
       locationMode: save.player.locationMode,
       currentHouseKind: save.player.currentHouseKind,
+      currentHouseOwned: save.player.currentHouseOwned,
+      homeStorage: (save.player.homeStorage ?? []).filter((slot) => slot.item),
+      homeSupplyCooldownSeconds: Math.round(save.player.homeSupplyCooldownSeconds ?? 0),
       selectedHotbarIndex: save.player.selectedHotbarIndex,
       hotbar: save.player.hotbar,
       bagSlots: save.player.bagSlots,
@@ -154,6 +157,10 @@ try {
     game.ironGuardUntil = performance.now() + 43_000;
     game.locationMode = "overworld";
     game.currentHouseKind = "twoStory";
+    game.currentHouseOwned = true;
+    game.homeStorage[0] = { item: "diamond", count: 3 };
+    game.homeStorage[5] = { item: "iron_axe", count: 1, durabilityUsed: 11 };
+    game.homeSupplyCooldownSeconds = 754;
     game.selectedHotbarIndex = 2;
 
     game.hotbar.splice(
@@ -222,6 +229,7 @@ try {
       "mountain roundtrip",
       "dropped item roundtrip",
       "world map state roundtrip",
+      "home storage and supply cooldown roundtrip",
     ],
   }, null, 2));
 } finally {

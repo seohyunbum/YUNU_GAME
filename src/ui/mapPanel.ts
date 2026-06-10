@@ -16,6 +16,12 @@ export interface MapBossMarker {
   next: boolean;
 }
 
+export interface MapHomeMarker {
+  name: string;
+  x: number;
+  z: number;
+}
+
 export interface RegionMapPanelView {
   regions: Region[];
   currentRegionId: string | null;
@@ -24,6 +30,7 @@ export interface RegionMapPanelView {
   waterZones: MapWaterZone[];
   worldMaps: { map: WorldMapDefinition; current: boolean; canTeleport: boolean; lockReason: string }[];
   bosses: MapBossMarker[];
+  homes: MapHomeMarker[];
 }
 
 export interface RegionMapCallbacks {
@@ -105,6 +112,19 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
       </g>`;
     })
     .join("");
+  // 내 집 마커 — 초록 지붕 집 모양, 거점 느낌을 준다
+  const homes = view.homes
+    .map((home) => {
+      const cx = Number(mapX(home.x).toFixed(1));
+      const cy = Number(mapY(home.z).toFixed(1));
+      const textHalo = `paint-order="stroke" stroke="#15231d" stroke-width="3.5" stroke-linejoin="round"`;
+      return `<g data-home-marker>
+        <rect x="${cx - 7}" y="${cy - 4}" width="14" height="10" fill="#fef3c7" stroke="#111827" stroke-width="2" />
+        <path d="M ${cx - 10} ${cy - 3} L ${cx} ${cy - 13} L ${cx + 10} ${cy - 3} Z" fill="#34d399" stroke="#111827" stroke-width="2" />
+        <text x="${cx}" y="${cy + 20}" text-anchor="middle" fill="#a7f3d0" font-size="13" font-weight="800" ${textHalo}>${escapeHtml(home.name)}</text>
+      </g>`;
+    })
+    .join("");
   const cards = view.regions
     .map((region) => {
       const selected = region.id === view.currentRegionId ? " current" : "";
@@ -150,6 +170,7 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
           </g>
           ${waters}
           ${regions}
+          ${homes}
           ${bosses}
           <line x1="${playerX.toFixed(1)}" y1="${playerY.toFixed(1)}" x2="${directionX.toFixed(1)}" y2="${directionY.toFixed(1)}" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
           <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="9" fill="#fff7d6" stroke="#111827" stroke-width="3" />

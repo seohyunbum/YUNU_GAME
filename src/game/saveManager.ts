@@ -55,6 +55,9 @@ export interface SaveDataSnapshot {
     ironGuardUntil: number;
     locationMode: LocationMode;
     currentHouseKind: HouseKind;
+    currentHouseOwned: boolean;
+    homeStorage: readonly Slot[];
+    homeSupplyCooldownSeconds: number;
     caveReturnPosition: VectorLike | null;
     houseReturnPosition: VectorLike | null;
     toolUses: Record<ItemId, number>;
@@ -146,6 +149,7 @@ export function createSavedWorldState(snapshot: Pick<SaveDataSnapshot, "nowMs" |
         enterable: object.enterable,
         houseChestRich: object.houseChestRich,
         houseKind: object.houseKind,
+        playerOwned: object.playerOwned,
         lockedStation: object.lockedStation,
         harvestProgress: object.harvestProgress,
         antMeatRemaining: object.antMeatRemaining,
@@ -209,6 +213,9 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       ironGuardRemainingMs: Math.max(0, snapshot.player.ironGuardUntil - snapshot.nowMs),
       locationMode: snapshot.player.locationMode,
       currentHouseKind: snapshot.player.currentHouseKind,
+      currentHouseOwned: snapshot.player.currentHouseOwned,
+      homeStorage: cloneSlots(snapshot.player.homeStorage),
+      homeSupplyCooldownSeconds: snapshot.player.homeSupplyCooldownSeconds,
       caveReturnPosition: snapshot.player.caveReturnPosition ? toSavedVector(snapshot.player.caveReturnPosition) : null,
       houseReturnPosition: snapshot.player.houseReturnPosition ? toSavedVector(snapshot.player.houseReturnPosition) : null,
       toolUses: { ...snapshot.player.toolUses },

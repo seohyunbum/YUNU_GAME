@@ -19,6 +19,8 @@ export type ObjectType =
   | "caveExit"
   | "graveHand"
   | "houseExit"
+  | "homeStorage"
+  | "homeSupply"
   | "dirtPatch"
   | "terrainPatch"
   | "water"
@@ -56,7 +58,7 @@ export type ObjectType =
   | "extendedWorkbench"
   | "smelter"
   | "specialSmelter";
-export type PanelType = "inventory" | "book" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | null;
+export type PanelType = "inventory" | "book" | "homeStorage" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | null;
 export type LocationMode = "overworld" | "cave" | "house";
 
 
@@ -148,6 +150,8 @@ export interface WorldObject {
   enterable?: boolean;
   houseChestRich?: boolean;
   houseKind?: HouseKind;
+  playerOwned?: boolean;
+  homeBed?: boolean;
   lockedStation?: boolean;
   harvestProgress?: number;
   antMeatRemaining?: number;
@@ -212,6 +216,7 @@ export interface SavedObject {
   enterable?: boolean;
   houseChestRich?: boolean;
   houseKind?: HouseKind;
+  playerOwned?: boolean;
   lockedStation?: boolean;
   harvestProgress?: number;
   antMeatRemaining?: number;
@@ -277,6 +282,9 @@ export interface SavedGame {
     ironGuardRemainingMs?: number;
     locationMode: LocationMode;
     currentHouseKind?: HouseKind;
+    currentHouseOwned?: boolean;
+    homeStorage?: Slot[];
+    homeSupplyCooldownSeconds?: number;
     caveReturnPosition: SavedVector | null;
     houseReturnPosition?: SavedVector | null;
     toolUses?: Record<ItemId, number>;

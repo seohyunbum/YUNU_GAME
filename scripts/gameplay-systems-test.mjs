@@ -106,6 +106,7 @@ try {
   const finale = await server.ssrLoadModule("/src/game/finale.ts");
   const fieldBosses = await server.ssrLoadModule("/src/game/fieldBosses.ts");
   const objectives = await server.ssrLoadModule("/src/objectives.ts");
+  const homeBase = await server.ssrLoadModule("/src/game/homeBase.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -515,6 +516,37 @@ try {
   }
 
   {
+    // 내 집 베이스캠프: 창고 이동, 보급 쿨다운/보상 티어, 정규화 골든값
+    const { HOME_STORAGE_SLOTS, HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } = homeBase;
+    assert(HOME_STORAGE_SLOTS === 24, "home storage should have 24 slots");
+    assert(HOME_SUPPLY_COOLDOWN_SECONDS === 1800, "supply cooldown should be 30 minutes of play time");
+
+    const storage = normalizeHomeStorage([{ item: "wood", count: 10 }]);
+    assert(storage.length === 24 && storage[0].item === "wood" && storage[1].item === null, "normalize should pad to 24 slots");
+    const carry = [{ item: "wood", count: 5 }, { item: null, count: 0 }];
+    assert(transferSlot(carry[0], storage) && storage[0].count === 15 && carry[0].item === null, "same-item stacks should merge on store");
+    const wornTool = { item: "iron_axe", count: 1, durabilityUsed: 9 };
+    assert(transferSlot(wornTool, storage) && storage[1].item === "iron_axe" && storage[1].durabilityUsed === 9, "worn tools should keep durability and use an empty slot");
+    const fullTarget = [{ item: "stone", count: 1 }];
+    assert(!transferSlot({ item: "wood", count: 2 }, fullTarget), "transfer into a full target should fail");
+    assert(!transferSlot({ item: null, count: 0 }, storage), "empty source slot should not transfer");
+
+    const noBonus = () => 0.99;
+    const low = rollHomeSupply(1, noBonus);
+    assert(low.some((reward) => reward.item === "meat" && reward.count === 2), "level 1 supply should give 2 meat");
+    assert(!low.some((reward) => reward.item === "iron"), "level 1 supply should not give iron");
+    const mid = rollHomeSupply(30, noBonus);
+    assert(mid.some((reward) => reward.item === "iron"), "level 30 supply should add iron");
+    const top = rollHomeSupply(100, noBonus);
+    assert(top.some((reward) => reward.item === "diamond" && reward.count === 2), "level 100 supply should add diamonds");
+    assert(top.some((reward) => reward.item === "obsidian"), "level 100 supply should add obsidian");
+    const bonus = rollHomeSupply(100, () => 0.01);
+    assert(bonus.length === top.length + 1, "supply bonus line should appear on a lucky roll");
+    assert(homeSupplyReadyLabel(0).includes("준비"), "ready label should say ready");
+    assert(homeSupplyReadyLabel(610).includes("11분"), "cooldown label should round up to minutes");
+  }
+
+  {
     // 수리 골든값: 등급 재료 매핑 + 50% 회복 + 완전 마모 도구는 재료 2개로 완전 회복
     const { repairMaterialFor, repairPerMaterial, toolMaxDurability } = items;
     assert(repairMaterialFor("iron_pickaxe") === "refined_iron", "iron pickaxe should repair with refined iron");
@@ -552,6 +584,7 @@ try {
         "finale fireworks, fanfare, and single credits roll",
         "field boss spawn-once, quest view, and mini fanfare",
         "tool repair material mapping and 50% recovery golden values",
+        "home base storage transfer and supply tier golden values",
         "tutorial step completion latches across condition regression",
       ],
     }, null, 2));

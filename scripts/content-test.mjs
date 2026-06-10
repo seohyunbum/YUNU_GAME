@@ -206,6 +206,17 @@ try {
     }
   }
 
+  // 내 집 보급 상자: 모든 레벨 구간의 보상이 실존 아이템이어야 한다
+  {
+    const homeBase = await server.ssrLoadModule("/src/game/homeBase.ts");
+    for (const level of [1, 15, 30, 55, 85, 130]) {
+      for (const reward of homeBase.rollHomeSupply(level, () => 0.01)) {
+        if (!isItem(reward.item)) problems.push(`home supply (level ${level}): unknown item '${reward.item}'`);
+        if (!(reward.count > 0)) problems.push(`home supply (level ${level}): non-positive count for '${reward.item}'`);
+      }
+    }
+  }
+
   // 수리 시스템: 모든 내구도 도구는 실존하는 수리 재료를 반환하고, 회복량은 양수여야 한다
   for (const table of DURABLE_TOOL_TABLES) {
     for (const tool of Object.keys(table)) {

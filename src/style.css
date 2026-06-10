@@ -2105,6 +2105,26 @@ body {
   width: min(920px, 94vw);
 }
 
+.home-storage-panel {
+  width: min(980px, 94vw);
+}
+
+.home-storage-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.home-storage-grid {
+  grid-template-columns: repeat(6, 1fr);
+}
+
+@media (max-width: 900px) {
+  .home-storage-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .save-file-actions {
   display: flex;
   align-items: center;
