@@ -5392,14 +5392,12 @@ class WildernessGame {
   }
 
   private newGame() {
-    if (!window.confirm("현재 진행 중인 게임을 새로 시작할까요? 저장된 게임은 삭제되지 않습니다.")) return;
-    this.playerClass = this.pendingPlayerClass ?? this.playerClass;
-    this.resetGameState();
-    this.seedOverworld();
-    precompileSceneShaders(this.renderer, this.scene, this.camera);
-    this.showMessage("새 게임을 시작했습니다.");
-    this.renderPanel();
-    this.renderHud();
+    if (!window.confirm("타이틀 화면으로 돌아갈까요? 저장하지 않은 진행은 사라지고, 저장된 게임은 그대로 남습니다.")) return;
+    this.gameStarted = false; this.currentPanel = null; this.renderPanel();
+    document.exitPointerLock?.();
+    this.handGroup.visible = false; this.pendingPlayerClass = this.playerClass;
+    this.renderClassSelection(); this.renderTitlePoints();
+    this.titleScreenEl.classList.remove("hidden"); this.uiRoot.classList.add("title-active");
   }
 
   private saveGame() {

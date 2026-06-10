@@ -478,6 +478,7 @@ async function inspectNewSystems(page) {
     nightTimeLabel: false,
     daySkyBrightness: -1,
     nightSkyBrightness: -1,
+    newGameReturnsToTitle: false,
   };
 
   await startNewGameAs(page, "gunner");
@@ -512,6 +513,15 @@ async function inspectNewSystems(page) {
   await loadInjectedSave(page, dragonLandsSave({ bossChapter: 0, worldTimeSeconds: 3300 }));
   systems.nightTimeLabel = ((await page.locator(".stats-detail.muted").textContent()) ?? "").includes("밤");
   systems.nightSkyBrightness = await sampleSkyBrightness(page);
+  await page.screenshot({ path: "artifacts/new-systems-night.png", fullPage: true });
+
+  // 인게임 '새로시작' 버튼은 확인 후 타이틀 화면으로 돌아가야 한다.
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.click("[data-new-game]");
+  await page.waitForTimeout(300);
+  systems.newGameReturnsToTitle =
+    (await page.locator(".title-screen:not(.hidden)").count()) === 1 &&
+    (await page.locator("[data-title-new]").isVisible());
 
   return systems;
 }
@@ -583,7 +593,7 @@ for (const viewport of [
     if (systems.daySkyBrightness < 0 || systems.nightSkyBrightness < 0 || systems.nightSkyBrightness > systems.daySkyBrightness - 10) {
       errors.push(`desktop: night sky (${systems.nightSkyBrightness}) was not darker than day sky (${systems.daySkyBrightness})`);
     }
-    await page.screenshot({ path: "artifacts/new-systems-night.png", fullPage: true });
+    if (!systems.newGameReturnsToTitle) errors.push("desktop: in-game new-game button did not return to the title screen");
   }
   results.push({ viewport, canvas, gameplay, systems });
   await page.close();
