@@ -166,3 +166,29 @@ export function applyProjectileDamage(
     context.renderHud();
   }
 }
+
+export function applyMeleeDragonAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
+  if (target.type !== "dragon") return;
+  const stats = context.bossStats(target.bossKind);
+  const defense = target.armor ?? stats.armor;
+  const damage = calculateCombatDamage(attackPower, defense);
+  context.playTone(100, 0.12, "sawtooth", 0.035);
+  if (damage <= 0) {
+    context.showMessage(`용의 방어력 ${defense}이 공격력 ${attackPower}을 막았습니다. 그래도 용이 즉시 반격합니다.`);
+    context.dragonCounterAttack(target);
+    return;
+  }
+  target.hp = (target.hp ?? stats.maxHp) - damage;
+  if (target.hp > 0) {
+    context.showMessage(`${stats.name}에게 ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${stats.maxHp}. ${stats.name}이 반격합니다.`);
+    context.dragonCounterAttack(target);
+    return;
+  }
+  const loot = context.rollDragonLoot();
+  const lootCount = context.grantRewardItem(loot, 1, "boss");
+  context.removeObject(target.id);
+  context.playTone(760, 0.24, "triangle", 0.045);
+  context.showMessage(`용을 쓰러뜨렸습니다! ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
+  context.grantExperienceForTarget(target);
+  context.updateBossBar();
+}

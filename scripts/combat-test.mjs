@@ -9,7 +9,7 @@ const server = await createServer({
 
 try {
   const THREE = await import("three");
-  const { applyProjectileDamage, calculateCombatDamage } = await server.ssrLoadModule("/src/game/combat.ts");
+  const { applyMeleeDragonAttack, applyProjectileDamage, calculateCombatDamage } = await server.ssrLoadModule("/src/game/combat.ts");
   const { PREDATOR_RETALIATE_MS } = await server.ssrLoadModule("/src/game/constants.ts");
 
   const cases = [
@@ -114,6 +114,33 @@ try {
     );
   }
 
+  {
+    const context = createProjectileContext();
+    const dragon = { id: "dragon-1", type: "dragon", name: "용", root: createRoot(), hp: 100, bossKind: "dragon" };
+    applyMeleeDragonAttack(context, dragon, 40);
+    assert.equal(dragon.hp, 80, "melee dragon hit applies armor-calculated damage");
+    assert.deepEqual(context.calls.map((call) => call[0]), ["tone", "message", "dragonCounter"], "nonlethal melee dragon hit triggers counterattack");
+  }
+
+  {
+    const context = createProjectileContext();
+    const dragon = { id: "dragon-2", type: "dragon", name: "용", root: createRoot(), hp: 100, bossKind: "dragon" };
+    applyMeleeDragonAttack(context, dragon, 30);
+    assert.equal(dragon.hp, 100, "fully blocked melee hit leaves dragon hp unchanged");
+    assert.deepEqual(context.calls.map((call) => call[0]), ["tone", "message", "dragonCounter"], "blocked melee dragon hit still counterattacks");
+  }
+
+  {
+    const context = createProjectileContext();
+    const dragon = { id: "dragon-3", type: "dragon", name: "용", root: createRoot(), hp: 10, bossKind: "dragon" };
+    applyMeleeDragonAttack(context, dragon, 40);
+    assert.deepEqual(
+      context.calls.map((call) => call[0]),
+      ["tone", "reward", "remove", "tone", "message", "experience", "bossBar"],
+      "lethal melee dragon hit grants loot, removes boss, and refreshes boss bar",
+    );
+  }
+
   console.log(JSON.stringify({
     ok: true,
     checks: [
@@ -121,6 +148,7 @@ try {
       "projectile animal hit behavior",
       "projectile predator defeat behavior",
       "projectile guard counterattack behavior",
+      "melee dragon attack behavior",
     ],
   }, null, 2));
 } finally {

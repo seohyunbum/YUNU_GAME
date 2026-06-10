@@ -63,6 +63,7 @@ import {
   type EntitySpawnContext,
 } from "./game/entitySpawns";
 import {
+  applyMeleeDragonAttack,
   applyProjectileDamage as applyProjectileDamageWithContext,
   calculateCombatDamage as calculateDamage,
   type ProjectileDamageContext,
@@ -4313,30 +4314,7 @@ class WildernessGame {
   }
 
   private attackDragon(target: WorldObject) {
-    if (target.type !== "dragon") return;
-    const stats = this.bossStats(target.bossKind);
-    const attack = this.currentDamage();
-    const defense = target.armor ?? stats.armor;
-    const damage = this.calculateCombatDamage(attack, defense);
-    this.playTone(100, 0.12, "sawtooth", 0.035);
-    if (damage <= 0) {
-      this.showMessage(`용의 방어력 ${defense}이 공격력 ${attack}을 막았습니다. 그래도 용이 즉시 반격합니다.`);
-      this.dragonCounterAttack(target);
-      return;
-    }
-    target.hp = (target.hp ?? stats.maxHp) - damage;
-    if (target.hp > 0) {
-      this.showMessage(`${stats.name}에게 ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${stats.maxHp}. ${stats.name}이 반격합니다.`);
-      this.dragonCounterAttack(target);
-      return;
-    }
-    const loot = this.rollDragonLoot();
-    const lootCount = this.grantRewardItem(loot, 1, "boss");
-    this.removeObject(target.id);
-    this.playTone(760, 0.24, "triangle", 0.045);
-    this.showMessage(`용을 쓰러뜨렸습니다! ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
-    this.grantExperienceForTarget(target);
-    this.updateBossBar();
+    applyMeleeDragonAttack(this.projectileDamageContext, target, this.currentDamage());
   }
 
   private dragonCounterAttack(target: WorldObject) {
