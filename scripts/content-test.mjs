@@ -138,11 +138,20 @@ try {
 
   if (!Array.isArray(TUTORIAL_STEPS) || TUTORIAL_STEPS.length < 8) problems.push("tutorial: expected a multi-step early-game guide");
   const tutorialIds = new Set();
+  let previousRewardExperience = 0;
   for (const step of TUTORIAL_STEPS) {
     if (!step.id || tutorialIds.has(step.id)) problems.push(`tutorial: invalid or duplicate step id '${step.id}'`);
     tutorialIds.add(step.id);
     if (!step.reward || !(step.reward.experience >= 0) || !step.reward.label) problems.push(`tutorial '${step.id}': invalid reward`);
     for (const item of Object.keys(step.reward.items ?? {})) if (!isItem(item)) problems.push(`tutorial '${step.id}': unknown reward item '${item}'`);
+    // 보상 점증 불변식: 뒤 퀘스트일수록 경험치 보상이 같거나 커야 한다
+    if (step.reward.experience < previousRewardExperience) {
+      problems.push(`tutorial '${step.id}': reward experience ${step.reward.experience} dropped below previous step (${previousRewardExperience})`);
+    }
+    previousRewardExperience = step.reward.experience;
+    if (!step.reward.label.includes(`경험치 ${step.reward.experience}`)) {
+      problems.push(`tutorial '${step.id}': reward label does not match experience ${step.reward.experience}`);
+    }
   }
 
   for (const region of REGIONS) {
