@@ -269,6 +269,7 @@ try {
     const state = createGraveTrapState();
     const calls = [];
     let mode = "overworld";
+    let panelOpen = false;
     const hand = makeObject("graveHand", 0.4, 0.3);
     hand.root.position.set(0.4, 0, 0.3);
     let hands = [hand];
@@ -277,6 +278,7 @@ try {
       state,
       playerPosition: new THREE.Vector3(0, 1.7, 0),
       locationMode: () => mode,
+      isPanelOpen: () => panelOpen,
       worldMapId: () => "graveyard",
       now: () => 1_000,
       graveHands: () => hands,
@@ -318,6 +320,17 @@ try {
 
     updateGraveTrap(context, 0.016);
     assert(!state.exitSpawned, "exit should stay closed while the zombie lives");
+
+    // 패널을 열고 있는 동안에는 좀비가 때리지 못한다
+    context.playerPosition.set(zombie.root.position.x, 1.7, zombie.root.position.z + 1);
+    panelOpen = true;
+    const damageCallsBefore = calls.filter(([kind]) => kind === "damage").length;
+    updateGraveTrap(context, 0.016);
+    assert(calls.filter(([kind]) => kind === "damage").length === damageCallsBefore, "zombie must not hit the player while a panel is open");
+    panelOpen = false;
+    updateGraveTrap(context, 0.016);
+    assert(calls.filter(([kind]) => kind === "damage").length > damageCallsBefore, "zombie should hit again once the panel closes");
+    context.playerPosition.set(0, 1.7, 0);
     zombie.hp = 0;
     updateGraveTrap(context, 0.016);
     assert(state.exitSpawned, "killing the burrow zombie should open the exit");
@@ -517,6 +530,7 @@ try {
         "region predator count and at-level TTK guard",
         "boss chapter gating golden scenario",
         "grave trap pull-in, zombie kill exit, and hand replenish",
+        "monsters hold attacks while a panel is open",
         "attack motion windup/lunge perceptibility golden values",
         "designed stat overrides for hound and viper",
         "xp bottle grants 15 levels and is consumed",

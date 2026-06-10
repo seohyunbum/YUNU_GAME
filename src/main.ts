@@ -483,6 +483,7 @@ class WildernessGame {
     state: createGraveTrapState(),
     playerPosition: this.playerPosition,
     locationMode: () => this.locationMode,
+    isPanelOpen: () => this.currentPanel !== null,
     worldMapId: () => this.currentWorldMapId,
     now: () => performance.now(),
     graveHands: () => this.objectsOfType("graveHand"),
@@ -656,7 +657,7 @@ class WildernessGame {
     celebratePetLevel: (level) => celebrateLevelUp(this.juiceDeps, level),
     renderHud: () => this.renderHud(),
   };
-  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => this.predatorAggroRange(kind), predatorStrikeRange: (kind) => this.predatorStrikeRange(kind), predatorStats: (kind, monsterId) => this.predatorStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason) };
+  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => this.predatorAggroRange(kind), predatorStrikeRange: (kind) => this.predatorStrikeRange(kind), predatorStats: (kind, monsterId) => this.predatorStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason) };
   private readonly hotbarUseContext: HotbarUseContext = {
     currentPanel: () => this.currentPanel,
     health: () => this.health,

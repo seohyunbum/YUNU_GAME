@@ -35,6 +35,7 @@ export interface GraveTrapContext {
   worldMapId(): WorldMapId;
   now(): number;
   graveHands(): Iterable<WorldObject>;
+  isPanelOpen(): boolean;
   getObject(id: string): WorldObject | undefined;
   removeObject(id: string): void;
   addWorldObject(type: "graveHand" | "caveExit", name: string, root: THREE.Object3D, extra: Partial<WorldObject>): WorldObject;
@@ -175,7 +176,7 @@ function updateBurrowZombie(context: GraveTrapContext, delta: number) {
   context.refreshSpatialObject(zombie);
   context.runWalkCycle(zombie, delta, 0.7);
   zombie.attackCooldown = Math.max(0, (zombie.attackCooldown ?? 0) - delta);
-  if (distance < ZOMBIE_STRIKE_RANGE && (zombie.attackCooldown ?? 0) <= 0) {
+  if (distance < ZOMBIE_STRIKE_RANGE && !context.isPanelOpen() && (zombie.attackCooldown ?? 0) <= 0) {
     zombie.attackCooldown = ZOMBIE_ATTACK_COOLDOWN;
     triggerPredatorAttackMotion(zombie, context.now(), dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
     context.damagePlayer(zombie.attackDamage ?? 28, true, "무덤 속 좀비에게 당해 체력이 모두 떨어졌습니다.");

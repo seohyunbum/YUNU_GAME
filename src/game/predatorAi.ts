@@ -6,6 +6,7 @@ import type { LocationMode, PredatorKind, WorldObject } from "./types";
 
 export interface PredatorAiContext {
   locationMode(): LocationMode;
+  isPanelOpen(): boolean;
   playerPosition: THREE.Vector3;
   activeRegions(): readonly Region[];
   predators(): Iterable<WorldObject>;
@@ -157,7 +158,8 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     context.refreshSpatialObject(predator);
     context.animateWalkCycle(predator, delta, aggroed ? 0.82 : 0.28);
     predator.attackCooldown = Math.max(0, (predator.attackCooldown ?? 0) - delta);
-    if (aggroed && distance < context.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
+    // 인벤토리/제작창 등을 보는 동안에는 공격하지 않는다 — 패널 중엔 이동도 못 하므로 불공정한 피격을 막는다
+    if (aggroed && !context.isPanelOpen() && distance < context.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
       predator.attackCooldown = predatorStats.cooldown;
       triggerPredatorAttackMotion(predator, now, dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
       context.damagePlayer(predator.attackDamage ?? predatorStats.attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
