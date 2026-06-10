@@ -56,7 +56,7 @@ export type ObjectType =
   | "extendedWorkbench"
   | "smelter"
   | "specialSmelter";
-export type PanelType = "inventory" | "book" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "cheat" | "map" | null;
+export type PanelType = "inventory" | "book" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | null;
 export type LocationMode = "overworld" | "cave" | "house";
 
 

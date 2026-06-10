@@ -1,7 +1,17 @@
 import { FINAL_BOSS_CHAPTER, nextBossTarget } from "./game/bossChapters";
 import type { FieldBossQuestView } from "./game/fieldBosses";
 import { BOSS_STATS } from "./game/monsters";
-import type { ItemId, TutorialProgress } from "./game/types";
+import type { ItemId, PlayerClassId, TutorialProgress } from "./game/types";
+
+// 직업별 "한 단계 위" 무기 제작 퀘스트 — 시작 무기보다 상위 티어를 정확한 레시피와 함께 안내한다.
+export const CLASS_WEAPON_QUESTS: Record<PlayerClassId, { items: ItemId[]; title: string; detail: string }> = {
+  warrior: { items: ["diamond_sword", "diamond_dagger"], title: "다이아 검 만들기", detail: "시작 무기인 철 검보다 강한 다이아 검(제련된 다이아몬드 2 + 막대기 1)을 제작대에서 만드세요. 다이아몬드는 동굴 깊은 곳에서 캘 수 있습니다." },
+  healer: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 가루는 분쇄기에서 만듭니다." },
+  mage: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 가루는 분쇄기에서 만듭니다." },
+  summoner: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 가루는 분쇄기에서 만듭니다." },
+  gunner: { items: ["rifle"], title: "소총 만들기", detail: "권총보다 강한 소총(제련된 철 10 + 제련된 나무 4 + 석탄 4)을 확장 제작대에서 만드세요." },
+  tanker: { items: ["iron_sword", "iron_dagger"], title: "철 검 만들기", detail: "방패와 함께 쓸 철 검(제련된 철 2 + 막대기 1)을 제작대에서 만드세요." },
+};
 
 export interface ObjectiveSnapshot {
   health: number;
@@ -14,7 +24,8 @@ export interface ObjectiveSnapshot {
   hasWorkbench: boolean;
   hasPickaxe: boolean;
   hasBag: boolean;
-  hasBasicWeapon: boolean;
+  playerClass: PlayerClassId;
+  classWeaponCount: number;
   hasBasicArmor: boolean;
   hasSmelter: boolean;
   smelter: number;
@@ -121,19 +132,19 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     reward: { experience: 120, items: { coal: 8, iron: 2 }, label: "경험치 120 + 석탄 8개 + 철 2개" },
   },
   {
-    id: "craft_basic_weapon",
-    title: (snapshot) => `초급 무기 만들기 (${snapshot.hasBasicWeapon ? 1 : 0}/1)`,
-    detail: "제작대에서 나무 또는 돌 단검/검을 만들어 보세요. 무기를 들면 사냥과 몬스터 대응이 훨씬 쉬워집니다.",
-    progress: (snapshot) => `${snapshot.hasBasicWeapon ? 1 : 0}/1`,
-    completed: (snapshot) => snapshot.hasBasicWeapon,
-    reward: { experience: 160, items: { leather: 6, iron: 3 }, label: "경험치 160 + 가죽 6개 + 철 3개" },
-  },
-  {
     id: "craft_basic_armor",
     title: (snapshot) => `초급 방어구 만들기 (${snapshot.hasBasicArmor ? 1 : 0}/1)`,
     detail: "제작대에서 가죽 8개로 가죽 갑옷을 만들 수 있습니다. 방어력이 오르면 거미나 늑대의 피해를 더 잘 버팁니다.",
     progress: (snapshot) => `${snapshot.hasBasicArmor ? 1 : 0}/1`,
     completed: (snapshot) => snapshot.hasBasicArmor,
+    reward: { experience: 160, items: { leather: 6, iron: 3 }, label: "경험치 160 + 가죽 6개 + 철 3개" },
+  },
+  {
+    id: "craft_basic_weapon",
+    title: (snapshot) => `${CLASS_WEAPON_QUESTS[snapshot.playerClass].title} (${snapshot.classWeaponCount > 0 ? 1 : 0}/1)`,
+    detail: "직업에 맞는 다음 단계 무기를 만드는 졸업 과제입니다.",
+    progress: (snapshot) => `${snapshot.classWeaponCount > 0 ? 1 : 0}/1`,
+    completed: (snapshot) => snapshot.classWeaponCount > 0,
     reward: { experience: 250, items: { iron: 8, diamond: 1, medkit: 3 }, label: "경험치 250 + 철 8개 + 다이아몬드 1개 + 구급상자 3개" },
   },
 ];
@@ -147,7 +158,7 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
     return {
       id: nextStep.id,
       title: achieved ? `${nextStep.title(snapshot).replace(/\(\d+\/(\d+)\)/, "($1/$1)")}` : nextStep.title(snapshot),
-      detail: nextStep.detail,
+      detail: nextStep.id === "craft_basic_weapon" ? CLASS_WEAPON_QUESTS[snapshot.playerClass].detail : nextStep.detail,
       progress: achieved ? "완료 — 클릭해서 보상 받기" : nextStep.progress(snapshot),
       reward: nextStep.reward,
       completed: achieved,

@@ -13,6 +13,11 @@ export interface ReadSaveSlotsOptions {
   storage?: Storage;
 }
 
+export function formatSaveDate(savedAt: string) {
+  const date = new Date(savedAt);
+  return Number.isNaN(date.getTime()) ? savedAt : date.toLocaleString();
+}
+
 export function backupLatestSave(storage = localStorage) {
   const rawLatest = storage.getItem(SAVE_KEY);
   if (rawLatest) storage.setItem(SAVE_BACKUP_KEY, rawLatest);

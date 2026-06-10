@@ -14,6 +14,21 @@ interface TimeOfDayStop {
 
 export type TimeOfDayMood = "default" | "graveyard";
 
+export function timeOfDayName(hour: number) {
+  if (hour < 4.5) return "밤";
+  if (hour < 7) return "새벽";
+  if (hour < 11) return "아침";
+  if (hour < 17) return "낮";
+  if (hour < 20) return "저녁";
+  return "밤";
+}
+
+export function gameClockText(hour: number) {
+  const totalMinutes = Math.floor(hour * 60) % (24 * 60);
+  const hours = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
+  return `${hours}시`;
+}
+
 export interface TimeOfDayContext {
   hour: number;
   scene: THREE.Scene;

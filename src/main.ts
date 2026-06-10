@@ -4,7 +4,7 @@ import { Water } from "three/examples/jsm/objects/Water.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CLASS_APPEARANCE, DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
 import { getRewardTuning, type RewardSource } from "./operatorConfig";
-import { claimTutorialObjective, currentObjective, DEFAULT_TUTORIAL_PROGRESS, latchAchievedObjectives, type TutorialObjective } from "./objectives";
+import { claimTutorialObjective, CLASS_WEAPON_QUESTS, currentObjective, DEFAULT_TUTORIAL_PROGRESS, latchAchievedObjectives, type TutorialObjective } from "./objectives";
 import {
   ASSET_PALETTE,
   VISUAL_THEME,
@@ -167,6 +167,7 @@ import {
   PROJECTILE_MAX_LIFE,
   RANGED_ATTACK_COOLDOWN,
   RUN_MULTIPLIER,
+  MAX_SAVE_SLOTS,
   SAVE_KEY,
   SMITHING_HITS_REQUIRED,
   SMITHING_ROUND_SECONDS,
@@ -283,6 +284,7 @@ import {
 import {
   backupLatestSave as backupLatestSaveInRepository,
   createSaveSlot as createRepositorySaveSlot,
+  formatSaveDate,
   readSaveSlots as readRepositorySaveSlots,
   resolveSlotSave as resolveRepositorySlotSave,
   writeJsonStorage as writeRepositoryJsonStorage,
@@ -291,13 +293,14 @@ import {
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView } from "./ui/loadGamePanel";
+import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setupGameUi } from "./ui/setupUi";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
 import { eagleSkillStatus as formatEagleSkillStatus, possessedEagleDamage, tryEagleClaw, tryEagleWindCutter, type EagleActionContext } from "./game/eaglePossession";
-import { applyOverworldTimeOfDay } from "./game/timeOfDay";
+import { applyOverworldTimeOfDay, gameClockText, timeOfDayName } from "./game/timeOfDay";
 import "./style.css";
 
 class WildernessGame {
@@ -515,6 +518,7 @@ class WildernessGame {
     showCredits: () => showEndingScreen(this.uiRoot, () => this.renderHud()), showMessage: (text) => this.showMessage(text),
   };
   private defeatedFieldBosses: string[] = [];
+  private pendingOverwriteSave: SavedGame | null = null;
   private readonly fieldBossContext: FieldBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     defeatedFieldBosses: () => this.defeatedFieldBosses,
@@ -909,21 +913,6 @@ class WildernessGame {
 
   private gameHour() {
     return (this.worldTimeSeconds / DAY_LENGTH_SECONDS) * 24;
-  }
-
-  private timeOfDayName(hour = this.gameHour()) {
-    if (hour < 4.5) return "밤";
-    if (hour < 7) return "새벽";
-    if (hour < 11) return "아침";
-    if (hour < 17) return "낮";
-    if (hour < 20) return "저녁";
-    return "밤";
-  }
-
-  private gameClockText(hour = this.gameHour()) {
-    const totalMinutes = Math.floor(hour * 60) % (24 * 60);
-    const hours = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
-    return `${hours}시`;
   }
 
   private createFirstPersonHand() {
@@ -5418,10 +5407,16 @@ class WildernessGame {
       backupLatestSaveInRepository();
       writeRepositoryJsonStorage(SAVE_KEY, save);
       const existingSaves = this.readSaveSlots().filter((slot) => slot.savedAt !== save.savedAt);
-      const requestedSaves = [this.createSaveSlot(save), ...existingSaves];
-      const storedCount = await this.writeSaveSlots(requestedSaves);
+      if (existingSaves.length >= MAX_SAVE_SLOTS) {
+        // 슬롯 가득 — 덮어쓸 저장을 직접 고르게 한다
+        this.pendingOverwriteSave = save;
+        this.openPanel("saveOverwrite");
+        return;
+      }
+      const requestedSaves = [createRepositorySaveSlot(save, formatSaveDate, this.saveSummary(save)), ...existingSaves];
+      const storedCount = await writeRepositorySaveSlots(requestedSaves);
       const trimmedText = requestedSaves.length > storedCount ? ` 최근 ${storedCount}개 저장만 보관했습니다.` : "";
-      this.showMessage(`저장 완료: ${this.formatSaveDate(save.savedAt)}.${trimmedText}`);
+      this.showMessage(`저장 완료: ${formatSaveDate(save.savedAt)}.${trimmedText}`);
     } catch (error) {
       console.error(error);
       this.showMessage("저장에 실패했습니다. 브라우저 저장 공간을 확인해보세요.");
@@ -5460,7 +5455,7 @@ class WildernessGame {
       this.currentPanel = null;
       this.restoreSaveData(slotSave);
       precompileSceneShaders(this.renderer, this.scene, this.camera);
-      this.showMessage(`불러오기 완료: ${this.formatSaveDate(slotSave.savedAt ?? slot.savedAt)}`);
+      this.showMessage(`불러오기 완료: ${formatSaveDate(slotSave.savedAt ?? slot.savedAt)}`);
     } catch (error) {
       console.error(error);
       if (fallbackSave) {
@@ -5474,24 +5469,11 @@ class WildernessGame {
     }
   }
 
-  private createSaveSlot(save: SavedGame): SaveSlot {
-    return createRepositorySaveSlot(save, (savedAt) => this.formatSaveDate(savedAt), this.saveSummary(save));
-  }
-
   private readSaveSlots(): SaveSlot[] {
     return readRepositorySaveSlots({
       migrateSaveData: (save) => migratePartialSaveData(save),
-      formatSaveDate: (savedAt) => this.formatSaveDate(savedAt),
+      formatSaveDate: (savedAt) => formatSaveDate(savedAt),
     });
-  }
-
-  private writeSaveSlots(slots: SaveSlot[]) {
-    return writeRepositorySaveSlots(slots);
-  }
-
-  private formatSaveDate(savedAt: string) {
-    const date = new Date(savedAt);
-    return Number.isNaN(date.getTime()) ? savedAt : date.toLocaleString();
   }
 
   private saveSummary(save: SavedGame) {
@@ -5499,7 +5481,7 @@ class WildernessGame {
     const location = save.player.locationMode === "cave" ? "동굴" : save.player.locationMode === "house" ? "집 안" : "야생";
     const className = PLAYER_CLASSES[save.player.playerClass ?? "warrior"]?.name ?? "전사";
     const filledSlots = [...save.player.hotbar, ...save.player.bagSlots].filter((slot) => slot.item && slot.count > 0).length;
-    return `${className} · Lv ${save.player.level} · 체력 ${save.player.health}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${this.timeOfDayName(hour)} ${this.gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
+    return `${className} · Lv ${save.player.level} · 체력 ${save.player.health}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${timeOfDayName(hour)} ${gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
   }
 
   private createSaveData(): SavedGame {
@@ -6047,7 +6029,7 @@ class WildernessGame {
         eagleHp: eagle ? eagle.hp ?? EAGLE_MAX_HP : undefined,
         eagleMaxHp: EAGLE_MAX_HP,
         eagleSkillStatus,
-        timeLabel: `${this.timeOfDayName(hour)} ${this.gameClockText(hour)}`,
+        timeLabel: `${timeOfDayName(hour)} ${gameClockText(hour)}`,
         locationLabel: this.locationMode === "cave" ? "동굴" : this.locationMode === "house" ? "집 안" : "야생",
         arcadePoints: this.arcadePoints,
         totalSteps: this.totalSteps,
@@ -6106,7 +6088,8 @@ class WildernessGame {
       hasWorkbench: this.hasWorldObjectType("workbench", "extendedWorkbench"),
       hasPickaxe: ["stone_pickaxe", "copper_pickaxe", "iron_pickaxe", "diamond_pickaxe"].some((item) => this.countItem(item) > 0),
       hasBag: this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT,
-      hasBasicWeapon: ["wood_dagger", "wood_sword", "stone_dagger", "stone_sword"].some((item) => this.countItem(item as ItemId) > 0),
+      playerClass: this.playerClass,
+      classWeaponCount: CLASS_WEAPON_QUESTS[this.playerClass].items.reduce((sum, item) => sum + this.countItem(item), 0),
       hasBasicArmor: Boolean(this.equippedArmor) || ["leather_armor", "copper_armor", "iron_armor"].some((item) => this.countItem(item as ItemId) > 0),
       hasSmelter: this.hasWorldObjectType("smelter", "specialSmelter"),
       smelter: this.countItem("smelter"),
@@ -6140,6 +6123,19 @@ class WildernessGame {
     if (this.currentPanel === "loadGame") this.renderLoadGamePanel();
     if (this.currentPanel === "cheat") this.renderCheatPanel();
     if (this.currentPanel === "map") this.renderRegionMapPanel();
+    if (this.currentPanel === "saveOverwrite") {
+      renderSaveOverwritePanelView(this.panelEl, this.readSaveSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? this.saveSummary(slot.save) : slot.description ?? slot.label })), {
+        onClose: () => { this.pendingOverwriteSave = null; this.closePanel(); },
+        onOverwrite: async (slotId) => {
+          const save = this.pendingOverwriteSave;
+          if (!save) return;
+          await writeRepositorySaveSlots(this.readSaveSlots().map((slot) => (slot.id === slotId ? createRepositorySaveSlot(save, formatSaveDate, this.saveSummary(save)) : slot)));
+          this.pendingOverwriteSave = null;
+          this.closePanel();
+          this.showMessage(`저장 완료(덮어쓰기): ${formatSaveDate(save.savedAt)}`);
+        },
+      });
+    }
   }
 
   private renderRegionMapPanel() {
