@@ -56,6 +56,14 @@ export const WORLD_MAPS: readonly WorldMapDefinition[] = [
     spawn: new THREE.Vector3(0, 0, 18),
   },
   {
+    id: "graveyard",
+    name: "공동묘지 원정지",
+    description: "좀비와 귀신이 떠도는 언데드 원정 맵입니다. 초록 손이 보이는 무덤을 조심하세요.",
+    levelRange: [70, 85],
+    regionIds: ["graveyard_core", "graveyard_frontier_field"],
+    spawn: new THREE.Vector3(0, 0, 18),
+  },
+  {
     id: "snowfield",
     name: "설원 원정지",
     description: "서리 계열 몬스터가 있는 최상급 진입 맵입니다.",

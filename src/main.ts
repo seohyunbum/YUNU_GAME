@@ -228,7 +228,7 @@ import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
 import { PLAYER_CLASSES } from "./game/classes";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
-import { WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
+import { BIOME_TERRAIN_PLANS, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
   ARMOR_VALUE,
   AXE_POWER,
@@ -848,7 +848,7 @@ class WildernessGame {
 
   private applyTimeOfDay() {
     if (this.locationMode !== "overworld") return;
-    applyOverworldTimeOfDay({ hour: this.gameHour(), scene: this.scene, sky: this.sky, ambientLight: this.ambientLight, sunLight: this.sunLight, fillLight: this.fillLight, moonLight: this.moonLight, cloudLayer: this.cloudLayer, sunPosition: this.sunPosition });
+    applyOverworldTimeOfDay({ hour: this.gameHour(), scene: this.scene, sky: this.sky, ambientLight: this.ambientLight, sunLight: this.sunLight, fillLight: this.fillLight, moonLight: this.moonLight, cloudLayer: this.cloudLayer, sunPosition: this.sunPosition, mood: this.currentWorldMapId === "graveyard" ? "graveyard" : "default" });
   }
 
   private gameHour() {
@@ -5032,7 +5032,7 @@ class WildernessGame {
   private currentAudioProfile() {
     const hour = this.gameHour();
     const nearLava = this.locationMode === "overworld" && this.isPointInLava(this.playerPosition, 9);
-    return resolveAudioProfile(hour, this.locationMode, nearLava);
+    return resolveAudioProfile(hour, this.locationMode, nearLava, this.currentWorldMapId === "graveyard");
   }
 
   private scheduleBgmStep(profile: AudioProfile, startTime: number) {
@@ -7644,32 +7644,14 @@ class WildernessGame {
     for (const biome of this.activeBiomes) {
       const center = biome.center.clone();
       center.y = this.getGroundHeightAt(center.x, center.z);
-      if (biome.kind === "bamboo") {
-        this.spawnTerrainPatch(center, "grass", biome.radius, false, "terrainPatch", true);
+      const plan = BIOME_TERRAIN_PLANS[biome.kind];
+      for (const patch of plan.patches) {
+        const point = patch.offset ? center.clone().add(new THREE.Vector3(patch.offset[0], 0, patch.offset[1])) : center;
+        this.spawnTerrainPatch(point, patch.terrain, biome.radius * patch.radiusScale, patch.raised, "terrainPatch", true);
       }
-      if (biome.kind === "mountain") {
-        this.spawnTerrainPatch(center, "stone", biome.radius * 0.55, true, "terrainPatch", true);
-        this.spawnTerrainPatch(center.clone().add(new THREE.Vector3(18, 0, -12)), "ore", biome.radius * 0.24, true, "terrainPatch", true);
-        for (let i = 0; i < 4; i += 1) {
-          this.spawnMountain(this.randomPointInCircle(biome.center, biome.radius * 0.72), THREE.MathUtils.randFloat(18, 34), THREE.MathUtils.randFloat(7, 17));
-        }
-      }
-      if (biome.kind === "mushroom") {
-        this.spawnTerrainPatch(center, "dirt", biome.radius, false, "terrainPatch", true);
-      }
-      if (biome.kind === "swamp") {
-        this.spawnTerrainPatch(center, "swamp", biome.radius, false, "terrainPatch", true);
-      }
-      if (biome.kind === "snow") {
-        this.spawnTerrainPatch(center, "snow", biome.radius, false, "terrainPatch", true);
-        this.spawnTerrainPatch(center.clone().add(new THREE.Vector3(-14, 0, 11)), "stone", biome.radius * 0.24, true, "terrainPatch", true);
-      }
-      if (biome.kind === "lava") {
-        this.spawnTerrainPatch(center, "lava", biome.radius, false, "terrainPatch", true);
-        this.spawnTerrainPatch(center.clone().add(new THREE.Vector3(16, 0, -10)), "stone", biome.radius * 0.36, true, "terrainPatch", true);
-        for (let i = 0; i < 3; i += 1) {
-          this.spawnMountain(this.randomPointInCircle(biome.center, biome.radius * 0.72), THREE.MathUtils.randFloat(11, 22), THREE.MathUtils.randFloat(4, 10));
-        }
+      if (!plan.mountains) continue;
+      for (let i = 0; i < plan.mountains.count; i += 1) {
+        this.spawnMountain(this.randomPointInCircle(biome.center, biome.radius * 0.72), THREE.MathUtils.randFloat(plan.mountains.height[0], plan.mountains.height[1]), THREE.MathUtils.randFloat(plan.mountains.radius[0], plan.mountains.radius[1]));
       }
     }
   }
@@ -9646,13 +9628,7 @@ class WildernessGame {
     const terrainKind = savedObject.terrainKind ?? "grass";
     const biome = this.priorityBiomeAt(position, 2);
     if (!biome) return false;
-    if (biome.kind === "bamboo") return terrainKind === "grass";
-    if (biome.kind === "mountain") return terrainKind === "stone" || terrainKind === "ore";
-    if (biome.kind === "mushroom") return terrainKind === "dirt";
-    if (biome.kind === "swamp") return terrainKind === "swamp";
-    if (biome.kind === "snow") return terrainKind === "snow" || terrainKind === "stone";
-    if (biome.kind === "lava") return terrainKind === "lava" || terrainKind === "stone";
-    return false;
+    return BIOME_TERRAIN_PLANS[biome.kind].patches.some((patch) => patch.terrain === terrainKind);
   }
 
   private pointInFront(distance: number) {

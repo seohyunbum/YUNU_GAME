@@ -12,6 +12,8 @@ interface TimeOfDayStop {
   fogFar: number;
 }
 
+export type TimeOfDayMood = "default" | "graveyard";
+
 export interface TimeOfDayContext {
   hour: number;
   scene: THREE.Scene;
@@ -22,6 +24,7 @@ export interface TimeOfDayContext {
   moonLight: THREE.DirectionalLight;
   cloudLayer: THREE.Group;
   sunPosition: THREE.Vector3;
+  mood?: TimeOfDayMood;
 }
 
 const TIME_OF_DAY_STOPS: TimeOfDayStop[] = [
@@ -45,6 +48,8 @@ const ambientColor = new THREE.Color();
 const groundColor = new THREE.Color();
 const fillColor = new THREE.Color();
 const fallbackFog = new THREE.Fog(0xaed8ff, 70, 460);
+const graveyardSkyColor = new THREE.Color();
+const graveyardFogColor = new THREE.Color();
 
 export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   const nextIndex = TIME_OF_DAY_STOPS.findIndex((stop) => context.hour <= stop.hour);
@@ -57,8 +62,18 @@ export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   fogColor.setHex(before.fog).lerp(fogTargetColor.setHex(after.fog), t);
   cloudColor.setHex(before.cloud).lerp(cloudTargetColor.setHex(after.cloud), t);
   const ambientIntensity = THREE.MathUtils.lerp(before.ambient, after.ambient, t);
-  const sunIntensity = THREE.MathUtils.lerp(before.sun, after.sun, t);
-  const fogFar = THREE.MathUtils.lerp(before.fogFar, after.fogFar, t);
+  let ambientScaled = ambientIntensity;
+  let sunIntensity = THREE.MathUtils.lerp(before.sun, after.sun, t);
+  let fogFar = THREE.MathUtils.lerp(before.fogFar, after.fogFar, t);
+  if (context.mood === "graveyard") {
+    // 공동묘지 — 한낮에도 어스름한 회녹색 하늘과 짙은 안개
+    skyColor.lerp(graveyardSkyColor.setHex(0x39412f), 0.72);
+    fogColor.lerp(graveyardFogColor.setHex(0x2c3327), 0.78);
+    cloudColor.lerp(graveyardFogColor, 0.55);
+    ambientScaled = ambientIntensity * 0.62;
+    sunIntensity *= 0.45;
+    fogFar = Math.min(fogFar * 0.55, 240);
+  }
 
   context.scene.background = skyColor;
   if (!(context.scene.fog instanceof THREE.Fog)) context.scene.fog = fallbackFog;
@@ -66,7 +81,7 @@ export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   context.scene.fog.near = 70;
   context.scene.fog.far = fogFar;
   context.sky.visible = true;
-  context.ambientLight.intensity = ambientIntensity;
+  context.ambientLight.intensity = ambientScaled;
   context.ambientLight.color.copy(ambientColor.setHex(0xeaf7ff).lerp(skyColor, 0.24));
   context.ambientLight.groundColor.copy(groundColor.setHex(0x39542c).lerp(fogColor, 0.22));
   context.sunLight.intensity = sunIntensity;

@@ -60,6 +60,14 @@ export const BIOMES_BY_WORLD_MAP: Record<WorldMapId, BiomeConfig[]> = {
     b("lava", 420, -392, 60),
     b("lava", -175, 410, 60),
   ],
+  graveyard: [
+    b("graveyard", 150, -130, 96),
+    b("graveyard", -190, 150, 84),
+    b("graveyard", -230, -210, 64),
+    b("graveyard", 240, 215, 60),
+    b("graveyard", 40, 320, 54),
+    b("mountain", 360, -40, 40),
+  ],
 };
 
 export const WATER_ZONES_BY_WORLD_MAP: Record<WorldMapId, WaterZone[]> = {
@@ -70,11 +78,53 @@ export const WATER_ZONES_BY_WORLD_MAP: Record<WorldMapId, WaterZone[]> = {
   mountain_ridge: [w(320, -280, 38, "산정 호수"), w(-330, 300, 32, "계곡 물웅덩이")],
   snowfield: [w(-315, -280, 44, "얼음 호수"), w(330, 260, 38, "눈녹은 연못")],
   dragon_lands: [w(-360, 310, 32, "뜨거운 샘")],
+  graveyard: [w(-60, -40, 24, "안개 늪"), w(300, -300, 30, "검은 연못")],
 };
 
 export const BIOMES = BIOMES_BY_WORLD_MAP.starter_valley;
 export const WATER_ZONES = WATER_ZONES_BY_WORLD_MAP.starter_valley;
 export const WATER_RADIUS_MULTIPLIER = 2;
+
+// 바이옴 종류별 바닥 지형 계획 — main.spawnBiomeTerrains 가 데이터로 소비한다.
+// 신규 바이옴은 여기(+biomeDecor)에만 추가하면 된다.
+export interface BiomeTerrainPatchPlan {
+  terrain: "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp" | "lava";
+  radiusScale: number;
+  raised: boolean;
+  offset?: [number, number];
+}
+
+export interface BiomeTerrainPlan {
+  patches: BiomeTerrainPatchPlan[];
+  mountains?: { count: number; height: [number, number]; radius: [number, number] };
+}
+
+export const BIOME_TERRAIN_PLANS: Record<BiomeConfig["kind"], BiomeTerrainPlan> = {
+  bamboo: { patches: [{ terrain: "grass", radiusScale: 1, raised: false }] },
+  mountain: {
+    patches: [
+      { terrain: "stone", radiusScale: 0.55, raised: true },
+      { terrain: "ore", radiusScale: 0.24, raised: true, offset: [18, -12] },
+    ],
+    mountains: { count: 4, height: [18, 34], radius: [7, 17] },
+  },
+  mushroom: { patches: [{ terrain: "dirt", radiusScale: 1, raised: false }] },
+  swamp: { patches: [{ terrain: "swamp", radiusScale: 1, raised: false }] },
+  snow: {
+    patches: [
+      { terrain: "snow", radiusScale: 1, raised: false },
+      { terrain: "stone", radiusScale: 0.24, raised: true, offset: [-14, 11] },
+    ],
+  },
+  lava: {
+    patches: [
+      { terrain: "lava", radiusScale: 1, raised: false },
+      { terrain: "stone", radiusScale: 0.36, raised: true, offset: [16, -10] },
+    ],
+    mountains: { count: 3, height: [11, 22], radius: [4, 10] },
+  },
+  graveyard: { patches: [{ terrain: "dirt", radiusScale: 1, raised: false }] },
+};
 
 export function biomesForWorldMap(id: WorldMapId) {
   return BIOMES_BY_WORLD_MAP[id] ?? BIOMES_BY_WORLD_MAP.starter_valley;

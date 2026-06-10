@@ -19,7 +19,90 @@ export function createBiomeDecor(context: BiomeDecorContext) {
     if (biome.kind === "snow") createSnowBiome(context, biome);
     if (biome.kind === "mountain") createMountainBiomeDecor(context, biome);
     if (biome.kind === "lava") createLavaBiome(context, biome);
+    if (biome.kind === "graveyard") createGraveyardBiome(context, biome);
   }
+}
+
+// 공동묘지 — 묘비(둥근 묘비·십자가)와 봉분이 바닥에 가득 깔리고 고사목이 드문드문 선다.
+function createGraveyardBiome(context: BiomeDecorContext, biome: BiomeConfig) {
+  const group = new THREE.Group();
+  const slabCount = 110;
+  const crossCount = 36;
+  const moundCount = 120;
+  const treeCount = 12;
+  const stoneMaterial = gameMaterial(0x99a1ad, { roughness: 0.94 });
+  const oldStoneMaterial = gameMaterial(0x6f7884, { roughness: 0.96 });
+  const soilMaterial = gameMaterial(0x4a3a2b, { roughness: 1 });
+  const woodMaterial = gameMaterial(0x33271d, { roughness: 0.95 });
+
+  const slabMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.62, 0.95, 0.15), stoneMaterial, slabCount);
+  const slabTopMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.31, 0.31, 0.15, 10, 1, false, 0, Math.PI), stoneMaterial, slabCount);
+  const slabMoundMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.6, 9, 6), soilMaterial, slabCount);
+  const crossVerticalMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.15, 0.92, 0.13), oldStoneMaterial, crossCount);
+  const crossArmMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.52, 0.14, 0.13), oldStoneMaterial, crossCount);
+  const moundMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.55, 9, 6), soilMaterial, moundCount);
+  const trunkMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.17, 2.6, 7), woodMaterial, treeCount);
+  const branchMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.15, 0.09, 0.09), woodMaterial, treeCount * 2);
+
+  const dummy = new THREE.Object3D();
+  const placeSlab = (mesh: THREE.InstancedMesh, index: number, point: THREE.Vector3, yaw: number, height: number, lean: number, scale: number, tipOver = 0) => {
+    dummy.position.set(point.x, point.y + height * scale, point.z);
+    dummy.rotation.set(lean + tipOver, yaw, 0);
+    dummy.scale.setScalar(scale);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(index, dummy.matrix);
+  };
+
+  for (let i = 0; i < slabCount; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.94);
+    const yaw = THREE.MathUtils.randFloat(0, Math.PI * 2);
+    const lean = THREE.MathUtils.randFloat(-0.14, 0.14);
+    const scale = THREE.MathUtils.randFloat(0.9, 1.25);
+    placeSlab(slabMesh, i, point, yaw, 0.45, lean, scale);
+    placeSlab(slabTopMesh, i, point, yaw, 0.92, lean, scale, -Math.PI / 2);
+    dummy.position.set(point.x + Math.sin(yaw) * 0.8, point.y + 0.04, point.z + Math.cos(yaw) * 0.8);
+    dummy.rotation.set(0, yaw, 0);
+    dummy.scale.set(0.85, 0.3, 1.35);
+    dummy.updateMatrix();
+    slabMoundMesh.setMatrixAt(i, dummy.matrix);
+  }
+  for (let i = 0; i < crossCount; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.9);
+    const yaw = THREE.MathUtils.randFloat(0, Math.PI * 2);
+    const lean = THREE.MathUtils.randFloat(-0.18, 0.18);
+    const scale = THREE.MathUtils.randFloat(0.9, 1.3);
+    placeSlab(crossVerticalMesh, i, point, yaw, 0.46, lean, scale);
+    placeSlab(crossArmMesh, i, point, yaw, 0.62, lean, scale);
+  }
+  for (let i = 0; i < moundCount; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.97);
+    dummy.position.set(point.x, point.y + 0.02, point.z);
+    dummy.rotation.set(0, THREE.MathUtils.randFloat(0, Math.PI * 2), 0);
+    dummy.scale.set(THREE.MathUtils.randFloat(0.7, 1.2), THREE.MathUtils.randFloat(0.22, 0.32), THREE.MathUtils.randFloat(1.0, 1.5));
+    dummy.updateMatrix();
+    moundMesh.setMatrixAt(i, dummy.matrix);
+  }
+  for (let i = 0; i < treeCount; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.84);
+    const yaw = THREE.MathUtils.randFloat(0, Math.PI * 2);
+    dummy.position.set(point.x, point.y + 1.3, point.z);
+    dummy.rotation.set(THREE.MathUtils.randFloat(-0.08, 0.08), yaw, THREE.MathUtils.randFloat(-0.1, 0.1));
+    dummy.scale.setScalar(THREE.MathUtils.randFloat(0.85, 1.35));
+    dummy.updateMatrix();
+    trunkMesh.setMatrixAt(i, dummy.matrix);
+    for (const [branchIndex, side] of [-1, 1].entries()) {
+      dummy.position.set(point.x + Math.cos(yaw) * 0.4 * side, point.y + THREE.MathUtils.randFloat(1.7, 2.3), point.z - Math.sin(yaw) * 0.4 * side);
+      dummy.rotation.set(THREE.MathUtils.randFloat(-0.3, 0.3), yaw, side * THREE.MathUtils.randFloat(0.35, 0.7));
+      dummy.scale.setScalar(THREE.MathUtils.randFloat(0.7, 1.1));
+      dummy.updateMatrix();
+      branchMesh.setMatrixAt(i * 2 + branchIndex, dummy.matrix);
+    }
+  }
+
+  finalizeInstances(slabMesh, slabTopMesh, slabMoundMesh, crossVerticalMesh, crossArmMesh, moundMesh, trunkMesh, branchMesh);
+  group.add(slabMesh, slabTopMesh, slabMoundMesh, crossVerticalMesh, crossArmMesh, moundMesh, trunkMesh, branchMesh);
+  markBiomeDistanceCull(group, biome);
+  context.addBiomeMesh(group);
 }
 
 function finalizeInstances(...meshes: THREE.InstancedMesh[]) {

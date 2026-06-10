@@ -12,10 +12,12 @@ export interface AudioProfile {
   ambient: "day" | "night" | "cave" | "house" | "lava";
 }
 
-export function currentAudioProfile(hour: number, locationMode: LocationMode, nearLava: boolean): AudioProfile {
+export function currentAudioProfile(hour: number, locationMode: LocationMode, nearLava: boolean, spookyMap = false): AudioProfile {
   if (nearLava) return { root: 110, melody: [0, 1, 5, 7, 10, 7, 5, 1], chord: [0, 5, 10], beat: 0.56, master: 0.038, lead: 0.011, bass: 0.018, pad: 0.008, ambient: "lava" };
   if (locationMode === "cave") return { root: 146.83, melody: [0, 3, 5, 7, 10, 7, 5, 3], chord: [0, 3, 7], beat: 0.74, master: 0.034, lead: 0.009, bass: 0.017, pad: 0.009, ambient: "cave" };
   if (locationMode === "house") return { root: 220, melody: [0, 4, 7, 9, 7, 4, 2, 0], chord: [0, 4, 7], beat: 0.68, master: 0.029, lead: 0.01, bass: 0.011, pad: 0.008, ambient: "house" };
+  // 공동묘지 — 낮에도 단조의 느리고 으스스한 곡조
+  if (spookyMap) return { root: 138.59, melody: [0, 1, 3, 6, 7, 6, 3, 1], chord: [0, 3, 6], beat: 0.88, master: 0.031, lead: 0.008, bass: 0.016, pad: 0.01, ambient: "night" };
   const night = hour >= 20 || hour < 5;
   const dawnOrEvening = (hour >= 5 && hour < 8) || (hour >= 17 && hour < 20);
   if (night) return { root: 174.61, melody: [0, 3, 7, 10, 12, 10, 7, 3], chord: [0, 3, 7], beat: 0.78, master: 0.031, lead: 0.009, bass: 0.014, pad: 0.009, ambient: "night" };

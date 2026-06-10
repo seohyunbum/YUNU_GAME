@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 export type ItemId = string;
 export type TerrainKind = "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp" | "lava";
-export type BiomeKind = "bamboo" | "mountain" | "mushroom" | "swamp" | "snow" | "lava";
+export type BiomeKind = "bamboo" | "mountain" | "mushroom" | "swamp" | "snow" | "lava" | "graveyard";
 export type GuardMode = "melee" | "ranged";
 export type AnimalKind = "horse" | "cow" | "pig" | "chicken";
 export type PredatorKind = "wolf" | "lion" | "spider" | "boar" | "snake" | "bat" | "scorpion" | "bear" | "zombie" | "ghost";
@@ -10,7 +10,7 @@ export type BossKind = "dragon" | "fire_dragon" | "red_dragon" | "laser_dragon" 
 export type HouseKind = "home" | "blacksmith" | "twoStory";
 export type QualityMode = "high" | "balanced" | "performance";
 export type PlayerClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner" | "tanker";
-export type WorldMapId = "starter_valley" | "bamboo_frontier" | "mushroom_glen" | "toxic_swamp" | "mountain_ridge" | "snowfield" | "dragon_lands";
+export type WorldMapId = "starter_valley" | "bamboo_frontier" | "mushroom_glen" | "toxic_swamp" | "mountain_ridge" | "graveyard" | "snowfield" | "dragon_lands";
 export type ObjectType =
   | "smallTree"
   | "bigTree"
