@@ -230,6 +230,8 @@ import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPoint
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
 import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
+import { updateVillageGuards, type GuardAiContext } from "./game/guardAi";
+import { hitStopScale, triggerHitFeedback, updateHitFeedback, type HitFeedbackDeps } from "./game/hitFeedback";
 import { createCaveInterior, createHouseInterior, type InteriorContext } from "./game/interiors";
 import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
 import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeStoragePanel";
@@ -457,6 +459,7 @@ class WildernessGame {
   private lastDamageTaken = 0;
   private lastDamageBlocked = false;
   private readonly projectileDamageContext: ProjectileDamageContext = {
+    hitFeedback: (target, damage, killed) => triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed),
     playerPosition: this.playerPosition,
     playImpactSound: (kind) => this.playImpactSound(kind),
     showMessage: (text) => this.showMessage(text),
@@ -668,6 +671,10 @@ class WildernessGame {
     renderHud: () => this.renderHud(),
   };
   private readonly interiorContext: InteriorContext = { scene: this.scene, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), spawnChest: (position, mineRich) => this.spawnChest(position, mineRich), spawnOre: (ore, position) => this.spawnOre(ore, position), spawnMiner: (position) => this.spawnMiner(position), spawnBlacksmithNpc: (position) => this.spawnBlacksmithNpc(position), randomCavePoint: () => this.randomCavePoint(), rollMineMineral: () => this.rollMineMineral(), trackCaveObjects: (...ids) => this.caveObjectIds.push(...ids), trackHouseObjects: (...ids) => this.houseObjectIds.push(...ids), showMessage: (text) => this.showMessage(text) };
+
+  private readonly hitFeedbackDeps: HitFeedbackDeps = { camera: this.camera, playerPosition: this.playerPosition, playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), refreshSpatialObject: (object) => this.refreshSpatialObject(object), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
+
+  private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }) };
 
   private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => predatorAggroRangeFor(kind), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason) };
   private readonly hotbarUseContext: HotbarUseContext = {
@@ -2452,7 +2459,7 @@ class WildernessGame {
     requestAnimationFrame(this.animate);
     const rawDelta = this.clock.getDelta();
     this.lastRawFrameDelta = rawDelta;
-    const delta = Math.min(rawDelta, 0.05);
+    const delta = Math.min(rawDelta, 0.05) * hitStopScale(performance.now());
     this.update(delta);
     const preferFastRender = this.gameStarted && this.isSprinting();
     this.setSprintRenderOptimizations(preferFastRender);
@@ -2503,7 +2510,7 @@ class WildernessGame {
     this.updateVisibilityCulling(delta);
     this.summonerCompanion.update(this.summonerPetContext, delta);
     this.updateEnvironmentHazards(delta);
-    this.updateKnights(delta);
+    updateVillageGuards(this.guardAiContext, delta);
     this.updateHand(delta);
     this.updateMirrorView(delta);
     this.updateHunger(delta);
@@ -2511,6 +2518,7 @@ class WildernessGame {
     this.updateProjectiles(delta);
     this.updateAreaSkillEffects(delta);
     this.updateDamageParticles(delta);
+    updateHitFeedback(performance.now(), this.camera);
     this.updateMessages(delta);
     this.updatePrompt(delta);
     this.updateBossBar();
@@ -3347,7 +3355,7 @@ class WildernessGame {
       next.y = this.getGroundHeightAt(next.x, next.z);
       animal.root.position.copy(next);
       this.refreshSpatialObject(animal);
-      animal.root.rotation.y = -angle + Math.PI / 2;
+      animal.root.rotation.y = -angle;
       this.animateWalkCycle(animal, delta, speed);
     }
   }
@@ -3396,7 +3404,7 @@ class WildernessGame {
       villager.root.position.copy(next);
       this.refreshSpatialObject(villager);
       const angle = Math.atan2(directionZ, directionX);
-      villager.root.rotation.y = this.lerpAngle(villager.root.rotation.y, -angle + Math.PI / 2, Math.min(1, delta * 6));
+      villager.root.rotation.y = this.lerpAngle(villager.root.rotation.y, -angle, Math.min(1, delta * 6));
       this.animateWalkCycle(villager, delta, VILLAGER_WALK_SPEED);
     }
   }
@@ -3456,7 +3464,7 @@ class WildernessGame {
     for (const dragon of this.objectsOfType("dragon")) {
       const toPlayer = this.playerPosition.clone().sub(dragon.root.position);
       const angle = Math.atan2(toPlayer.z, toPlayer.x);
-      dragon.root.rotation.y = -angle + Math.PI / 2;
+      dragon.root.rotation.y = -angle;
       dragon.root.position.y = this.getGroundHeightAt(dragon.root.position.x, dragon.root.position.z) + 0.18 + Math.sin(this.clock.elapsedTime * 1.3 + dragon.root.position.x * 0.02) * 0.18;
       dragon.root.children.forEach((child) => {
         if (child.userData.dragonWing) child.rotation.z = (child.userData.baseZ ?? 0) + Math.sin(this.clock.elapsedTime * 4.8) * 0.18 * (child.position.z < 0 ? -1 : 1);
@@ -3486,7 +3494,7 @@ class WildernessGame {
           this.refreshSpatialObject(jammini);
         }
       }
-      jammini.root.rotation.y = -angle + Math.PI / 2;
+      jammini.root.rotation.y = -angle;
       this.animateWalkCycle(jammini, delta, aggroed ? 0.55 : 0.22);
       jammini.attackCooldown = Math.max(0, (jammini.attackCooldown ?? 0) - delta);
       if (!aggroed) continue;
@@ -3627,60 +3635,6 @@ class WildernessGame {
 
   private isVillageGuard(object: WorldObject) {
     return object.type === "villageKnight" || object.type === "villageArcher" || object.type === "villageMage" || object.type === "villageGolem";
-  }
-
-  private updateKnights(delta: number) {
-    const now = performance.now();
-    for (const guard of this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"])) {
-      if (!guard.angryUntil || guard.angryUntil < now) continue;
-      const mode = guard.guardMode ?? "melee";
-      const range = guard.attackRange ?? (mode === "ranged" ? 18 : 2.05);
-      const damage = guard.attackDamage ?? (guard.type === "villageMage" ? 2 : guard.type === "villageGolem" ? 9 : 1);
-      const dx = this.playerPosition.x - guard.root.position.x;
-      const dz = this.playerPosition.z - guard.root.position.z;
-      const centerDistance = Math.hypot(dx, dz);
-      const attackDistance =
-        mode === "melee"
-          ? Math.max(0, centerDistance - (guard.collisionRadius ?? 0.75) - PLAYER_RADIUS)
-          : centerDistance;
-      let movementSpeed = 0;
-      if (mode === "melee" && attackDistance > range) {
-        if (centerDistance > 0.01) {
-          const chaseSpeed = guard.type === "villageGolem" ? 1.85 : 2.4;
-          const step = Math.min(attackDistance - range, chaseSpeed * delta);
-          guard.root.position.x += (dx / centerDistance) * step;
-          guard.root.position.z += (dz / centerDistance) * step;
-          guard.root.position.y = this.getGroundHeightAt(guard.root.position.x, guard.root.position.z);
-          this.refreshSpatialObject(guard);
-          movementSpeed = step / Math.max(delta, 0.001);
-        }
-      }
-      this.animateWalkCycle(guard, delta, movementSpeed);
-
-      guard.attackCooldown = Math.max(0, (guard.attackCooldown ?? 0) - delta);
-      if (guard.attackCooldown > 0) continue;
-      const currentCenterDistance = Math.hypot(this.playerPosition.x - guard.root.position.x, this.playerPosition.z - guard.root.position.z);
-      const currentAttackDistance =
-        mode === "melee"
-          ? Math.max(0, currentCenterDistance - (guard.collisionRadius ?? 0.75) - PLAYER_RADIUS)
-          : currentCenterDistance;
-      if (currentAttackDistance > range) continue;
-      guard.attackCooldown = guard.attackInterval ?? (mode === "ranged" ? 1.8 : 1.2);
-      const died = this.damagePlayer(
-        damage,
-        true,
-        `${guard.name}의 ${mode === "ranged" ? "원거리 공격" : "근거리 공격"}을 받아 체력이 모두 떨어졌습니다.`,
-      );
-      this.playHandAction();
-      if (died) continue;
-      const attackText = this.lastDamageBlocked
-        ? `${guard.name}의 공격을 방어구가 완전히 막았습니다.`
-        : mode === "ranged"
-          ? `${guard.name}의 원거리 공격을 받았습니다. 피해 ${this.lastDamageTaken}.`
-          : `${guard.name}가 가까이 붙어 공격했습니다. 피해 ${this.lastDamageTaken}.`;
-      this.showMessage(attackText);
-      this.renderHud();
-    }
   }
 
   private enrageVillage(villageId: string, message: string) {
@@ -4412,6 +4366,7 @@ class WildernessGame {
   private attackAnimal(target: WorldObject) {
     const damage = this.currentDamage();
     target.hp = (target.hp ?? 8) - damage;
+    this.projectileDamageContext.hitFeedback?.(target, damage, target.hp <= 0);
     target.fleeUntil = performance.now() + 6_000;
     target.fleeFrom = this.playerPosition.clone();
     if (target.hp > 0) {
@@ -4484,8 +4439,8 @@ class WildernessGame {
     if (target.type !== "jammini") return;
     const damage = this.currentDamage();
     target.hp = (target.hp ?? JAMMINI_MAX_HP) - damage;
+    this.projectileDamageContext.hitFeedback?.(target, damage, target.hp <= 0);
     target.angryUntil = performance.now() + 12_000;
-    this.playTone(420, 0.08, "square", 0.025);
     if (target.hp > 0) {
       this.showMessage(`잼미니에게 ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${JAMMINI_MAX_HP}.`);
       return;
@@ -4512,6 +4467,7 @@ class WildernessGame {
   private attackVillager(target: WorldObject) {
     const damage = this.currentDamage();
     target.hp = (target.hp ?? 10) - damage;
+    this.projectileDamageContext.hitFeedback?.(target, damage, target.hp <= 0);
     if (target.villageId) this.enrageVillage(target.villageId, "주민을 공격하자 마을 수호자들이 반격합니다.");
     if (target.hp > 0) {
       this.showMessage(`주민에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
@@ -4531,6 +4487,7 @@ class WildernessGame {
       return;
     }
     target.hp = (target.hp ?? 10) - damage;
+    this.projectileDamageContext.hitFeedback?.(target, damage, target.hp <= 0);
     if (target.villageId) this.enrageVillage(target.villageId, `${target.name}을 공격하자 경비들이 달려듭니다.`);
     if (target.hp > 0) {
       const range = target.attackRange ?? (target.guardMode === "ranged" ? 18 : 2.05);

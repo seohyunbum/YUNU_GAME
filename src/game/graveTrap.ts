@@ -171,7 +171,7 @@ function updateBurrowZombie(context: GraveTrapContext, delta: number) {
     }
     zombie.root.position.set(nx, 0, nz);
   }
-  zombie.root.rotation.y = -angle + Math.PI / 2;
+  zombie.root.rotation.y = -angle;
   animatePredatorAttackMotion(zombie, context.now());
   context.refreshSpatialObject(zombie);
   context.runWalkCycle(zombie, delta, 0.7);

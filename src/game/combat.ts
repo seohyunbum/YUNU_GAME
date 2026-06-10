@@ -33,6 +33,8 @@ export interface ProjectileDamageContext {
   damagePlayer(amount: number, showParticles?: boolean, deathReason?: string, ignoreArmor?: boolean): boolean;
   getLastDamage(): { blocked: boolean; taken: number };
   now(): number;
+  // 타격감(히트스톱·넉백·데미지 숫자) — 테스트 mock 부담을 줄이기 위해 옵셔널
+  hitFeedback?(target: WorldObject, damage: number, killed: boolean): void;
 }
 
 export function rollDragonLoot(): ItemId {
@@ -70,6 +72,7 @@ export function applyProjectileDamage(
   context.playImpactSound(kind);
   if (target.type === "animal") {
     target.hp = (target.hp ?? 8) - attackPower;
+    context.hitFeedback?.(target, attackPower, target.hp <= 0);
     target.fleeUntil = context.now() + 6_000;
     target.fleeFrom = context.playerPosition.clone();
     if (target.hp > 0) {
@@ -87,6 +90,7 @@ export function applyProjectileDamage(
     // 필드 보스만 방어력을 가진다 — 항상 최소 1 피해는 보장
     const predatorDamage = target.armor ? Math.max(1, calculateCombatDamage(attackPower, target.armor)) : attackPower;
     target.hp = (target.hp ?? 10) - predatorDamage;
+    context.hitFeedback?.(target, predatorDamage, target.hp <= 0);
     target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
     if (target.hp > 0) {
       context.showMessage(`${target.name}에게 ${label} ${predatorDamage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
@@ -117,6 +121,7 @@ export function applyProjectileDamage(
       return;
     }
     target.hp = (target.hp ?? stats.maxHp) - damage;
+    context.hitFeedback?.(target, damage, target.hp <= 0);
     if (target.hp > 0) {
       context.showMessage(`${stats.name}에게 ${label} ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${stats.maxHp}. ${stats.name}이 반격합니다.`);
       context.dragonCounterAttack(target);
@@ -136,6 +141,7 @@ export function applyProjectileDamage(
 
   if (target.type === "jammini") {
     target.hp = (target.hp ?? JAMMINI_MAX_HP) - attackPower;
+    context.hitFeedback?.(target, attackPower, target.hp <= 0);
     target.angryUntil = context.now() + 12_000;
     if (target.hp > 0) {
       context.showMessage(`잼미니에게 ${label} ${attackPower} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${JAMMINI_MAX_HP}.`);
@@ -151,6 +157,7 @@ export function applyProjectileDamage(
 
   if (target.type === "villager" || target.type === "villageKing") {
     target.hp = (target.hp ?? 10) - attackPower;
+    context.hitFeedback?.(target, attackPower, target.hp <= 0);
     if (target.villageId) context.enrageVillage(target.villageId, `${target.name ?? "주민"}을 공격하자 마을 수호자들이 반격합니다.`);
     if (target.hp > 0) {
       context.showMessage(`${target.name ?? "주민"}에게 ${label} ${attackPower} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
@@ -171,6 +178,7 @@ export function applyProjectileDamage(
       return;
     }
     target.hp = (target.hp ?? 10) - damage;
+    context.hitFeedback?.(target, damage, target.hp <= 0);
     if (target.hp > 0) {
       const range = target.attackRange ?? (target.guardMode === "ranged" ? 18 : 2.05);
       if (target.root.position.distanceTo(context.playerPosition) <= range) {
@@ -200,8 +208,8 @@ export function applyMeleePredatorAttack(context: ProjectileDamageContext, targe
   // 필드 보스만 방어력을 가진다 — 항상 최소 1 피해는 보장
   const damage = target.armor ? Math.max(1, calculateCombatDamage(attackPower, target.armor)) : attackPower;
   target.hp = (target.hp ?? 10) - damage;
+  context.hitFeedback?.(target, damage, target.hp <= 0);
   target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
-  context.playTone(120, 0.08, "square", 0.035);
   if (target.hp > 0) {
     context.showMessage(`${target.name}에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
     return;
@@ -231,6 +239,7 @@ export function applyMeleeDragonAttack(context: ProjectileDamageContext, target:
     return;
   }
   target.hp = (target.hp ?? stats.maxHp) - damage;
+  context.hitFeedback?.(target, damage, target.hp <= 0);
   if (target.hp > 0) {
     context.showMessage(`${stats.name}에게 ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${stats.maxHp}. ${stats.name}이 반격합니다.`);
     context.dragonCounterAttack(target);

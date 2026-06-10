@@ -107,6 +107,7 @@ try {
   const fieldBosses = await server.ssrLoadModule("/src/game/fieldBosses.ts");
   const objectives = await server.ssrLoadModule("/src/objectives.ts");
   const homeBase = await server.ssrLoadModule("/src/game/homeBase.ts");
+  const hitFeedback = await server.ssrLoadModule("/src/game/hitFeedback.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -516,6 +517,69 @@ try {
   }
 
   {
+    // 정면 추격 골든: 몬스터 모델은 +X 가 정면 — rotation.y = -atan2(dz, dx) 여야 플레이어를 마주본다
+    const { updatePredatorAi } = predatorAi;
+    const predator = { root: new THREE.Group(), type: "wildPredator", name: "늑대", predatorKind: "wolf", attackCooldown: 99 };
+    predator.root.position.set(10, 0, 5);
+    const facingContext = {
+      locationMode: () => "overworld",
+      isPanelOpen: () => false,
+      playerPosition: new THREE.Vector3(0, 1.7, 0),
+      activeRegions: () => [],
+      predators: () => [predator],
+      predatorAggroRange: () => 100,
+      predatorStrikeRange: () => 0.1,
+      predatorStats: () => ({ speed: 0, attackDamage: 1, cooldown: 1, aggroRange: 100, strikeRange: 0.1, hp: 10 }),
+      getGroundHeightAt: () => 0,
+      refreshSpatialObject: () => {},
+      animateWalkCycle: () => {},
+      damagePlayer: () => false,
+    };
+    updatePredatorAi(facingContext, 0.016);
+    const dx = -10;
+    const dz = -5;
+    assert(Math.abs(predator.root.rotation.y - -Math.atan2(dz, dx)) < 1e-6, "aggroed predator should yaw to face the player");
+    const facing = new THREE.Vector3(1, 0, 0).applyEuler(predator.root.rotation);
+    const toPlayer = new THREE.Vector3(dx, 0, dz).normalize();
+    assert(facing.dot(toPlayer) > 0.999, `predator front (+X) should point at the player (dot ${facing.dot(toPlayer).toFixed(3)})`);
+  }
+
+  {
+    // 타격감 골든: 히트스톱·넉백·스쿼시 펀치·FOV 킥·사운드 레이어
+    const { HIT_STOP_MS, HIT_STOP_SCALE, activePunchCount, hitStopScale, resetHitFeedbackForTest, triggerHitFeedback, updateHitFeedback } = hitFeedback;
+    resetHitFeedbackForTest();
+    const camera = new THREE.PerspectiveCamera(75, 1.77, 0.1, 100);
+    const tones = [];
+    const deps = {
+      camera,
+      playerPosition: new THREE.Vector3(0, 1.7, 0),
+      playTone: (frequency) => tones.push(frequency),
+      refreshSpatialObject: () => {},
+      getGroundHeightAt: () => 0.5,
+    };
+    const target = { root: new THREE.Group(), type: "wildPredator", name: "늑대", collisionHeight: 1.2 };
+    target.root.position.set(2, 0, 0);
+    triggerHitFeedback(deps, target, 12, false, 1_000);
+    assert(target.root.position.x > 2.3, "hit should knock the monster away from the player");
+    assert(target.root.position.y === 0.5, "knockback should re-stick the monster to the ground");
+    assert(hitStopScale(1_030) === HIT_STOP_SCALE, "hit stop should slow time right after a hit");
+    assert(hitStopScale(1_000 + HIT_STOP_MS + 1) === 1, "hit stop should release after ~70ms");
+    assert(tones.length >= 2, "hit should layer at least two tones");
+    updateHitFeedback(1_085, camera);
+    assert(target.root.scale.x > 1.05 && target.root.scale.y < 1, "squash punch should bulge X and crush Y mid-hit");
+    assert(camera.fov < 75, "fov kick should punch in briefly");
+    updateHitFeedback(1_400, camera);
+    assert(target.root.scale.x === 1 && target.root.scale.y === 1 && activePunchCount() === 0, "punch should restore the base scale");
+    assert(camera.fov === 75, "fov should return to base after the kick");
+    const killTarget = { root: new THREE.Group(), type: "dragon", name: "용" };
+    killTarget.root.position.set(0, 0, 3);
+    triggerHitFeedback(deps, killTarget, 40, true, 2_000);
+    assert(killTarget.root.position.z === 3, "killing blow should not knock the corpse around");
+    assert(hitStopScale(2_000 + HIT_STOP_MS + 20) === HIT_STOP_SCALE, "kill should hold the hit stop longer than a normal hit");
+    resetHitFeedbackForTest();
+  }
+
+  {
     // 내 집 베이스캠프: 창고 이동, 보급 쿨다운/보상 티어, 정규화 골든값
     const { HOME_STORAGE_SLOTS, HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } = homeBase;
     assert(HOME_STORAGE_SLOTS === 24, "home storage should have 24 slots");
@@ -585,6 +649,8 @@ try {
         "field boss spawn-once, quest view, and mini fanfare",
         "tool repair material mapping and 50% recovery golden values",
         "home base storage transfer and supply tier golden values",
+        "predators face the player while chasing (+X-front yaw)",
+        "hit feedback: hit stop, knockback, squash punch, fov kick, tone layers",
         "tutorial step completion latches across condition regression",
       ],
     }, null, 2));

@@ -153,7 +153,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     if (region) clampPointToRegion(nextPosition, region);
     nextPosition.y = context.getGroundHeightAt(nextPosition.x, nextPosition.z);
     predator.root.position.copy(nextPosition);
-    predator.root.rotation.y = -angle + Math.PI / 2;
+    predator.root.rotation.y = -angle;
     animatePredatorAttackMotion(predator, now);
     context.refreshSpatialObject(predator);
     context.animateWalkCycle(predator, delta, aggroed ? 0.82 : 0.28);
