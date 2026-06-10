@@ -237,7 +237,7 @@ async function inspectGameplayUi(page, viewportName) {
   await page.waitForTimeout(400);
   await page.mouse.click(Math.floor(page.viewportSize().width / 2), Math.floor(page.viewportSize().height / 2), { button: "right" });
   await page.waitForTimeout(250);
-  ui.bedSleptWithRightClick = ((await page.locator(".stats").textContent()) ?? "").includes("체력 10/10");
+  ui.bedSleptWithRightClick = ((await page.locator(".health-bar").textContent()) ?? "").includes("HP 10 / 10");
   await page.keyboard.press("Escape");
   await page.evaluate(() => document.exitPointerLock?.());
   await page.waitForTimeout(150);
@@ -355,6 +355,167 @@ async function inspectGameplayUi(page, viewportName) {
   return ui;
 }
 
+// 화면 상단(하늘) 평균 밝기 — 보스바가 가리는 중앙은 피해 가장자리 컬럼만 샘플링한다.
+async function sampleSkyBrightness(page) {
+  const screenshot = await page.screenshot({ type: "png" });
+  return page.evaluate(
+    async (dataUrl) =>
+      new Promise((resolve) => {
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext("2d");
+          if (!context) {
+            resolve(-1);
+            return;
+          }
+          context.drawImage(image, 0, 0);
+          const y = Math.max(2, Math.floor(image.height * 0.04));
+          const columns = [0.05, 0.12, 0.2, 0.8, 0.88, 0.95];
+          let total = 0;
+          for (const column of columns) {
+            const data = context.getImageData(Math.floor(image.width * column), y, 1, 1).data;
+            total += (data[0] + data[1] + data[2]) / 3;
+          }
+          resolve(total / columns.length);
+        };
+        image.onerror = () => resolve(-1);
+        image.src = dataUrl;
+      }),
+    `data:image/png;base64,${screenshot.toString("base64")}`,
+  );
+}
+
+async function startNewGameAs(page, classId) {
+  await page.goto("http://127.0.0.1:5173/", { waitUntil: "networkidle" });
+  await page.waitForSelector(".title-screen", { timeout: 10_000 });
+  await page.click(`[data-class-choice="${classId}"]`);
+  await page.click("[data-title-new]");
+  await page.waitForTimeout(1_000);
+}
+
+const ALL_TUTORIAL_STEP_IDS = [
+  "gather_wood",
+  "find_hammer",
+  "craft_workbench_item",
+  "place_workbench",
+  "gather_leather",
+  "craft_bag",
+  "craft_pickaxe",
+  "craft_basic_weapon",
+  "craft_basic_armor",
+];
+
+function dragonLandsSave({ bossChapter, worldTimeSeconds }) {
+  return {
+    version: 7,
+    savedAt: new Date().toISOString(),
+    player: {
+      position: { x: 0, y: 1.7, z: 12 },
+      previousPosition: { x: 0, y: 1.7, z: 12 },
+      yaw: 0,
+      pitch: 0,
+      health: 10,
+      maxHealth: 10,
+      hunger: 5,
+      hungerTimer: 0,
+      worldTimeSeconds,
+      worldMapId: "dragon_lands",
+      bossChapter,
+      tutorial: { completedStepIds: ALL_TUTORIAL_STEP_IDS },
+      totalSteps: 0,
+      chestStepBank: 0,
+      caveStepBank: 0,
+      equippedArmor: null,
+      locationMode: "overworld",
+      caveReturnPosition: null,
+      selectedHotbarIndex: 0,
+      hotbar: [{ item: "tutorial_book", count: 1 }, ...Array.from({ length: 7 }, () => ({ item: null, count: 0 }))],
+      bagSlots: [],
+      craftSlots: Array.from({ length: 4 }, () => ({ item: null, count: 0 })),
+      workbenchSlots: Array.from({ length: 36 }, () => ({ item: null, count: 0 })),
+    },
+    mountains: [],
+    objects: [
+      {
+        type: "dragon",
+        name: "파이어 드래곤",
+        bossKind: "fire_dragon",
+        position: { x: 0, y: 0, z: 6.5 },
+        hp: 700,
+        collidable: true,
+        collisionRadius: 4.8,
+        collisionHeight: 6.1,
+      },
+    ],
+  };
+}
+
+async function loadInjectedSave(page, save) {
+  await page.evaluate((payload) => {
+    localStorage.removeItem("ai-game-lab:wilderness-saves-v1");
+    localStorage.removeItem("ai-game-lab:wilderness-save-backup-v1");
+    localStorage.setItem("ai-game-lab:wilderness-save-v1", JSON.stringify(payload));
+  }, save);
+  await page.click("[data-load-game]");
+  await page.waitForTimeout(700);
+}
+
+// 신규 시스템 검사 — 거너/탱커 시작, 맵 패널, 보스 게이팅, 시간대.
+async function inspectNewSystems(page) {
+  const systems = {
+    gunnerStartsWithPistol: false,
+    tankerStartsWithShield: false,
+    tankerShieldArmorApplied: false,
+    mapPanelOpens: false,
+    mapTeleportButtons: 0,
+    mapLockedButtons: 0,
+    bossSealedMarked: false,
+    chapterObjectiveShown: false,
+    bossUnsealsAfterChapter: false,
+    nightTimeLabel: false,
+    daySkyBrightness: -1,
+    nightSkyBrightness: -1,
+  };
+
+  await startNewGameAs(page, "gunner");
+  systems.gunnerStartsWithPistol = ((await page.locator(".hotbar").textContent()) ?? "").includes("권총");
+
+  await startNewGameAs(page, "tanker");
+  const hotbarText = (await page.locator(".hotbar").textContent()) ?? "";
+  systems.tankerStartsWithShield = hotbarText.includes("방패");
+  // 탱커는 새 게임 시작 시 방패가 자동 장착된다 — 장비 방어에 방패 수치(+5)가 반영됐는지 본다.
+  const statsDetail = (await page.locator(".stats-detail").first().textContent()) ?? "";
+  const armorMatch = statsDetail.match(/장비 방어 (\d+)/);
+  systems.tankerShieldArmorApplied = armorMatch !== null && Number(armorMatch[1]) >= 5;
+
+  await page.keyboard.press("KeyM");
+  await page.waitForTimeout(300);
+  systems.mapPanelOpens = (await page.locator(".map-panel").count()) === 1;
+  systems.mapTeleportButtons = await page.locator("[data-teleport-map]").count();
+  systems.mapLockedButtons = await page.locator("[data-teleport-map][disabled]").count();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
+  await loadInjectedSave(page, dragonLandsSave({ bossChapter: 0, worldTimeSeconds: 1200 }));
+  const sealedBossBar = (await page.locator(".boss-bar").textContent()) ?? "";
+  systems.bossSealedMarked = sealedBossBar.includes("파이어 드래곤") && sealedBossBar.includes("봉인됨");
+  systems.chapterObjectiveShown = ((await page.locator(".objective").textContent()) ?? "").includes("챕터 1/6");
+  systems.daySkyBrightness = await sampleSkyBrightness(page);
+
+  await loadInjectedSave(page, dragonLandsSave({ bossChapter: 1, worldTimeSeconds: 1200 }));
+  const unsealedBossBar = (await page.locator(".boss-bar").textContent()) ?? "";
+  systems.bossUnsealsAfterChapter = unsealedBossBar.includes("파이어 드래곤") && !unsealedBossBar.includes("봉인됨");
+
+  await loadInjectedSave(page, dragonLandsSave({ bossChapter: 0, worldTimeSeconds: 3300 }));
+  systems.nightTimeLabel = ((await page.locator(".stats-detail.muted").textContent()) ?? "").includes("밤");
+  systems.nightSkyBrightness = await sampleSkyBrightness(page);
+
+  return systems;
+}
+
 const browserPath = await findBrowserPath();
 const browser = await chromium.launch({
   executablePath: browserPath,
@@ -384,6 +545,8 @@ for (const viewport of [
   await page.screenshot({ path: `artifacts/${viewport.name}.png`, fullPage: true });
   const canvas = await inspectCanvas(page);
   const gameplay = await inspectGameplayUi(page, viewport.name);
+  if (viewport.name === "desktop") await page.screenshot({ path: "artifacts/workbench-3x3.png", fullPage: true });
+  const systems = viewport.name === "desktop" ? await inspectNewSystems(page) : null;
   if (!gameplay.objectiveVisible) errors.push(`${viewport.name}: objective HUD missing`);
   if (viewport.name === "desktop" && gameplay.hotbarSlotsAfterMigration !== 8) {
     errors.push(`desktop: old save migration did not normalize hotbar to 8 slots`);
@@ -406,8 +569,23 @@ for (const viewport of [
   if (viewport.name === "desktop" && !gameplay.workbenchSubtitle.includes("6x6")) {
     errors.push(`desktop: extended workbench subtitle did not explain 6x6 crafting`);
   }
-  if (viewport.name === "desktop") await page.screenshot({ path: "artifacts/workbench-3x3.png", fullPage: true });
-  results.push({ viewport, canvas, gameplay });
+  if (systems) {
+    if (!systems.gunnerStartsWithPistol) errors.push("desktop: gunner did not start with a pistol in the hotbar");
+    if (!systems.tankerStartsWithShield) errors.push("desktop: tanker did not start with a shield in the hotbar");
+    if (!systems.tankerShieldArmorApplied) errors.push("desktop: tanker starter shield armor (+5) was not applied to equipment armor");
+    if (!systems.mapPanelOpens) errors.push("desktop: KeyM did not open the map panel");
+    if (systems.mapTeleportButtons < 5) errors.push(`desktop: map panel listed ${systems.mapTeleportButtons} teleport targets (expected >= 5)`);
+    if (systems.mapLockedButtons < 1) errors.push("desktop: map panel did not lock any high-level map for a level 1 player");
+    if (!systems.bossSealedMarked) errors.push("desktop: sealed boss bar did not show the seal marker");
+    if (!systems.chapterObjectiveShown) errors.push("desktop: objective HUD did not show boss chapter progress");
+    if (!systems.bossUnsealsAfterChapter) errors.push("desktop: boss stayed sealed after the previous chapter was cleared");
+    if (!systems.nightTimeLabel) errors.push("desktop: night world time did not show the night label");
+    if (systems.daySkyBrightness < 0 || systems.nightSkyBrightness < 0 || systems.nightSkyBrightness > systems.daySkyBrightness - 10) {
+      errors.push(`desktop: night sky (${systems.nightSkyBrightness}) was not darker than day sky (${systems.daySkyBrightness})`);
+    }
+    await page.screenshot({ path: "artifacts/new-systems-night.png", fullPage: true });
+  }
+  results.push({ viewport, canvas, gameplay, systems });
   await page.close();
 }
 

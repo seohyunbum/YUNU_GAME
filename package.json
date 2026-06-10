@@ -23,7 +23,7 @@
     "check:methods": "node scripts/check-method-count.mjs",
     "check:hotpath": "node scripts/check-hotpath-allocations.mjs",
     "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run check:hotpath && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:systems && npm run test:balance",
-    "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run perf-check"
+    "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run visual:weapons && npm run perf-check"
   },
   "dependencies": {
     "three": "^0.184.0"
