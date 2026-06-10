@@ -21,6 +21,7 @@ export interface ObjectiveSnapshot {
   bossChapter: number;
   fieldBossQuest: FieldBossQuestView | null;
   completedStepIds: readonly string[];
+  achievedStepIds: readonly string[];
 }
 
 export interface TutorialReward {
@@ -48,9 +49,19 @@ interface TutorialStep {
   reward: TutorialReward;
 }
 
-export const DEFAULT_TUTORIAL_PROGRESS: TutorialProgress = { completedStepIds: [] };
+export const DEFAULT_TUTORIAL_PROGRESS: TutorialProgress = { completedStepIds: [], achievedStepIds: [] };
 
 const completed = (snapshot: ObjectiveSnapshot, id: string) => snapshot.completedStepIds.includes(id);
+
+// 한 번 조건을 달성한 단계는 영구 기록한다 — 제작대 회수 등으로 조건이 풀려도 "완료"가 유지된다.
+export function latchAchievedObjectives(progress: TutorialProgress, snapshot: ObjectiveSnapshot) {
+  for (const step of TUTORIAL_STEPS) {
+    if (progress.achievedStepIds.includes(step.id)) continue;
+    if (step.completed(snapshot)) progress.achievedStepIds.push(step.id);
+  }
+}
+
+const stepAchieved = (snapshot: ObjectiveSnapshot, step: TutorialStep) => snapshot.achievedStepIds.includes(step.id) || step.completed(snapshot);
 
 export const TUTORIAL_STEPS: readonly TutorialStep[] = [
   {
@@ -132,13 +143,14 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
   if (snapshot.hunger <= 1) return survivalObjective("배고픔이 낮습니다", "고기를 먹어 배고픔을 회복하세요. 배고픔이 0이면 체력이 줄어듭니다.", "생존 우선");
   const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id));
   if (nextStep) {
+    const achieved = stepAchieved(snapshot, nextStep);
     return {
       id: nextStep.id,
-      title: nextStep.title(snapshot),
+      title: achieved ? `${nextStep.title(snapshot).replace(/\(\d+\/(\d+)\)/, "($1/$1)")}` : nextStep.title(snapshot),
       detail: nextStep.detail,
-      progress: nextStep.progress(snapshot),
+      progress: achieved ? "완료 — 클릭해서 보상 받기" : nextStep.progress(snapshot),
       reward: nextStep.reward,
-      completed: nextStep.completed(snapshot),
+      completed: achieved,
       kind: "tutorial",
     };
   }

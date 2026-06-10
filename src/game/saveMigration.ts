@@ -151,7 +151,8 @@ export function normalizeCompanionProgress(source: unknown): CompanionProgress {
 export function normalizeTutorialProgress(source: unknown): TutorialProgress {
   const progress = source && typeof source === "object" ? source as Partial<TutorialProgress> : {};
   const completedStepIds = Array.isArray(progress.completedStepIds) ? progress.completedStepIds.filter((id): id is string => typeof id === "string") : [];
-  return { completedStepIds: [...new Set(completedStepIds)] };
+  const achievedStepIds = Array.isArray(progress.achievedStepIds) ? progress.achievedStepIds.filter((id): id is string => typeof id === "string") : [];
+  return { completedStepIds: [...new Set(completedStepIds)], achievedStepIds: [...new Set([...achievedStepIds, ...completedStepIds])] };
 }
 
 function isSlotLike(value: unknown): value is Slot {

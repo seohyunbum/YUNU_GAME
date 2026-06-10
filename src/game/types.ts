@@ -238,7 +238,8 @@ export interface SavedWorldState {
 }
 
 export interface TutorialProgress {
-  completedStepIds: string[];
+  completedStepIds: string[]; // 보상까지 수령한 단계
+  achievedStepIds: string[]; // 조건을 한 번이라도 달성한 단계 (재료 회수 등으로 조건이 풀려도 유지)
 }
 
 export interface SavedGame {
@@ -294,14 +295,18 @@ export interface SaveSlot {
   id: string;
   savedAt: string;
   label: string;
-  save: SavedGame;
+  description?: string;
+  save?: SavedGame; // 즉시 사용 가능한 세이브 (레거시 항목/방금 만든 슬롯)
+  packed?: string; // 압축 저장본 — resolveSlotSave 로 해제
 }
 
 export interface StoredSaveSlot {
   id?: string;
   savedAt?: string;
   label?: string;
+  description?: string;
   save?: PartialSavedGame;
+  packed?: string;
 }
 
 export type PartialSavedGame = Partial<Omit<SavedGame, "player">> & {

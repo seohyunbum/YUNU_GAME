@@ -2,6 +2,10 @@ import type { ItemId, Recipe, Slot } from "./types";
 
 type DurableItemPredicate = (item: ItemId) => boolean;
 
+export function isStorageSlotSource(source: string | null | undefined): source is "hotbar" | "bag" {
+  return source === "hotbar" || source === "bag";
+}
+
 function cloneSlots(slots: readonly Slot[]) {
   return slots.map((slot) => ({ item: slot.item, count: slot.count }));
 }

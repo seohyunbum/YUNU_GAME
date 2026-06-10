@@ -193,7 +193,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       companionProgress: {
         summoner: { ...snapshot.player.companionProgress.summoner },
       },
-      tutorial: { completedStepIds: [...snapshot.player.tutorial.completedStepIds] },
+      tutorial: { completedStepIds: [...snapshot.player.tutorial.completedStepIds], achievedStepIds: [...snapshot.player.tutorial.achievedStepIds] },
       hunger: snapshot.player.hunger,
       hungerTimer: snapshot.player.hungerTimer,
       worldTimeSeconds: snapshot.player.worldTimeSeconds,

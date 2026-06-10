@@ -133,6 +133,7 @@ try {
       worldMapId: "snowfield",
       bossChapter: 99,
       defeatedFieldBosses: ["boss_snowfield", "fake_boss", "boss_snowfield"],
+      tutorial: { completedStepIds: ["gather_wood"], achievedStepIds: ["find_hammer"] },
       totalSteps: 3,
       chestStepBank: 4,
       caveStepBank: 5,
@@ -185,6 +186,7 @@ try {
   assert.equal(current.player.worldMapId, "snowfield");
   assert.equal(current.player.bossChapter, 6);
   assert.deepEqual(current.player.defeatedFieldBosses, ["boss_snowfield"]);
+  assert.deepEqual(current.player.tutorial, { completedStepIds: ["gather_wood"], achievedStepIds: ["find_hammer", "gather_wood"] });
   assert.equal(current.player.selectedHotbarIndex, 0);
   assert.equal(current.player.hotbar.length, 8);
   assert.deepEqual(current.player.hotbar[0], { item: "magic_wand", count: 1 });

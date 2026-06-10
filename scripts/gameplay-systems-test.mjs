@@ -105,6 +105,7 @@ try {
   const predatorAi = await server.ssrLoadModule("/src/game/predatorAi.ts");
   const finale = await server.ssrLoadModule("/src/game/finale.ts");
   const fieldBosses = await server.ssrLoadModule("/src/game/fieldBosses.ts");
+  const objectives = await server.ssrLoadModule("/src/objectives.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -122,6 +123,7 @@ try {
   const { animatePredatorAttackMotion, triggerPredatorAttackMotion } = predatorAi;
   const { FINALE_CREDITS_DELAY_MS, MINI_FANFARE_FIREWORKS_MS, createFinaleState, startFinale, startMiniFanfare, updateFinale } = finale;
   const { fieldBossQuestFor, normalizeDefeatedFieldBosses, updateFieldBosses } = fieldBosses;
+  const { claimTutorialObjective, currentObjective, latchAchievedObjectives } = objectives;
 
   assert(HEAL_ITEMS.medkit === 15, "medkit should heal 15 HP");
   assert(HUNGER_HP_REGEN.length === HUNGER_MAX + 1, "hunger regen table should cover every hunger level");
@@ -423,6 +425,22 @@ try {
   }
 
   {
+    // 퀘스트 래치: 제작대를 설치(조건 달성)했다가 회수해도 "완료" 상태가 유지된다
+    const progress = { completedStepIds: ["gather_wood", "find_hammer", "craft_workbench_item"], achievedStepIds: ["gather_wood", "find_hammer", "craft_workbench_item"] };
+    const makeSnapshot = (hasWorkbench) => ({
+      health: 10, hunger: 5, wood: 0, hammer: 0, craftingTable: 0, leather: 0, stone: 0,
+      hasWorkbench, hasPickaxe: false, hasBag: false, hasBasicWeapon: false, hasBasicArmor: false,
+      hasSmelter: false, smelter: 0, bossChapter: 0, fieldBossQuest: null,
+      completedStepIds: progress.completedStepIds, achievedStepIds: progress.achievedStepIds,
+    });
+    latchAchievedObjectives(progress, makeSnapshot(true));
+    assert(progress.achievedStepIds.includes("place_workbench"), "placing the workbench should latch the step as achieved");
+    const afterPickup = currentObjective(makeSnapshot(false));
+    assert(afterPickup.id === "place_workbench" && afterPickup.completed === true, "picking the workbench back up must not un-complete the quest");
+    assert(claimTutorialObjective(progress, afterPickup) !== null, "latched quest should remain claimable for its reward");
+  }
+
+  {
     // 필드 보스: ensure 스폰은 1회만, 처치 기록이 있으면 스폰 안 함, 보스 공식 스탯 적용
     let spawned = null;
     const defeated = [];
@@ -502,6 +520,7 @@ try {
         "incoming damage floor and progressive monster attack scaling",
         "finale fireworks, fanfare, and single credits roll",
         "field boss spawn-once, quest view, and mini fanfare",
+        "tutorial step completion latches across condition regression",
       ],
     }, null, 2));
   }

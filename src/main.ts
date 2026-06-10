@@ -4,7 +4,7 @@ import { Water } from "three/examples/jsm/objects/Water.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CLASS_APPEARANCE, DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
 import { getRewardTuning, type RewardSource } from "./operatorConfig";
-import { claimTutorialObjective, currentObjective, DEFAULT_TUTORIAL_PROGRESS, type TutorialObjective } from "./objectives";
+import { claimTutorialObjective, currentObjective, DEFAULT_TUTORIAL_PROGRESS, latchAchievedObjectives, type TutorialObjective } from "./objectives";
 import {
   ASSET_PALETTE,
   VISUAL_THEME,
@@ -269,6 +269,7 @@ import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { TUTORIAL_SECTIONS } from "./game/tutorial";
 import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
+import { isStorageSlotSource } from "./game/inventoryCapacity";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
 import { buildRecipeGuideEntriesForStations } from "./game/recipeGuide";
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
@@ -283,6 +284,7 @@ import {
   backupLatestSave as backupLatestSaveInRepository,
   createSaveSlot as createRepositorySaveSlot,
   readSaveSlots as readRepositorySaveSlots,
+  resolveSlotSave as resolveRepositorySlotSave,
   writeJsonStorage as writeRepositoryJsonStorage,
   writeSaveSlots as writeRepositorySaveSlots,
 } from "./game/saveRepository";
@@ -406,7 +408,7 @@ class WildernessGame {
   private activeBiomes = biomesForWorldMap(DEFAULT_WORLD_MAP_ID);
   private activeWaterZones = waterZonesForWorldMap(DEFAULT_WORLD_MAP_ID);
   private readonly worldStates: WorldStateStore = {};
-  private readonly tutorialProgress = { completedStepIds: [...DEFAULT_TUTORIAL_PROGRESS.completedStepIds] };
+  private readonly tutorialProgress = { completedStepIds: [...DEFAULT_TUTORIAL_PROGRESS.completedStepIds], achievedStepIds: [...DEFAULT_TUTORIAL_PROGRESS.achievedStepIds] };
   private regionWarningState: RegionWarningState = { regionId: null, lastWarnAt: 0 };
   private yaw = 0;
   private pitch = 0;
@@ -5410,14 +5412,14 @@ class WildernessGame {
     this.titleScreenEl.classList.remove("hidden"); this.uiRoot.classList.add("title-active");
   }
 
-  private saveGame() {
+  private async saveGame() {
     try {
       const save = this.createSaveData();
       backupLatestSaveInRepository();
       writeRepositoryJsonStorage(SAVE_KEY, save);
       const existingSaves = this.readSaveSlots().filter((slot) => slot.savedAt !== save.savedAt);
       const requestedSaves = [this.createSaveSlot(save), ...existingSaves];
-      const storedCount = this.writeSaveSlots(requestedSaves);
+      const storedCount = await this.writeSaveSlots(requestedSaves);
       const trimmedText = requestedSaves.length > storedCount ? ` 최근 ${storedCount}개 저장만 보관했습니다.` : "";
       this.showMessage(`저장 완료: ${this.formatSaveDate(save.savedAt)}.${trimmedText}`);
     } catch (error) {
@@ -5441,9 +5443,10 @@ class WildernessGame {
     this.loadSaveSlot(saves[0].id);
   }
 
-  private loadSaveSlot(slotId: string) {
+  private async loadSaveSlot(slotId: string) {
     const slot = this.readSaveSlots().find((candidate) => candidate.id === slotId);
-    if (!slot) {
+    const slotSave = slot ? await resolveRepositorySlotSave(slot) : null;
+    if (!slot || !slotSave) {
       this.showMessage("선택한 저장 파일을 찾지 못했습니다.");
       this.renderPanel();
       return;
@@ -5452,12 +5455,12 @@ class WildernessGame {
     const fallbackSave = this.gameStarted ? this.createSaveData() : null;
     try {
       backupLatestSaveInRepository();
-      writeRepositoryJsonStorage(SAVE_KEY, slot.save);
+      writeRepositoryJsonStorage(SAVE_KEY, slotSave);
       this.enterGameplayMode();
       this.currentPanel = null;
-      this.restoreSaveData(slot.save);
+      this.restoreSaveData(slotSave);
       precompileSceneShaders(this.renderer, this.scene, this.camera);
-      this.showMessage(`불러오기 완료: ${this.formatSaveDate(slot.save.savedAt)}`);
+      this.showMessage(`불러오기 완료: ${this.formatSaveDate(slotSave.savedAt ?? slot.savedAt)}`);
     } catch (error) {
       console.error(error);
       if (fallbackSave) {
@@ -5472,12 +5475,12 @@ class WildernessGame {
   }
 
   private createSaveSlot(save: SavedGame): SaveSlot {
-    return createRepositorySaveSlot(save, (savedAt) => this.formatSaveDate(savedAt));
+    return createRepositorySaveSlot(save, (savedAt) => this.formatSaveDate(savedAt), this.saveSummary(save));
   }
 
   private readSaveSlots(): SaveSlot[] {
     return readRepositorySaveSlots({
-      migrateSaveData: (save) => this.migrateSaveData(save),
+      migrateSaveData: (save) => migratePartialSaveData(save),
       formatSaveDate: (savedAt) => this.formatSaveDate(savedAt),
     });
   }
@@ -5550,12 +5553,8 @@ class WildernessGame {
     });
   }
 
-  private migrateSaveData(save: PartialSavedGame): SavedGame {
-    return migratePartialSaveData(save);
-  }
-
   private restoreSaveData(sourceSave: SavedGame | PartialSavedGame) {
-    const save = this.migrateSaveData(sourceSave);
+    const save = migratePartialSaveData(sourceSave);
     this.resetGameState({ reseed: false });
     this.currentWorldMapId = save.player.worldMapId ?? DEFAULT_WORLD_MAP_ID;
     this.bossChapter = normalizeBossChapter(save.player.bossChapter);
@@ -5605,6 +5604,7 @@ class WildernessGame {
     this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
     this.summonerCompanion.restore(save.player.companionProgress);
     this.tutorialProgress.completedStepIds.splice(0, this.tutorialProgress.completedStepIds.length, ...(save.player.tutorial?.completedStepIds ?? []));
+    this.tutorialProgress.achievedStepIds.splice(0, this.tutorialProgress.achievedStepIds.length, ...(save.player.tutorial?.achievedStepIds ?? save.player.tutorial?.completedStepIds ?? []));
     this.playerBodyPosition = null;
     this.renderClassSelection();
     this.hunger = save.player.hunger ?? HUNGER_MAX;
@@ -5715,6 +5715,7 @@ class WildernessGame {
     this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
     this.summonerCompanion.reset();
     this.tutorialProgress.completedStepIds.splice(0);
+    this.tutorialProgress.achievedStepIds.splice(0);
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
@@ -6094,7 +6095,7 @@ class WildernessGame {
   }
 
   private currentObjectiveView(): TutorialObjective {
-    return currentObjective({
+    const snapshot = {
       health: this.health,
       hunger: this.hunger,
       wood: this.countItem("wood"),
@@ -6112,7 +6113,10 @@ class WildernessGame {
       bossChapter: this.bossChapter,
       fieldBossQuest: fieldBossQuestFor(this.currentWorldMapId, this.defeatedFieldBosses),
       completedStepIds: this.tutorialProgress.completedStepIds,
-    });
+      achievedStepIds: this.tutorialProgress.achievedStepIds,
+    };
+    latchAchievedObjectives(this.tutorialProgress, snapshot);
+    return currentObjective(snapshot);
   }
 
   private hasWorldObjectType(...types: ObjectType[]) {
@@ -6497,9 +6501,9 @@ class WildernessGame {
       saves.map((slot) => ({
         id: slot.id,
         label: slot.label,
-        summary: this.saveSummary(slot.save),
-        objectCount: slot.save.objects.length,
-        mountainCount: slot.save.mountains.length,
+        summary: slot.save ? this.saveSummary(slot.save) : slot.description ?? slot.label,
+        objectCount: slot.save?.objects.length,
+        mountainCount: slot.save?.mountains.length,
       })),
       {
         onClose: () => this.closePanel(),
@@ -6574,7 +6578,7 @@ class WildernessGame {
     this.panelEl.querySelectorAll<HTMLElement>("[data-slot-source][data-slot-index]").forEach((element) => {
       const targetSource = element.dataset.slotSource;
       const targetIndex = Number(element.dataset.slotIndex);
-      if (!this.isStorageSlotSource(targetSource) || !Number.isInteger(targetIndex)) return;
+      if (!isStorageSlotSource(targetSource) || !Number.isInteger(targetIndex)) return;
       element.addEventListener("dragover", (event) => {
         event.preventDefault();
         element.classList.add("drag-over");
@@ -6588,13 +6592,21 @@ class WildernessGame {
         if (!raw) return;
         try {
           const payload = JSON.parse(raw) as { source?: string | null; index?: string | null };
-          if (!this.isStorageSlotSource(payload.source) || payload.index === null || payload.index === undefined) return;
+          if (!isStorageSlotSource(payload.source) || payload.index === null || payload.index === undefined) return;
           this.swapStorageSlots(payload.source, Number(payload.index), targetSource, targetIndex);
         } catch {
           this.showMessage("아이템 위치를 바꾸지 못했습니다.");
         }
       });
       element.addEventListener("click", () => this.handleStorageSlotClick(targetSource, targetIndex));
+      element.addEventListener("contextmenu", (event) => {
+        // 우클릭 = 설치 아이템은 즉시 설치, 일반 아이템은 바닥에 버리기 (드래그 불필요)
+        event.preventDefault();
+        const slot = this.inventorySlotBySource(targetSource, targetIndex);
+        if (!slot?.item) return;
+        if (PLACEABLE_TYPES[slot.item]) this.placeItemFromSlot(slot);
+        else this.dropItemFromSlot(slot);
+      });
     });
 
     const dropZone = this.panelEl.querySelector<HTMLElement>("[data-ground-drop]");
@@ -6637,10 +6649,6 @@ class WildernessGame {
     return null;
   }
 
-  private isStorageSlotSource(source: string | null | undefined): source is "hotbar" | "bag" {
-    return source === "hotbar" || source === "bag";
-  }
-
   private handleStorageSlotClick(source: "hotbar" | "bag", index: number) {
     const slot = this.inventorySlotBySource(source, index);
     if (!slot) return;
@@ -6661,7 +6669,7 @@ class WildernessGame {
   }
 
   private swapStorageSlots(source: string, sourceIndex: number, targetSource: string, targetIndex: number) {
-    if (!this.isStorageSlotSource(source) || !this.isStorageSlotSource(targetSource)) return;
+    if (!isStorageSlotSource(source) || !isStorageSlotSource(targetSource)) return;
     if (source === targetSource && sourceIndex === targetIndex) return;
     const sourceSlot = this.inventorySlotBySource(source, sourceIndex);
     const targetSlot = this.inventorySlotBySource(targetSource, targetIndex);

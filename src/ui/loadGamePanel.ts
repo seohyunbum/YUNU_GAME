@@ -2,8 +2,8 @@ export interface LoadGameSlotView {
   id: string;
   label: string;
   summary: string;
-  objectCount: number;
-  mountainCount: number;
+  objectCount?: number;
+  mountainCount?: number;
 }
 
 export interface LoadGamePanelCallbacks {
@@ -43,7 +43,7 @@ export function renderLoadGamePanel(
                       <div>
                         <strong>${index === 0 ? "최근 저장" : `저장 ${index + 1}`} · ${escapeHtml(slot.label)}</strong>
                         <p>${escapeHtml(slot.summary)}</p>
-                        <small>저장된 오브젝트 ${slot.objectCount}개 · 지형 ${slot.mountainCount}개</small>
+                        ${slot.objectCount !== undefined ? `<small>저장된 오브젝트 ${slot.objectCount}개 · 지형 ${slot.mountainCount ?? 0}개</small>` : ""}
                       </div>
                       <button data-load-slot-index="${index}">불러오기</button>
                     </article>`,

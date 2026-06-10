@@ -184,7 +184,7 @@ export function renderInventoryPanel(
             </div>
             <div class="inventory-label">재료 선택</div>
             <div class="item-list item-slot-grid">${itemButtons || '<div class="empty-inventory">비어 있음</div>'}</div>
-            <div class="ground-drop-zone" data-ground-drop>여기로 드래그하면 일반 아이템은 버리고 설치 아이템은 설치</div>
+            <div class="ground-drop-zone" data-ground-drop>칸을 우클릭하면 설치 아이템은 설치, 일반 아이템은 버립니다 (여기로 드래그해도 동일)</div>
           </section>
         </div>
       </section>

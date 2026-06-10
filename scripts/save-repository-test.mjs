@@ -43,6 +43,7 @@ try {
   const {
     backupLatestSave,
     readSaveSlots,
+    resolveSlotSave,
     writeJsonStorage,
     writeSaveSlots,
   } = repository;
@@ -76,14 +77,16 @@ try {
   backupLatestSave(storage);
   assert.equal(storage.getItem(SAVE_BACKUP_KEY), storage.getItem(SAVE_KEY), "latest save should be copied to backup");
 
-  writeSaveSlots(
+  await writeSaveSlots(
     [
-      { id: "slot-a", savedAt: save.savedAt, label: "Slot A", save },
+      { id: "slot-a", savedAt: save.savedAt, label: "Slot A", description: "요약", save },
       { id: "slot-duplicate", savedAt: save.savedAt, label: "Duplicate", save },
     ],
     storage,
   );
   assert.ok(storage.getItem(SAVE_LIST_KEY), "save slot list should be written");
+  const storedList = JSON.parse(storage.getItem(SAVE_LIST_KEY));
+  assert.ok(storedList[0].packed && !storedList[0].save, "slots should be stored compressed (packed, no raw save)");
 
   const slots = readSaveSlots({
     migrateSaveData,
@@ -94,6 +97,9 @@ try {
   assert.equal(slots.length, 1, "duplicate save entries should be deduped across list/latest/backup");
   assert.equal(slots[0].id, "slot-a", "first valid slot id should be preserved");
   assert.equal(slots[0].label, "Slot A", "stored slot label should be preserved");
+  assert.equal(slots[0].description, "요약", "stored slot description should be preserved");
+  const resolved = await resolveSlotSave(slots[0]);
+  assert.equal(resolved.player.position.x, 1, "packed slot should decompress back to the same save");
 
   storage.setItem(SAVE_LIST_KEY, JSON.stringify([{ save: { version: 999 } }, { id: "slot-a", save }]));
   const recoveredSlots = readSaveSlots({
@@ -103,7 +109,7 @@ try {
   });
   assert.equal(recoveredSlots.length, 1, "broken slot list entries should be ignored");
 
-  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "slot dedupe", "broken slot recovery"] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "slot dedupe", "broken slot recovery"] }, null, 2));
 } finally {
   await server.close();
 }
