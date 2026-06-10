@@ -103,6 +103,7 @@ try {
   const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
   const graveTrap = await server.ssrLoadModule("/src/game/graveTrap.ts");
   const predatorAi = await server.ssrLoadModule("/src/game/predatorAi.ts");
+  const finale = await server.ssrLoadModule("/src/game/finale.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -118,6 +119,7 @@ try {
   const { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER, applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } = bossChapters;
   const { GRAVE_HAND_COUNT, createGraveTrapState, updateGraveTrap } = graveTrap;
   const { animatePredatorAttackMotion, triggerPredatorAttackMotion } = predatorAi;
+  const { FINALE_CREDITS_DELAY_MS, createFinaleState, startFinale, updateFinale } = finale;
 
   assert(HEAL_ITEMS.medkit === 15, "medkit should heal 15 HP");
   assert(HUNGER_HP_REGEN.length === HUNGER_MAX + 1, "hunger regen table should cover every hunger level");
@@ -389,6 +391,35 @@ try {
     }
   }
 
+  {
+    // 엔딩 피날레: 폭죽 파티클 + 팡파레 + 크레딧 1회 표시
+    let nowMs = 0;
+    let tones = 0;
+    let credits = 0;
+    const particles = [];
+    const sceneStub = { add: () => {} };
+    const context = {
+      state: createFinaleState(),
+      effects: () => ({ scene: sceneStub, camera: null, playerPosition: new THREE.Vector3(), damageParticles: particles, getGroundHeightAt: () => 0 }),
+      playerPosition: new THREE.Vector3(0, 1.7, 0),
+      cameraForward: () => ({ x: 0, z: -1 }),
+      now: () => nowMs,
+      playTone: () => {
+        tones += 1;
+      },
+      showCredits: () => {
+        credits += 1;
+      },
+      showMessage: () => {},
+    };
+    startFinale(context);
+    assert(context.state.active, "finale should activate on the final boss kill");
+    for (nowMs = 0; nowMs <= FINALE_CREDITS_DELAY_MS + 2_000; nowMs += 100) updateFinale(context);
+    assert(particles.length > 120, `finale should launch many firework particles (got ${particles.length})`);
+    assert(tones >= 16, `finale should play the victory fanfare (got ${tones} tones)`);
+    assert(credits === 1, `ending credits should appear exactly once (got ${credits})`);
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -409,6 +440,7 @@ try {
         "designed stat overrides for hound and viper",
         "xp bottle grants 15 levels and is consumed",
         "incoming damage floor and progressive monster attack scaling",
+        "finale fireworks, fanfare, and single credits roll",
       ],
     }, null, 2));
   }

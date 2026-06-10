@@ -2498,3 +2498,103 @@ body {
     max-width: min(92vw, 560px);
   }
 }
+
+/* 엔딩 크레딧 — 뒤로 폭죽이 비치는 반투명 오버레이 + 스크롤 크레딧 */
+.ending-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.42), rgba(2, 6, 23, 0.66) 78%, rgba(2, 6, 23, 0.8));
+  pointer-events: auto;
+}
+
+.ending-scroll {
+  position: relative;
+  flex: 1;
+  width: min(640px, 92vw);
+  overflow: hidden;
+}
+
+.ending-roll {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  color: #fff7d6;
+  text-shadow: 0 3px 16px rgba(0, 0, 0, 0.8);
+  animation: ending-roll-up 30s linear forwards;
+}
+
+@keyframes ending-roll-up {
+  from { top: 100%; }
+  to { top: -120%; }
+}
+
+.ending-roll h1 {
+  margin: 0 0 10px;
+  color: #ffe28a;
+  font-size: clamp(30px, 5vw, 48px);
+  letter-spacing: 0.02em;
+}
+
+.ending-subtitle {
+  margin: 0 0 52px;
+  color: #e2e8f0;
+  font-size: clamp(15px, 2.2vw, 19px);
+}
+
+.ending-roll h2 {
+  margin: 0 0 22px;
+  color: #fcd34d;
+  font-size: clamp(20px, 3vw, 27px);
+}
+
+.ending-credit {
+  margin-bottom: 26px;
+}
+
+.ending-credit small {
+  display: block;
+  margin-bottom: 4px;
+  color: #bcd3e8;
+  font-size: clamp(12px, 1.8vw, 15px);
+  letter-spacing: 0.12em;
+}
+
+.ending-credit strong {
+  color: #ffffff;
+  font-size: clamp(20px, 3.2vw, 30px);
+  font-weight: 900;
+}
+
+.ending-thanks {
+  margin: 48px 0 8px;
+  color: #ffe28a;
+  font-size: clamp(17px, 2.6vw, 23px);
+  font-weight: 700;
+}
+
+.ending-outro {
+  margin: 0 0 40px;
+  color: #cbd5e1;
+  font-size: clamp(14px, 2vw, 17px);
+}
+
+.ending-continue {
+  margin: 0 0 30px;
+  padding: 12px 30px;
+  border: 1px solid rgba(252, 211, 77, 0.7);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #ffe28a;
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ending-continue:hover {
+  background: rgba(30, 41, 59, 0.9);
+}

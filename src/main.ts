@@ -68,10 +68,13 @@ import {
   applyProjectileDamage as applyProjectileDamageWithContext,
   calculateCombatDamage as calculateDamage,
   calculateIncomingPlayerDamage,
+  rollDragonLoot as rollDragonLootItem,
   type ProjectileDamageContext,
 } from "./game/combat";
-import { applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } from "./game/bossChapters";
+import { applyBossDefeat, bossLockMessage, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter } from "./game/bossChapters";
 import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
+import { createFinaleState, startFinale, updateFinale, type FinaleContext } from "./game/finale";
+import { showEndingScreen } from "./ui/endingScreen";
 import {
   createArrowProjectile,
   createMagicProjectile,
@@ -458,11 +461,12 @@ class WildernessGame {
       const result = applyBossDefeat(this.bossChapter, kind ?? "dragon");
       this.bossChapter = result.bossChapter;
       if (result.message) this.showMessage(result.message);
+      if (result.message && result.bossChapter === FINAL_BOSS_CHAPTER) startFinale(this.finaleContext);
     },
     dragonCounterAttack: (target) => this.dragonCounterAttack(target),
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
     updateBossBar: () => this.updateBossBar(),
-    rollDragonLoot: () => this.rollDragonLoot(),
+    rollDragonLoot: () => rollDragonLootItem(),
     enrageVillage: (villageId, message) => this.enrageVillage(villageId, message),
     isVillageGuard: (target) => this.isVillageGuard(target),
     damagePlayer: (amount, showParticles, deathReason, ignoreArmor) => this.damagePlayer(amount, showParticles, deathReason, ignoreArmor),
@@ -500,6 +504,12 @@ class WildernessGame {
     damagePlayer: (amount, showParticles, deathReason) => this.damagePlayer(amount, showParticles, deathReason),
     showMessage: (text) => this.showMessage(text),
     renderHud: () => this.renderHud(),
+  };
+  private readonly finaleContext: FinaleContext = {
+    state: createFinaleState(), effects: () => this.combatEffectContext, playerPosition: this.playerPosition,
+    cameraForward: () => ({ x: -Math.sin(this.yaw), z: -Math.cos(this.yaw) }), now: () => performance.now(),
+    playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
+    showCredits: () => showEndingScreen(this.uiRoot, () => this.renderHud()), showMessage: (text) => this.showMessage(text),
   };
   private equippedArmor: ItemId | null = null;
   private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0;
@@ -2480,6 +2490,7 @@ class WildernessGame {
     this.updateAnts(delta);
     this.updatePredators(delta);
     updateGraveTrap(this.graveTrapContext, delta);
+    updateFinale(this.finaleContext);
     this.updateDragons(delta);
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
@@ -4362,13 +4373,6 @@ class WildernessGame {
     spawnDragonFireBurst(this.combatEffectContext, this.playerPosition.clone());
     this.damagePlayer(stats.fireDamage, true, `${stats.name}의 원거리 공격을 받아 체력이 모두 떨어졌습니다.`);
     this.showMessage(this.lastDamageBlocked ? "용의 불 공격을 방어구가 막았습니다." : `용이 하늘에서 불을 쏟았습니다! 피해 ${this.lastDamageTaken}.`);
-  }
-
-  private rollDragonLoot(): ItemId {
-    const roll = Math.random();
-    if (roll < 0.5) return "dragon_scale";
-    if (roll < 0.9) return "dragon_tail";
-    return "dragon_horn";
   }
 
   private experienceRewardFor(target: WorldObject) {

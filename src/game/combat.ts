@@ -35,6 +35,13 @@ export interface ProjectileDamageContext {
   now(): number;
 }
 
+export function rollDragonLoot(): ItemId {
+  const roll = Math.random();
+  if (roll < 0.5) return "dragon_scale";
+  if (roll < 0.9) return "dragon_tail";
+  return "dragon_horn";
+}
+
 export function calculateCombatDamage(attackPower: number, defense: number) {
   const attack = Math.max(0, Math.floor(attackPower));
   const armor = Math.max(0, Math.floor(defense));

@@ -152,6 +152,40 @@ export function spawnExplosionVisual(context: CombatEffectContext, position: THR
   context.damageParticles.push({ mesh: flash, velocity: new THREE.Vector3(0, 0.08, 0), life: 0.34, maxLife: 0.34 });
 }
 
+// 엔딩 폭죽 — 하늘에서 사방으로 퍼지는 발광 파티클 구체 + 중심 섬광
+export function spawnFireworkBurst(context: CombatEffectContext, position: THREE.Vector3, colors: readonly number[]) {
+  for (let index = 0; index < 30; index += 1) {
+    const material = new THREE.MeshBasicMaterial({
+      color: colors[index % colors.length],
+      transparent: true,
+      opacity: THREE.MathUtils.randFloat(0.7, 0.96),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const particle = new THREE.Mesh(new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.09, 0.2), 8, 6), material);
+    particle.position.copy(position);
+    particle.renderOrder = 24;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(THREE.MathUtils.randFloat(-1, 1));
+    const speed = THREE.MathUtils.randFloat(2.4, 4.6);
+    const velocity = new THREE.Vector3(
+      Math.sin(phi) * Math.cos(theta) * speed,
+      Math.cos(phi) * speed * 0.8 + 0.4,
+      Math.sin(phi) * Math.sin(theta) * speed,
+    );
+    context.scene.add(particle);
+    context.damageParticles.push({ mesh: particle, velocity, life: THREE.MathUtils.randFloat(0.9, 1.5), maxLife: 1.5 });
+  }
+  const flash = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xfff7d6, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  flash.position.copy(position);
+  flash.renderOrder = 24;
+  context.scene.add(flash);
+  context.damageParticles.push({ mesh: flash, velocity: new THREE.Vector3(0, 0.4, 0), life: 0.28, maxLife: 0.28 });
+}
+
 export function spawnTntTrail(context: CombatEffectContext, position: THREE.Vector3) {
   if (Math.random() > 0.72) return;
   const particle = new THREE.Mesh(
