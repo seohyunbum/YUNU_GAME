@@ -207,7 +207,7 @@ export const ARMOR_VALUE: Record<ItemId, number> = {
   iron_armor: 22,
   gold_armor: 30,
   diamond_armor: 45,
-  obsidian_armor: 65,
+  obsidian_armor: 105,
 };
 
 export const SHIELD_DEFENSE: Record<ItemId, number> = {
