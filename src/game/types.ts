@@ -263,6 +263,7 @@ export interface SavedGame {
     hungerTimer?: number;
     worldTimeSeconds?: number;
     worldMapId?: WorldMapId;
+    bossChapter?: number;
     totalSteps: number;
     chestStepBank: number;
     caveStepBank: number;

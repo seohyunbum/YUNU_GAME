@@ -86,6 +86,7 @@ try {
   assert.equal(legacy.player.hungerTimer, HUNGER_TICK_SECONDS);
   assert.equal(legacy.player.worldTimeSeconds, DAY_LENGTH_SECONDS * (8 / 24));
   assert.equal(legacy.player.worldMapId, DEFAULT_WORLD_MAP_ID);
+  assert.equal(legacy.player.bossChapter, 0);
   assert.equal(legacy.player.totalSteps, 0);
   assert.equal(legacy.player.chestStepBank, 0);
   assert.equal(legacy.player.caveStepBank, 30);
@@ -129,6 +130,7 @@ try {
       hungerTimer: -1,
       worldTimeSeconds: 999_999,
       worldMapId: "snowfield",
+      bossChapter: 99,
       totalSteps: 3,
       chestStepBank: 4,
       caveStepBank: 5,
@@ -179,6 +181,7 @@ try {
   assert.equal(current.player.hungerTimer, 0);
   assert.equal(current.player.worldTimeSeconds, DAY_LENGTH_SECONDS);
   assert.equal(current.player.worldMapId, "snowfield");
+  assert.equal(current.player.bossChapter, 6);
   assert.equal(current.player.selectedHotbarIndex, 0);
   assert.equal(current.player.hotbar.length, 8);
   assert.deepEqual(current.player.hotbar[0], { item: "magic_wand", count: 1 });

@@ -46,6 +46,7 @@ function stableSaveShape(save) {
       hungerTimer: save.player.hungerTimer,
       worldTimeSeconds: save.player.worldTimeSeconds,
       worldMapId: save.player.worldMapId,
+      bossChapter: save.player.bossChapter,
       totalSteps: save.player.totalSteps,
       chestStepBank: save.player.chestStepBank,
       caveStepBank: save.player.caveStepBank,

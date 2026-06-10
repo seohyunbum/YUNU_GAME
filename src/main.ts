@@ -68,6 +68,7 @@ import {
   calculateCombatDamage as calculateDamage,
   type ProjectileDamageContext,
 } from "./game/combat";
+import { normalizeBossChapter } from "./game/bossChapters";
 import {
   createArrowProjectile,
   createMagicProjectile,
@@ -394,6 +395,7 @@ class WildernessGame {
   private currentPanel: PanelType = null;
   private currentStationId: string | null = null;
   private currentWorldMapId: WorldMapId = DEFAULT_WORLD_MAP_ID;
+  private bossChapter = 0;
   private activeRegions = regionsForWorldMap(DEFAULT_WORLD_MAP_ID);
   private activeBiomes = biomesForWorldMap(DEFAULT_WORLD_MAP_ID);
   private activeWaterZones = waterZonesForWorldMap(DEFAULT_WORLD_MAP_ID);
@@ -5507,6 +5509,7 @@ class WildernessGame {
         hungerTimer: this.hungerTimer,
         worldTimeSeconds: this.worldTimeSeconds,
         worldMapId: this.currentWorldMapId,
+        bossChapter: this.bossChapter,
         totalSteps: this.totalSteps,
         chestStepBank: this.chestStepBank,
         caveStepBank: this.caveStepBank,
@@ -5540,6 +5543,7 @@ class WildernessGame {
     const save = this.migrateSaveData(sourceSave);
     this.resetGameState({ reseed: false });
     this.currentWorldMapId = save.player.worldMapId ?? DEFAULT_WORLD_MAP_ID;
+    this.bossChapter = normalizeBossChapter(save.player.bossChapter);
     this.activeRegions = regionsForWorldMap(this.currentWorldMapId);
     this.activeBiomes = biomesForWorldMap(this.currentWorldMapId); this.activeWaterZones = waterZonesForWorldMap(this.currentWorldMapId); this.biomeDecorContext.biomes = this.activeBiomes;
     installWorldStates(this.worldStates, save.worldStates, this.currentWorldMapId, { mountains: save.mountains, objects: save.objects });
@@ -5681,6 +5685,7 @@ class WildernessGame {
     this.chestStepBank = 0;
     this.caveStepBank = 0;
     this.antStepBank = 0;
+    this.bossChapter = 0;
     this.level = 1;
     this.experience = 0;
     this.health = BASE_PLAYER_MAX_HEALTH;

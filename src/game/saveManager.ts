@@ -1,4 +1,5 @@
 import { SAVE_BUILD_ID, SAVE_VERSION } from "./constants";
+import { normalizeBossChapter } from "./bossChapters";
 import type {
   HouseKind,
   ItemId,
@@ -43,6 +44,7 @@ export interface SaveDataSnapshot {
     hungerTimer: number;
     worldTimeSeconds: number;
     worldMapId: WorldMapId;
+    bossChapter: number;
     totalSteps: number;
     chestStepBank: number;
     caveStepBank: number;
@@ -193,6 +195,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       hungerTimer: snapshot.player.hungerTimer,
       worldTimeSeconds: snapshot.player.worldTimeSeconds,
       worldMapId: snapshot.player.worldMapId,
+      bossChapter: normalizeBossChapter(snapshot.player.bossChapter),
       totalSteps: snapshot.player.totalSteps,
       chestStepBank: snapshot.player.chestStepBank,
       caveStepBank: snapshot.player.caveStepBank,
