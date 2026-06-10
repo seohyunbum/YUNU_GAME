@@ -86,7 +86,7 @@ function renderStatsMarkup(view: HudViewModel) {
   return `
       <div class="stats-level-card" title="경험치 ${view.experience}/${view.requiredExperience}">
         <span>Lv</span>
-        <strong>${view.level}</strong>
+        <strong class="${view.level >= 1000 ? "lv-digits-4" : view.level >= 100 ? "lv-digits-3" : ""}">${view.level}</strong>
         <em>${xpPercent}%</em>
       </div>
       <div class="stats-content">

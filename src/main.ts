@@ -70,7 +70,7 @@ import {
   calculateIncomingPlayerDamage,
   type ProjectileDamageContext,
 } from "./game/combat";
-import { applyBossDefeat, bossLockMessage, isBossUnlocked, normalizeBossChapter } from "./game/bossChapters";
+import { applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } from "./game/bossChapters";
 import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
 import {
   createArrowProjectile,
@@ -6144,7 +6144,9 @@ class WildernessGame {
   }
 
   private renderRegionMapPanel() {
-    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: canTeleportToWorldMap(this.level, map), lockReason: worldMapLockReason(this.level, map) })) }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
+    const nextBossKind = nextBossTarget(this.bossChapter)?.kind;
+    const bosses = [...this.objectsOfType("dragon")].map((dragon) => ({ name: this.bossStats(dragon.bossKind).name, x: dragon.root.position.x, z: dragon.root.position.z, sealed: !isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter), next: (dragon.bossKind ?? "dragon") === nextBossKind }));
+    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: canTeleportToWorldMap(this.level, map), lockReason: worldMapLockReason(this.level, map) })), bosses }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
   }
 
   private teleportToWorldMap(mapId: string) {

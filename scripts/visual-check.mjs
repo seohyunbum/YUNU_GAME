@@ -419,6 +419,7 @@ function expeditionSave({ bossChapter, worldTimeSeconds, worldMapId = "dragon_la
       pitch: 0,
       health: 10,
       maxHealth: 10,
+      level: 451,
       hunger: 5,
       hungerTimer: 0,
       worldTimeSeconds,
@@ -479,6 +480,9 @@ async function inspectNewSystems(page) {
     daySkyBrightness: -1,
     nightSkyBrightness: -1,
     graveyardSkyBrightness: -1,
+    levelCardCompact: false,
+    bossMarkers: 0,
+    sealedBossMarkers: 0,
     newGameReturnsToTitle: false,
   };
 
@@ -506,6 +510,16 @@ async function inspectNewSystems(page) {
   systems.bossSealedMarked = sealedBossBar.includes("파이어 드래곤") && sealedBossBar.includes("봉인됨");
   systems.chapterObjectiveShown = ((await page.locator(".objective").textContent()) ?? "").includes("챕터 1/6");
   systems.daySkyBrightness = await sampleSkyBrightness(page);
+  // 3자리 레벨은 카드 안에 맞게 축소된 글꼴 클래스를 받아야 한다
+  systems.levelCardCompact = (await page.locator(".stats-level-card strong.lv-digits-3").count()) === 1;
+  // 지역 지도에 보스 위치 마커가 떠야 한다 (봉인 상태 포함)
+  await page.keyboard.press("KeyM");
+  await page.waitForTimeout(350);
+  systems.bossMarkers = await page.locator("[data-boss-marker]").count();
+  systems.sealedBossMarkers = await page.locator('[data-boss-marker="sealed"]').count();
+  await page.screenshot({ path: "artifacts/map-bosses.png", fullPage: true });
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
 
   await loadInjectedSave(page, expeditionSave({ bossChapter: 1, worldTimeSeconds: 1200 }));
   const unsealedBossBar = (await page.locator(".boss-bar").textContent()) ?? "";
@@ -601,6 +615,9 @@ for (const viewport of [
       errors.push(`desktop: night sky (${systems.nightSkyBrightness}) was not darker than day sky (${systems.daySkyBrightness})`);
     }
     if (!systems.newGameReturnsToTitle) errors.push("desktop: in-game new-game button did not return to the title screen");
+    if (!systems.levelCardCompact) errors.push("desktop: 3-digit level did not get the compact level-card font class");
+    if (systems.bossMarkers < 1) errors.push("desktop: region map did not show any boss markers");
+    if (systems.sealedBossMarkers < 1) errors.push("desktop: sealed boss was not marked as sealed on the region map");
     if (systems.graveyardSkyBrightness < 0 || systems.graveyardSkyBrightness > systems.daySkyBrightness - 40) {
       errors.push(`desktop: graveyard daytime sky (${systems.graveyardSkyBrightness}) was not gloomier than the plains day sky (${systems.daySkyBrightness})`);
     }

@@ -8,6 +8,14 @@ interface MapWaterZone {
   name: string;
 }
 
+export interface MapBossMarker {
+  name: string;
+  x: number;
+  z: number;
+  sealed: boolean;
+  next: boolean;
+}
+
 export interface RegionMapPanelView {
   regions: Region[];
   currentRegionId: string | null;
@@ -15,6 +23,7 @@ export interface RegionMapPanelView {
   worldSize: number;
   waterZones: MapWaterZone[];
   worldMaps: { map: WorldMapDefinition; current: boolean; canTeleport: boolean; lockReason: string }[];
+  bosses: MapBossMarker[];
 }
 
 export interface RegionMapCallbacks {
@@ -80,6 +89,22 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
       </g>`;
     })
     .join("");
+  // 보스 마커 — 금색 = 다음 처치 목표, 빨강 = 도전 가능, 회색 = 봉인됨
+  const bosses = view.bosses
+    .map((boss) => {
+      const cx = Number(mapX(boss.x).toFixed(1));
+      const cy = Number(mapY(boss.z).toFixed(1));
+      const fill = boss.next ? "#fbbf24" : boss.sealed ? "#94a3b8" : "#f87171";
+      const label = boss.next ? `${boss.name} · 다음 목표` : boss.sealed ? `${boss.name} · 봉인` : boss.name;
+      const textHalo = `paint-order="stroke" stroke="#15231d" stroke-width="3.5" stroke-linejoin="round"`;
+      const ring = boss.next ? `<circle cx="${cx}" cy="${cy}" r="17" fill="none" stroke="#fbbf24" stroke-width="2.5" stroke-dasharray="4 5" />` : "";
+      return `<g data-boss-marker="${boss.next ? "next" : boss.sealed ? "sealed" : "open"}">
+        ${ring}
+        <path d="M ${cx} ${cy - 11} L ${cx + 10} ${cy} L ${cx} ${cy + 11} L ${cx - 10} ${cy} Z" fill="${fill}" stroke="#111827" stroke-width="2.5" />
+        <text x="${cx}" y="${cy - 17}" text-anchor="middle" fill="${fill}" font-size="14" font-weight="800" ${textHalo}>${escapeHtml(label)}</text>
+      </g>`;
+    })
+    .join("");
   const cards = view.regions
     .map((region) => {
       const selected = region.id === view.currentRegionId ? " current" : "";
@@ -125,11 +150,13 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
           </g>
           ${waters}
           ${regions}
+          ${bosses}
           <line x1="${playerX.toFixed(1)}" y1="${playerY.toFixed(1)}" x2="${directionX.toFixed(1)}" y2="${directionY.toFixed(1)}" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
           <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="9" fill="#fff7d6" stroke="#111827" stroke-width="3" />
         </svg>
         <aside class="map-region-list">
           <div class="map-player-level">현재 Lv ${view.player.level}</div>
+          ${view.bosses.length > 0 ? `<div class="map-player-level">◆ 보스 위치 — 금색=다음 목표 · 빨강=도전 가능 · 회색=봉인</div>` : ""}
           <div class="map-player-level">원정 맵 텔레포트</div>
           ${mapCards}
           ${cards}

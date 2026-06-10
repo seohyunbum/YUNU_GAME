@@ -160,6 +160,15 @@ body {
     0 0 18px rgba(255, 240, 170, 0.34);
 }
 
+/* 레벨이 3·4자리가 되면 카드 안에 맞게 글자를 줄인다 */
+.stats-level-card strong.lv-digits-3 {
+  font-size: 34px;
+}
+
+.stats-level-card strong.lv-digits-4 {
+  font-size: 26px;
+}
+
 .stats-level-card em {
   z-index: 1;
   color: #fde68a;
