@@ -66,6 +66,8 @@ export type MonsterId =
   | "gale_drake"
   | "rock_drake"
   | "gold_drake"
+  | "hound"
+  | "viper"
   | BossKind;
 
 export type MonsterArchetype = "spider" | "wolf" | "lion" | "golem" | "dragon" | "jammini" | "boar" | "snake" | "bat" | "scorpion" | "bear" | "zombie" | "ghost" | "drake";
@@ -78,6 +80,8 @@ export interface MonsterDef {
   tint: number;
   predatorKind?: PredatorKind;
   bossKind?: BossKind;
+  // 레벨 공식 대신 강제할 스탯 (기획 수치 지정 몬스터용)
+  statsOverride?: Partial<(typeof PREDATOR_STATS)[PredatorKind]>;
 }
 
 export const MONSTER_DEFS: Record<MonsterId, MonsterDef> = {
@@ -112,6 +116,8 @@ export const MONSTER_DEFS: Record<MonsterId, MonsterDef> = {
   gale_drake: { id: "gale_drake", name: "바람 새끼용", archetype: "drake", level: 16, tint: 0x7dd3fc, predatorKind: "drake" },
   rock_drake: { id: "rock_drake", name: "바위 새끼용", archetype: "drake", level: 20, tint: 0xa8a29e, predatorKind: "drake" },
   gold_drake: { id: "gold_drake", name: "황금 새끼용", archetype: "drake", level: 24, tint: 0xfacc15, predatorKind: "drake" },
+  hound: { id: "hound", name: "맹견", archetype: "wolf", level: 11, tint: 0x57423a, predatorKind: "wolf", statsOverride: { hp: 25, attackDamage: 6 } },
+  viper: { id: "viper", name: "독사", archetype: "snake", level: 14, tint: 0xa21caf, predatorKind: "snake", statsOverride: { hp: 45, attackDamage: 8 } },
   dragon: { id: "dragon", name: "용", archetype: "dragon", level: 60, tint: 0xef4444, bossKind: "dragon" },
   fire_dragon: { id: "fire_dragon", name: "파이어 드래곤", archetype: "dragon", level: 130, tint: 0xff6b1a, bossKind: "fire_dragon" },
   red_dragon: { id: "red_dragon", name: "레드 드래곤", archetype: "dragon", level: 170, tint: 0xdc2626, bossKind: "red_dragon" },
@@ -141,9 +147,9 @@ export function predatorStatsForMonster(id: MonsterId, fallbackKind: PredatorKin
   const def = MONSTER_DEFS[id];
   const kind = def.predatorKind ?? fallbackKind;
   const base = PREDATOR_STATS[kind] ?? PREDATOR_STATS.wolf;
-  if (id === kind) return base;
+  if (id === kind) return def.statsOverride ? { ...base, ...def.statsOverride } : base;
   const scaled = monsterStatsFromLevel(def.level);
-  return {
+  const result = {
     ...base,
     hp: Math.max(base.hp, scaled.hp),
     attackDamage: Math.max(base.attackDamage, scaled.attackDamage),
@@ -151,6 +157,7 @@ export function predatorStatsForMonster(id: MonsterId, fallbackKind: PredatorKin
     speed: Math.min(base.speed + def.level / 140, base.speed * 1.18),
     cooldown: Math.max(0.72, base.cooldown - def.level / 300),
   };
+  return def.statsOverride ? { ...result, ...def.statsOverride } : result;
 }
 
 export function applyPredatorMonsterDefinition(

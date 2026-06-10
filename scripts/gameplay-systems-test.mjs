@@ -326,6 +326,15 @@ try {
   }
 
   {
+    // 기획 지정 스탯 오버라이드 골든: 맹견/독사는 레벨 공식 대신 지정 수치를 쓴다
+    const hound = predatorStatsForMonster("hound");
+    assert(hound.hp === 25 && hound.attackDamage === 6, `hound should keep designed stats (hp ${hound.hp}, atk ${hound.attackDamage})`);
+    const viper = predatorStatsForMonster("viper");
+    assert(viper.hp === 45 && viper.attackDamage === 8, `viper should keep designed stats (hp ${viper.hp}, atk ${viper.attackDamage})`);
+    assert(hound.speed > 0 && hound.cooldown > 0 && viper.strikeRange > 0, "overridden monsters should inherit remaining kind stats");
+  }
+
+  {
     // 공격 모션 인지성 골든: 예열은 또렷한 후퇴+떨림+웅크림, 도약은 큰 전진+신장. 끝나면 원상복구.
     for (const kind of ["wolf", "boar", "zombie", "drake", "ghost"]) {
       const fake = { root: new THREE.Group(), predatorKind: kind, name: kind };
@@ -367,6 +376,7 @@ try {
         "boss chapter gating golden scenario",
         "grave trap pull-in, zombie kill exit, and hand replenish",
         "attack motion windup/lunge perceptibility golden values",
+        "designed stat overrides for hound and viper",
       ],
     }, null, 2));
   }
