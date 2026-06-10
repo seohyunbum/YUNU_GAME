@@ -109,11 +109,11 @@ try {
   const { HEAL_ITEMS, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE } = items;
   const { CLASS_PASSIVES, DEFAULT_SUMMONER_PET_PROGRESS, summonerPetDamage } = classPassives;
   const { PLAYER_CLASSES } = classes;
-  const { calculateCombatDamage } = combat;
+  const { calculateCombatDamage, calculateIncomingPlayerDamage } = combat;
   const { useHotbarItem } = hotbarUse;
   const { canReceiveRecipeOutput } = inventoryCapacity;
   const { shouldFireRangedDuringInteract } = interactionPriority;
-  const { isPredatorMonster, predatorStatsForMonster } = monsters;
+  const { BOSS_STATS, isPredatorMonster, predatorStatsForMonster } = monsters;
   const { REGIONS } = regions;
   const { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER, applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } = bossChapters;
   const { GRAVE_HAND_COUNT, createGraveTrapState, updateGraveTrap } = graveTrap;
@@ -330,6 +330,21 @@ try {
   }
 
   {
+    // 받는 피해 하한 골든: 방어가 아무리 높아도 공격의 15%(올림)는 들어온다 (무적 제거)
+    assert(calculateIncomingPlayerDamage(56, 99) === 9, "Lv60 obsidian player should still take 9 from immortal fire");
+    assert(calculateIncomingPlayerDamage(46, 200) === 7, "damage floor should hold at any armor");
+    assert(calculateIncomingPlayerDamage(74, 149) === 12, "wraith should chip a Lv110 player for 12");
+    assert(calculateIncomingPlayerDamage(8, 19) === 3, "early-game damage should match the legacy formula");
+    assert(calculateIncomingPlayerDamage(14, 24) === 7, "fire dragon vs iron armor unchanged");
+    assert(calculateIncomingPlayerDamage(0, 10) === 0, "zero attack stays zero");
+    // 보스 공격 상향 골든
+    assert(BOSS_STATS.dragon.fireDamage === 10 && BOSS_STATS.dragon.clawDamage === 11, "dragon attacks should be 10/11");
+    assert(BOSS_STATS.immortal.fireDamage === 56 && BOSS_STATS.immortal.clawDamage === 46, "immortal attacks should be 56/46");
+    // 변종 몬스터 공격 계수 0.65
+    assert(predatorStatsForMonster("red_wolf").attackDamage === 24, `red wolf attack should scale at 0.65/level (got ${predatorStatsForMonster("red_wolf").attackDamage})`);
+  }
+
+  {
     // 경험치병: 1병 = 15레벨, 소비형, 병이 없으면 아무 일도 없음
     const { state, context } = createHotbarContext();
     useHotbarItem("xp_bottle", context);
@@ -393,6 +408,7 @@ try {
         "attack motion windup/lunge perceptibility golden values",
         "designed stat overrides for hound and viper",
         "xp bottle grants 15 levels and is consumed",
+        "incoming damage floor and progressive monster attack scaling",
       ],
     }, null, 2));
   }

@@ -67,6 +67,7 @@ import {
   applyMeleePredatorAttack,
   applyProjectileDamage as applyProjectileDamageWithContext,
   calculateCombatDamage as calculateDamage,
+  calculateIncomingPlayerDamage,
   type ProjectileDamageContext,
 } from "./game/combat";
 import { applyBossDefeat, bossLockMessage, isBossUnlocked, normalizeBossChapter } from "./game/bossChapters";
@@ -4918,7 +4919,7 @@ class WildernessGame {
   private damagePlayer(amount: number, showParticles = true, deathReason = "체력이 모두 떨어졌습니다.", ignoreArmor = false) {
     if (this.possessedEagleId) return this.damagePossessedEagle(amount, showParticles, ignoreArmor);
     const armor = ignoreArmor ? 0 : this.equippedArmorValue();
-    const damage = ignoreArmor ? Math.max(1, Math.floor(amount)) : this.calculateCombatDamage(amount, armor);
+    const damage = ignoreArmor ? Math.max(1, Math.floor(amount)) : calculateIncomingPlayerDamage(amount, armor);
     if (!ignoreArmor && this.equippedShield) this.consumeShieldDurability();
     this.lastDamageTaken = damage;
     this.lastDamageBlocked = damage <= 0;

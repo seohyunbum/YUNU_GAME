@@ -44,6 +44,15 @@ export function calculateCombatDamage(attackPower: number, defense: number) {
   return Math.max(1, attack + Math.floor(gap / 10));
 }
 
+// 몬스터 → 플레이어 피해 전용: 방어가 아무리 높아도 공격의 15%(올림)는 들어온다.
+// 레벨 보너스(레벨당 방어 +1)가 몬스터 공격 성장(레벨당 +0.65)보다 빨라 생기는
+// "중반 이후 완전 무적"을 막는 하한이다. 플레이어 → 보스 방향은 기존 공식 유지.
+export function calculateIncomingPlayerDamage(attackPower: number, defense: number) {
+  const attack = Math.max(0, Math.floor(attackPower));
+  if (attack <= 0) return 0;
+  return Math.max(calculateCombatDamage(attack, defense), Math.ceil(attack * 0.15));
+}
+
 export function applyProjectileDamage(
   context: ProjectileDamageContext,
   target: WorldObject,
