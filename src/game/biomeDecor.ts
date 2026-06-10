@@ -7,6 +7,7 @@ export interface BiomeDecorContext {
   clearBiomeMeshes(): void;
   addBiomeMesh(object: THREE.Object3D): void;
   randomPointInCircle(center: THREE.Vector3, radius: number): THREE.Vector3;
+  isPointInWater?(point: THREE.Vector3, margin: number): boolean;
 }
 
 export function createBiomeDecor(context: BiomeDecorContext) {
@@ -34,6 +35,16 @@ function markBiomeDistanceCull(group: THREE.Object3D, biome: BiomeConfig, paddin
   group.userData.distanceCullRadius = biome.radius + padding;
 }
 
+function randomDryBiomePoint(context: BiomeDecorContext, biome: BiomeConfig, radiusScale: number, margin = 2) {
+  let fallback = context.randomPointInCircle(biome.center, biome.radius * radiusScale);
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const point = context.randomPointInCircle(biome.center, biome.radius * radiusScale);
+    fallback = point;
+    if (!context.isPointInWater?.(point, margin)) return point;
+  }
+  return fallback;
+}
+
 function createBambooBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   const group = new THREE.Group();
   const count = 575;
@@ -54,7 +65,7 @@ function createBambooBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   );
   const dummy = new THREE.Object3D();
   for (let i = 0; i < count; i += 1) {
-    const point = context.randomPointInCircle(biome.center, biome.radius * 0.92);
+    const point = randomDryBiomePoint(context, biome, 0.92);
     const height = THREE.MathUtils.randFloat(8.1, 15.6);
     dummy.position.set(point.x, point.y + height / 2, point.z);
     dummy.rotation.set(THREE.MathUtils.randFloat(-0.02, 0.02), 0, THREE.MathUtils.randFloat(-0.05, 0.05));
@@ -104,7 +115,7 @@ function createMushroomBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   let redIndex = 0;
   let purpleIndex = 0;
   for (let i = 0; i < count; i += 1) {
-    const point = context.randomPointInCircle(biome.center, biome.radius * 0.86);
+    const point = randomDryBiomePoint(context, biome, 0.86);
     const height = THREE.MathUtils.randFloat(0.7, 2.4);
     dummy.position.set(point.x, point.y + height / 2, point.z);
     dummy.rotation.set(0, 0, 0);
@@ -146,7 +157,7 @@ function createSwampBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   );
   const dummy = new THREE.Object3D();
   for (let i = 0; i < pondCount; i += 1) {
-    const point = context.randomPointInCircle(biome.center, biome.radius * 0.72);
+    const point = randomDryBiomePoint(context, biome, 0.72);
     const radius = THREE.MathUtils.randFloat(3.2, 6.8);
     dummy.position.set(point.x, point.y + 0.035, point.z);
     dummy.rotation.set(0, THREE.MathUtils.randFloat(0, Math.PI * 2), 0);
@@ -155,7 +166,7 @@ function createSwampBiome(context: BiomeDecorContext, biome: BiomeConfig) {
     pondMesh.setMatrixAt(i, dummy.matrix);
   }
   for (let i = 0; i < trunkCount; i += 1) {
-    const point = context.randomPointInCircle(biome.center, biome.radius * 0.88);
+    const point = randomDryBiomePoint(context, biome, 0.88);
     const height = THREE.MathUtils.randFloat(1.2, 2.4);
     dummy.position.set(point.x, point.y + 0.8, point.z);
     dummy.rotation.set(0, 0, THREE.MathUtils.randFloat(-0.28, 0.28));
@@ -184,7 +195,7 @@ function createSnowBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   );
   const dummy = new THREE.Object3D();
   for (let i = 0; i < count; i += 1) {
-    const point = context.randomPointInCircle(biome.center, biome.radius * 0.86);
+    const point = randomDryBiomePoint(context, biome, 0.86);
     const height = THREE.MathUtils.randFloat(1.8, 3.5);
     dummy.position.set(point.x, point.y + height * 0.3, point.z);
     dummy.rotation.set(0, 0, 0);
@@ -214,7 +225,7 @@ function createMountainBiomeDecor(context: BiomeDecorContext, biome: BiomeConfig
   );
   const dummy = new THREE.Object3D();
   for (let i = 0; i < count; i += 1) {
-    const point = context.randomPointInCircle(biome.center, biome.radius * 0.9);
+    const point = randomDryBiomePoint(context, biome, 0.9);
     const size = THREE.MathUtils.randFloat(0.7, 2.1);
     dummy.position.set(point.x, point.y + THREE.MathUtils.randFloat(0.4, 1.1), point.z);
     dummy.rotation.set(THREE.MathUtils.randFloatSpread(0.5), THREE.MathUtils.randFloat(0, Math.PI * 2), THREE.MathUtils.randFloatSpread(0.5));
@@ -249,7 +260,7 @@ function createLavaBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   const dummy = new THREE.Object3D();
 
   for (let i = 0; i < poolCount; i += 1) {
-    const point = context.randomPointInCircle(biome.center, biome.radius * 0.82);
+    const point = randomDryBiomePoint(context, biome, 0.82);
     const poolRadius = THREE.MathUtils.randFloat(2.4, 6.8);
     const stretch = THREE.MathUtils.randFloat(0.72, 1.1);
     dummy.position.set(point.x, point.y + 0.12, point.z);
@@ -265,7 +276,7 @@ function createLavaBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   }
 
   for (let i = 0; i < emberCount; i += 1) {
-    const point = context.randomPointInCircle(biome.center, biome.radius * 0.92);
+    const point = randomDryBiomePoint(context, biome, 0.92);
     const rockSize = THREE.MathUtils.randFloat(0.45, 1.55);
     dummy.position.set(point.x, point.y + THREE.MathUtils.randFloat(0.22, 0.85), point.z);
     dummy.rotation.set(THREE.MathUtils.randFloatSpread(0.7), THREE.MathUtils.randFloat(0, Math.PI * 2), THREE.MathUtils.randFloatSpread(0.7));

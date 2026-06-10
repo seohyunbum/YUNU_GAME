@@ -5,9 +5,12 @@ import type {
   LocationMode,
   PlayerClassId,
   SavedGame,
+  SavedWorldState,
   SavedVector,
   Slot,
   CompanionProgress,
+  TutorialProgress,
+  WorldMapId,
   WorldObject,
 } from "./types";
 
@@ -35,13 +38,18 @@ export interface SaveDataSnapshot {
     maxMana: number;
     classSkillCooldownUntil: number;
     companionProgress: CompanionProgress;
+    tutorial: TutorialProgress;
     hunger: number;
     hungerTimer: number;
     worldTimeSeconds: number;
+    worldMapId: WorldMapId;
     totalSteps: number;
     chestStepBank: number;
     caveStepBank: number;
     equippedArmor: ItemId | null;
+    equippedShield: ItemId | null;
+    shieldDurabilityUsed: number;
+    ironGuardUntil: number;
     locationMode: LocationMode;
     currentHouseKind: HouseKind;
     caveReturnPosition: VectorLike | null;
@@ -56,6 +64,7 @@ export interface SaveDataSnapshot {
   mountains: readonly { position: VectorLike; radius: number; height: number }[];
   objects: Iterable<WorldObject>;
   excludedObjectIds: readonly string[];
+  worldStates?: Partial<Record<WorldMapId, SavedWorldState>>;
 }
 
 export function toSavedVector(vector: VectorLike): SavedVector {
@@ -70,6 +79,13 @@ export function cloneSlots(slots: readonly Slot[]): Slot[] {
   }));
 }
 
+export function cloneSavedWorldState(state: SavedWorldState): SavedWorldState {
+  return {
+    mountains: state.mountains.map((mountain) => ({ position: { ...mountain.position }, radius: mountain.radius, height: mountain.height })),
+    objects: state.objects.map((object) => ({ ...object, position: { ...object.position }, ...(object.caveReturn ? { caveReturn: { ...object.caveReturn } } : {}), ...(object.homePosition ? { homePosition: { ...object.homePosition } } : {}) })),
+  };
+}
+
 function shouldPersistObject(object: WorldObject, excludedObjectIds: ReadonlySet<string>) {
   return (
     !excludedObjectIds.has(object.id) &&
@@ -81,49 +97,9 @@ function shouldPersistObject(object: WorldObject, excludedObjectIds: ReadonlySet
   );
 }
 
-export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
+export function createSavedWorldState(snapshot: Pick<SaveDataSnapshot, "nowMs" | "mountains" | "objects" | "excludedObjectIds">): SavedWorldState {
   const excludedObjectIds = new Set(snapshot.excludedObjectIds);
-  const savedPlayerPosition = snapshot.player.bodyPosition ?? snapshot.player.position;
-  const previousPosition = snapshot.player.bodyPosition ?? snapshot.player.previousPosition;
-
   return {
-    version: SAVE_VERSION,
-    buildId: SAVE_BUILD_ID,
-    savedAt: snapshot.savedAt ?? new Date().toISOString(),
-    player: {
-      position: toSavedVector(savedPlayerPosition),
-      previousPosition: toSavedVector(previousPosition),
-      yaw: snapshot.player.yaw,
-      pitch: snapshot.player.pitch,
-      health: snapshot.player.health,
-      maxHealth: snapshot.player.maxHealth,
-      level: snapshot.player.level,
-      experience: snapshot.player.experience,
-      playerClass: snapshot.player.playerClass,
-      mana: snapshot.player.mana,
-      maxMana: snapshot.player.maxMana,
-      classSkillCooldownRemainingMs: Math.max(0, snapshot.player.classSkillCooldownUntil - snapshot.nowMs),
-      companionProgress: {
-        summoner: { ...snapshot.player.companionProgress.summoner },
-      },
-      hunger: snapshot.player.hunger,
-      hungerTimer: snapshot.player.hungerTimer,
-      worldTimeSeconds: snapshot.player.worldTimeSeconds,
-      totalSteps: snapshot.player.totalSteps,
-      chestStepBank: snapshot.player.chestStepBank,
-      caveStepBank: snapshot.player.caveStepBank,
-      equippedArmor: snapshot.player.equippedArmor,
-      locationMode: snapshot.player.locationMode,
-      currentHouseKind: snapshot.player.currentHouseKind,
-      caveReturnPosition: snapshot.player.caveReturnPosition ? toSavedVector(snapshot.player.caveReturnPosition) : null,
-      houseReturnPosition: snapshot.player.houseReturnPosition ? toSavedVector(snapshot.player.houseReturnPosition) : null,
-      toolUses: { ...snapshot.player.toolUses },
-      selectedHotbarIndex: snapshot.player.selectedHotbarIndex,
-      hotbar: cloneSlots(snapshot.player.hotbar),
-      bagSlots: cloneSlots(snapshot.player.bagSlots),
-      craftSlots: cloneSlots(snapshot.player.craftSlots),
-      workbenchSlots: cloneSlots(snapshot.player.workbenchSlots),
-    },
     mountains: snapshot.mountains.map((mountain) => ({
       position: toSavedVector(mountain.position),
       radius: mountain.radius,
@@ -131,6 +107,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
     })),
     objects: [...snapshot.objects]
       .filter((object) => shouldPersistObject(object, excludedObjectIds))
+      .filter((object) => object.expiresAt === undefined || object.expiresAt > snapshot.nowMs)
       .map((object) => ({
         type: object.type,
         name: object.name,
@@ -139,6 +116,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
         armor: object.armor,
         ore: object.ore,
         opened: object.opened,
+        expiresRemainingMs: object.expiresAt && object.expiresAt > snapshot.nowMs ? object.expiresAt - snapshot.nowMs : undefined,
         mineRich: object.mineRich,
         caveReturn: object.caveReturn ? toSavedVector(object.caveReturn) : null,
         collidable: object.collidable,
@@ -168,6 +146,10 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
         antMeatRemaining: object.antMeatRemaining,
         predatorKind: object.predatorKind,
         bossKind: object.bossKind,
+        regionId: object.regionId,
+        monsterId: object.monsterId,
+        monsterLevel: object.monsterLevel,
+        lootTier: object.lootTier,
         trainAngle: object.trainAngle,
         trainRadius: object.trainRadius,
         trainSpeed: object.trainSpeed,
@@ -177,5 +159,60 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
         droppedCount: object.droppedCount,
         rotationY: object.root.rotation.y,
       })),
+  };
+}
+
+export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
+  const savedPlayerPosition = snapshot.player.bodyPosition ?? snapshot.player.position;
+  const previousPosition = snapshot.player.bodyPosition ?? snapshot.player.previousPosition;
+  const currentWorldState = createSavedWorldState(snapshot);
+  const worldStates = { ...snapshot.worldStates, [snapshot.player.worldMapId]: currentWorldState };
+
+  return {
+    version: SAVE_VERSION,
+    buildId: SAVE_BUILD_ID,
+    savedAt: snapshot.savedAt ?? new Date().toISOString(),
+    player: {
+      position: toSavedVector(savedPlayerPosition),
+      previousPosition: toSavedVector(previousPosition),
+      yaw: snapshot.player.yaw,
+      pitch: snapshot.player.pitch,
+      health: snapshot.player.health,
+      maxHealth: snapshot.player.maxHealth,
+      level: snapshot.player.level,
+      experience: snapshot.player.experience,
+      playerClass: snapshot.player.playerClass,
+      mana: snapshot.player.mana,
+      maxMana: snapshot.player.maxMana,
+      classSkillCooldownRemainingMs: Math.max(0, snapshot.player.classSkillCooldownUntil - snapshot.nowMs),
+      companionProgress: {
+        summoner: { ...snapshot.player.companionProgress.summoner },
+      },
+      tutorial: { completedStepIds: [...snapshot.player.tutorial.completedStepIds] },
+      hunger: snapshot.player.hunger,
+      hungerTimer: snapshot.player.hungerTimer,
+      worldTimeSeconds: snapshot.player.worldTimeSeconds,
+      worldMapId: snapshot.player.worldMapId,
+      totalSteps: snapshot.player.totalSteps,
+      chestStepBank: snapshot.player.chestStepBank,
+      caveStepBank: snapshot.player.caveStepBank,
+      equippedArmor: snapshot.player.equippedArmor,
+      equippedShield: snapshot.player.equippedShield,
+      shieldDurabilityUsed: snapshot.player.shieldDurabilityUsed,
+      ironGuardRemainingMs: Math.max(0, snapshot.player.ironGuardUntil - snapshot.nowMs),
+      locationMode: snapshot.player.locationMode,
+      currentHouseKind: snapshot.player.currentHouseKind,
+      caveReturnPosition: snapshot.player.caveReturnPosition ? toSavedVector(snapshot.player.caveReturnPosition) : null,
+      houseReturnPosition: snapshot.player.houseReturnPosition ? toSavedVector(snapshot.player.houseReturnPosition) : null,
+      toolUses: { ...snapshot.player.toolUses },
+      selectedHotbarIndex: snapshot.player.selectedHotbarIndex,
+      hotbar: cloneSlots(snapshot.player.hotbar),
+      bagSlots: cloneSlots(snapshot.player.bagSlots),
+      craftSlots: cloneSlots(snapshot.player.craftSlots),
+      workbenchSlots: cloneSlots(snapshot.player.workbenchSlots),
+    },
+    mountains: currentWorldState.mountains,
+    objects: currentWorldState.objects,
+    worldStates,
   };
 }

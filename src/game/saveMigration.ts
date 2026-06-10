@@ -1,26 +1,30 @@
 import {
   BASE_MAX_MANA,
   BASE_PLAYER_MAX_HEALTH,
+  BASE_BAG_SLOT_COUNT,
   DAY_LENGTH_SECONDS,
+  EXPANDED_BAG_SLOT_COUNT,
   EXTENDED_WORKBENCH_SLOT_COUNT,
   HUNGER_MAX,
   HUNGER_TICK_SECONDS,
+  IRON_GUARD_DURATION_SECONDS,
   PLAYER_HEIGHT,
   SAVE_BUILD_ID,
   SAVE_VERSION,
   WORLD_SIZE,
 } from "./constants";
-import { DURABLE_TOOL_TABLES } from "./items";
+import { DURABLE_TOOL_TABLES, SHIELD_DEFENSE, SHIELD_DURABILITY } from "./items";
 import { PLAYER_CLASSES } from "./classes";
 import { DEFAULT_SUMMONER_PET_PROGRESS } from "./classPassives";
-import type { CompanionProgress, HouseKind, ItemId, LocationMode, PartialSavedGame, PlayerClassId, SavedGame, SavedObject, SavedVector, Slot } from "./types";
+import { DEFAULT_WORLD_MAP_ID, isWorldMapId } from "./worldMaps";
+import type { CompanionProgress, HouseKind, ItemId, LocationMode, PartialSavedGame, PlayerClassId, SavedGame, SavedObject, SavedVector, SavedWorldState, Slot, TutorialProgress, WorldMapId } from "./types";
 
 const DEFAULT_POSITION: SavedVector = { x: 0, y: PLAYER_HEIGHT, z: 12 };
 const DEFAULT_WORLD_TIME = DAY_LENGTH_SECONDS * (8 / 24);
 const MAX_CLASS_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 export function experienceForNextLevel(level: number) {
-  return Math.floor(45 * Math.pow(Math.max(1, Math.floor(level)), 1.35));
+  return Math.floor(22.5 * Math.pow(Math.max(1, Math.floor(level)), 1.35));
 }
 
 export function levelStatBonus(level: number) {
@@ -101,6 +105,23 @@ export function normalizeSavedObjects(source: unknown) {
   });
 }
 
+export function normalizeSavedWorldState(source: unknown): SavedWorldState {
+  const state = source && typeof source === "object" ? source as Partial<SavedWorldState> : {};
+  return {
+    mountains: normalizeSavedMountains(state.mountains),
+    objects: normalizeSavedObjects(state.objects),
+  };
+}
+
+export function normalizeSavedWorldStates(source: unknown) {
+  const result: Partial<Record<WorldMapId, SavedWorldState>> = {};
+  if (!source || typeof source !== "object") return result;
+  for (const [id, state] of Object.entries(source)) {
+    if (isWorldMapId(id)) result[id] = normalizeSavedWorldState(state);
+  }
+  return result;
+}
+
 export function normalizeCompanionProgress(source: unknown): CompanionProgress {
   const companion = source && typeof source === "object" ? source as Partial<CompanionProgress> : {};
   const summoner = companion.summoner && typeof companion.summoner === "object" ? companion.summoner as Partial<CompanionProgress["summoner"]> : {};
@@ -110,6 +131,12 @@ export function normalizeCompanionProgress(source: unknown): CompanionProgress {
       experience: savedInteger(summoner.experience, DEFAULT_SUMMONER_PET_PROGRESS.experience, 0, Number.POSITIVE_INFINITY),
     },
   };
+}
+
+export function normalizeTutorialProgress(source: unknown): TutorialProgress {
+  const progress = source && typeof source === "object" ? source as Partial<TutorialProgress> : {};
+  const completedStepIds = Array.isArray(progress.completedStepIds) ? progress.completedStepIds.filter((id): id is string => typeof id === "string") : [];
+  return { completedStepIds: [...new Set(completedStepIds)] };
 }
 
 function isSlotLike(value: unknown): value is Slot {
@@ -156,6 +183,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
     ...Array.from({ length: 7 }, () => ({ item: null, count: 0 })),
   ];
   const bagSource = Array.isArray(player.bagSlots) ? player.bagSlots : [];
+  const bagTargetLength = bagSource.length > BASE_BAG_SLOT_COUNT ? EXPANDED_BAG_SLOT_COUNT : BASE_BAG_SLOT_COUNT;
   const migratedLevel = savedInteger(player.level, 1, 1, 999);
   const migratedExperience = savedInteger(player.experience, 0, 0, Number.POSITIVE_INFINITY);
   const migratedMaxHealth = Math.max(
@@ -170,7 +198,14 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
   const migratedMaxMana = savedNumber(player.maxMana, BASE_MAX_MANA, 1, 9999);
   const migratedMana = savedNumber(player.mana, migratedMaxMana, 0, migratedMaxMana);
   const migratedClassCooldown = savedNumber(player.classSkillCooldownRemainingMs, 0, 0, MAX_CLASS_COOLDOWN_MS);
+  const migratedShield = player.equippedShield && SHIELD_DEFENSE[player.equippedShield] ? player.equippedShield : null;
+  const migratedShieldDurability = migratedShield ? savedInteger(player.shieldDurabilityUsed, 0, 0, SHIELD_DURABILITY[migratedShield] ?? 0) : 0;
   const playerPosition = savedVector(player.position, DEFAULT_POSITION);
+  const migratedWorldMapId = isWorldMapId(player.worldMapId) ? player.worldMapId : DEFAULT_WORLD_MAP_ID;
+  const migratedMountains = normalizeSavedMountains(save.mountains);
+  const migratedObjects = normalizeSavedObjects(save.objects);
+  const migratedWorldStates = normalizeSavedWorldStates(save.worldStates);
+  if (!migratedWorldStates[migratedWorldMapId]) migratedWorldStates[migratedWorldMapId] = { mountains: migratedMountains, objects: migratedObjects };
 
   return {
     version: SAVE_VERSION,
@@ -191,13 +226,18 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       maxMana: migratedMaxMana,
       classSkillCooldownRemainingMs: migratedClassCooldown,
       companionProgress: normalizeCompanionProgress(player.companionProgress),
+      tutorial: normalizeTutorialProgress(player.tutorial),
       hunger: savedNumber(player.hunger, HUNGER_MAX, 0, HUNGER_MAX),
       hungerTimer: savedNumber(player.hungerTimer, 0, 0, HUNGER_TICK_SECONDS),
       worldTimeSeconds: savedNumber(player.worldTimeSeconds, DEFAULT_WORLD_TIME, 0, DAY_LENGTH_SECONDS),
+      worldMapId: migratedWorldMapId,
       totalSteps: savedNumber(player.totalSteps, 0, 0),
       chestStepBank: savedNumber(player.chestStepBank, 0, 0),
       caveStepBank: savedNumber(player.caveStepBank, 0, 0),
       equippedArmor: player.equippedArmor ?? null,
+      equippedShield: migratedShield,
+      shieldDurabilityUsed: migratedShieldDurability,
+      ironGuardRemainingMs: savedNumber(player.ironGuardRemainingMs, 0, 0, IRON_GUARD_DURATION_SECONDS * 1000),
       locationMode: savedLocationMode(player.locationMode),
       currentHouseKind: savedHouseKind(player.currentHouseKind),
       caveReturnPosition: isSavedVector(player.caveReturnPosition) ? savedVector(player.caveReturnPosition, DEFAULT_POSITION) : null,
@@ -205,11 +245,12 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       toolUses: {},
       selectedHotbarIndex: savedInteger(player.selectedHotbarIndex, 0, 0, 7),
       hotbar: normalizeSavedSlots(player.hotbar, 8, hotbarFallback, player.toolUses),
-      bagSlots: normalizeSavedSlots(bagSource, bagSource.length, [], player.toolUses),
+      bagSlots: normalizeSavedSlots(bagSource, bagTargetLength, [], player.toolUses),
       craftSlots: normalizeSavedSlots(player.craftSlots, 4, [], player.toolUses),
       workbenchSlots: normalizeSavedSlots(player.workbenchSlots, EXTENDED_WORKBENCH_SLOT_COUNT, [], player.toolUses),
     },
-    mountains: normalizeSavedMountains(save.mountains),
-    objects: normalizeSavedObjects(save.objects),
+    mountains: migratedMountains,
+    objects: migratedObjects,
+    worldStates: migratedWorldStates,
   };
 }

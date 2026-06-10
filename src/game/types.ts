@@ -2,13 +2,15 @@ import * as THREE from "three";
 
 export type ItemId = string;
 export type TerrainKind = "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp" | "lava";
+export type BiomeKind = "bamboo" | "mountain" | "mushroom" | "swamp" | "snow" | "lava";
 export type GuardMode = "melee" | "ranged";
 export type AnimalKind = "horse" | "cow" | "pig" | "chicken";
 export type PredatorKind = "wolf" | "lion" | "spider";
 export type BossKind = "dragon" | "fire_dragon" | "red_dragon" | "laser_dragon" | "dark_dragon" | "immortal";
 export type HouseKind = "home" | "blacksmith" | "twoStory";
 export type QualityMode = "high" | "balanced" | "performance";
-export type PlayerClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner";
+export type PlayerClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner" | "tanker";
+export type WorldMapId = "starter_valley" | "bamboo_frontier" | "mushroom_glen" | "toxic_swamp" | "mountain_ridge" | "snowfield" | "dragon_lands";
 export type ObjectType =
   | "smallTree"
   | "bigTree"
@@ -53,7 +55,7 @@ export type ObjectType =
   | "extendedWorkbench"
   | "smelter"
   | "specialSmelter";
-export type PanelType = "inventory" | "book" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "cheat" | null;
+export type PanelType = "inventory" | "book" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "cheat" | "map" | null;
 export type LocationMode = "overworld" | "cave" | "house";
 
 
@@ -80,7 +82,7 @@ export interface WalkCycle {
 export type HandActionMode = "use" | "melee" | "bow" | "magic";
 
 export interface CombatProjectile {
-  kind: "arrow" | "magic" | "tnt";
+  kind: "arrow" | "magic" | "tnt" | "wind";
   mesh: THREE.Object3D;
   velocity: THREE.Vector3;
   damage: number;
@@ -114,6 +116,7 @@ export interface WorldObject {
   armor?: number;
   ore?: ItemId;
   opened?: boolean;
+  expiresAt?: number;
   mineRich?: boolean;
   caveReturn?: THREE.Vector3;
   collidable?: boolean;
@@ -149,6 +152,10 @@ export interface WorldObject {
   antMeatRemaining?: number;
   predatorKind?: PredatorKind;
   bossKind?: BossKind;
+  regionId?: string;
+  monsterId?: string;
+  monsterLevel?: number;
+  lootTier?: number;
   hazardExpiresAt?: number;
   hazardArmedAt?: number;
   hazardThrownAt?: number;
@@ -178,6 +185,7 @@ export interface SavedObject {
   armor?: number;
   ore?: ItemId;
   opened?: boolean;
+  expiresRemainingMs?: number;
   mineRich?: boolean;
   caveReturn?: SavedVector | null;
   collidable?: boolean;
@@ -207,6 +215,10 @@ export interface SavedObject {
   antMeatRemaining?: number;
   predatorKind?: PredatorKind;
   bossKind?: BossKind;
+  regionId?: string;
+  monsterId?: string;
+  monsterLevel?: number;
+  lootTier?: number;
   hazardRemainingMs?: number;
   trainAngle?: number;
   trainRadius?: number;
@@ -216,6 +228,15 @@ export interface SavedObject {
   droppedItem?: ItemId;
   droppedCount?: number;
   rotationY?: number;
+}
+
+export interface SavedWorldState {
+  mountains: { position: SavedVector; radius: number; height: number }[];
+  objects: SavedObject[];
+}
+
+export interface TutorialProgress {
+  completedStepIds: string[];
 }
 
 export interface SavedGame {
@@ -237,13 +258,18 @@ export interface SavedGame {
     maxMana?: number;
     classSkillCooldownRemainingMs?: number;
     companionProgress?: CompanionProgress;
+    tutorial?: TutorialProgress;
     hunger?: number;
     hungerTimer?: number;
     worldTimeSeconds?: number;
+    worldMapId?: WorldMapId;
     totalSteps: number;
     chestStepBank: number;
     caveStepBank: number;
     equippedArmor: ItemId | null;
+    equippedShield?: ItemId | null;
+    shieldDurabilityUsed?: number;
+    ironGuardRemainingMs?: number;
     locationMode: LocationMode;
     currentHouseKind?: HouseKind;
     caveReturnPosition: SavedVector | null;
@@ -257,6 +283,7 @@ export interface SavedGame {
   };
   mountains: { position: SavedVector; radius: number; height: number }[];
   objects: SavedObject[];
+  worldStates?: Partial<Record<WorldMapId, SavedWorldState>>;
 }
 
 export interface SaveSlot {
@@ -389,7 +416,7 @@ export interface HouseBuildOption {
 }
 
 export interface BiomeConfig {
-  kind: "bamboo" | "mountain" | "mushroom" | "swamp" | "snow" | "lava";
+  kind: BiomeKind;
   center: THREE.Vector3;
   radius: number;
 }
