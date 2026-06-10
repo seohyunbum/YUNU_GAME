@@ -74,7 +74,8 @@ function renderMaterialButton(material: WorkbenchMaterialView, index: number) {
 
 function renderRecipeCard(recipe: WorkbenchRecipeView, index: number) {
   const disabled = recipe.canCraft ? "" : "disabled";
-  return `<article class="recipe-card">
+  const readyClass = recipe.canCraft ? " ready" : "";
+  return `<article class="recipe-card${readyClass}">
                     <div>
                       <strong>${escapeHtml(recipe.name)}</strong>
                       <p>${escapeHtml(recipe.ingredientsLabel)} -> ${escapeHtml(recipe.outputLabel)}</p>
@@ -94,7 +95,8 @@ export function renderWorkbenchPanel(
 ) {
   const workbenchSlots = view.slots.map(renderWorkbenchSlot).join("");
   const itemButtons = view.materials.map(renderMaterialButton).join("");
-  const recipeCards = view.recipes.map(renderRecipeCard).join("");
+  const sortedRecipes = [...view.recipes].sort((a, b) => Number(b.canCraft) - Number(a.canCraft) || a.name.localeCompare(b.name));
+  const recipeCards = sortedRecipes.map(renderRecipeCard).join("");
 
   panelEl.innerHTML = `
       <section class="panel workbench-panel">
@@ -144,13 +146,13 @@ export function renderWorkbenchPanel(
   panelEl.querySelector<HTMLButtonElement>("[data-clear-workbench]")?.addEventListener("click", callbacks.onClear);
   panelEl.querySelectorAll<HTMLButtonElement>("[data-fill-recipe-index]").forEach((button) => {
     button.addEventListener("click", () => {
-      const recipe = view.recipes[Number(button.dataset.fillRecipeIndex)];
+      const recipe = sortedRecipes[Number(button.dataset.fillRecipeIndex)];
       if (recipe) callbacks.onFillRecipe(recipe.id);
     });
   });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-craft-recipe-index]").forEach((button) => {
     button.addEventListener("click", () => {
-      const recipe = view.recipes[Number(button.dataset.craftRecipeIndex)];
+      const recipe = sortedRecipes[Number(button.dataset.craftRecipeIndex)];
       if (recipe) callbacks.onCraftRecipe(recipe.id);
     });
   });

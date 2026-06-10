@@ -24,6 +24,18 @@ export interface HouseBuildOptionView {
   canBuild: boolean;
 }
 
+export interface InventoryRecipeGuideView {
+  id: string;
+  name: string;
+  stationKey?: string;
+  station: string;
+  outputLabel: string;
+  ingredientsLabel: string;
+  note: string;
+  canMake: boolean;
+  searchText: string;
+}
+
 export interface InventoryPanelView {
   hotbarCount: number;
   hotbar: InventorySlotView[];
@@ -32,6 +44,7 @@ export interface InventoryPanelView {
   craftSlots: InventorySlotView[];
   materials: InventoryMaterialView[];
   houseBuildOptions: HouseBuildOptionView[];
+  recipeGuide: InventoryRecipeGuideView[];
 }
 
 export interface InventoryPanelCallbacks {
@@ -41,6 +54,7 @@ export interface InventoryPanelCallbacks {
   onMiniCraft: () => void;
   onClearCraft: () => void;
   onBuildHouse: (id: string) => void;
+  onCraftGuide: (recipeId: string) => void;
   bindDragDrop: () => void;
 }
 
@@ -104,6 +118,20 @@ function renderHouseBuildOption(option: HouseBuildOptionView) {
       </article>`;
 }
 
+function renderRecipeGuideCard(recipe: InventoryRecipeGuideView) {
+  const status = recipe.canMake ? "만들기" : "재료 부족";
+  const statusClass = recipe.canMake ? " ready" : "";
+  return `<article class="recipe-card recipe-guide-card${statusClass}" data-recipe-search-text="${escapeAttr(recipe.searchText)}">
+        <div>
+          <strong>${escapeHtml(recipe.name)}</strong>
+          <p>${escapeHtml(recipe.station)} · 결과: ${escapeHtml(recipe.outputLabel)}</p>
+          <small>재료: ${escapeHtml(recipe.ingredientsLabel)}</small>
+          <small>${escapeHtml(recipe.note)}</small>
+        </div>
+        <button class="recipe-guide-status" data-craft-guide="${escapeAttr(recipe.id)}" ${recipe.canMake ? "" : "disabled"}>${status}</button>
+      </article>`;
+}
+
 export function renderInventoryPanel(
   panelEl: HTMLElement,
   view: InventoryPanelView,
@@ -114,6 +142,7 @@ export function renderInventoryPanel(
   const bagGrid = view.bagSlots.map(renderInventorySlot).join("");
   const craftSlots = view.craftSlots.map(renderCraftSlot).join("");
   const itemButtons = view.materials.map(renderMaterialButton).join("");
+  const recipeGuide = view.recipeGuide.map(renderRecipeGuideCard).join("");
 
   panelEl.innerHTML = `
       <section class="panel inventory-panel">
@@ -128,6 +157,12 @@ export function renderInventoryPanel(
           <section class="craft-board house-build-panel">
             <div class="inventory-label">집짓기</div>
             <div class="recipes house-build-list">${buildOptions}</div>
+          </section>
+          <section class="craft-board recipe-guide-panel">
+            <div class="inventory-label">제작 검색</div>
+            <input class="recipe-search-input" data-recipe-search type="search" placeholder="아이템, 재료, 제작 장소 검색" autocomplete="off" />
+            <div class="recipe-search-list" data-recipe-search-list>${recipeGuide}</div>
+            <div class="recipe-search-empty hidden" data-recipe-search-empty>검색 결과가 없습니다.</div>
           </section>
           <section class="inventory-board">
             <div class="inventory-label">하단 핫바 ${view.hotbarCount}칸</div>
@@ -170,5 +205,23 @@ export function renderInventoryPanel(
   panelEl.querySelectorAll<HTMLButtonElement>("[data-build-house]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onBuildHouse(button.dataset.buildHouse ?? ""));
   });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-craft-guide]").forEach((button) => {
+    button.addEventListener("click", () => callbacks.onCraftGuide(button.dataset.craftGuide ?? ""));
+  });
+  const searchInput = panelEl.querySelector<HTMLInputElement>("[data-recipe-search]");
+  const recipeCards = [...panelEl.querySelectorAll<HTMLElement>("[data-recipe-search-text]")];
+  const emptyMessage = panelEl.querySelector<HTMLElement>("[data-recipe-search-empty]");
+  const applyRecipeFilter = () => {
+    const query = (searchInput?.value ?? "").trim().toLowerCase();
+    let visibleCount = 0;
+    for (const card of recipeCards) {
+      const matched = query.length === 0 || (card.dataset.recipeSearchText ?? "").includes(query);
+      card.classList.toggle("hidden", !matched);
+      if (matched) visibleCount += 1;
+    }
+    emptyMessage?.classList.toggle("hidden", visibleCount > 0);
+  };
+  searchInput?.addEventListener("input", applyRecipeFilter);
+  applyRecipeFilter();
   callbacks.bindDragDrop();
 }

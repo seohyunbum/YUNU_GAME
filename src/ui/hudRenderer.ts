@@ -6,7 +6,7 @@ export interface HudRenderElements {
 
 export interface HudRenderCache {
   statsMarkup: string;
-  objectiveText: string;
+  objectiveMarkup: string;
   hotbarMarkup: string;
 }
 
@@ -34,11 +34,18 @@ export interface HudViewModel {
   statBonus: number;
   eagleHp?: number;
   eagleMaxHp: number;
+  eagleSkillStatus?: string;
   timeLabel: string;
   locationLabel: string;
   arcadePoints: number;
   totalSteps: number;
-  objectiveText: string;
+  objective: {
+    title: string;
+    detail: string;
+    progress: string;
+    reward: { label: string };
+    completed: boolean;
+  };
   selectedHotbarIndex: number;
   hotbar: HudHotbarSlotView[];
 }
@@ -46,7 +53,7 @@ export interface HudViewModel {
 export function createHudRenderCache(): HudRenderCache {
   return {
     statsMarkup: "",
-    objectiveText: "",
+    objectiveMarkup: "",
     hotbarMarkup: "",
   };
 }
@@ -66,6 +73,7 @@ function escapeHtml(value: string) {
 
 function renderStatsMarkup(view: HudViewModel) {
   const xpRatio = clamp01(view.experience / Math.max(1, view.requiredExperience));
+  const xpPercent = (xpRatio * 100).toFixed(1);
   const healthRatio = clamp01(view.health / Math.max(1, view.maxHealth));
   const manaRatio = clamp01(view.mana / Math.max(1, view.maxMana));
   const hungerRatio = clamp01(view.hunger / Math.max(1, view.maxHunger));
@@ -75,36 +83,43 @@ function renderStatsMarkup(view: HudViewModel) {
       : `<span>독수리 ${Math.ceil(view.eagleHp)}/${view.eagleMaxHp}</span>`;
 
   return `
-      <div class="xp-vertical" title="경험치 ${view.experience}/${view.requiredExperience}">
-        <span style="height: ${(xpRatio * 100).toFixed(1)}%"></span>
+      <div class="stats-level-card" title="경험치 ${view.experience}/${view.requiredExperience}">
+        <span>Lv</span>
+        <strong>${view.level}</strong>
+        <em>${xpPercent}%</em>
       </div>
       <div class="stats-content">
         <div class="stats-heading">
-          <strong>Lv ${view.level}</strong>
           <span>${escapeHtml(view.className)}</span>
           <span>공격 ${view.attack}</span>
           <span>방어 ${view.armor}</span>
         </div>
         <div class="stat-bar health-bar">
           <span style="width: ${(healthRatio * 100).toFixed(1)}%"></span>
-          <b>체력 ${view.health}/${view.maxHealth}</b>
+          <b>HP ${view.health} / ${view.maxHealth}</b>
         </div>
         <div class="stat-bar mana-bar">
           <span style="width: ${(manaRatio * 100).toFixed(1)}%"></span>
-          <b>마나 ${view.mana}/${view.maxMana}</b>
+          <b>MP ${view.mana} / ${view.maxMana}</b>
         </div>
-        <div class="stat-bar hunger-bar">
-          <span style="width: ${(hungerRatio * 100).toFixed(1)}%"></span>
-          <b>배고픔 ${view.hunger}/${view.maxHunger}</b>
+        <div class="stats-sub-bars">
+          <div class="stat-bar hunger-bar">
+            <span style="width: ${(hungerRatio * 100).toFixed(1)}%"></span>
+            <b>배고픔 ${view.hunger}/${view.maxHunger}</b>
+          </div>
+          <div class="stat-bar exp-bar">
+            <span style="width: ${xpPercent}%"></span>
+            <b>EXP ${view.experience}/${view.requiredExperience}</b>
+          </div>
         </div>
         <div class="stats-detail">
-          <span>EXP ${view.experience}/${view.requiredExperience}</span>
           <span>스킬 ${escapeHtml(view.skillStatus)}</span>
           <span>패시브 ${escapeHtml(view.passiveStatus)}</span>
           ${view.petStatus ? `<span>${escapeHtml(view.petStatus)}</span>` : ""}
           <span>장비 방어 ${view.equipmentArmor}</span>
           <span>레벨 보너스 +${view.statBonus}</span>
           ${eagleMarkup}
+          ${view.eagleSkillStatus ? `<span>${escapeHtml(view.eagleSkillStatus)}</span>` : ""}
         </div>
         <div class="stats-detail muted">
           <span>${escapeHtml(view.timeLabel)}</span>
@@ -125,6 +140,19 @@ function renderHotbarMarkup(view: HudViewModel) {
     .join("");
 }
 
+function renderObjectiveMarkup(view: HudViewModel) {
+  const objective = view.objective;
+  const doneClass = objective.completed ? " objective-ready" : "";
+  return `
+    <button class="objective-card${doneClass}" type="button" title="${escapeHtml(objective.detail)}">
+      <span class="objective-kicker">${objective.completed ? "보상 받기" : "현재 목표"}</span>
+      <strong>${escapeHtml(objective.title)}</strong>
+      <span class="objective-progress">${escapeHtml(objective.progress)}</span>
+      <span class="objective-detail">${escapeHtml(objective.detail)}<br><em>${objective.completed ? "클릭해서 보상 받기" : "보상"}: ${escapeHtml(objective.reward.label)}</em></span>
+    </button>
+  `;
+}
+
 export function renderHudView(
   elements: HudRenderElements,
   cache: HudRenderCache,
@@ -137,9 +165,10 @@ export function renderHudView(
     cache.statsMarkup = statsMarkup;
   }
 
-  if (cache.objectiveText !== view.objectiveText) {
-    elements.objectiveEl.textContent = view.objectiveText;
-    cache.objectiveText = view.objectiveText;
+  const objectiveMarkup = renderObjectiveMarkup(view);
+  if (cache.objectiveMarkup !== objectiveMarkup) {
+    elements.objectiveEl.innerHTML = objectiveMarkup;
+    cache.objectiveMarkup = objectiveMarkup;
   }
 
   const hotbarMarkup = renderHotbarMarkup(view);
