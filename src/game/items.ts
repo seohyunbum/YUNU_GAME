@@ -202,12 +202,12 @@ export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
 }
 
 export const ARMOR_VALUE: Record<ItemId, number> = {
-  leather_armor: 5,
-  copper_armor: 12,
-  iron_armor: 22,
-  gold_armor: 30,
-  diamond_armor: 45,
-  obsidian_armor: 105,
+  leather_armor: 4,
+  copper_armor: 7,
+  iron_armor: 10,
+  gold_armor: 15,
+  diamond_armor: 25,
+  obsidian_armor: 40,
 };
 
 export const SHIELD_DEFENSE: Record<ItemId, number> = {
