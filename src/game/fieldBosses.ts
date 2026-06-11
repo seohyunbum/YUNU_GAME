@@ -22,14 +22,14 @@ export interface FieldBossDef {
 }
 
 export const FIELD_BOSSES: readonly FieldBossDef[] = [
-  { id: "boss_starter_valley", mapId: "starter_valley", name: "멧돼지 대왕", monsterId: "boar", level: 18, scale: 2.2, tint: 0x7c2d12, position: [120, -95], rewardExperience: 120, rewardItems: { iron: 5, medkit: 2 }, rewardLabel: "경험치 120 + 철 5개 + 구급상자 2개" },
-  { id: "boss_dragon_plains", mapId: "dragon_plains", name: "새끼용 여왕", monsterId: "gold_drake", level: 25, scale: 2.1, tint: 0xfacc15, position: [170, -130], rewardExperience: 200, rewardItems: { gold: 4, medkit: 2 }, rewardLabel: "경험치 200 + 금 4개 + 구급상자 2개" },
-  { id: "boss_bamboo_frontier", mapId: "bamboo_frontier", name: "왕전갈", monsterId: "scorpion", level: 30, scale: 2.3, tint: 0x15803d, position: [185, -115], rewardExperience: 280, rewardItems: { diamond: 1, iron: 6 }, rewardLabel: "경험치 280 + 다이아몬드 1개 + 철 6개" },
-  { id: "boss_mushroom_glen", mapId: "mushroom_glen", name: "곰 족장", monsterId: "bear", level: 45, scale: 2.0, tint: 0xa21caf, position: [165, 190], rewardExperience: 400, rewardItems: { diamond: 2, medkit: 3 }, rewardLabel: "경험치 400 + 다이아몬드 2개 + 구급상자 3개" },
-  { id: "boss_toxic_swamp", mapId: "toxic_swamp", name: "늪의 제왕 독사", monsterId: "swamp_snake", level: 60, scale: 2.6, tint: 0x16a34a, position: [-205, 170], rewardExperience: 560, rewardItems: { obsidian: 2, diamond: 2 }, rewardLabel: "경험치 560 + 흑요석 2개 + 다이아몬드 2개" },
-  { id: "boss_graveyard", mapId: "graveyard", name: "좀비 군주", monsterId: "zombie", level: 85, scale: 2.2, tint: 0x365314, position: [150, -130], rewardExperience: 800, rewardItems: { obsidian: 4, medkit: 5 }, rewardLabel: "경험치 800 + 흑요석 4개 + 구급상자 5개" },
-  { id: "boss_mountain_ridge", mapId: "mountain_ridge", name: "산악 사자왕", monsterId: "berserk_lion", level: 90, scale: 2.3, tint: 0xf59e0b, position: [-210, -160], rewardExperience: 900, rewardItems: { dragon_scale: 2, obsidian: 3 }, rewardLabel: "경험치 900 + 용의 비늘 2개 + 흑요석 3개" },
-  { id: "boss_snowfield", mapId: "snowfield", name: "서리곰 대군주", monsterId: "frost_bear", level: 130, scale: 2.5, tint: 0x60a5fa, position: [20, -250], rewardExperience: 1400, rewardItems: { dragon_horn: 1, diamond: 5 }, rewardLabel: "경험치 1400 + 용의 뿔 1개 + 다이아몬드 5개" },
+  { id: "boss_starter_valley", mapId: "starter_valley", name: "멧돼지 대왕", monsterId: "boar", level: 18, scale: 2.2, tint: 0x7c2d12, position: [120, -95], rewardExperience: 240, rewardItems: { iron: 5, medkit: 2 }, rewardLabel: "경험치 240 + 철 5개 + 구급상자 2개" },
+  { id: "boss_dragon_plains", mapId: "dragon_plains", name: "새끼용 여왕", monsterId: "gold_drake", level: 25, scale: 2.1, tint: 0xfacc15, position: [170, -130], rewardExperience: 400, rewardItems: { gold: 4, medkit: 2 }, rewardLabel: "경험치 400 + 금 4개 + 구급상자 2개" },
+  { id: "boss_bamboo_frontier", mapId: "bamboo_frontier", name: "왕전갈", monsterId: "scorpion", level: 30, scale: 2.3, tint: 0x15803d, position: [185, -115], rewardExperience: 560, rewardItems: { diamond: 1, iron: 6 }, rewardLabel: "경험치 560 + 다이아몬드 1개 + 철 6개" },
+  { id: "boss_mushroom_glen", mapId: "mushroom_glen", name: "곰 족장", monsterId: "bear", level: 45, scale: 2.0, tint: 0xa21caf, position: [165, 190], rewardExperience: 800, rewardItems: { diamond: 2, medkit: 3 }, rewardLabel: "경험치 800 + 다이아몬드 2개 + 구급상자 3개" },
+  { id: "boss_toxic_swamp", mapId: "toxic_swamp", name: "늪의 제왕 독사", monsterId: "swamp_snake", level: 60, scale: 2.6, tint: 0x16a34a, position: [-205, 170], rewardExperience: 1120, rewardItems: { obsidian: 2, diamond: 2 }, rewardLabel: "경험치 1120 + 흑요석 2개 + 다이아몬드 2개" },
+  { id: "boss_graveyard", mapId: "graveyard", name: "좀비 군주", monsterId: "zombie", level: 85, scale: 2.2, tint: 0x365314, position: [150, -130], rewardExperience: 1600, rewardItems: { obsidian: 4, medkit: 5 }, rewardLabel: "경험치 1600 + 흑요석 4개 + 구급상자 5개" },
+  { id: "boss_mountain_ridge", mapId: "mountain_ridge", name: "산악 사자왕", monsterId: "berserk_lion", level: 90, scale: 2.3, tint: 0xf59e0b, position: [-210, -160], rewardExperience: 1800, rewardItems: { dragon_scale: 2, obsidian: 3 }, rewardLabel: "경험치 1800 + 용의 비늘 2개 + 흑요석 3개" },
+  { id: "boss_snowfield", mapId: "snowfield", name: "서리곰 대군주", monsterId: "frost_bear", level: 130, scale: 2.5, tint: 0x60a5fa, position: [20, -250], rewardExperience: 2800, rewardItems: { dragon_horn: 1, diamond: 5 }, rewardLabel: "경험치 2800 + 용의 뿔 1개 + 다이아몬드 5개" },
 ];
 
 export function fieldBossForMap(mapId: WorldMapId): FieldBossDef | null {
