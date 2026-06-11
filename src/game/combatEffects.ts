@@ -448,3 +448,26 @@ export function spawnDragonClawBurst(context: CombatEffectContext, origin: THREE
     context.damageParticles.push({ mesh: slash, velocity, life: 0.32, maxLife: 0.32 });
   }
 }
+
+// 치유 연출 — main.ts 에서 이동. 회복 링 + 떠오르는 입자
+export function spawnHealEffect(context: CombatEffectContext, position: THREE.Vector3) {
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.85, 0.035, 10, 42),
+    new THREE.MeshBasicMaterial({ color: 0xa7f3d0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  ring.position.copy(position).setY(position.y - 1.7 + 0.08);
+  ring.rotation.x = Math.PI / 2;
+  ring.renderOrder = 24;
+  context.scene.add(ring);
+  context.damageParticles.push({ mesh: ring, velocity: new THREE.Vector3(0, 0.18, 0), life: 0.55, maxLife: 0.55 });
+  for (let index = 0; index < 20; index += 1) {
+    const particle = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.035, 0.075), 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    particle.position.copy(position).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.7), THREE.MathUtils.randFloat(-1.1, 0.35), THREE.MathUtils.randFloatSpread(0.7)));
+    particle.renderOrder = 24;
+    context.scene.add(particle);
+    context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.25), THREE.MathUtils.randFloat(0.65, 1.35), THREE.MathUtils.randFloatSpread(0.25)), life: 0.62, maxLife: 0.62 });
+  }
+}

@@ -2105,6 +2105,165 @@ body {
   width: min(920px, 94vw);
 }
 
+.training-panel {
+  width: min(760px, 94vw);
+}
+
+.training-status {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0;
+  font-weight: 700;
+  color: #fde68a;
+}
+
+.training-stage {
+  min-height: 260px;
+  border: 1px solid rgba(252, 211, 77, 0.26);
+  border-radius: 10px;
+  background: #16251f;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.training-feedback {
+  margin: 10px 0 0;
+  font-weight: 700;
+  color: #fca5a5;
+  min-height: 22px;
+}
+
+.training-feedback.good {
+  color: #86efac;
+}
+
+.training-hint {
+  position: absolute;
+  bottom: 8px;
+  width: 100%;
+  text-align: center;
+  color: #cbd5e1;
+  pointer-events: none;
+}
+
+.lift-arena {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  height: 260px;
+}
+
+.lift-bar {
+  width: 46px;
+  height: 200px;
+  border: 2px solid rgba(252, 211, 77, 0.4);
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.lift-fill {
+  width: 100%;
+  height: 10%;
+  background: #f59e0b;
+  transition: none;
+}
+
+.lift-fill.high {
+  background: #86efac;
+}
+
+.lift-button {
+  font-size: 22px;
+  padding: 22px 30px;
+  border-radius: 14px;
+}
+
+.target-arena,
+.calm-arena {
+  position: relative;
+  height: 220px;
+  margin: 20px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: crosshair;
+}
+
+.target-center-line {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  transform: translateX(-50%);
+  background: #fde68a;
+  opacity: 0.85;
+}
+
+.target-disc {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 56px;
+  pointer-events: none;
+}
+
+.block-arena {
+  height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  cursor: pointer;
+}
+
+.block-signal {
+  font-size: 34px;
+  font-weight: 900;
+  color: #cbd5e1;
+}
+
+.block-signal.go {
+  color: #86efac;
+  transform: scale(1.25);
+}
+
+.block-signal.fake {
+  color: #f9a8d4;
+}
+
+.block-progress {
+  text-align: center;
+  font-weight: 800;
+  color: #fde68a;
+  font-size: 18px;
+}
+
+.calm-zone {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  background: rgba(134, 239, 172, 0.25);
+  border-left: 1px solid #86efac;
+  border-right: 1px solid #86efac;
+}
+
+.calm-needle {
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  width: 5px;
+  transform: translateX(-50%);
+  background: #7dd3fc;
+  border-radius: 3px;
+}
+
 .damage-number-layer {
   position: fixed;
   inset: 0;

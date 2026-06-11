@@ -19,6 +19,7 @@ import { DEFAULT_SUMMONER_PET_PROGRESS } from "./classPassives";
 import { DEFAULT_WORLD_MAP_ID, isWorldMapId } from "./worldMaps";
 import { normalizeBossChapter } from "./bossChapters";
 import { HOME_STORAGE_SLOTS, HOME_SUPPLY_COOLDOWN_SECONDS } from "./homeBase";
+import { normalizeTrainingStats } from "./training";
 import { normalizeDefeatedFieldBosses } from "./fieldBosses";
 import type { CompanionProgress, HouseKind, ItemId, LocationMode, PartialSavedGame, PlayerClassId, SavedGame, SavedObject, SavedVector, SavedWorldState, Slot, TutorialProgress, WorldMapId } from "./types";
 
@@ -261,6 +262,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       locationMode: savedLocationMode(player.locationMode),
       currentHouseKind: savedHouseKind(player.currentHouseKind),
       currentHouseOwned: player.currentHouseOwned === true,
+      trainingStats: normalizeTrainingStats(player.trainingStats),
       homeStorage: normalizeSavedSlots(player.homeStorage, HOME_STORAGE_SLOTS, [], player.toolUses),
       homeSupplyCooldownSeconds: savedNumber(player.homeSupplyCooldownSeconds, 0, 0, HOME_SUPPLY_COOLDOWN_SECONDS),
       caveReturnPosition: isSavedVector(player.caveReturnPosition) ? savedVector(player.caveReturnPosition, DEFAULT_POSITION) : null,

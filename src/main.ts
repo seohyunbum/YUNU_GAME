@@ -79,6 +79,7 @@ import { showEndingScreen } from "./ui/endingScreen";
 import {
   createArrowProjectile,
   createMagicProjectile,
+  spawnHealEffect,
   createTntProjectile,
   createWindCutterProjectile,
   spawnDamageParticles,
@@ -219,6 +220,7 @@ import type {
   WalkCycle,
   WalkPartSetup,
   WorldMapId,
+  TrainingKind,
   WorldObject,
 } from "./game/types";
 import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
@@ -232,6 +234,8 @@ import { createCaveInterior, createHouseInterior, type InteriorContext } from ".
 import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
 import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeStoragePanel";
 import { PLAYER_CLASSES } from "./game/classes";
+import { createTrainingStats, ensureTrainingGround, normalizeTrainingStats, TRAINING_GAMES, TRAINING_MIN_LEVEL, TRAINING_REWARDS, type TrainingGroundContext } from "./game/training";
+import { renderTrainingPanel as renderTrainingPanelView } from "./ui/trainingPanel";
 import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, updateSecondSkillEffects, useSecondClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext } from "./game/classSkills";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
@@ -446,6 +450,8 @@ class WildernessGame {
   private classSkillCooldownUntil = 0;
   private secondSkillCooldownUntil = 0;
   private readonly skillBuffs = createSkillBuffs();
+  private currentTrainingKind: TrainingKind = "hp";
+  private trainingStats = createTrainingStats();
   private healItemCooldownUntil = 0;
   private possessedEagleId: string | null = null; private eaglePossessionEndsAt = 0;
   private eagleClawCooldownUntil = 0; private windCutterCooldownUntil = 0;
@@ -674,6 +680,8 @@ class WildernessGame {
 
   private readonly hitFeedbackDeps: HitFeedbackDeps = { camera: this.camera, playerPosition: this.playerPosition, playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), refreshSpatialObject: (object) => this.refreshSpatialObject(object), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
 
+  private readonly trainingGroundContext: TrainingGroundContext = { defaultMapId: DEFAULT_WORLD_MAP_ID, worldMapId: () => this.currentWorldMapId, locationMode: () => this.locationMode, hasTrainingGround: () => { for (const object of this.objectsOfType("trainingGround")) return Boolean(object); return false; }, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
+
   private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }) };
 
   private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => predatorAggroRangeFor(kind), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason) };
@@ -698,7 +706,7 @@ class WildernessGame {
     equipArmor: (item) => { this.equippedArmor = item; },
     equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
     playHandAction: () => this.playHandAction(),
-    spawnHealEffect: () => this.spawnHealEffect(this.playerPosition),
+    spawnHealEffect: () => spawnHealEffect(this.combatEffectContext, this.playerPosition),
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
     showMessage: (text) => this.showMessage(text),
     renderHud: () => this.renderHud(),
@@ -1767,7 +1775,7 @@ class WildernessGame {
           this.interact();
           return;
         }
-        if (this.nearbyObjectInView(["bed", "homeStorage", "homeSupply", "workbench", "extendedWorkbench"]) || this.getLookTarget() || this.nearbyDroppedItemInView()) this.interact();
+        if (this.nearbyObjectInView(["bed", "homeStorage", "homeSupply", "trainingRig", "workbench", "extendedWorkbench"]) || this.getLookTarget() || this.nearbyDroppedItemInView()) this.interact();
       }
     });
     document.addEventListener("pointerlockchange", () => {
@@ -2521,6 +2529,7 @@ class WildernessGame {
     this.updateDamageParticles(delta);
     updateHitFeedback(performance.now(), this.camera);
     updateSecondSkillEffects(this.skillEffectsContext);
+    ensureTrainingGround(this.trainingGroundContext);
     this.updateMessages(delta);
     this.updatePrompt(delta);
     this.updateBossBar();
@@ -2761,10 +2770,6 @@ class WildernessGame {
     if (Math.floor(this.mana) !== previous) this.renderHud();
   }
 
-  private classSkillCooldownRemaining() {
-    return Math.max(0, (this.classSkillCooldownUntil - performance.now()) / 1000);
-  }
-
   private trySpendSkill(name: string, cost: number, cooldownSeconds: number, slot: "primary" | "second") {
     if (this.currentPanel !== null) return false;
     const until = slot === "primary" ? this.classSkillCooldownUntil : this.secondSkillCooldownUntil;
@@ -2813,7 +2818,7 @@ class WildernessGame {
 
   private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud() };
 
-  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); this.spawnHealEffect(this.playerPosition); this.renderHud(); } }, playerPosition: this.playerPosition };
+  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, playerPosition: this.playerPosition };
 
   private useHealerSkill() {
     if (this.health >= this.maxHealth) {
@@ -2823,7 +2828,7 @@ class WildernessGame {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, HEALER_SKILL_COST, HEALER_SKILL_COOLDOWN, "primary")) return;
     const previous = this.health;
     this.health = Math.min(this.maxHealth, this.health + healerHealAmount(this.levelStatBonus()));
-    this.spawnHealEffect(this.playerPosition);
+    spawnHealEffect(this.combatEffectContext, this.playerPosition);
     this.playHandAction("magic");
     this.playTone(720, 0.14, "triangle", 0.03);
     this.playTone(960, 0.18, "sine", 0.018);
@@ -2898,28 +2903,6 @@ class WildernessGame {
     projectile.mesh.position.copy(origin);
     this.scene.add(projectile.mesh);
     this.projectiles.push(projectile);
-  }
-
-  private spawnHealEffect(position: THREE.Vector3) {
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.85, 0.035, 10, 42),
-      new THREE.MeshBasicMaterial({ color: 0xa7f3d0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
-    );
-    ring.position.copy(position).setY(position.y - PLAYER_HEIGHT + 0.08);
-    ring.rotation.x = Math.PI / 2;
-    ring.renderOrder = 24;
-    this.scene.add(ring);
-    this.damageParticles.push({ mesh: ring, velocity: new THREE.Vector3(0, 0.18, 0), life: 0.55, maxLife: 0.55 });
-    for (let index = 0; index < 20; index += 1) {
-      const particle = new THREE.Mesh(
-        new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.035, 0.075), 8, 6),
-        new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false }),
-      );
-      particle.position.copy(position).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.7), THREE.MathUtils.randFloat(-1.1, 0.35), THREE.MathUtils.randFloatSpread(0.7)));
-      particle.renderOrder = 24;
-      this.scene.add(particle);
-      this.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.25), THREE.MathUtils.randFloat(0.65, 1.35), THREE.MathUtils.randFloatSpread(0.25)), life: 0.62, maxLife: 0.62 });
-    }
   }
 
   private updateMovement(delta: number) {
@@ -3827,6 +3810,7 @@ class WildernessGame {
     if (target.type === "blacksmith") return "E: 대장간 들어가기";
     if (target.type === "villageHouse") return target.enterable ? (target.playerOwned ? "E: 내 집 들어가기" : "E: 주민 집 들어가기") : target.name;
     if (target.type === "homeStorage") return "E: 집 창고 열기";
+    if (target.type === "trainingRig") return this.level < TRAINING_MIN_LEVEL ? `${target.name} 훈련 (레벨 ${TRAINING_MIN_LEVEL}부터)` : `E: ${TRAINING_GAMES[target.trainingKind ?? "hp"].name} 훈련 시작`;
     if (target.type === "homeSupply") return this.homeSupplyCooldownSeconds <= 0 ? "E: 보급 상자 열기 (준비됨!)" : `보급 상자 — ${homeSupplyReadyLabel(this.homeSupplyCooldownSeconds)}`;
     if (this.isVillageGuard(target)) return `E: ${target.name} 공격`;
     if (target.type === "foodStorage") return "E: 식량창고 열기";
@@ -3887,6 +3871,11 @@ class WildernessGame {
     }
     if (target.type === "homeStorage") {
       this.openPanel("homeStorage");
+      return;
+    }
+    if (target.type === "trainingRig") {
+      if (this.level < TRAINING_MIN_LEVEL) this.showMessage(`훈련장은 레벨 ${TRAINING_MIN_LEVEL}부터 이용할 수 있습니다. (현재 ${this.level})`);
+      else { this.currentTrainingKind = target.trainingKind ?? "hp"; this.openPanel("training"); }
       return;
     }
     if (target.type === "homeSupply") {
@@ -3981,6 +3970,21 @@ class WildernessGame {
       if (object.playerOwned) homes.push({ name: object.name, x: object.root.position.x, z: object.root.position.z });
     }
     return homes;
+  }
+
+  private renderTrainingPanel() {
+    renderTrainingPanelView(this.panelEl, this.currentTrainingKind, {
+      getCount: (kind) => this.trainingStats[kind],
+      onSuccess: (kind) => {
+        this.trainingStats[kind] += 1;
+        if (kind === "hp") { this.maxHealth = this.maxHealthForLevel(); this.health = Math.min(this.maxHealth, this.health + TRAINING_REWARDS.hp); }
+        if (kind === "mana") { this.maxMana += TRAINING_REWARDS.mana; this.mana = Math.min(this.maxMana, this.mana + TRAINING_REWARDS.mana); }
+        this.playTone(880, 0.12, "triangle", 0.032); this.playTone(1175, 0.16, "triangle", 0.026);
+        this.showMessage(`${TRAINING_GAMES[kind].name} 성공! ${TRAINING_GAMES[kind].statLabel} +${TRAINING_REWARDS[kind]} (누적 ${this.trainingStats[kind]}회)`);
+        this.renderHud();
+      },
+      onClose: () => this.closePanel(),
+    });
   }
 
   private renderHomeStoragePanel() {
@@ -4558,13 +4562,13 @@ class WildernessGame {
     const bonus = this.levelStatBonus();
     if (this.possessedEagleId) return possessedEagleDamage(EAGLE_RAM_DAMAGE, this.hotbar[this.selectedHotbarIndex]?.item, bonus);
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
-    if (selectedItem && !this.isRangedWeapon(selectedItem) && WEAPON_DAMAGE[selectedItem]) return WEAPON_DAMAGE[selectedItem] + bonus;
-    return Math.max(1, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus;
+    if (selectedItem && !this.isRangedWeapon(selectedItem) && WEAPON_DAMAGE[selectedItem]) return WEAPON_DAMAGE[selectedItem] + bonus + this.trainingStats.attack;
+    return Math.max(1, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus + this.trainingStats.attack;
   }
 
   private currentRangedDamage(item: ItemId) {
     const base = WEAPON_DAMAGE[item] ?? BOW_DAMAGE;
-    return base + this.levelStatBonus();
+    return base + this.levelStatBonus() + this.trainingStats.attack;
   }
 
   private eagleCombatTarget() {
@@ -4585,7 +4589,7 @@ class WildernessGame {
   }
 
   private maxHealthForLevel(level = this.level) {
-    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level);
+    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) + this.trainingStats.hp * TRAINING_REWARDS.hp;
   }
 
   private experienceForNextLevel(level = this.level) {
@@ -4597,7 +4601,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return this.equipmentArmorValue() + this.levelStatBonus() + burningShieldArmorBonus(this.skillBuffs, performance.now());
+    return this.equipmentArmorValue() + this.levelStatBonus() + this.trainingStats.armor + burningShieldArmorBonus(this.skillBuffs, performance.now());
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -5564,6 +5568,7 @@ class WildernessGame {
         locationMode: this.locationMode,
         currentHouseKind: this.currentHouseKind,
         currentHouseOwned: this.currentHouseOwned,
+        trainingStats: this.trainingStats,
         homeStorage: this.homeStorage,
         homeSupplyCooldownSeconds: this.homeSupplyCooldownSeconds,
         caveReturnPosition: this.caveReturnPosition,
@@ -5656,6 +5661,7 @@ class WildernessGame {
     this.locationMode = save.player.locationMode;
     this.currentHouseKind = save.player.currentHouseKind ?? "home";
     this.currentHouseOwned = save.player.currentHouseOwned === true;
+    this.trainingStats = normalizeTrainingStats(save.player.trainingStats);
     this.homeStorage = normalizeHomeStorage(save.player.homeStorage);
     this.homeSupplyCooldownSeconds = Math.max(0, save.player.homeSupplyCooldownSeconds ?? 0);
     this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
@@ -5744,6 +5750,7 @@ class WildernessGame {
     this.mana = this.maxMana;
     this.classSkillCooldownUntil = 0;
     this.secondSkillCooldownUntil = 0; resetSecondSkillEffects(this.skillBuffs);
+    this.trainingStats = createTrainingStats();
     this.healItemCooldownUntil = 0;
     this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
     this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
@@ -6045,7 +6052,7 @@ class WildernessGame {
     const hour = this.gameHour();
     const playerClass = PLAYER_CLASSES[this.playerClass];
     const passive = CLASS_PASSIVES[this.playerClass];
-    const skillCooldown = this.classSkillCooldownRemaining();
+    const skillCooldown = Math.max(0, (this.classSkillCooldownUntil - performance.now()) / 1000);
     const eagle = this.possessedEagleId ? this.objects.get(this.possessedEagleId) : null;
     const eagleSkillStatus = eagle ? formatEagleSkillStatus(this.eagleClawCooldownUntil, this.windCutterCooldownUntil) : undefined;
     const petProgress = this.summonerCompanion.petProgress();
@@ -6177,6 +6184,7 @@ class WildernessGame {
     if (this.currentPanel === "cheat") this.renderCheatPanel();
     if (this.currentPanel === "map") this.renderRegionMapPanel();
     if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel();
+    if (this.currentPanel === "training") this.renderTrainingPanel();
     if (this.currentPanel === "saveOverwrite") {
       renderSaveOverwritePanelView(this.panelEl, this.readSaveSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label })), {
         onClose: () => { this.pendingOverwriteSave = null; this.closePanel(); },

@@ -56,6 +56,7 @@ function stableSaveShape(save) {
       shieldDurabilityUsed: save.player.shieldDurabilityUsed,
       ironGuardRemainingSeconds: Math.round((save.player.ironGuardRemainingMs ?? 0) / 1000),
       secondSkillCooldownRemainingSeconds: Math.round((save.player.secondSkillCooldownRemainingMs ?? 0) / 1000),
+      trainingStats: save.player.trainingStats,
       locationMode: save.player.locationMode,
       currentHouseKind: save.player.currentHouseKind,
       currentHouseOwned: save.player.currentHouseOwned,
@@ -157,6 +158,7 @@ try {
     game.shieldDurabilityUsed = 12;
     game.ironGuardUntil = performance.now() + 43_000;
     game.secondSkillCooldownUntil = performance.now() + 27_000;
+    game.trainingStats = { hp: 3, attack: 5, armor: 2, mana: 1 };
     game.locationMode = "overworld";
     game.currentHouseKind = "twoStory";
     game.currentHouseOwned = true;

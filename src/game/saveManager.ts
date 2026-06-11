@@ -57,6 +57,7 @@ export interface SaveDataSnapshot {
     locationMode: LocationMode;
     currentHouseKind: HouseKind;
     currentHouseOwned: boolean;
+    trainingStats: { hp: number; attack: number; armor: number; mana: number };
     homeStorage: readonly Slot[];
     homeSupplyCooldownSeconds: number;
     caveReturnPosition: VectorLike | null;
@@ -98,6 +99,8 @@ function shouldPersistObject(object: WorldObject, excludedObjectIds: ReadonlySet
     !excludedObjectIds.has(object.id) &&
     object.type !== "caveExit" &&
     object.type !== "houseExit" &&
+    object.type !== "trainingGround" &&
+    object.type !== "trainingRig" &&
     object.type !== "legoHazard" &&
     object.type !== "eagleSummon" &&
     object.type !== "summonerPet"
@@ -216,6 +219,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       locationMode: snapshot.player.locationMode,
       currentHouseKind: snapshot.player.currentHouseKind,
       currentHouseOwned: snapshot.player.currentHouseOwned,
+      trainingStats: { ...snapshot.player.trainingStats },
       homeStorage: cloneSlots(snapshot.player.homeStorage),
       homeSupplyCooldownSeconds: snapshot.player.homeSupplyCooldownSeconds,
       caveReturnPosition: snapshot.player.caveReturnPosition ? toSavedVector(snapshot.player.caveReturnPosition) : null,

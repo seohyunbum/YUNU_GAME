@@ -19,6 +19,8 @@ export type ObjectType =
   | "caveExit"
   | "graveHand"
   | "houseExit"
+  | "trainingGround"
+  | "trainingRig"
   | "homeStorage"
   | "homeSupply"
   | "dirtPatch"
@@ -58,7 +60,16 @@ export type ObjectType =
   | "extendedWorkbench"
   | "smelter"
   | "specialSmelter";
-export type PanelType = "inventory" | "book" | "homeStorage" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | null;
+export type PanelType = "inventory" | "book" | "homeStorage" | "training" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | null;
+export type TrainingKind = "hp" | "attack" | "armor" | "mana";
+
+export interface TrainingStats {
+  hp: number;
+  attack: number;
+  armor: number;
+  mana: number;
+}
+
 export type LocationMode = "overworld" | "cave" | "house";
 
 
@@ -152,6 +163,7 @@ export interface WorldObject {
   houseKind?: HouseKind;
   playerOwned?: boolean;
   homeBed?: boolean;
+  trainingKind?: TrainingKind;
   lockedStation?: boolean;
   harvestProgress?: number;
   antMeatRemaining?: number;
@@ -286,6 +298,7 @@ export interface SavedGame {
     currentHouseOwned?: boolean;
     homeStorage?: Slot[];
     homeSupplyCooldownSeconds?: number;
+    trainingStats?: TrainingStats;
     caveReturnPosition: SavedVector | null;
     houseReturnPosition?: SavedVector | null;
     toolUses?: Record<ItemId, number>;

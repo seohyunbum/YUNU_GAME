@@ -109,6 +109,7 @@ try {
   const homeBase = await server.ssrLoadModule("/src/game/homeBase.ts");
   const hitFeedback = await server.ssrLoadModule("/src/game/hitFeedback.ts");
   const classSkills = await server.ssrLoadModule("/src/game/classSkills.ts");
+  const training = await server.ssrLoadModule("/src/game/training.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -518,6 +519,23 @@ try {
   }
 
   {
+    // 훈련장 골든: 난이도 단조 증가 + 안전 클램프 + 보상/정규화
+    const { TRAINING_MIN_LEVEL, TRAINING_REWARDS, TRAINING_GAMES, normalizeTrainingStats, liftDrainPerSecond, liftClickPower, targetSpeed, targetWobble, targetTolerance, blockWindowMs, blockFakeChance, calmZoneRatio } = training;
+    assert(TRAINING_MIN_LEVEL === 10, "training unlocks at level 10");
+    assert(TRAINING_REWARDS.hp === 2 && TRAINING_REWARDS.attack === 1 && TRAINING_REWARDS.armor === 1 && TRAINING_REWARDS.mana === 2, "training rewards match the spec");
+    for (const kind of ["hp", "attack", "armor", "mana"]) assert(TRAINING_GAMES[kind]?.name && TRAINING_GAMES[kind]?.howTo, `training game '${kind}' needs a name and instructions`);
+    // 성공할수록 어려워진다 (단조)
+    assert(liftDrainPerSecond(10) > liftDrainPerSecond(0) && liftClickPower(10) < liftClickPower(0), "lift gets harder with success count");
+    assert(targetSpeed(10) > targetSpeed(0) && targetWobble(10) > targetWobble(0) && targetTolerance(10) < targetTolerance(0), "target gets faster, wobblier, stricter");
+    assert(blockWindowMs(10) < blockWindowMs(0) && blockFakeChance(10) > blockFakeChance(0), "block window shrinks and fakes increase");
+    assert(calmZoneRatio(10) < calmZoneRatio(0), "calm zone shrinks");
+    // 무한 성장해도 플레이 가능한 하한 클램프
+    assert(liftClickPower(999) >= 5.5 && targetTolerance(999) >= 0.05 && blockWindowMs(999) >= 240 && calmZoneRatio(999) >= 0.07, "difficulty floors keep games playable");
+    const normalized = normalizeTrainingStats({ hp: 3.7, attack: -2, mana: Number.NaN });
+    assert(normalized.hp === 3 && normalized.attack === 0 && normalized.armor === 0 && normalized.mana === 0, "training stats normalize to non-negative integers");
+  }
+
+  {
     // 스킬 스케일링 골든: 일반 공격처럼 스킬도 레벨 보너스에 비례해 강해진다
     const { warriorExplosionDamage, mageTntDamage, gunnerShotDamage, healerHealAmount, fireballDamage, burnTickDamage, thornsTickDamage, healingRainTick, windSpiritDamage, burningStrikeDamage } = classSkills;
     assert(warriorExplosionDamage(0) === 20 && warriorExplosionDamage(50) === 70, "warrior explosion should scale 1.0x level bonus");
@@ -750,6 +768,7 @@ try {
         "field boss spawn-once, quest view, and mini fanfare",
         "tool repair material mapping and 50% recovery golden values",
         "home base storage transfer and supply tier golden values",
+        "training ground difficulty curves, rewards, and clamps",
         "skill damage scales with level bonus",
         "second skill table covers all classes with designed names",
         "second skill execution: fireball, burning strike+dot, burning shield aura, healing rain, rapid fire",
