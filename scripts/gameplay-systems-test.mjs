@@ -108,6 +108,7 @@ try {
   const objectives = await server.ssrLoadModule("/src/objectives.ts");
   const homeBase = await server.ssrLoadModule("/src/game/homeBase.ts");
   const hitFeedback = await server.ssrLoadModule("/src/game/hitFeedback.ts");
+  const classSkills = await server.ssrLoadModule("/src/game/classSkills.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -517,6 +518,106 @@ try {
   }
 
   {
+    // 스킬 스케일링 골든: 일반 공격처럼 스킬도 레벨 보너스에 비례해 강해진다
+    const { warriorExplosionDamage, mageTntDamage, gunnerShotDamage, healerHealAmount, fireballDamage, burnTickDamage, thornsTickDamage, healingRainTick, windSpiritDamage, burningStrikeDamage } = classSkills;
+    assert(warriorExplosionDamage(0) === 20 && warriorExplosionDamage(50) === 70, "warrior explosion should scale 1.0x level bonus");
+    assert(mageTntDamage(0) === 20 && mageTntDamage(50) === 65, "mage tnt should scale 0.9x level bonus");
+    assert(gunnerShotDamage(0) === 100 && gunnerShotDamage(50) === 200, "gunner shot should scale 2.0x level bonus");
+    assert(healerHealAmount(0) === 15 && healerHealAmount(50) === 65, "healer heal should scale 1.0x level bonus");
+    assert(fireballDamage(0) === 45 && fireballDamage(50) === 125, "fireball should scale 1.6x level bonus");
+    assert(windSpiritDamage(0) === 35 && windSpiritDamage(50) === 95, "wind spirit should scale 1.2x level bonus");
+    assert(burnTickDamage(50) === 29 && thornsTickDamage(50) === 33 && healingRainTick(50) === 22, "dot/aura/rain ticks should scale");
+    assert(burningStrikeDamage(40) === 80, "burning strike should double current attack damage");
+  }
+
+  {
+    // 2스킬 테이블: 6직업 전부 정의 + 기획 지정 이름 + 양수 코스트/쿨다운
+    const { SECOND_SKILLS } = classSkills;
+    const classIds = Object.keys(PLAYER_CLASSES);
+    assert(classIds.every((id) => SECOND_SKILLS[id]), "every class must define a second skill");
+    assert(SECOND_SKILLS.mage.name === "파이어볼" && SECOND_SKILLS.warrior.name === "불타는 공격" && SECOND_SKILLS.tanker.name === "불타는 방패", "designed second-skill names must match the spec");
+    assert(classIds.every((id) => SECOND_SKILLS[id].manaCost > 0 && SECOND_SKILLS[id].cooldown > 0 && SECOND_SKILLS[id].summary.length > 0), "second skills need cost, cooldown, and summary");
+  }
+
+  {
+    // 2스킬 실행/지속효과 골든: 파이어볼 발사, 불타는 공격(강타+도트), 불타는 방패(방어+오라), 치유의 비, 속사
+    const { useSecondClassSkill, updateSecondSkillEffects, createSkillBuffs, resetSecondSkillEffects, activeBurnCount, burningShieldArmorBonus, rapidFireCooldownScale, BURN_TICKS } = classSkills;
+    let nowMs = 10_000;
+    const buffs = createSkillBuffs();
+    resetSecondSkillEffects(buffs);
+    const calls = [];
+    const target = { id: "prey-1", type: "wildPredator", name: "늑대", hp: 500, root: { position: { x: 2, y: 0, z: 0 } }, collisionRadius: 0.8 };
+    const makeContext = (playerClass, lookTarget) => ({
+      playerClass: () => playerClass,
+      levelBonus: () => 10,
+      currentDamage: () => 30,
+      now: () => nowMs,
+      buffs,
+      trySpend: () => { calls.push(["spend", playerClass]); return true; },
+      lookCombatTarget: () => lookTarget ?? null,
+      fireSkillProjectile: (kind, visual, damage) => calls.push(["projectile", kind, visual, damage]),
+      applyDamage: (object, damage) => calls.push(["damage", object.id, damage]),
+      meleeEffects: () => {},
+      playHandAction: () => {},
+      playTone: () => {},
+      showMessage: (text) => calls.push(["message", text]),
+      renderHud: () => {},
+    });
+
+    useSecondClassSkill(makeContext("mage", null));
+    assert(calls.some(([kind, k, visual, damage]) => kind === "projectile" && k === "tnt" && visual === "magic" && damage === 61), "fireball should fire a magic-visual tnt projectile with scaled damage");
+
+    calls.length = 0;
+    useSecondClassSkill(makeContext("warrior", null));
+    assert(!calls.some(([kind]) => kind === "spend"), "burning strike without a target must not spend mana");
+    useSecondClassSkill(makeContext("warrior", target));
+    assert(calls.some(([kind, id, damage]) => kind === "damage" && id === "prey-1" && damage === 60), "burning strike should hit for 2x current damage");
+    assert(activeBurnCount() === 1, "burning strike should register a burn");
+
+    const effectTargets = [target];
+    const effectsContext = {
+      now: () => nowMs,
+      buffs,
+      levelBonus: () => 10,
+      getObject: (id) => effectTargets.find((candidate) => candidate.id === id && candidate.hp > 0),
+      nearbyCombatTargets: () => effectTargets,
+      applyDamage: (object, damage) => calls.push(["tick", object.id, damage]),
+      heal: (amount) => calls.push(["heal", amount]),
+      playerPosition: { x: 0, y: 1.7, z: 0 },
+    };
+    calls.length = 0;
+    for (let step = 0; step < BURN_TICKS + 2; step += 1) {
+      nowMs += 1_000;
+      updateSecondSkillEffects(effectsContext);
+    }
+    assert(calls.filter(([kind]) => kind === "tick").length === BURN_TICKS, `burn should tick exactly ${BURN_TICKS} times`);
+    assert(activeBurnCount() === 0, "burn should expire after its ticks");
+    assert(calls.every(([kind, , damage]) => kind !== "tick" || damage === 9), "burn tick should be scaled (4 + 0.5x10 = 9)");
+
+    // 불타는 방패: 방어 +1 + 1초 간격 오라, 끝나면 0
+    calls.length = 0;
+    useSecondClassSkill(makeContext("tanker", null));
+    assert(burningShieldArmorBonus(buffs, nowMs) === 1, "burning shield should add +1 armor while active");
+    nowMs += 1_000;
+    updateSecondSkillEffects(effectsContext);
+    nowMs += 1_000;
+    updateSecondSkillEffects(effectsContext);
+    assert(calls.filter(([kind]) => kind === "tick").length === 2, "burning shield aura should tick once per second");
+    assert(burningShieldArmorBonus(buffs, nowMs + 60_000) === 0, "burning shield armor should expire");
+
+    // 치유의 비 + 속사
+    calls.length = 0;
+    useSecondClassSkill(makeContext("healer", null));
+    nowMs += 1_000;
+    updateSecondSkillEffects(effectsContext);
+    assert(calls.some(([kind, amount]) => kind === "heal" && amount === 6), "healing rain should heal scaled amount per second (2 + 0.4x10)");
+    useSecondClassSkill(makeContext("gunner", null));
+    assert(rapidFireCooldownScale(buffs, nowMs) === 0.5, "rapid fire should halve ranged cooldown while active");
+    assert(rapidFireCooldownScale(buffs, nowMs + 60_000) === 1, "rapid fire should expire");
+    resetSecondSkillEffects(buffs);
+  }
+
+  {
     // 정면 추격 골든: 몬스터 모델은 +X 가 정면 — rotation.y = -atan2(dz, dx) 여야 플레이어를 마주본다
     const { updatePredatorAi } = predatorAi;
     const predator = { root: new THREE.Group(), type: "wildPredator", name: "늑대", predatorKind: "wolf", attackCooldown: 99 };
@@ -649,6 +750,9 @@ try {
         "field boss spawn-once, quest view, and mini fanfare",
         "tool repair material mapping and 50% recovery golden values",
         "home base storage transfer and supply tier golden values",
+        "skill damage scales with level bonus",
+        "second skill table covers all classes with designed names",
+        "second skill execution: fireball, burning strike+dot, burning shield aura, healing rain, rapid fire",
         "predators face the player while chasing (+X-front yaw)",
         "hit feedback: hit stop, knockback, squash punch, fov kick, tone layers",
         "tutorial step completion latches across condition regression",

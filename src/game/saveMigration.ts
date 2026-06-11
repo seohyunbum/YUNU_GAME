@@ -242,6 +242,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       mana: migratedMana,
       maxMana: migratedMaxMana,
       classSkillCooldownRemainingMs: migratedClassCooldown,
+      secondSkillCooldownRemainingMs: savedNumber(player.secondSkillCooldownRemainingMs, 0, 0, MAX_CLASS_COOLDOWN_MS),
       companionProgress: normalizeCompanionProgress(player.companionProgress),
       tutorial: normalizeTutorialProgress(player.tutorial),
       hunger: savedNumber(player.hunger, HUNGER_MAX, 0, HUNGER_MAX),

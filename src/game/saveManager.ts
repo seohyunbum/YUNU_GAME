@@ -38,6 +38,7 @@ export interface SaveDataSnapshot {
     mana: number;
     maxMana: number;
     classSkillCooldownUntil: number;
+    secondSkillCooldownUntil: number;
     companionProgress: CompanionProgress;
     tutorial: TutorialProgress;
     hunger: number;
@@ -194,6 +195,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       mana: snapshot.player.mana,
       maxMana: snapshot.player.maxMana,
       classSkillCooldownRemainingMs: Math.max(0, snapshot.player.classSkillCooldownUntil - snapshot.nowMs),
+      secondSkillCooldownRemainingMs: Math.max(0, snapshot.player.secondSkillCooldownUntil - snapshot.nowMs),
       companionProgress: {
         summoner: { ...snapshot.player.companionProgress.summoner },
       },

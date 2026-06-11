@@ -265,6 +265,7 @@ export interface SavedGame {
     mana?: number;
     maxMana?: number;
     classSkillCooldownRemainingMs?: number;
+    secondSkillCooldownRemainingMs?: number;
     companionProgress?: CompanionProgress;
     tutorial?: TutorialProgress;
     hunger?: number;

@@ -181,9 +181,8 @@ async function inspectGameplayUi(page, viewportName) {
   await page.click("[data-save-game]");
   await page.waitForTimeout(150);
   ui.droppedItemPickedUp = await page.evaluate(() => {
-    const rawSave = localStorage.getItem("ai-game-lab:wilderness-save-v1");
-    if (!rawSave) return false;
-    const save = JSON.parse(rawSave);
+    // SAVE_KEY 는 이제 압축 스텁이라 raw 파싱 불가 — 라이브 상태에서 직접 확인한다
+    const save = window.__wildernessGame.createSaveData();
     const slots = [...(save.player?.hotbar ?? []), ...(save.player?.bagSlots ?? [])];
     return slots.some((slot) => slot?.item === "hammer");
   });

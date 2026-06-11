@@ -80,6 +80,7 @@ import {
   createArrowProjectile,
   createMagicProjectile,
   createTntProjectile,
+  createWindCutterProjectile,
   spawnDamageParticles,
   spawnDragonClawBurst,
   spawnDragonFireBurst,
@@ -114,7 +115,6 @@ import {
   EAGLE_ARMOR,
   GUNNER_SKILL_COST,
   GUNNER_SKILL_COOLDOWN,
-  GUNNER_SKILL_DAMAGE,
   EAGLE_MAX_HP,
   EAGLE_POSSESSION_DURATION_SECONDS,
   EAGLE_RAM_DAMAGE,
@@ -122,7 +122,6 @@ import {
   EXTENDED_WORKBENCH_SLOT_COUNT,
   FIELD_ANIMAL_COUNT,
   GRAVITY,
-  HEALER_HEAL_AMOUNT,
   HEALER_SKILL_COOLDOWN,
   HEALER_SKILL_COST,
   HOUSE_CENTER_Z,
@@ -145,7 +144,6 @@ import {
   LOOK_TARGET_REFRESH_SECONDS,
   MAGE_TNT_COOLDOWN,
   MAGE_TNT_COST,
-  MAGE_TNT_DAMAGE,
   MAGE_TNT_RADIUS,
   MAX_MOUSE_EVENT_DELTA,
   MANA_REGEN_PER_SECOND,
@@ -182,7 +180,6 @@ import {
   VISIBILITY_CHANGES_PER_PASS,
   VISIBILITY_CULL_INTERVAL,
   WALK_SPEED,
-  WARRIOR_EXPLOSION_DAMAGE,
   WARRIOR_EXPLOSION_RADIUS,
   WARRIOR_EXPLOSION_SECONDS,
   WARRIOR_SKILL_COOLDOWN,
@@ -235,6 +232,7 @@ import { createCaveInterior, createHouseInterior, type InteriorContext } from ".
 import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
 import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeStoragePanel";
 import { PLAYER_CLASSES } from "./game/classes";
+import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, updateSecondSkillEffects, useSecondClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext } from "./game/classSkills";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
@@ -446,6 +444,8 @@ class WildernessGame {
   private mana = BASE_MAX_MANA;
   private maxMana = BASE_MAX_MANA;
   private classSkillCooldownUntil = 0;
+  private secondSkillCooldownUntil = 0;
+  private readonly skillBuffs = createSkillBuffs();
   private healItemCooldownUntil = 0;
   private possessedEagleId: string | null = null; private eaglePossessionEndsAt = 0;
   private eagleClawCooldownUntil = 0; private windCutterCooldownUntil = 0;
@@ -744,7 +744,7 @@ class WildernessGame {
         playerClasses: Object.entries(PLAYER_CLASSES).map(([id, playerClass]) => ({
           id,
           name: playerClass.name,
-          skillName: playerClass.skillName,
+          skillName: `${playerClass.skillName} · ${SECOND_SKILLS[id as PlayerClassId].name}`,
           tagline: playerClass.tagline,
           passiveLabel: CLASS_PASSIVES[id as PlayerClassId].label,
           passiveSummary: CLASS_PASSIVES[id as PlayerClassId].summary,
@@ -1943,6 +1943,7 @@ class WildernessGame {
     if (event.code === "KeyM") this.togglePanel("map");
     if (event.code === "KeyE") this.interact();
     if (event.code === "KeyR" && !event.repeat) this.useClassSkill();
+    if (event.code === "KeyT" && !event.repeat) this.useSecondSkill();
     if (event.code === "KeyX" && !event.repeat && this.possessedEagleId) { this.endEaglePossession(false); this.showMessage("독수리 빙의를 해제했습니다."); }
     if (event.code === "KeyP") this.showMessage("설치는 인벤토리에서 아이템을 아래 드롭존으로 드래그하세요.");
     if (event.code.startsWith("Digit") && !event.repeat) this.selectHotbarByKey(event.code);
@@ -2519,6 +2520,7 @@ class WildernessGame {
     this.updateAreaSkillEffects(delta);
     this.updateDamageParticles(delta);
     updateHitFeedback(performance.now(), this.camera);
+    updateSecondSkillEffects(this.skillEffectsContext);
     this.updateMessages(delta);
     this.updatePrompt(delta);
     this.updateBossBar();
@@ -2763,11 +2765,12 @@ class WildernessGame {
     return Math.max(0, (this.classSkillCooldownUntil - performance.now()) / 1000);
   }
 
-  private trySpendClassSkill(cost: number, cooldownSeconds: number) {
+  private trySpendSkill(name: string, cost: number, cooldownSeconds: number, slot: "primary" | "second") {
     if (this.currentPanel !== null) return false;
-    const remaining = this.classSkillCooldownRemaining();
+    const until = slot === "primary" ? this.classSkillCooldownUntil : this.secondSkillCooldownUntil;
+    const remaining = Math.max(0, (until - performance.now()) / 1000);
     if (remaining > 0) {
-      this.showMessage(`${PLAYER_CLASSES[this.playerClass].skillName} 쿨타임 ${Math.ceil(remaining)}초 남았습니다.`);
+      this.showMessage(`${name} 쿨타임 ${Math.ceil(remaining)}초 남았습니다.`);
       return false;
     }
     if (this.mana < cost) {
@@ -2775,10 +2778,12 @@ class WildernessGame {
       return false;
     }
     this.mana = Math.max(0, this.mana - cost);
-    this.classSkillCooldownUntil = performance.now() + cooldownSeconds * 1000;
+    if (slot === "primary") this.classSkillCooldownUntil = performance.now() + cooldownSeconds * 1000;
+    else this.secondSkillCooldownUntil = performance.now() + cooldownSeconds * 1000;
     this.renderHud();
     return true;
   }
+
 
   // 데이터주도 스킬 디스패치 — Record<PlayerClassId> 라 새 직업을 추가하면
   // 여기에 핸들러를 안 넣는 한 컴파일 에러가 난다(누락 방지). (AGENTS.md §1, 거버넌스 P2)
@@ -2797,14 +2802,27 @@ class WildernessGame {
     this.classSkillHandlers[this.playerClass]?.();
   }
 
+  private useSecondSkill() {
+    if (!this.gameStarted || this.currentPanel !== null) return;
+    if (this.possessedEagleId) {
+      this.showMessage("빙의 중에는 두 번째 스킬을 쓸 수 없습니다. X로 빙의를 해제하세요.");
+      return;
+    }
+    useSecondClassSkill(this.secondSkillContext);
+  }
+
+  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud() };
+
+  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); this.spawnHealEffect(this.playerPosition); this.renderHud(); } }, playerPosition: this.playerPosition };
+
   private useHealerSkill() {
     if (this.health >= this.maxHealth) {
       this.showMessage("이미 체력이 가득합니다.");
       return;
     }
-    if (!this.trySpendClassSkill(HEALER_SKILL_COST, HEALER_SKILL_COOLDOWN)) return;
+    if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, HEALER_SKILL_COST, HEALER_SKILL_COOLDOWN, "primary")) return;
     const previous = this.health;
-    this.health = Math.min(this.maxHealth, this.health + HEALER_HEAL_AMOUNT);
+    this.health = Math.min(this.maxHealth, this.health + healerHealAmount(this.levelStatBonus()));
     this.spawnHealEffect(this.playerPosition);
     this.playHandAction("magic");
     this.playTone(720, 0.14, "triangle", 0.03);
@@ -2818,7 +2836,7 @@ class WildernessGame {
       this.showMessage("이미 독수리에 빙의 중입니다.");
       return;
     }
-    if (!this.trySpendClassSkill(SUMMONER_SKILL_COST, SUMMONER_SKILL_COOLDOWN)) return;
+    if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, SUMMONER_SKILL_COST, SUMMONER_SKILL_COOLDOWN, "primary")) return;
     this.playerBodyPosition = this.playerPosition.clone();
     const spawnPosition = this.playerPosition.clone();
     spawnPosition.y = this.getGroundHeightAt(spawnPosition.x, spawnPosition.z) + 1.6;
@@ -2836,7 +2854,7 @@ class WildernessGame {
   }
 
   private useWarriorSkill() {
-    if (!this.trySpendClassSkill(WARRIOR_SKILL_COST, WARRIOR_SKILL_COOLDOWN)) return;
+    if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, WARRIOR_SKILL_COST, WARRIOR_SKILL_COOLDOWN, "primary")) return;
     const target = this.getLookTarget();
     const position = target && this.isCombatTarget(target) ? target.root.position.clone() : this.pointInFront(4.5);
     position.y = this.getGroundHeightAt(position.x, position.z) + 0.08;
@@ -2848,41 +2866,38 @@ class WildernessGame {
   }
 
   private useMageSkill() {
-    if (!this.trySpendClassSkill(MAGE_TNT_COST, MAGE_TNT_COOLDOWN)) return;
-    this.fireTntSkill();
-    this.showMessage("TNT발사!");
+    if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, MAGE_TNT_COST, MAGE_TNT_COOLDOWN, "primary")) return;
+    this.fireSkillProjectile("tnt", "tnt", mageTntDamage(this.levelStatBonus()), 24, 0.42, MAGE_TNT_RADIUS);
+    this.playHandAction("magic");
+    this.playTone(220, 0.08, "square", 0.024);
+    this.showMessage(`TNT발사! ${mageTntDamage(this.levelStatBonus())} 범위 피해.`);
   }
 
   private useGunnerSkill() {
-    if (!this.trySpendClassSkill(GUNNER_SKILL_COST, GUNNER_SKILL_COOLDOWN)) return;
-    this.fireStrongShot();
-    this.showMessage(`강탄! ${GUNNER_SKILL_DAMAGE} 피해의 강한 탄환을 발사했습니다.`);
+    if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, GUNNER_SKILL_COST, GUNNER_SKILL_COOLDOWN, "primary")) return;
+    this.fireSkillProjectile("arrow", "arrow", gunnerShotDamage(this.levelStatBonus()), 58, 0.22);
+    this.playHandAction("bow");
+    this.playBowShotSound();
+    this.showMessage(`강탄! ${gunnerShotDamage(this.levelStatBonus())} 피해의 강한 탄환을 발사했습니다.`);
   }
 
   private useTankerSkill() {
-    if (!this.trySpendClassSkill(TANKER_SKILL_COST, TANKER_SKILL_COOLDOWN)) return;
+    if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, TANKER_SKILL_COST, TANKER_SKILL_COOLDOWN, "primary")) return;
     this.ironGuardUntil = activateIronGuardUntil(performance.now());
     this.playHandAction("melee"); this.playTone(220, 0.16, "triangle", 0.03); this.showMessage(ironGuardMessage()); this.renderHud();
   }
 
-  private fireStrongShot() {
+  // 스킬 투사체 공용 발사기 — TNT/강탄/파이어볼/바람정령이 공유한다
+  private fireSkillProjectile(kind: CombatProjectile["kind"], visual: "magic" | "wind" | "tnt" | "arrow", damage: number, speed: number, radius: number, explosionRadius?: number) {
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion).normalize();
-    const origin = this.camera.position.clone().addScaledVector(direction, 0.86).addScaledVector(right, 0.2).addScaledVector(up, -0.16);
-    const projectile: CombatProjectile = {
-      kind: "arrow",
-      mesh: createArrowProjectile(direction),
-      velocity: direction.multiplyScalar(58),
-      damage: GUNNER_SKILL_DAMAGE,
-      radius: 0.22,
-      life: PROJECTILE_MAX_LIFE,
-    };
+    const origin = this.camera.position.clone().addScaledVector(direction, 0.9).addScaledVector(right, 0.18).addScaledVector(up, -0.14);
+    const mesh = visual === "tnt" ? createTntProjectile(direction) : visual === "arrow" ? createArrowProjectile(direction) : visual === "wind" ? createWindCutterProjectile(direction) : createMagicProjectile(direction);
+    const projectile: CombatProjectile = { kind, mesh, velocity: direction.multiplyScalar(speed), damage, radius, life: kind === "tnt" ? 2.1 : PROJECTILE_MAX_LIFE, explosionRadius };
     projectile.mesh.position.copy(origin);
     this.scene.add(projectile.mesh);
     this.projectiles.push(projectile);
-    this.playHandAction("bow");
-    this.playBowShotSound();
   }
 
   private spawnHealEffect(position: THREE.Vector3) {
@@ -4582,7 +4597,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return this.equipmentArmorValue() + this.levelStatBonus();
+    return this.equipmentArmorValue() + this.levelStatBonus() + burningShieldArmorBonus(this.skillBuffs, performance.now());
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -4591,7 +4606,7 @@ class WildernessGame {
 
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
-    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES[this.playerClass].rangedCooldownScale;
+    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES[this.playerClass].rangedCooldownScale * rapidFireCooldownScale(this.skillBuffs, performance.now());
     const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
@@ -4620,32 +4635,6 @@ class WildernessGame {
 
 
 
-
-  private fireTntSkill() {
-    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion).normalize();
-    const origin = this.camera.position
-      .clone()
-      .addScaledVector(direction, 0.92)
-      .addScaledVector(right, 0.16)
-      .addScaledVector(up, -0.12);
-    const projectile: CombatProjectile = {
-      kind: "tnt",
-      mesh: createTntProjectile(direction),
-      velocity: direction.multiplyScalar(24),
-      damage: MAGE_TNT_DAMAGE,
-      radius: 0.42,
-      life: 2.1,
-      explosionRadius: MAGE_TNT_RADIUS,
-    };
-    projectile.mesh.position.copy(origin);
-    this.scene.add(projectile.mesh);
-    this.projectiles.push(projectile);
-    this.playHandAction("magic");
-    this.playTone(220, 0.08, "square", 0.024);
-    this.playTone(760, 0.1, "triangle", 0.018);
-  }
 
   private spawnEagleSummon(position: THREE.Vector3) {
     const root = createEagleVisual();
@@ -4739,7 +4728,7 @@ class WildernessGame {
       expiresAt: performance.now() + WARRIOR_EXPLOSION_SECONDS * 1000,
       nextTickAt: 0,
       radius: WARRIOR_EXPLOSION_RADIUS,
-      damage: WARRIOR_EXPLOSION_DAMAGE,
+      damage: warriorExplosionDamage(this.levelStatBonus()),
       damagedThisTick: new Set<string>(),
     });
     spawnExplosionVisual(this.combatEffectContext, position, WARRIOR_EXPLOSION_RADIUS * 0.55);
@@ -5556,6 +5545,7 @@ class WildernessGame {
         mana: this.mana,
         maxMana: this.maxMana,
         classSkillCooldownUntil: this.classSkillCooldownUntil,
+        secondSkillCooldownUntil: this.secondSkillCooldownUntil,
         companionProgress: this.summonerCompanion.companionProgress(),
         tutorial: this.tutorialProgress,
         hunger: this.hunger,
@@ -5639,6 +5629,7 @@ class WildernessGame {
     this.maxMana = save.player.maxMana ?? BASE_MAX_MANA;
     this.mana = Math.min(save.player.mana ?? this.maxMana, this.maxMana);
     this.classSkillCooldownUntil = performance.now() + (save.player.classSkillCooldownRemainingMs ?? 0);
+    this.secondSkillCooldownUntil = performance.now() + (save.player.secondSkillCooldownRemainingMs ?? 0); resetSecondSkillEffects(this.skillBuffs);
     this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
     this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
     this.summonerCompanion.restore(save.player.companionProgress);
@@ -5752,6 +5743,7 @@ class WildernessGame {
     this.maxMana = BASE_MAX_MANA;
     this.mana = this.maxMana;
     this.classSkillCooldownUntil = 0;
+    this.secondSkillCooldownUntil = 0; resetSecondSkillEffects(this.skillBuffs);
     this.healItemCooldownUntil = 0;
     this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
     this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
@@ -6082,7 +6074,7 @@ class WildernessGame {
         maxHunger: HUNGER_MAX,
         experience: this.experience,
         requiredExperience: this.experienceForNextLevel(),
-        skillStatus: skillCooldown > 0 ? `${Math.ceil(skillCooldown)}초` : `R ${playerClass.skillName}`,
+        skillStatus: `${skillCooldown > 0 ? `${Math.ceil(skillCooldown)}초` : `R ${playerClass.skillName}`} · ${this.secondSkillCooldownUntil > performance.now() ? `${Math.ceil((this.secondSkillCooldownUntil - performance.now()) / 1000)}초` : `T ${SECOND_SKILLS[this.playerClass].name}`}`,
         passiveStatus: passive.label,
         petStatus: this.playerClass === "tanker" ? tankerStatus : petStatus,
         equipmentArmor,
