@@ -166,7 +166,6 @@ import {
   RANGED_ATTACK_COOLDOWN,
   RUN_MULTIPLIER,
   MAX_SAVE_SLOTS,
-  SAVE_KEY,
   SMITHING_HITS_REQUIRED,
   SMITHING_ROUND_SECONDS,
   SMITHING_SUCCESS_POINTS,
@@ -293,7 +292,8 @@ import {
   formatSaveDate,
   readSaveSlots as readRepositorySaveSlots,
   resolveSlotSaveOrNull as resolveRepositorySlotSaveOrNull,
-  writeJsonStorage as writeRepositoryJsonStorage,
+  writeLatestSave as writeLatestSaveInRepository,
+  persistLatestSaveQuietly,
   writeSaveSlots as writeRepositorySaveSlots,
   saveSummary,
 } from "./game/saveRepository";
@@ -5444,7 +5444,7 @@ class WildernessGame {
     try {
       const save = this.createSaveData();
       backupLatestSaveInRepository();
-      writeRepositoryJsonStorage(SAVE_KEY, save);
+      await writeLatestSaveInRepository(save);
       const existingSaves = this.readSaveSlots().filter((slot) => slot.savedAt !== save.savedAt);
       if (existingSaves.length >= MAX_SAVE_SLOTS) {
         // 슬롯 가득 — 덮어쓸 저장을 직접 고르게 한다
@@ -5497,8 +5497,7 @@ class WildernessGame {
     const fallbackSave = wasInGame ? this.createSaveData() : null;
     try {
       const save = migratePartialSaveData(rawSave);
-      backupLatestSaveInRepository();
-      writeRepositoryJsonStorage(SAVE_KEY, save);
+      await persistLatestSaveQuietly(save);
       this.enterGameplayMode();
       this.currentPanel = null;
       this.restoreSaveData(save);

@@ -30,9 +30,36 @@ export function backupLatestSave(storage = localStorage) {
 
 export function writeJsonStorage(key: string, value: unknown, storage = localStorage) {
   const raw = JSON.stringify(value);
-  storage.setItem(SAVE_WRITE_TEST_KEY, raw);
-  storage.removeItem(SAVE_WRITE_TEST_KEY);
-  storage.setItem(key, raw);
+  try {
+    // 쓰기 가능 여부만 확인한다 — 전체 본문을 프로브로 쓰면 일시적으로 사용량이 2배가 되어 대형 세이브에서 quota 를 터뜨린다.
+    storage.setItem(SAVE_WRITE_TEST_KEY, "1");
+    storage.removeItem(SAVE_WRITE_TEST_KEY);
+    storage.setItem(key, raw);
+  } catch (error) {
+    // 용량 초과 — 편의용 백업본을 비우고 한 번 더 시도한다
+    storage.removeItem(SAVE_BACKUP_KEY);
+    storage.removeItem(SAVE_WRITE_TEST_KEY);
+    storage.setItem(key, raw);
+  }
+}
+
+// 최신본(SAVE_KEY)도 슬롯과 같은 압축 스텁으로 저장한다 — Lv451급 대형 세이브의 raw JSON 이 quota 를 다 먹는 것을 막는다.
+// 압축 불가 환경에서는 기존 raw 형태 유지. readSaveSlots 의 packed 분기가 그대로 읽는다.
+export async function writeLatestSave(save: SavedGame, storage = localStorage) {
+  const packed = await packSaveData(save);
+  writeJsonStorage(SAVE_KEY, packed ? { savedAt: save.savedAt, label: formatSaveDate(save.savedAt), packed } : save, storage);
+}
+
+// 로드 시점의 최신본 갱신은 부가 기능 — 실패(용량 부족 등)해도 로드를 막지 않는다.
+export async function persistLatestSaveQuietly(save: SavedGame, storage = localStorage) {
+  try {
+    backupLatestSave(storage);
+    await writeLatestSave(save, storage);
+    return true;
+  } catch (error) {
+    console.warn("최신 저장 기록 실패 — 로드는 계속 진행합니다.", error);
+    return false;
+  }
 }
 
 export function createSaveSlot(save: SavedGame, formatSaveDate: (savedAt: string) => string, description?: string): SaveSlot {
