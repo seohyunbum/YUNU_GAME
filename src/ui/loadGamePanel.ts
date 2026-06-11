@@ -14,6 +14,13 @@ export interface LoadGamePanelCallbacks {
   onImportSave: (save: object) => void;
 }
 
+// 마지막 불러오기 실패 사유 — 패널이 다시 열릴 때 빨간 배너로 보여준다 (타이틀 화면에선 HUD 메시지가 가려지기 때문)
+let pendingNotice: string | null = null;
+
+export function setLoadPanelNotice(notice: string | null) {
+  pendingNotice = notice;
+}
+
 function downloadJson(fileName: string, data: object) {
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -44,6 +51,7 @@ export function renderLoadGamePanel(
           <div>
             <h2>저장 파일 불러오기</h2>
             <p class="inventory-subtitle">${saves.length > 0 ? "불러올 시점을 선택하세요. 선택하면 그 저장 시점부터 이어서 플레이합니다." : "아직 불러올 저장 파일이 없습니다."}</p>
+            ${pendingNotice ? `<p class="load-panel-notice">⚠ ${escapeHtml(pendingNotice)}</p>` : ""}
           </div>
           <div class="save-file-actions">
             <button data-export-save>파일로 백업</button>

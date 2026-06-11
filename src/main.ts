@@ -299,7 +299,7 @@ import {
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
-import { renderLoadGamePanel as renderLoadGamePanelView } from "./ui/loadGamePanel";
+import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
@@ -5492,7 +5492,7 @@ class WildernessGame {
 
   private async applyLoadedSave(rawSave: PartialSavedGame, successMessage: string) {
     if (this.saveLoadInProgress) return; this.saveLoadInProgress = true;
-    setLoadButtonsBusy(true); await new Promise((resolve) => setTimeout(resolve, 40));
+    setLoadButtonsBusy(true); setLoadPanelNotice(null); await new Promise((resolve) => setTimeout(resolve, 40));
     const wasInGame = this.gameStarted;
     const fallbackSave = wasInGame ? this.createSaveData() : null;
     try {
@@ -5507,17 +5507,17 @@ class WildernessGame {
     } catch (error) {
       console.error(error);
       const reason = error instanceof Error ? error.message : String(error);
+      const frame = error instanceof Error && error.stack ? (error.stack.split("\n")[1] ?? "").trim() : "";
+      setLoadPanelNotice(`이 저장을 불러오지 못했습니다: ${reason}${frame ? ` — ${frame}` : ""}`);
       if (fallbackSave) {
-        // 인게임에서 불러오다 실패 — 직전 상태로 되돌린다
         try { this.restoreSaveData(fallbackSave); } catch (fallbackError) { console.error(fallbackError); }
-        this.renderPanel();
-        this.showMessage(`저장 파일을 불러오지 못했습니다 (${reason}). 직전 상태로 되돌렸습니다.`);
       } else {
-        // 타이틀에서 첫 로드 실패 — 반쪽 상태로 두지 말고 타이틀로 깔끔히 복귀시킨다
         this.clearWorld();
         this.showTitleScreen();
-        this.showMessage(`저장 파일을 불러오지 못했습니다 (${reason}). 다른 슬롯을 시도해 보세요.`);
       }
+      // 실패 사유를 들고 패널을 다시 연다 — 타이틀에선 HUD 메시지가 가려져 패널 배너가 유일한 안내다
+      this.openPanel("loadGame");
+      this.showMessage(`저장 파일을 불러오지 못했습니다 (${reason}).`);
     } finally {
       this.saveLoadInProgress = false; setLoadButtonsBusy(false);
     }

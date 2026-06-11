@@ -2192,6 +2192,15 @@ button[data-title-load]:disabled {
   }
 }
 
+.load-panel-notice {
+  margin: 8px 0 0;
+  color: #fca5a5;
+  font-weight: 700;
+  font-size: 14px;
+  max-width: 640px;
+  word-break: break-all;
+}
+
 .save-file-actions {
   display: flex;
   align-items: center;
