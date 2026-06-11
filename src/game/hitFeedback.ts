@@ -25,8 +25,9 @@ export const HIT_STOP_MS = 70;
 export const KILL_STOP_MS = 130;
 export const HIT_STOP_SCALE = 0.12;
 const PUNCH_MS = 170;
-const FOV_KICK_MS = 110;
-const FOV_KICK_AMOUNT = 2.6;
+// 화면 떨림 체감을 낮추기 위해 약하게 유지한다 (기존 2.6도는 과했음)
+const FOV_KICK_MS = 90;
+const FOV_KICK_AMOUNT = 1.0;
 // 무거운 대상(보스·골렘)은 거의 밀리지 않는다 — 타격감은 펀치/숫자가 담당
 const HEAVY_TYPES = new Set(["dragon", "villageGolem", "villageKing"]);
 
