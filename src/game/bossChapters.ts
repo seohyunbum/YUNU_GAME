@@ -16,7 +16,7 @@ export interface BossChapterStep {
 }
 
 export const BOSS_PROGRESSION: readonly BossChapterStep[] = [
-  { kind: "dragon", chapter: 1, recommendedLevel: 20, mapId: "dragon_plains", position: [240, 220] },
+  { kind: "dragon", chapter: 1, recommendedLevel: 30, mapId: "bamboo_frontier", position: [205, 160] },
   { kind: "fire_dragon", chapter: 2, recommendedLevel: 40, mapId: "mushroom_glen", position: [-255, -120] },
   { kind: "red_dragon", chapter: 3, recommendedLevel: 55, mapId: "toxic_swamp", position: [265, -160] },
   { kind: "laser_dragon", chapter: 4, recommendedLevel: 75, mapId: "mountain_ridge", position: [240, 210] },

@@ -180,7 +180,8 @@ export function predatorStatsForMonster(id: MonsterId, fallbackKind: PredatorKin
     hp: Math.max(base.hp, scaled.hp),
     attackDamage: Math.max(base.attackDamage, scaled.attackDamage),
     aggroRange: Math.min(28, Math.max(base.aggroRange, 8 + def.level * 0.12)),
-    speed: Math.min(base.speed + def.level / 140, base.speed * 1.18),
+    // 레벨이 오를수록 추격이 빨라진다 — 상한 6.2 는 걷기(7)보다 느려서 도주는 항상 가능
+    speed: Math.min(base.speed * (1 + def.level * 0.02), 6.2),
     cooldown: Math.max(0.72, base.cooldown - def.level / 300),
   };
   return def.statsOverride ? { ...result, ...def.statsOverride } : result;

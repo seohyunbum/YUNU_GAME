@@ -243,8 +243,8 @@ try {
     assert(bossLockMessage("dragon", 0) === null, "unlocked boss should have no lock message");
     const fireLock = bossLockMessage("fire_dragon", 0);
     assert(typeof fireLock === "string" && fireLock.includes("봉인"), "sealed boss should explain the seal");
-    assert(nextBossTarget(0)?.kind === "dragon" && nextBossTarget(0)?.recommendedLevel === 20, "chapter 0 target should be the first dragon at level 20");
-    assert(nextBossTarget(0)?.mapId === "dragon_plains", "first chapter boss should live in the dragon plains");
+    assert(nextBossTarget(0)?.kind === "dragon" && nextBossTarget(0)?.recommendedLevel === 30, "chapter 0 target should be the first dragon at level 30");
+    assert(nextBossTarget(0)?.mapId === "bamboo_frontier", "first chapter boss should live in the bamboo frontier (def 50 needs ~Lv30 gear)");
 
     let chapter = 0;
     const offTarget = applyBossDefeat(chapter, "immortal");
@@ -386,6 +386,10 @@ try {
     const viper = predatorStatsForMonster("viper");
     assert(viper.hp === 45 && viper.attackDamage === 8, `viper should keep designed stats (hp ${viper.hp}, atk ${viper.attackDamage})`);
     assert(hound.speed > 0 && hound.cooldown > 0 && viper.strikeRange > 0, "overridden monsters should inherit remaining kind stats");
+    // 추격 속도 레벨 스케일: 고레벨일수록 빠르고, 상한 6.2 는 걷기(7)보다 느려 도주 가능
+    assert(predatorStatsForMonster("red_wolf").speed > predatorStatsForMonster("wolf").speed * 1.1, "higher-level variants should chase faster");
+    assert(predatorStatsForMonster("wraith").speed <= 6.2 && predatorStatsForMonster("ice_spider").speed <= 6.2, "chase speed must cap below player walk speed");
+    assert(predatorStatsForMonster("frost_wolf").speed === 6.2, "Lv100 monsters should hit the speed cap");
   }
 
   {
