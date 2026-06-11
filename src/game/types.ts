@@ -1,8 +1,8 @@
 import * as THREE from "three";
 
 export type ItemId = string;
-export type TerrainKind = "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp" | "lava";
-export type BiomeKind = "bamboo" | "mountain" | "mushroom" | "swamp" | "snow" | "lava" | "graveyard";
+export type TerrainKind = "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp" | "lava" | "savanna";
+export type BiomeKind = "bamboo" | "mountain" | "mushroom" | "swamp" | "snow" | "lava" | "graveyard" | "savanna" | "flower";
 export type GuardMode = "melee" | "ranged";
 export type AnimalKind = "horse" | "cow" | "pig" | "chicken";
 export type PredatorKind = "wolf" | "lion" | "spider" | "boar" | "snake" | "bat" | "scorpion" | "bear" | "zombie" | "ghost" | "drake";

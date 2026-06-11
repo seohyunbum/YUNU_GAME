@@ -20,6 +20,8 @@ export function createBiomeDecor(context: BiomeDecorContext) {
     if (biome.kind === "mountain") createMountainBiomeDecor(context, biome);
     if (biome.kind === "lava") createLavaBiome(context, biome);
     if (biome.kind === "graveyard") createGraveyardBiome(context, biome);
+    if (biome.kind === "savanna") createSavannaBiome(context, biome);
+    if (biome.kind === "flower") createFlowerBiome(context, biome);
   }
 }
 
@@ -378,5 +380,99 @@ function createLavaBiome(context: BiomeDecorContext, biome: BiomeConfig) {
   finalizeInstances(poolMesh, rimMesh, rockMesh, emberMesh);
   group.add(rimMesh, poolMesh, rockMesh, emberMesh);
   markBiomeDistanceCull(group, biome);
+  context.addBiomeMesh(group);
+}
+
+// 사바나(용용 평원) — 마른 풀 군락, 바위 첨탑, 알을 품은 용 둥지와 흩어진 뼈.
+function createSavannaBiome(context: BiomeDecorContext, biome: BiomeConfig) {
+  const group = new THREE.Group();
+  const tuftCount = 240;
+  const tuftMesh = new THREE.InstancedMesh(
+    new THREE.ConeGeometry(0.34, 1.5, 5),
+    gameMaterial(0xd2b15a, { roughness: 0.92 }),
+    tuftCount,
+  );
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < tuftCount; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.95);
+    dummy.position.set(point.x, point.y + 0.55, point.z);
+    dummy.rotation.set(THREE.MathUtils.randFloatSpread(0.24), THREE.MathUtils.randFloat(0, Math.PI * 2), THREE.MathUtils.randFloatSpread(0.24));
+    dummy.scale.set(THREE.MathUtils.randFloat(0.7, 1.5), THREE.MathUtils.randFloat(0.6, 1.45), THREE.MathUtils.randFloat(0.7, 1.5));
+    dummy.updateMatrix();
+    tuftMesh.setMatrixAt(i, dummy.matrix);
+  }
+  group.add(tuftMesh);
+
+  const spireMaterial = gameMaterial(0xb08a52, { roughness: 0.88 });
+  for (let i = 0; i < 4; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.8);
+    const height = THREE.MathUtils.randFloat(4.5, 9);
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(THREE.MathUtils.randFloat(1.1, 1.9), height, 6), spireMaterial);
+    spire.position.set(point.x, point.y + height / 2 - 0.4, point.z);
+    spire.rotation.y = Math.random() * Math.PI;
+    group.add(spire);
+  }
+
+  const nestMaterial = gameMaterial(0x8a6a3c, { roughness: 0.9 });
+  const eggMaterial = gameMaterial(0xf5ead2, { roughness: 0.55 });
+  for (let i = 0; i < 3; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.7);
+    const nest = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.32, 8, 14), nestMaterial);
+    nest.rotation.x = Math.PI / 2;
+    nest.position.set(point.x, point.y + 0.26, point.z);
+    group.add(nest);
+    for (let egg = 0; egg < 3; egg += 1) {
+      const eggMesh = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), eggMaterial);
+      eggMesh.scale.y = 1.3;
+      eggMesh.position.set(point.x + THREE.MathUtils.randFloatSpread(1.0), point.y + 0.42, point.z + THREE.MathUtils.randFloatSpread(1.0));
+      group.add(eggMesh);
+    }
+  }
+
+  const boneMaterial = gameMaterial(0xe7e2d4, { roughness: 0.7 });
+  for (let i = 0; i < 8; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.92);
+    const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, THREE.MathUtils.randFloat(1.2, 2.4), 6), boneMaterial);
+    bone.rotation.set(Math.PI / 2 + THREE.MathUtils.randFloatSpread(0.4), THREE.MathUtils.randFloat(0, Math.PI * 2), 0);
+    bone.position.set(point.x, point.y + 0.12, point.z);
+    group.add(bone);
+  }
+  context.addBiomeMesh(group);
+}
+
+// 꽃밭(시작 초원) — 알록달록한 꽃 무리. 줄기 + 색깔별 꽃송이 인스턴스.
+function createFlowerBiome(context: BiomeDecorContext, biome: BiomeConfig) {
+  const group = new THREE.Group();
+  const count = 220;
+  const stemMesh = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.03, 0.04, 0.55, 5),
+    gameMaterial(0x3f7d2c, { roughness: 0.85 }),
+    count,
+  );
+  const petalColors = [0xf472b6, 0xfbbf24, 0xf87171, 0xa78bfa, 0xffffff];
+  const petalMeshes = petalColors.map(
+    (color) => new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 8, 6), gameMaterial(color, { roughness: 0.55 }), Math.ceil(count / petalColors.length)),
+  );
+  const petalIndex = petalColors.map(() => 0);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < count; i += 1) {
+    const point = randomDryBiomePoint(context, biome, 0.95);
+    dummy.position.set(point.x, point.y + 0.28, point.z);
+    dummy.rotation.set(0, 0, THREE.MathUtils.randFloatSpread(0.2));
+    dummy.scale.set(1, THREE.MathUtils.randFloat(0.8, 1.3), 1);
+    dummy.updateMatrix();
+    stemMesh.setMatrixAt(i, dummy.matrix);
+    const colorSlot = i % petalColors.length;
+    dummy.position.y = point.y + 0.62;
+    dummy.scale.setScalar(THREE.MathUtils.randFloat(0.8, 1.35));
+    dummy.updateMatrix();
+    petalMeshes[colorSlot].setMatrixAt(petalIndex[colorSlot], dummy.matrix);
+    petalIndex[colorSlot] += 1;
+  }
+  petalMeshes.forEach((mesh, slot) => {
+    mesh.count = petalIndex[slot];
+    group.add(mesh);
+  });
+  group.add(stemMesh);
   context.addBiomeMesh(group);
 }

@@ -513,6 +513,9 @@ async function inspectNewSystems(page) {
   const armorMatch = statsDetail.match(/장비 방어 (\d+)/);
   systems.tankerShieldArmorApplied = armorMatch !== null && Number(armorMatch[1]) >= 5;
 
+  // 주간 하늘 기준점은 무드 없는 시작 초원에서 잰다 (용의 땅은 이제 화산 무드)
+  systems.daySkyBrightness = await sampleSkyBrightness(page);
+
   await page.keyboard.press("KeyM");
   await page.waitForTimeout(300);
   systems.mapPanelOpens = (await page.locator(".map-panel").count()) === 1;
@@ -526,7 +529,6 @@ async function inspectNewSystems(page) {
   const sealedBossBar = (await page.locator(".boss-bar").textContent()) ?? "";
   systems.bossSealedMarked = sealedBossBar.includes("파이어 드래곤") && sealedBossBar.includes("봉인됨");
   systems.chapterObjectiveShown = ((await page.locator(".objective").textContent()) ?? "").includes("챕터 1/6");
-  systems.daySkyBrightness = await sampleSkyBrightness(page);
   // 3자리 레벨은 카드 안에 맞게 축소된 글꼴 클래스를 받아야 한다
   systems.levelCardCompact = (await page.locator(".stats-level-card strong.lv-digits-3").count()) === 1;
   // 지역 지도에 보스 위치 마커가 떠야 한다 (봉인 상태 포함)

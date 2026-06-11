@@ -12,7 +12,7 @@ interface TimeOfDayStop {
   fogFar: number;
 }
 
-export type TimeOfDayMood = "default" | "graveyard";
+export type TimeOfDayMood = "default" | "graveyard" | "swamp" | "snowfield" | "volcanic" | "duskPurple" | "savanna" | "freshGreen" | "crisp";
 
 export function timeOfDayName(hour: number) {
   if (hour < 4.5) return "밤";
@@ -66,6 +66,47 @@ const fallbackFog = new THREE.Fog(0xaed8ff, 70, 460);
 const graveyardSkyColor = new THREE.Color();
 const graveyardFogColor = new THREE.Color();
 
+interface MoodTint {
+  sky: number;
+  fog: number;
+  skyBlend: number;
+  fogBlend: number;
+  cloudBlend: number;
+  ambient: number;
+  sun: number;
+  fogFarScale: number;
+  fogFarCap?: number;
+  hideSky?: boolean;
+}
+
+// 맵별 하늘/안개 무드 — 이름값을 하는 풍경의 절반은 하늘이 만든다.
+const MOOD_TINTS: Record<Exclude<TimeOfDayMood, "default">, MoodTint> = {
+  graveyard: { sky: 0x39412f, fog: 0x2c3327, skyBlend: 0.72, fogBlend: 0.78, cloudBlend: 0.55, ambient: 0.62, sun: 0.45, fogFarScale: 0.55, fogFarCap: 240, hideSky: true },
+  swamp: { sky: 0x515f35, fog: 0x46522f, skyBlend: 0.78, fogBlend: 0.82, cloudBlend: 0.6, ambient: 0.74, sun: 0.62, fogFarScale: 0.55, fogFarCap: 230, hideSky: true },
+  snowfield: { sky: 0xdfe9f2, fog: 0xe3ecf4, skyBlend: 0.38, fogBlend: 0.5, cloudBlend: 0.3, ambient: 1.12, sun: 1.05, fogFarScale: 0.85 },
+  volcanic: { sky: 0x8c2f15, fog: 0x6e2812, skyBlend: 0.72, fogBlend: 0.76, cloudBlend: 0.6, ambient: 0.88, sun: 0.8, fogFarScale: 0.62, fogFarCap: 290, hideSky: true },
+  duskPurple: { sky: 0x6e5694, fog: 0x5e4d80, skyBlend: 0.55, fogBlend: 0.6, cloudBlend: 0.45, ambient: 0.92, sun: 0.85, fogFarScale: 0.78, hideSky: true },
+  savanna: { sky: 0xf3c87e, fog: 0xe8c08a, skyBlend: 0.28, fogBlend: 0.3, cloudBlend: 0.25, ambient: 1.05, sun: 1.05, fogFarScale: 1 },
+  freshGreen: { sky: 0xbfe6b1, fog: 0xcfe9c4, skyBlend: 0.22, fogBlend: 0.25, cloudBlend: 0.2, ambient: 1.04, sun: 1, fogFarScale: 1.05 },
+  crisp: { sky: 0xa9c8de, fog: 0xbcd4e4, skyBlend: 0.2, fogBlend: 0.25, cloudBlend: 0.15, ambient: 1, sun: 1.05, fogFarScale: 1.1 },
+};
+
+// 맵 id → 무드. 등록 안 된 맵(시작 초원)은 기본 하늘.
+const MOOD_BY_MAP: Record<string, TimeOfDayMood> = {
+  graveyard: "graveyard",
+  toxic_swamp: "swamp",
+  snowfield: "snowfield",
+  dragon_lands: "volcanic",
+  mushroom_glen: "duskPurple",
+  dragon_plains: "savanna",
+  bamboo_frontier: "freshGreen",
+  mountain_ridge: "crisp",
+};
+
+export function moodForWorldMap(worldMapId: string): TimeOfDayMood {
+  return MOOD_BY_MAP[worldMapId] ?? "default";
+}
+
 export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   const nextIndex = TIME_OF_DAY_STOPS.findIndex((stop) => context.hour <= stop.hour);
   const after = TIME_OF_DAY_STOPS[Math.max(1, nextIndex)];
@@ -80,14 +121,14 @@ export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   let ambientScaled = ambientIntensity;
   let sunIntensity = THREE.MathUtils.lerp(before.sun, after.sun, t);
   let fogFar = THREE.MathUtils.lerp(before.fogFar, after.fogFar, t);
-  if (context.mood === "graveyard") {
-    // 공동묘지 — 한낮에도 어스름한 회녹색 하늘과 짙은 안개
-    skyColor.lerp(graveyardSkyColor.setHex(0x39412f), 0.72);
-    fogColor.lerp(graveyardFogColor.setHex(0x2c3327), 0.78);
-    cloudColor.lerp(graveyardFogColor, 0.55);
-    ambientScaled = ambientIntensity * 0.62;
-    sunIntensity *= 0.45;
-    fogFar = Math.min(fogFar * 0.55, 240);
+  const tint = context.mood && context.mood !== "default" ? MOOD_TINTS[context.mood] : null;
+  if (tint) {
+    skyColor.lerp(graveyardSkyColor.setHex(tint.sky), tint.skyBlend);
+    fogColor.lerp(graveyardFogColor.setHex(tint.fog), tint.fogBlend);
+    cloudColor.lerp(graveyardFogColor, tint.cloudBlend);
+    ambientScaled = ambientIntensity * tint.ambient;
+    sunIntensity *= tint.sun;
+    fogFar = Math.min(fogFar * tint.fogFarScale, tint.fogFarCap ?? Number.POSITIVE_INFINITY);
   }
 
   context.scene.background = skyColor;
@@ -95,7 +136,7 @@ export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   context.scene.fog.color.copy(fogColor);
   context.scene.fog.near = 70;
   context.scene.fog.far = fogFar;
-  context.sky.visible = context.mood !== "graveyard"; // 묘지는 하늘 돔을 끄고 음산한 배경색을 그대로 드러낸다
+  context.sky.visible = !tint?.hideSky; // 짙은 무드(묘지 등)는 하늘 돔을 끄고 배경색을 그대로 드러낸다
   context.ambientLight.intensity = ambientScaled;
   context.ambientLight.color.copy(ambientColor.setHex(0xeaf7ff).lerp(skyColor, 0.24));
   context.ambientLight.groundColor.copy(groundColor.setHex(0x39542c).lerp(fogColor, 0.22));

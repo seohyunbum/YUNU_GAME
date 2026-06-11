@@ -239,7 +239,7 @@ import { renderTrainingPanel as renderTrainingPanelView } from "./ui/trainingPan
 import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, updateSecondSkillEffects, useSecondClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext } from "./game/classSkills";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
-import { BIOME_TERRAIN_PLANS, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
+import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
   ARMOR_VALUE,
   AXE_POWER,
@@ -310,7 +310,7 @@ import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbench
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
 import { eagleSkillStatus as formatEagleSkillStatus, possessedEagleDamage, tryEagleClaw, tryEagleWindCutter, type EagleActionContext } from "./game/eaglePossession";
-import { applyOverworldTimeOfDay, gameClockText, timeOfDayName } from "./game/timeOfDay";
+import { applyOverworldTimeOfDay, gameClockText, timeOfDayName, moodForWorldMap } from "./game/timeOfDay";
 import "./style.css";
 
 class WildernessGame {
@@ -947,7 +947,7 @@ class WildernessGame {
 
   private applyTimeOfDay() {
     if (this.locationMode !== "overworld") return;
-    applyOverworldTimeOfDay({ hour: this.gameHour(), scene: this.scene, sky: this.sky, ambientLight: this.ambientLight, sunLight: this.sunLight, fillLight: this.fillLight, moonLight: this.moonLight, cloudLayer: this.cloudLayer, sunPosition: this.sunPosition, mood: this.currentWorldMapId === "graveyard" ? "graveyard" : "default" });
+    applyOverworldTimeOfDay({ hour: this.gameHour(), scene: this.scene, sky: this.sky, ambientLight: this.ambientLight, sunLight: this.sunLight, fillLight: this.fillLight, moonLight: this.moonLight, cloudLayer: this.cloudLayer, sunPosition: this.sunPosition, mood: moodForWorldMap(this.currentWorldMapId) });
   }
 
   private gameHour() {
@@ -7645,35 +7645,18 @@ class WildernessGame {
   ) {
     if (!allowPriorityOverlap && this.isPriorityTerrainReserved(position, radius, terrainKind)) return null;
     const group = new THREE.Group();
-    const colorByTerrain: Record<TerrainKind, number> = {
-      grass: 0x4f8f49,
-      dirt: 0x8a5a32,
-      stone: 0x7d858b,
-      ore: 0x5c6670,
-      snow: 0xdcecf1,
-      swamp: 0x4f6b52,
-      lava: 0xe64a19,
-    };
-    const nameByTerrain: Record<string, string> = {
-      grass: "잔디 지형",
-      dirt: "흙 지역",
-      stone: "돌 지형",
-      ore: "광석 지형",
-      snow: "눈 지형",
-      swamp: "늪 흙",
-    };
-    nameByTerrain.lava = "용암 지대";
+
     const patch = new THREE.Mesh(
       new THREE.CylinderGeometry(radius, radius, 0.16, 24),
       new THREE.MeshStandardMaterial({
-        color: colorByTerrain[terrainKind],
+        color: TERRAIN_COLORS[terrainKind],
         roughness: terrainKind === "lava" ? 0.42 : 1,
         emissive: terrainKind === "lava" ? 0xff3d00 : 0x000000,
         emissiveIntensity: terrainKind === "lava" ? 0.72 : 0,
       }),
     );
     patch.userData.digSurface = true;
-    patch.position.y = 0.05;
+    patch.position.y = 0.14; // 지면 ripple(±0.135) 위로 — 잔디가 패치를 뚫고 올라오는 z-경합 방지
     const hole = new THREE.Mesh(
       new THREE.CylinderGeometry(radius * 0.36, radius * 0.44, 0.12, 20),
       new THREE.MeshStandardMaterial({ color: 0x2f241c, roughness: 1 }),
@@ -7683,7 +7666,7 @@ class WildernessGame {
     hole.visible = false;
     group.add(patch, hole);
     group.position.copy(position);
-    const object = this.addWorldObject(objectType, nameByTerrain[terrainKind], group, {
+    const object = this.addWorldObject(objectType, TERRAIN_NAMES[terrainKind], group, {
       digDepth: 0,
       maxDigDepth: requiresPickaxe ? 4 : 3,
       terrainKind,
@@ -7706,8 +7689,9 @@ class WildernessGame {
       stone: 0x7d858b,
       ore: 0x5c6670,
       snow: 0xdcecf1,
-      swamp: 0x4f6b52,
+      swamp: 0x6f6a3d,
       lava: 0xe64a19,
+      savanna: 0xc9a753,
     };
     const midColors: Record<TerrainKind, number> = {
       grass: 0x73512f,
@@ -7717,6 +7701,7 @@ class WildernessGame {
       snow: 0xb6c9cf,
       swamp: 0x59633f,
       lava: 0x9f2d15,
+      savanna: 0x9b7c3a,
     };
     const color = depth >= maxDepth ? 0x777b80 : depth > 0 ? midColors[kind] : baseColors[kind];
     target.root.traverse((child) => {
