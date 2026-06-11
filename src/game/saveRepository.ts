@@ -189,10 +189,11 @@ export async function writeSaveSlots(slots: SaveSlot[], storage = localStorage) 
   const stored: StoredSaveSlot[] = [];
   for (const slot of trimmed) {
     const packed = slot.packed ?? (slot.save ? await packSaveData(slot.save) : null);
+    const description = slot.description ?? (slot.save ? saveSummary(slot.save) : undefined);
     stored.push(
       packed
-        ? { id: slot.id, savedAt: slot.savedAt, label: slot.label, description: slot.description, packed }
-        : { id: slot.id, savedAt: slot.savedAt, label: slot.label, description: slot.description, save: slot.save },
+        ? { id: slot.id, savedAt: slot.savedAt, label: slot.label, description, packed }
+        : { id: slot.id, savedAt: slot.savedAt, label: slot.label, description, save: slot.save },
     );
   }
   let lastError: unknown = null;
@@ -214,5 +215,14 @@ export function saveSummary(save: SavedGame) {
   const location = save.player.locationMode === "cave" ? "동굴" : save.player.locationMode === "house" ? "집 안" : "야생";
   const className = PLAYER_CLASSES[save.player.playerClass ?? "warrior"]?.name ?? "전사";
   const filledSlots = [...save.player.hotbar, ...save.player.bagSlots].filter((slot) => slot.item && slot.count > 0).length;
-  return `${className} · Lv ${save.player.level} · 체력 ${save.player.health}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${timeOfDayName(hour)} ${gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
+  return `${className} · Lv ${save.player.level} · 체력 ${Math.ceil(save.player.health)}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${timeOfDayName(hour)} ${gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
+}
+
+// 요약(description)이 없는 구버전 압축 슬롯: 해제해서 요약을 만들고, 다음을 위해 저장까지 해 둔다.
+export async function backfillSlotDescription(slot: SaveSlot, migrate: (save: PartialSavedGame) => SavedGame, allSlots: SaveSlot[], storage = localStorage): Promise<string | null> {
+  const save = await resolveSlotSaveOrNull(slot);
+  if (!save) return null;
+  const summary = saveSummary(migrate(save));
+  void writeSaveSlots(allSlots.map((candidate) => (candidate.id === slot.id ? { ...candidate, description: summary } : candidate)), storage).catch(() => {});
+  return summary;
 }

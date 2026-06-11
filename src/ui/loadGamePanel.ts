@@ -2,6 +2,8 @@ export interface LoadGameSlotView {
   id: string;
   label: string;
   summary: string;
+  // 요약이 없는 구버전 압축 슬롯 — 렌더 후 비동기로 요약을 채워 넣는다
+  needsSummary?: boolean;
   objectCount?: number;
   mountainCount?: number;
 }
@@ -12,6 +14,7 @@ export interface LoadGamePanelCallbacks {
   // 파일 백업 — 브라우저 데이터가 지워져도 진행을 지킬 수 있게 한다
   onExportSave: () => Promise<object | null>;
   onImportSave: (save: object) => void;
+  onResolveSummary?: (slotId: string) => Promise<string | null>;
 }
 
 // 마지막 불러오기 실패 사유 — 패널이 다시 열릴 때 빨간 배너로 보여준다 (타이틀 화면에선 HUD 메시지가 가려지기 때문)
@@ -68,7 +71,7 @@ export function renderLoadGamePanel(
                     (slot, index) => `<article class="save-card">
                       <div>
                         <strong>${index === 0 ? "최근 저장" : `저장 ${index + 1}`} · ${escapeHtml(slot.label)}</strong>
-                        <p>${escapeHtml(slot.summary)}</p>
+                        <p data-slot-summary="${index}">${escapeHtml(slot.needsSummary ? "요약 불러오는 중…" : slot.summary)}</p>
                         ${slot.objectCount !== undefined ? `<small>저장된 오브젝트 ${slot.objectCount}개 · 지형 ${slot.mountainCount ?? 0}개</small>` : ""}
                       </div>
                       <button data-load-slot-index="${index}">불러오기</button>
@@ -93,6 +96,13 @@ export function renderLoadGamePanel(
     const file = importInput.files?.[0];
     if (!file) return;
     void file.text().then((text) => callbacks.onImportSave(JSON.parse(text) as object));
+  });
+  saves.forEach((slot, index) => {
+    if (!slot.needsSummary || !callbacks.onResolveSummary) return;
+    void callbacks.onResolveSummary(slot.id).then((summary) => {
+      const summaryEl = panelEl.querySelector(`[data-slot-summary="${index}"]`);
+      if (summaryEl && summary) summaryEl.textContent = summary;
+    });
   });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-load-slot-index]").forEach((button) => {
     button.addEventListener("click", () => {

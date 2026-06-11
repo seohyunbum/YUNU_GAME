@@ -294,6 +294,7 @@ import {
   formatSaveDate,
   readSaveSlots as readRepositorySaveSlots,
   resolveSlotSaveOrNull as resolveRepositorySlotSaveOrNull,
+  backfillSlotDescription,
   writeLatestSave as writeLatestSaveInRepository,
   persistLatestSaveQuietly,
   writeSaveSlots as writeRepositorySaveSlots,
@@ -451,6 +452,7 @@ class WildernessGame {
   private secondSkillCooldownUntil = 0;
   private readonly skillBuffs = createSkillBuffs();
   private currentTrainingKind: TrainingKind = "hp";
+  private lastObjectiveReady = false;
   private trainingStats = createTrainingStats();
   private healItemCooldownUntil = 0;
   private possessedEagleId: string | null = null; private eaglePossessionEndsAt = 0;
@@ -2808,11 +2810,7 @@ class WildernessGame {
   }
 
   private useSecondSkill() {
-    if (!this.gameStarted || this.currentPanel !== null) return;
-    if (this.possessedEagleId) {
-      this.showMessage("빙의 중에는 두 번째 스킬을 쓸 수 없습니다. X로 빙의를 해제하세요.");
-      return;
-    }
+    if (!this.gameStarted || this.currentPanel !== null) return;    if (this.possessedEagleId) { this.showMessage("빙의 중에는 두 번째 스킬을 쓸 수 없습니다. X로 빙의를 해제하세요."); return; }
     useSecondClassSkill(this.secondSkillContext);
   }
 
@@ -3875,8 +3873,7 @@ class WildernessGame {
     }
     if (target.type === "trainingRig") {
       if (this.level < TRAINING_MIN_LEVEL) this.showMessage(`훈련장은 레벨 ${TRAINING_MIN_LEVEL}부터 이용할 수 있습니다. (현재 ${this.level})`);
-      else { this.currentTrainingKind = target.trainingKind ?? "hp"; this.openPanel("training"); }
-      return;
+      else { this.currentTrainingKind = target.trainingKind ?? "hp"; this.openPanel("training"); } return;
     }
     if (target.type === "homeSupply") {
       this.claimHomeSupply();
@@ -6048,6 +6045,8 @@ class WildernessGame {
     const statBonus = this.levelStatBonus();
     const attack = this.displayedAttackPower();
     const healthValue = Math.max(0, Math.ceil(this.health));
+    const objectiveView = this.currentObjectiveView(); // 보상 대기 전환 감지용 스냅샷
+    if (objectiveView.completed && !this.lastObjectiveReady) { this.playTone(988, 0.1, "triangle", 0.032); this.playTone(1319, 0.16, "triangle", 0.028); } this.lastObjectiveReady = objectiveView.completed;
     const manaValue = Math.floor(this.mana);
     const hour = this.gameHour();
     const playerClass = PLAYER_CLASSES[this.playerClass];
@@ -6094,7 +6093,7 @@ class WildernessGame {
         locationLabel: this.locationMode === "cave" ? "동굴" : this.locationMode === "house" ? "집 안" : "야생",
         arcadePoints: this.arcadePoints,
         totalSteps: this.totalSteps,
-        objective: this.currentObjectiveView(),
+        objective: objectiveView,
         selectedHotbarIndex: this.selectedHotbarIndex,
         hotbar: this.hotbar.map((slot) => ({
           label: slot.item ? `${shortName(slot.item)} ${slot.count}` : "",
@@ -6563,6 +6562,7 @@ class WildernessGame {
         id: slot.id,
         label: slot.label,
         summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label,
+        needsSummary: !slot.save && !slot.description,
         objectCount: slot.save?.objects.length,
         mountainCount: slot.save?.mountains.length,
       })),
@@ -6571,6 +6571,7 @@ class WildernessGame {
         onLoad: (slotId) => this.loadSaveSlot(slotId),
         onExportSave: () => this.exportSaveData(),
         onImportSave: (save) => void this.applyLoadedSave(save as PartialSavedGame, "세이브 파일을 가져왔습니다."),
+        onResolveSummary: async (slotId) => { const slots = this.readSaveSlots(); const slot = slots.find((candidate) => candidate.id === slotId); return slot ? backfillSlotDescription(slot, (save) => migratePartialSaveData(save), slots) : null; },
       },
     );
   }
