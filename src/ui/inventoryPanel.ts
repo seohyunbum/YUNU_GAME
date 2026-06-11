@@ -20,7 +20,7 @@ export interface HouseBuildOptionView {
   id: string;
   name: string;
   description: string;
-  ingredientsLabel: string;
+  ingredients: { label: string; short: boolean }[];
   canBuild: boolean;
 }
 
@@ -30,7 +30,7 @@ export interface InventoryRecipeGuideView {
   stationKey?: string;
   station: string;
   outputLabel: string;
-  ingredientsLabel: string;
+  ingredients: { label: string; short: boolean }[];
   note: string;
   canMake: boolean;
   searchText: string;
@@ -106,13 +106,18 @@ function renderMaterialButton(material: InventoryMaterialView, index: number) {
         </button>`;
 }
 
+// 부족한 재료는 빨간 "보유/필요" 로 — 클릭해보지 않아도 뭐가 몇 개 모자란지 보인다
+function renderIngredientCounts(ingredients: { label: string; short: boolean }[]) {
+  return ingredients.map((entry) => `<span${entry.short ? ' class="ing-short"' : ""}>${escapeHtml(entry.label)}</span>`).join(" + ");
+}
+
 function renderHouseBuildOption(option: HouseBuildOptionView) {
   const disabled = option.canBuild ? "" : "disabled";
   return `<article class="recipe-card house-build-card">
         <div>
           <strong>${escapeHtml(option.name)}</strong>
           <p>${escapeHtml(option.description)}</p>
-          <small>${escapeHtml(option.ingredientsLabel)}</small>
+          <small>${renderIngredientCounts(option.ingredients)}</small>
         </div>
         <button data-build-house="${escapeAttr(option.id)}" ${disabled}>집짓기</button>
       </article>`;
@@ -125,7 +130,7 @@ function renderRecipeGuideCard(recipe: InventoryRecipeGuideView) {
         <div>
           <strong>${escapeHtml(recipe.name)}</strong>
           <p>${escapeHtml(recipe.station)} · 결과: ${escapeHtml(recipe.outputLabel)}</p>
-          <small>재료: ${escapeHtml(recipe.ingredientsLabel)}</small>
+          <small>재료: ${renderIngredientCounts(recipe.ingredients)}</small>
           <small>${escapeHtml(recipe.note)}</small>
         </div>
         <button class="recipe-guide-status" data-craft-guide="${escapeAttr(recipe.id)}" ${recipe.canMake ? "" : "disabled"}>${status}</button>

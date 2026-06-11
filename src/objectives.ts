@@ -32,6 +32,8 @@ export interface ObjectiveSnapshot {
   classWeaponCount: number;
   hasBasicArmor: boolean;
   hasSmelter: boolean;
+  trainingTotal: number;
+  trainingKindsDone: number;
   bossChapter: number;
   fieldBossQuest: FieldBossQuestView | null;
   completedStepIds: readonly string[];
@@ -102,7 +104,7 @@ function checkQuest(id: string, done: (snapshot: ObjectiveSnapshot) => boolean, 
 
 const SHOVEL_ITEMS: ItemId[] = ["wood_shovel", "stone_shovel", "copper_shovel", "iron_shovel", "gold_shovel", "diamond_shovel"];
 
-// 23단계 초보자 가이드 — 이동·채집·제작·사냥·광질·동굴·제련·전투·회복·지도·저장·마을·성장·직업무기 순.
+// 25단계 초보자 가이드 — 이동·채집·제작·사냥·광질·동굴·제련·전투·회복·지도·저장·마을·성장·직업무기 순.
 export const TUTORIAL_STEPS: readonly TutorialStep[] = [
   // ── 1장. 첫걸음 ──
   countQuest("first_steps", 50, (s) => s.totalSteps, "주변을 50걸음 걸어보기", "WASD로 움직이고 마우스로 시점을 돌립니다. Space로 점프, Shift+W로 달릴 수 있습니다. 가볍게 주변을 둘러보세요.", { experience: 12, items: { meat: 1 }, label: "경험치 12 + 고기 1개" }),
@@ -152,6 +154,8 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
   checkQuest("save_game", (s) => s.saved, "게임 저장하기", "Ctrl+S 또는 왼쪽 위 저장 버튼으로 진행 상황을 저장하세요. 저장은 5개까지 보관됩니다.", { experience: 300, items: { medkit: 2 }, label: "경험치 300 + 구급상자 2개" }),
   checkQuest("visit_shop", (s) => s.shopOpened, "마을 상점 구경하기", "들판의 마을을 찾아 상점 건물에 들어가 보세요. 미니게임 포인트로 물건을 사고팔 수 있습니다.", { experience: 320, items: { gold: 2 }, label: "경험치 320 + 금 2개" }),
   countQuest("reach_level8", 8, (s) => s.level, "레벨 8 달성하기", "몬스터 사냥과 퀘스트 보상으로 경험치를 모으세요. 레벨이 오를 때마다 체력·공격·방어가 +1씩 늘어납니다.", { experience: 400, items: { iron: 6, gold: 3 }, label: "경험치 400 + 철 6개 + 금 3개" }),
+  countQuest("train_once", 1, (s) => Math.min(1, s.trainingTotal), "훈련장에서 훈련 1번 성공하기", "시작 초원 마을 동쪽의 울타리 훈련장(레벨 10부터)에서 역기들기·과녁맞추기 같은 훈련에 도전하세요. 성공하면 스탯이 영구히 오릅니다!", { experience: 420, items: { medkit: 2 }, label: "경험치 420 + 구급상자 2개" }),
+  countQuest("train_all_kinds", 4, (s) => s.trainingKindsDone, "네 가지 훈련 모두 성공하기", "역기들기(체력)·과녁맞추기(공격)·방패막기(방어)·명상호흡(마나)을 한 번씩 성공해 보세요. 훈련은 할수록 어려워지지만 스탯은 계속 쌓입니다.", { experience: 460, items: { diamond: 1, medkit: 2 }, label: "경험치 460 + 다이아몬드 1개 + 구급상자 2개" }),
   // ── 졸업 과제 ──
   {
     id: "craft_basic_weapon",

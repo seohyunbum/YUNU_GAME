@@ -2140,6 +2140,11 @@ body {
   width: min(920px, 94vw);
 }
 
+.ing-short {
+  color: #fca5a5;
+  font-weight: 800;
+}
+
 .training-panel {
   width: min(760px, 94vw);
 }

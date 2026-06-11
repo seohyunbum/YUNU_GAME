@@ -16,7 +16,7 @@ export interface WorkbenchMaterialView {
 export interface WorkbenchRecipeView {
   id: string;
   name: string;
-  ingredientsLabel: string;
+  ingredients: { label: string; short: boolean }[];
   outputLabel: string;
   note: string;
   canCraft: boolean;
@@ -81,13 +81,17 @@ function renderMaterialButton(material: WorkbenchMaterialView, index: number) {
         </button>`;
 }
 
+function renderIngredientCounts(ingredients: { label: string; short: boolean }[]) {
+  return ingredients.map((entry) => `<span${entry.short ? ' class="ing-short"' : ""}>${escapeHtml(entry.label)}</span>`).join(" + ");
+}
+
 function renderRecipeCard(recipe: WorkbenchRecipeView, index: number) {
   const disabled = recipe.canCraft ? "" : "disabled";
   const readyClass = recipe.canCraft ? " ready" : "";
   return `<article class="recipe-card${readyClass}">
                     <div>
                       <strong>${escapeHtml(recipe.name)}</strong>
-                      <p>${escapeHtml(recipe.ingredientsLabel)} -> ${escapeHtml(recipe.outputLabel)}</p>
+                      <p>${renderIngredientCounts(recipe.ingredients)} -> ${escapeHtml(recipe.outputLabel)}</p>
                       <small>${escapeHtml(recipe.note)}</small>
                     </div>
                     <div class="recipe-actions">

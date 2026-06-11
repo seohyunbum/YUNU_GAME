@@ -279,7 +279,7 @@ import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
-import { buildRecipeGuideEntriesForStations } from "./game/recipeGuide";
+import { buildRecipeGuideEntriesForStations, ingredientCounts } from "./game/recipeGuide";
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
 import { experienceForLevelUps, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
@@ -6152,6 +6152,8 @@ class WildernessGame {
       classWeaponCount: CLASS_WEAPON_QUESTS[this.playerClass].items.reduce((sum, item) => sum + this.countItem(item), 0),
       hasBasicArmor: Boolean(this.equippedArmor) || ["leather_armor", "copper_armor", "iron_armor"].some((item) => this.countItem(item as ItemId) > 0),
       hasSmelter: this.hasWorldObjectType("smelter", "specialSmelter"),
+      trainingTotal: this.trainingStats.hp + this.trainingStats.attack + this.trainingStats.armor + this.trainingStats.mana,
+      trainingKindsDone: [this.trainingStats.hp, this.trainingStats.attack, this.trainingStats.armor, this.trainingStats.mana].filter((count) => count > 0).length,
       bossChapter: this.bossChapter,
       fieldBossQuest: fieldBossQuestFor(this.currentWorldMapId, this.defeatedFieldBosses),
       completedStepIds: this.tutorialProgress.completedStepIds,
@@ -6257,7 +6259,7 @@ class WildernessGame {
           id: option.id,
           name: option.name,
           description: option.description,
-          ingredientsLabel: this.formatItemBundle(option.ingredients),
+          ingredients: ingredientCounts(option.ingredients, itemCounts),
           canBuild: this.hasIngredients(option.ingredients) && this.locationMode === "overworld",
         })),
         recipeGuide: buildRecipeGuideEntriesForStations(itemCounts, ["mini"]),
@@ -6336,9 +6338,7 @@ class WildernessGame {
         recipes: recipes.map((recipe) => ({
           id: recipe.id,
           name: recipe.name,
-          ingredientsLabel: Object.entries(recipe.ingredients)
-            .map(([item, count]) => `${ITEM_NAMES[item] ?? item} ${count}`)
-            .join(" + "),
+          ingredients: ingredientCounts(recipe.ingredients, this.itemCounts()),
           outputLabel: `${ITEM_NAMES[recipe.output] ?? recipe.output} ${recipe.count}`,
           note: recipe.note,
           canCraft: this.canCraft(recipe),

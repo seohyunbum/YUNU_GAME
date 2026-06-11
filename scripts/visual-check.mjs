@@ -418,6 +418,8 @@ const ALL_TUTORIAL_STEP_IDS = [
   "save_game",
   "visit_shop",
   "reach_level8",
+  "train_once",
+  "train_all_kinds",
   "craft_basic_weapon",
 ];
 

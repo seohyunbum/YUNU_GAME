@@ -2,6 +2,19 @@ import { ITEM_NAMES, POWDER_BY_MINERAL, REFINED_BY_RAW } from "./items";
 import { MINI_RECIPES, WORKBENCH_RECIPES } from "./recipes";
 import type { ItemId, Recipe } from "./types";
 
+// 재료 한 줄 표기 — 부족하면 "이름 보유/필요"(예: 나무 87/120), 충분하면 기존 "이름 필요"
+export interface IngredientCountView {
+  label: string;
+  short: boolean;
+}
+
+export function ingredientCounts(ingredients: Record<ItemId, number>, itemCounts: Record<ItemId, number>): IngredientCountView[] {
+  return (Object.entries(ingredients) as [ItemId, number][]).map(([item, need]) => {
+    const have = itemCounts[item] ?? 0;
+    return have >= need ? { label: `${itemName(item)} ${need}`, short: false } : { label: `${itemName(item)} ${have}/${need}`, short: true };
+  });
+}
+
 export interface RecipeGuideEntry {
   id: string;
   name: string;
@@ -9,6 +22,7 @@ export interface RecipeGuideEntry {
   station: string;
   outputLabel: string;
   ingredientsLabel: string;
+  ingredients: IngredientCountView[];
   note: string;
   canMake: boolean;
   searchText: string;
@@ -51,6 +65,7 @@ function recipeEntry(recipe: Recipe, stationKey: RecipeGuideStation, itemCounts:
     station,
     outputLabel,
     ingredientsLabel,
+    ingredients: ingredientCounts(recipe.ingredients, itemCounts),
     note: recipe.note,
     canMake,
     searchText: `${recipe.id} ${recipe.name} ${stationKey} ${station} ${recipe.output} ${outputLabel} ${ingredientsLabel} ${recipe.note}`.toLowerCase(),
