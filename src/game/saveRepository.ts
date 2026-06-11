@@ -76,6 +76,16 @@ export async function resolveSlotSave(slot: SaveSlot): Promise<PartialSavedGame 
   return null;
 }
 
+// 손상된 압축 슬롯에서도 throw 대신 null 을 반환한다 — 호출부가 우아하게 실패하도록.
+export async function resolveSlotSaveOrNull(slot: SaveSlot): Promise<PartialSavedGame | null> {
+  try {
+    return await resolveSlotSave(slot);
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
 export function readSaveSlots({
   migrateSaveData,
   formatSaveDate,

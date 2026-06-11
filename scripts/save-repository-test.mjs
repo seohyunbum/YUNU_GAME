@@ -105,6 +105,16 @@ try {
   const importedSave = migrateSaveData(JSON.parse(exportedFile));
   assert.deepEqual(importedSave, migrateSaveData(resolved), "file export/import roundtrip should preserve the migrated save");
 
+  // 손상된 압축 슬롯: 목록에는 남되 resolveSlotSave 가 reject 해야 한다 — UI 는 이 reject 를 잡아 우아하게 실패한다.
+  storage.setItem(SAVE_LIST_KEY, JSON.stringify([{ id: "slot-bad", savedAt: "2026-02-02T00:00:00.000Z", label: "Corrupt", packed: btoa("NOT_VALID_DEFLATE") }]));
+  const corruptSlot = readSaveSlots({
+    migrateSaveData,
+    formatSaveDate: (savedAt) => `formatted:${savedAt}`,
+    storage,
+  }).find((slot) => slot.id === "slot-bad");
+  assert.ok(corruptSlot, "a corrupt packed slot should still be listed so the UI can show it");
+  await assert.rejects(() => resolveSlotSave(corruptSlot), "resolving a corrupt packed slot must reject so callers can catch it");
+
   storage.setItem(SAVE_LIST_KEY, JSON.stringify([{ save: { version: 999 } }, { id: "slot-a", save }]));
   const recoveredSlots = readSaveSlots({
     migrateSaveData,
@@ -113,7 +123,7 @@ try {
   });
   assert.equal(recoveredSlots.length, 1, "broken slot list entries should be ignored");
 
-  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "broken slot recovery"] }, null, 2));
+  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "corrupt packed slot rejects", "broken slot recovery"] }, null, 2));
 } finally {
   await server.close();
 }

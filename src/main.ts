@@ -292,7 +292,7 @@ import {
   createSaveSlot as createRepositorySaveSlot,
   formatSaveDate,
   readSaveSlots as readRepositorySaveSlots,
-  resolveSlotSave as resolveRepositorySlotSave,
+  resolveSlotSaveOrNull as resolveRepositorySlotSaveOrNull,
   writeJsonStorage as writeRepositoryJsonStorage,
   writeSaveSlots as writeRepositorySaveSlots,
   saveSummary,
@@ -5475,9 +5475,9 @@ class WildernessGame {
 
   private async loadSaveSlot(slotId: string) {
     const slot = this.readSaveSlots().find((candidate) => candidate.id === slotId);
-    const slotSave = slot ? await resolveRepositorySlotSave(slot) : null;
+    const slotSave = slot ? await resolveRepositorySlotSaveOrNull(slot) : null;
     if (!slot || !slotSave) {
-      this.showMessage("선택한 저장 파일을 찾지 못했습니다.");
+      this.showMessage("선택한 저장 파일을 불러오지 못했습니다. 다른 슬롯을 시도해 보세요.");
       this.renderPanel();
       return;
     }
@@ -5517,7 +5517,7 @@ class WildernessGame {
   private async exportSaveData(): Promise<SavedGame | null> {
     if (this.gameStarted) return this.createSaveData();
     const slot = this.readSaveSlots()[0];
-    const save = slot ? await resolveRepositorySlotSave(slot) : null;
+    const save = slot ? await resolveRepositorySlotSaveOrNull(slot) : null;
     if (!save) this.showMessage("내보낼 저장 데이터가 없습니다.");
     return save ? migratePartialSaveData(save) : null;
   }
