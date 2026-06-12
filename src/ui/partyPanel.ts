@@ -1,19 +1,156 @@
-import { normalizePartyCode, PartySession, PARTY_MAX_MEMBERS, type PartyMember } from "../game/party";
+import { createDirectory, filterUsers, type DirectoryUser, type PartyDirectory } from "../game/directory";
+import { beginGuestJoinFlow, hostOnGuestJoined, resetPartyFlow } from "../game/partyFlow";
+import { normalizePartyCode, PartySession, PARTY_MAX_MEMBERS, type PartyEvents, type PartyMember } from "../game/party";
+import { showSocialPopup, showSocialToast } from "./socialPopups";
 
-// 파티 로비 모달 — 방 만들기 / 코드 참가 / 로스터 표시.
-// 3차: 모달을 닫아도 세션은 유지된다(게임 중 동기화). 이벤트 핸들러는 항상
-// "지금 떠 있는" 모달 DOM 을 document 에서 찾아 갱신한다(재오픈 대응).
+// 파티 패널 (4차) — 친구 기반 초대 흐름.
+// 검색 → 유저 목록 → 친구추가 요청(접속 중일 때만) → 상대 팝업 승인 → 친구 →
+// 친구 클릭 → 파티 요청 → 상대 팝업 수락 → 합류(동시 시작 또는 소환).
+// 디렉터리 미설정(배포본에서 Firebase 키 없음)이면 기존 초대 코드 방식만 노출.
 
 let activeSession: PartySession | null = null;
 let lastMembers: PartyMember[] = [];
 let lastStatus = "";
+let directory: PartyDirectory | null = null;
+let directoryReady = false;
+let myNickname = "";
+let knownRosterSize = 1;
+const pendingOutgoingInvites = new Set<string>(); // 내가 보낸 파티 요청 — 교차 초대 감지용
 
 export function currentPartySession() {
   return activeSession;
 }
 
+// 세션별 이벤트 — 어느 세션의 콜백인지 식별해, 옛 세션의 늦은 콜백(특히 onClosed)이
+// 새 파티 상태를 망가뜨리지 않게 한다. bind 전(생성자의 동기 콜백)은 통과시킨다.
+function makeSessionEvents() {
+  let self: PartySession | null = null;
+  const isCurrent = () => self === null || self === activeSession;
+  const events: PartyEvents = {
+    onStatus: (text: string) => {
+      if (isCurrent()) setStatus(text);
+    },
+    onRoster: (members: PartyMember[]) => {
+      if (!isCurrent()) return;
+      lastMembers = members;
+      // 호스트: 새 게스트가 들어왔고 아직 타이틀이면 함께 게임 시작
+      if (activeSession?.role === "host" && members.length > knownRosterSize) {
+        const newest = members[members.length - 1];
+        if (newest && !newest.isHost) {
+          pendingOutgoingInvites.delete(newest.nickname); // 초대를 수락해 들어옴
+          hostOnGuestJoined(newest.nickname);
+        }
+      }
+      knownRosterSize = members.length;
+      renderMembers(members);
+    },
+    onError: (text: string) => {
+      if (isCurrent()) setStatus(text, true);
+    },
+    onClosed: () => {
+      if (!isCurrent()) return;
+      activeSession = null;
+      lastMembers = [];
+      knownRosterSize = 1;
+      pendingOutgoingInvites.clear();
+      resetPartyFlow(); // 잔존 소환 대기 제거 — 다음 파티에서 엉뚱한 소환 방지
+      refreshPanelViews();
+    },
+  };
+  return {
+    events,
+    bind(session: PartySession) {
+      self = session;
+      return session;
+    },
+  };
+}
+
 export function initPartyLobby(getNickname: () => string) {
   document.querySelector("[data-title-party]")?.addEventListener("click", () => openPartyLobby(getNickname()));
+  // 인게임 진입점 — O 키로 파티 패널 토글 (입력창·닉네임 모달 위에서는 무시)
+  document.addEventListener("keydown", (event) => {
+    if (event.code !== "KeyO" || event.repeat) return;
+    const target = event.target;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+    if (document.querySelector(".nickname-overlay")) return;
+    const open = document.querySelector(".party-overlay");
+    if (open) {
+      open.remove();
+      return;
+    }
+    document.exitPointerLock?.();
+    openPartyLobby(getNickname());
+  });
+  // 디렉터리는 패널과 무관하게 항상 연결 — 팝업(친구/파티 요청)을 어디서든 받기 위해
+  void (async () => {
+    const created = await createDirectory();
+    if (!created) return;
+    directory = created;
+    const tryConnect = () => {
+      const nickname = getNickname();
+      if (!nickname) {
+        setTimeout(tryConnect, 500);
+        return;
+      }
+      myNickname = nickname;
+      void created
+        .connect(nickname, {
+          onFriendRequest: (from) =>
+            showSocialPopup({
+              title: "친구 요청",
+              body: `${from} 님이 친구가 되고 싶어 해요!`,
+              acceptLabel: "승인",
+              declineLabel: "거절",
+              onAccept: () => {
+                void created.respondFriendRequest(from, true).then(() => {
+                  showSocialToast(`${from} 님과 친구가 되었어요!`);
+                  refreshPanelViews();
+                });
+              },
+              onDecline: () => void created.respondFriendRequest(from, false),
+            }),
+          onFriendAccepted: (by) => {
+            showSocialToast(`${by} 님이 친구 요청을 승인했어요!`);
+            refreshPanelViews();
+          },
+          onPartyInvite: (from, code) => {
+            // 교차 초대(둘이 동시에 파티 요청) — 닉네임 사전순 작은 쪽 방을 살려 교착을 깬다
+            if (pendingOutgoingInvites.has(from) && activeSession?.role === "host") {
+              if (myNickname < from) {
+                showSocialToast(`${from} 님과 서로 초대했어요 — 상대가 내 파티로 들어옵니다.`);
+                return;
+              }
+              showSocialToast(`${from} 님과 서로 초대했어요 — ${from} 님 파티로 들어갑니다.`);
+              joinInvitedParty(from, code);
+              return;
+            }
+            const leaveNote = activeSession && lastMembers.length > 1 ? " (수락하면 지금 파티에서 나가게 돼요)" : "";
+            showSocialPopup({
+              title: "파티 요청",
+              body: `${from} 님이 파티에 초대했어요!${leaveNote}`,
+              acceptLabel: "수락",
+              declineLabel: "거절",
+              onAccept: () => joinInvitedParty(from, code),
+              onDecline: () => {},
+            });
+          },
+          onUsersChanged: () => refreshPanelViews(),
+          onFriendsChanged: () => refreshPanelViews(),
+        })
+        .then(() => {
+          directoryReady = true;
+          refreshPanelViews();
+        })
+        .catch(() => {
+          // 디렉터리 연결 실패 — 조용히 멈추지 말고 초대 코드 폴백으로 전환
+          directory = null;
+          directoryReady = false;
+          setStatus("온라인 친구 서버에 연결하지 못했어요. 초대 코드로는 함께할 수 있어요.", true);
+        });
+    };
+    tryConnect();
+  })();
 }
 
 function setStatus(text: string, isError = false) {
@@ -25,106 +162,206 @@ function setStatus(text: string, isError = false) {
 }
 
 function renderMembers(members: PartyMember[]) {
-  lastMembers = members;
   const membersEl = document.querySelector<HTMLElement>("[data-party-members]");
   if (!membersEl) return;
   membersEl.innerHTML = members
-    .map((member) => `<li>${member.isHost ? "👑 " : ""}${member.nickname}${member.isHost ? " (방장)" : ""}</li>`)
+    .map((member) => `<li>${member.isHost ? "👑 " : ""}${escapeHtml(member.nickname)}${member.isHost ? " (방장)" : ""}</li>`)
     .join("");
-}
-
-function showRoomView() {
-  const home = document.querySelector<HTMLElement>("[data-party-home]");
   const room = document.querySelector<HTMLElement>("[data-party-room]");
-  if (home) home.hidden = true;
-  if (room) room.hidden = false;
-  const codeLine = document.querySelector<HTMLElement>("[data-party-code-line]");
-  const codeValue = document.querySelector<HTMLElement>("[data-party-code-value]");
-  if (codeLine && codeValue && activeSession?.role === "host") {
-    codeValue.textContent = activeSession.code;
-    codeLine.hidden = false;
-  }
+  if (room) room.hidden = members.length === 0 && !activeSession;
 }
 
-const sessionEvents = {
-  onStatus: (text: string) => setStatus(text),
-  onRoster: (members: PartyMember[]) => renderMembers(members),
-  onError: (text: string) => setStatus(text, true),
-  onClosed: () => {
-    activeSession = null;
-    lastMembers = [];
-    const home = document.querySelector<HTMLElement>("[data-party-home]");
-    const room = document.querySelector<HTMLElement>("[data-party-room]");
-    const codeLine = document.querySelector<HTMLElement>("[data-party-code-line]");
-    const membersEl = document.querySelector<HTMLElement>("[data-party-members]");
-    if (home) home.hidden = false;
-    if (room) room.hidden = true;
-    if (codeLine) codeLine.hidden = true;
-    if (membersEl) membersEl.innerHTML = "";
-  },
-};
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+// 초대 수락 — 새 세션의 welcome 이 확인된 뒤에야 기존 파티를 떠난다 (합류 실패 시 기존 파티 유지)
+function joinInvitedParty(from: string, code: string) {
+  const normalized = normalizePartyCode(code);
+  if (!normalized) return;
+  const previous = activeSession;
+  const scoped = makeSessionEvents();
+  const next = scoped.bind(PartySession.join(normalized, myNickname, scoped.events));
+  next.whenReady().then(
+    () => {
+      activeSession = next;
+      lastMembers = next.members();
+      knownRosterSize = lastMembers.length;
+      pendingOutgoingInvites.clear();
+      previous?.close();
+      beginGuestJoinFlow(from);
+      refreshPanelViews();
+    },
+    () => setStatus(`${from} 님의 파티에 들어가지 못했어요.${previous ? " 기존 파티는 그대로예요." : ""}`, true),
+  );
+}
+
+// 파티 요청 — 세션이 없으면 방을 만들고, 피어 서버에 열린 뒤 초대를 보낸다
+async function requestParty(friend: string) {
+  if (!directory) return;
+  if (activeSession && activeSession.role === "guest") {
+    setStatus("게스트는 파티 초대를 보낼 수 없어요. 방장에게 부탁하세요.", true);
+    return;
+  }
+  if (!activeSession) {
+    const scoped = makeSessionEvents();
+    activeSession = scoped.bind(PartySession.host(myNickname, scoped.events));
+    knownRosterSize = 1;
+  }
+  const session = activeSession;
+  pendingOutgoingInvites.add(friend); // 클릭 즉시 등록 — 교차 초대 감지의 레이스 창을 닫는다
+  setStatus(`${friend} 님에게 파티 요청을 보내는 중…`);
+  try {
+    await session.whenReady();
+  } catch {
+    pendingOutgoingInvites.delete(friend);
+    // 기다리는 동안 다른 파티로 갈아탔다면(교차 초대 합류 등) 내 방이 닫힌 건 정상 — 에러 아님
+    if (activeSession === session) setStatus("파티 방을 여는 데 실패했어요. 잠시 후 다시 시도해 주세요.", true);
+    return;
+  }
+  if (activeSession !== session) return; // 대기 중 파티가 바뀌었으면 죽은 방 코드로 초대하지 않는다
+  const result = await directory.sendPartyInvite(friend, session.code);
+  if (result !== "sent") pendingOutgoingInvites.delete(friend);
+  if (result === "sent") {
+    setStatus(`${friend} 님에게 파티 요청을 보냈어요. 수락을 기다리는 중…`);
+  } else if (result === "offline") setStatus(`${friend} 님이 지금 게임에 접속해 있지 않아 파티 요청을 보낼 수 없어요.`, true);
+  else setStatus("파티 요청을 보내지 못했어요. 잠시 후 다시 시도해 주세요.", true);
+  refreshPanelViews();
+}
+
+async function requestFriend(target: DirectoryUser) {
+  if (!directory) return;
+  if (!target.online) {
+    setStatus(`${target.nickname} 님이 지금 게임에 접속해 있지 않아 친구 요청을 보낼 수 없어요.`, true);
+    return;
+  }
+  const result = await directory.sendFriendRequest(target.nickname);
+  if (result === "sent") setStatus(`${target.nickname} 님에게 친구 요청을 보냈어요!`);
+  else if (result === "offline") setStatus(`${target.nickname} 님이 지금 게임에 접속해 있지 않아 친구 요청을 보낼 수 없어요.`, true);
+  else if (result === "already") setStatus(`${target.nickname} 님과는 이미 친구예요.`);
+  else if (result === "self") setStatus("자기 자신에게는 보낼 수 없어요.", true);
+  else setStatus("친구 요청을 보내지 못했어요. 잠시 후 다시 시도해 주세요.", true);
+}
+
+async function refreshPanelViews() {
+  renderMembers(lastMembers);
+  const friendsEl = document.querySelector<HTMLElement>("[data-friend-list]");
+  const usersEl = document.querySelector<HTMLElement>("[data-user-list]");
+  if (!friendsEl || !usersEl || !directory || !directoryReady) return;
+  const searchValue = document.querySelector<HTMLInputElement>("[data-user-search]")?.value ?? "";
+  const [users, friends] = await Promise.all([directory.listUsers(), directory.listFriends()]);
+  const friendSet = new Set(friends);
+  const onlineByName = new Map(users.map((user) => [user.nickname, user.online]));
+
+  friendsEl.innerHTML =
+    friends.length === 0
+      ? '<li class="party-empty">아직 친구가 없어요. 아래 유저 목록에서 친구를 찾아보세요!</li>'
+      : friends
+          .sort()
+          .map((friend) => {
+            const online = onlineByName.get(friend) ?? false;
+            return `<li class="party-row" data-friend-row="${escapeHtml(friend)}">
+                <span class="presence-dot${online ? " online" : ""}"></span>
+                <span class="party-row-name">${escapeHtml(friend)}</span>
+                <span class="party-row-actions">
+                  <button data-party-request="${escapeHtml(friend)}" ${online ? "" : "disabled"}>파티 요청</button>
+                  <button disabled title="준비 중">귓속말</button>
+                </span>
+              </li>`;
+          })
+          .join("");
+
+  const visible = filterUsers(users, searchValue).filter((user) => !friendSet.has(user.nickname));
+  usersEl.innerHTML =
+    visible.length === 0
+      ? '<li class="party-empty">표시할 유저가 없어요.</li>'
+      : visible
+          .map(
+            (user) => `<li class="party-row">
+              <span class="presence-dot${user.online ? " online" : ""}"></span>
+              <span class="party-row-name">${escapeHtml(user.nickname)}</span>
+              <span class="party-row-actions"><button data-friend-request="${escapeHtml(user.nickname)}" ${user.online ? "" : "disabled"}>친구추가 요청</button></span>
+            </li>`,
+          )
+          .join("");
+
+  usersEl.querySelectorAll<HTMLButtonElement>("[data-friend-request]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nickname = button.dataset.friendRequest as string;
+      void requestFriend({ nickname, online: onlineByName.get(nickname) ?? false });
+    });
+  });
+  friendsEl.querySelectorAll<HTMLButtonElement>("[data-party-request]").forEach((button) => {
+    button.addEventListener("click", () => void requestParty(button.dataset.partyRequest as string));
+  });
+}
 
 function openPartyLobby(nickname: string) {
   if (document.querySelector(".party-overlay")) return;
+  myNickname = nickname;
   const overlay = document.createElement("div");
   overlay.className = "party-overlay";
+  const social = directory
+    ? `
+        <input class="party-search" data-user-search type="text" placeholder="🔍 닉네임 검색" autocomplete="off" />
+        <div class="inventory-label">내 친구</div>
+        <ul class="party-list" data-friend-list></ul>
+        <div class="inventory-label">모든 유저</div>
+        <ul class="party-list" data-user-list></ul>`
+    : `
+        <p class="party-hint">온라인 친구 기능은 설정이 필요해요 (docs/party-system.md 참고). 지금은 초대 코드로만 함께할 수 있어요.</p>
+        <button data-party-host>방 만들기</button>
+        <div class="party-join-row">
+          <input data-party-code maxlength="7" placeholder="초대 코드 입력" autocomplete="off" />
+          <button data-party-join>참가</button>
+        </div>`;
   overlay.innerHTML = `
       <section class="party-modal">
         <header>
-          <h2>파티 (최대 ${PARTY_MAX_MEMBERS}명)</h2>
+          <h2>파티 (최대 ${PARTY_MAX_MEMBERS}명 · 단축키 O)</h2>
           <button class="icon-button" data-party-close>닫기</button>
         </header>
-        <div class="party-home" data-party-home>
-          <button data-party-host>방 만들기</button>
-          <div class="party-join-row">
-            <input data-party-code maxlength="7" placeholder="초대 코드 입력" autocomplete="off" />
-            <button data-party-join>참가</button>
-          </div>
-          <p class="party-hint">같은 주소로 접속한 친구에게 초대 코드를 알려 주세요. 방장이 게임을 진행하는 호스트가 됩니다. 창을 닫아도 파티는 유지됩니다.</p>
-        </div>
-        <div class="party-room" data-party-room hidden>
-          <p class="party-code-line" data-party-code-line hidden>초대 코드: <b data-party-code-value></b> <button data-party-copy>복사</button></p>
+        <div class="party-room" data-party-room ${activeSession ? "" : "hidden"}>
+          <div class="inventory-label">현재 파티</div>
           <ul class="party-members" data-party-members></ul>
           <button data-party-leave>파티 나가기</button>
         </div>
+        <div class="party-social">${social}</div>
         <p class="party-status" data-party-status></p>
       </section>
     `;
   document.body.appendChild(overlay);
-  const codeInput = overlay.querySelector<HTMLInputElement>("[data-party-code]")!;
 
-  // 이미 파티 중이면 방 화면 + 최근 상태 복원
-  if (activeSession) {
-    showRoomView();
-    renderMembers(lastMembers);
-    setStatus(lastStatus);
-  }
-
-  overlay.querySelector("[data-party-host]")!.addEventListener("click", () => {
-    if (activeSession) return;
-    activeSession = PartySession.host(nickname, sessionEvents);
-    showRoomView();
-  });
-  overlay.querySelector("[data-party-join]")!.addEventListener("click", () => {
-    if (activeSession) return;
-    const code = normalizePartyCode(codeInput.value);
-    if (!code) {
-      setStatus("초대 코드는 영문/숫자 6자리예요. 다시 확인해 주세요.", true);
-      return;
-    }
-    activeSession = PartySession.join(code, nickname, sessionEvents);
-    showRoomView();
-  });
-  overlay.querySelector("[data-party-copy]")!.addEventListener("click", () => {
-    void navigator.clipboard?.writeText(activeSession?.code ?? "").then(() => setStatus("초대 코드를 복사했습니다!"));
-  });
+  overlay.querySelector("[data-party-close]")!.addEventListener("click", () => overlay.remove());
   overlay.querySelector("[data-party-leave]")!.addEventListener("click", () => {
     activeSession?.close();
     setStatus("파티에서 나왔습니다.");
   });
-  overlay.querySelector("[data-party-close]")!.addEventListener("click", () => overlay.remove());
-  codeInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") overlay.querySelector<HTMLButtonElement>("[data-party-join]")!.click();
-    event.stopPropagation();
+  overlay.querySelector<HTMLInputElement>("[data-user-search]")?.addEventListener("input", () => void refreshPanelViews());
+  overlay.querySelector<HTMLInputElement>("[data-user-search]")?.addEventListener("keydown", (event) => event.stopPropagation());
+
+  // 레거시 초대 코드 폴백 (디렉터리 미설정 시)
+  overlay.querySelector("[data-party-host]")?.addEventListener("click", () => {
+    if (activeSession) return;
+    const scoped = makeSessionEvents();
+    activeSession = scoped.bind(PartySession.host(nickname, scoped.events));
+    setStatus(`방을 만들었어요. 초대 코드: ${activeSession.code}`);
+    refreshPanelViews();
   });
+  overlay.querySelector("[data-party-join]")?.addEventListener("click", () => {
+    if (activeSession) return;
+    const input = overlay.querySelector<HTMLInputElement>("[data-party-code]")!;
+    const code = normalizePartyCode(input.value);
+    if (!code) {
+      setStatus("초대 코드는 영문/숫자 6자리예요.", true);
+      return;
+    }
+    const scoped = makeSessionEvents();
+    activeSession = scoped.bind(PartySession.join(code, nickname, scoped.events));
+    refreshPanelViews();
+  });
+
+  setStatus(lastStatus);
+  renderMembers(lastMembers);
+  void refreshPanelViews();
 }

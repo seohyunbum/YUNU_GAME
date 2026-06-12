@@ -309,6 +309,7 @@ import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, partyMapMarkers, updatePartyPresence } from "./game/partyPresence";
+import { initPartyFlow } from "./game/partyFlow";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
@@ -819,8 +820,8 @@ class WildernessGame {
     this.seedOverworld();
     precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.renderHud();
-    ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });
-    initPartyLobby(() => this.nickname);
+    ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });    initPartyLobby(() => this.nickname);
+    initPartyFlow({ isInGame: () => this.gameStarted, startNewGame: () => { if (!this.pendingPlayerClass) this.pendingPlayerClass = this.playerClass ?? "warrior"; this.startGame("new"); }, summonTo: (mapId, x, z) => { if (this.locationMode === "cave") this.leaveCave(); else if (this.locationMode === "house") this.leaveHouse(); if (this.currentWorldMapId !== mapId) this.teleportToWorldMap(mapId, true); this.playerPosition.set(x + 2.5, this.playerPosition.y, z + 2.5); this.settlePlayerAfterTeleport(); this.camera.position.copy(this.playerPosition); }, showMessage: (text) => this.showMessage(text) });
     initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld" }) });
     this.animate();
   }
@@ -2506,6 +2507,7 @@ class WildernessGame {
       this.updateAudio(delta);
       this.updateVisualEffects(delta);
       this.updateTitleCamera();
+      updatePartyPresence(performance.now(), delta);
       this.updateTrains(delta);
       this.updateAnimals(delta);
       this.updateVillagers(delta);
@@ -2544,8 +2546,7 @@ class WildernessGame {
     this.updateDamageParticles(delta);
     updateHitFeedback(performance.now(), this.camera);
     updateSecondSkillEffects(this.skillEffectsContext);
-    ensureTrainingGround(this.trainingGroundContext);
-    updatePartyPresence(performance.now(), delta);
+    ensureTrainingGround(this.trainingGroundContext); updatePartyPresence(performance.now(), delta);
     this.updateMessages(delta);
     this.updatePrompt(delta);
     this.updateBossBar();
@@ -6223,10 +6224,10 @@ class WildernessGame {
     renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: !this.gameStarted || canTeleportToWorldMap(this.level, map), lockReason: this.gameStarted ? worldMapLockReason(this.level, map) : "" })), bosses, homes: this.playerHomeMarkers(), party: partyMapMarkers(this.currentWorldMapId) }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
   }
 
-  private teleportToWorldMap(mapId: string) {
+  private teleportToWorldMap(mapId: string, force = false) {
     const map = getWorldMapById(mapId);
     if (map.id === this.currentWorldMapId) return;
-    if (this.gameStarted && !canTeleportToWorldMap(this.level, map)) { this.showMessage(worldMapLockReason(this.level, map)); this.renderRegionMapPanel(); return; }
+    if (!force && this.gameStarted && !canTeleportToWorldMap(this.level, map)) { this.showMessage(worldMapLockReason(this.level, map)); this.renderRegionMapPanel(); return; }
     rememberWorldState(this.worldStates, this.currentWorldMapId, this.createSaveData().worldStates?.[this.currentWorldMapId]);
     this.currentWorldMapId = map.id; this.activeRegions = regionsForWorldMap(map.id); this.activeBiomes = biomesForWorldMap(map.id); this.activeWaterZones = waterZonesForWorldMap(map.id); this.biomeDecorContext.biomes = this.activeBiomes; this.regionWarningState = { regionId: null, lastWarnAt: 0 };
     this.locationMode = "overworld"; this.clearWorld(); const worldState = this.worldStates[map.id];

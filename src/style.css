@@ -3082,3 +3082,142 @@ button[data-title-load]:disabled {
 .party-status.error {
   color: #f87171;
 }
+
+.social-popup {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 140;
+}
+
+.social-popup-card {
+  min-width: 320px;
+  padding: 14px 18px;
+  border: 2px solid #4ade80;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(22, 38, 32, 0.97), rgba(14, 26, 22, 0.97));
+  color: #fff7cc;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  animation: social-pop-in 0.25s ease-out;
+}
+
+@keyframes social-pop-in {
+  from {
+    transform: translateY(-14px);
+    opacity: 0;
+  }
+}
+
+.social-popup-card strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #a7f3d0;
+  font-size: 17px;
+}
+
+.social-popup-card p {
+  margin: 0 0 10px;
+}
+
+.social-popup-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.social-popup-actions button.accept {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.social-toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translate(-50%, -20px);
+  z-index: 139;
+  padding: 10px 18px;
+  border: 1px solid rgba(167, 243, 208, 0.6);
+  border-radius: 999px;
+  background: rgba(14, 26, 22, 0.95);
+  color: #a7f3d0;
+  font-weight: 800;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.social-toast.show {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
+.party-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 4px 0 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(252, 211, 77, 0.45);
+  border-radius: 8px;
+  background: #0f1d18;
+  color: #fff7cc;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.party-list {
+  margin: 6px 0 14px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.party-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border: 1px solid rgba(252, 211, 77, 0.22);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.party-row-name {
+  flex: 1;
+  font-weight: 800;
+  color: #e2e8f0;
+}
+
+.party-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.party-row-actions button {
+  font-size: 12.5px;
+  padding: 6px 10px;
+}
+
+.presence-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #64748b;
+  flex: none;
+}
+
+.presence-dot.online {
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.8);
+}
+
+.party-empty {
+  padding: 10px;
+  color: #94a3b8;
+  font-size: 13px;
+}

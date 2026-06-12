@@ -51,6 +51,10 @@ export function validateNickname(raw: string, takenNames: readonly string[]): Ni
 
 export function loadNickname(storage: Storage = localStorage): string | null {
   try {
+    if (import.meta.env.DEV && typeof location !== "undefined") {
+      const override = new URLSearchParams(location.search).get("nickname");
+      if (override && override.trim().length > 0) return override.trim();
+    }
     const stored = storage.getItem(NICKNAME_KEY);
     return stored && stored.trim().length > 0 ? stored : null;
   } catch {

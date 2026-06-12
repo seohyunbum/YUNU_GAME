@@ -113,6 +113,8 @@ try {
   const nickname = await server.ssrLoadModule("/src/game/nickname.ts");
   const party = await server.ssrLoadModule("/src/game/party.ts");
   const partyPresence = await server.ssrLoadModule("/src/game/partyPresence.ts");
+  const directoryModule = await server.ssrLoadModule("/src/game/directory.ts");
+  const partyFlow = await server.ssrLoadModule("/src/game/partyFlow.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -543,6 +545,68 @@ try {
   }
 
   {
+    // 소셜 디렉터리 골든: like 검색 + 친구 요청/수락 + 오프라인 거부 + 파티 초대 전달 (BroadcastDirectory)
+    const { BroadcastDirectory, filterUsers } = directoryModule;
+    const sorted = filterUsers(
+      [
+        { nickname: "다람쥐", online: false },
+        { nickname: "연우용사", online: true },
+        { nickname: "연우친구", online: false },
+      ],
+      "연우",
+    );
+    assert(sorted.length === 2 && sorted[0].nickname === "연우용사", "like search should match substrings and rank online first");
+    assert(filterUsers([{ nickname: "Yunu", online: true }], "yun").length === 1, "search is case-insensitive");
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const makeStorage = () => {
+      const store = new Map();
+      return { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+    };
+    const sharedStorage = makeStorage();
+    const eventsFor = (log) => ({
+      onFriendRequest: (from) => log.push(["friend_request", from]),
+      onFriendAccepted: (by) => log.push(["friend_accepted", by]),
+      onPartyInvite: (from, code) => log.push(["party_invite", from, code]),
+      onUsersChanged: () => {},
+      onFriendsChanged: () => log.push(["friends_changed"]),
+    });
+    const logA = [];
+    const logB = [];
+    const dirA = new BroadcastDirectory(sharedStorage);
+    const dirB = new BroadcastDirectory(sharedStorage);
+    await dirA.connect("아빠용사", eventsFor(logA));
+    await dirB.connect("연우용사", eventsFor(logB));
+    await sleep(120);
+
+    const usersSeenByA = await dirA.listUsers();
+    assert(usersSeenByA.some((user) => user.nickname === "연우용사" && user.online), "directory should list the other online user");
+    assert(!usersSeenByA.some((user) => user.nickname === "아빠용사"), "directory should not list yourself");
+
+    assert((await dirA.sendFriendRequest("아빠용사")) === "self", "self friend request rejected");
+    assert((await dirA.sendFriendRequest("유령유저")) === "offline", "offline target rejected with a clear result");
+
+    assert((await dirA.sendFriendRequest("연우용사")) === "sent", "online friend request goes through");
+    await sleep(80);
+    assert(logB.some(([kind, from]) => kind === "friend_request" && from === "아빠용사"), "target should receive the friend request event");
+    await dirB.respondFriendRequest("아빠용사", true);
+    await sleep(80);
+    assert(logA.some(([kind, by]) => kind === "friend_accepted" && by === "연우용사"), "requester should hear the acceptance");
+    assert((await dirA.listFriends()).includes("연우용사") && (await dirB.listFriends()).includes("아빠용사"), "friendship persists for both sides");
+    assert((await dirA.sendFriendRequest("연우용사")) === "already", "duplicate friendship rejected");
+
+    assert((await dirA.sendPartyInvite("연우용사", "K7P2QX")) === "sent", "party invite to online friend goes through");
+    await sleep(80);
+    assert(logB.some(([kind, from, code]) => kind === "party_invite" && from === "아빠용사" && code === "K7P2QX"), "invitee should receive the party invite with the room code");
+
+    dirB.disconnect();
+    await sleep(80);
+    assert(!(await dirA.isOnline("연우용사")), "disconnect should mark the user offline");
+    assert((await dirA.sendPartyInvite("연우용사", "K7P2QX")) === "offline", "party invite to offline friend is blocked");
+    dirA.disconnect();
+  }
+
+  {
     // 파티 프레즌스 골든: 송신 주기, 같은 맵 아바타 스폰/보간, 다른 맵 분리, 지도 마커, stale 제거
     const { initPartyPresence, updatePartyPresence, resetPartyPresence, partyMapMarkers, remotePartyCount, PRESENCE_SEND_INTERVAL_MS } = partyPresence;
     const sceneAdds = [];
@@ -580,6 +644,70 @@ try {
 
     updatePartyPresence(20_000, 0.016);
     assert(remotePartyCount() === 0, "stale members should be pruned");
+    resetPartyPresence();
+  }
+
+  {
+    // 파티 합류 흐름 골든: 실내 호스트 대기 안내(1회) → 야외 복귀 시 소환 + reset 으로 잔존 소환 제거
+    const { initPartyFlow, beginGuestJoinFlow, partyFlowOnPresences, hostOnGuestJoined, resetPartyFlow } = partyFlow;
+    const calls = [];
+    let inGame = false;
+    initPartyFlow({
+      isInGame: () => inGame,
+      startNewGame: () => {
+        inGame = true;
+        calls.push(["start"]);
+      },
+      summonTo: (mapId, x, z) => calls.push(["summon", mapId, x, z]),
+      showMessage: (text) => calls.push(["msg", text]),
+    });
+    const hostIndoors = { nickname: "아빠용사", mapId: "starter_valley", x: 5, z: 5, yaw: 0, playerClass: "warrior", inGame: false };
+    beginGuestJoinFlow("아빠용사");
+    partyFlowOnPresences([hostIndoors]);
+    assert(calls.some(([kind]) => kind === "start"), "indoors host: title guest should start their own game instead of waiting in silence");
+    assert(calls.filter(([kind, text]) => kind === "msg" && String(text).includes("동굴")).length === 1, "indoors wait notice should show");
+    partyFlowOnPresences([hostIndoors]);
+    assert(calls.filter(([kind, text]) => kind === "msg" && String(text).includes("동굴")).length === 1, "wait notice must show only once");
+    assert(!calls.some(([kind]) => kind === "summon"), "no summon while the host is indoors");
+    partyFlowOnPresences([{ ...hostIndoors, inGame: true, x: 63, z: -37 }]);
+    assert(calls.some(([kind, mapId, x, z]) => kind === "summon" && mapId === "starter_valley" && x === 63 && z === -37), "summon fires once the host is outdoors");
+    calls.length = 0;
+    beginGuestJoinFlow("아빠용사");
+    resetPartyFlow();
+    partyFlowOnPresences([{ ...hostIndoors, inGame: true }]);
+    assert(calls.length === 0, "after reset (party left) no stale summon may fire");
+    inGame = false;
+    hostOnGuestJoined("연우용사");
+    assert(calls.some(([kind]) => kind === "start"), "host on title starts the game when a guest joins");
+    calls.length = 0;
+    hostOnGuestJoined("연우용사");
+    assert(!calls.some(([kind]) => kind === "start"), "host already in game must not restart");
+    resetPartyFlow();
+  }
+
+  {
+    // 게스트 가드 골든: 소환 흐름은 게스트 세션 프레즌스에서만 — 호스트가 게스트 좌표로 끌려가지 않는다
+    const { initPartyPresence, updatePartyPresence, resetPartyPresence } = partyPresence;
+    const { initPartyFlow, beginGuestJoinFlow, resetPartyFlow } = partyFlow;
+    const calls = [];
+    initPartyFlow({ isInGame: () => true, startNewGame: () => calls.push("start"), summonTo: () => calls.push("summon"), showMessage: () => {} });
+    const fakeScene = { add: () => {}, remove: () => {} };
+    let cb = null;
+    const makeSession = (role) => ({ role, onPresences: (listener) => { cb = listener; }, sendPresence: () => {} });
+    const local = () => ({ nickname: "나", mapId: "graveyard", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true });
+    const fromHost = [{ nickname: "아빠용사", mapId: "starter_valley", x: 1, z: 1, yaw: 0, playerClass: "warrior", inGame: true }];
+    const hostSession = makeSession("host");
+    initPartyPresence({ scene: fakeScene, session: () => hostSession, getGroundHeightAt: () => 0, localPresence: local });
+    updatePartyPresence(50_000, 0.016);
+    beginGuestJoinFlow("아빠용사");
+    cb(fromHost);
+    assert(!calls.includes("summon"), "host-role session must not trigger the guest summon flow");
+    const guestSession = makeSession("guest");
+    initPartyPresence({ scene: fakeScene, session: () => guestSession, getGroundHeightAt: () => 0, localPresence: local });
+    updatePartyPresence(51_000, 0.016);
+    cb(fromHost);
+    assert(calls.includes("summon"), "guest-role session does trigger the summon flow");
+    resetPartyFlow();
     resetPartyPresence();
   }
 
@@ -856,6 +984,7 @@ try {
         "home base storage transfer and supply tier golden values",
         "party invite code format/normalization and protocol message roundtrip",
         "party presence: send cadence, same-map avatar spawn/lerp, cross-map markers, stale prune",
+        "social directory: like search, friend request/accept persistence, offline rejection, party invite delivery",
         "nickname validation (length/charset/profanity/reserved/duplicate) and one-time immutability",
         "training ground difficulty curves, rewards, and clamps",
         "skill damage scales with level bonus",

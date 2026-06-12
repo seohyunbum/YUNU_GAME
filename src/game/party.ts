@@ -131,6 +131,7 @@ export class PartySession {
     const peer = new Peer(peerIdForCode(this.code));
     this.peer = peer;
     peer.on("open", () => {
+      this.markReady();
       this.events.onStatus(`방이 열렸습니다! 초대 코드: ${this.code}`);
       this.events.onRoster(this.members());
     });
@@ -208,12 +209,13 @@ export class PartySession {
         if (message.type === "welcome" || message.type === "roster") {
           clearTimeout(joinTimeout);
           this.latestRoster = message.members;
+          this.markReady(); // 게스트는 welcome(또는 첫 roster) 수신 = 합류 확정
           if (message.type === "welcome") this.events.onStatus("파티에 들어왔습니다!");
           this.events.onRoster(message.members);
           return;
         }
         if (message.type === "presences") {
-          this.presenceListener?.(message.list.filter((entry) => entry.nickname !== this.nickname));
+          this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
         if (message.type === "reject") {
@@ -237,10 +239,28 @@ export class PartySession {
     peer.on("error", (error) => this.handlePeerError(error));
   }
 
-  private presenceListener: ((list: PresenceData[]) => void) | null = null;
+  private presenceListeners: ((list: PresenceData[]) => void)[] = [];
+  private readyResolvers: { resolve: () => void; reject: (error: Error) => void }[] = [];
+  private isReady = false;
 
   onPresences(listener: (list: PresenceData[]) => void) {
-    this.presenceListener = listener;
+    this.presenceListeners.push(listener);
+  }
+
+  private emitPresences(list: PresenceData[]) {
+    for (const listener of this.presenceListeners) listener(list);
+  }
+
+  // 호스트: 피어 서버에 방이 열린 뒤 / 게스트: welcome 수신(합류 확정) 뒤 resolve. 닫히면 reject.
+  whenReady(): Promise<void> {
+    if (this.isReady) return Promise.resolve();
+    if (this.closed) return Promise.reject(new Error("파티 세션이 닫혔습니다."));
+    return new Promise((resolve, reject) => this.readyResolvers.push({ resolve, reject }));
+  }
+
+  private markReady() {
+    this.isReady = true;
+    for (const entry of this.readyResolvers.splice(0)) entry.resolve();
   }
 
   // 자기 프레즌스 송신 — 호스트는 전원 목록을 합쳐 브로드캐스트하고 자기 리스너에도 전달한다.
@@ -253,7 +273,7 @@ export class PartySession {
     const list: PresenceData[] = [data, ...this.guests.filter((guest) => guest.nickname && guest.presence).map((guest) => guest.presence as PresenceData)];
     const packet = encodePartyMessage({ type: "presences", list });
     for (const guest of this.guests) if (guest.connection.open) guest.connection.send(packet);
-    this.presenceListener?.(list.filter((entry) => entry.nickname !== data.nickname));
+    this.emitPresences(list.filter((entry) => entry.nickname !== data.nickname));
   }
 
   pingHost() {
@@ -278,6 +298,7 @@ export class PartySession {
   close() {
     if (this.closed) return;
     this.closed = true;
+    for (const entry of this.readyResolvers.splice(0)) entry.reject(new Error("파티 세션이 닫혔습니다."));
     try {
       this.peer?.destroy();
     } catch {

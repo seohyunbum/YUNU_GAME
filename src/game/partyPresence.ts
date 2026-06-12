@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createAvatarModel, CLASS_APPEARANCE } from "../avatar";
 import type { PartySession, PresenceData } from "./party";
+import { partyFlowOnPresences } from "./partyFlow";
 import type { PlayerClassId } from "./types";
 
 // 파티 3차 — 프레즌스 동기화. 같은 맵의 파티원을 월드에 아바타+닉네임 표찰로 그리고,
@@ -81,6 +82,7 @@ export function resetPartyPresence() {
 
 function receivePresences(list: PresenceData[], nowMs: number) {
   if (!context) return;
+  if (context.session()?.role === "guest") partyFlowOnPresences(list); // 소환 흐름은 게스트 전용
   const localMapId = context.localPresence().mapId;
   for (const data of list) {
     if (!data.inGame || data.mapId !== localMapId) {
