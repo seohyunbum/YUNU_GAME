@@ -115,6 +115,7 @@ try {
   const partyPresence = await server.ssrLoadModule("/src/game/partyPresence.ts");
   const directoryModule = await server.ssrLoadModule("/src/game/directory.ts");
   const partyFlow = await server.ssrLoadModule("/src/game/partyFlow.ts");
+  const partyWorldSync = await server.ssrLoadModule("/src/game/partyWorldSync.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -712,6 +713,166 @@ try {
   }
 
   {
+    // 파티 5차 월드 동기화 골든 — 호스트 스냅샷 수집 / 게스트 diff 적용·보간 / 공격 인터셉트 / 호스트 판정·처치 공유 / mobHit / 복원·게이트
+    const { initPartyWorldSync, partyWorldSyncTick, partyWorldSyncOnPresences, partyGuestAttackIntercept, partyHostNotifyKill, partyWorldGuestActive, resetPartyWorldSync, MOB_SYNC_INTERVAL_MS, MOB_SYNC_STALE_MS } = partyWorldSync;
+    const { decodePartyMessage, encodePartyMessage, PARTY_PROTOCOL_VERSION } = party;
+    const { calculateCombatDamage } = combat;
+    assert(PARTY_PROTOCOL_VERSION === 2, "world sharing bumps the protocol to v2");
+    const mobsMessage = { type: "mobs", mapId: "starter_valley", list: [{ id: "h1", name: "늑대", kind: "wolf", x: 10, z: 4, yaw: 0.5, hp: 30 }] };
+    assert(JSON.stringify(decodePartyMessage(encodePartyMessage(mobsMessage))) === JSON.stringify(mobsMessage), "mobs message roundtrips");
+
+    const makeHarness = (role, nickname) => {
+      const sent = [];
+      let gameCb = null;
+      const session = { role, sendGame: (message) => sent.push(message), onGame: (cb) => { gameCb = cb; }, onPresences: () => {} };
+      const objects = new Map();
+      let nextId = 1;
+      const me = { nickname, mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true, panelOpen: false };
+      const events = [];
+      const entityContext = {
+        addWorldObject: (type, name, root, extra) => { const object = { id: `${role}-${nextId++}`, type, name, root, ...extra }; objects.set(object.id, object); return object; },
+        getGroundHeightAt: () => 0,
+        createWalkCycle: () => ({ phase: 0, parts: [], amplitude: 0, speed: 0, lift: 0 }),
+        predatorStats: () => ({ hp: 30, attackDamage: 3 }),
+        predatorAggroRange: () => 10,
+        bossStats: () => ({ name: "용", maxHp: 100, armor: 0, fireDamage: 5, attackRange: 10, collisionRadius: 1, collisionHeight: 2, scale: 1, body: 0, belly: 0, wing: 0, glow: 0 }),
+      };
+      const state = { nextPlayerHitKills: false };
+      const world = {
+        entityContext,
+        activeRegions: () => [{ id: "r1", name: "r1", lootTier: 1, levelRange: [1, 10], center: { x: 0, y: 0, z: 0 }, radius: 500 }],
+        mapXpScale: () => 1,
+        predators: () => [...objects.values()].filter((object) => object.type === "wildPredator"),
+        getObject: (id) => objects.get(id),
+        removeObject: (id) => { objects.delete(id); events.push(["remove", id]); },
+        removeObjectSilent: (id) => { objects.delete(id); events.push(["removeSilent", id]); },
+        hitFeedback: (target, damage, killed) => events.push(["hit", target.id, damage, killed]),
+        showMessage: (text) => events.push(["msg", text]),
+        gainExperience: (amount) => events.push(["xp", amount]),
+        creditHostKill: (target) => events.push(["credit", target.id]),
+        rollLoot: (item, count) => { events.push(["loot", item, count]); return count; },
+        recordFieldBossDefeat: (id) => events.push(["bossDefeat", id]),
+        damageLocalPlayer: (amount, name) => { events.push(["playerHit", amount, name]); return state.nextPlayerHitKills; },
+        animateWalkCycle: () => {},
+        refreshSpatialObject: () => {},
+      };
+      return { session, objects, me, events, world, sent, state, getGameCb: () => gameCb };
+    };
+
+    // ── 호스트: 스냅샷 수집 + 좌표 양자화 ──
+    const host = makeHarness("host", "아빠용사");
+    initPartyWorldSync({ session: () => host.session, localPresence: () => host.me, getGroundHeightAt: () => 0, world: host.world });
+    const boar = host.world.entityContext.addWorldObject("wildPredator", "멧돼지", { position: { x: 10.123, y: 0, z: -4.567 }, rotation: { y: 1.234 } }, { hp: 30, predatorKind: "boar", monsterId: "boar", regionId: "r1" });
+    partyWorldSyncTick(1_000, 0.016);
+    assert(host.sent.some((message) => message.type === "mobs"), "host broadcasts a mobs snapshot");
+    const snapshot = host.sent.find((message) => message.type === "mobs");
+    assert(snapshot.list.length === 1 && snapshot.list[0].x === 10.1 && snapshot.list[0].z === -4.6, "snapshot quantizes coordinates to 0.1");
+    partyWorldSyncTick(1_000 + MOB_SYNC_INTERVAL_MS - 30, 0.016);
+    assert(host.sent.filter((message) => message.type === "mobs").length === 1, "snapshot respects the 8Hz interval");
+
+    // ── 호스트: 게스트 공격 판정 → 처치 시 크레딧+제거+partyKill ──
+    host.getGameCb()({ type: "attackRequest", targetId: boar.id, power: 12, kind: "ranged" }, "연우용사");
+    assert(boar.hp === 18 && host.events.some(([kind]) => kind === "hit"), "host applies guest damage authoritatively");
+    host.getGameCb()({ type: "attackRequest", targetId: boar.id, power: 999, kind: "ranged" }, "연우용사");
+    assert(host.events.some(([kind, id]) => kind === "credit" && id === boar.id), "host gets kill credit (pet/player XP + boss record)");
+    assert(host.events.some(([kind, id]) => kind === "remove" && id === boar.id), "killed mob enters the host respawn queue path");
+    const killBroadcast = host.sent.find((message) => message.type === "partyKill");
+    assert(killBroadcast && killBroadcast.killer === "연우용사" && killBroadcast.xp > 0 && killBroadcast.kind === "boar", "host broadcasts partyKill with killer/xp/kind");
+    host.getGameCb()({ type: "attackRequest", targetId: boar.id, power: 10, kind: "ranged" }, "연우용사");
+    assert(host.sent.filter((message) => message.type === "partyKill").length === 1, "attack on an already-dead mob is ignored");
+
+    // ── 호스트: 처치 알림(combat 훅) + 게스트 타게팅 좌표(panelOpen 포함) ──
+    partyWorldSyncOnPresences([{ nickname: "연우용사", mapId: "starter_valley", x: 5, z: 5, yaw: 0, playerClass: "mage", inGame: true, panelOpen: true }, { nickname: "다른맵", mapId: "graveyard", x: 1, z: 1, yaw: 0, playerClass: "mage", inGame: true }]);
+    const targets = partyWorldSync.partyHostCombatTargets();
+    assert(targets.length === 1 && targets[0].nickname === "연우용사", "combat targets include same-map in-game guests only");
+    assert(targets[0].panelOpen === true, "panelOpen flag flows to combat targets (remote panel protection)");
+    partyHostNotifyKill({ id: "x", type: "wildPredator", name: "들소", hp: 0, predatorKind: "wolf", monsterLevel: 3, root: { position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } } });
+    const hostKill = host.sent.filter((message) => message.type === "partyKill").pop();
+    assert(hostKill.killer === "아빠용사" && hostKill.xp > 0, "host kill is shared to the party via partyKillNotify");
+    partyHostNotifyKill({ id: "d", type: "dragon", name: "용", hp: 0, root: { position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } } });
+    assert(host.sent.filter((message) => message.type === "partyKill").length === 2, "non-synced kills (dragon/jammini) are NOT broadcast — XP share scope == sync scope");
+    partyWorldSync.partyDamageRemotePlayer("연우용사", 4, "늑대");
+    const sentMobHit = host.sent.find((message) => message.type === "mobHit");
+    assert(sentMobHit && sentMobHit.nickname === "연우용사" && sentMobHit.amount === 4 && sentMobHit.mapId === "starter_valley", "predator strike on a guest sends mobHit with mapId");
+    assert(partyWorldGuestActive() === false, "host role is not guest mode");
+
+    // ── 게스트: 스냅샷 diff (로컬 정리→스폰→이동→제거) + 보간 + 스냅샷 기반 게이트 ──
+    const guest = makeHarness("guest", "연우용사");
+    initPartyWorldSync({ session: () => guest.session, localPresence: () => guest.me, getGroundHeightAt: () => 2, world: guest.world });
+    const localWolf = guest.world.entityContext.addWorldObject("wildPredator", "내늑대", { position: { x: 1, y: 0, z: 1 }, rotation: { y: 0 } }, { hp: 10, predatorKind: "wolf" });
+    partyWorldSyncTick(2_000, 0.016);
+    assert(partyWorldGuestActive() === false, "guest mode stays OFF until a matching snapshot arrives (host may be on title/another map)");
+    guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [{ id: "H-1", name: "골든늑대", kind: "wolf", monsterId: "wolf", regionId: "r1", x: 20, z: 8, yaw: 1, hp: 44 }] });
+    assert(partyWorldGuestActive() === true, "guest mode turns ON with a fresh same-map snapshot");
+    assert(!guest.objects.has(localWolf.id), "first snapshot clears local predators (descriptors stashed for restore)");
+    const syncedEntry = [...guest.objects.values()].find((object) => object.type === "wildPredator");
+    assert(syncedEntry && syncedEntry.hp === 44 && syncedEntry.name === "골든늑대", "synced mob spawns as a real targetable world object with authoritative stats");
+    assert(syncedEntry.partyTransient === true, "synced mob is marked transient so saves/worldState never persist it");
+    assert(syncedEntry.root.position.x === 20 && syncedEntry.root.position.y === 2, "synced mob spawns at snapshot x/z and local ground height");
+    guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [{ id: "H-1", name: "골든늑대", kind: "wolf", monsterId: "wolf", regionId: "r1", x: 30, z: 8, yaw: 1, hp: 40, atk: 60, afx: 1, afz: 0 }] });
+    assert(syncedEntry.hp === 40, "snapshot hp overwrites the local value when no hit is pending");
+    assert(Number(syncedEntry.root.userData.attackDuration ?? 0) > 0, "attack motion from the snapshot replays on the guest (telegraph)");
+    partyWorldSyncTick(2_200, 0.05);
+    assert(syncedEntry.root.position.x > 20.5 && syncedEntry.root.position.x < 29.5, "guest lerps the synced mob toward the new target");
+
+    // ── 게스트: 공격 인터셉트 (낙관적 표시 + attackRequest + pending hp 역행 보호) ──
+    const intercepted = partyGuestAttackIntercept(syncedEntry, 10, "melee");
+    assert(intercepted === true && syncedEntry.hp === 30, "guest attack is intercepted with an optimistic hp decrease");
+    assert(guest.sent.some((message) => message.type === "attackRequest" && message.targetId === "H-1" && message.power === 10), "intercept sends attackRequest with the host mob id");
+    guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [{ id: "H-1", name: "골든늑대", kind: "wolf", monsterId: "wolf", regionId: "r1", x: 30, z: 8, yaw: 1, hp: 40 }] });
+    assert(syncedEntry.hp === 30, "in-flight snapshot cannot roll the optimistic hp back up while a hit is pending");
+    guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [{ id: "H-1", name: "골든늑대", kind: "wolf", monsterId: "wolf", regionId: "r1", x: 30, z: 8, yaw: 1, hp: 25 }] });
+    assert(syncedEntry.hp === 25, "authoritative downward corrections always apply");
+    assert(partyGuestAttackIntercept(localWolf, 10, "melee") === false, "non-synced (own-world) targets keep local combat");
+    // DOT 도 본 전투 공식과 동일 — 필드보스 armor 적용
+    syncedEntry.armor = 50;
+    const beforeDot = syncedEntry.hp;
+    partyGuestAttackIntercept(syncedEntry, 30, "dot");
+    assert(beforeDot - syncedEntry.hp === Math.max(1, calculateCombatDamage(30, 50)), "dot damage respects field-boss armor (parity with combat.ts)");
+    syncedEntry.armor = 0;
+
+    // ── 게스트: partyKill 수신 (처치자 전리품 + 전원 XP + 같은 맵 한정 필드보스 기록) ──
+    guest.getGameCb()({ type: "partyKill", name: "골든늑대", xp: 35, killer: "연우용사", mapId: "starter_valley", kind: "wolf" });
+    assert(guest.events.some(([kind, amount]) => kind === "xp" && amount === 35), "killer guest gains the shared xp");
+    assert(guest.events.some(([kind]) => kind === "loot"), "killer guest rolls loot locally");
+    guest.events.length = 0;
+    guest.getGameCb()({ type: "partyKill", name: "보스", xp: 240, killer: "아빠용사", mapId: "starter_valley", fieldBossId: "boss_starter_valley" });
+    assert(guest.events.some(([kind, amount]) => kind === "xp" && amount === 240), "non-killer guest still gains full shared xp");
+    assert(!guest.events.some(([kind]) => kind === "loot"), "non-killer gets no loot");
+    assert(guest.events.some(([kind, id]) => kind === "bossDefeat" && id === "boss_starter_valley"), "shared field boss defeat is recorded on the guest");
+    guest.getGameCb()({ type: "partyKill", name: "먼곳보스", xp: 99, killer: "아빠용사", mapId: "graveyard", fieldBossId: "boss_graveyard" });
+    assert(!guest.events.some(([kind, amount]) => kind === "xp" && amount === 99), "kills on another map grant no xp");
+    assert(!guest.events.some(([kind, id]) => kind === "bossDefeat" && id === "boss_graveyard"), "field boss defeats on another map are NOT recorded (content preserved)");
+
+    // ── 게스트: mobHit (mapId 검증 + 사망 grace) + 스냅샷 제거 ──
+    guest.getGameCb()({ type: "mobHit", nickname: "연우용사", amount: 6, name: "늑대", mapId: "starter_valley" });
+    assert(guest.events.some(([kind, amount, name]) => kind === "playerHit" && amount === 6 && name === "늑대"), "mobHit for me damages the local player");
+    guest.getGameCb()({ type: "mobHit", nickname: "남의닉", amount: 6, name: "늑대", mapId: "starter_valley" });
+    guest.getGameCb()({ type: "mobHit", nickname: "연우용사", amount: 6, name: "늑대", mapId: "graveyard" });
+    assert(guest.events.filter(([kind]) => kind === "playerHit").length === 1, "mobHit for someone else or another map is ignored");
+    guest.state.nextPlayerHitKills = true;
+    guest.getGameCb()({ type: "mobHit", nickname: "연우용사", amount: 99, name: "늑대", mapId: "starter_valley" });
+    guest.getGameCb()({ type: "mobHit", nickname: "연우용사", amount: 99, name: "늑대", mapId: "starter_valley" });
+    assert(guest.events.filter(([kind]) => kind === "playerHit").length === 2, "hits queued behind a death are dropped during the grace window (no chain deaths)");
+    guest.state.nextPlayerHitKills = false;
+    guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [] });
+    assert(![...guest.objects.values()].some((object) => object.type === "wildPredator"), "mobs absent from the snapshot are removed silently");
+    assert(guest.events.some(([kind, id]) => kind === "removeSilent" && id === syncedEntry.id), "synced mob removal bypasses the respawn queue");
+
+    // ── 게스트: 스냅샷 두절 → 게이트 해제 + 보관해 둔 로컬 몬스터 스태거 복원 ──
+    await new Promise((resolve) => setTimeout(resolve, MOB_SYNC_STALE_MS + 100));
+    assert(partyWorldGuestActive() === false, "stale snapshots (host indoors/background/left) release the guest gate");
+    partyWorldSyncTick(3_000, 0.016);
+    partyWorldSyncTick(3_016, 0.016);
+    const restored = [...guest.objects.values()].filter((object) => object.type === "wildPredator");
+    assert(restored.length === 1 && restored[0].predatorKind === "wolf" && !restored[0].partyTransient, "cleared local predators are restored from the stash once sync releases");
+
+    resetPartyWorldSync();
+    initPartyWorldSync({ session: () => null, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: null }); // 모듈 상태 완전 분리 — 이후 골든(predator AI)이 게스트 게이트에 걸리지 않게
+    assert(partyWorldGuestActive() === false, "detached world sync leaves guest mode");
+  }
+
+  {
     // 닉네임 골든: 길이/문자/비속어/예약어/중복 거부 + 1회 확정 후 불변
     const { validateNickname, confirmNickname, loadNickname } = nickname;
     assert(!validateNickname("a", []).ok, "1글자 닉네임은 거부");
@@ -985,6 +1146,9 @@ try {
         "party invite code format/normalization and protocol message roundtrip",
         "party presence: send cadence, same-map avatar spawn/lerp, cross-map markers, stale prune",
         "social directory: like search, friend request/accept persistence, offline rejection, party invite delivery",
+        "party join flow: indoor-host wait notice, summon on emergence, reset clears stale summons",
+        "party summon flow runs on guest sessions only (host never pulled)",
+        "party world sync: host snapshots, guest diff/lerp, attack intercept, host-authoritative kills, shared xp/loot/boss, mobHit",
         "nickname validation (length/charset/profanity/reserved/duplicate) and one-time immutability",
         "training ground difficulty curves, rewards, and clamps",
         "skill damage scales with level bonus",

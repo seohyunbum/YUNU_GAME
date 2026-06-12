@@ -170,6 +170,7 @@ export interface WorldObject {
   predatorKind?: PredatorKind;
   bossKind?: BossKind;
   fieldBossId?: string;
+  partyTransient?: boolean; // 파티 동기화로 빌려 온 호스트 월드의 뷰 — 세이브/worldState 에 영속 금지
   regionId?: string;
   monsterId?: string;
   monsterLevel?: number;

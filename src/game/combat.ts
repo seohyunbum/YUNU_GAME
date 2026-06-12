@@ -35,6 +35,9 @@ export interface ProjectileDamageContext {
   now(): number;
   // 타격감(히트스톱·넉백·데미지 숫자) — 테스트 mock 부담을 줄이기 위해 옵셔널
   hitFeedback?(target: WorldObject, damage: number, killed: boolean): void;
+  // 파티 5차 (옵셔널 — main 이 partyWorldSync 로 배선): 게스트의 동기화 몬스터 공격을 호스트 판정으로 우회 / 호스트 처치를 파티에 공유
+  partyAttackIntercept?(target: WorldObject, power: number, kind: string): boolean;
+  partyKillNotify?(target: WorldObject): void;
 }
 
 export function rollDragonLoot(): ItemId {
@@ -87,6 +90,7 @@ export function applyProjectileDamage(
   }
 
   if (target.type === "wildPredator") {
+    if (context.partyAttackIntercept?.(target, attackPower, kind)) return; // 파티 게스트 — 호스트가 판정
     // 필드 보스만 방어력을 가진다 — 항상 최소 1 피해는 보장
     const predatorDamage = target.armor ? Math.max(1, calculateCombatDamage(attackPower, target.armor)) : attackPower;
     target.hp = (target.hp ?? 10) - predatorDamage;
@@ -102,6 +106,7 @@ export function applyProjectileDamage(
     context.removeObject(target.id);
     context.showMessage(lootCount > 0 ? `${target.name}을 쓰러뜨리고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}을 쓰러뜨렸지만 재료는 나오지 않았습니다.`);
     context.grantExperienceForTarget(target);
+    context.partyKillNotify?.(target);
     context.renderHud();
     return;
   }
@@ -133,6 +138,7 @@ export function applyProjectileDamage(
     context.playTone(760, 0.24, "triangle", 0.045);
     context.showMessage(`용을 쓰러뜨렸습니다. ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
     context.grantExperienceForTarget(target);
+    context.partyKillNotify?.(target);
     context.recordBossDefeat(target.bossKind);
     context.updateBossBar();
     context.renderHud();
@@ -151,6 +157,7 @@ export function applyProjectileDamage(
     context.removeObject(target.id);
     context.showMessage(`잼미니를 물리쳤습니다. 레고 조각 ${plasticCount}개를 얻었습니다.`);
     context.grantExperienceForTarget(target);
+    context.partyKillNotify?.(target);
     context.renderHud();
     return;
   }
@@ -205,6 +212,7 @@ export function applyProjectileDamage(
 
 export function applyMeleePredatorAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
   if (target.type !== "wildPredator") return;
+  if (context.partyAttackIntercept?.(target, attackPower, "melee")) return; // 파티 게스트 — 호스트가 판정
   // 필드 보스만 방어력을 가진다 — 항상 최소 1 피해는 보장
   const damage = target.armor ? Math.max(1, calculateCombatDamage(attackPower, target.armor)) : attackPower;
   target.hp = (target.hp ?? 10) - damage;
@@ -220,6 +228,7 @@ export function applyMeleePredatorAttack(context: ProjectileDamageContext, targe
   context.removeObject(target.id);
   context.showMessage(lootCount > 0 ? `${target.name}를 물리치고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}를 물리쳤지만 재료는 나오지 않았습니다.`);
   context.grantExperienceForTarget(target);
+  context.partyKillNotify?.(target);
 }
 
 export function applyMeleeDragonAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
@@ -251,6 +260,7 @@ export function applyMeleeDragonAttack(context: ProjectileDamageContext, target:
   context.playTone(760, 0.24, "triangle", 0.045);
   context.showMessage(`용을 쓰러뜨렸습니다! ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
   context.grantExperienceForTarget(target);
+  context.partyKillNotify?.(target);
   context.recordBossDefeat(target.bossKind);
   context.updateBossBar();
 }

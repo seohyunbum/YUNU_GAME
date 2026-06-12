@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createEagleVisual } from "./creatureVisuals";
 import { CLASS_PASSIVES, DEFAULT_SUMMONER_PET_PROGRESS, experienceForNextPetLevel, summonerPetDamage } from "./classPassives";
+import { partyGuestAttackIntercept, partyHostNotifyKill } from "./partyWorldSync";
 import { PREDATOR_RETALIATE_MS } from "./constants";
 import type { CompanionProgress, ItemId, ObjectType, PlayerClassId, SummonerPetProgress, WorldObject } from "./types";
 
@@ -184,13 +185,15 @@ function attackTarget(runtime: SummonerPetRuntime, context: SummonerPetContext, 
   const passive = CLASS_PASSIVES.summoner.pet;
   if (!passive) return;
   const damage = summonerPetDamage(context.getPetProgress());
-  target.hp = (target.hp ?? 1) - damage;
-  target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
   pet.root.userData.petAttackStartedAt = context.elapsedTime();
   runtime.attackCooldown = passive.attackInterval;
   context.spawnHitEffect(target);
   context.playTone(880, 0.055, "triangle", 0.018);
   context.playTone(420, 0.05, "sine", 0.012);
+  // 파티 게스트의 동기화 몬스터는 호스트가 판정 — 연출(쿨다운·이펙트)만 로컬 재생
+  if (partyGuestAttackIntercept(target, damage, "pet")) return;
+  target.hp = (target.hp ?? 1) - damage;
+  target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
   if ((target.hp ?? 0) <= 0) {
     grantSummonerPetKill(context, target);
     return;
@@ -205,6 +208,7 @@ function grantSummonerPetKill(context: SummonerPetContext, target: WorldObject) 
     context.removeObject(target.id);
     context.showMessage(lootCount > 0 ? `독수리 정령이 ${target.name}을 물리치고 ${context.itemName(loot)} ${lootCount}개를 얻었습니다.` : `독수리 정령이 ${target.name}을 물리쳤습니다.`);
     awardSummonerExperience(context.experienceRewardFor(target), context, true);
+    partyHostNotifyKill(target); // 호스트 펫 처치도 파티 XP 분배 (비호스트면 no-op)
     return;
   }
 
@@ -213,6 +217,7 @@ function grantSummonerPetKill(context: SummonerPetContext, target: WorldObject) 
     context.removeObject(target.id);
     context.showMessage(`독수리 정령이 잼미니를 물리쳤습니다. 레고 조각 ${plasticCount}개를 얻었습니다.`);
     awardSummonerExperience(context.experienceRewardFor(target), context, true);
+    partyHostNotifyKill(target);
   }
 }
 

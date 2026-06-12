@@ -2,7 +2,11 @@ import * as THREE from "three";
 import { createAvatarModel, CLASS_APPEARANCE } from "../avatar";
 import type { PartySession, PresenceData } from "./party";
 import { partyFlowOnPresences } from "./partyFlow";
+import { initPartyWorldSync, partyWorldSyncOnPresences, partyWorldSyncTick, type PartyWorldContext } from "./partyWorldSync";
 import type { PlayerClassId } from "./types";
+
+// main 의 import 한 줄을 넓히는 것만으로 5차 API 를 쓸 수 있도록 재수출 (라쳇 0줄 전략)
+export { partyGuestAttackIntercept, partyHostNotifyKill, partyWorldGuestActive } from "./partyWorldSync";
 
 // 파티 3차 — 프레즌스 동기화. 같은 맵의 파티원을 월드에 아바타+닉네임 표찰로 그리고,
 // 지역 지도에 위치 마커를 제공한다. 월드 객체(몬스터/아이템) 공유는 4차.
@@ -17,6 +21,7 @@ export interface PresenceContext {
   session(): PartySession | null;
   localPresence(): PresenceData;
   getGroundHeightAt(x: number, z: number): number;
+  world?: PartyWorldContext; // 5차 — 호스트 권위 월드 공유 배선 (없으면 프레즌스만 동작)
 }
 
 interface RemoteMember {
@@ -74,6 +79,7 @@ function removeRemote(nickname: string) {
 
 export function initPartyPresence(presenceContext: PresenceContext) {
   context = presenceContext;
+  initPartyWorldSync({ session: () => presenceContext.session(), localPresence: () => presenceContext.localPresence(), getGroundHeightAt: (x, z) => presenceContext.getGroundHeightAt(x, z), world: presenceContext.world ?? null });
 }
 
 export function resetPartyPresence() {
@@ -83,6 +89,7 @@ export function resetPartyPresence() {
 function receivePresences(list: PresenceData[], nowMs: number) {
   if (!context) return;
   if (context.session()?.role === "guest") partyFlowOnPresences(list); // 소환 흐름은 게스트 전용
+  partyWorldSyncOnPresences(list); // 호스트: 몬스터 타게팅용 게스트 좌표
   const localMapId = context.localPresence().mapId;
   for (const data of list) {
     if (!data.inGame || data.mapId !== localMapId) {
@@ -121,6 +128,7 @@ function receivePresences(list: PresenceData[], nowMs: number) {
 
 export function updatePartyPresence(nowMs: number, delta: number) {
   if (!context) return;
+  partyWorldSyncTick(nowMs, delta); // 5차 — 세션 유무/역할 판단은 내부에서
   const session = context.session();
   if (!session) {
     if (remotes.size > 0) resetPartyPresence();

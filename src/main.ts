@@ -308,7 +308,7 @@ import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby } from "./ui/partyPanel";
-import { initPartyPresence, partyMapMarkers, updatePartyPresence } from "./game/partyPresence";
+import { initPartyPresence, partyGuestAttackIntercept, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, updatePartyPresence } from "./game/partyPresence";
 import { initPartyFlow } from "./game/partyFlow";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
@@ -498,7 +498,7 @@ class WildernessGame {
     isVillageGuard: (target) => this.isVillageGuard(target),
     damagePlayer: (amount, showParticles, deathReason, ignoreArmor) => this.damagePlayer(amount, showParticles, deathReason, ignoreArmor),
     getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }),
-    now: () => performance.now(),
+    now: () => performance.now(), partyAttackIntercept: (target, power, kind) => partyGuestAttackIntercept(target, power, kind), partyKillNotify: (target) => partyHostNotifyKill(target),
   };
   private readonly graveTrapContext: GraveTrapContext = {
     state: createGraveTrapState(),
@@ -822,7 +822,7 @@ class WildernessGame {
     this.renderHud();
     ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });    initPartyLobby(() => this.nickname);
     initPartyFlow({ isInGame: () => this.gameStarted, startNewGame: () => { if (!this.pendingPlayerClass) this.pendingPlayerClass = this.playerClass ?? "warrior"; this.startGame("new"); }, summonTo: (mapId, x, z) => { if (this.locationMode === "cave") this.leaveCave(); else if (this.locationMode === "house") this.leaveHouse(); if (this.currentWorldMapId !== mapId) this.teleportToWorldMap(mapId, true); this.playerPosition.set(x + 2.5, this.playerPosition.y, z + 2.5); this.settlePlayerAfterTeleport(); this.camera.position.copy(this.playerPosition); }, showMessage: (text) => this.showMessage(text) });
-    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld" }) });
+    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null }), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, predators: () => this.objectsOfType("wildPredator"), getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed), showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target) => this.grantExperienceForTarget(target), rollLoot: (item, count) => (this.rollRewardChance(1, "predator", item) ? this.grantRewardItem(item, count, "predator") : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object) } });
     this.animate();
   }
 
@@ -2525,7 +2525,7 @@ class WildernessGame {
     updatePredatorAi(this.predatorAiContext, delta);
     updateGraveTrap(this.graveTrapContext, delta);
     updateFinale(this.finaleContext);
-    updateFieldBosses(this.fieldBossContext);
+    if (!partyWorldGuestActive()) updateFieldBosses(this.fieldBossContext); // 파티 게스트 — 보스는 호스트 스냅샷으로
     ensureChapterBoss(this.chapterBossContext);
     this.updateDragons(delta);
     this.updateJamminis(delta);
@@ -3590,14 +3590,14 @@ class WildernessGame {
     if (this.locationMode !== "overworld") return;
     const now = performance.now();
     for (let index = this.respawnQueue.length - 1; index >= 0; index -= 1) {
-      const entry = this.respawnQueue[index]; if (entry.dueAt > now) continue; if (entry.position.distanceTo(this.playerPosition) < 42) { entry.dueAt = now + 10_000; continue; }
+      const entry = this.respawnQueue[index]; if (partyWorldGuestActive() && entry.type === "wildPredator") continue; if (entry.dueAt > now) continue; if (entry.position.distanceTo(this.playerPosition) < 42) { entry.dueAt = now + 10_000; continue; }
       this.respawnQueue.splice(index, 1); const position = entry.position.clone(); position.y = this.getGroundHeightAt(position.x, position.z); const villageId = entry.villageId ?? "respawn-village";
       if (entry.type === "wildPredator") { const region = this.activeRegions.find((candidate) => candidate.id === entry.regionId) ?? regionAtPosition(position, this.activeRegions); const monsterId = (entry.monsterId as MonsterId | undefined) ?? chooseRegionPredatorMonster(region); const predator = spawnPredatorEntity(this.entitySpawnContext, this.randomPredatorSpawnPoint(region) ?? position, entry.predatorKind ?? predatorKindForMonster(monsterId)); applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(predator.root.position, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId); }
       else if (entry.type === "jammini") spawnJamminiEntity(this.entitySpawnContext, position);
       else if (entry.type === "villageKnight") this.spawnKnight(position, villageId); else if (entry.type === "villageGolem") this.spawnGolem(position, villageId); else if (entry.type === "villageArcher" || entry.type === "villageMage") this.spawnRangedGuard(position, villageId, entry.type);
     }
     this.nightSpawnTimer += delta;
-    if (this.nightSpawnTimer < NIGHT_PREDATOR_SPAWN_SECONDS) return;
+    if (this.nightSpawnTimer < NIGHT_PREDATOR_SPAWN_SECONDS || partyWorldGuestActive()) return; // 야생 신규 스폰만 호스트 권위 — 경비/잼미니 리스폰은 위 큐에서 정상 처리
     this.nightSpawnTimer = 0;
     const hour = this.gameHour();
     const isNight = hour >= 20 || hour < 5;

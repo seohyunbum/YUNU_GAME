@@ -4,7 +4,7 @@ import Peer, { type DataConnection } from "peerjs";
 // 호스트-게스트 WebRTC P2P. 시그널링은 PeerJS 퍼블릭 브로커(악수만 중개, 게임 데이터는 P2P).
 // 이 파일이 연결 기술을 전부 격리한다 — 시그널링을 갈아타도 UI/게임 코드는 그대로.
 
-export const PARTY_PROTOCOL_VERSION = 1;
+export const PARTY_PROTOCOL_VERSION = 2; // v2: 호스트 권위 월드 공유 (mobs/attackRequest/partyKill/mobHit)
 export const PARTY_MAX_MEMBERS = 4; // 호스트 포함
 
 // 혼동 글자(0/O/1/I) 제외 32자 — 6자리 초대 코드
@@ -44,6 +44,29 @@ export interface PresenceData {
   yaw: number;
   playerClass: string;
   inGame: boolean;
+  panelOpen?: boolean; // 인벤토리 등 패널 열림 — 호스트 몬스터가 타격을 보류 (로컬과 같은 보호)
+}
+
+// 프레즌스가 이 시간 이상 끊긴 게스트(백그라운드 탭 등)는 명단에서 제외 — 몬스터 타게팅·아바타에서 빠진다
+export const PARTY_PRESENCE_STALE_MS = 6_000;
+
+// 몬스터 스냅샷 (5차) — 호스트가 8Hz 로 전체 목록을 보내고 게스트는 diff 로 스폰/이동/제거를 처리한다.
+// y(높이)는 보내지 않는다 — 게스트가 자기 지형으로 재접지(산 생성 난수 발산 회피).
+export interface MobSnapshot {
+  id: string;
+  name: string;
+  monsterId?: string;
+  kind?: string; // predatorKind
+  regionId?: string;
+  fieldBossId?: string;
+  x: number;
+  z: number;
+  yaw: number;
+  hp: number;
+  armor?: number;
+  atk?: number; // 진행 중인 공격 모션의 경과 ms — 게스트가 같은 모션을 재생 (전조 가독성)
+  afx?: number; // 공격 전방 단위벡터 (게스트는 제자리 모션이라 참고용)
+  afz?: number;
 }
 
 export type PartyMessage =
@@ -54,7 +77,12 @@ export type PartyMessage =
   | { type: "presence"; data: PresenceData }
   | { type: "presences"; list: PresenceData[] }
   | { type: "ping"; t: number }
-  | { type: "pong"; t: number };
+  | { type: "pong"; t: number }
+  // 5차 — 호스트 권위 월드 공유
+  | { type: "mobs"; mapId: string; list: MobSnapshot[] }
+  | { type: "attackRequest"; targetId: string; power: number; kind: string }
+  | { type: "partyKill"; name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string }
+  | { type: "mobHit"; nickname: string; amount: number; name: string; mapId: string };
 
 export function encodePartyMessage(message: PartyMessage): string {
   return JSON.stringify(message);
@@ -81,6 +109,7 @@ interface GuestLink {
   connection: DataConnection;
   nickname: string | null;
   presence: PresenceData | null;
+  presenceAt: number; // 마지막 프레즌스 수신 시각 — 신선도 검사용
 }
 
 // 한 세션 = 호스트이거나 게스트이거나. 로비 단계(2차)는 로스터/핑까지만 책임진다.
@@ -143,7 +172,7 @@ export class PartySession {
   }
 
   private acceptGuest(connection: DataConnection) {
-    const link: GuestLink = { connection, nickname: null, presence: null };
+    const link: GuestLink = { connection, nickname: null, presence: null, presenceAt: 0 };
     connection.on("data", (raw) => {
       const message = decodePartyMessage(raw);
       if (!message) return;
@@ -170,8 +199,12 @@ export class PartySession {
         this.events.onStatus(`${message.nickname} 님이 파티에 들어왔습니다!`);
         return;
       }
-      if (message.type === "presence") link.presence = message.data;
+      if (message.type === "presence") {
+        link.presence = message.data;
+        link.presenceAt = performance.now();
+      }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
+      if (message.type === "attackRequest" && link.nickname) this.emitGame(message, link.nickname);
     });
     connection.on("close", () => {
       if (!link.nickname) return;
@@ -218,6 +251,10 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit") {
+          this.emitGame(message);
+          return;
+        }
         if (message.type === "reject") {
           clearTimeout(joinTimeout);
           this.events.onError(message.reason);
@@ -240,6 +277,7 @@ export class PartySession {
   }
 
   private presenceListeners: ((list: PresenceData[]) => void)[] = [];
+  private gameListeners: ((message: PartyMessage, fromNickname?: string) => void)[] = [];
   private readyResolvers: { resolve: () => void; reject: (error: Error) => void }[] = [];
   private isReady = false;
 
@@ -249,6 +287,47 @@ export class PartySession {
 
   private emitPresences(list: PresenceData[]) {
     for (const listener of this.presenceListeners) listener(list);
+  }
+
+  // 5차 게임 데이터 채널 — 호스트: attackRequest 수신(보낸 게스트 닉네임 포함) / 게스트: mobs·partyKill·mobHit 수신
+  // 리스너 등록은 다음 rAF 틱(partyWorldSyncTick)에서 일어나므로, 그 전에 도착한 메시지는 버퍼링했다가 첫 등록 때 재생한다
+  private pendingGameMessages: { message: PartyMessage; fromNickname?: string }[] = [];
+
+  onGame(listener: (message: PartyMessage, fromNickname?: string) => void) {
+    this.gameListeners.push(listener);
+    if (this.gameListeners.length === 1) {
+      for (const entry of this.pendingGameMessages.splice(0)) listener(entry.message, entry.fromNickname);
+    }
+  }
+
+  private emitGame(message: PartyMessage, fromNickname?: string) {
+    if (this.gameListeners.length === 0) {
+      // mobs 는 풀스냅샷 — 최신 1개만 유지해 8Hz 스트림이 이벤트 메시지를 밀어내지 않게 한다
+      if (message.type === "mobs") {
+        const index = this.pendingGameMessages.findIndex((entry) => entry.message.type === "mobs");
+        if (index >= 0) this.pendingGameMessages.splice(index, 1);
+      }
+      this.pendingGameMessages.push({ message, fromNickname });
+      if (this.pendingGameMessages.length > 64) this.pendingGameMessages.shift();
+      return;
+    }
+    for (const listener of this.gameListeners) listener(message, fromNickname);
+  }
+
+  // 역할 인지 송신 — 게스트는 호스트에게, 호스트는 모든 게스트에게.
+  // skipWhenBufferedBytes: 채널이 그만큼 적체된 게스트는 이번 송신을 건너뛴다 (스냅샷 전용 백프레셔 — 이벤트 메시지에는 쓰지 말 것)
+  sendGame(message: PartyMessage, skipWhenBufferedBytes?: number) {
+    if (this.closed) return;
+    const packet = encodePartyMessage(message);
+    if (this.role === "guest") {
+      if (this.hostConnection?.open) this.hostConnection.send(packet);
+      return;
+    }
+    for (const guest of this.guests) {
+      if (!guest.connection.open) continue;
+      if (skipWhenBufferedBytes && (((guest.connection as unknown as { bufferSize?: number }).bufferSize ?? 0) > 0 || (guest.connection.dataChannel?.bufferedAmount ?? 0) > skipWhenBufferedBytes)) continue;
+      guest.connection.send(packet);
+    }
   }
 
   // 호스트: 피어 서버에 방이 열린 뒤 / 게스트: welcome 수신(합류 확정) 뒤 resolve. 닫히면 reject.
@@ -270,7 +349,9 @@ export class PartySession {
       if (this.hostConnection?.open) this.hostConnection.send(encodePartyMessage({ type: "presence", data }));
       return;
     }
-    const list: PresenceData[] = [data, ...this.guests.filter((guest) => guest.nickname && guest.presence).map((guest) => guest.presence as PresenceData)];
+    const now = performance.now();
+    // 프레즌스가 끊긴(백그라운드 탭 등) 게스트는 명단에서 제외 — 몬스터가 유령 좌표를 영원히 때리는 것을 막는다
+    const list: PresenceData[] = [data, ...this.guests.filter((guest) => guest.nickname && guest.presence && now - guest.presenceAt <= PARTY_PRESENCE_STALE_MS).map((guest) => guest.presence as PresenceData)];
     const packet = encodePartyMessage({ type: "presences", list });
     for (const guest of this.guests) if (guest.connection.open) guest.connection.send(packet);
     this.emitPresences(list.filter((entry) => entry.nickname !== data.nickname));
@@ -298,6 +379,7 @@ export class PartySession {
   close() {
     if (this.closed) return;
     this.closed = true;
+    this.pendingGameMessages.length = 0;
     for (const entry of this.readyResolvers.splice(0)) entry.reject(new Error("파티 세션이 닫혔습니다."));
     try {
       this.peer?.destroy();

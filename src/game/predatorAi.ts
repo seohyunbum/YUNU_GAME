@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { WORLD_SIZE } from "./constants";
+import { partyDamageRemotePlayer, partyHostCombatTargets, partyWorldGuestActive } from "./partyWorldSync";
 import { clampPointToRegion, getRegionById, regionAtPosition, type Region } from "./regions";
 import type { MonsterId } from "./monsters";
 import type { LocationMode, PredatorKind, WorldObject } from "./types";
@@ -132,11 +133,27 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
 
 export function updatePredatorAi(context: PredatorAiContext, delta: number) {
   if (context.locationMode() !== "overworld") return;
+  if (partyWorldGuestActive()) return; // 파티 게스트 — 몬스터는 호스트가 시뮬레이션 (partyWorldSync 가 보간)
   const now = performance.now();
+  const partyTargets = partyHostCombatTargets(); // 호스트: 같은 맵 게스트도 어그로/공격 대상
   for (const predator of context.predators()) {
-    const dx = context.playerPosition.x - predator.root.position.x;
-    const dz = context.playerPosition.z - predator.root.position.z;
-    const distance = Math.hypot(dx, dz);
+    let dx = context.playerPosition.x - predator.root.position.x;
+    let dz = context.playerPosition.z - predator.root.position.z;
+    let distance = Math.hypot(dx, dz);
+    let remoteTarget: string | null = null;
+    let remotePanelOpen = false;
+    for (const candidate of partyTargets) {
+      const rdx = candidate.x - predator.root.position.x;
+      const rdz = candidate.z - predator.root.position.z;
+      const rd = Math.hypot(rdx, rdz);
+      if (rd < distance) {
+        distance = rd;
+        dx = rdx;
+        dz = rdz;
+        remoteTarget = candidate.nickname;
+        remotePanelOpen = candidate.panelOpen;
+      }
+    }
     const aggroRange = predator.attackRange ?? context.predatorAggroRange(predator.predatorKind);
     const aggroed = distance <= aggroRange || (predator.angryUntil ?? 0) > now;
     if (!aggroed && Math.random() < 0.012) predator.wanderAngle = Math.random() * Math.PI * 2;
@@ -159,10 +176,13 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     context.animateWalkCycle(predator, delta, aggroed ? 0.82 : 0.28);
     predator.attackCooldown = Math.max(0, (predator.attackCooldown ?? 0) - delta);
     // 인벤토리/제작창 등을 보는 동안에는 공격하지 않는다 — 패널 중엔 이동도 못 하므로 불공정한 피격을 막는다
-    if (aggroed && !context.isPanelOpen() && distance < context.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
+    // (원격 게스트도 프레즌스의 panelOpen 플래그로 같은 보호를 받는다)
+    if (aggroed && (remoteTarget !== null ? !remotePanelOpen : !context.isPanelOpen()) && distance < context.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
       predator.attackCooldown = predatorStats.cooldown;
       triggerPredatorAttackMotion(predator, now, dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
-      context.damagePlayer(predator.attackDamage ?? predatorStats.attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
+      const attackDamage = predator.attackDamage ?? predatorStats.attackDamage;
+      if (remoteTarget !== null) partyDamageRemotePlayer(remoteTarget, attackDamage, predator.name ?? "몬스터");
+      else context.damagePlayer(attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
     }
   }
 }

@@ -97,6 +97,7 @@ export function cloneSavedWorldState(state: SavedWorldState): SavedWorldState {
 function shouldPersistObject(object: WorldObject, excludedObjectIds: ReadonlySet<string>) {
   return (
     !excludedObjectIds.has(object.id) &&
+    !object.partyTransient && // 파티 동기화 몬스터 — 호스트 월드의 뷰이므로 저장하지 않는다
     object.type !== "caveExit" &&
     object.type !== "houseExit" &&
     object.type !== "trainingGround" &&

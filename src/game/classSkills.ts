@@ -1,5 +1,6 @@
 import type * as THREE from "three";
 import { GUNNER_SKILL_DAMAGE, HEALER_HEAL_AMOUNT, MAGE_TNT_DAMAGE, MAGE_TNT_RADIUS, WARRIOR_EXPLOSION_DAMAGE, WIND_CUTTER_DAMAGE } from "./constants";
+import { partyGuestAttackIntercept } from "./partyWorldSync";
 import type { PlayerClassId, WorldObject } from "./types";
 
 // ===== 스킬 데미지 스케일링 =====
@@ -224,7 +225,7 @@ export function updateSecondSkillEffects(context: SkillEffectsContext) {
       burningTargets.splice(index, 1);
       continue;
     }
-    context.applyDamage(target, burn.damage);
+    if (!partyGuestAttackIntercept(target, burn.damage, "dot")) context.applyDamage(target, burn.damage); // 파티 게스트의 동기화 몬스터는 호스트가 판정
     burn.ticksLeft -= 1;
     burn.nextTickAt = now + BURN_TICK_MS;
     if (burn.ticksLeft <= 0) burningTargets.splice(index, 1);
@@ -234,7 +235,7 @@ export function updateSecondSkillEffects(context: SkillEffectsContext) {
   if (context.buffs.burningShieldUntil > now && now >= context.buffs.nextAuraTickAt) {
     context.buffs.nextAuraTickAt = now + BURN_TICK_MS;
     const damage = thornsTickDamage(context.levelBonus());
-    for (const target of context.nearbyCombatTargets(BURNING_SHIELD_RADIUS)) context.applyDamage(target, damage);
+    for (const target of context.nearbyCombatTargets(BURNING_SHIELD_RADIUS)) if (!partyGuestAttackIntercept(target, damage, "dot")) context.applyDamage(target, damage);
   }
 
   // 치유의 비 — 1초 간격 회복
