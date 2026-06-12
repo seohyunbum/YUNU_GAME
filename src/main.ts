@@ -307,7 +307,8 @@ import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/s
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { ensureNickname } from "./ui/nicknamePanel";
-import { initPartyLobby } from "./ui/partyPanel";
+import { currentPartySession, initPartyLobby } from "./ui/partyPanel";
+import { initPartyPresence, partyMapMarkers, updatePartyPresence } from "./game/partyPresence";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
@@ -820,6 +821,7 @@ class WildernessGame {
     this.renderHud();
     ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });
     initPartyLobby(() => this.nickname);
+    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld" }) });
     this.animate();
   }
 
@@ -2543,6 +2545,7 @@ class WildernessGame {
     updateHitFeedback(performance.now(), this.camera);
     updateSecondSkillEffects(this.skillEffectsContext);
     ensureTrainingGround(this.trainingGroundContext);
+    updatePartyPresence(performance.now(), delta);
     this.updateMessages(delta);
     this.updatePrompt(delta);
     this.updateBossBar();
@@ -6217,7 +6220,7 @@ class WildernessGame {
     const nextBossKind = nextBossTarget(this.bossChapter)?.kind;
     const bosses = [...this.objectsOfType("dragon")].map((dragon) => ({ name: this.bossStats(dragon.bossKind).name, x: dragon.root.position.x, z: dragon.root.position.z, sealed: !isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter), next: (dragon.bossKind ?? "dragon") === nextBossKind }));
     for (const predator of this.objectsOfType("wildPredator")) if (predator.fieldBossId) bosses.push({ name: predator.name, x: predator.root.position.x, z: predator.root.position.z, sealed: false, next: false });
-    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: !this.gameStarted || canTeleportToWorldMap(this.level, map), lockReason: this.gameStarted ? worldMapLockReason(this.level, map) : "" })), bosses, homes: this.playerHomeMarkers() }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
+    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: !this.gameStarted || canTeleportToWorldMap(this.level, map), lockReason: this.gameStarted ? worldMapLockReason(this.level, map) : "" })), bosses, homes: this.playerHomeMarkers(), party: partyMapMarkers(this.currentWorldMapId) }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
   }
 
   private teleportToWorldMap(mapId: string) {

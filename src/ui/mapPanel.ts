@@ -16,6 +16,12 @@ export interface MapBossMarker {
   next: boolean;
 }
 
+export interface MapPartyMarker {
+  nickname: string;
+  x: number;
+  z: number;
+}
+
 export interface MapHomeMarker {
   name: string;
   x: number;
@@ -31,6 +37,7 @@ export interface RegionMapPanelView {
   worldMaps: { map: WorldMapDefinition; current: boolean; canTeleport: boolean; lockReason: string }[];
   bosses: MapBossMarker[];
   homes: MapHomeMarker[];
+  party: MapPartyMarker[];
 }
 
 export interface RegionMapCallbacks {
@@ -125,6 +132,19 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
       </g>`;
     })
     .join("");
+  // 파티원 마커 — 하늘색 점 + 닉네임
+  const party = view.party
+    .map((member) => {
+      const cx = Number(mapX(member.x).toFixed(1));
+      const cy = Number(mapY(member.z).toFixed(1));
+      const textHalo = 'paint-order="stroke" stroke="#15231d" stroke-width="3.5" stroke-linejoin="round"';
+      return `<g data-party-marker>
+        <circle cx="${cx}" cy="${cy}" r="8" fill="#38bdf8" stroke="#0c4a6e" stroke-width="2.5" />
+        <circle cx="${cx}" cy="${cy}" r="3" fill="#e0f2fe" />
+        <text x="${cx}" y="${cy - 14}" text-anchor="middle" fill="#7dd3fc" font-size="13" font-weight="800" ${textHalo}>${escapeHtml(member.nickname)}</text>
+      </g>`;
+    })
+    .join("");
   const cards = view.regions
     .map((region) => {
       const selected = region.id === view.currentRegionId ? " current" : "";
@@ -171,6 +191,7 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
           ${waters}
           ${regions}
           ${homes}
+          ${party}
           ${bosses}
           <line x1="${playerX.toFixed(1)}" y1="${playerY.toFixed(1)}" x2="${directionX.toFixed(1)}" y2="${directionY.toFixed(1)}" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
           <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="9" fill="#fff7d6" stroke="#111827" stroke-width="3" />

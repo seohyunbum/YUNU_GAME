@@ -112,6 +112,7 @@ try {
   const training = await server.ssrLoadModule("/src/game/training.ts");
   const nickname = await server.ssrLoadModule("/src/game/nickname.ts");
   const party = await server.ssrLoadModule("/src/game/party.ts");
+  const partyPresence = await server.ssrLoadModule("/src/game/partyPresence.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -542,6 +543,47 @@ try {
   }
 
   {
+    // 파티 프레즌스 골든: 송신 주기, 같은 맵 아바타 스폰/보간, 다른 맵 분리, 지도 마커, stale 제거
+    const { initPartyPresence, updatePartyPresence, resetPartyPresence, partyMapMarkers, remotePartyCount, PRESENCE_SEND_INTERVAL_MS } = partyPresence;
+    const sceneAdds = [];
+    const sceneRemoves = [];
+    const fakeScene = { add: (object) => sceneAdds.push(object), remove: (object) => sceneRemoves.push(object) };
+    let presencesCb = null;
+    const sent = [];
+    const fakeSession = { onPresences: (cb) => { presencesCb = cb; }, sendPresence: (data) => sent.push(data) };
+    initPartyPresence({
+      scene: fakeScene,
+      session: () => fakeSession,
+      getGroundHeightAt: () => 2,
+      localPresence: () => ({ nickname: "나", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true }),
+    });
+    updatePartyPresence(1_000, 0.016);
+    assert(sent.length === 1, "presence should send on first tick");
+    updatePartyPresence(1_000 + PRESENCE_SEND_INTERVAL_MS - 20, 0.016);
+    assert(sent.length === 1, "presence should respect the send interval");
+    updatePartyPresence(1_000 + PRESENCE_SEND_INTERVAL_MS + 5, 0.016);
+    assert(sent.length === 2, "presence should send again after the interval");
+
+    presencesCb([{ nickname: "친구", mapId: "starter_valley", x: 10, z: 4, yaw: 1.2, playerClass: "mage", inGame: true }]);
+    assert(remotePartyCount() === 1 && sceneAdds.length === 1, "same-map member should spawn an avatar");
+    const avatar = sceneAdds[0];
+    assert(avatar.position.y === 2, "avatar should stand on local ground height");
+    // 스폰은 제자리, 이후 이동분이 보간된다
+    presencesCb([{ nickname: "친구", mapId: "starter_valley", x: 20, z: 4, yaw: 1.2, playerClass: "mage", inGame: true }]);
+    updatePartyPresence(1_400, 0.05);
+    assert(avatar.position.x > 10.5 && avatar.position.x < 19.5, "avatar should lerp toward the new target (got " + avatar.position.x.toFixed(2) + ")");
+    assert(partyMapMarkers("starter_valley").length === 1 && partyMapMarkers("graveyard").length === 0, "map markers filter by map");
+
+    presencesCb([{ nickname: "친구", mapId: "graveyard", x: -50, z: 30, yaw: 0, playerClass: "mage", inGame: true }]);
+    assert(sceneRemoves.length === 1, "moving to another map should remove the avatar from the scene");
+    assert(partyMapMarkers("graveyard").length === 1 && partyMapMarkers("starter_valley").length === 0, "marker follows the member's map");
+
+    updatePartyPresence(20_000, 0.016);
+    assert(remotePartyCount() === 0, "stale members should be pruned");
+    resetPartyPresence();
+  }
+
+  {
     // 닉네임 골든: 길이/문자/비속어/예약어/중복 거부 + 1회 확정 후 불변
     const { validateNickname, confirmNickname, loadNickname } = nickname;
     assert(!validateNickname("a", []).ok, "1글자 닉네임은 거부");
@@ -813,6 +855,7 @@ try {
         "tool repair material mapping and 50% recovery golden values",
         "home base storage transfer and supply tier golden values",
         "party invite code format/normalization and protocol message roundtrip",
+        "party presence: send cadence, same-map avatar spawn/lerp, cross-map markers, stale prune",
         "nickname validation (length/charset/profanity/reserved/duplicate) and one-time immutability",
         "training ground difficulty curves, rewards, and clamps",
         "skill damage scales with level bonus",

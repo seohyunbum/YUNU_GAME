@@ -36,11 +36,23 @@ export interface PartyMember {
   isHost: boolean;
 }
 
+export interface PresenceData {
+  nickname: string;
+  mapId: string;
+  x: number;
+  z: number;
+  yaw: number;
+  playerClass: string;
+  inGame: boolean;
+}
+
 export type PartyMessage =
   | { type: "hello"; nickname: string; protocol: number }
   | { type: "welcome"; members: PartyMember[] }
   | { type: "reject"; reason: string }
   | { type: "roster"; members: PartyMember[] }
+  | { type: "presence"; data: PresenceData }
+  | { type: "presences"; list: PresenceData[] }
   | { type: "ping"; t: number }
   | { type: "pong"; t: number };
 
@@ -68,6 +80,7 @@ export interface PartyEvents {
 interface GuestLink {
   connection: DataConnection;
   nickname: string | null;
+  presence: PresenceData | null;
 }
 
 // 한 세션 = 호스트이거나 게스트이거나. 로비 단계(2차)는 로스터/핑까지만 책임진다.
@@ -129,7 +142,7 @@ export class PartySession {
   }
 
   private acceptGuest(connection: DataConnection) {
-    const link: GuestLink = { connection, nickname: null };
+    const link: GuestLink = { connection, nickname: null, presence: null };
     connection.on("data", (raw) => {
       const message = decodePartyMessage(raw);
       if (!message) return;
@@ -156,6 +169,7 @@ export class PartySession {
         this.events.onStatus(`${message.nickname} 님이 파티에 들어왔습니다!`);
         return;
       }
+      if (message.type === "presence") link.presence = message.data;
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
     });
     connection.on("close", () => {
@@ -198,6 +212,10 @@ export class PartySession {
           this.events.onRoster(message.members);
           return;
         }
+        if (message.type === "presences") {
+          this.presenceListener?.(message.list.filter((entry) => entry.nickname !== this.nickname));
+          return;
+        }
         if (message.type === "reject") {
           clearTimeout(joinTimeout);
           this.events.onError(message.reason);
@@ -217,6 +235,25 @@ export class PartySession {
       });
     });
     peer.on("error", (error) => this.handlePeerError(error));
+  }
+
+  private presenceListener: ((list: PresenceData[]) => void) | null = null;
+
+  onPresences(listener: (list: PresenceData[]) => void) {
+    this.presenceListener = listener;
+  }
+
+  // 자기 프레즌스 송신 — 호스트는 전원 목록을 합쳐 브로드캐스트하고 자기 리스너에도 전달한다.
+  sendPresence(data: PresenceData) {
+    if (this.closed) return;
+    if (this.role === "guest") {
+      if (this.hostConnection?.open) this.hostConnection.send(encodePartyMessage({ type: "presence", data }));
+      return;
+    }
+    const list: PresenceData[] = [data, ...this.guests.filter((guest) => guest.nickname && guest.presence).map((guest) => guest.presence as PresenceData)];
+    const packet = encodePartyMessage({ type: "presences", list });
+    for (const guest of this.guests) if (guest.connection.open) guest.connection.send(packet);
+    this.presenceListener?.(list.filter((entry) => entry.nickname !== data.nickname));
   }
 
   pingHost() {
