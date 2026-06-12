@@ -117,6 +117,7 @@ try {
   });
 
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  await page.addInitScript(() => localStorage.setItem("ai-game-lab:nickname-v1", "테스터"));
   const browserErrors = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
   page.on("console", (message) => {

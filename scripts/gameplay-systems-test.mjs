@@ -110,6 +110,7 @@ try {
   const hitFeedback = await server.ssrLoadModule("/src/game/hitFeedback.ts");
   const classSkills = await server.ssrLoadModule("/src/game/classSkills.ts");
   const training = await server.ssrLoadModule("/src/game/training.ts");
+  const nickname = await server.ssrLoadModule("/src/game/nickname.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -523,6 +524,27 @@ try {
   }
 
   {
+    // 닉네임 골든: 길이/문자/비속어/예약어/중복 거부 + 1회 확정 후 불변
+    const { validateNickname, confirmNickname, loadNickname } = nickname;
+    assert(!validateNickname("a", []).ok, "1글자 닉네임은 거부");
+    assert(!validateNickname("열한글자가넘는닉네임임", []).ok, "11글자 닉네임은 거부");
+    assert(!validateNickname("연 우", []).ok, "공백 포함 닉네임은 거부");
+    assert(!validateNickname("연우!", []).ok, "특수문자 포함 닉네임은 거부");
+    assert(!validateNickname("시발맨", []).ok, "비속어 포함 닉네임은 거부");
+    assert(!validateNickname("FxCk123", []).ok, "변형 영문 욕설도 거부");
+    assert(!validateNickname("admin", []).ok, "시스템 예약어는 거부");
+    assert(!validateNickname("연우용사", ["연우용사"]).ok, "중복 닉네임은 거부");
+    assert(!validateNickname("Yunu", ["yunu"]).ok, "대소문자만 다른 중복도 거부");
+    assert(validateNickname("연우용사", []).ok, "정상 닉네임은 통과");
+    const store = new Map();
+    const mockStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+    const first = confirmNickname("연우짱", mockStorage);
+    assert(first.ok && loadNickname(mockStorage) === "연우짱", "확정하면 저장된다");
+    const second = confirmNickname("다른이름", mockStorage);
+    assert(!second.ok && second.reason.includes("변경할 수 없습니다") && loadNickname(mockStorage) === "연우짱", "확정 후에는 절대 변경 불가");
+  }
+
+  {
     // 훈련장 골든: 난이도 단조 증가 + 안전 클램프 + 보상/정규화
     const { TRAINING_MIN_LEVEL, TRAINING_REWARDS, TRAINING_GAMES, normalizeTrainingStats, liftDrainPerSecond, liftClickPower, targetSpeed, targetWobble, targetTolerance, blockWindowMs, blockFakeChance, calmZoneRatio } = training;
     assert(TRAINING_MIN_LEVEL === 10, "training unlocks at level 10");
@@ -772,6 +794,7 @@ try {
         "field boss spawn-once, quest view, and mini fanfare",
         "tool repair material mapping and 50% recovery golden values",
         "home base storage transfer and supply tier golden values",
+        "nickname validation (length/charset/profanity/reserved/duplicate) and one-time immutability",
         "training ground difficulty curves, rewards, and clamps",
         "skill damage scales with level bonus",
         "second skill table covers all classes with designed names",

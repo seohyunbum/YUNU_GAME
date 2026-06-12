@@ -28,6 +28,7 @@ let browser = null;
 try {
   browser = await chromium.launch({ executablePath: await findBrowserPath() });
   const page = await browser.newPage({ viewport: { width: 1960, height: 880 } });
+  await page.addInitScript(() => localStorage.setItem("ai-game-lab:nickname-v1", "테스터"));
   page.on("pageerror", (error) => {
     console.error(`MONSTER PREVIEW page error: ${error.message}`);
     process.exitCode = 1;

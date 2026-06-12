@@ -153,6 +153,7 @@ export function renderTitleScreen(titleScreenEl: HTMLElement, view: TitleScreenV
       <div class="title-kicker">YUNU GAME LAB</div>
       <h1>1인칭 야생 마을</h1>
       <p>마을, 동굴, 기차, 밤의 야생동물을 탐험하는 1인칭 생존 모험</p>
+      <p class="title-nickname">모험가: <b data-player-nickname>이름을 정해 주세요</b></p>
       <div class="class-select" data-class-select>
         <strong>직업 선택</strong>
         <div class="class-grid">

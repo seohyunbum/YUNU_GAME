@@ -29,6 +29,7 @@ let browser = null;
 try {
   browser = await chromium.launch({ executablePath: await findBrowserPath() });
   const page = await browser.newPage({ viewport: { width: 1280, height: 920 } });
+  await page.addInitScript(() => localStorage.setItem("ai-game-lab:nickname-v1", "테스터"));
   await page.goto("http://127.0.0.1:5199/scripts/weapon-preview/index.html", { waitUntil: "networkidle" });
   await page.waitForFunction(() => window.weaponPreviewReady === true, undefined, { timeout: 15_000 });
   await mkdir("artifacts", { recursive: true });

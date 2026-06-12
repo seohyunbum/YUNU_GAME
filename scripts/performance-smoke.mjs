@@ -212,6 +212,7 @@ async function readProfiler(page) {
 const browserPath = await findBrowserPath();
 const browser = await chromium.launch({ executablePath: browserPath, headless: true });
 const page = await browser.newPage({ viewport: { width: 1366, height: 768 } });
+  await page.addInitScript(() => localStorage.setItem("ai-game-lab:nickname-v1", "테스터"));
 const errors = [];
 
 page.on("pageerror", (error) => errors.push(error.message));

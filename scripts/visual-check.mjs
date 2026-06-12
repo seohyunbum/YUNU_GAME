@@ -613,6 +613,7 @@ for (const viewport of [
   { name: "mobile", width: 390, height: 844 },
 ]) {
   const page = await browser.newPage({ viewport });
+  await page.addInitScript(() => localStorage.setItem("ai-game-lab:nickname-v1", "테스터"));
   page.on("pageerror", (error) => errors.push(`${viewport.name}: ${error.message}`));
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(`${viewport.name} console: ${message.text()}`);

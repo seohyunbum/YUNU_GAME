@@ -2903,3 +2903,93 @@ button[data-title-load]:disabled {
 .ending-continue:hover {
   background: rgba(30, 41, 59, 0.9);
 }
+
+.nickname-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 14, 12, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.nickname-modal {
+  width: min(440px, 92vw);
+  padding: 26px 28px;
+  border: 1px solid rgba(252, 211, 77, 0.5);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.97), rgba(18, 30, 42, 0.97));
+  color: #fde68a;
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+.nickname-modal h2 {
+  margin: 0 0 6px;
+}
+
+.nickname-subtitle {
+  margin: 0 0 16px;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.nickname-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid rgba(252, 211, 77, 0.45);
+  border-radius: 8px;
+  background: #0f1d18;
+  color: #fff7cc;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.nickname-input:focus {
+  outline: 2px solid rgba(252, 211, 77, 0.6);
+}
+
+.nickname-error {
+  min-height: 20px;
+  margin: 8px 0 2px;
+  color: #f87171;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.nickname-confirm {
+  width: 100%;
+  padding: 12px;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.nickname-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 14px 0 0;
+  color: #fca5a5;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.nickname-notice svg {
+  flex: none;
+}
+
+.title-nickname {
+  margin: 2px 0 0;
+  color: #a7f3d0;
+  font-weight: 700;
+}
+
+.title-nickname b {
+  color: #fde68a;
+}

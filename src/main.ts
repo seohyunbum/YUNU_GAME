@@ -306,6 +306,7 @@ import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } fr
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
+import { ensureNickname } from "./ui/nicknamePanel";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
@@ -451,6 +452,7 @@ class WildernessGame {
   private classSkillCooldownUntil = 0;
   private secondSkillCooldownUntil = 0;
   private readonly skillBuffs = createSkillBuffs();
+  private nickname = "";
   private currentTrainingKind: TrainingKind = "hp";
   private lastObjectiveReady = false;
   private trainingStats = createTrainingStats();
@@ -815,6 +817,7 @@ class WildernessGame {
     this.seedOverworld();
     precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.renderHud();
+    ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });
     this.animate();
   }
 
@@ -6069,7 +6072,7 @@ class WildernessGame {
       this.hudRenderCache,
       {
         level: this.level,
-        className: playerClass.name,
+        className: this.nickname ? `${this.nickname} · ${playerClass.name}` : playerClass.name,
         attack,
         armor,
         health: healthValue,
