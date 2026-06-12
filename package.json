@@ -27,6 +27,7 @@
     "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run visual:weapons && npm run perf-check"
   },
   "dependencies": {
+    "peerjs": "^1.5.5",
     "three": "^0.184.0"
   },
   "devDependencies": {

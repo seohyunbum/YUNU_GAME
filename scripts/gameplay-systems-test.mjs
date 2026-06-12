@@ -111,6 +111,7 @@ try {
   const classSkills = await server.ssrLoadModule("/src/game/classSkills.ts");
   const training = await server.ssrLoadModule("/src/game/training.ts");
   const nickname = await server.ssrLoadModule("/src/game/nickname.ts");
+  const party = await server.ssrLoadModule("/src/game/party.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -524,6 +525,23 @@ try {
   }
 
   {
+    // 파티 접속 계층 골든: 초대 코드 형식/정규화 + 프로토콜 인코딩 왕복
+    const { generatePartyCode, normalizePartyCode, peerIdForCode, encodePartyMessage, decodePartyMessage, PARTY_CODE_LENGTH, PARTY_MAX_MEMBERS } = party;
+    for (let i = 0; i < 30; i += 1) {
+      const code = generatePartyCode();
+      assert(code.length === PARTY_CODE_LENGTH && !/[0O1I]/.test(code), `invite code must avoid confusable chars (got ${code})`);
+      assert(normalizePartyCode(code.toLowerCase()) === code, "lowercase input should normalize to the same code");
+    }
+    assert(normalizePartyCode(" k7 p2-qx ") === "K7P2QX", "spaces/dashes should be stripped on input");
+    assert(normalizePartyCode("ABC") === null && normalizePartyCode("ABC10X") === null, "wrong length or confusable chars are rejected");
+    assert(peerIdForCode("K7P2QX") === "yunu-game-K7P2QX", "peer id derives from the code");
+    assert(PARTY_MAX_MEMBERS === 4, "party caps at 4 including the host");
+    const message = { type: "hello", nickname: "연우용사", protocol: 1 };
+    assert(JSON.stringify(decodePartyMessage(encodePartyMessage(message))) === JSON.stringify(message), "party messages roundtrip");
+    assert(decodePartyMessage("{broken") === null && decodePartyMessage(42) === null, "malformed messages decode to null");
+  }
+
+  {
     // 닉네임 골든: 길이/문자/비속어/예약어/중복 거부 + 1회 확정 후 불변
     const { validateNickname, confirmNickname, loadNickname } = nickname;
     assert(!validateNickname("a", []).ok, "1글자 닉네임은 거부");
@@ -794,6 +812,7 @@ try {
         "field boss spawn-once, quest view, and mini fanfare",
         "tool repair material mapping and 50% recovery golden values",
         "home base storage transfer and supply tier golden values",
+        "party invite code format/normalization and protocol message roundtrip",
         "nickname validation (length/charset/profanity/reserved/duplicate) and one-time immutability",
         "training ground difficulty curves, rewards, and clamps",
         "skill damage scales with level bonus",

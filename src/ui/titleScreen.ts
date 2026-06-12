@@ -174,6 +174,7 @@ export function renderTitleScreen(titleScreenEl: HTMLElement, view: TitleScreenV
       <div class="title-actions">
         <button data-title-new>새로시작</button>
         <button data-title-load>불러오기</button>
+        <button data-title-party>파티</button>
         <button data-title-mini>구슬 튕기기</button>
         <button data-title-lava>용암을 피해라</button>
         <button data-title-smith>대장간 게임</button>
