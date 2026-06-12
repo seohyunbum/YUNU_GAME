@@ -502,6 +502,9 @@ async function inspectNewSystems(page) {
     loadPanelHasFileBackup: false,
     homeMarkers: 0,
     newGameReturnsToTitle: false,
+    titleBlocksShortcuts: false,
+    titleMapOpens: false,
+    titleMapAllUnlocked: false,
   };
 
   await startNewGameAs(page, "gunner");
@@ -595,6 +598,18 @@ async function inspectNewSystems(page) {
     (await page.locator(".title-screen:not(.hidden)").count()) === 1 &&
     (await page.locator("[data-title-new]").isVisible());
 
+  // 타이틀 단축키 가드: I(인벤토리) 등은 무시되고, M 지도만 열리며 전 맵이 잠금 해제 상태
+  await page.keyboard.press("KeyI");
+  await page.keyboard.press("KeyB");
+  await page.waitForTimeout(250);
+  systems.titleBlocksShortcuts = (await page.locator(".panel").count()) === 0;
+  await page.keyboard.press("KeyM");
+  await page.waitForTimeout(350);
+  systems.titleMapOpens = (await page.locator(".map-panel").count()) === 1;
+  systems.titleMapAllUnlocked = (await page.locator("[data-teleport-map][disabled]").count()) <= 1 && !(await page.locator(".world-map-card").allTextContents()).some((text) => text.includes("잠김"));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
   return systems;
 }
 
@@ -667,6 +682,9 @@ for (const viewport of [
       errors.push(`desktop: night sky (${systems.nightSkyBrightness}) was not darker than day sky (${systems.daySkyBrightness})`);
     }
     if (!systems.newGameReturnsToTitle) errors.push("desktop: in-game new-game button did not return to the title screen");
+    if (!systems.titleBlocksShortcuts) errors.push("desktop: title screen did not block gameplay shortcuts (I/B opened a panel)");
+    if (!systems.titleMapOpens) errors.push("desktop: KeyM did not open the map on the title screen");
+    if (!systems.titleMapAllUnlocked) errors.push("desktop: title map should unlock every map for backdrop browsing");
     if (!systems.levelCardCompact) errors.push("desktop: 3-digit level did not get the compact level-card font class");
     if (systems.bossMarkers < 1) errors.push("desktop: region map did not show any boss markers");
     if (systems.sealedBossMarkers < 1) errors.push("desktop: sealed boss was not marked as sealed on the region map");

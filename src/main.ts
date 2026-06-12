@@ -1925,6 +1925,12 @@ class WildernessGame {
     if (this.handleMiniGameKeyDown(event)) return;
     if (this.handleLavaMiniGameKeyDown(event)) return;
     if (this.handleSmithingMiniGameKeyDown(event)) return;
+    if (!this.gameStarted) {
+      // 타이틀 화면 — 지도 구경(M)과 닫기(ESC)만 허용한다. 인벤토리·스킬 등은 게임 시작 후에만.
+      if (event.code === "KeyM" && !event.repeat) this.togglePanel("map");
+      if (event.code === "Escape") this.closePanel();
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && event.code === "KeyW") {
       this.ctrlWBlocked = true;
       this.blockBrowserShortcut(event);
@@ -6209,13 +6215,13 @@ class WildernessGame {
     const nextBossKind = nextBossTarget(this.bossChapter)?.kind;
     const bosses = [...this.objectsOfType("dragon")].map((dragon) => ({ name: this.bossStats(dragon.bossKind).name, x: dragon.root.position.x, z: dragon.root.position.z, sealed: !isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter), next: (dragon.bossKind ?? "dragon") === nextBossKind }));
     for (const predator of this.objectsOfType("wildPredator")) if (predator.fieldBossId) bosses.push({ name: predator.name, x: predator.root.position.x, z: predator.root.position.z, sealed: false, next: false });
-    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: canTeleportToWorldMap(this.level, map), lockReason: worldMapLockReason(this.level, map) })), bosses, homes: this.playerHomeMarkers() }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
+    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: !this.gameStarted || canTeleportToWorldMap(this.level, map), lockReason: this.gameStarted ? worldMapLockReason(this.level, map) : "" })), bosses, homes: this.playerHomeMarkers() }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
   }
 
   private teleportToWorldMap(mapId: string) {
     const map = getWorldMapById(mapId);
     if (map.id === this.currentWorldMapId) return;
-    if (!canTeleportToWorldMap(this.level, map)) { this.showMessage(worldMapLockReason(this.level, map)); this.renderRegionMapPanel(); return; }
+    if (this.gameStarted && !canTeleportToWorldMap(this.level, map)) { this.showMessage(worldMapLockReason(this.level, map)); this.renderRegionMapPanel(); return; }
     rememberWorldState(this.worldStates, this.currentWorldMapId, this.createSaveData().worldStates?.[this.currentWorldMapId]);
     this.currentWorldMapId = map.id; this.activeRegions = regionsForWorldMap(map.id); this.activeBiomes = biomesForWorldMap(map.id); this.activeWaterZones = waterZonesForWorldMap(map.id); this.biomeDecorContext.biomes = this.activeBiomes; this.regionWarningState = { regionId: null, lastWarnAt: 0 };
     this.locationMode = "overworld"; this.clearWorld(); const worldState = this.worldStates[map.id];
