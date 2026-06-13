@@ -139,7 +139,7 @@ function spawnRemote(data: PresenceData, nowMs: number): RemoteMember {
     hpFill = bar.fill;
   }
   root.position.set(data.x, context!.getGroundHeightAt(data.x, data.z), data.z);
-  root.rotation.y = data.yaw;
+  root.rotation.y = data.yaw + Math.PI; // 아바타 모델은 +Z(앞면)로 만들어졌고 플레이어 forward 규약은 -Z → 180° 보정(목 역전 방지)
   context!.scene.add(root);
   const remote: RemoteMember = { data, root, body, hpFill, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: true, actionUntil: 0 };
   updateHpBar(remote);
@@ -242,6 +242,30 @@ function spawnRemoteProjectile(message: Extract<PartyMessage, { type: "playerAtt
   debugProjectilesSeen += 1;
 }
 
+// 직업별 원격 공격 모션 — 아바타에 팔 피벗이 없어 본체(body) 회전으로 직업 특성을 표현한다.
+// 모두가 "앞으로 숙이던" 단일 모션 대신 근접=옆으로 휘두르기(비틀기), 사격=앞으로 겨눔, 시전=위로 젖힘.
+// rotation 은 호출자의 Euler(또는 {x,y,z})를 직접 변형 — 할당 없음(핫패스 안전). p: 0→1 진행도.
+export function applyAttackMotion(rotation: { x: number; y: number; z: number }, playerClass: string, p: number) {
+  const swing = Math.sin(p * Math.PI); // 0 → 1 → 0 봉우리
+  if (playerClass === "warrior" || playerClass === "tanker") {
+    rotation.x = -swing * 0.3; // 앞으로 베어내며
+    rotation.y = -swing * 0.45; // 몸통 비틀기 = 휘두르기
+    rotation.z = swing * 0.2; // 대각선 스윙 느낌
+  } else if (playerClass === "gunner") {
+    rotation.x = -swing * 0.16; // 살짝 앞으로 겨누고
+    rotation.y = 0;
+    rotation.z = -swing * 0.1; // 반동
+  } else if (playerClass === "healer" || playerClass === "mage" || playerClass === "summoner") {
+    rotation.x = swing * 0.28; // 위로 젖혀 시전(앞으로 숙이지 않음)
+    rotation.y = 0;
+    rotation.z = 0;
+  } else {
+    rotation.x = -swing * 0.4; // 알 수 없는 직업 — 기본 전조
+    rotation.y = 0;
+    rotation.z = 0;
+  }
+}
+
 export function updatePartyPresence(nowMs: number, delta: number) {
   if (!context) return;
   partyWorldSyncTick(nowMs, delta); // 5차 — 세션 유무/역할 판단은 내부에서
@@ -290,11 +314,15 @@ export function updatePartyPresence(nowMs: number, delta: number) {
       root.position.z += stepZ;
     }
     root.position.y = context.getGroundHeightAt(root.position.x, root.position.z);
-    let yawDelta = remote.targetYaw - root.rotation.y;
+    let yawDelta = (remote.targetYaw + Math.PI) - root.rotation.y; // +Math.PI: 스폰과 동일한 모델 정면 보정(목 역전 방지)
     yawDelta = ((yawDelta + Math.PI) % (Math.PI * 2)) - Math.PI;
     root.rotation.y += yawDelta * alpha;
     if (remote.body) {
-      remote.body.rotation.x = remote.actionUntil > nowMs ? -Math.sin((1 - (remote.actionUntil - nowMs) / ATTACK_MOTION_MS) * Math.PI) * 0.5 : 0; // 공격 전조(앞으로 숙였다 펴기)
+      if (remote.actionUntil > nowMs) {
+        applyAttackMotion(remote.body.rotation, remote.data.playerClass, 1 - (remote.actionUntil - nowMs) / ATTACK_MOTION_MS); // 직업별 공격 모션
+      } else if (remote.body.rotation.x !== 0 || remote.body.rotation.y !== 0 || remote.body.rotation.z !== 0) {
+        remote.body.rotation.set(0, 0, 0); // 모션 종료 — 자세 복귀
+      }
     }
   }
   publishPresenceDebug();

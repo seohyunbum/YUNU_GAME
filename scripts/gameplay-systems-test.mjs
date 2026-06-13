@@ -633,6 +633,7 @@ try {
     assert(remotePartyCount() === 1 && sceneAdds.length === 1, "same-map member should spawn an avatar");
     const avatar = sceneAdds[0];
     assert(avatar.position.y === 2, "avatar should stand on local ground height");
+    assert(Math.abs(avatar.rotation.y - (1.2 + Math.PI)) < 1e-6, "avatar faces sent yaw + Math.PI (model +Z front vs -Z forward) — no reversed/180 neck");
     // 스폰은 제자리, 이후 이동분이 보간된다
     presencesCb([{ nickname: "친구", mapId: "starter_valley", x: 20, z: 4, yaw: 1.2, playerClass: "mage", inGame: true }]);
     updatePartyPresence(1_400, 0.05);
@@ -1075,7 +1076,7 @@ try {
 
   {
     // 파티 5.1 골든 — 공격 브로드캐스트 / 파티 힐(송신·수신·맵 가드) / 플레이어 충돌 push-out
-    const { initPartyPresence, updatePartyPresence, resetPartyPresence, notifyPartyAttack, partyHealNearby, partyHasNearbyMember, pushOutOfPartyMembers } = partyPresence;
+    const { initPartyPresence, updatePartyPresence, resetPartyPresence, notifyPartyAttack, partyHealNearby, partyHasNearbyMember, pushOutOfPartyMembers, applyAttackMotion } = partyPresence;
     const sent = [];
     let presencesCb = null;
     let gameCb = null;
@@ -1122,6 +1123,19 @@ try {
     const farPos = new THREE.Vector3(40, 0, 40);
     pushOutOfPartyMembers(farPos, 0.42);
     assert(farPos.x === 40 && farPos.z === 40, "a player far from any friend is not nudged");
+
+    // 직업별 원격 공격 모션 — 모두 "앞으로 숙임" 단일 모션이 아니라 직업마다 다른 자세
+    const rest = { x: 0, y: 0, z: 0 };
+    applyAttackMotion(rest, "warrior", 0); // 진행도 0 → 휴식 자세
+    assert(rest.x === 0 && rest.y === 0 && rest.z === 0, "attack motion at progress 0 is the rest pose");
+    const warrior = { x: 0, y: 0, z: 0 }, gunner = { x: 0, y: 0, z: 0 }, mage = { x: 0, y: 0, z: 0 };
+    applyAttackMotion(warrior, "warrior", 0.5); // 봉우리
+    applyAttackMotion(gunner, "gunner", 0.5);
+    applyAttackMotion(mage, "mage", 0.5);
+    assert(warrior.y < -0.1, "melee swing twists the torso (rotation.y), not just a forward bend");
+    assert(mage.x > 0.1, "caster leans back/up (positive rotation.x), opposite of the old forward bend");
+    assert(gunner.x < 0 && gunner.y === 0, "gunner leans slightly forward to aim, no torso twist");
+    assert(warrior.y !== mage.y && Math.sign(warrior.x) !== Math.sign(mage.x), "each class archetype has a distinct attack pose");
     resetPartyPresence();
   }
 
