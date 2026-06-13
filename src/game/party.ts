@@ -118,6 +118,15 @@ export interface PartyEvents {
   onRoster(members: PartyMember[]): void;
   onError(text: string): void;
   onClosed(): void;
+  // C4 — 게스트: 방장 연결이 끊김(이탈/이동). 구현돼 있으면 자동 승계(host migration), 없으면 기존처럼 세션 종료.
+  onHostLost?(): void;
+}
+
+// C4 — 호스트 이탈 시 결정적 후계 선출: 생존자(호스트 제외) 중 닉네임 사전순 최소.
+// 모든 게스트가 동일한 roster 를 보유하므로 메시지 교환 없이 같은 승자를 계산한다.
+export function electSuccessor(members: PartyMember[]): string | null {
+  const survivors = members.filter((member) => !member.isHost).map((member) => member.nickname).sort();
+  return survivors[0] ?? null;
 }
 
 interface GuestLink {
@@ -137,6 +146,8 @@ export class PartySession {
   private guests: GuestLink[] = []; // 호스트 전용
   private hostConnection: DataConnection | null = null; // 게스트 전용
   private closed = false;
+  private reclaimHost = false; // C4 — 같은 코드 재호스팅(승계): unavailable-id 시 재시도 허용
+  private rehostRetries = 0;
   lastPingMs: number | null = null;
 
   private constructor(role: "host" | "guest", code: string, nickname: string, events: PartyEvents) {
@@ -148,6 +159,14 @@ export class PartySession {
 
   static host(nickname: string, events: PartyEvents): PartySession {
     const session = new PartySession("host", generatePartyCode(), nickname, events);
+    session.openHost();
+    return session;
+  }
+
+  // C4 — 승계: 기존 코드를 그대로 다시 호스팅한다(브로커가 옛 호스트 peer-id 를 해제하면 재확보).
+  static hostWithCode(code: string, nickname: string, events: PartyEvents): PartySession {
+    const session = new PartySession("host", code, nickname, events);
+    session.reclaimHost = true;
     session.openHost();
     return session;
   }
@@ -171,10 +190,15 @@ export class PartySession {
   private latestRoster: PartyMember[] = [];
 
   private openHost() {
-    this.events.onStatus("방을 만드는 중…");
+    this.events.onStatus(this.reclaimHost ? "방장 자리를 이어받는 중…" : "방을 만드는 중…");
+    this.spawnHostPeer();
+  }
+
+  private spawnHostPeer() {
     const peer = new Peer(peerIdForCode(this.code));
     this.peer = peer;
     peer.on("open", () => {
+      this.rehostRetries = 0;
       this.markReady();
       this.events.onStatus(`방이 열렸습니다! 초대 코드: ${this.code}`);
       this.events.onRoster(this.members());
@@ -197,13 +221,24 @@ export class PartySession {
           setTimeout(() => connection.close(), 300);
           return;
         }
-        if (this.members().length >= PARTY_MAX_MEMBERS) {
-          connection.send(encodePartyMessage({ type: "reject", reason: `파티 정원(${PARTY_MAX_MEMBERS}명)이 가득 찼어요.` }));
+        // C3 — 방장 본인 닉네임과 충돌할 때만 거절. 같은 닉네임의 게스트가 이미 있으면(재접속 등) 옛 link 를 교체(takeover).
+        if (message.nickname === this.nickname) {
+          connection.send(encodePartyMessage({ type: "reject", reason: "방장과 같은 닉네임은 쓸 수 없어요." }));
           setTimeout(() => connection.close(), 300);
           return;
         }
-        if (this.members().some((member) => member.nickname === message.nickname)) {
-          connection.send(encodePartyMessage({ type: "reject", reason: "같은 닉네임이 이미 파티에 있어요." }));
+        const stale = this.guests.find((guest) => guest.nickname === message.nickname && guest !== link);
+        if (stale) {
+          this.guests = this.guests.filter((guest) => guest !== stale);
+          stale.nickname = null; // close 가 동기로 emit 돼도 그 핸들러가 가짜 "나감" roster/메시지를 뿌리지 않게(닉네임 가드로 조기 반환)
+          try {
+            stale.connection.close();
+          } catch {
+            // 이미 닫힌 연결 — 무시
+          }
+        }
+        if (this.members().length >= PARTY_MAX_MEMBERS) {
+          connection.send(encodePartyMessage({ type: "reject", reason: `파티 정원(${PARTY_MAX_MEMBERS}명)이 가득 찼어요.` }));
           setTimeout(() => connection.close(), 300);
           return;
         }
@@ -227,6 +262,9 @@ export class PartySession {
       }
     });
     connection.on("close", () => {
+      // C4 — 호스트가 스스로 닫는 중이면 부분 roster 를 뿌리지 않는다. (그러면 일부 생존자의 roster 에서 다른
+      // 생존자가 빠져 잘못된 후계 선출 → 더블클레임이 된다. 생존자들은 onHostLost 로 알아서 승계한다.)
+      if (this.closed) return;
       if (!link.nickname) return;
       this.guests = this.guests.filter((guest) => guest !== link);
       this.broadcastRoster();
@@ -248,7 +286,8 @@ export class PartySession {
       const connection = peer.connect(peerIdForCode(this.code), { reliable: true });
       this.hostConnection = connection;
       const joinTimeout = setTimeout(() => {
-        if (this.latestRoster.length === 0 && !this.closed) {
+        // C1 — roster 가 비었든(방 없음) 합류 확정 전 어떤 상태로 멈췄든(half-open) 정리해 zombie 세션을 남기지 않는다
+        if (!this.isReady && !this.closed) {
           this.events.onError("방을 찾지 못했어요. 코드를 확인하거나, 방장이 방을 열어 둔 상태인지 확인해 주세요.");
           this.close();
         }
@@ -257,6 +296,7 @@ export class PartySession {
         connection.send(encodePartyMessage({ type: "hello", nickname: this.nickname, protocol: PARTY_PROTOCOL_VERSION }));
       });
       connection.on("data", (raw) => {
+        if (this.closed) return; // 닫힌(또는 승계로 teardown 된) 뒤 도착한 메시지는 무시 — 마이그레이션 중 stale roster 차단
         const message = decodePartyMessage(raw);
         if (!message) return;
         if (message.type === "welcome" || message.type === "roster") {
@@ -289,11 +329,30 @@ export class PartySession {
       });
       connection.on("close", () => {
         if (this.closed) return;
+        // C4 — 자동 승계 핸들러가 있으면: 이 죽은 세션을 조용히 정리하고 승계를 알린다(onClosed 는 호출하지 않음 — 패널이 새 세션으로 교체).
+        if (this.events.onHostLost) {
+          this.teardownSilently();
+          this.events.onHostLost();
+          return;
+        }
         this.events.onError("방장과의 연결이 끊어졌습니다.");
         this.close();
       });
     });
     peer.on("error", (error) => this.handlePeerError(error));
+  }
+
+  // C4 — onClosed 를 발생시키지 않고 자원만 정리(승계 시 패널이 activeSession 을 새 세션으로 바꾸기 때문).
+  private teardownSilently() {
+    if (this.closed) return;
+    this.closed = true;
+    this.pendingGameMessages.length = 0;
+    for (const entry of this.readyResolvers.splice(0)) entry.reject(new Error("파티 세션이 닫혔습니다."));
+    try {
+      this.peer?.destroy();
+    } catch {
+      // 종료 중 오류 무시
+    }
   }
 
   private presenceListeners: ((list: PresenceData[]) => void)[] = [];
@@ -393,6 +452,20 @@ export class PartySession {
   private handlePeerError(error: { type?: string; message?: string }) {
     if (this.closed) return;
     if (error.type === "unavailable-id") {
+      // C4 — 승계 재호스팅 중이면 브로커가 옛 호스트 id 를 아직 안 비웠을 수 있다 → backoff 후 재시도
+      if (this.reclaimHost && this.rehostRetries < 2) {
+        this.rehostRetries += 1;
+        try {
+          this.peer?.destroy();
+        } catch {
+          // 무시
+        }
+        this.peer = null;
+        setTimeout(() => {
+          if (!this.closed) this.spawnHostPeer();
+        }, 1_200);
+        return;
+      }
       this.events.onError("초대 코드가 충돌했어요. 방을 다시 만들어 주세요.");
     } else if (error.type === "peer-unavailable") {
       this.events.onError("그 코드의 방을 찾지 못했어요. 코드를 다시 확인해 주세요.");
@@ -402,6 +475,10 @@ export class PartySession {
       this.events.onError(`연결 오류: ${error.message ?? error.type ?? "알 수 없음"}`);
     }
     this.close();
+  }
+
+  isClosed() {
+    return this.closed;
   }
 
   close() {

@@ -543,6 +543,16 @@ try {
     const message = { type: "hello", nickname: "연우용사", protocol: 1 };
     assert(JSON.stringify(decodePartyMessage(encodePartyMessage(message))) === JSON.stringify(message), "party messages roundtrip");
     assert(decodePartyMessage("{broken") === null && decodePartyMessage(42) === null, "malformed messages decode to null");
+
+    // C4 — 호스트 이탈 시 후계 선출: 호스트 제외, 닉네임 사전순 최소(모든 게스트가 동일 계산)
+    const { electSuccessor } = party;
+    const roster = [{ nickname: "아빠", isHost: true }, { nickname: "연우", isHost: false }, { nickname: "민준", isHost: false }];
+    assert(electSuccessor(roster) === "민준", "successor is the lowest-nickname survivor, host excluded");
+    assert(electSuccessor([{ nickname: "아빠", isHost: true }, { nickname: "연우", isHost: false }]) === "연우", "sole surviving guest becomes the successor (can re-invite)");
+    assert(electSuccessor([{ nickname: "아빠", isHost: true }]) === null, "no survivors -> no successor");
+    assert(electSuccessor([]) === null, "empty roster -> no successor");
+    const a = electSuccessor([{ nickname: "호스트", isHost: true }, { nickname: "Bob", isHost: false }, { nickname: "Amy", isHost: false }, { nickname: "Cara", isHost: false }]);
+    assert(a === "Amy", "election is deterministic across all guests (same roster -> same winner)");
   }
 
   {

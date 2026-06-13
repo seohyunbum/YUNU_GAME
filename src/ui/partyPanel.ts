@@ -1,6 +1,6 @@
 import { createDirectory, filterUsers, type DirectoryUser, type PartyDirectory } from "../game/directory";
 import { beginGuestJoinFlow, hostOnGuestJoined, resetPartyFlow } from "../game/partyFlow";
-import { normalizePartyCode, PartySession, PARTY_MAX_MEMBERS, type PartyEvents, type PartyMember } from "../game/party";
+import { electSuccessor, normalizePartyCode, PartySession, PARTY_MAX_MEMBERS, type PartyEvents, type PartyMember } from "../game/party";
 import { showSocialPopup, showSocialToast } from "./socialPopups";
 
 // 파티 패널 (4차) — 친구 기반 초대 흐름.
@@ -56,6 +56,30 @@ function makeSessionEvents() {
       resetPartyFlow(); // 잔존 소환 대기 제거 — 다음 파티에서 엉뚱한 소환 방지
       refreshPanelViews();
     },
+    // C4 — 방장 이탈: 죽은 세션을 버리고, roster 기준 결정적 후계(닉네임 최소)를 모두가 동일 계산.
+    // 승자는 같은 코드로 재호스팅, 나머지는 약간 늦게 재접속 → 현재 게임을 끊김 없이 이어 간다(재시작·재소환 없음).
+    onHostLost: () => {
+      if (!isCurrent()) return;
+      const code = self?.code ?? null;
+      const successor = electSuccessor(lastMembers);
+      activeSession = null;
+      knownRosterSize = 1;
+      pendingOutgoingInvites.clear();
+      resetPartyFlow();
+      if (!code || !successor) {
+        lastMembers = [];
+        setStatus("방장과의 연결이 끊어졌습니다.", true);
+        refreshPanelViews();
+        return;
+      }
+      const amWinner = successor === myNickname;
+      setStatus(amWinner ? "방장이 나갔어요 — 내가 새 방장이 됩니다…" : `방장이 나갔어요 — ${successor} 님이 새 방장이 됩니다…`);
+      // 승자가 먼저 코드를 선점(1.5s)한 뒤 나머지가 재접속(3s). 실패하면 runMigration 이 스스로 치유한다.
+      setTimeout(() => {
+        if (activeSession) return; // 그 사이 다른 경로로 파티가 생겼으면 중단
+        runMigration(code, amWinner);
+      }, amWinner ? 1_500 : 3_000);
+    },
   };
   return {
     events,
@@ -66,7 +90,64 @@ function makeSessionEvents() {
   };
 }
 
+// C4 — 승계 자가치유: 같은 코드로 호스트 선점(승자) 또는 합류(나머지)를 시도하고, 실패하면 역할을 바꿔 재시도한다.
+// 승자가 선점에 실패(경합 패배) → 게스트로 합류. 게스트가 합류 실패(호스트 아직/영영 안 뜸) → 몇 번 재시도 후 직접 호스트 떠맡기.
+// 이로써 승자가 승계 도중 죽어도 남은 인원이 고립되지 않고, 더블클레임의 패자도 게스트로 안착한다.
+function runMigration(code: string, amWinner: boolean, attempt = 0) {
+  const scoped = makeSessionEvents();
+  const session = amWinner
+    ? PartySession.hostWithCode(code, myNickname, scoped.events)
+    : PartySession.join(code, myNickname, scoped.events);
+  activeSession = scoped.bind(session);
+  knownRosterSize = activeSession.members().length;
+  session.whenReady().then(
+    () => {
+      if (amWinner) showSocialToast("내가 새 방장이 되었어요. 친구를 다시 초대할 수 있어요.");
+      refreshPanelViews();
+    },
+    () => {
+      if (activeSession && !activeSession.isClosed()) return; // 다른 세션이 이미 자리 잡았으면 중단
+      activeSession = null;
+      if (amWinner) {
+        runMigration(code, false, 0); // 코드 선점 실패(경합 패배) → 게스트로 합류
+      } else if (attempt < 3) {
+        setTimeout(() => {
+          if (!activeSession) runMigration(code, false, attempt + 1); // 호스트가 아직 안 떴을 수 있음 — 재시도
+        }, 1_500);
+      } else {
+        runMigration(code, true, 0); // 여러 번 합류 실패 = 승자가 죽음 → 내가 호스트를 떠맡는다
+      }
+    },
+  );
+}
+
 export function initPartyLobby(getNickname: () => string) {
+  // DEV/E2E 전용 — 디렉터리 팝업 DOM 을 거치지 않고 세션/승계 로직을 직접 구동·관측 (프로덕션 영향 없음)
+  if (import.meta.env.DEV && typeof window !== "undefined") {
+    (window as unknown as Record<string, unknown>).__partyTest = {
+      host: () => {
+        myNickname = myNickname || getNickname();
+        if (!activeSession || activeSession.isClosed()) {
+          const scoped = makeSessionEvents();
+          activeSession = scoped.bind(PartySession.host(myNickname, scoped.events));
+          knownRosterSize = 1;
+        }
+        return activeSession?.code ?? null;
+      },
+      join: (code: string, from = "방장") => {
+        myNickname = myNickname || getNickname();
+        joinInvitedParty(from, code);
+      },
+      leave: () => activeSession?.close(),
+      state: () => ({
+        role: activeSession?.role ?? null,
+        code: activeSession?.code ?? null,
+        closed: activeSession ? activeSession.isClosed() : true,
+        members: lastMembers.map((member) => member.nickname),
+        count: lastMembers.length,
+      }),
+    };
+  }
   document.querySelector("[data-title-party]")?.addEventListener("click", () => openPartyLobby(getNickname()));
   // 인게임 진입점 — O 키로 파티 패널 토글 (입력창·닉네임 모달 위에서는 무시)
   document.addEventListener("keydown", (event) => {
@@ -192,7 +273,10 @@ function joinInvitedParty(from: string, code: string) {
       beginGuestJoinFlow(from);
       refreshPanelViews();
     },
-    () => setStatus(`${from} 님의 파티에 들어가지 못했어요.${previous ? " 기존 파티는 그대로예요." : ""}`, true),
+    () => {
+      pendingOutgoingInvites.delete(from); // 실패 시에도 전이 상태를 정리 (성공 경로와 대칭)
+      setStatus(`${from} 님의 파티에 들어가지 못했어요.${previous ? " 기존 파티는 그대로예요." : ""}`, true);
+    },
   );
 }
 
@@ -342,14 +426,14 @@ function openPartyLobby(nickname: string) {
 
   // 레거시 초대 코드 폴백 (디렉터리 미설정 시)
   overlay.querySelector("[data-party-host]")?.addEventListener("click", () => {
-    if (activeSession) return;
+    if (activeSession && !activeSession.isClosed()) return; // zombie(이미 닫힌) 세션이면 새로 만들도록 통과
     const scoped = makeSessionEvents();
     activeSession = scoped.bind(PartySession.host(nickname, scoped.events));
     setStatus(`방을 만들었어요. 초대 코드: ${activeSession.code}`);
     refreshPanelViews();
   });
   overlay.querySelector("[data-party-join]")?.addEventListener("click", () => {
-    if (activeSession) return;
+    if (activeSession && !activeSession.isClosed()) return; // zombie 세션이면 새로 참가하도록 통과
     const input = overlay.querySelector<HTMLInputElement>("[data-party-code]")!;
     const code = normalizePartyCode(input.value);
     if (!code) {
