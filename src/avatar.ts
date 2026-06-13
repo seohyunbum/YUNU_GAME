@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createIronShieldModel } from "./game/weaponVisuals";
+import { TIER_VISUALS, tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, type TierId } from "./game/tierVisuals";
 import { ASSET_PALETTE, makeGlowMaterial, makeMetalMaterial, makeToonMaterial } from "./visuals";
 
 export interface AvatarAppearance {
@@ -32,7 +33,7 @@ export const CLASS_APPEARANCE: Record<AvatarClassId, AvatarAppearance> = {
   tanker: { skinColor: ASSET_PALETTE.skin, hairColor: 0x29313a, shirtColor: 0x596473, pantsColor: 0x25313d, bootColor: 0x151a20, accentColor: 0xa8b3c7 },
 };
 
-export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE, classId?: AvatarClassId) {
+export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE, classId?: AvatarClassId, armorTier?: string | null) {
   const pal = classId ? CLASS_APPEARANCE[classId] : appearance;
   const group = new THREE.Group();
   const skin = makeToonMaterial(pal.skinColor, { roughness: 0.72 });
@@ -116,7 +117,59 @@ export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_
   group.add(backPack, strapA, strapB);
 
   if (classId) addClassAccessories(group, classId, pal);
+  if (armorTier) addArmorOverlay(group, armorTier);
   return group;
+}
+
+// 방어구 시각 오버레이 — 티어가 오를수록 화려해지되 머리 영역(y>1.8, 직업 투구/후드/모자)은 건드리지 않아
+// 직업 특성이 항상 보이게 한다. 몸통/어깨/허리/다리에만 판금·보석·발광 트림을 얹는다.
+function addArmorOverlay(group: THREE.Group, armorTier: string) {
+  const tv = TIER_VISUALS[armorTier as TierId];
+  if (!tv) return;
+  const plateMat = tierBladeMaterial(tv);
+
+  // 가슴 판금 (토르소 z=0 앞면 약간 앞에). 전사/탱커의 기존 plate 위로 살짝 더 앞에 얹혀 티어가 도드라진다.
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.12), plateMat);
+  chest.position.set(0, 1.08, 0.3);
+  group.add(chest);
+
+  // 어깨 견갑 (collar 1.52 아래, 머리 액세서리 영역 밖)
+  for (const sx of [-1, 1]) {
+    const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), plateMat);
+    pauldron.position.set(sx * 0.52, 1.46, 0);
+    pauldron.scale.set(1.12, 0.92, 1.0);
+    group.add(pauldron);
+  }
+
+  // 허리 트림 밴드
+  const belt = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.045, 8, 22), tv.rank >= 2 ? tierGemMaterial(tv) : plateMat);
+  belt.position.y = 0.6;
+  belt.rotation.x = Math.PI / 2;
+  belt.scale.set(1, 0.62, 1);
+  group.add(belt);
+
+  // copper+ : 가슴 중앙 보석
+  if (tv.gem) {
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.085), tierGemMaterial(tv));
+    gem.position.set(0, 1.16, 0.37);
+    group.add(gem);
+  }
+
+  // gold+ : 다리 그리브 + 발광 가슴 트림 (다이아·흑요석이 가장 화려)
+  if (tv.fancy) {
+    for (const sx of [-1, 1]) {
+      const greave = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.42, 0.17), plateMat);
+      greave.position.set(sx * 0.22, 0.3, 0.03);
+      group.add(greave);
+      const shoulderRim = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.012, 8, 18), tierEdgeMaterial(tv));
+      shoulderRim.position.set(sx * 0.52, 1.42, 0.04);
+      shoulderRim.rotation.x = Math.PI / 2;
+      group.add(shoulderRim);
+    }
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.08, 0.05), tierEdgeMaterial(tv));
+    trim.position.set(0, 1.4, 0.31);
+    group.add(trim);
+  }
 }
 
 // 직업 특징을 살린 장신구/장비 — 거울에서 직업이 즉시 드러나게 한다.

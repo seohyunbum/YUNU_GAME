@@ -116,6 +116,7 @@ try {
   const directoryModule = await server.ssrLoadModule("/src/game/directory.ts");
   const partyFlow = await server.ssrLoadModule("/src/game/partyFlow.ts");
   const partyWorldSync = await server.ssrLoadModule("/src/game/partyWorldSync.ts");
+  const tierVisuals = await server.ssrLoadModule("/src/game/tierVisuals.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -553,6 +554,22 @@ try {
     assert(electSuccessor([]) === null, "empty roster -> no successor");
     const a = electSuccessor([{ nickname: "호스트", isHost: true }, { nickname: "Bob", isHost: false }, { nickname: "Amy", isHost: false }, { nickname: "Cara", isHost: false }]);
     assert(a === "Amy", "election is deterministic across all guests (same roster -> same winner)");
+  }
+
+  {
+    // 무기·방어구 티어 비주얼 SSOT: 진행 단조 + 다이아<흑요석(최상) + 저티어 무광·고티어 발광/보석
+    const { TIER_VISUALS, tierOf, tierVisual, armorTierOf } = tierVisuals;
+    const order = ["wood", "stone", "copper", "iron", "gold", "diamond", "obsidian"];
+    for (let i = 0; i < order.length; i += 1) assert(TIER_VISUALS[order[i]].rank === i, `tier ${order[i]} has rank ${i}`);
+    assert(TIER_VISUALS.diamond.rank < TIER_VISUALS.obsidian.rank, "obsidian outranks diamond (top tier)");
+    assert(TIER_VISUALS.obsidian.glow > TIER_VISUALS.diamond.glow && TIER_VISUALS.diamond.glow > TIER_VISUALS.iron.glow, "glow escalates with tier");
+    assert(TIER_VISUALS.wood.gem === null && TIER_VISUALS.stone.gem === null, "low tiers have no gem (plain look)");
+    assert(TIER_VISUALS.copper.gem !== null && TIER_VISUALS.diamond.gem !== null && TIER_VISUALS.obsidian.gem !== null, "mid+ tiers carry an accent gem");
+    assert(TIER_VISUALS.wood.fancy === false && TIER_VISUALS.gold.fancy === true && TIER_VISUALS.obsidian.fancy === true, "gold+ get extra flourish geometry");
+    assert(tierOf("diamond_sword") === "diamond" && tierOf("obsidian_dagger") === "obsidian" && tierOf("iron_pickaxe") === "iron", "tierOf extracts the material from item ids");
+    assert(tierOf("hammer") === null && tierVisual("hammer").rank === 0, "untiered items fall back to wood-rank visual");
+    assert(armorTierOf("leather_armor") === "wood" && armorTierOf("diamond_armor") === "diamond" && armorTierOf("obsidian_armor") === "obsidian", "armorTierOf maps armor ids (leather→wood-rank)");
+    assert(armorTierOf(null) === null && armorTierOf(undefined) === null, "no armor → no tier (no overlay)");
   }
 
   {
@@ -1426,6 +1443,7 @@ try {
         "tool repair material mapping and 50% recovery golden values",
         "home base storage transfer and supply tier golden values",
         "party invite code format/normalization and protocol message roundtrip",
+        "gear tier visuals: monotonic progression, diamond<obsidian, low matte / high glow+gem, tierOf/armorTierOf mapping",
         "party presence: send cadence, same-map avatar spawn/lerp, cross-map markers, stale prune",
         "social directory: like search, friend request/accept persistence, offline rejection, party invite delivery",
         "party join flow: indoor-host wait notice, summon on emergence, reset clears stale summons",

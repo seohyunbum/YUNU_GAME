@@ -3,6 +3,7 @@ import { createMirrorModel } from "../avatar";
 import { createBucketVisual } from "./bucketVisuals";
 import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
+import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
 import {
   createBuildingBlockVisual,
   createSmelterVisual,
@@ -71,7 +72,8 @@ export function createHeldItemModel(item: ItemId) {
     head.position.set(0.02, 0.48, 0);
     group.add(head);
   } else if (item === "bow" || item.endsWith("_bow")) {
-    const bowMaterial = new THREE.MeshStandardMaterial({ color: item === "bow" ? 0x8b5a2b : materialColor, metalness: item === "bow" ? 0 : 0.32, roughness: 0.6 });
+    const bowTier = tierOf(item);
+    const bowMaterial = bowTier ? tierBladeMaterial(tierVisual(item)) : new THREE.MeshStandardMaterial({ color: 0x8b5a2b, metalness: 0, roughness: 0.6 });
     const stringMaterial = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
     const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.028, 0.46, 10), bowMaterial);
     upper.position.set(0.08, 0.42, 0);
@@ -90,6 +92,11 @@ export function createHeldItemModel(item: ItemId) {
     tip.position.set(0.06, 0.53, -0.02);
     tip.rotation.x = -Math.PI / 2;
     group.add(upper, lower, grip, string, arrow, tip);
+    if (bowTier) {
+      const tv = tierVisual(item);
+      if (tv.gem) { const nock = new THREE.Mesh(new THREE.OctahedronGeometry(0.045), tierGemMaterial(tv)); nock.position.set(0.02, 0.25, 0); group.add(nock); }
+      if (tv.fancy) { const glowTip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.09, 10), tierEdgeMaterial(tv)); glowTip.position.set(0.06, 0.55, -0.02); glowTip.rotation.x = -Math.PI / 2; group.add(glowTip); }
+    }
   } else if (item === "magic_wand") {
     const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.62, 10), handleMaterial);
     staff.position.y = 0.31;
@@ -138,33 +145,78 @@ export function createHeldItemModel(item: ItemId) {
     prongs.rotation.x = Math.PI / 2;
     group.add(shaft, orb, prongs);
   } else if (AXE_POWER[item]) {
-    addHandle(0.58);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.06), headMaterial);
+    const tv = tierVisual(item);
+    const headMat = tierBladeMaterial(tv);
+    addHandle(0.58 + tv.rank * 0.02);
+    const g = tv.rank * 0.018;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.26 + g, 0.26 + g, 0.06), headMat);
     blade.position.set(0.12, 0.5, 0);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.055), headMaterial);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.055), headMat);
     back.position.set(-0.08, 0.47, 0);
     group.add(blade, back);
+    if (tv.fancy) { const edge = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.26 + g, 0.065), tierEdgeMaterial(tv)); edge.position.set(0.26 + g / 2, 0.5, 0); group.add(edge); }
+    if (tv.gem) { const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.045), tierGemMaterial(tv)); gem.position.set(0.02, 0.5, 0); group.add(gem); }
   } else if (PICKAXE_POWER[item]) {
-    addHandle(0.62);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.08), headMaterial);
+    const tv = tierVisual(item);
+    const headMat = tierBladeMaterial(tv);
+    addHandle(0.62 + tv.rank * 0.02);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.52 + tv.rank * 0.03, 0.08, 0.08), headMat);
     head.position.set(0.02, 0.57, 0);
     head.rotation.z = -0.06;
     group.add(head);
+    if (tv.fancy) for (const sx of [-1, 1]) { const tip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.12, 8), tierEdgeMaterial(tv)); tip.position.set(0.02 + sx * (0.27 + tv.rank * 0.015), 0.57, 0); tip.rotation.z = sx > 0 ? -Math.PI / 2 : Math.PI / 2; group.add(tip); }
+    if (tv.gem) { const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.045), tierGemMaterial(tv)); gem.position.set(0.02, 0.57, 0); group.add(gem); }
   } else if (SHOVEL_POWER[item]) {
-    addHandle(0.58);
-    const scoop = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.24, 14), headMaterial);
+    const tv = tierVisual(item);
+    const headMat = tierBladeMaterial(tv);
+    addHandle(0.58 + tv.rank * 0.02);
+    const scoop = new THREE.Mesh(new THREE.ConeGeometry(0.13 + tv.rank * 0.008, 0.24, 14), headMat);
     scoop.position.set(0.02, 0.58, 0);
     scoop.scale.z = 0.55;
     group.add(scoop);
+    if (tv.gem) { const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.04), tierGemMaterial(tv)); gem.position.set(0.02, 0.66, 0.06); group.add(gem); }
   } else if (item.endsWith("_dagger") || item.endsWith("_sword")) {
+    // 티어가 오를수록 길어지고(블레이드), 보석·fuller·발광 엣지·오라가 붙는다 (다이아·흑요석이 가장 화려).
     const sword = item.endsWith("_sword");
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.22, 8), handleMaterial);
+    const tv = tierVisual(item);
+    const bladeMat = tierBladeMaterial(tv);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.22, 8), handleMaterial);
     handle.position.y = 0.1;
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(sword ? 0.32 : 0.22, 0.04, 0.06), handleMaterial);
+    const guardW = (sword ? 0.32 : 0.22) + tv.rank * 0.012;
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(guardW, 0.05, 0.07), tv.rank >= 2 ? tierBladeMaterial(tv) : handleMaterial);
     guard.position.y = 0.23;
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(sword ? 0.1 : 0.08, sword ? 0.62 : 0.38, 0.035), headMaterial);
-    blade.position.y = sword ? 0.56 : 0.43;
+    const bladeLen = (sword ? 0.58 : 0.36) + tv.rank * 0.045;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(sword ? 0.1 : 0.08, bladeLen, 0.035), bladeMat);
+    blade.position.y = 0.26 + bladeLen / 2;
     group.add(handle, guard, blade);
+    if (tv.rank >= 2) {
+      // 중앙 융선(spine) — 블레이드 앞면보다 살짝 도드라지게 z 오프셋(동일 평면 z-fighting 회피)
+      const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.024, bladeLen * 0.82, 0.02), tierBladeMaterial(tv));
+      fuller.position.set(0, blade.position.y, 0.02);
+      group.add(fuller);
+    }
+    if (tv.gem) {
+      const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), tierGemMaterial(tv));
+      pommel.position.y = -0.01;
+      group.add(pommel);
+      for (const sx of [-1, 1]) {
+        const wing = new THREE.Mesh(new THREE.OctahedronGeometry(0.028), tierGemMaterial(tv));
+        wing.position.set((sx * guardW) / 2, 0.23, 0);
+        group.add(wing);
+      }
+    }
+    if (tv.fancy) {
+      // 발광 중앙선 — 융선보다 더 앞으로 얇게(층져서 z-fighting 없음)
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.026, bladeLen, 0.012), tierEdgeMaterial(tv));
+      edge.position.set(0, blade.position.y, 0.034);
+      group.add(edge);
+    }
+    if (tv.rank >= 5) {
+      const aura = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.008, 8, 22), new THREE.MeshBasicMaterial({ color: tv.gem ?? tv.base, transparent: true, opacity: 0.5 }));
+      aura.position.y = 0.27;
+      aura.rotation.x = Math.PI / 2;
+      group.add(aura);
+    }
   } else if (item === "bed") {
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.5), handleMaterial);
     base.position.y = 0.16;
