@@ -99,6 +99,7 @@ try {
   const inventoryCapacity = await server.ssrLoadModule("/src/game/inventoryCapacity.ts");
   const interactionPriority = await server.ssrLoadModule("/src/game/interactionPriority.ts");
   const monsters = await server.ssrLoadModule("/src/game/monsters.ts");
+  const deathDrop = await server.ssrLoadModule("/src/game/deathDrop.ts");
   const regions = await server.ssrLoadModule("/src/game/regions.ts");
   const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
   const graveTrap = await server.ssrLoadModule("/src/game/graveTrap.ts");
@@ -575,6 +576,24 @@ try {
     assert(tierOf("hammer") === null && tierVisual("hammer").rank === 0, "untiered items fall back to wood-rank visual");
     assert(armorTierOf("leather_armor") === "wood" && armorTierOf("diamond_armor") === "diamond" && armorTierOf("obsidian_armor") === "obsidian", "armorTierOf maps armor ids (leather→wood-rank)");
     assert(armorTierOf(null) === null && armorTierOf(undefined) === null, "no armor → no tier (no overlay)");
+  }
+
+  {
+    // 사망 드롭: 착용 중인 무기/방어구/방패·보호 아이템은 유지, 그 외는 떨굼
+    const { shouldDropSlotOnDeath } = deathDrop;
+    const ctx = {
+      protectedItems: new Set(["tutorial_book", "medkit", "iron_sword"]),
+      equippedArmor: "diamond_armor",
+      equippedShield: "iron_shield",
+      isWeapon: (item) => item === "obsidian_sword" || item === "iron_sword" || item === "diamond_dagger",
+    };
+    assert(shouldDropSlotOnDeath("obsidian_sword", true, ctx) === false, "held weapon (selected slot) is kept on death");
+    assert(shouldDropSlotOnDeath("obsidian_sword", false, ctx) === true, "the same weapon in a NON-held slot still drops");
+    assert(shouldDropSlotOnDeath("dirt", true, ctx) === true, "a non-weapon held in hand still drops (only weapons are kept)");
+    assert(shouldDropSlotOnDeath("diamond_armor", false, ctx) === false, "equipped armor is kept on death");
+    assert(shouldDropSlotOnDeath("iron_shield", false, ctx) === false, "equipped shield is kept on death");
+    assert(shouldDropSlotOnDeath("tutorial_book", false, ctx) === false && shouldDropSlotOnDeath("medkit", false, ctx) === false && shouldDropSlotOnDeath("iron_sword", false, ctx) === false, "protected items (book/medkit/starter) are kept");
+    assert(shouldDropSlotOnDeath("gold", false, ctx) === true && shouldDropSlotOnDeath("diamond_pickaxe", false, ctx) === true, "loose materials and non-equipped tools drop");
   }
 
   {
@@ -1449,6 +1468,7 @@ try {
         "home base storage transfer and supply tier golden values",
         "party invite code format/normalization and protocol message roundtrip",
         "gear tier visuals: monotonic progression, diamond<obsidian, low matte / high glow+gem, tierOf/armorTierOf mapping",
+        "death drop: keep held weapon + equipped armor/shield + protected items; drop the rest",
         "party presence: send cadence, same-map avatar spawn/lerp, cross-map markers, stale prune",
         "social directory: like search, friend request/accept persistence, offline rejection, party invite delivery",
         "party join flow: indoor-host wait notice, summon on emergence, reset clears stale summons",

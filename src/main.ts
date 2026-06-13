@@ -48,6 +48,7 @@ import {
   heldItemMaterialColor as resolveHeldItemMaterialColor,
 } from "./game/heldItemVisuals";
 import { armorTierOf } from "./game/tierVisuals";
+import { shouldDropSlotOnDeath, type DeathDropContext } from "./game/deathDrop";
 import { createBucketVisual as createBucketVisualModel } from "./game/bucketVisuals";
 import {
   createBuildingSign as createBuildingSignModel,
@@ -4972,7 +4973,7 @@ class WildernessGame {
         this.playerPosition.set(homeHouse.root.position.x + 4.5, PLAYER_HEIGHT, homeHouse.root.position.z + 6.5);
       } else this.playerPosition.set(0, PLAYER_HEIGHT, 12);
       this.settlePlayerAfterTeleport();
-      this.showMessage(`사망 원인: ${deathReason} 튜토리얼 책, 직업 기본무기, 구급상자를 제외한 아이템이 죽은 자리에 떨어졌습니다.`);
+      this.showMessage(`사망 원인: ${deathReason} 튜토리얼 책, 직업 기본무기, 구급상자, 착용 중인 무기·방어구를 제외한 아이템이 죽은 자리에 떨어졌습니다.`);
       this.renderHud();
       return true;
     }
@@ -5010,9 +5011,12 @@ class WildernessGame {
     position.y = this.getOverworldHeightAt(position.x, position.z) + 0.08;
     const starterItem = PLAYER_CLASSES[this.playerClass]?.starterItem ?? "iron_sword";
     const protectedItems = new Set<ItemId>(["tutorial_book", "medkit", starterItem]);
+    // 착용 중인 무기(손에 든 슬롯이 무기류)·방어구·방패는 떨구지 않는다 (deathDrop.ts 순수 판정).
+    const heldSlot = this.hotbar[this.selectedHotbarIndex];
+    const dropCtx: DeathDropContext = { protectedItems, equippedArmor: this.equippedArmor, equippedShield: this.equippedShield, isWeapon: (item) => WEAPON_DAMAGE[item] !== undefined };
     for (const slot of this.allStorageSlots()) {
       if (!slot.item || slot.count <= 0) continue;
-      if (protectedItems.has(slot.item)) {
+      if (!shouldDropSlotOnDeath(slot.item, slot === heldSlot, dropCtx)) {
         if (slot.item === "tutorial_book") slot.count = 1;
         slot.durabilityUsed = undefined;
         continue;
@@ -5024,8 +5028,7 @@ class WildernessGame {
       slot.durabilityUsed = undefined;
     }
     if (!this.hotbar.some((slot) => slot.item === "tutorial_book")) this.hotbar[0] = { item: "tutorial_book", count: 1 };
-    this.equippedArmor = null;
-    this.equippedShield = isShieldItem(starterItem) ? starterItem : null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0;
+    this.ironGuardUntil = 0; // 방어구/방패는 그대로 착용 유지 (equippedArmor/equippedShield 리셋 안 함)
   }
 
 
