@@ -105,7 +105,7 @@ function checkQuest(id: string, done: (snapshot: ObjectiveSnapshot) => boolean, 
 const SHOVEL_ITEMS: ItemId[] = ["wood_shovel", "stone_shovel", "copper_shovel", "iron_shovel", "gold_shovel", "diamond_shovel"];
 
 // 25단계 초보자 가이드 — 이동·채집·제작·사냥·광질·동굴·제련·전투·회복·지도·저장·마을·성장·직업무기 순.
-export const TUTORIAL_STEPS: readonly TutorialStep[] = [
+const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   // ── 1장. 첫걸음 ──
   countQuest("first_steps", 50, (s) => s.totalSteps, "주변을 50걸음 걸어보기", "WASD로 움직이고 마우스로 시점을 돌립니다. Space로 점프, Shift+W로 달릴 수 있습니다. 가볍게 주변을 둘러보세요.", { experience: 12, items: { meat: 1 }, label: "경험치 12 + 고기 1개" }),
   countQuest("gather_wood", 3, (s) => s.countItem("wood"), "작은 나무를 캐서 나무 3개 모으기", "작은 나무는 맨손으로 캘 수 있습니다. 가까이 다가가서 십자선으로 바라본 뒤 E 또는 좌클릭을 눌러 여러 번 휘두르세요.", { experience: 20, items: { stick: 4 }, label: "경험치 20 + 나무 막대기 4개" }),
@@ -167,6 +167,22 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     reward: { experience: 500, items: { iron: 8, diamond: 1, medkit: 3 }, label: "경험치 500 + 철 8개 + 다이아몬드 1개 + 구급상자 3개" },
   },
 ];
+
+// 퀘스트 보상 경험치 상향 — 초반 퀘스트는 2배에서 시작해 뒤로 갈수록 배율이 증가, 최종 퀘스트는 5배.
+// 단계 인덱스로 선형 보간(2.0 → 5.0). label 의 "경험치 N" 표기도 함께 갱신해 동기 유지.
+const QUEST_XP_MULT_START = 2;
+const QUEST_XP_MULT_END = 5;
+function scaleQuestRewards(steps: readonly TutorialStep[]): readonly TutorialStep[] {
+  const last = Math.max(1, steps.length - 1);
+  return steps.map((step, index) => {
+    const mult = QUEST_XP_MULT_START + (QUEST_XP_MULT_END - QUEST_XP_MULT_START) * (index / last);
+    const experience = Math.round(step.reward.experience * mult);
+    const label = step.reward.label.replace(/경험치 \d+/, `경험치 ${experience}`);
+    return { ...step, reward: { ...step.reward, experience, label } };
+  });
+}
+
+export const TUTORIAL_STEPS: readonly TutorialStep[] = scaleQuestRewards(RAW_TUTORIAL_STEPS);
 
 export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective {
   if (snapshot.health <= 3) return survivalObjective("체력이 낮습니다", "고기를 먹거나 침대/구급상자로 회복하세요.", "생존 우선");
