@@ -60,7 +60,7 @@ export type ObjectType =
   | "extendedWorkbench"
   | "smelter"
   | "specialSmelter";
-export type PanelType = "inventory" | "book" | "homeStorage" | "training" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | null;
+export type PanelType = "inventory" | "book" | "homeStorage" | "training" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | "character" | null;
 export type TrainingKind = "hp" | "attack" | "armor" | "mana";
 
 export interface TrainingStats {
@@ -300,6 +300,10 @@ export interface SavedGame {
     homeStorage?: Slot[];
     homeSupplyCooldownSeconds?: number;
     trainingStats?: TrainingStats;
+    craftLevel?: number;
+    craftExperience?: number;
+    craftStatPoints?: number;
+    craftStatAlloc?: { hp: number; mana: number; attack: number; defense: number };
     caveReturnPosition: SavedVector | null;
     houseReturnPosition?: SavedVector | null;
     toolUses?: Record<ItemId, number>;

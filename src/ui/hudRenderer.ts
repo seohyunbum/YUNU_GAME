@@ -27,6 +27,10 @@ export interface HudViewModel {
   maxHunger: number;
   experience: number;
   requiredExperience: number;
+  craftLevel: number;
+  craftXp: number;
+  craftRequiredXp: number;
+  craftStatPoints: number;
   skillStatus: string;
   passiveStatus: string;
   petStatus?: string;
@@ -112,6 +116,10 @@ function renderStatsMarkup(view: HudViewModel) {
             <span style="width: ${xpPercent}%"></span>
             <b>EXP ${view.experience}/${view.requiredExperience}</b>
           </div>
+        </div>
+        <div class="stat-bar craft-bar" title="제작 경험치 ${view.craftXp}/${view.craftRequiredXp}">
+          <span style="width: ${(clamp01(view.craftXp / Math.max(1, view.craftRequiredXp)) * 100).toFixed(1)}%"></span>
+          <b>🔨 제작 Lv ${view.craftLevel} · ${view.craftXp}/${view.craftRequiredXp}${view.craftStatPoints > 0 ? ` · 포인트 +${view.craftStatPoints} (K)` : ""}</b>
         </div>
         <div class="stats-detail">
           <span>스킬 ${escapeHtml(view.skillStatus)}</span>

@@ -220,7 +220,6 @@ import type {
   Slot,
   SmithingMaterial,
   SmithingMiniGameState,
-  SmithingProduct,
   TerrainKind,
   WalkCycle,
   WalkPartSetup,
@@ -241,6 +240,8 @@ import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorag
 import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeStoragePanel";
 import { PLAYER_CLASSES } from "./game/classes";
 import { createTrainingStats, ensureTrainingGround, normalizeTrainingStats, TRAINING_GAMES, TRAINING_MIN_LEVEL, TRAINING_REWARDS, type TrainingGroundContext } from "./game/training";
+import { applyCraftXp, craftXpForNextLevel, craftXpForRecipe, createCraftStatAlloc, normalizeCraftStatAlloc, type CraftStatAlloc } from "./game/craftLevel";
+import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView } from "./ui/trainingPanel";
 import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, updateSecondSkillEffects, useSecondClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext } from "./game/classSkills";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
@@ -278,7 +279,7 @@ import {
   SELL_SHOP_OFFERS,
   TRADE_OFFERS,
 } from "./game/trading";
-import { SMITHING_PRODUCTS } from "./game/smithing";
+import { SMITHING_PRODUCTS, smithingProductIcon } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { TUTORIAL_SECTIONS } from "./game/tutorial";
 import { spawnObject, type SpawnContext } from "./game/spawnContext";
@@ -307,6 +308,7 @@ import {
   saveSummary,
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
+import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
@@ -470,6 +472,10 @@ class WildernessGame {
   private currentTrainingKind: TrainingKind = "hp";
   private lastObjectiveReady = false;
   private trainingStats = createTrainingStats();
+  private craftLevel = 1;
+  private craftXp = 0;
+  private craftStatPoints = 0; // 미사용 스탯 포인트
+  private craftStatAlloc: CraftStatAlloc = createCraftStatAlloc(); // 제작 레벨업으로 찍은 분배 (hp/mana +2, attack/defense +1)
   private healItemCooldownUntil = 0;
   private possessedEagleId: string | null = null; private eaglePossessionEndsAt = 0;
   private eagleClawCooldownUntil = 0; private windCutterCooldownUntil = 0;
@@ -1382,36 +1388,7 @@ class WildernessGame {
   }
 
   private renderLavaMiniGame() {
-    const state = this.lavaGame;
-    const scoreEl = this.titleScreenEl.querySelector<HTMLElement>("[data-lava-score]");
-    if (!scoreEl) return;
-    scoreEl.textContent = String(state.score);
-    this.titleScreenEl.querySelector<HTMLElement>("[data-lava-points]")!.textContent = String(this.arcadePoints);
-    this.titleScreenEl.querySelector<HTMLElement>("[data-lava-stage]")!.textContent = String(state.stage);
-    const stateText = state.playing
-      ? "진행 중: 좌/우 화살표로 이동"
-      : state.gameOver
-        ? `게임 종료: ${state.score}P 획득`
-        : "좌/우 화살표 또는 시작 버튼으로 준비";
-    this.titleScreenEl.querySelector<HTMLElement>("[data-lava-state]")!.textContent = stateText;
-    const startButton = this.titleScreenEl.querySelector<HTMLButtonElement>("[data-lava-start]");
-    if (startButton) startButton.disabled = state.playing;
-
-    const player = this.titleScreenEl.querySelector<HTMLElement>("[data-lava-player]");
-    if (player) {
-      player.dataset.lane = String(state.playerLane);
-      player.style.left = `${((state.playerLane + 0.5) / LAVA_LANE_COUNT) * 100}%`;
-    }
-
-    const hazards = this.titleScreenEl.querySelector<HTMLElement>("[data-lava-hazards]");
-    if (hazards) {
-      hazards.innerHTML = state.hazards
-        .map(
-          (hazard) =>
-            `<div class="lava-stream${hazard.special ? " special" : ""}" style="left:${(hazard.lane / LAVA_LANE_COUNT) * 100}%;width:${100 / LAVA_LANE_COUNT}%;top:${hazard.y * 100}%;height:${hazard.length * 100}%"></div>`,
-        )
-        .join("");
-    }
+    renderLavaMiniGameUI(this.titleScreenEl, this.lavaGame, this.arcadePoints);
   }
 
   private handleLavaMiniGameKeyDown(event: KeyboardEvent) {
@@ -1615,14 +1592,6 @@ class WildernessGame {
     return material === "copper" ? "구리" : material === "iron" ? "철" : material === "gold" ? "금" : "다이아몬드";
   }
 
-  private smithingProductIcon(product: SmithingProduct) {
-    if (product.kind === "dagger") return "칼";
-    if (product.kind === "sword") return "검";
-    if (product.kind === "axe") return "도끼";
-    if (product.kind === "pickaxe") return "곡괭이";
-    return "갑옷";
-  }
-
   private hammerSmithingOre() {
     const state = this.smithingGame;
     if (!state.active) return;
@@ -1730,7 +1699,7 @@ class WildernessGame {
     if (productSlot) {
       productSlot.innerHTML = state.currentProduct
         ? `<div class="smithing-product ${state.currentProduct.id === state.order.id ? "match" : "miss"}" draggable="true" data-smith-product>
-            <span>${this.smithingProductIcon(state.currentProduct)}</span>
+            <span>${smithingProductIcon(state.currentProduct)}</span>
             <strong>${state.currentProduct.name}</strong>
           </div>`
         : `<div class="smithing-product empty"><span>?</span><strong>제작 전</strong></div>`;
@@ -1977,6 +1946,7 @@ class WildernessGame {
     if (event.code === "KeyI") this.togglePanel("inventory");
     if (event.code === "KeyB") this.togglePanel("book");
     if (event.code === "KeyM") this.togglePanel("map");
+    if (event.code === "KeyK") this.togglePanel("character");
     if (event.code === "KeyE") this.interact();
     if (event.code === "KeyR" && !event.repeat) this.useClassSkill();
     if (event.code === "KeyT" && !event.repeat) this.useSecondSkill();
@@ -4579,13 +4549,13 @@ class WildernessGame {
     const bonus = this.levelStatBonus();
     if (this.possessedEagleId) return possessedEagleDamage(EAGLE_RAM_DAMAGE, this.hotbar[this.selectedHotbarIndex]?.item, bonus);
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
-    if (selectedItem && !this.isRangedWeapon(selectedItem) && WEAPON_DAMAGE[selectedItem]) return WEAPON_DAMAGE[selectedItem] + bonus + this.trainingStats.attack;
-    return Math.max(1, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus + this.trainingStats.attack;
+    if (selectedItem && !this.isRangedWeapon(selectedItem) && WEAPON_DAMAGE[selectedItem]) return WEAPON_DAMAGE[selectedItem] + bonus + this.trainingStats.attack + this.craftStatAlloc.attack;
+    return Math.max(1, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus + this.trainingStats.attack + this.craftStatAlloc.attack;
   }
 
   private currentRangedDamage(item: ItemId) {
     const base = WEAPON_DAMAGE[item] ?? BOW_DAMAGE;
-    return base + this.levelStatBonus() + this.trainingStats.attack;
+    return base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack;
   }
 
   private eagleCombatTarget() {
@@ -4606,7 +4576,7 @@ class WildernessGame {
   }
 
   private maxHealthForLevel(level = this.level) {
-    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * 2 + this.trainingStats.hp * TRAINING_REWARDS.hp;
+    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * 2 + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2;
   }
 
   private experienceForNextLevel(level = this.level) {
@@ -4618,7 +4588,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return this.equipmentArmorValue() + this.levelStatBonus() + this.trainingStats.armor + burningShieldArmorBonus(this.skillBuffs, performance.now());
+    return this.equipmentArmorValue() + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now());
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -5567,6 +5537,10 @@ class WildernessGame {
         playerClass: this.playerClass,
         mana: this.mana,
         maxMana: this.maxMana,
+        craftLevel: this.craftLevel,
+        craftExperience: this.craftXp,
+        craftStatPoints: this.craftStatPoints,
+        craftStatAlloc: { ...this.craftStatAlloc },
         classSkillCooldownUntil: this.classSkillCooldownUntil,
         secondSkillCooldownUntil: this.secondSkillCooldownUntil,
         companionProgress: this.summonerCompanion.companionProgress(),
@@ -5645,6 +5619,10 @@ class WildernessGame {
     this.pitch = save.player.pitch;
     this.level = Math.max(1, Math.floor(save.player.level));
     this.experience = Math.max(0, Math.floor(save.player.experience));
+    this.craftStatAlloc = normalizeCraftStatAlloc(save.player.craftStatAlloc); // maxHealthForLevel 이 craft hp 를 읽으므로 maxHealth 복원 전에 설정
+    this.craftLevel = Math.max(1, Math.floor(save.player.craftLevel ?? 1));
+    this.craftXp = Math.max(0, Math.floor(save.player.craftExperience ?? 0));
+    this.craftStatPoints = Math.max(0, Math.floor(save.player.craftStatPoints ?? 0));
     this.maxHealth = Math.max(save.player.maxHealth, this.maxHealthForLevel());
     this.health = Math.min(save.player.health, this.maxHealth);
     this.playerClass = save.player.playerClass ?? "warrior";
@@ -5770,6 +5748,7 @@ class WildernessGame {
     this.classSkillCooldownUntil = 0;
     this.secondSkillCooldownUntil = 0; resetSecondSkillEffects(this.skillBuffs);
     this.trainingStats = createTrainingStats();
+    this.craftLevel = 1; this.craftXp = 0; this.craftStatPoints = 0; this.craftStatAlloc = createCraftStatAlloc();
     this.healItemCooldownUntil = 0;
     this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
     this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
@@ -6102,6 +6081,10 @@ class WildernessGame {
         maxHunger: HUNGER_MAX,
         experience: this.experience,
         requiredExperience: this.experienceForNextLevel(),
+        craftLevel: this.craftLevel,
+        craftXp: this.craftXp,
+        craftRequiredXp: craftXpForNextLevel(this.craftLevel),
+        craftStatPoints: this.craftStatPoints,
         skillStatus: `${skillCooldown > 0 ? `${Math.ceil(skillCooldown)}초` : `R ${playerClass.skillName}`} · ${this.secondSkillCooldownUntil > performance.now() ? `${Math.ceil((this.secondSkillCooldownUntil - performance.now()) / 1000)}초` : `T ${SECOND_SKILLS[this.playerClass].name}`}`,
         passiveStatus: passive.label,
         petStatus: this.playerClass === "tanker" ? tankerStatus : petStatus,
@@ -6208,6 +6191,30 @@ class WildernessGame {
     if (this.currentPanel === "map") this.renderRegionMapPanel();
     if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel();
     if (this.currentPanel === "training") this.renderTrainingPanel();
+    if (this.currentPanel === "character") {
+      const selected = this.hotbar[this.selectedHotbarIndex]?.item;
+      const weapon = selected && WEAPON_DAMAGE[selected] !== undefined ? (ITEM_NAMES[selected] ?? selected) : "맨손";
+      renderCharacterPanelView(this.panelEl, {
+        className: PLAYER_CLASSES[this.playerClass].name, level: this.level, craftLevel: this.craftLevel,
+        health: this.health, maxHealth: this.maxHealth, mana: this.mana, maxMana: this.maxMana,
+        attack: this.displayedAttackPower(), defense: this.equippedArmorValue(), weapon,
+        armor: this.equippedArmor ? (ITEM_NAMES[this.equippedArmor] ?? this.equippedArmor) : "없음",
+        shield: this.equippedShield ? (ITEM_NAMES[this.equippedShield] ?? this.equippedShield) : "없음",
+        craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
+      }, {
+        onSpend: (kind) => {
+          if (this.craftStatPoints <= 0) return;
+          this.craftStatPoints -= 1;
+          this.craftStatAlloc[kind] += 1;
+          if (kind === "hp") { const prev = this.maxHealth; this.maxHealth = this.maxHealthForLevel(); this.health = Math.min(this.maxHealth, this.health + Math.max(0, this.maxHealth - prev)); }
+          if (kind === "mana") { this.maxMana += 2; this.mana = Math.min(this.maxMana, this.mana + 2); }
+          this.playTone(880, 0.1, "triangle", 0.03);
+          this.renderHud();
+          this.renderPanel();
+        },
+        onClose: () => this.closePanel(),
+      });
+    }
     if (this.currentPanel === "saveOverwrite") {
       renderSaveOverwritePanelView(this.panelEl, this.readSaveSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label })), {
         onClose: () => { this.pendingOverwriteSave = null; this.closePanel(); },
@@ -6863,8 +6870,7 @@ class WildernessGame {
         return;
       }
       this.clearCraftSlots(false);
-      this.addItem(recipe.output, recipe.count);
-      this.playCraftSound();
+      this.addCraftedOutput(recipe); // 워크벤치 경로와 동일하게 제작 XP/레벨업 적용
       this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`);
       this.renderPanel();
       this.renderHud();
@@ -7027,10 +7033,19 @@ class WildernessGame {
     this.playCraftSound();
     if (recipe.output === "bag") {
       this.unlockBag();
-      return true;
+    } else {
+      if (!this.addItem(recipe.output, recipe.count)) return false;
+      this.autoEquip(recipe.output);
     }
-    if (!this.addItem(recipe.output, recipe.count)) return false;
-    this.autoEquip(recipe.output);
+    // 제작 경험치 — 재료 양·희귀도에 비례. 레벨업 시 스탯 포인트 지급 (K 캐릭터창에서 분배).
+    const gain = applyCraftXp(this.craftLevel, this.craftXp, craftXpForRecipe(recipe));
+    this.craftLevel = gain.craftLevel;
+    this.craftXp = gain.craftXp;
+    if (gain.levelsGained > 0) {
+      this.craftStatPoints += gain.levelsGained;
+      this.showMessage(`🔨 제작 레벨업! Lv ${this.craftLevel} — 스탯 포인트 +${gain.levelsGained} (K 키로 분배)`);
+    }
+    this.renderHud();
     return true;
   }
 

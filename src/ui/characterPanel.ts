@@ -1,0 +1,75 @@
+// 캐릭터 정보 창 — 착용 장비 + 스탯 확인, 제작 레벨업으로 얻은 스탯 포인트 분배.
+// leaf: main.ts 를 import 하지 않는다 (view model + 콜백만 받는다).
+
+export interface CharacterPanelView {
+  className: string;
+  level: number;
+  craftLevel: number;
+  health: number;
+  maxHealth: number;
+  mana: number;
+  maxMana: number;
+  attack: number;
+  defense: number;
+  weapon: string;
+  armor: string;
+  shield: string;
+  craftStatPoints: number;
+  alloc: { hp: number; mana: number; attack: number; defense: number };
+}
+
+export interface CharacterPanelCallbacks {
+  onSpend(kind: "hp" | "mana" | "attack" | "defense"): void;
+  onClose(): void;
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+const STAT_ROWS: { kind: "hp" | "mana" | "attack" | "defense"; label: string; per: number }[] = [
+  { kind: "hp", label: "체력", per: 2 },
+  { kind: "mana", label: "마나", per: 2 },
+  { kind: "attack", label: "공격력", per: 1 },
+  { kind: "defense", label: "방어력", per: 1 },
+];
+
+export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPanelView, callbacks: CharacterPanelCallbacks) {
+  const value = (kind: "hp" | "mana" | "attack" | "defense") =>
+    kind === "hp" ? `${view.health} / ${view.maxHealth}` : kind === "mana" ? `${view.mana} / ${view.maxMana}` : kind === "attack" ? `${view.attack}` : `${view.defense}`;
+  const points = Math.max(0, view.craftStatPoints);
+  panelEl.innerHTML = `
+      <section class="panel character-panel">
+        <header>
+          <div>
+            <h2>캐릭터 정보</h2>
+            <p class="inventory-subtitle">${escapeHtml(view.className)} · Lv ${view.level} · 제작 Lv ${view.craftLevel}</p>
+          </div>
+          <button class="icon-button" data-close>닫기</button>
+        </header>
+        <div class="character-gear">
+          <div class="inventory-label">착용 장비</div>
+          <div class="character-gear-row"><span>🗡️ 무기</span><strong>${escapeHtml(view.weapon)}</strong></div>
+          <div class="character-gear-row"><span>🛡️ 방어구</span><strong>${escapeHtml(view.armor)}</strong></div>
+          <div class="character-gear-row"><span>🔰 방패</span><strong>${escapeHtml(view.shield)}</strong></div>
+        </div>
+        <div class="character-stats">
+          <div class="inventory-label">스탯 ${points > 0 ? `· 남은 포인트 <b class="character-points">${points}</b>` : ""}</div>
+          ${STAT_ROWS.map(
+            (row) => `
+            <div class="character-stat-row">
+              <span class="character-stat-name">${row.label}</span>
+              <span class="character-stat-value">${value(row.kind)}</span>
+              <span class="character-stat-alloc">제작 +${view.alloc[row.kind] * row.per}</span>
+              <button class="character-spend" data-spend="${row.kind}" ${points > 0 ? "" : "disabled"} title="포인트 1 = ${row.label} +${row.per}">+${row.per}</button>
+            </div>`,
+          ).join("")}
+          <p class="inventory-subtitle">제작 레벨이 오르면 포인트를 얻어 위 스탯을 올릴 수 있어요 (체력·마나 +2, 공격·방어 +1).</p>
+        </div>
+      </section>
+    `;
+  panelEl.querySelector<HTMLButtonElement>("[data-close]")?.addEventListener("click", callbacks.onClose);
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-spend]").forEach((button) => {
+    button.addEventListener("click", () => callbacks.onSpend(button.dataset.spend as "hp" | "mana" | "attack" | "defense"));
+  });
+}

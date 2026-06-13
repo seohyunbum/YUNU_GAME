@@ -120,6 +120,8 @@ try {
   const partyFlow = await server.ssrLoadModule("/src/game/partyFlow.ts");
   const partyWorldSync = await server.ssrLoadModule("/src/game/partyWorldSync.ts");
   const tierVisuals = await server.ssrLoadModule("/src/game/tierVisuals.ts");
+  const craftLevel = await server.ssrLoadModule("/src/game/craftLevel.ts");
+  const saveMigration = await server.ssrLoadModule("/src/game/saveMigration.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -1475,6 +1477,41 @@ try {
     assert(durabilityUsed === 0, "fully worn iron axe should fully recover with 2 materials");
   }
 
+  {
+    // 제작 레벨 골든값: XP 공식(재료 양·희귀도 가중)·레벨 곡선·다중 레벨업 이월·스탯 분배 정규화·세이브 마이그레이션
+    const { craftXpForRecipe, craftXpForNextLevel, applyCraftXp, normalizeCraftStatAlloc, createCraftStatAlloc } = craftLevel;
+    const { migrateSaveData } = saveMigration;
+    const recipeCommon = { id: "x", name: "x", output: "wood_pickaxe", count: 1, ingredients: { wood: 3, stick: 2 } };
+    const recipeRare = { id: "y", name: "y", output: "diamond_sword", count: 1, ingredients: { diamond: 2, stick: 1 } };
+    const recipeBulk = { id: "z", name: "z", output: "stick", count: 4, ingredients: { wood: 1 } };
+    assert(craftXpForRecipe(recipeCommon) === 13, `common recipe xp should be 13, got ${craftXpForRecipe(recipeCommon)}`);
+    assert(craftXpForRecipe(recipeRare) === 23, `rare recipe xp should be 23 (rarity-weighted), got ${craftXpForRecipe(recipeRare)}`);
+    assert(craftXpForRecipe(recipeBulk) === 14, `bulk output recipe xp should be 14, got ${craftXpForRecipe(recipeBulk)}`);
+    assert(craftXpForRecipe(recipeRare) > craftXpForRecipe(recipeCommon), "rarer recipe should grant more craft xp");
+    assert(craftXpForRecipe({ id: "t", name: "t", output: "wood", count: 1, ingredients: {} }) >= 5, "craft xp should floor at 5");
+    const curve = [1, 2, 3, 4, 5].map(craftXpForNextLevel);
+    assert(JSON.stringify(curve) === JSON.stringify([18, 44, 75, 109, 145]), `craft level curve golden mismatch: ${JSON.stringify(curve)}`);
+    assert(curve.every((v, i) => i === 0 || v > curve[i - 1]), "craft level curve must be strictly increasing");
+    const noLevel = applyCraftXp(1, 0, 14);
+    assert(noLevel.craftLevel === 1 && noLevel.craftXp === 14 && noLevel.levelsGained === 0, "sub-threshold xp should not level up");
+    const multi = applyCraftXp(1, 0, 200);
+    assert(multi.craftLevel === 4 && multi.craftXp === 63 && multi.levelsGained === 3, `big xp should multi-level with carryover, got ${JSON.stringify(multi)}`);
+    const carry = applyCraftXp(2, 40, 10); // L2 need 44 → 50 ≥44 → L3 (need 75), 6 carry
+    assert(carry.craftLevel === 3 && carry.craftXp === 6 && carry.levelsGained === 1, `carryover xp should roll into next level, got ${JSON.stringify(carry)}`);
+    const norm = normalizeCraftStatAlloc({ hp: -3, mana: 2.9, attack: Number.NaN, defense: 1 });
+    assert(norm.hp === 0 && norm.mana === 2 && norm.attack === 0 && norm.defense === 1, `craft alloc should clamp/floor, got ${JSON.stringify(norm)}`);
+    const fresh = createCraftStatAlloc();
+    assert(fresh.hp === 0 && fresh.mana === 0 && fresh.attack === 0 && fresh.defense === 0, "fresh craft alloc should be all zero");
+    const baseSave = { version: 10, player: { level: 3, playerClass: "warrior" } };
+    const migratedFresh = migrateSaveData(baseSave);
+    assert(migratedFresh.player.craftLevel === 1 && migratedFresh.player.craftExperience === 0 && migratedFresh.player.craftStatPoints === 0, "pre-craft save should default craft fields");
+    assert(migratedFresh.player.craftStatAlloc.hp === 0 && migratedFresh.player.craftStatAlloc.defense === 0, "pre-craft save should default craft alloc to zero");
+    const richSave = { version: 11, player: { level: 3, playerClass: "warrior", craftLevel: 5, craftExperience: 30, craftStatPoints: 2, craftStatAlloc: { hp: 4, mana: -1, attack: 2.6, defense: 1 } } };
+    const migratedRich = migrateSaveData(richSave);
+    assert(migratedRich.player.craftLevel === 5 && migratedRich.player.craftExperience === 30 && migratedRich.player.craftStatPoints === 2, "existing craft progress should survive migration");
+    assert(migratedRich.player.craftStatAlloc.hp === 4 && migratedRich.player.craftStatAlloc.mana === 0 && migratedRich.player.craftStatAlloc.attack === 2, "craft alloc should be clamped/floored on migration");
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -1521,6 +1558,7 @@ try {
         "predators face the player while chasing (+X-front yaw)",
         "hit feedback: hit stop, knockback, squash punch, fov kick, tone layers",
         "tutorial step completion latches across condition regression",
+        "craft level: xp formula (rarity-weighted), increasing curve, multi-level carryover, alloc clamp, save migration defaults/preserve",
       ],
     }, null, 2));
   }
