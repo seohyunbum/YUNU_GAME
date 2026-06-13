@@ -1,12 +1,19 @@
 # 운영자 계정 리포트 (admin-report)
 
-서버 운영자가 **필요할 때** 전체 계정 현황을 받아보는 오프라인 CLI 도구입니다.
+서버 운영자가 **필요할 때** 전체 유저 현황을 받아보는 오프라인 CLI 도구입니다.
+
+두 소스를 합쳐 집계합니다:
+1. **Firebase 중앙 디렉터리**(`onlineConfig.FIREBASE_CONFIG`) — 모든 머신의 **전체 유저 명부**
+   (닉네임 · 온라인 여부 · 최근 접속 · 친구 관계). 인게임 "모든 유저" 목록과 동일.
+2. **현재 머신의 Edge/Chrome localStorage** — 이 PC 에서 플레이된 계정의 **세이브 상세**
+   (최고 레벨 · 직업 · 걸음수 · 세이브 수).
 
 ## 실행
 
 ```bash
-npm run admin-report                      # Edge + Chrome 자동 스냅샷 → 집계
-npm run admin-report -- --browser edge    # Edge 만
+npm run admin-report                      # Firebase 전체 유저 + 이 PC 세이브
+npm run admin-report -- --no-firebase     # 로컬 세이브만 (오프라인)
+npm run admin-report -- --browser edge    # 로컬 소스를 Edge 로 한정
 npm run admin-report -- --snapshot <dir>  # 미리 만든 leveldb 스냅샷 폴더 사용
 npm run admin-report -- --json out.json   # JSON 저장 경로 지정
 ```
