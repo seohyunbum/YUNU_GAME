@@ -925,6 +925,7 @@ class WildernessGame {
 
   private refreshMirrorAvatar() {
     if (this.mirrorAvatar) {
+      this.disposeObject3D(this.mirrorAvatar); // 재생성 전 옛 아바타 geometry/material 해제 (직업+갑옷 재료 누수 방지)
       this.mirrorView.remove(this.mirrorAvatar);
       this.mirrorAvatar = null;
     }

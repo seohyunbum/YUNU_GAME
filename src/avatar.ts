@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createIronShieldModel } from "./game/weaponVisuals";
-import { TIER_VISUALS, tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, type TierId } from "./game/tierVisuals";
+import { addLegendaryArmor } from "./game/legendaryArmor";
+import { TIER_VISUALS, tierBladeMaterial, tierGemMaterial, type TierId } from "./game/tierVisuals";
 import { ASSET_PALETTE, makeGlowMaterial, makeMetalMaterial, makeToonMaterial } from "./visuals";
 
 export interface AvatarAppearance {
@@ -126,6 +127,11 @@ export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_
 function addArmorOverlay(group: THREE.Group, armorTier: string) {
   const tv = TIER_VISUALS[armorTier as TierId];
   if (!tv) return;
+  if (tv.rank >= 4) {
+    // 고급(gold/diamond/obsidian) — 무기와 동일한 전설 컨셉(날개 견갑·등 룬 마법진·발광 코어·스파크)
+    addLegendaryArmor(group, tv);
+    return;
+  }
   const plateMat = tierBladeMaterial(tv);
 
   // 가슴 판금 (토르소 z=0 앞면 약간 앞에). 전사/탱커의 기존 plate 위로 살짝 더 앞에 얹혀 티어가 도드라진다.
@@ -148,27 +154,11 @@ function addArmorOverlay(group: THREE.Group, armorTier: string) {
   belt.scale.set(1, 0.62, 1);
   group.add(belt);
 
-  // copper+ : 가슴 중앙 보석
+  // copper+ : 가슴 중앙 보석 (gold+ 는 위에서 레전더리로 분기되므로 여기는 leather/copper/iron 전용)
   if (tv.gem) {
     const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.085), tierGemMaterial(tv));
     gem.position.set(0, 1.16, 0.37);
     group.add(gem);
-  }
-
-  // gold+ : 다리 그리브 + 발광 가슴 트림 (다이아·흑요석이 가장 화려)
-  if (tv.fancy) {
-    for (const sx of [-1, 1]) {
-      const greave = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.42, 0.17), plateMat);
-      greave.position.set(sx * 0.22, 0.3, 0.03);
-      group.add(greave);
-      const shoulderRim = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.012, 8, 18), tierEdgeMaterial(tv));
-      shoulderRim.position.set(sx * 0.52, 1.42, 0.04);
-      shoulderRim.rotation.x = Math.PI / 2;
-      group.add(shoulderRim);
-    }
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.08, 0.05), tierEdgeMaterial(tv));
-    trim.position.set(0, 1.4, 0.31);
-    group.add(trim);
   }
 }
 
