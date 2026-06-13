@@ -5,3 +5,6 @@ artifacts/
 .env
 .DS_Store
 Thumbs.db
+
+# 세이브 복구 작업본 (브라우저 localStorage 스냅샷 = 민감, node_modules 포함)
+_save-recovery/

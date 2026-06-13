@@ -281,7 +281,7 @@ import {
 } from "./game/trading";
 import { SMITHING_PRODUCTS, smithingProductIcon } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
-import { TUTORIAL_SECTIONS } from "./game/tutorial";
+import { renderBookPanelMarkup } from "./ui/bookPanel";
 import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
@@ -300,6 +300,7 @@ import {
   createSaveSlot as createRepositorySaveSlot,
   formatSaveDate,
   readSaveSlots as readRepositorySaveSlots,
+  readStoredSlotList as readRepositoryStoredSlotList,
   resolveSlotSaveOrNull as resolveRepositorySlotSaveOrNull,
   backfillSlotDescription,
   writeLatestSave as writeLatestSaveInRepository,
@@ -5426,15 +5427,16 @@ class WildernessGame {
   private async saveGame() {
     try {
       const save = this.createSaveData();
-      backupLatestSaveInRepository();
-      await writeLatestSaveInRepository(save);
-      const existingSaves = this.readSaveSlots().filter((slot) => slot.savedAt !== save.savedAt);
+      const existingSaves = this.readStoredSlots().filter((slot) => slot.savedAt !== save.savedAt);
       if (existingSaves.length >= MAX_SAVE_SLOTS) {
-        // 슬롯 가득 — 덮어쓸 저장을 직접 고르게 한다
+        // 슬롯 가득 — 어떤 저장도 건드리기 전에 덮어쓸 슬롯을 직접 고르게 한다.
+        // (예전엔 여기서 최근 저장(SAVE_KEY)을 먼저 덮어써 다른 캐릭터 저장이 묻지도 않고 사라졌다)
         this.pendingOverwriteSave = save;
         this.openPanel("saveOverwrite");
         return;
       }
+      backupLatestSaveInRepository();
+      await writeLatestSaveInRepository(save);
       const requestedSaves = [createRepositorySaveSlot(save, formatSaveDate, saveSummary(save)), ...existingSaves];
       const storedCount = await writeRepositorySaveSlots(requestedSaves);
       const trimmedText = requestedSaves.length > storedCount ? ` 최근 ${storedCount}개 저장만 보관했습니다.` : "";
@@ -5518,6 +5520,11 @@ class WildernessGame {
       migrateSaveData: (save) => migratePartialSaveData(save),
       formatSaveDate: (savedAt) => formatSaveDate(savedAt),
     });
+  }
+
+  // 덮어쓰기/가득 판정·기록은 명명 슬롯(SAVE_LIST)만 쓴다 — latest/backup 병합본을 trim 하다 비선택 저장이 사라지는 사고 방지.
+  private readStoredSlots(): SaveSlot[] {
+    return readRepositoryStoredSlotList({ migrateSaveData: (save) => migratePartialSaveData(save), formatSaveDate: (savedAt) => formatSaveDate(savedAt) });
   }
 
 
@@ -6216,13 +6223,28 @@ class WildernessGame {
       });
     }
     if (this.currentPanel === "saveOverwrite") {
-      renderSaveOverwritePanelView(this.panelEl, this.readSaveSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label })), {
+      // 명명 슬롯만 보여주고 그 집합에 그대로 쓴다 — 화면/기록 집합을 일치시켜 비선택 저장 유실을 막는다.
+      renderSaveOverwritePanelView(this.panelEl, this.readStoredSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label })), {
         onClose: () => { this.pendingOverwriteSave = null; this.closePanel(); },
         onOverwrite: async (slotId) => {
           const save = this.pendingOverwriteSave;
           if (!save) return;
-          await writeRepositorySaveSlots(this.readSaveSlots().map((slot) => (slot.id === slotId ? createRepositorySaveSlot(save, formatSaveDate, saveSummary(save)) : slot)));
+          // 고른 명명 슬롯만 id 로 매칭해 교체(개수 불변·≤MAX → 트림/덮어쓰기로 다른 저장이 사라지지 않음).
+          const list = this.readStoredSlots();
+          if (!list.some((slot) => slot.id === slotId)) { this.showMessage("선택한 슬롯을 찾을 수 없습니다. 다시 시도해 주세요."); this.renderPanel(); return; }
+          const newSlot = createRepositorySaveSlot(save, formatSaveDate, saveSummary(save));
+          const next = list.map((slot) => (slot.id === slotId ? newSlot : slot));
+          try {
+            backupLatestSaveInRepository();
+            await writeLatestSaveInRepository(save);
+            await writeRepositorySaveSlots(next);
+          } catch (error) {
+            console.error(error);
+            this.showMessage("저장에 실패했습니다. 브라우저 저장 공간을 확인해보세요.");
+            return;
+          }
           this.pendingOverwriteSave = null;
+          this.tutorialSignals.saved = true;
           this.closePanel();
           this.showMessage(`저장 완료(덮어쓰기): ${formatSaveDate(save.savedAt)}`);
         },
@@ -6310,30 +6332,7 @@ class WildernessGame {
   }
 
   private renderBookPanel() {
-    this.panelEl.innerHTML = `
-      <section class="panel book-panel">
-        <header>
-          <h2>튜토리얼 책</h2>
-          <button class="icon-button" data-close>닫기</button>
-        </header>
-        <ol>${TUTORIAL_SECTIONS.map((line) => `<li>${line}</li>`).join("")}</ol>
-        <h3>핵심 레시피</h3>
-        <div class="recipe-lines">
-          <p>모든 제작 레시피는 재료를 넣는 위치와 상관없이 조합만 맞으면 됩니다.</p>
-          <p>나무 1개 -> 나무 막대기 2개</p>
-          <p>나무 3개 + 망치 1개 -> 제작대 1개</p>
-          <p>제작대 2개 -> 확장 제작대 1개</p>
-          <p>제련대 1개 + 망치 1개 -> 특수 제련대 1개</p>
-          <p>망치 2개 + 철 6개 -> 분쇄기 1개</p>
-          <p>다이아몬드 가루 6개 + 제련된 나무 6개 + 돌 6개 -> 거울 1개</p>
-          <p>제련된 나무 3개 + 막대기 2개 -> 날카로운 나무 도끼</p>
-          <p>일반 나무 3개 + 막대기 2개 -> 약한 나무 도끼</p>
-          <p>돌 4개 + 막대기 2개 -> 돌 곡괭이</p>
-          <p>날카로운 흑요석 1개 + 막대기 1개 -> 흑요석 단검</p>
-          <p>날카로운 흑요석 2개 + 막대기 1개 -> 흑요석 검</p>
-        </div>
-      </section>
-    `;
+    this.panelEl.innerHTML = renderBookPanelMarkup();
     this.bindPanelBasics();
   }
 
@@ -7043,7 +7042,9 @@ class WildernessGame {
     this.craftXp = gain.craftXp;
     if (gain.levelsGained > 0) {
       this.craftStatPoints += gain.levelsGained;
-      this.showMessage(`🔨 제작 레벨업! Lv ${this.craftLevel} — 스탯 포인트 +${gain.levelsGained} (K 키로 분배)`);
+      this.showMessage(`🔨 제작 레벨업! Lv ${this.craftLevel} — 스탯 포인트 +${gain.levelsGained}! 능력치를 올리세요`);
+      this.playTone(784, 0.12, "triangle", 0.05); this.playTone(1175, 0.18, "triangle", 0.045); // 레벨업 팡파레
+      this.openPanel("character"); // 획득한 포인트를 바로 분배할 수 있게 캐릭터창 자동 오픈
     }
     this.renderHud();
     return true;

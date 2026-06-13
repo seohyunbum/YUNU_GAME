@@ -123,6 +123,7 @@ try {
   const craftLevel = await server.ssrLoadModule("/src/game/craftLevel.ts");
   const saveMigration = await server.ssrLoadModule("/src/game/saveMigration.ts");
   const skillBar = await server.ssrLoadModule("/src/ui/skillBar.ts");
+  const saveRepo = await server.ssrLoadModule("/src/game/saveRepository.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -1542,6 +1543,44 @@ try {
     assert(new Set(allIcons).size >= 6, "skill icons should be reasonably varied across classes/slots");
   }
 
+  {
+    // 저장 슬롯 무결성 (데이터 유실 회귀 가드): 덮어쓰기는 고른 슬롯만 새 저장으로 바꾸고
+    // 나머지 슬롯은 그대로 보존해야 한다. 마법사 세이브가 묻지도 않고 사라진 사고의 재발 방지.
+    const { writeSaveSlots, readSaveSlots, readStoredSlotList, createSaveSlot, writeLatestSave, backupLatestSave, formatSaveDate: fmt } = saveRepo;
+    const { migrateSaveData } = saveMigration;
+    const mockStorage = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
+    const mkSave = (lvl, cls, ms) => migrateSaveData({ version: 11, savedAt: `2026-06-1${ms}T00:00:0${ms}.000Z`, player: { level: lvl, playerClass: cls, position: { x: lvl, y: 1.7, z: ms } } });
+    const opts = (storage) => ({ migrateSaveData, formatSaveDate: fmt, storage });
+    const storage = mockStorage();
+    const saves = [mkSave(30, "mage", 1), mkSave(29, "warrior", 2), mkSave(20, "healer", 3), mkSave(15, "gunner", 4), mkSave(10, "tanker", 5)];
+    const slots = saves.map((s) => createSaveSlot(s, fmt));
+    const storedCount = await writeSaveSlots(slots, storage);
+    assert(storedCount === 5, `5 distinct saves should all persist, got ${storedCount}`);
+    assert(readStoredSlotList(opts(storage)).length === 5, "readStoredSlotList should return all 5 named slots");
+
+    // Finding A 가드: SAVE_KEY(latest)·SAVE_BACKUP 에 명명 슬롯과 다른 별개 저장이 있어도
+    // (load 시 persistLatestSaveQuietly 가 만드는 상태) 덮어쓰기가 명명 슬롯을 잃지 않아야 한다.
+    await writeLatestSave(mkSave(99, "summoner", 7), storage); // SAVE_KEY = 별개 저장 F
+    backupLatestSave(storage); // SAVE_BACKUP = F 로 복제
+    await writeLatestSave(mkSave(98, "tanker", 8), storage); // SAVE_KEY = 또다른 별개 G, BACKUP=F
+    assert(readSaveSlots(opts(storage)).length >= 6, "merged read should include the distinct latest/backup (the trap)");
+    assert(readStoredSlotList(opts(storage)).length === 5, "readStoredSlotList must ignore latest/backup and stay at 5 named slots");
+
+    // 덮어쓰기(onOverwrite 로직 재현): 명명 목록을 id 로 교체 → 기록. 가운데(healer)만 Lv31 마법사로.
+    const mageSavedAt = saves[0].savedAt, warriorSavedAt = saves[1].savedAt, gunnerSavedAt = saves[3].savedAt, tankerSavedAt = saves[4].savedAt;
+    const replacedId = slots[2].id; // healer
+    const newSave = mkSave(31, "mage", 6);
+    const list = readStoredSlotList(opts(storage));
+    const next = list.some((s) => s.id === replacedId) ? list.map((slot) => (slot.id === replacedId ? createSaveSlot(newSave, fmt) : slot)) : [createSaveSlot(newSave, fmt), ...list].slice(0, 5);
+    await writeSaveSlots(next, storage);
+    const after = readStoredSlotList(opts(storage));
+    const afterTimes = after.map((s) => s.savedAt);
+    assert(after.length === 5, `overwrite should keep named slot count at 5, got ${after.length}`);
+    assert([mageSavedAt, warriorSavedAt, gunnerSavedAt, tankerSavedAt].every((t) => afterTimes.includes(t)), "overwriting one slot must preserve all OTHER named saves even with a distinct latest present (Finding A guard)");
+    assert(afterTimes.includes(newSave.savedAt), "the chosen slot should hold the new save after overwrite");
+    assert(!afterTimes.includes(saves[2].savedAt), "the explicitly chosen slot's old save should be the only one replaced");
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -1590,6 +1629,7 @@ try {
         "tutorial step completion latches across condition regression",
         "craft level: xp formula (rarity-weighted), increasing curve, multi-level carryover, alloc clamp, save migration defaults/preserve",
         "skill bar: per-class R/T slots (name/hotkey/total/icon match defs) + independent primary/second cooldown timestamps",
+        "save slots: overwrite replaces only the chosen slot and preserves all other saves (data-loss regression guard)",
       ],
     }, null, 2));
   }

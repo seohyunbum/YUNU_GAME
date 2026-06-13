@@ -329,6 +329,48 @@ body {
   cursor: default;
 }
 
+/* 제작 레벨업으로 분배할 포인트가 있을 때 — 강조 배너 + 버튼 펄스로 즉시 인지 */
+.character-points-banner {
+  margin: 2px 0 2px;
+  padding: 10px 12px;
+  border: 1px solid rgba(110, 231, 183, 0.6);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.22), rgba(245, 200, 122, 0.18));
+  color: #d1fae5;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+  animation: points-banner-pulse 1.4s ease-in-out infinite;
+}
+.character-points-banner b {
+  color: #6ee7b7;
+  font-size: 16px;
+  margin: 0 2px;
+}
+.character-points-plus {
+  color: #facc15;
+  font-weight: 900;
+}
+@keyframes points-banner-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(110, 231, 183, 0); }
+  50% { box-shadow: 0 0 14px 2px rgba(110, 231, 183, 0.45); }
+}
+/* 포인트 보유 시 + 버튼을 눈에 띄게 — 노란 글로우 펄스 */
+.character-panel.has-points .character-spend:not(:disabled) {
+  border-color: #facc15;
+  background: rgba(120, 90, 16, 0.85);
+  color: #fff7d6;
+  animation: spend-pulse 1.2s ease-in-out infinite;
+}
+@keyframes spend-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); transform: scale(1); }
+  50% { box-shadow: 0 0 10px 1px rgba(250, 204, 21, 0.55); transform: scale(1.06); }
+}
+.character-panel.has-points .character-points {
+  color: #6ee7b7;
+  font-size: 15px;
+}
+
 .stats-sub-bars {
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);

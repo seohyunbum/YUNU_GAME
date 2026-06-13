@@ -39,7 +39,7 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
     kind === "hp" ? `${view.health} / ${view.maxHealth}` : kind === "mana" ? `${view.mana} / ${view.maxMana}` : kind === "attack" ? `${view.attack}` : `${view.defense}`;
   const points = Math.max(0, view.craftStatPoints);
   panelEl.innerHTML = `
-      <section class="panel character-panel">
+      <section class="panel character-panel${points > 0 ? " has-points" : ""}">
         <header>
           <div>
             <h2>캐릭터 정보</h2>
@@ -47,6 +47,7 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
           </div>
           <button class="icon-button" data-close>닫기</button>
         </header>
+        ${points > 0 ? `<div class="character-points-banner" role="status">🎉 분배할 스탯 포인트 <b>${points}</b>개! 아래 <span class="character-points-plus">＋</span> 버튼으로 능력치를 올리세요</div>` : ""}
         <div class="character-gear">
           <div class="inventory-label">착용 장비</div>
           <div class="character-gear-row"><span>🗡️ 무기</span><strong>${escapeHtml(view.weapon)}</strong></div>

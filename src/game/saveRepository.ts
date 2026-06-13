@@ -184,6 +184,37 @@ export function readSaveSlots({
   return slots.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
 }
 
+// 명명된 슬롯(SAVE_LIST_KEY)만 — latest/backup 병합 없이 실제 저장 목록(≤MAX)을 그대로 반환한다.
+// 덮어쓰기 picker/저장 시 쓰는 집합과 보여주는 집합을 일치시켜, 병합본을 5칸으로 trim 하다
+// 고르지 않은 저장이 사라지는 사고(데이터 유실)를 막는다. 표시는 readSaveSlots(병합)를 계속 쓴다.
+export function readStoredSlotList({ migrateSaveData, formatSaveDate, storage = localStorage }: ReadSaveSlotsOptions): SaveSlot[] {
+  const slots: SaveSlot[] = [];
+  try {
+    const raw = storage.getItem(SAVE_LIST_KEY);
+    if (!raw) return slots;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return slots;
+    parsed.forEach((entry, index) => {
+      if (!entry || typeof entry !== "object") return;
+      const record = entry as StoredSaveSlot & PartialSavedGame;
+      const id = typeof record.id === "string" ? record.id : `save-list-${index}`;
+      if (typeof record.packed === "string" && typeof record.savedAt === "string") {
+        slots.push({ id, savedAt: record.savedAt, label: typeof record.label === "string" ? record.label : formatSaveDate(record.savedAt), description: typeof record.description === "string" ? record.description : undefined, packed: record.packed });
+        return;
+      }
+      try {
+        const save = migrateSaveData((record.save ?? record) as PartialSavedGame);
+        slots.push({ id, savedAt: save.savedAt, label: typeof record.label === "string" ? record.label : formatSaveDate(save.savedAt), save });
+      } catch {
+        // skip broken entry
+      }
+    });
+  } catch {
+    // no usable list
+  }
+  return slots;
+}
+
 export async function writeSaveSlots(slots: SaveSlot[], storage = localStorage) {
   let trimmed = slots.slice(0, MAX_SAVE_SLOTS);
   const stored: StoredSaveSlot[] = [];
