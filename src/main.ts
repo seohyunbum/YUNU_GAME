@@ -236,7 +236,7 @@ import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeS
 import { PLAYER_CLASSES } from "./game/classes";
 import { createTrainingStats, ensureTrainingGround, normalizeTrainingStats, TRAINING_GAMES, TRAINING_MIN_LEVEL, TRAINING_REWARDS, type TrainingGroundContext } from "./game/training";
 import { renderTrainingPanel as renderTrainingPanelView } from "./ui/trainingPanel";
-import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, updateSecondSkillEffects, useSecondClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext } from "./game/classSkills";
+import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, updateSecondSkillEffects, useSecondClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext } from "./game/classSkills";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
@@ -308,7 +308,7 @@ import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby } from "./ui/partyPanel";
-import { initPartyPresence, partyGuestAttackIntercept, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, updatePartyPresence } from "./game/partyPresence";
+import { initPartyPresence, notifyPartyAttack, partyGuestAttackIntercept, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
 import { initPartyFlow } from "./game/partyFlow";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
@@ -822,7 +822,7 @@ class WildernessGame {
     this.renderHud();
     ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });    initPartyLobby(() => this.nickname);
     initPartyFlow({ isInGame: () => this.gameStarted, startNewGame: () => { if (!this.pendingPlayerClass) this.pendingPlayerClass = this.playerClass ?? "warrior"; this.startGame("new"); }, summonTo: (mapId, x, z) => { if (this.locationMode === "cave") this.leaveCave(); else if (this.locationMode === "house") this.leaveHouse(); if (this.currentWorldMapId !== mapId) this.teleportToWorldMap(mapId, true); this.playerPosition.set(x + 2.5, this.playerPosition.y, z + 2.5); this.settlePlayerAfterTeleport(); this.camera.position.copy(this.playerPosition); }, showMessage: (text) => this.showMessage(text) });
-    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null }), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, predators: () => this.objectsOfType("wildPredator"), getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed), showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target) => this.grantExperienceForTarget(target), rollLoot: (item, count) => (this.rollRewardChance(1, "predator", item) ? this.grantRewardItem(item, count, "predator") : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object) } });
+    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth }), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, predators: () => this.objectsOfType("wildPredator"), getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed), showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target) => this.grantExperienceForTarget(target), rollLoot: (item, count) => (this.rollRewardChance(1, "predator", item) ? this.grantRewardItem(item, count, "predator") : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object) } });
     this.animate();
   }
 
@@ -2834,18 +2834,17 @@ class WildernessGame {
   private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, playerPosition: this.playerPosition };
 
   private useHealerSkill() {
-    if (this.health >= this.maxHealth) {
-      this.showMessage("이미 체력이 가득합니다.");
-      return;
-    }
+    const helpsParty = partyHasNearbyMember(this.playerPosition.x, this.playerPosition.z, HEAL_PARTY_RADIUS);
+    if (this.health >= this.maxHealth && !helpsParty) { this.showMessage("이미 체력이 가득하고 근처에 도울 친구도 없습니다."); return; }
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, HEALER_SKILL_COST, HEALER_SKILL_COOLDOWN, "primary")) return;
     const previous = this.health;
-    this.health = Math.min(this.maxHealth, this.health + healerHealAmount(this.levelStatBonus()));
+    const amount = healerHealAmount(this.levelStatBonus());
+    this.health = Math.min(this.maxHealth, this.health + amount);
+    const friends = partyHealNearby(amount, HEAL_PARTY_RADIUS);
     spawnHealEffect(this.combatEffectContext, this.playerPosition);
     this.playHandAction("magic");
-    this.playTone(720, 0.14, "triangle", 0.03);
-    this.playTone(960, 0.18, "sine", 0.018);
-    this.showMessage(`천상치유! 체력 ${Math.ceil(this.health - previous)} 회복.`);
+    this.playTone(720, 0.14, "triangle", 0.03); this.playTone(960, 0.18, "sine", 0.018);
+    this.showMessage(friends > 0 ? `천상치유! 체력 ${Math.ceil(this.health - previous)} 회복, 친구 ${friends}명도 치유.` : `천상치유! 체력 ${Math.ceil(this.health - previous)} 회복.`);
     this.renderHud();
   }
 
@@ -2915,7 +2914,7 @@ class WildernessGame {
     const projectile: CombatProjectile = { kind, mesh, velocity: direction.multiplyScalar(speed), damage, radius, life: kind === "tnt" ? 2.1 : PROJECTILE_MAX_LIFE, explosionRadius };
     projectile.mesh.position.copy(origin);
     this.scene.add(projectile.mesh);
-    this.projectiles.push(projectile);
+    this.projectiles.push(projectile); notifyPartyAttack("skill", origin, direction, visual, speed, kind === "tnt" ? 2.1 : PROJECTILE_MAX_LIFE);
   }
 
   private updateMovement(delta: number) {
@@ -3133,6 +3132,7 @@ class WildernessGame {
         position.z += (dz / distance) * push;
         changed = true;
       }
+      if (pushOutOfPartyMembers(position, PLAYER_RADIUS)) changed = true; // 5.1 — 친구와 겹침 방지 (루프 안에서 → 다음 pass 가 벽 관통 재해소)
       if (!changed) break;
     }
   }
@@ -4644,7 +4644,7 @@ class WildernessGame {
     projectile.mesh.position.copy(origin);
     this.scene.add(projectile.mesh);
     this.projectiles.push(projectile);
-    this.playHandAction(kind === "magic" ? "magic" : "bow");
+    this.playHandAction(kind === "magic" ? "magic" : "bow"); notifyPartyAttack("ranged", origin, direction, kind === "magic" ? "magic" : "arrow", speed, PROJECTILE_MAX_LIFE);
     if (kind === "magic") this.playMagicShotSound();
     else this.playBowShotSound();
   }
@@ -4884,7 +4884,7 @@ class WildernessGame {
     this.playHandAction("melee");
     spawnMeleeSlashTrail(this.combatEffectContext);
     spawnEnemyHitParticles(this.combatEffectContext, target);
-    this.playMeleeWhoosh();
+    this.playMeleeWhoosh(); notifyPartyAttack("melee");
   }
 
 

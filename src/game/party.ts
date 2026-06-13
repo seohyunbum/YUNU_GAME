@@ -45,6 +45,8 @@ export interface PresenceData {
   playerClass: string;
   inGame: boolean;
   panelOpen?: boolean; // 인벤토리 등 패널 열림 — 호스트 몬스터가 타격을 보류 (로컬과 같은 보호)
+  health?: number; // 친구 머리 위 HP바 표시용 (5.1)
+  maxHealth?: number;
 }
 
 // 프레즌스가 이 시간 이상 끊긴 게스트(백그라운드 탭 등)는 명단에서 제외 — 몬스터 타게팅·아바타에서 빠진다
@@ -82,7 +84,10 @@ export type PartyMessage =
   | { type: "mobs"; mapId: string; list: MobSnapshot[] }
   | { type: "attackRequest"; targetId: string; power: number; kind: string }
   | { type: "partyKill"; name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string }
-  | { type: "mobHit"; nickname: string; amount: number; name: string; mapId: string };
+  | { type: "mobHit"; nickname: string; amount: number; name: string; mapId: string }
+  // 5.1 — 원격 플레이어 표현
+  | { type: "playerAttack"; nickname: string; mapId: string; kind: "melee" | "ranged" | "skill"; visual?: "arrow" | "magic" | "wind" | "tnt"; speed?: number; life?: number; ox?: number; oy?: number; oz?: number; dx?: number; dy?: number; dz?: number }
+  | { type: "partyHeal"; recipient: string; amount: number; mapId: string };
 
 export function encodePartyMessage(message: PartyMessage): string {
   return JSON.stringify(message);
@@ -205,6 +210,11 @@ export class PartySession {
       }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
       if (message.type === "attackRequest" && link.nickname) this.emitGame(message, link.nickname);
+      // 5.1 — 게스트가 보낸 공격 연출·파티 힐: 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
+      if (message.type === "playerAttack" || message.type === "partyHeal") {
+        this.emitGame(message, link.nickname ?? undefined);
+        for (const other of this.guests) if (other !== link && other.connection.open) other.connection.send(encodePartyMessage(message));
+      }
     });
     connection.on("close", () => {
       if (!link.nickname) return;
@@ -251,7 +261,7 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
-        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit") {
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal") {
           this.emitGame(message);
           return;
         }
@@ -289,14 +299,22 @@ export class PartySession {
     for (const listener of this.presenceListeners) listener(list);
   }
 
-  // 5차 게임 데이터 채널 — 호스트: attackRequest 수신(보낸 게스트 닉네임 포함) / 게스트: mobs·partyKill·mobHit 수신
-  // 리스너 등록은 다음 rAF 틱(partyWorldSyncTick)에서 일어나므로, 그 전에 도착한 메시지는 버퍼링했다가 첫 등록 때 재생한다
+  // 5차 게임 데이터 채널 — 호스트: attackRequest 수신(보낸 게스트 닉네임 포함) / 게스트: mobs·partyKill·mobHit·playerAttack·partyHeal 수신
+  // 리스너 등록은 다음 rAF 틱에서 일어나므로, 그 전에 도착한 메시지는 버퍼링했다가 재생한다.
+  // 두 소비자(partyWorldSync·partyPresence)가 같은 틱에 연속 등록되고 서로 다른 타입만 처리하므로,
+  // 첫 리스너에만 flush 하면 나머지 타입(playerAttack/partyHeal)이 유실된다 → 모든 신규 리스너에 재생.
   private pendingGameMessages: { message: PartyMessage; fromNickname?: string }[] = [];
+  private pendingFlushScheduled = false;
 
   onGame(listener: (message: PartyMessage, fromNickname?: string) => void) {
     this.gameListeners.push(listener);
-    if (this.gameListeners.length === 1) {
-      for (const entry of this.pendingGameMessages.splice(0)) listener(entry.message, entry.fromNickname);
+    for (const entry of this.pendingGameMessages) listener(entry.message, entry.fromNickname);
+    if (!this.pendingFlushScheduled && this.pendingGameMessages.length > 0) {
+      this.pendingFlushScheduled = true;
+      queueMicrotask(() => {
+        this.pendingGameMessages.length = 0; // 동기 틱의 모든 onGame 등록이 끝난 뒤 1회 비움
+        this.pendingFlushScheduled = false;
+      });
     }
   }
 

@@ -615,7 +615,7 @@ try {
     const fakeScene = { add: (object) => sceneAdds.push(object), remove: (object) => sceneRemoves.push(object) };
     let presencesCb = null;
     const sent = [];
-    const fakeSession = { onPresences: (cb) => { presencesCb = cb; }, sendPresence: (data) => sent.push(data) };
+    const fakeSession = { onPresences: (cb) => { presencesCb = cb; }, onGame: () => {}, sendPresence: (data) => sent.push(data) };
     initPartyPresence({
       scene: fakeScene,
       session: () => fakeSession,
@@ -809,6 +809,11 @@ try {
     assert(syncedEntry && syncedEntry.hp === 44 && syncedEntry.name === "골든늑대", "synced mob spawns as a real targetable world object with authoritative stats");
     assert(syncedEntry.partyTransient === true, "synced mob is marked transient so saves/worldState never persist it");
     assert(syncedEntry.root.position.x === 20 && syncedEntry.root.position.y === 2, "synced mob spawns at snapshot x/z and local ground height");
+    // #1 불릿프루프: 첫 정리 이후 끼어든 비동기화 로컬 몬스터(seedOverworld 잔여 등)도 다음 스냅샷에 제거되어야 한다
+    const strayWolf = guest.world.entityContext.addWorldObject("wildPredator", "끼어든늑대", { position: { x: 5, y: 0, z: 5 }, rotation: { y: 0 } }, { hp: 10, predatorKind: "wolf" });
+    guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [{ id: "H-1", name: "골든늑대", kind: "wolf", monsterId: "wolf", regionId: "r1", x: 20, z: 8, yaw: 1, hp: 44 }] });
+    assert(!guest.objects.has(strayWolf.id), "stray local monster after first clear is swept on the next snapshot (no separate-monster divergence)");
+    assert([...guest.objects.values()].filter((object) => object.type === "wildPredator").length === 1, "only the synced mob remains — guest and host see the same set");
     guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [{ id: "H-1", name: "골든늑대", kind: "wolf", monsterId: "wolf", regionId: "r1", x: 30, z: 8, yaw: 1, hp: 40, atk: 60, afx: 1, afz: 0 }] });
     assert(syncedEntry.hp === 40, "snapshot hp overwrites the local value when no hit is pending");
     assert(Number(syncedEntry.root.userData.attackDuration ?? 0) > 0, "attack motion from the snapshot replays on the guest (telegraph)");
@@ -870,6 +875,58 @@ try {
     resetPartyWorldSync();
     initPartyWorldSync({ session: () => null, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: null }); // 모듈 상태 완전 분리 — 이후 골든(predator AI)이 게스트 게이트에 걸리지 않게
     assert(partyWorldGuestActive() === false, "detached world sync leaves guest mode");
+  }
+
+  {
+    // 파티 5.1 골든 — 공격 브로드캐스트 / 파티 힐(송신·수신·맵 가드) / 플레이어 충돌 push-out
+    const { initPartyPresence, updatePartyPresence, resetPartyPresence, notifyPartyAttack, partyHealNearby, partyHasNearbyMember, pushOutOfPartyMembers } = partyPresence;
+    const sent = [];
+    let presencesCb = null;
+    let gameCb = null;
+    const fakeSession = { onPresences: (cb) => { presencesCb = cb; }, onGame: (cb) => { gameCb = cb; }, sendPresence: () => {}, sendGame: (message) => sent.push(message) };
+    let healed = 0;
+    initPartyPresence({
+      scene: { add: () => {}, remove: () => {} },
+      session: () => fakeSession,
+      getGroundHeightAt: () => 0,
+      localPresence: () => ({ nickname: "나", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "healer", inGame: true, health: 10, maxHealth: 20 }),
+      world: { healLocalPlayer: (amount) => { healed += amount; } },
+    });
+    updatePartyPresence(1_000, 0.016); // onPresences/onGame 훅
+    presencesCb([{ nickname: "친구", mapId: "starter_valley", x: 3, z: 0, yaw: 0, playerClass: "warrior", inGame: true, health: 5, maxHealth: 20 }]);
+
+    // 공격 브로드캐스트 (친구 화면에 모션/투사체용)
+    notifyPartyAttack("melee");
+    assert(sent.some((message) => message.type === "playerAttack" && message.nickname === "나" && message.kind === "melee"), "notifyPartyAttack broadcasts a playerAttack event");
+    sent.length = 0;
+    notifyPartyAttack("ranged", new THREE.Vector3(0, 1.5, 0), new THREE.Vector3(0, 0, -1), "arrow");
+    const atk = sent.find((message) => message.type === "playerAttack");
+    assert(atk && atk.kind === "ranged" && atk.visual === "arrow" && atk.oz === 0 && atk.dz === -1, "ranged attack carries origin/direction/visual for the remote projectile");
+
+    // 근처 파티원 탐지 (힐러 발동 판정)
+    assert(partyHasNearbyMember(0, 0, 12) === true, "nearby same-map party member is detected within range");
+    assert(partyHasNearbyMember(0, 0, 1) === false, "party member outside the radius is not detected");
+
+    // 파티 힐 송신 — 사정거리 내 친구에게 partyHeal
+    sent.length = 0;
+    const healedCount = partyHealNearby(8, 12);
+    assert(healedCount === 1 && sent.some((message) => message.type === "partyHeal" && message.recipient === "친구" && message.amount === 8 && message.mapId === "starter_valley"), "partyHealNearby sends partyHeal to each nearby friend");
+
+    // 파티 힐 수신 — 나에게 온 것만, 같은 맵만 적용
+    gameCb({ type: "partyHeal", recipient: "나", amount: 7, mapId: "starter_valley" });
+    assert(healed === 7, "partyHeal addressed to me applies a local heal");
+    gameCb({ type: "partyHeal", recipient: "다른사람", amount: 7, mapId: "starter_valley" });
+    gameCb({ type: "partyHeal", recipient: "나", amount: 7, mapId: "graveyard" });
+    assert(healed === 7, "partyHeal for someone else or another map is ignored");
+
+    // 플레이어 충돌 push-out — 친구(3,0)와 겹친 위치에서 밀려난다
+    const pos = new THREE.Vector3(3.2, 0, 0);
+    pushOutOfPartyMembers(pos, 0.42);
+    assert(pos.x > 3.5, "player overlapping a friend is pushed out (no full overlap)");
+    const farPos = new THREE.Vector3(40, 0, 40);
+    pushOutOfPartyMembers(farPos, 0.42);
+    assert(farPos.x === 40 && farPos.z === 40, "a player far from any friend is not nudged");
+    resetPartyPresence();
   }
 
   {
@@ -1148,7 +1205,8 @@ try {
         "social directory: like search, friend request/accept persistence, offline rejection, party invite delivery",
         "party join flow: indoor-host wait notice, summon on emergence, reset clears stale summons",
         "party summon flow runs on guest sessions only (host never pulled)",
-        "party world sync: host snapshots, guest diff/lerp, attack intercept, host-authoritative kills, shared xp/loot/boss, mobHit",
+        "party world sync: host snapshots, guest diff/lerp, attack intercept, host-authoritative kills, shared xp/loot/boss, mobHit, stray-mob sweep",
+        "party 5.1: attack broadcast, party heal send/receive/map-guard, player push-out collision",
         "nickname validation (length/charset/profanity/reserved/duplicate) and one-time immutability",
         "training ground difficulty curves, rewards, and clamps",
         "skill damage scales with level bonus",

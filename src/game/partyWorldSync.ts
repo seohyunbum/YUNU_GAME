@@ -44,6 +44,7 @@ export interface PartyWorldContext {
   rollLoot(item: ItemId, count: number): number; // 처치자 전리품 — 확률 롤 포함, 획득 수량 반환
   recordFieldBossDefeat(id: string): void;
   damageLocalPlayer(amount: number, sourceName: string): boolean; // true = 사망
+  healLocalPlayer?(amount: number): void; // 5.1 — 파티 힐 수신 적용
   animateWalkCycle(object: WorldObject, delta: number, speed: number): void;
   refreshSpatialObject(object: WorldObject): void;
 }
@@ -84,6 +85,7 @@ const hostIdByLocalId = new Map<string, string>();
 const mobTargets = new Map<string, MobTargetState>(); // 보간 목표 (호스트 id 키)
 const pendingHitsByHostId = new Map<string, number[]>(); // 낙관적 타격 시각 — 스냅샷 역행 방지
 const clearedMobsByMap = new Map<string, ClearedMobDescriptor[]>();
+const sweepScratch: string[] = []; // applyMobsSnapshot 비동기화 제거용 재사용 버퍼 (할당 0)
 let debugXpGained = 0;
 let debugLastKill: { name: string; killer: string; xp: number } | null = null;
 let debugLastSentIds: string[] = [];
@@ -327,16 +329,24 @@ function applyMobsSnapshot(mapId: string, list: MobSnapshot[]) {
     }
   }
   if (wiped) clearedForMapId = null;
-  if (clearedForMapId !== me.mapId) {
-    clearedForMapId = me.mapId;
-    // 합류(또는 맵 복귀) 시 로컬 몬스터 정리 — 복원 정보를 자체 보관한다 (리스폰 큐는 clearWorld 에 와이프되므로 쓰지 않는다).
-    // 필드 보스는 ensure 가 다시 세우므로 복원 목록에서 제외.
-    const stored = clearedMobsByMap.get(me.mapId) ?? [];
-    for (const predator of [...world.predators()]) {
-      if (hostIdByLocalId.has(predator.id)) continue;
-      if (!predator.fieldBossId) stored.push({ kind: predator.predatorKind, monsterId: predator.monsterId, regionId: predator.regionId, x: predator.root.position.x, z: predator.root.position.z });
-      world.removeObjectSilent(predator.id);
-    }
+  // 비동기화 로컬 야생 몬스터 제거 — 매 동기화 스냅샷마다 수행한다.
+  // (합류 직후의 seedOverworld 잔여나 게이트 엇갈림으로 끼어든 로컬 몬스터가 호스트 것과 겹쳐
+  //  "친구는 잡았는데 나는 살아있는" 분리 현상의 원인 — 단발 가드로는 첫 정리 이후 끼어든 것을 못 치움.)
+  const firstClear = clearedForMapId !== me.mapId;
+  if (firstClear) clearedForMapId = me.mapId;
+  // 비동기화 로컬 야생 몬스터 제거 — 매 동기화 스냅샷마다(끼어든 seedOverworld 잔여·리스폰을 항상 정리해 분리 현상 차단).
+  // 제너레이터를 직접 순회하고 제거는 루프 뒤로 미뤄(순회 중 변형 회피), 정상 동기화 시 할당 0(스크래치 재사용).
+  // 첫 정리 때만 복원 정보를 자체 보관한다 (리스폰 큐는 clearWorld 에 와이프되므로 쓰지 않는다). 필드 보스는 ensure 가 다시 세우므로 제외.
+  const stored = firstClear ? clearedMobsByMap.get(me.mapId) ?? [] : null;
+  sweepScratch.length = 0;
+  for (const predator of world.predators()) {
+    if (hostIdByLocalId.has(predator.id)) continue; // 이미 동기화된 몬스터
+    if (stored && !predator.fieldBossId) stored.push({ kind: predator.predatorKind, monsterId: predator.monsterId, regionId: predator.regionId, x: predator.root.position.x, z: predator.root.position.z });
+    sweepScratch.push(predator.id);
+  }
+  for (const id of sweepScratch) world.removeObjectSilent(id);
+  sweepScratch.length = 0;
+  if (stored) {
     if (stored.length > 60) stored.length = 60; // 재정리 중복 누적 상한
     clearedMobsByMap.set(me.mapId, stored);
   }

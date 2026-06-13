@@ -1,7 +1,11 @@
 import type * as THREE from "three";
 import { GUNNER_SKILL_DAMAGE, HEALER_HEAL_AMOUNT, MAGE_TNT_DAMAGE, MAGE_TNT_RADIUS, WARRIOR_EXPLOSION_DAMAGE, WIND_CUTTER_DAMAGE } from "./constants";
+import { partyHealNearby } from "./partyPresence";
 import { partyGuestAttackIntercept } from "./partyWorldSync";
 import type { PlayerClassId, WorldObject } from "./types";
+
+// 힐러 파티 힐 사정거리 — 1스킬(천상치유)·2스킬(치유의 비) 공통 (5.1)
+export const HEAL_PARTY_RADIUS = 12;
 
 // ===== 스킬 데미지 스케일링 =====
 // 일반 공격은 레벨당 +1 강해지는데 스킬은 고정값이라 후반에 쓸모가 없어진다.
@@ -238,9 +242,11 @@ export function updateSecondSkillEffects(context: SkillEffectsContext) {
     for (const target of context.nearbyCombatTargets(BURNING_SHIELD_RADIUS)) if (!partyGuestAttackIntercept(target, damage, "dot")) context.applyDamage(target, damage);
   }
 
-  // 치유의 비 — 1초 간격 회복
+  // 치유의 비 — 1초 간격 회복 (자신 + 사정거리 내 파티원)
   if (context.buffs.healingRainUntil > now && now >= context.buffs.nextRainTickAt) {
     context.buffs.nextRainTickAt = now + BURN_TICK_MS;
-    context.heal(healingRainTick(context.levelBonus()));
+    const rain = healingRainTick(context.levelBonus());
+    context.heal(rain);
+    partyHealNearby(rain, HEAL_PARTY_RADIUS);
   }
 }
