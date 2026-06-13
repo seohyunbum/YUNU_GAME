@@ -17,4 +17,10 @@ export interface FirebaseConfigShape {
   appId: string;
 }
 
-export const FIREBASE_CONFIG: FirebaseConfigShape | null = null;
+export const FIREBASE_CONFIG: FirebaseConfigShape | null = {
+  apiKey: "AIzaSyCXZExNPvC7CE59E2IYaciCiYkfaWGIgjM",
+  authDomain: "yunu-game.firebaseapp.com",
+  databaseURL: "https://yunu-game-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "yunu-game",
+  appId: "1:266454335125:web:13826697c8a03db9fde59c",
+};
