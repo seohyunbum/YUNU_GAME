@@ -24,7 +24,8 @@
     "check:methods": "node scripts/check-method-count.mjs",
     "check:hotpath": "node scripts/check-hotpath-allocations.mjs",
     "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run check:hotpath && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:systems && npm run test:balance",
-    "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run visual:weapons && npm run perf-check"
+    "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run visual:weapons && npm run perf-check",
+    "admin-report": "node scripts/admin-report.mjs"
   },
   "dependencies": {
     "firebase": "^12.14.0",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@types/three": "^0.184.1",
+    "classic-level": "^3.0.0",
     "playwright-core": "^1.60.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.14"
