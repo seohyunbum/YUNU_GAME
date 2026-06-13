@@ -48,25 +48,27 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
           <button class="icon-button" data-close>닫기</button>
         </header>
         ${points > 0 ? `<div class="character-points-banner" role="status">🎉 분배할 스탯 포인트 <b>${points}</b>개! 아래 <span class="character-points-plus">＋</span> 버튼으로 능력치를 올리세요</div>` : ""}
-        <div class="character-gear">
-          <div class="inventory-label">착용 장비</div>
-          <div class="character-gear-row"><span>🗡️ 무기</span><strong>${escapeHtml(view.weapon)}</strong></div>
-          <div class="character-gear-row"><span>🛡️ 방어구</span><strong>${escapeHtml(view.armor)}</strong></div>
-          <div class="character-gear-row"><span>🔰 방패</span><strong>${escapeHtml(view.shield)}</strong></div>
+        <div class="character-body">
+          <div class="character-gear">
+            <div class="inventory-label">착용 장비</div>
+            <div class="character-gear-row"><span>🗡️ 무기</span><strong>${escapeHtml(view.weapon)}</strong></div>
+            <div class="character-gear-row"><span>🛡️ 방어구</span><strong>${escapeHtml(view.armor)}</strong></div>
+            <div class="character-gear-row"><span>🔰 방패</span><strong>${escapeHtml(view.shield)}</strong></div>
+          </div>
+          <div class="character-stats">
+            <div class="inventory-label">스탯 ${points > 0 ? `· 남은 포인트 <b class="character-points">${points}</b>` : ""}</div>
+            ${STAT_ROWS.map(
+              (row) => `
+              <div class="character-stat-row">
+                <span class="character-stat-name">${row.label}</span>
+                <span class="character-stat-value">${value(row.kind)}</span>
+                <span class="character-stat-alloc">제작 +${view.alloc[row.kind] * row.per}</span>
+                <button class="character-spend" data-spend="${row.kind}" ${points > 0 ? "" : "disabled"} title="포인트 1 = ${row.label} +${row.per}">+${row.per}</button>
+              </div>`,
+            ).join("")}
+          </div>
         </div>
-        <div class="character-stats">
-          <div class="inventory-label">스탯 ${points > 0 ? `· 남은 포인트 <b class="character-points">${points}</b>` : ""}</div>
-          ${STAT_ROWS.map(
-            (row) => `
-            <div class="character-stat-row">
-              <span class="character-stat-name">${row.label}</span>
-              <span class="character-stat-value">${value(row.kind)}</span>
-              <span class="character-stat-alloc">제작 +${view.alloc[row.kind] * row.per}</span>
-              <button class="character-spend" data-spend="${row.kind}" ${points > 0 ? "" : "disabled"} title="포인트 1 = ${row.label} +${row.per}">+${row.per}</button>
-            </div>`,
-          ).join("")}
-          <p class="inventory-subtitle">제작 레벨이 오르면 포인트를 얻어 위 스탯을 올릴 수 있어요 (체력·마나 +2, 공격·방어 +1).</p>
-        </div>
+        <p class="character-note">제작 레벨이 오르면 포인트를 얻어 위 스탯을 올릴 수 있어요 (체력·마나 +2, 공격·방어 +1).</p>
       </section>
     `;
   panelEl.querySelector<HTMLButtonElement>("[data-close]")?.addEventListener("click", callbacks.onClose);

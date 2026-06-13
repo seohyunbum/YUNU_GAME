@@ -261,26 +261,38 @@ body {
   box-shadow: 0 0 12px rgba(217, 139, 58, 0.32);
 }
 .character-panel {
-  min-width: min(420px, 92vw);
+  min-width: min(680px, 92vw);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+}
+/* 본문 폰트 1.5배 (전역 inventory-* 는 건드리지 않고 캐릭터창 안에서만 키운다) */
+.character-panel .inventory-subtitle,
+.character-panel .inventory-label {
+  font-size: 20px;
+}
+/* 좌(착용 장비) / 우(스탯) 2열 — 폰트를 키워도 세로 스크롤이 생기지 않게 높이를 분산 */
+.character-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
 }
 .character-gear,
 .character-stats {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .character-gear-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 6px 11px;
-  border-radius: 9px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
   background: rgba(15, 23, 42, 0.5);
-  font-size: 13px;
+  font-size: 20px;
   color: #cbd5e1;
 }
 .character-gear-row strong {
@@ -288,13 +300,13 @@ body {
 }
 .character-stat-row {
   display: grid;
-  grid-template-columns: 64px 1fr auto auto;
+  grid-template-columns: 86px 1fr auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 6px 11px;
-  border-radius: 9px;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
   background: rgba(15, 23, 42, 0.5);
-  font-size: 13px;
+  font-size: 20px;
 }
 .character-stat-name {
   color: #e2e8f0;
@@ -306,19 +318,25 @@ body {
 }
 .character-stat-alloc {
   color: #d98b3a;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
 }
 .character-points {
   color: #6ee7b7;
 }
+.character-note {
+  margin: 0;
+  color: #d9c5a8;
+  font-size: 17px;
+}
 .character-spend {
-  min-width: 42px;
-  padding: 4px 10px;
+  min-width: 54px;
+  padding: 7px 14px;
   border: 1px solid rgba(110, 231, 183, 0.55);
   border-radius: 8px;
   background: rgba(16, 53, 42, 0.85);
   color: #d1fae5;
+  font-size: 19px;
   font-weight: 900;
   cursor: pointer;
 }
@@ -327,6 +345,10 @@ body {
   background: rgba(30, 41, 59, 0.6);
   color: #64748b;
   cursor: default;
+}
+/* 좁은 화면에서는 1열로 접는다 (스크롤보다 1열 우선) */
+@media (max-width: 640px) {
+  .character-body { grid-template-columns: 1fr; }
 }
 
 /* 제작 레벨업으로 분배할 포인트가 있을 때 — 강조 배너 + 버튼 펄스로 즉시 인지 */
@@ -368,7 +390,7 @@ body {
 }
 .character-panel.has-points .character-points {
   color: #6ee7b7;
-  font-size: 15px;
+  font-size: 22px;
 }
 
 .stats-sub-bars {
