@@ -302,6 +302,9 @@ import {
   formatSaveDate,
   readSaveSlots as readRepositorySaveSlots,
   readStoredSlotList as readRepositoryStoredSlotList,
+  appendSaveToHistory as appendSaveToHistoryInRepository,
+  readSaveHistory as readRepositorySaveHistory,
+  resolveHistorySave as resolveRepositoryHistorySave,
   resolveSlotSaveOrNull as resolveRepositorySlotSaveOrNull,
   backfillSlotDescription,
   writeLatestSave as writeLatestSaveInRepository,
@@ -5443,6 +5446,7 @@ class WildernessGame {
       }
       backupLatestSaveInRepository();
       await writeLatestSaveInRepository(save);
+      await appendSaveToHistoryInRepository(save, this.nickname);
       const requestedSaves = [createRepositorySaveSlot(save, formatSaveDate, saveSummary(save)), ...existingSaves];
       const storedCount = await writeRepositorySaveSlots(requestedSaves);
       const trimmedText = requestedSaves.length > storedCount ? ` 최근 ${storedCount}개 저장만 보관했습니다.` : "";
@@ -6244,6 +6248,7 @@ class WildernessGame {
             backupLatestSaveInRepository();
             await writeLatestSaveInRepository(save);
             await writeRepositorySaveSlots(next);
+            await appendSaveToHistoryInRepository(save, this.nickname);
           } catch (error) {
             console.error(error);
             this.showMessage("저장에 실패했습니다. 브라우저 저장 공간을 확인해보세요.");
@@ -6607,6 +6612,8 @@ class WildernessGame {
         onExportSave: () => this.exportSaveData(),
         onImportSave: (save) => void this.applyLoadedSave(save as PartialSavedGame, "세이브 파일을 가져왔습니다."),
         onResolveSummary: async (slotId) => { const slots = this.readSaveSlots(); const slot = slots.find((candidate) => candidate.id === slotId); return slot ? backfillSlotDescription(slot, (save) => migratePartialSaveData(save), slots) : null; },
+        onShowHistory: () => readRepositorySaveHistory(this.nickname).map((entry) => ({ savedAt: entry.savedAt, label: entry.label, summary: entry.summary })),
+        onRecoverHistory: async (savedAt) => { const entry = readRepositorySaveHistory(this.nickname).find((candidate) => candidate.savedAt === savedAt); const save = entry ? await resolveRepositoryHistorySave(entry) : null; if (save) await this.applyLoadedSave(save, "백업에서 복구했습니다."); else this.showMessage("백업을 불러오지 못했습니다."); },
       },
     );
   }

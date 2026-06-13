@@ -6,6 +6,8 @@ import {
   HUNGER_MAX,
   MAX_SAVE_SLOTS,
   SAVE_BACKUP_KEY,
+  SAVE_HISTORY_KEY,
+  SAVE_HISTORY_PER_NICKNAME,
   SAVE_KEY,
   SAVE_LIST_KEY,
   SAVE_WRITE_TEST_KEY,
@@ -247,6 +249,81 @@ export function saveSummary(save: SavedGame) {
   const className = PLAYER_CLASSES[save.player.playerClass ?? "warrior"]?.name ?? "전사";
   const filledSlots = [...save.player.hotbar, ...save.player.bagSlots].filter((slot) => slot.item && slot.count > 0).length;
   return `${className} · Lv ${save.player.level} · 체력 ${Math.ceil(save.player.health)}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${timeOfDayName(hour)} ${gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
+}
+
+// ── 자동 백업 링 (닉네임별 최신 30개) ─────────────────────────────
+// 저장할 때마다 압축 백업을 쌓아, 슬롯 덮어쓰기/유실 사고에도 과거 시점으로 복구할 수 있게 한다.
+// label/summary 는 평문으로 같이 저장해 목록을 풀지 않고도 보여준다. 본문은 packed(없으면 save).
+export interface SaveHistoryEntry {
+  nickname: string;
+  savedAt: string;
+  label: string;
+  summary: string;
+  packed?: string;
+  save?: SavedGame;
+}
+
+function readRawHistory(storage: Storage): SaveHistoryEntry[] {
+  try {
+    const raw = storage.getItem(SAVE_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed.filter((e) => e && typeof e === "object") as SaveHistoryEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function appendSaveToHistory(save: SavedGame, nickname: string, storage = localStorage): Promise<void> {
+  const key = nickname || "";
+  const packed = await packSaveData(save);
+  const entry: SaveHistoryEntry = { nickname: key, savedAt: save.savedAt, label: formatSaveDate(save.savedAt), summary: saveSummary(save), ...(packed ? { packed } : { save }) };
+  // 같은 닉네임+시각 중복 제거 후 추가
+  let history = readRawHistory(storage).filter((e) => !(e.nickname === key && e.savedAt === entry.savedAt));
+  history.push(entry);
+  // 해당 닉네임은 최신 SAVE_HISTORY_PER_NICKNAME 개만 유지(오래된 것부터 제거)
+  const mine = history.filter((e) => e.nickname === key).sort((a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime());
+  if (mine.length > SAVE_HISTORY_PER_NICKNAME) {
+    const evict = new Set(mine.slice(0, mine.length - SAVE_HISTORY_PER_NICKNAME).map((e) => `${e.nickname} ${e.savedAt}`));
+    history = history.filter((e) => !evict.has(`${e.nickname} ${e.savedAt}`));
+  }
+  // 용량 초과 시 전체에서 가장 오래된 것부터 떨궈가며 재시도(백업은 부가 기능 — 실패해도 본 저장은 막지 않음)
+  try {
+    writeJsonStorage(SAVE_HISTORY_KEY, history, storage);
+  } catch {
+    history.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+    while (history.length > 0) {
+      history.pop();
+      try {
+        writeJsonStorage(SAVE_HISTORY_KEY, history, storage);
+        return;
+      } catch {
+        /* keep shrinking */
+      }
+    }
+  }
+}
+
+// 닉네임의 백업 목록 — 최신순. 본문은 풀지 않고 메타데이터만(목록 표시용). 복구 시 resolveSlotSave 로 해제.
+export function readSaveHistory(nickname: string, storage = localStorage): SaveHistoryEntry[] {
+  const key = nickname || "";
+  return readRawHistory(storage)
+    .filter((e) => e.nickname === key && typeof e.savedAt === "string")
+    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+}
+
+// 백업 엔트리를 로드 가능한 형태로 해제 (raw save / 압축본 모두 지원, 손상 시 null)
+export async function resolveHistorySave(entry: SaveHistoryEntry): Promise<PartialSavedGame | null> {
+  if (entry.save) return entry.save;
+  if (entry.packed) {
+    try {
+      return await unpackSaveData(entry.packed);
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+  return null;
 }
 
 // 요약(description)이 없는 구버전 압축 슬롯: 해제해서 요약을 만들고, 다음을 위해 저장까지 해 둔다.

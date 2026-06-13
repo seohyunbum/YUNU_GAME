@@ -2953,6 +2953,24 @@ button[data-title-load]:disabled {
   gap: 10px;
 }
 
+.save-history {
+  display: grid;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.45);
+}
+.save-history[hidden] {
+  display: none;
+}
+.save-history-card {
+  border-color: rgba(125, 211, 252, 0.28);
+}
+
 .save-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

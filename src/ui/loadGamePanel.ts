@@ -8,6 +8,12 @@ export interface LoadGameSlotView {
   mountainCount?: number;
 }
 
+export interface HistoryEntryView {
+  savedAt: string;
+  label: string;
+  summary: string;
+}
+
 export interface LoadGamePanelCallbacks {
   onClose: () => void;
   onLoad: (slotId: string) => void;
@@ -15,6 +21,9 @@ export interface LoadGamePanelCallbacks {
   onExportSave: () => Promise<object | null>;
   onImportSave: (save: object) => void;
   onResolveSummary?: (slotId: string) => Promise<string | null>;
+  // 자동 백업 이력(닉네임별 최신 30개) 복구
+  onShowHistory?: () => HistoryEntryView[];
+  onRecoverHistory?: (savedAt: string) => void;
 }
 
 // 마지막 불러오기 실패 사유 — 패널이 다시 열릴 때 빨간 배너로 보여준다 (타이틀 화면에선 HUD 메시지가 가려지기 때문)
@@ -59,10 +68,12 @@ export function renderLoadGamePanel(
           <div class="save-file-actions">
             <button data-export-save>파일로 백업</button>
             <button data-import-save>파일 가져오기</button>
+            ${callbacks.onShowHistory ? `<button data-show-history>백업 이력</button>` : ""}
             <button class="icon-button" data-close>닫기</button>
           </div>
         </header>
         <input type="file" accept=".json,application/json" data-import-input style="display:none" />
+        <div class="save-history" data-history-panel hidden></div>
         ${
           saves.length > 0
             ? `<div class="save-list">
@@ -88,6 +99,33 @@ export function renderLoadGamePanel(
   panelEl.querySelector<HTMLButtonElement>("[data-export-save]")?.addEventListener("click", () => {
     void callbacks.onExportSave().then((save) => {
       if (save) downloadJson("야생마을-세이브.json", save);
+    });
+  });
+  const historyPanel = panelEl.querySelector<HTMLElement>("[data-history-panel]");
+  panelEl.querySelector<HTMLButtonElement>("[data-show-history]")?.addEventListener("click", () => {
+    if (!historyPanel || !callbacks.onShowHistory) return;
+    if (!historyPanel.hidden) { historyPanel.hidden = true; return; }
+    const entries = callbacks.onShowHistory();
+    historyPanel.innerHTML = entries.length === 0
+      ? `<p class="inventory-subtitle">자동 백업이 아직 없습니다. 저장할 때마다 최신 30개까지 자동 보관됩니다.</p>`
+      : `<p class="inventory-subtitle">자동 백업 (닉네임별 최신 30개) — 잘못 덮어썼을 때 과거 시점으로 되돌릴 수 있습니다.</p>` +
+        entries
+          .map(
+            (entry) => `<article class="save-card save-history-card">
+              <div><strong>${escapeHtml(entry.label)}</strong><p>${escapeHtml(entry.summary)}</p></div>
+              <button data-recover-history="${escapeHtml(entry.savedAt)}">이 시점으로 복구</button>
+            </article>`,
+          )
+          .join("");
+    historyPanel.hidden = false;
+    historyPanel.querySelectorAll<HTMLButtonElement>("[data-recover-history]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const savedAt = button.dataset.recoverHistory;
+        if (!savedAt || !callbacks.onRecoverHistory) return;
+        historyPanel.querySelectorAll<HTMLButtonElement>("[data-recover-history]").forEach((other) => { other.disabled = true; });
+        button.textContent = "복구 중…";
+        callbacks.onRecoverHistory(savedAt);
+      });
     });
   });
   const importInput = panelEl.querySelector<HTMLInputElement>("[data-import-input]");
