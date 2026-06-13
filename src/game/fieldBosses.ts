@@ -4,6 +4,7 @@
 // 자체를 저장하지 않고(체력 리셋 허용) "처치 기록"만 저장한다 — 스폰은 매 프레임 ensure.
 import * as THREE from "three";
 import { MONSTER_DEFS, monsterStatsFromLevel, type MonsterId } from "./monsters";
+import { addBossRegalia, bossRegaliaPalette } from "./bossArmorVisuals";
 import { getWorldMapById } from "./worldMaps";
 import type { ItemId, LocationMode, PredatorKind, WorldMapId, WorldObject } from "./types";
 
@@ -91,14 +92,17 @@ export function applyFieldBossDefinition(object: WorldObject, def: FieldBossDef)
   object.fieldBossId = def.id;
   object.collisionRadius = (object.collisionRadius ?? 1) * def.scale;
   object.collisionHeight = (object.collisionHeight ?? 1.5) * def.scale;
-  object.root.scale.multiplyScalar(def.scale);
+  // 베이스 메시 색만 보스 tint 로 물들이고(regalia 는 제외), 그 위에 악마 군주 regalia 를 덧씌운다.
   object.root.traverse((child) => {
+    if (child.userData.bossRegalia) return;
     if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
       child.material = child.material.clone();
       child.material.color.lerp(new THREE.Color(def.tint), 0.4);
       child.material.emissive.lerp(new THREE.Color(def.tint), 0.14);
     }
   });
+  addBossRegalia(object.root, bossRegaliaPalette(def.tint)); // 측정→배치 후, 아래 scale 로 보스와 함께 비례 확대
+  object.root.scale.multiplyScalar(def.scale);
   return object;
 }
 
