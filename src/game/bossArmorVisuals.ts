@@ -23,9 +23,10 @@ export function addBossRegalia(root: THREE.Object3D, palette: BossRegaliaPalette
   const size = box.getSize(new THREE.Vector3());
   const topY = box.max.y;
   const baseY = box.min.y;
-  const frontZ = box.max.z; // 베이스 메시 정면(+z) 기준
-  const backZ = box.min.z;
-  const radius = Math.max(0.3, Math.max(size.x, size.z) * 0.45);
+  // 긴·납작한 몸(뱀/전갈)에서 장식이 몸 길이를 따라 퍼지지 않도록, 반경·전후 앵커를 키(높이) 기준으로 클램프
+  const radius = Math.max(0.3, Math.min(Math.max(size.x, size.z) * 0.45, size.y * 0.85));
+  const frontZ = Math.min(box.max.z, radius); // 베이스 메시 정면(+z) 기준 (몸 길이만큼 튀어나가지 않게 제한)
+  const backZ = Math.max(box.min.z, -radius);
   const unit = Math.max(0.2, size.y * 0.16); // 장식 기준 크기
 
   const armorMat = new THREE.MeshStandardMaterial({ color: palette.armor, metalness: 0.72, roughness: 0.34 });

@@ -284,8 +284,8 @@ export async function appendSaveToHistory(save: SavedGame, nickname: string, sto
   // 해당 닉네임은 최신 SAVE_HISTORY_PER_NICKNAME 개만 유지(오래된 것부터 제거)
   const mine = history.filter((e) => e.nickname === key).sort((a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime());
   if (mine.length > SAVE_HISTORY_PER_NICKNAME) {
-    const evict = new Set(mine.slice(0, mine.length - SAVE_HISTORY_PER_NICKNAME).map((e) => `${e.nickname} ${e.savedAt}`));
-    history = history.filter((e) => !evict.has(`${e.nickname} ${e.savedAt}`));
+    const evictSavedAt = new Set(mine.slice(0, mine.length - SAVE_HISTORY_PER_NICKNAME).map((e) => e.savedAt));
+    history = history.filter((e) => e.nickname !== key || !evictSavedAt.has(e.savedAt));
   }
   // 용량 초과 시 전체에서 가장 오래된 것부터 떨궈가며 재시도(백업은 부가 기능 — 실패해도 본 저장은 막지 않음)
   try {

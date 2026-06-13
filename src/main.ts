@@ -5410,6 +5410,7 @@ class WildernessGame {
 
   private enterGameplayMode() {
     this.gameStarted = true;
+    this.isResting = false; // 새 게임/로드 시 휴식 상태 초기화
     this.hideMiniGame(false);
     this.hideLavaMiniGame(false);
     this.hideSmithingMiniGame(false);
