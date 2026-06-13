@@ -24,6 +24,7 @@ const REMOTE_SNAP_DISTANCE_SQ = 24 * 24; // 이보다 멀면 진짜 텔레포트
 const ATTACK_MOTION_MS = 320;
 const HP_BAR_WIDTH = 1.3;
 const NAMEPLATE_Y = 2.35;
+const HP_BAR_Y = NAMEPLATE_Y + 0.34; // 닉네임 위 — 머리/모자 관통 방지
 
 export interface PresenceContext {
   scene: THREE.Scene;
@@ -104,10 +105,10 @@ function makeHpBar() {
   const group = new THREE.Group();
   const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x10201a, transparent: true, opacity: 0.78, depthWrite: false }));
   bg.scale.set(HP_BAR_WIDTH, 0.13, 1);
-  bg.position.y = NAMEPLATE_Y - 0.3;
+  bg.position.y = HP_BAR_Y;
   const fill = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x49d17f, depthWrite: false }));
   fill.scale.set(HP_BAR_WIDTH * 0.96, 0.1, 1);
-  fill.position.set(0, NAMEPLATE_Y - 0.3, 0);
+  fill.position.set(0, HP_BAR_Y, 0);
   group.add(bg, fill);
   return { group, fill };
 }
