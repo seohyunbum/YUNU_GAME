@@ -743,6 +743,9 @@ try {
         activeRegions: () => [{ id: "r1", name: "r1", lootTier: 1, levelRange: [1, 10], center: { x: 0, y: 0, z: 0 }, radius: 500 }],
         mapXpScale: () => 1,
         predators: () => [...objects.values()].filter((object) => object.type === "wildPredator"),
+        guards: () => [...objects.values()].filter((object) => ["villageKnight", "villageArcher", "villageMage", "villageGolem"].includes(object.type)),
+        spawnGuard: (type, x, z, villageId) => { const object = { id: `${role}-${nextId++}`, type, name: "경비", villageId, armor: 15, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(object.id, object); return object; },
+        enrageVillage: (villageId, message) => events.push(["enrage", villageId, message]),
         getObject: (id) => objects.get(id),
         removeObject: (id) => { objects.delete(id); events.push(["remove", id]); },
         removeObjectSilent: (id) => { objects.delete(id); events.push(["removeSilent", id]); },
@@ -750,7 +753,7 @@ try {
         showMessage: (text) => events.push(["msg", text]),
         gainExperience: (amount) => events.push(["xp", amount]),
         creditHostKill: (target) => events.push(["credit", target.id]),
-        rollLoot: (item, count) => { events.push(["loot", item, count]); return count; },
+        rollLoot: (item, count, source) => { events.push(["loot", item, count, source]); return count; },
         recordFieldBossDefeat: (id) => events.push(["bossDefeat", id]),
         damageLocalPlayer: (amount, name) => { events.push(["playerHit", amount, name]); return state.nextPlayerHitKills; },
         animateWalkCycle: () => {},
@@ -875,6 +878,87 @@ try {
     resetPartyWorldSync();
     initPartyWorldSync({ session: () => null, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: null }); // 모듈 상태 완전 분리 — 이후 골든(predator AI)이 게스트 게이트에 걸리지 않게
     assert(partyWorldGuestActive() === false, "detached world sync leaves guest mode");
+  }
+
+  {
+    // 파티 6차 골든 — 마을 경비 동기화: isGuardType / 호스트 수집 / 게스트 spawnGuard / 게스트 공격→호스트 판정(enrage·철) / 처치 공유
+    const { initPartyWorldSync, partyWorldSyncTick, isGuardType, partyHostNotifyKill, resetPartyWorldSync } = partyWorldSync;
+    assert(["villageKnight", "villageArcher", "villageMage", "villageGolem"].every(isGuardType), "all four village guard types are guard types");
+    assert(!isGuardType("wildPredator") && !isGuardType("villager") && !isGuardType(undefined), "non-guard types are not guard types");
+
+    const makeWorld = (role) => {
+      const objects = new Map();
+      let nextId = 1;
+      const events = [];
+      const sent = [];
+      let gameCb = null;
+      const me = { nickname: role === "host" ? "방장" : "친구", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true, panelOpen: false };
+      const session = { role, sendGame: (m) => sent.push(m), onGame: (cb) => { gameCb = cb; }, onPresences: () => {} };
+      const world = {
+        entityContext: { addWorldObject: (type, name, root, extra) => { const o = { id: `${role}-${nextId++}`, type, name, root, ...extra }; objects.set(o.id, o); return o; }, getGroundHeightAt: () => 0, createWalkCycle: () => ({}), predatorStats: () => ({ hp: 30, attackDamage: 3 }), predatorAggroRange: () => 10, bossStats: () => ({}) },
+        activeRegions: () => [{ id: "r1", lootTier: 1, center: { x: 0, y: 0, z: 0 }, radius: 500 }],
+        mapXpScale: () => 1,
+        predators: () => [...objects.values()].filter((o) => o.type === "wildPredator"),
+        guards: () => [...objects.values()].filter((o) => isGuardType(o.type)),
+        spawnGuard: (type, x, z, villageId) => { const o = { id: `${role}-${nextId++}`, type, name: "경비", villageId, armor: 25, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
+        enrageVillage: (villageId) => { events.push(["enrage", villageId]); for (const o of objects.values()) if (isGuardType(o.type) && o.villageId === villageId) o.angryUntil = performance.now() + 12_000; },
+        getObject: (id) => objects.get(id),
+        removeObject: (id) => { objects.delete(id); events.push(["remove", id]); },
+        removeObjectSilent: (id) => { objects.delete(id); events.push(["removeSilent", id]); },
+        hitFeedback: () => {},
+        showMessage: () => {},
+        gainExperience: (a) => events.push(["xp", a]),
+        creditHostKill: (t) => events.push(["credit", t.id]),
+        rollLoot: (item, count, source) => { events.push(["loot", item, count, source]); return count; },
+        recordFieldBossDefeat: () => {},
+        damageLocalPlayer: () => false,
+        animateWalkCycle: () => {},
+        refreshSpatialObject: () => {},
+      };
+      return { session, objects, me, events, sent, world, getGameCb: () => gameCb };
+    };
+
+    // ── 호스트: 경비를 스냅샷에 수집 ──
+    const host = makeWorld("host");
+    const golem = host.world.entityContext.addWorldObject("villageGolem", "마을 골렘", { position: { x: 5, y: 0, z: 5 }, rotation: { y: 0 } }, { hp: 180, armor: 25, villageId: "v1", guardMode: "melee" });
+    initPartyWorldSync({ session: () => host.session, localPresence: () => host.me, getGroundHeightAt: () => 0, world: host.world });
+    partyWorldSyncTick(1_000, 0.016);
+    const golemSnap = host.sent.find((m) => m.type === "mobs")?.list.find((e) => e.id === golem.id);
+    assert(golemSnap && golemSnap.type === "villageGolem" && golemSnap.villageId === "v1" && golemSnap.hp === 180, "host snapshot carries the guard with type/villageId/hp");
+
+    // ── 호스트: 약한 공격은 골렘 방어(armor 25)에 완전 차단(0뎀·무처치), 단 마을은 각성 ──
+    const weakGuard = host.world.entityContext.addWorldObject("villageGolem", "골렘2", { position: { x: 6, y: 0, z: 6 }, rotation: { y: 0 } }, { hp: 180, armor: 25, villageId: "v2", guardMode: "melee" });
+    host.getGameCb()({ type: "attackRequest", targetId: weakGuard.id, power: 3, kind: "ranged" }, "친구"); // gap = 3-25 ≤ -20 → 0뎀
+    assert(weakGuard.hp === 180, "weak attack is fully blocked by guard armor (parity with solo) — no chip damage");
+    assert(host.events.some(([k, v]) => k === "enrage" && v === "v2"), "even a blocked hit enrages the village");
+
+    // ── 호스트: 게스트 공격 판정 → enrage(최초 1회만) + 처치 시 철 전리품 partyKill ──
+    host.getGameCb()({ type: "attackRequest", targetId: golem.id, power: 30, kind: "ranged" }, "친구");
+    assert(host.events.filter(([k, v]) => k === "enrage" && v === "v1").length === 1, "guest attack on a guard enrages the village");
+    host.getGameCb()({ type: "attackRequest", targetId: golem.id, power: 30, kind: "ranged" }, "친구");
+    assert(host.events.filter(([k, v]) => k === "enrage" && v === "v1").length === 1, "already-angry guard is NOT re-enraged (no message spam / cooldown thrash)");
+    host.getGameCb()({ type: "attackRequest", targetId: golem.id, power: 9999, kind: "ranged" }, "친구");
+    const guardKill = host.sent.find((m) => m.type === "partyKill" && m.lootItem === "iron");
+    assert(guardKill && guardKill.killer === "친구" && guardKill.lootCount === 1, "guard kill broadcasts partyKill with iron loot for the killer");
+    assert(host.events.some(([k, id]) => k === "remove" && id === golem.id), "killed guard enters the host respawn-queue path");
+    host.sent.length = 0;
+    partyHostNotifyKill({ id: "g2", type: "villageKnight", name: "마을기사", monsterLevel: 5, root: { position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } } });
+    assert(host.sent.some((m) => m.type === "partyKill" && m.name === "마을기사"), "host's own guard kill is shared to the party (XP)");
+    resetPartyWorldSync();
+
+    // ── 게스트: 스냅샷의 경비를 spawnGuard 로 생성 + partyKill(iron) 수신 ──
+    const guest = makeWorld("guest");
+    initPartyWorldSync({ session: () => guest.session, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: guest.world });
+    partyWorldSyncTick(2_000, 0.016);
+    guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [{ id: "H-G1", name: "마을 골렘", type: "villageGolem", villageId: "v1", guardMode: "melee", x: 8, z: 2, yaw: 0, hp: 150, armor: 25 }] });
+    const synced = [...guest.objects.values()].find((o) => o.type === "villageGolem");
+    assert(synced && synced.hp === 150 && synced.partyTransient === true, "guest spawns the synced guard via spawnGuard (transient, authoritative hp)");
+    guest.events.length = 0;
+    guest.getGameCb()({ type: "partyKill", name: "마을 골렘", xp: 40, killer: "친구", mapId: "starter_valley", lootItem: "iron", lootCount: 1 });
+    assert(guest.events.some(([k, a]) => k === "xp" && a === 40), "killer guest gains shared xp for the guard");
+    assert(guest.events.some(([k, item, , source]) => k === "loot" && item === "iron" && source === "guard"), "killer guest rolls iron loot with the 'guard' reward source (matches solo)");
+    resetPartyWorldSync();
+    initPartyWorldSync({ session: () => null, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: null });
   }
 
   {
@@ -1206,6 +1290,7 @@ try {
         "party join flow: indoor-host wait notice, summon on emergence, reset clears stale summons",
         "party summon flow runs on guest sessions only (host never pulled)",
         "party world sync: host snapshots, guest diff/lerp, attack intercept, host-authoritative kills, shared xp/loot/boss, mobHit, stray-mob sweep",
+        "party 6th: village guard sync — collect/spawnGuard/guest-attack enrage+iron/kill share",
         "party 5.1: attack broadcast, party heal send/receive/map-guard, player push-out collision",
         "nickname validation (length/charset/profanity/reserved/duplicate) and one-time immutability",
         "training ground difficulty curves, rewards, and clamps",

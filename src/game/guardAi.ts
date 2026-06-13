@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { PLAYER_RADIUS } from "./constants";
+import { partyDamageRemotePlayer, partyHostCombatTargets } from "./partyWorldSync";
 import type { WorldObject } from "./types";
 
 // 마을 수호자(기사·궁수·마법사·골렘) 추격/공격 AI — main.ts updateKnights 에서 추출.
@@ -24,13 +25,31 @@ function lerpAngle(current: number, target: number, alpha: number) {
 
 export function updateVillageGuards(context: GuardAiContext, delta: number) {
   const now = performance.now();
+  let partyTargets: ReturnType<typeof partyHostCombatTargets> | null = null; // 각성 경비가 있을 때만 1회 조회 (평소 할당 0)
   for (const guard of context.guards()) {
     if (!guard.angryUntil || guard.angryUntil < now) continue;
+    if (partyTargets === null) partyTargets = partyHostCombatTargets(); // 호스트: 같은 맵 게스트도 추격/공격 대상
     const mode = guard.guardMode ?? "melee";
     const range = guard.attackRange ?? (mode === "ranged" ? 18 : 2.05);
     const damage = guard.attackDamage ?? (guard.type === "villageMage" ? 2 : guard.type === "villageGolem" ? 9 : 1);
-    const dx = context.playerPosition.x - guard.root.position.x;
-    const dz = context.playerPosition.z - guard.root.position.z;
+    // 가장 가까운 대상(로컬 플레이어 + 같은 맵 파티원)을 노린다
+    let targetX = context.playerPosition.x;
+    let targetZ = context.playerPosition.z;
+    let remoteTarget: string | null = null;
+    let remotePanelOpen = false;
+    let bestSq = (targetX - guard.root.position.x) ** 2 + (targetZ - guard.root.position.z) ** 2;
+    for (const candidate of partyTargets) {
+      const candSq = (candidate.x - guard.root.position.x) ** 2 + (candidate.z - guard.root.position.z) ** 2;
+      if (candSq < bestSq) {
+        bestSq = candSq;
+        targetX = candidate.x;
+        targetZ = candidate.z;
+        remoteTarget = candidate.nickname;
+        remotePanelOpen = candidate.panelOpen;
+      }
+    }
+    const dx = targetX - guard.root.position.x;
+    const dz = targetZ - guard.root.position.z;
     const centerDistance = Math.hypot(dx, dz);
     const attackDistance =
       mode === "melee"
@@ -54,13 +73,19 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
 
     guard.attackCooldown = Math.max(0, (guard.attackCooldown ?? 0) - delta);
     if (guard.attackCooldown > 0) continue;
-    const currentCenterDistance = Math.hypot(context.playerPosition.x - guard.root.position.x, context.playerPosition.z - guard.root.position.z);
+    const currentCenterDistance = Math.hypot(targetX - guard.root.position.x, targetZ - guard.root.position.z);
     const currentAttackDistance =
       mode === "melee"
         ? Math.max(0, currentCenterDistance - (guard.collisionRadius ?? 0.75) - PLAYER_RADIUS)
         : currentCenterDistance;
     if (currentAttackDistance > range) continue;
     guard.attackCooldown = guard.attackInterval ?? (mode === "ranged" ? 1.8 : 1.2);
+    if (remoteTarget !== null) {
+      // 같은 맵 게스트 타격 — 패널(인벤토리) 열림이면 보류 (로컬과 같은 보호). 피해는 그 게스트가 적용.
+      if (!remotePanelOpen) partyDamageRemotePlayer(remoteTarget, damage, guard.name ?? "경비");
+      context.playHandAction();
+      continue;
+    }
     const died = context.damagePlayer(
       damage,
       true,

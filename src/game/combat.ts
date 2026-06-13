@@ -177,6 +177,7 @@ export function applyProjectileDamage(
   }
 
   if (context.isVillageGuard(target)) {
+    if (context.partyAttackIntercept?.(target, attackPower, kind)) return; // 파티 게스트 — 호스트가 판정(enrage·반격 포함)
     const defense = target.armor ?? 0;
     const damage = calculateCombatDamage(attackPower, defense);
     if (target.villageId) context.enrageVillage(target.villageId, `${target.name}을 원거리로 공격하자 경비들이 몰려옵니다.`);
@@ -206,6 +207,7 @@ export function applyProjectileDamage(
     context.removeObject(target.id);
     context.showMessage(ironCount > 0 ? `${target.name}을 물리치고 철 ${ironCount}개를 얻었습니다.` : `${target.name}을 물리쳤지만 철은 나오지 않았습니다.`);
     context.grantExperienceForTarget(target);
+    context.partyKillNotify?.(target);
     context.renderHud();
   }
 }

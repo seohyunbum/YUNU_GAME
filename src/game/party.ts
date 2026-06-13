@@ -69,6 +69,10 @@ export interface MobSnapshot {
   atk?: number; // 진행 중인 공격 모션의 경과 ms — 게스트가 같은 모션을 재생 (전조 가독성)
   afx?: number; // 공격 전방 단위벡터 (게스트는 제자리 모션이라 참고용)
   afz?: number;
+  // 6차 — 마을 경비 동기화 (없으면 wildPredator)
+  type?: string; // "villageKnight" | "villageArcher" | "villageMage" | "villageGolem"
+  villageId?: string;
+  guardMode?: string; // "melee" | "ranged"
 }
 
 export type PartyMessage =
@@ -83,7 +87,7 @@ export type PartyMessage =
   // 5차 — 호스트 권위 월드 공유
   | { type: "mobs"; mapId: string; list: MobSnapshot[] }
   | { type: "attackRequest"; targetId: string; power: number; kind: string }
-  | { type: "partyKill"; name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string }
+  | { type: "partyKill"; name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string; lootItem?: string; lootCount?: number }
   | { type: "mobHit"; nickname: string; amount: number; name: string; mapId: string }
   // 5.1 — 원격 플레이어 표현
   | { type: "playerAttack"; nickname: string; mapId: string; kind: "melee" | "ranged" | "skill"; visual?: "arrow" | "magic" | "wind" | "tnt"; speed?: number; life?: number; ox?: number; oy?: number; oz?: number; dx?: number; dy?: number; dz?: number }
