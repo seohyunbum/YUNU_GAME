@@ -4459,7 +4459,7 @@ class WildernessGame {
       const previousMaxHealth = this.maxHealth;
       this.maxHealth = Math.max(this.maxHealth, this.maxHealthForLevel());
       this.health = Math.min(this.maxHealth, this.health + Math.max(0, this.maxHealth - previousMaxHealth));
-      this.showMessage(`레벨업! Lv ${this.level}. 체력/방어/공격이 ${levelUps}씩 올랐습니다.`);
+      this.showMessage(`레벨업! Lv ${this.level}. 체력 +${levelUps * 2}, 방어/공격 +${levelUps}!`);
       celebrateLevelUp(this.juiceDeps, this.level);
     }
 
@@ -4601,7 +4601,7 @@ class WildernessGame {
   }
 
   private maxHealthForLevel(level = this.level) {
-    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) + this.trainingStats.hp * TRAINING_REWARDS.hp;
+    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * 2 + this.trainingStats.hp * TRAINING_REWARDS.hp;
   }
 
   private experienceForNextLevel(level = this.level) {

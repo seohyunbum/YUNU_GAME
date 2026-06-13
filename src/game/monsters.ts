@@ -154,9 +154,12 @@ export const MONSTER_DEFS: Record<MonsterId, MonsterDef> = {
 
 export function monsterStatsFromLevel(level: number, boss = false) {
   const safeLevel = Math.max(1, Math.floor(level));
+  // 30+ 보정 — 레벨당 HP +2 로 후반 플레이어가 약 +74% 더 단단해진 만큼, 30레벨 이상 몬스터 공격을 완만히 상향.
+  // 30에서 정확히 0(절벽 없음), 이후 0.2/레벨씩(예: 45→+3, 60→+6). 저레벨·챕터 보스(BOSS_STATS 하드코딩)는 무영향.
+  const highLevelAtk = safeLevel >= 30 ? (safeLevel - 30) * 0.2 : 0;
   return {
     hp: Math.floor(18 + safeLevel * (boss ? 11 : 9)),
-    attackDamage: Math.max(1, Math.floor(2 + safeLevel * (boss ? 0.62 : 0.65))),
+    attackDamage: Math.max(1, Math.floor(2 + safeLevel * (boss ? 0.62 : 0.65) + highLevelAtk)),
     armor: boss ? Math.floor(20 + safeLevel * 0.25) : 0,
   };
 }

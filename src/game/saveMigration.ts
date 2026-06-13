@@ -49,7 +49,7 @@ export function levelStatBonus(level: number) {
 }
 
 export function maxHealthForLevel(level: number) {
-  return BASE_PLAYER_MAX_HEALTH + levelStatBonus(level);
+  return BASE_PLAYER_MAX_HEALTH + levelStatBonus(level) * 2; // 레벨당 HP +2 (방어/공격은 levelStatBonus 그대로 +1)
 }
 
 export function supportedSaveVersion(save: PartialSavedGame) {

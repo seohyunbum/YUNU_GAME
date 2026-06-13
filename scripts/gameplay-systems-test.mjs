@@ -127,7 +127,7 @@ try {
   const { useHotbarItem } = hotbarUse;
   const { canReceiveRecipeOutput } = inventoryCapacity;
   const { shouldFireRangedDuringInteract } = interactionPriority;
-  const { BOSS_STATS, isPredatorMonster, predatorStatsForMonster } = monsters;
+  const { BOSS_STATS, isPredatorMonster, predatorStatsForMonster, monsterStatsFromLevel } = monsters;
   const { REGIONS } = regions;
   const { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER, applyBossDefeat, bossLockMessage, isBossUnlocked, nextBossTarget, normalizeBossChapter } = bossChapters;
   const { GRAVE_HAND_COUNT, createGraveTrapState, updateGraveTrap } = graveTrap;
@@ -371,8 +371,13 @@ try {
     // 보스 공격 상향 골든
     assert(BOSS_STATS.dragon.fireDamage === 10 && BOSS_STATS.dragon.clawDamage === 11, "dragon attacks should be 10/11");
     assert(BOSS_STATS.immortal.fireDamage === 56 && BOSS_STATS.immortal.clawDamage === 46, "immortal attacks should be 56/46");
-    // 변종 몬스터 공격 계수 0.65
-    assert(predatorStatsForMonster("red_wolf").attackDamage === 24, `red wolf attack should scale at 0.65/level (got ${predatorStatsForMonster("red_wolf").attackDamage})`);
+    // 변종 몬스터 공격 계수 0.65 (+ 30+ 보정: red_wolf Lv35 → 2+35*0.65+(35-30)*0.2 = 25.75 → 25)
+    assert(predatorStatsForMonster("red_wolf").attackDamage === 25, `red wolf attack should scale at 0.65/level + 30+ ramp (got ${predatorStatsForMonster("red_wolf").attackDamage})`);
+    // 30+ 보정: 정확히 30에서 0(절벽 없음), 30 미만 무영향, 30 초과만 완만히 증가
+    assert(monsterStatsFromLevel(29).attackDamage === Math.floor(2 + 29 * 0.65), "below level 30: no attack bump (unchanged)");
+    assert(monsterStatsFromLevel(30).attackDamage === Math.floor(2 + 30 * 0.65), "at exactly level 30: bump is 0 (no cliff)");
+    assert(monsterStatsFromLevel(60).attackDamage === Math.floor(2 + 60 * 0.65 + 6), "level 60: +6 attack from the 30+ ramp ((60-30)*0.2)");
+    assert(monsterStatsFromLevel(60).attackDamage - Math.floor(2 + 60 * 0.65) <= 7, "the 30+ ramp stays small (<=7 at lvl 60)");
   }
 
   {
