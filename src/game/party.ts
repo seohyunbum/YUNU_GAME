@@ -98,7 +98,9 @@ export type PartyMessage =
   | { type: "partyHeal"; recipient: string; amount: number; mapId: string }
   // 7차 — 보물 상자 개봉 (호스트 권위)
   | { type: "openRequest"; objectId: string }
-  | { type: "chestLoot"; opener: string; items: { item: string; count: number }[] };
+  | { type: "chestLoot"; opener: string; items: { item: string; count: number }[] }
+  // 파티 채팅 — to 없으면 전체, 있으면 귓속말(호스트가 대상에게만 중계)
+  | { type: "chat"; from: string; text: string; to?: string };
 
 export function encodePartyMessage(message: PartyMessage): string {
   return JSON.stringify(message);
@@ -261,6 +263,16 @@ export class PartySession {
         this.emitGame(message, link.nickname ?? undefined);
         for (const other of this.guests) if (other !== link && other.connection.open) other.connection.send(encodePartyMessage(message));
       }
+      // 파티 채팅: 귓속말(to)이면 대상에게만, 전체면 호스트 표시 + 나머지 게스트에 중계 (보낸 게스트에게는 되돌리지 않음)
+      if (message.type === "chat" && link.nickname) {
+        if (message.to) {
+          if (message.to === this.nickname) this.emitGame(message, link.nickname);
+          else { const target = this.guests.find((guest) => guest.nickname === message.to); if (target?.connection.open) target.connection.send(encodePartyMessage(message)); }
+        } else {
+          this.emitGame(message, link.nickname);
+          for (const other of this.guests) if (other !== link && other.connection.open) other.connection.send(encodePartyMessage(message));
+        }
+      }
     });
     connection.on("close", () => {
       // C4 — 호스트가 스스로 닫는 중이면 부분 roster 를 뿌리지 않는다. (그러면 일부 생존자의 roster 에서 다른
@@ -312,7 +324,7 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
-        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "chestLoot") {
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "chestLoot" || message.type === "chat") {
           this.emitGame(message);
           return;
         }

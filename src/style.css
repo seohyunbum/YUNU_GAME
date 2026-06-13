@@ -308,32 +308,77 @@ body {
 
 .objective-card {
   position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
   width: 100%;
   min-height: 46px;
-  padding: 9px 14px;
+  padding: 11px 15px 12px;
   border: 1px solid rgba(250, 204, 21, 0.52);
-  border-radius: 8px;
+  border-radius: 12px;
   background:
-    linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(18, 30, 42, 0.9)),
-    radial-gradient(circle at 12% 0, rgba(250, 204, 21, 0.2), rgba(250, 204, 21, 0) 38%);
+    linear-gradient(180deg, rgba(30, 41, 59, 0.94), rgba(18, 30, 42, 0.92)),
+    radial-gradient(circle at 12% 0, rgba(250, 204, 21, 0.22), rgba(250, 204, 21, 0) 42%);
   color: #fde68a;
   font: inherit;
-  font-weight: 900;
+  font-weight: 800;
   text-align: left;
-  cursor: help;
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.32);
+  cursor: pointer;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.36);
+}
+.objective-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.objective-qkey {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #cbd5e1;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.objective-qkey kbd {
+  display: inline-block;
+  min-width: 15px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: rgba(38, 51, 73, 0.98);
+  color: #fff;
+  font: 800 11px/1.4 inherit;
+}
+.objective-reward {
+  color: #fde68a;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.objective-claimhint {
+  color: #b9c6da;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.objective-ready .objective-claimhint {
+  color: #86efac;
+  font-weight: 800;
+}
+.objective-ready .objective-qkey kbd {
+  border-color: rgba(134, 239, 172, 0.7);
+  background: rgba(16, 53, 42, 0.96);
+  color: #d1fae5;
 }
 
 .objective-card strong {
   min-width: 0;
-  overflow: hidden;
   color: #fff7cc;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: clamp(14px, 1.9vw, 17px);
+  line-height: 1.25;
+  white-space: normal;
 }
 
 .objective-kicker,
@@ -439,22 +484,45 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: 5px 6px;
-  max-width: 236px;
-  padding: 8px 10px 9px;
-  border: 1px solid rgba(232, 240, 255, 0.16);
-  border-radius: 9px;
-  background: rgba(13, 20, 34, 0.58);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  gap: 3px 6px;
+  max-width: 250px;
+  padding: 8px 11px 10px;
+  border: 1px solid rgba(232, 240, 255, 0.18);
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(17, 26, 44, 0.72), rgba(11, 17, 30, 0.66));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
   pointer-events: none;
 }
 
 .controls-guide-title {
   flex: 0 0 100%;
-  margin-bottom: 1px;
-  color: #aebfd6;
-  font-size: 11px;
+  margin-bottom: 3px;
+  color: #cfe0f5;
+  font-size: 12px;
   font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.controls-guide-group {
+  flex: 0 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 7px;
+  padding-top: 4px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(232, 240, 255, 0.08);
+}
+.controls-guide-group:first-of-type {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+.controls-guide-grouptitle {
+  flex: 0 0 100%;
+  margin-bottom: 1px;
+  color: #8197b6;
+  font-size: 9.5px;
+  font-weight: 800;
   letter-spacing: 0.08em;
 }
 
@@ -470,14 +538,14 @@ body {
 
 .control-row kbd {
   display: inline-block;
-  min-width: 13px;
-  padding: 1px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.26);
+  min-width: 15px;
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-bottom-width: 2px;
-  border-radius: 4px;
-  background: rgba(34, 46, 66, 0.96);
+  border-radius: 5px;
+  background: rgba(38, 51, 73, 0.98);
   color: #f8fafc;
-  font: 800 10px/1.4 inherit;
+  font: 800 10.5px/1.45 inherit;
   text-align: center;
   text-shadow: none;
 }
@@ -493,6 +561,78 @@ body {
 }
 
 .game-ui.title-active .controls-guide {
+  display: none;
+}
+
+/* 파티 채팅 (좌하단) — Enter 로 입력창 열기, 메시지 로그는 잠시 후 흐려짐 */
+.party-chat {
+  position: absolute;
+  left: 14px;
+  bottom: 96px;
+  z-index: 18;
+  width: min(360px, 46vw);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+.game-ui.title-active .party-chat {
+  display: none;
+}
+.party-chat-log {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  max-height: 168px;
+  overflow-y: auto;
+  padding-right: 2px;
+  transition: opacity 0.6s ease;
+}
+.party-chat-log:empty {
+  display: none;
+}
+.party-chat-log.faded {
+  opacity: 0.26;
+}
+.party-chat-line {
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 9px;
+  background: rgba(13, 20, 34, 0.66);
+  color: #e8eefb;
+  font-size: 12.5px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+.party-chat-from {
+  margin-right: 4px;
+  color: #6ee7b7;
+  font-weight: 800;
+}
+.party-chat-line--whisper {
+  color: #e9d5ff;
+}
+.party-chat-line--whisper .party-chat-from {
+  color: #c084fc;
+}
+.party-chat-sys {
+  color: #fca5a5;
+  font-style: italic;
+}
+.party-chat-input {
+  pointer-events: auto;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(110, 231, 183, 0.6);
+  border-radius: 10px;
+  background: rgba(9, 14, 24, 0.94);
+  color: #f8fafc;
+  font-size: 13px;
+  outline: none;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+}
+.party-chat-input.hidden {
   display: none;
 }
 
@@ -2859,8 +2999,9 @@ button[data-title-load]:disabled {
     transform: translateX(-50%);
   }
 
-  .controls-guide {
-    display: none; /* 터치 기기엔 키보드 가이드 불필요 */
+  .controls-guide,
+  .party-chat {
+    display: none; /* 터치 기기엔 키보드 가이드·채팅 입력 불필요 */
   }
 
   .save-controls button {

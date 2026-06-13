@@ -32,6 +32,7 @@ export interface PresenceContext {
   localPresence(): PresenceData;
   getGroundHeightAt(x: number, z: number): number;
   world?: PartyWorldContext; // 5차 — 호스트 권위 월드 공유 배선 (없으면 프레즌스만 동작)
+  onChat?(message: { from: string; text: string; to?: string }): void; // 파티 채팅 수신 → 채팅 UI
 }
 
 interface RemoteMember {
@@ -211,6 +212,10 @@ function receivePresences(list: PresenceData[], nowMs: number) {
 // 게임 채널 수신 (5.1) — 원격 공격 모션·투사체, 파티 힐
 function receiveGame(message: PartyMessage) {
   if (!context) return;
+  if (message.type === "chat") {
+    context.onChat?.({ from: message.from, text: message.text, to: message.to });
+    return;
+  }
   if (message.type === "playerAttack") {
     const remote = remotes.get(message.nickname);
     if (!remote || !remote.onLocalMap) return; // 같은 맵에서 보이는 친구의 공격만 — 실내/타맵 공격의 허공 투사체 차단

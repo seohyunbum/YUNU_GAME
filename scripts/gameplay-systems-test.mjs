@@ -100,6 +100,8 @@ try {
   const interactionPriority = await server.ssrLoadModule("/src/game/interactionPriority.ts");
   const monsters = await server.ssrLoadModule("/src/game/monsters.ts");
   const deathDrop = await server.ssrLoadModule("/src/game/deathDrop.ts");
+  const partyChat = await server.ssrLoadModule("/src/ui/partyChat.ts");
+  const objectiveClaim = await server.ssrLoadModule("/src/objectiveClaim.ts");
   const regions = await server.ssrLoadModule("/src/game/regions.ts");
   const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
   const graveTrap = await server.ssrLoadModule("/src/game/graveTrap.ts");
@@ -594,6 +596,38 @@ try {
     assert(shouldDropSlotOnDeath("iron_shield", false, ctx) === false, "equipped shield is kept on death");
     assert(shouldDropSlotOnDeath("tutorial_book", false, ctx) === false && shouldDropSlotOnDeath("medkit", false, ctx) === false && shouldDropSlotOnDeath("iron_sword", false, ctx) === false, "protected items (book/medkit/starter) are kept");
     assert(shouldDropSlotOnDeath("gold", false, ctx) === true && shouldDropSlotOnDeath("diamond_pickaxe", false, ctx) === true, "loose materials and non-equipped tools drop");
+  }
+
+  {
+    // 파티 채팅: 메시지 직렬화 + 귓속말 파싱 (/w, @, 모르는 대상/자기자신/빈문자 거부)
+    const { encodePartyMessage, decodePartyMessage } = party;
+    const { parseChatInput } = partyChat;
+    const broadcast = { type: "chat", from: "연우용사", text: "안녕!" };
+    const whisper = { type: "chat", from: "연우용사", text: "비밀", to: "아빠용사" };
+    assert(JSON.stringify(decodePartyMessage(encodePartyMessage(broadcast))) === JSON.stringify(broadcast), "broadcast chat roundtrips");
+    assert(JSON.stringify(decodePartyMessage(encodePartyMessage(whisper))) === JSON.stringify(whisper), "whisper chat roundtrips (to preserved)");
+    const members = ["연우용사", "아빠용사", "민준용사"];
+    const me = "연우용사";
+    assert(JSON.stringify(parseChatInput("그냥 전체 메시지", members, me)) === JSON.stringify({ text: "그냥 전체 메시지" }), "plain text → broadcast (no to)");
+    assert(JSON.stringify(parseChatInput("/w 아빠용사 비밀이야", members, me)) === JSON.stringify({ text: "비밀이야", to: "아빠용사" }), "/w name msg → whisper");
+    assert(JSON.stringify(parseChatInput("@민준용사 안녕", members, me)) === JSON.stringify({ text: "안녕", to: "민준용사" }), "@name msg → whisper");
+    assert("error" in parseChatInput("/w 없는사람 hi", members, me), "whisper to unknown member is rejected");
+    assert("error" in parseChatInput("@연우용사 나에게", members, me), "whisper to self is rejected");
+    assert("error" in parseChatInput("   ", members, me), "empty/whitespace is rejected (no-op)");
+    assert(parseChatInput("a".repeat(300), members, me).text.length === 120, "message is clamped to 120 chars");
+  }
+
+  {
+    // 퀘스트 보상 수령(Q/클릭 공용): 완료된 튜토리얼만 1회 지급, 재요청 시 멱등, 비튜토리얼은 거부
+    const { claimObjective } = objectiveClaim;
+    const progress = { completedStepIds: [], achievedStepIds: [] };
+    const objective = { id: "first_steps", kind: "tutorial", completed: true, title: "첫 발걸음", detail: "d", progress: "완료", reward: { experience: 12, items: { wood: 3 }, label: "나무 3" } };
+    let xp = 0; const added = []; let drops = 0; let huds = 0;
+    const deps = { gainExperience: (n) => { xp += n; }, addItem: (i, c) => { added.push([i, c]); return true; }, dropItem: () => { drops += 1; }, showMessage: () => {}, renderHud: () => { huds += 1; } };
+    assert(claimObjective(progress, objective, deps) === true && xp === 12 && added.length === 1 && added[0][0] === "wood" && progress.completedStepIds.includes("first_steps"), "completed tutorial objective grants reward once");
+    assert(claimObjective(progress, objective, deps) === false && xp === 12, "claiming again is idempotent (no double reward)");
+    assert(claimObjective(progress, { ...objective, id: "boss_progression", kind: "boss" }, deps) === false, "non-tutorial objective cannot be claimed");
+    assert(drops === 0 && huds === 1, "reward goes to inventory (no drop) and HUD refreshes once");
   }
 
   {
@@ -1469,6 +1503,8 @@ try {
         "party invite code format/normalization and protocol message roundtrip",
         "gear tier visuals: monotonic progression, diamond<obsidian, low matte / high glow+gem, tierOf/armorTierOf mapping",
         "death drop: keep held weapon + equipped armor/shield + protected items; drop the rest",
+        "party chat: message roundtrip + whisper parse (/w, @, unknown/self/empty rejected, length clamp)",
+        "quest reward claim (Q/click): completed tutorial grants once, idempotent, non-tutorial rejected",
         "party presence: send cadence, same-map avatar spawn/lerp, cross-map markers, stale prune",
         "social directory: like search, friend request/accept persistence, offline rejection, party invite delivery",
         "party join flow: indoor-host wait notice, summon on emergence, reset clears stale summons",
