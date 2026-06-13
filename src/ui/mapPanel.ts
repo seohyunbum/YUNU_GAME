@@ -28,6 +28,11 @@ export interface MapHomeMarker {
   z: number;
 }
 
+export interface MapCaveMarker {
+  x: number;
+  z: number;
+}
+
 export interface RegionMapPanelView {
   regions: Region[];
   currentRegionId: string | null;
@@ -37,6 +42,7 @@ export interface RegionMapPanelView {
   worldMaps: { map: WorldMapDefinition; current: boolean; canTeleport: boolean; lockReason: string }[];
   bosses: MapBossMarker[];
   homes: MapHomeMarker[];
+  caves: MapCaveMarker[];
   party: MapPartyMarker[];
 }
 
@@ -132,6 +138,19 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
       </g>`;
     })
     .join("");
+  // 동굴 마커 — 현재 스폰된 동굴 입구 위치를 갈색 아치로 표시
+  const caves = view.caves
+    .map((cave) => {
+      const cx = Number(mapX(cave.x).toFixed(1));
+      const cy = Number(mapY(cave.z).toFixed(1));
+      const textHalo = `paint-order="stroke" stroke="#15231d" stroke-width="3.5" stroke-linejoin="round"`;
+      return `<g data-cave-marker>
+        <circle cx="${cx}" cy="${cy}" r="7" fill="#3f2d20" stroke="#0f0a06" stroke-width="2" />
+        <path d="M ${cx - 4} ${cy + 4} L ${cx - 4} ${cy - 1} Q ${cx} ${cy - 6} ${cx + 4} ${cy - 1} L ${cx + 4} ${cy + 4} Z" fill="#0a0705" />
+        <text x="${cx}" y="${cy - 11}" text-anchor="middle" fill="#d4a574" font-size="11" font-weight="800" ${textHalo}>동굴</text>
+      </g>`;
+    })
+    .join("");
   // 파티원 마커 — 하늘색 점 + 닉네임
   const party = view.party
     .map((member) => {
@@ -190,6 +209,7 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
           </g>
           ${waters}
           ${regions}
+          ${caves}
           ${homes}
           ${party}
           ${bosses}

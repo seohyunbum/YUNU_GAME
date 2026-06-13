@@ -107,16 +107,16 @@ function renderStatsMarkup(view: HudViewModel) {
         </div>
         <div class="stat-bar health-bar">
           <span style="width: ${(healthRatio * 100).toFixed(1)}%"></span>
-          <b>HP ${view.health} / ${view.maxHealth}</b>
+          <b>HP ${Math.ceil(view.health)} / ${view.maxHealth}</b>
         </div>
         <div class="stat-bar mana-bar">
           <span style="width: ${(manaRatio * 100).toFixed(1)}%"></span>
-          <b>MP ${view.mana} / ${view.maxMana}</b>
+          <b>MP ${Math.floor(view.mana)} / ${view.maxMana}</b>
         </div>
         <div class="stats-sub-bars">
           <div class="stat-bar hunger-bar">
             <span style="width: ${(hungerRatio * 100).toFixed(1)}%"></span>
-            <b>배고픔 ${view.hunger}/${view.maxHunger}</b>
+            <b>배고픔 ${Math.round(view.hunger)}/${view.maxHunger}</b>
           </div>
           <div class="stat-bar exp-bar">
             <span style="width: ${xpPercent}%"></span>

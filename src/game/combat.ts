@@ -221,7 +221,7 @@ export function applyMeleePredatorAttack(context: ProjectileDamageContext, targe
   context.hitFeedback?.(target, damage, target.hp <= 0);
   target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
   if (target.hp > 0) {
-    context.showMessage(`${target.name}에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
+    context.showMessage(`${target.name}에게 ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
     return;
   }
   const predatorLoot = predatorLootForKind(target.predatorKind);

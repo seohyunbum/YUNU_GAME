@@ -36,7 +36,7 @@ const STAT_ROWS: { kind: "hp" | "mana" | "attack" | "defense"; label: string; pe
 
 export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPanelView, callbacks: CharacterPanelCallbacks) {
   const value = (kind: "hp" | "mana" | "attack" | "defense") =>
-    kind === "hp" ? `${view.health} / ${view.maxHealth}` : kind === "mana" ? `${view.mana} / ${view.maxMana}` : kind === "attack" ? `${view.attack}` : `${view.defense}`;
+    kind === "hp" ? `${Math.ceil(view.health)} / ${view.maxHealth}` : kind === "mana" ? `${Math.floor(view.mana)} / ${view.maxMana}` : kind === "attack" ? `${view.attack}` : `${view.defense}`;
   const points = Math.max(0, view.craftStatPoints);
   panelEl.innerHTML = `
       <section class="panel character-panel${points > 0 ? " has-points" : ""}">

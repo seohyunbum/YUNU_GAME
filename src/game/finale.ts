@@ -49,8 +49,8 @@ export function createFinaleState(): FinaleState {
   return { active: false, mode: "full", startedAt: 0, nextBurstAt: 0, melodyIndex: 0, nextNoteAt: 0, creditsShown: false };
 }
 
-export const MINI_FANFARE_FIREWORKS_MS = 5_000;
-const MINI_FANFARE_NOTES = 6;
+export const MINI_FANFARE_FIREWORKS_MS = 11_000; // 중규모 축하 (기존 5초 → 11초)
+const MINI_FANFARE_NOTES = 10; // 멜로디도 더 길게 (기존 6 → 10)
 
 export interface FinaleContext {
   state: FinaleState;

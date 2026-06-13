@@ -282,6 +282,7 @@ import {
 import { SMITHING_PRODUCTS, smithingProductIcon } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { renderBookPanelMarkup } from "./ui/bookPanel";
+import { renderCheatPanelMarkup } from "./ui/cheatPanel";
 import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
@@ -487,6 +488,8 @@ class WildernessGame {
   private hungerTimer = 0;
   private starvationTimer = 0;
   private starvationNoticeTimer = 0;
+  private isResting = false; // 침대 휴식 중 — 체력 회복 5배, 풀피/이동/피격 시 해제
+  private readonly restAnchor = new THREE.Vector3();
   private dragonSpawnTimer = 0;
   private lastDamageTaken = 0;
   private lastDamageBlocked = false;
@@ -2757,16 +2760,24 @@ class WildernessGame {
   }
 
   private updateMana(delta: number) {
+    if (this.isResting && (this.currentPanel !== null || this.playerPosition.distanceTo(this.restAnchor) > 0.6)) {
+      this.isResting = false; this.showMessage("침대에서 일어났습니다."); this.renderHud();
+    }
+    const restMul = this.isResting ? 5 : 1; // 휴식 중 회복 5배
     const hungerLevel = Math.min(HUNGER_HP_REGEN.length - 1, Math.max(0, Math.floor(this.hunger)));
-    const healthRegen = CLASS_PASSIVES[this.playerClass].healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel];
+    let healthRegen = (CLASS_PASSIVES[this.playerClass].healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel]) * restMul;
+    if (this.isResting) healthRegen = Math.max(healthRegen, this.maxHealth * 0.1); // 레벨 무관 풀피까지 ~10초 보장
     if (healthRegen > 0 && this.health < this.maxHealth) {
       const previousHealth = Math.floor(this.health);
       this.health = Math.min(this.maxHealth, this.health + healthRegen * delta);
       if (Math.floor(this.health) !== previousHealth) this.renderHud();
     }
+    if (this.isResting && this.health >= this.maxHealth) {
+      this.isResting = false; this.showMessage("체력이 가득 회복되어 침대에서 일어났습니다."); this.renderHud();
+    }
     if (this.mana >= this.maxMana) return;
     const previous = Math.floor(this.mana);
-    const manaRegenScale = CLASS_PASSIVES[this.playerClass].manaRegenScale;
+    const manaRegenScale = CLASS_PASSIVES[this.playerClass].manaRegenScale * restMul;
     this.mana = Math.min(this.maxMana, this.mana + MANA_REGEN_PER_SECOND * manaRegenScale * delta);
     if (Math.floor(this.mana) !== previous) this.renderHud();
   }
@@ -3779,7 +3790,7 @@ class WildernessGame {
     if (target.type === "chest") return target.opened ? "이미 연 상자" : "E: 상자 열기";
     if (target.type === "droppedItem") return `좌클릭/E: ${target.name} 줍기`;
     if (target.type === "buildingBlock") return selectedItem === "building_block" ? "좌클릭/E: 쌓기블록 회수 | 우클릭: 바라보는 면에 이어 붙이기" : "좌클릭/E: 쌓기블록 회수";
-    if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에서 푹 쉬기 (완전 회복)" : "좌클릭/E/우클릭: 잠자기";
+    if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에 누워 휴식 (체력 빠르게 회복)" : "좌클릭/E/우클릭: 침대에 누워 휴식";
     if (target.type === "cave") return "E: 동굴 들어가기";
     if (target.type === "caveExit") return "E: 동굴 나가기";
     if (target.type === "houseExit") return "E: 집 밖으로 나가기";
@@ -4012,23 +4023,17 @@ class WildernessGame {
 
   private sleepInBed(target: WorldObject) {
     if (target.type !== "bed") return;
-    if (target.homeBed) {
-      const healed = this.maxHealth - this.health;
-      this.health = this.maxHealth;
-      this.mana = this.maxMana;
-      this.hunger = Math.min(HUNGER_MAX, this.hunger + 1);
-      this.starvationTimer = 0;
-      this.playHandAction();
-      this.playTone(660, 0.12, "triangle", 0.028);
-      this.showMessage(`내 침대에서 푹 쉬었습니다. 체력 ${healed} 회복 + 마나 가득 + 배고픔 1 회복!`);
-      this.renderHud();
-      return;
-    }
-    const healed = this.maxHealth - this.health;
-    this.health = this.maxHealth;
+    if (this.health >= this.maxHealth) { this.showMessage("체력이 이미 가득합니다."); return; }
+    // 즉시 회복이 아니라 침대에 누워 휴식 — 체력이 평소보다 빠르게 회복되고, 풀피가 되면 자동으로 일어난다.
+    this.playerPosition.x = target.root.position.x;
+    this.playerPosition.z = target.root.position.z;
+    this.restAnchor.copy(this.playerPosition);
+    this.isResting = true;
+    if (target.homeBed) { this.mana = this.maxMana; this.hunger = Math.min(HUNGER_MAX, this.hunger + 1); }
     this.starvationTimer = 0;
     this.playHandAction();
-    this.showMessage(healed > 0 ? `침대에서 잠시 쉬어 체력을 ${healed} 회복했습니다.` : "침대에서 잠시 쉬었습니다. 체력은 이미 가득합니다.");
+    this.playTone(660, 0.12, "triangle", 0.028);
+    this.showMessage("침대에 누웠습니다. 체력이 빠르게 회복됩니다 (움직이면 일어납니다).");
     this.renderHud();
   }
 
@@ -4378,7 +4383,7 @@ class WildernessGame {
     target.fleeUntil = performance.now() + 6_000;
     target.fleeFrom = this.playerPosition.clone();
     if (target.hp > 0) {
-      this.showMessage(`${target.name}에게 ${damage} 피해. 놀라서 천천히 도망갑니다. 남은 체력 ${target.hp}.`);
+      this.showMessage(`${target.name}에게 ${damage} 피해. 놀라서 천천히 도망갑니다. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
       return;
     }
     this.grantAnimalLoot(target, "사냥했습니다");
@@ -4478,7 +4483,7 @@ class WildernessGame {
     this.projectileDamageContext.hitFeedback?.(target, damage, target.hp <= 0);
     if (target.villageId) this.enrageVillage(target.villageId, "주민을 공격하자 마을 수호자들이 반격합니다.");
     if (target.hp > 0) {
-      this.showMessage(`주민에게 ${damage} 피해. 남은 체력 ${target.hp}.`);
+      this.showMessage(`주민에게 ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}.`);
       return;
     }
     this.removeObject(target.id);
@@ -4910,6 +4915,7 @@ class WildernessGame {
 
   private damagePlayer(amount: number, showParticles = true, deathReason = "체력이 모두 떨어졌습니다.", ignoreArmor = false) {
     if (this.possessedEagleId) return this.damagePossessedEagle(amount, showParticles, ignoreArmor);
+    this.isResting = false; // 피격 시 휴식 해제
     const armor = ignoreArmor ? 0 : this.equippedArmorValue();
     const damage = ignoreArmor ? Math.max(1, Math.floor(amount)) : calculateIncomingPlayerDamage(amount, armor);
     if (!ignoreArmor && this.equippedShield) this.consumeShieldDurability();
@@ -6257,13 +6263,14 @@ class WildernessGame {
     const nextBossKind = nextBossTarget(this.bossChapter)?.kind;
     const bosses = [...this.objectsOfType("dragon")].map((dragon) => ({ name: this.bossStats(dragon.bossKind).name, x: dragon.root.position.x, z: dragon.root.position.z, sealed: !isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter), next: (dragon.bossKind ?? "dragon") === nextBossKind }));
     for (const predator of this.objectsOfType("wildPredator")) if (predator.fieldBossId) bosses.push({ name: predator.name, x: predator.root.position.x, z: predator.root.position.z, sealed: false, next: false });
-    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: !this.gameStarted || canTeleportToWorldMap(this.level, map), lockReason: this.gameStarted ? worldMapLockReason(this.level, map) : "" })), bosses, homes: this.playerHomeMarkers(), party: partyMapMarkers(this.currentWorldMapId) }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
+    const caves = [...this.objectsOfType("cave")].map((cave) => ({ x: cave.root.position.x, z: cave.root.position.z }));
+    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: !this.gameStarted || canTeleportToWorldMap(this.level, map, this.defeatedFieldBosses), lockReason: this.gameStarted ? worldMapLockReason(this.level, map, this.defeatedFieldBosses) : "" })), bosses, homes: this.playerHomeMarkers(), caves, party: partyMapMarkers(this.currentWorldMapId) }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
   }
 
   private teleportToWorldMap(mapId: string, force = false) {
     const map = getWorldMapById(mapId);
     if (map.id === this.currentWorldMapId) return;
-    if (!force && this.gameStarted && !canTeleportToWorldMap(this.level, map)) { this.showMessage(worldMapLockReason(this.level, map)); this.renderRegionMapPanel(); return; }
+    if (!force && this.gameStarted && !canTeleportToWorldMap(this.level, map, this.defeatedFieldBosses)) { this.showMessage(worldMapLockReason(this.level, map, this.defeatedFieldBosses)); this.renderRegionMapPanel(); return; }
     rememberWorldState(this.worldStates, this.currentWorldMapId, this.createSaveData().worldStates?.[this.currentWorldMapId]);
     this.currentWorldMapId = map.id; this.activeRegions = regionsForWorldMap(map.id); this.activeBiomes = biomesForWorldMap(map.id); this.activeWaterZones = waterZonesForWorldMap(map.id); this.biomeDecorContext.biomes = this.activeBiomes; this.regionWarningState = { regionId: null, lastWarnAt: 0 };
     this.locationMode = "overworld"; this.clearWorld(); const worldState = this.worldStates[map.id];
@@ -6605,34 +6612,7 @@ class WildernessGame {
   }
 
   private renderCheatPanel() {
-    const items = Object.entries(ITEM_NAMES)
-      .map(
-        ([item, name]) => `<article class="cheat-card">
-          <div>
-            <strong>${name}</strong>
-            <small>${item}</small>
-          </div>
-          <div class="cheat-actions">
-            <button data-cheat-item="${item}" data-cheat-count="1">+1</button>
-            <button data-cheat-item="${item}" data-cheat-count="10">+10</button>
-          </div>
-        </article>`,
-      )
-      .join("");
-
-    this.panelEl.innerHTML = `
-      <section class="panel cheat-panel">
-        <header>
-          <div>
-            <h2>F4 치트 아이템</h2>
-            <p class="muted">테스트용입니다. 원하는 아이템을 바로 인벤토리에 넣습니다.</p>
-          </div>
-          <button class="icon-button" data-close>닫기</button>
-        </header>
-        <div class="cheat-grid">${items}</div>
-      </section>
-    `;
-
+    this.panelEl.innerHTML = renderCheatPanelMarkup();
     this.bindPanelBasics();
     this.panelEl.querySelectorAll<HTMLButtonElement>("[data-cheat-item]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -6812,7 +6792,7 @@ class WildernessGame {
     house.name = option.name;
     house.houseChestRich = false;
     house.playerOwned = true;
-    this.showMessage(`${option.name}을 지었습니다! 내 집 = 안전지대 + 침대 완전 회복 + 집 창고 + 보급 상자 + 죽어도 집 앞 부활. 지도(M)에 표시됩니다.`);
+    this.showMessage(`${option.name}을 지었습니다! 내 집 = 안전지대 + 침대 휴식(빠른 회복) + 집 창고 + 보급 상자 + 죽어도 집 앞 부활. 지도(M)에 표시됩니다.`);
     this.renderInventoryPanel();
     this.renderHud();
   }

@@ -197,7 +197,7 @@ try {
         problems.push(`field boss '${def.id}': unknown map '${def.mapId}'`);
         continue;
       }
-      if (def.level !== map.levelRange[1]) problems.push(`field boss '${def.id}': level ${def.level} should equal map max ${map.levelRange[1]}`);
+      if (def.level !== map.levelRange[1] + 8) problems.push(`field boss '${def.id}': level ${def.level} should equal map max + 8 = ${map.levelRange[1] + 8}`);
       if (!MONSTER_DEFS[def.monsterId] || !MONSTER_DEFS[def.monsterId].predatorKind) problems.push(`field boss '${def.id}': base monster '${def.monsterId}' must be a predator`);
       for (const item of Object.keys(def.rewardItems)) if (!isItem(item)) problems.push(`field boss '${def.id}': unknown reward item '${item}'`);
       if (def.rewardExperience < previousReward) problems.push(`field boss '${def.id}': reward should escalate with level`);

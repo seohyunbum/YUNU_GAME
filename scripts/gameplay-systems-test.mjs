@@ -124,6 +124,7 @@ try {
   const saveMigration = await server.ssrLoadModule("/src/game/saveMigration.ts");
   const skillBar = await server.ssrLoadModule("/src/ui/skillBar.ts");
   const saveRepo = await server.ssrLoadModule("/src/game/saveRepository.ts");
+  const worldMaps = await server.ssrLoadModule("/src/game/worldMaps.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -500,7 +501,7 @@ try {
     };
     updateFieldBosses(context);
     assert(spawned !== null && spawned.fieldBossId === "boss_starter_valley", "starter valley should spawn its field boss");
-    assert(spawned.hp === 216 && spawned.armor === 24 && spawned.attackDamage === 13, `field boss should use boss-formula stats for Lv 18 (hp ${spawned.hp}, armor ${spawned.armor}, atk ${spawned.attackDamage})`);
+    assert(spawned.hp === 304 && spawned.armor === 26 && spawned.attackDamage === 18, `field boss should use boss-formula stats for Lv 26 (mapMax 18 + 8) (hp ${spawned.hp}, armor ${spawned.armor}, atk ${spawned.attackDamage})`);
     const firstBoss = spawned;
     updateFieldBosses(context);
     assert(spawned === firstBoss, "live field boss should not be duplicated");
@@ -1581,6 +1582,27 @@ try {
     assert(!afterTimes.includes(saves[2].savedAt), "the explicitly chosen slot's old save should be the only one replaced");
   }
 
+  {
+    // 맵 진입 게이트: 레벨 미달이어도 직전 맵 보스를 처치하면 다음 맵이 열린다.
+    const { WORLD_MAPS, canTeleportToWorldMap, getWorldMapById } = worldMaps;
+    const dragonPlains = getWorldMapById("dragon_plains"); // 권장 Lv 10~25, 직전 = starter_valley
+    const bamboo = getWorldMapById("bamboo_frontier"); // Lv 15~30, 직전 = dragon_plains
+    assert(canTeleportToWorldMap(1, getWorldMapById("starter_valley")) === true, "starter valley always accessible");
+    // Lv 1 은 dragon_plains(min10) 까지 레벨 격차 9 ≤ 20 이라 원래도 열림 — 격차가 큰 맵으로 검증
+    const farMap = WORLD_MAPS.find((m) => m.levelRange[0] - 1 > 20); // Lv1 기준 격차 20 초과인 첫 맵
+    assert(farMap, "should have at least one map far above level 1");
+    assert(canTeleportToWorldMap(1, farMap) === false, `far map ${farMap.id} should be locked at Lv1 without boss`);
+    // 그 far 맵의 직전 맵 보스를 처치하면 열려야 한다
+    const farIndex = WORLD_MAPS.findIndex((m) => m.id === farMap.id);
+    const prevBossId = `boss_${WORLD_MAPS[farIndex - 1].id}`;
+    assert(canTeleportToWorldMap(1, farMap, [prevBossId]) === true, `defeating ${prevBossId} should unlock ${farMap.id} regardless of level`);
+    // 직전이 아닌 보스로는 안 열린다 (한 맵만 건너뜀)
+    assert(canTeleportToWorldMap(1, farMap, ["boss_starter_valley"]) === false || farIndex === 1, "unlock only applies to the immediate predecessor's boss");
+    // dragon_plains 직전(starter) 보스 처치 시 dragon_plains 열림(레벨 무관)
+    assert(canTeleportToWorldMap(1, dragonPlains, ["boss_starter_valley"]) === true, "starter boss unlocks dragon_plains");
+    void bamboo;
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -1630,6 +1652,7 @@ try {
         "craft level: xp formula (rarity-weighted), increasing curve, multi-level carryover, alloc clamp, save migration defaults/preserve",
         "skill bar: per-class R/T slots (name/hotkey/total/icon match defs) + independent primary/second cooldown timestamps",
         "save slots: overwrite replaces only the chosen slot and preserves all other saves (data-loss regression guard)",
+        "world map gating: level gap OR predecessor field-boss defeat unlocks the next map",
       ],
     }, null, 2));
   }

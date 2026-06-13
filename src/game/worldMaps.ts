@@ -108,11 +108,22 @@ export function regionsForWorldMap(id: WorldMapId | string | null | undefined): 
   return REGIONS.filter((region) => allowed.has(region.id));
 }
 
-export function canTeleportToWorldMap(playerLevel: number, map: WorldMapDefinition) {
-  return map.id === DEFAULT_WORLD_MAP_ID || map.levelRange[0] - playerLevel <= MAX_TELEPORT_LEVEL_GAP;
+// 직전 맵(배열 순서)의 필드 보스를 처치하면 레벨이 미달이어도 이 맵이 열린다.
+// 필드 보스 id 규칙은 `boss_<mapId>` 라 fieldBosses 모듈을 import 하지 않고도 판정 가능(순환 의존 회피).
+export function previousWorldMapBossId(map: WorldMapDefinition): string | null {
+  const index = WORLD_MAPS.findIndex((m) => m.id === map.id);
+  if (index <= 0) return null;
+  return `boss_${WORLD_MAPS[index - 1].id}`;
 }
 
-export function worldMapLockReason(playerLevel: number, map: WorldMapDefinition) {
-  if (canTeleportToWorldMap(playerLevel, map)) return "";
-  return `현재 Lv ${playerLevel}. 권장 Lv ${map.levelRange[0]} 이상 맵이라 아직 텔레포트할 수 없습니다.`;
+export function canTeleportToWorldMap(playerLevel: number, map: WorldMapDefinition, defeatedFieldBosses: readonly string[] = []) {
+  if (map.id === DEFAULT_WORLD_MAP_ID) return true;
+  if (map.levelRange[0] - playerLevel <= MAX_TELEPORT_LEVEL_GAP) return true;
+  const prevBossId = previousWorldMapBossId(map);
+  return prevBossId !== null && defeatedFieldBosses.includes(prevBossId);
+}
+
+export function worldMapLockReason(playerLevel: number, map: WorldMapDefinition, defeatedFieldBosses: readonly string[] = []) {
+  if (canTeleportToWorldMap(playerLevel, map, defeatedFieldBosses)) return "";
+  return `현재 Lv ${playerLevel}. 권장 Lv ${map.levelRange[0]} 이상이거나, 직전 맵의 보스를 처치하면 열립니다.`;
 }
