@@ -1,3 +1,4 @@
+import { renderControlsGuide } from "./controlsGuide";
 import { renderSaveControls, renderTitleScreen, type TitlePlayerClassView } from "./titleScreen";
 
 export type ClassChoiceViewModel = TitlePlayerClassView;
@@ -73,11 +74,14 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   bossBarEl.className = "boss-bar hidden";
   saveControlsEl.className = "save-controls";
   renderSaveControls(saveControlsEl);
+  const controlsGuideEl = document.createElement("div"); // 좌측 상단 조작법 가이드 (인게임 전용 — .title-active 시 CSS 로 숨김)
+  controlsGuideEl.className = "controls-guide";
+  renderControlsGuide(controlsGuideEl);
   titleScreenEl.className = "title-screen";
   renderTitleScreen(titleScreenEl, options);
   uiRoot.innerHTML = '<div class="crosshair"></div>';
   uiRoot.classList.add("title-active");
-  uiRoot.append(bossBarEl, objectiveEl, statsEl, saveControlsEl, promptEl, hotbarEl, messageEl, panelEl, titleScreenEl);
+  uiRoot.append(bossBarEl, objectiveEl, statsEl, saveControlsEl, controlsGuideEl, promptEl, hotbarEl, messageEl, panelEl, titleScreenEl);
   container.appendChild(uiRoot);
 
   const bindButton = (root: HTMLElement, selector: string, callback: (event: MouseEvent) => void) => {

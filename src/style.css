@@ -430,6 +430,72 @@ body {
   pointer-events: auto;
 }
 
+/* 조작법 가이드 — 저장 컨트롤 바로 아래 좌측 상단 고정 (인게임 전용) */
+.controls-guide {
+  position: absolute;
+  top: 54px;
+  left: 14px;
+  z-index: 16;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 5px 6px;
+  max-width: 236px;
+  padding: 8px 10px 9px;
+  border: 1px solid rgba(232, 240, 255, 0.16);
+  border-radius: 9px;
+  background: rgba(13, 20, 34, 0.58);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.controls-guide-title {
+  flex: 0 0 100%;
+  margin-bottom: 1px;
+  color: #aebfd6;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.control-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.control-row kbd {
+  display: inline-block;
+  min-width: 13px;
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: rgba(34, 46, 66, 0.96);
+  color: #f8fafc;
+  font: 800 10px/1.4 inherit;
+  text-align: center;
+  text-shadow: none;
+}
+
+.control-row-accent {
+  color: #6ee7b7;
+}
+
+.control-row-accent kbd {
+  border-color: rgba(110, 231, 183, 0.6);
+  background: rgba(16, 53, 42, 0.96);
+  color: #d1fae5;
+}
+
+.game-ui.title-active .controls-guide {
+  display: none;
+}
+
 .save-controls button {
   min-width: 68px;
   min-height: 34px;
@@ -2791,6 +2857,10 @@ button[data-title-load]:disabled {
     top: 64px;
     left: 50%;
     transform: translateX(-50%);
+  }
+
+  .controls-guide {
+    display: none; /* 터치 기기엔 키보드 가이드 불필요 */
   }
 
   .save-controls button {

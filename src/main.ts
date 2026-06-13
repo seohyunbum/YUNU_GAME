@@ -3741,51 +3741,49 @@ class WildernessGame {
     if (target?.id === this.lastTargetId) return;
     this.lastTargetId = target?.id ?? null;
 
-    const lockText =
-      document.pointerLockElement === this.renderer.domElement
-        ? "WASD 이동 | Shift+W 달리기 | Shift 웅크리기 | C 엎드리기 | Space 점프 | E/좌클릭 상호작용 | 우클릭 사용 | R 직업스킬"
-        : "화면 클릭: 1인칭 시점 고정";
+    // 조작법은 좌측 상단 가이드(controls-guide)로 옮김 — 하단 프롬프트는 컨텍스트 안내만. 미잠금 시 클릭 안내만 덧붙인다.
+    const lockText = document.pointerLockElement === this.renderer.domElement ? "" : " | 화면 클릭: 1인칭 시점 고정";
 
     const bucketItem = this.hotbar[this.selectedHotbarIndex]?.item;
     if (!target && this.isRangedWeapon(bucketItem)) {
-      this.promptEl.textContent = `${bucketItem && RANGED_PROJECTILE[bucketItem] === "magic" ? "좌클릭/E/숫자키: 마법 발사" : "좌클릭/E/숫자키: 발사"} | ${lockText}`;
+      this.promptEl.textContent = `${bucketItem && RANGED_PROJECTILE[bucketItem] === "magic" ? "좌클릭/E/숫자키: 마법 발사" : "좌클릭/E/숫자키: 발사"}${lockText}`;
       return;
     }
     if (!target && bucketItem === "dragon_spawn") {
-      this.promptEl.textContent = "좌클릭/E/숫자키: 앞쪽에 용 소환 | " + lockText;
+      this.promptEl.textContent = "좌클릭/E/숫자키: 앞쪽에 용 소환" + lockText;
       return;
     }
     if (!target && bucketItem === "building_block") {
-      this.promptEl.textContent = "우클릭: 앞쪽 땅에 쌓기블록 놓기 | 블록 면을 보고 우클릭: 이어 붙이기 | " + lockText;
+      this.promptEl.textContent = "우클릭: 앞쪽 땅에 쌓기블록 놓기 | 블록 면을 보고 우클릭: 이어 붙이기" + lockText;
       return;
     }
     if (!target && this.isBucketItem(bucketItem)) {
       const liquid = this.bucketLiquidTarget(null);
       if (liquid?.kind === "water" && bucketItem === "bucket") {
-        this.promptEl.textContent = "\uc88c\ud074\ub9ad/E: \uc591\ub3d9\uc774\uc5d0 \ubb3c \ub2f4\uae30 | " + lockText;
+        this.promptEl.textContent = "\uc88c\ud074\ub9ad/E: \uc591\ub3d9\uc774\uc5d0 \ubb3c \ub2f4\uae30" + lockText;
         return;
       }
       if (liquid?.kind === "lava" && bucketItem === "bucket") {
-        this.promptEl.textContent = "\uc88c\ud074\ub9ad/E: \uc591\ub3d9\uc774\uc5d0 \uc6a9\uc554 \ub2f4\uae30 | " + lockText;
+        this.promptEl.textContent = "\uc88c\ud074\ub9ad/E: \uc591\ub3d9\uc774\uc5d0 \uc6a9\uc554 \ub2f4\uae30" + lockText;
         return;
       }
       if (liquid?.kind === "lava" && bucketItem === "water_bucket") {
-        this.promptEl.textContent = "\uc88c\ud074\ub9ad/E: \ubb3c \uc591\ub3d9\uc774 \ube44\uc6b0\uae30 -> \ud751\uc694\uc11d \uc0dd\uc131 | " + lockText;
+        this.promptEl.textContent = "\uc88c\ud074\ub9ad/E: \ubb3c \uc591\ub3d9\uc774 \ube44\uc6b0\uae30 -> \ud751\uc694\uc11d \uc0dd\uc131" + lockText;
         return;
       }
       if (liquid?.kind === "water" && bucketItem === "lava_bucket") {
-        this.promptEl.textContent = "\uc88c\ud074\ub9ad/E: \uc6a9\uc554 \uc591\ub3d9\uc774 \ube44\uc6b0\uae30 -> \ud751\uc694\uc11d \uc0dd\uc131 | " + lockText;
+        this.promptEl.textContent = "\uc88c\ud074\ub9ad/E: \uc6a9\uc554 \uc591\ub3d9\uc774 \ube44\uc6b0\uae30 -> \ud751\uc694\uc11d \uc0dd\uc131" + lockText;
         return;
       }
     }
 
     if (!target) {
-      this.promptEl.textContent = lockText;
+      this.promptEl.textContent = lockText.replace(/^ \| /, ""); // 잠금 시 빈 문자열, 미잠금 시 선두 구분자 제거
       return;
     }
 
     const action = this.actionTextFor(target);
-    this.promptEl.textContent = `${action} | ${lockText}`;
+    this.promptEl.textContent = `${action}${lockText}`;
   }
 
   private actionTextFor(target: WorldObject) {
