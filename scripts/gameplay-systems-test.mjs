@@ -122,6 +122,7 @@ try {
   const tierVisuals = await server.ssrLoadModule("/src/game/tierVisuals.ts");
   const craftLevel = await server.ssrLoadModule("/src/game/craftLevel.ts");
   const saveMigration = await server.ssrLoadModule("/src/game/saveMigration.ts");
+  const skillBar = await server.ssrLoadModule("/src/ui/skillBar.ts");
   const THREE = await import("three");
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
@@ -1512,6 +1513,35 @@ try {
     assert(migratedRich.player.craftStatAlloc.hp === 4 && migratedRich.player.craftStatAlloc.mana === 0 && migratedRich.player.craftStatAlloc.attack === 2, "craft alloc should be clamped/floored on migration");
   }
 
+  {
+    // 스킬바 골든: 직업별 두 슬롯(R 1차 / T 2차)의 이름·단축키·쿨타임·아이콘 + 쿨타임 독립성
+    const { buildSkillSlots } = skillBar;
+    const { PLAYER_CLASSES } = classes;
+    const { SECOND_SKILLS } = classSkills;
+    const CLASS_IDS = ["warrior", "healer", "mage", "summoner", "gunner", "tanker"];
+    for (const id of CLASS_IDS) {
+      const slots = buildSkillSlots(id, 0, 0);
+      assert(slots.length === 2, `${id}: skill bar should have exactly 2 slots`);
+      assert(slots[0].hotkey === "R" && slots[1].hotkey === "T", `${id}: slots should be R(primary)/T(second)`);
+      assert(slots[0].name === PLAYER_CLASSES[id].skillName, `${id}: primary slot name should match PLAYER_CLASSES.skillName`);
+      assert(slots[1].name === SECOND_SKILLS[id].name, `${id}: second slot name should match SECOND_SKILLS.name`);
+      assert(slots[0].total === PLAYER_CLASSES[id].cooldown, `${id}: primary total should match class cooldown (${PLAYER_CLASSES[id].cooldown})`);
+      assert(slots[1].total === SECOND_SKILLS[id].cooldown, `${id}: second total should match second-skill cooldown (${SECOND_SKILLS[id].cooldown})`);
+      assert(typeof slots[0].icon === "string" && slots[0].icon.length > 0, `${id}: primary icon should be a non-empty emoji`);
+      assert(typeof slots[1].icon === "string" && slots[1].icon.length > 0, `${id}: second icon should be a non-empty emoji`);
+    }
+    // 쿨타임 독립성: classUntil 만 바꿔도 second 슬롯 until 은 불변, 그 반대도 마찬가지
+    const onlyPrimary = buildSkillSlots("warrior", 5_000, 0);
+    assert(onlyPrimary[0].until === 5_000 && onlyPrimary[1].until === 0, "primary cooldown must not leak into the second slot");
+    const onlySecond = buildSkillSlots("warrior", 0, 7_000);
+    assert(onlySecond[0].until === 0 && onlySecond[1].until === 7_000, "second cooldown must not leak into the primary slot");
+    const both = buildSkillSlots("healer", 1_111, 2_222);
+    assert(both[0].until === 1_111 && both[1].until === 2_222, "each slot should carry its own independent until timestamp");
+    // 아이콘이 직업/슬롯별로 구분되는지(전부 동일 문자열이 아님)
+    const allIcons = CLASS_IDS.flatMap((id) => { const s = buildSkillSlots(id, 0, 0); return [s[0].icon, s[1].icon]; });
+    assert(new Set(allIcons).size >= 6, "skill icons should be reasonably varied across classes/slots");
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -1559,6 +1589,7 @@ try {
         "hit feedback: hit stop, knockback, squash punch, fov kick, tone layers",
         "tutorial step completion latches across condition regression",
         "craft level: xp formula (rarity-weighted), increasing curve, multi-level carryover, alloc clamp, save migration defaults/preserve",
+        "skill bar: per-class R/T slots (name/hotkey/total/icon match defs) + independent primary/second cooldown timestamps",
       ],
     }, null, 2));
   }

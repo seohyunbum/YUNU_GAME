@@ -1799,6 +1799,103 @@ body {
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.25);
 }
 
+/* 스킬바 — 핫바 바로 위 중앙. 각 타일: 아이콘 + 단축키 배지 + 쿨타임 오버레이/숫자 + 스킬명 */
+.skill-bar {
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 12;
+}
+
+.skill-tile {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border: 2px solid rgba(125, 211, 252, 0.55);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.82);
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(125, 211, 252, 0.22), 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.skill-icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.skill-hotkey {
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  z-index: 3;
+  min-width: 14px;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: #facc15;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+.skill-name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  padding: 1px 3px;
+  background: rgba(2, 6, 23, 0.64);
+  color: #e2e8f0;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 쿨타임 어둠 오버레이 — 위에서 아래로 줄며 비워진다 (JS rAF 가 scaleY 갱신) */
+.skill-cd {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(2, 6, 23, 0.66);
+  transform-origin: top center;
+  transform: scaleY(0);
+}
+
+.skill-cd-text {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 900;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
+.skill-tile.on-cd {
+  border-color: rgba(148, 163, 184, 0.42);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.skill-tile.on-cd .skill-icon {
+  opacity: 0.32;
+}
+
 .panel-layer {
   position: absolute;
   inset: 0;

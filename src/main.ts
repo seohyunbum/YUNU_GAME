@@ -309,6 +309,7 @@ import {
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
+import { buildSkillSlots } from "./ui/skillBar";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
@@ -6052,7 +6053,6 @@ class WildernessGame {
     const hour = this.gameHour();
     const playerClass = PLAYER_CLASSES[this.playerClass];
     const passive = CLASS_PASSIVES[this.playerClass];
-    const skillCooldown = Math.max(0, (this.classSkillCooldownUntil - performance.now()) / 1000);
     const eagle = this.possessedEagleId ? this.objects.get(this.possessedEagleId) : null;
     const eagleSkillStatus = eagle ? formatEagleSkillStatus(this.eagleClawCooldownUntil, this.windCutterCooldownUntil) : undefined;
     const petProgress = this.summonerCompanion.petProgress();
@@ -6085,7 +6085,7 @@ class WildernessGame {
         craftXp: this.craftXp,
         craftRequiredXp: craftXpForNextLevel(this.craftLevel),
         craftStatPoints: this.craftStatPoints,
-        skillStatus: `${skillCooldown > 0 ? `${Math.ceil(skillCooldown)}초` : `R ${playerClass.skillName}`} · ${this.secondSkillCooldownUntil > performance.now() ? `${Math.ceil((this.secondSkillCooldownUntil - performance.now()) / 1000)}초` : `T ${SECOND_SKILLS[this.playerClass].name}`}`,
+        skills: buildSkillSlots(this.playerClass, this.classSkillCooldownUntil, this.secondSkillCooldownUntil),
         passiveStatus: passive.label,
         petStatus: this.playerClass === "tanker" ? tankerStatus : petStatus,
         equipmentArmor,

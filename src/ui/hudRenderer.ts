@@ -1,3 +1,5 @@
+import { ensureSkillBar, renderSkillBar, type SkillSlotView } from "./skillBar";
+
 export interface HudRenderElements {
   statsEl: HTMLElement;
   objectiveEl: HTMLElement;
@@ -8,6 +10,8 @@ export interface HudRenderCache {
   statsMarkup: string;
   objectiveMarkup: string;
   hotbarMarkup: string;
+  skillBarEl: HTMLElement | null;
+  skillBarSig: string;
 }
 
 export interface HudHotbarSlotView {
@@ -31,7 +35,7 @@ export interface HudViewModel {
   craftXp: number;
   craftRequiredXp: number;
   craftStatPoints: number;
-  skillStatus: string;
+  skills: SkillSlotView[];
   passiveStatus: string;
   petStatus?: string;
   equipmentArmor: number;
@@ -60,6 +64,8 @@ export function createHudRenderCache(): HudRenderCache {
     statsMarkup: "",
     objectiveMarkup: "",
     hotbarMarkup: "",
+    skillBarEl: null,
+    skillBarSig: "",
   };
 }
 
@@ -122,7 +128,6 @@ function renderStatsMarkup(view: HudViewModel) {
           <b>🔨 제작 Lv ${view.craftLevel} · ${view.craftXp}/${view.craftRequiredXp}${view.craftStatPoints > 0 ? ` · 포인트 +${view.craftStatPoints} (K)` : ""}</b>
         </div>
         <div class="stats-detail">
-          <span>스킬 ${escapeHtml(view.skillStatus)}</span>
           <span>패시브 ${escapeHtml(view.passiveStatus)}</span>
           ${view.petStatus ? `<span>${escapeHtml(view.petStatus)}</span>` : ""}
           <span>장비 방어 ${view.equipmentArmor}${view.equippedGearLabel ? ` · ${escapeHtml(view.equippedGearLabel)}` : ""}</span>
@@ -182,6 +187,16 @@ export function renderHudView(
   if (cache.objectiveMarkup !== objectiveMarkup) {
     elements.objectiveEl.innerHTML = objectiveMarkup;
     cache.objectiveMarkup = objectiveMarkup;
+  }
+
+  const parent = elements.hotbarEl.parentElement;
+  if (parent) {
+    const skillBarEl = cache.skillBarEl ?? (cache.skillBarEl = ensureSkillBar(parent));
+    const skillSig = view.skills.map((s) => `${s.icon}|${s.name}|${s.hotkey}|${s.total}|${s.until}`).join(";");
+    if (cache.skillBarSig !== skillSig) {
+      renderSkillBar(skillBarEl, view.skills);
+      cache.skillBarSig = skillSig;
+    }
   }
 
   const hotbarMarkup = renderHotbarMarkup(view);
