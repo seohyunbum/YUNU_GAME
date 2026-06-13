@@ -41,6 +41,11 @@ export function targetWobble(count: number) {
 export function targetTolerance(count: number) {
   return Math.max(0.05, 0.11 - count * 0.004); // 명중 허용 폭
 }
+// 과녁 발사 최소 입력 간격 — 스페이스 난타·꾹누르기(키 리피트)·클릭 연타로 "얻어걸리는" 악용을 막는다.
+export const TARGET_SHOOT_MIN_INTERVAL_MS = 500;
+export function canShootTarget(now: number, lastShotAt: number) {
+  return now - lastShotAt >= TARGET_SHOOT_MIN_INTERVAL_MS;
+}
 export function blockWindowMs(count: number) {
   return Math.max(240, 540 - count * 26); // 막기 반응 시간
 }

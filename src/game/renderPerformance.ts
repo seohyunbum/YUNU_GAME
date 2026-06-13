@@ -5,7 +5,20 @@ const distanceCullBox = new THREE.Box3();
 const distanceCullSphere = new THREE.Sphere();
 const DISTANCE_CULL_MARGIN = 72;
 
-export function precompileSceneShaders(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+// 셰이더 프로그램은 renderer 수명 동안 캐시된다(WebGLRenderer 의 프로그램 캐시는 "프로그램 키"=재료 파라미터
+// 기준이라 인스턴스·씬이 새로 만들어져도 같은 파라미터면 재사용). 동굴/집처럼 같은 종류의 인테리어를 반복 진입할
+// 때마다 전체 scene traverse + GPU compile + 1×1 워밍 렌더를 다시 돌리면 진입마다 큰 프레임 히치가 생긴다.
+// onceKey 가 주어지면 그 종류는 최초 1회만 워밍하고 이후 진입은 건너뛴다(프로그램은 이미 캐시됨).
+// 주의: 이 Set 은 의도적으로 renderer 수명(모듈 수명) 동안 유지한다 — renderer 는 readonly 로 재생성되지 않으므로
+// 새 게임/세이브 로드 후에도 프로그램 캐시가 살아 있어 다시 워밍할 필요가 없다. 리셋 시 clear 하면 새 게임 첫
+// 진입마다 전체-씬 워밍을 재실행해 바로 이 히치를 부활시키므로 clear 하지 말 것(컨텍스트 손실은 별도 드문 케이스).
+const precompiledOnceKeys = new Set<string>();
+
+export function precompileSceneShaders(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, onceKey?: string) {
+  if (onceKey !== undefined) {
+    if (precompiledOnceKeys.has(onceKey)) return;
+    precompiledOnceKeys.add(onceKey);
+  }
   const state: { object: THREE.Object3D; visible: boolean; frustumCulled: boolean }[] = [];
   const previousTarget = renderer.getRenderTarget();
   const previousShadowNeedsUpdate = renderer.shadowMap.needsUpdate;

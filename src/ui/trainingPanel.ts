@@ -2,6 +2,7 @@ import {
   blockFakeChance,
   blockWindowMs,
   calmZoneRatio,
+  canShootTarget,
   liftClickPower,
   liftDrainPerSecond,
   targetSpeed,
@@ -111,8 +112,12 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
     let phase = Math.random() * Math.PI * 2;
     let last = performance.now();
     let position = 0;
+    let lastShotAt = -Infinity;
     const shoot = () => {
       if (!root.isConnected) return;
+      const now = performance.now();
+      if (!canShootTarget(now, lastShotAt)) return; // 0.5초 최소 간격 — 난타·꾹누르기·연타 악용 차단(클릭·스페이스 공통)
+      lastShotAt = now;
       const count = callbacks.getCount(kind);
       if (Math.abs(position) <= targetTolerance(count)) {
         celebrate();

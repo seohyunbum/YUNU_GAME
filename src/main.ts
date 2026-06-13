@@ -231,7 +231,8 @@ import { clearWorldStateStore, installWorldStates, rememberWorldState, type Worl
 import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
 import { updateVillageGuards, type GuardAiContext } from "./game/guardAi";
 import { hitStopScale, triggerHitFeedback, updateHitFeedback, type HitFeedbackDeps } from "./game/hitFeedback";
-import { createCaveInterior, createHouseInterior, type InteriorContext } from "./game/interiors";
+import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, type InteriorContext } from "./game/interiors";
+import { buildOreMesh, oreSharedGeometries, oreSharedMaterials } from "./game/oreVisual";
 import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
 import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeStoragePanel";
 import { PLAYER_CLASSES } from "./game/classes";
@@ -376,7 +377,10 @@ class WildernessGame {
     this.invisibleTargetMaterial,
     this.cartoonOutlineMaterial,
     this.contactShadowMaterial,
+    ...oreSharedMaterials(), // 광물 공유 재료 — 채굴(dispose) 시 보존
+    ...caveSharedMaterials(), // 동굴 셸 공유 재료 — 퇴장(dispose) 시 보존
   ]);
+  private readonly sharedGeometries = new Set<THREE.BufferGeometry>([...oreSharedGeometries(), ...caveSharedGeometries()]); // 채굴·퇴장 시 dispose 제외할 공유 도형
   private readonly cloudLayer = new THREE.Group();
   private readonly sky = new Sky();
   private readonly sunPosition = new THREE.Vector3();
@@ -4250,7 +4254,7 @@ class WildernessGame {
     this.playerPosition.set(0, PLAYER_HEIGHT, CAVE_START_Z);
     this.settlePlayerAfterTeleport();
     createCaveInterior(this.interiorContext);
-    precompileSceneShaders(this.renderer, this.scene, this.camera);
+    precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
     this.showMessage("동굴 안으로 들어왔습니다. 돌과 석탄을 찾아보세요.");
     this.renderHud();
@@ -4301,7 +4305,7 @@ class WildernessGame {
     this.currentHouseOwned = Boolean(target.playerOwned);
     if (target.houseChestRich === undefined) target.houseChestRich = houseKind === "blacksmith" || Math.random() < 0.01;
     createHouseInterior(this.interiorContext, target.houseChestRich, houseKind, this.currentHouseOwned);
-    precompileSceneShaders(this.renderer, this.scene, this.camera);
+    precompileSceneShaders(this.renderer, this.scene, this.camera, "house:" + houseKind);
     this.playTransitionSound("enter");
     this.showMessage(
       this.currentHouseOwned
@@ -5883,7 +5887,7 @@ class WildernessGame {
   private disposeObject3D(root: THREE.Object3D) {
     root.traverse((child) => {
       if (!(child instanceof THREE.Mesh)) return;
-      child.geometry.dispose();
+      if (!this.sharedGeometries.has(child.geometry)) child.geometry.dispose();
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       for (const material of materials) {
         if (!this.sharedMaterials.has(material)) material.dispose();
@@ -7982,24 +7986,7 @@ class WildernessGame {
   }
 
   private spawnOre(ore: ItemId, position: THREE.Vector3) {
-    const colorByOre: Record<ItemId, number> = {
-      stone: 0x8a8f93,
-      coal: 0x202225,
-      copper: 0xb66f39,
-      iron: 0xb8aca0,
-      gold: 0xe3ba32,
-      diamond: 0x66d9e8,
-      obsidian: 0x24152f,
-    };
-    const mesh = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.75),
-      new THREE.MeshStandardMaterial({
-        color: colorByOre[ore] ?? 0x888888,
-        emissive: ore === "diamond" ? 0x144d55 : 0x000000,
-        emissiveIntensity: ore === "diamond" ? 0.35 : 0,
-        roughness: 0.9,
-      }),
-    );
+    const mesh = buildOreMesh(ore); // 공유 도형/재료(oreVisual.ts) — 진입당 광물 할당·누수 제거. 위치·스케일은 아래에서.
     mesh.position.copy(position);
     let collisionRadius = 0.75;
     let collisionHeight = 1.35;
@@ -8023,19 +8010,6 @@ class WildernessGame {
       mesh.position.y = this.getGroundHeightAt(position.x, position.z) + 0.16;
       mesh.scale.set(0.96, 0.36, 0.96);
       collisionHeight = 0.42;
-    }
-    const accentMaterial = new THREE.MeshStandardMaterial({
-      color: colorByOre[ore] ?? 0x888888,
-      emissive: ore === "diamond" ? 0x1f9fb0 : ore === "gold" ? 0x7c4a03 : ore === "obsidian" ? 0x35144f : 0x000000,
-      emissiveIntensity: ore === "diamond" ? 0.55 : ore === "gold" ? 0.16 : ore === "obsidian" ? 0.22 : 0,
-      roughness: 0.48,
-      metalness: ore === "gold" || ore === "iron" || ore === "copper" ? 0.24 : 0.04,
-    });
-    for (let i = 0; i < (ore === "stone" ? 2 : 4); i += 1) {
-      const shard = new THREE.Mesh(new THREE.ConeGeometry(0.08 + i * 0.012, 0.24 + i * 0.035, 5), accentMaterial);
-      shard.position.set(THREE.MathUtils.randFloatSpread(0.48), 0.14 + i * 0.02, THREE.MathUtils.randFloatSpread(0.42));
-      shard.rotation.set(THREE.MathUtils.randFloatSpread(0.7), THREE.MathUtils.randFloat(0, Math.PI), THREE.MathUtils.randFloatSpread(0.5));
-      mesh.add(shard);
     }
     const object = this.addWorldObject("ore", ITEM_NAMES[ore] ?? ore, mesh, {
       ore,
@@ -9326,7 +9300,7 @@ class WildernessGame {
     for (const id of this.caveObjectIds) {
       if (id.startsWith("loose-")) {
         const loose = this.scene.children.find((child) => `loose-${child.uuid}` === id);
-        if (loose) this.scene.remove(loose);
+        if (loose) { this.disposeObject3D(loose); this.scene.remove(loose); } // 공유 셸 자산은 sharedGeometries/Materials 가드로 보존됨
       } else {
         this.removeObject(id);
       }
@@ -9338,7 +9312,7 @@ class WildernessGame {
     for (const id of this.houseObjectIds) {
       if (id.startsWith("loose-")) {
         const loose = this.scene.children.find((child) => `loose-${child.uuid}` === id);
-        if (loose) this.scene.remove(loose);
+        if (loose) { this.disposeObject3D(loose); this.scene.remove(loose); } // 집 인테리어는 진입마다 새 재료 → 퇴장 시 dispose 로 누수 차단
       } else {
         this.removeObject(id);
       }

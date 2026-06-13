@@ -1148,7 +1148,7 @@ try {
 
   {
     // 훈련장 골든: 난이도 단조 증가 + 안전 클램프 + 보상/정규화
-    const { TRAINING_MIN_LEVEL, TRAINING_REWARDS, TRAINING_GAMES, normalizeTrainingStats, liftDrainPerSecond, liftClickPower, targetSpeed, targetWobble, targetTolerance, blockWindowMs, blockFakeChance, calmZoneRatio } = training;
+    const { TRAINING_MIN_LEVEL, TRAINING_REWARDS, TRAINING_GAMES, normalizeTrainingStats, liftDrainPerSecond, liftClickPower, targetSpeed, targetWobble, targetTolerance, blockWindowMs, blockFakeChance, calmZoneRatio, TARGET_SHOOT_MIN_INTERVAL_MS, canShootTarget } = training;
     assert(TRAINING_MIN_LEVEL === 10, "training unlocks at level 10");
     assert(TRAINING_REWARDS.hp === 2 && TRAINING_REWARDS.attack === 1 && TRAINING_REWARDS.armor === 1 && TRAINING_REWARDS.mana === 2, "training rewards match the spec");
     for (const kind of ["hp", "attack", "armor", "mana"]) assert(TRAINING_GAMES[kind]?.name && TRAINING_GAMES[kind]?.howTo, `training game '${kind}' needs a name and instructions`);
@@ -1161,6 +1161,11 @@ try {
     assert(liftClickPower(999) >= 5.5 && targetTolerance(999) >= 0.05 && blockWindowMs(999) >= 240 && calmZoneRatio(999) >= 0.07, "difficulty floors keep games playable");
     const normalized = normalizeTrainingStats({ hp: 3.7, attack: -2, mana: Number.NaN });
     assert(normalized.hp === 3 && normalized.attack === 0 && normalized.armor === 0 && normalized.mana === 0, "training stats normalize to non-negative integers");
+    // 과녁 발사 최소 입력 간격 0.5초 — 난타·꾹누르기·연타 악용 차단
+    assert(TARGET_SHOOT_MIN_INTERVAL_MS === 500, "target minigame enforces a 0.5s minimum interval per shot");
+    assert(canShootTarget(0, -Infinity) === true, "first shot is always allowed");
+    assert(canShootTarget(400, 0) === false, "a second shot within 0.5s is blocked (anti-spam/hold)");
+    assert(canShootTarget(500, 0) === true && canShootTarget(1000, 500) === true, "a shot at/after 0.5s is allowed");
   }
 
   {

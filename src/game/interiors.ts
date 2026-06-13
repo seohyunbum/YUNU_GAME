@@ -5,6 +5,39 @@ import { spawnGrinder, spawnSmelter, spawnWorkbench } from "./placeableSpawns";
 import type { SpawnContext } from "./spawnContext";
 import type { HouseKind, ItemId, WorldObject } from "./types";
 
+// 동굴 셸 공유 지오메트리·재료 — 진입마다 새로 만들지 않는다.
+// 셸(loose Group)은 clearCaveObjects 에서 scene.remove 로만 제거되어 dispose 되지 않으므로(레퍼런스만 끊김)
+// 모듈 레벨에서 1회 생성해 재사용하면 진입당 ~250건의 geometry/material 할당과 누수가 사라진다.
+// DodecahedronGeometry(r)·CircleGeometry(r,n)·ConeGeometry(rad,h,n) 는 단위 도형의 r/h 배 스케일과 수학적으로
+// 동일하므로 단위 도형 + per-mesh scale 로 대체한다(시각 결과 동일). tuneMaterial 은 stylizedTuned 가드로 멱등이라 공유 재료에 안전.
+const CAVE_FLOOR_GEOMETRY = new THREE.PlaneGeometry(CAVE_WIDTH, CAVE_LENGTH, 2, 18);
+const CAVE_CEILING_GEOMETRY = new THREE.BoxGeometry(CAVE_WIDTH + 2.5, 0.75, CAVE_LENGTH);
+const CAVE_UNIT_ROCK_GEOMETRY = new THREE.DodecahedronGeometry(1);
+const CAVE_UNIT_DIRT_GEOMETRY = new THREE.CircleGeometry(1, 14);
+const CAVE_TORCH_BRACKET_GEOMETRY = new THREE.CylinderGeometry(0.06, 0.08, 0.74, 7);
+const CAVE_TORCH_FLAME_GEOMETRY = new THREE.SphereGeometry(0.16, 12, 8);
+const CAVE_UNIT_CRYSTAL_GEOMETRY = new THREE.ConeGeometry(0.12, 1, 6);
+const caveFloorMaterial = new THREE.MeshStandardMaterial({ color: 0x393a38, roughness: 1 });
+const caveCeilingMaterial = new THREE.MeshStandardMaterial({ color: 0x454a4f, roughness: 1 });
+const caveDirtMaterial = new THREE.MeshStandardMaterial({ color: 0x6b523d, roughness: 1 });
+const caveRockMaterials = [
+  new THREE.MeshStandardMaterial({ color: 0x5a636a, roughness: 1 }),
+  new THREE.MeshStandardMaterial({ color: 0x464d54, roughness: 1 }),
+];
+const caveOverheadMaterial = new THREE.MeshStandardMaterial({ color: 0x4d535a, roughness: 1 });
+const caveTorchWoodMaterial = new THREE.MeshStandardMaterial({ color: 0x6b3f22, roughness: 0.84 });
+const caveTorchFlameMaterial = new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xea8a22, emissiveIntensity: 1.1, roughness: 0.38 });
+const caveCrystalMaterial = new THREE.MeshStandardMaterial({ color: 0xa7e8ff, emissive: 0x38bdf8, emissiveIntensity: 0.55, roughness: 0.5 });
+
+// main 의 dispose-skip 등록용 — 동굴 셸은 모듈 공유 자산이라 채굴/퇴장 시 dispose 되면 다음 진입이 깨진다.
+// (현재 clearCaveObjects 는 scene.remove 만 하지만, 등록해 두면 실수로 dispose 경로를 타도 공유본이 보존된다.)
+export function caveSharedGeometries(): THREE.BufferGeometry[] {
+  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY];
+}
+export function caveSharedMaterials(): THREE.MeshStandardMaterial[] {
+  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial];
+}
+
 // 동굴/집 인테리어 빌더 — main.ts 에서 추출한 순수 장면 구성 로직.
 // 월드 상태 접근(상자/광물/NPC 스폰, 오브젝트 추적)은 context 콜백으로 받는다.
 export interface InteriorContext extends SpawnContext {
@@ -56,66 +89,51 @@ function createHouseExit(position: THREE.Vector3) {
 
 export function createCaveInterior(context: InteriorContext) {
   const shell = new THREE.Group();
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(CAVE_WIDTH, CAVE_LENGTH, 2, 18),
-    new THREE.MeshStandardMaterial({ color: 0x393a38, roughness: 1 }),
-  );
+  const floor = new THREE.Mesh(CAVE_FLOOR_GEOMETRY, caveFloorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, -0.02, CAVE_CENTER_Z);
   shell.add(floor);
 
   for (let i = 0; i < 22; i += 1) {
     const z = CAVE_START_Z - 8 - (i / 21) * (CAVE_LENGTH - 20);
-    const dirt = new THREE.Mesh(
-      new THREE.CircleGeometry(THREE.MathUtils.randFloat(1.4, 2.8), 14),
-      new THREE.MeshStandardMaterial({ color: 0x6b523d, roughness: 1 }),
-    );
+    const radius = THREE.MathUtils.randFloat(1.4, 2.8);
+    const dirt = new THREE.Mesh(CAVE_UNIT_DIRT_GEOMETRY, caveDirtMaterial);
     dirt.rotation.x = -Math.PI / 2;
     dirt.position.set(THREE.MathUtils.randFloatSpread(CAVE_WIDTH - 5), 0.01, z + THREE.MathUtils.randFloatSpread(4));
-    dirt.scale.z = THREE.MathUtils.randFloat(0.55, 1.25);
+    dirt.scale.set(radius, radius, THREE.MathUtils.randFloat(0.55, 1.25));
     shell.add(dirt);
   }
 
-  const ceiling = new THREE.Mesh(
-    new THREE.BoxGeometry(CAVE_WIDTH + 2.5, 0.75, CAVE_LENGTH),
-    new THREE.MeshStandardMaterial({ color: 0x454a4f, roughness: 1 }),
-  );
+  const ceiling = new THREE.Mesh(CAVE_CEILING_GEOMETRY, caveCeilingMaterial);
   ceiling.position.set(0, 4.35, CAVE_CENTER_Z);
   shell.add(ceiling);
 
   for (let i = 0; i < 46; i += 1) {
     const z = CAVE_START_Z - (i / 45) * CAVE_LENGTH;
     for (const side of [-1, 1]) {
-      const rock = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(THREE.MathUtils.randFloat(1.0, 2.7)),
-        new THREE.MeshStandardMaterial({ color: THREE.MathUtils.randInt(0, 1) === 0 ? 0x5a636a : 0x464d54, roughness: 1 }),
-      );
+      const radius = THREE.MathUtils.randFloat(1.0, 2.7);
+      const rock = new THREE.Mesh(CAVE_UNIT_ROCK_GEOMETRY, caveRockMaterials[THREE.MathUtils.randInt(0, 1)]);
       rock.position.set(side * THREE.MathUtils.randFloat(CAVE_WIDTH / 2 - 0.4, CAVE_WIDTH / 2 + 1.4), THREE.MathUtils.randFloat(0.8, 3.1), z + THREE.MathUtils.randFloatSpread(2.7));
-      rock.scale.y = THREE.MathUtils.randFloat(0.9, 1.85);
+      rock.scale.set(radius, radius * THREE.MathUtils.randFloat(0.9, 1.85), radius);
       shell.add(rock);
     }
     if (i % 3 === 0) {
-      const overhead = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(THREE.MathUtils.randFloat(0.8, 1.8)),
-        new THREE.MeshStandardMaterial({ color: 0x4d535a, roughness: 1 }),
-      );
+      const radius = THREE.MathUtils.randFloat(0.8, 1.8);
+      const overhead = new THREE.Mesh(CAVE_UNIT_ROCK_GEOMETRY, caveOverheadMaterial);
       overhead.position.set(THREE.MathUtils.randFloatSpread(CAVE_WIDTH - 3), THREE.MathUtils.randFloat(3.2, 4.15), z);
-      overhead.scale.y = THREE.MathUtils.randFloat(0.45, 0.9);
+      overhead.scale.set(radius, radius * THREE.MathUtils.randFloat(0.45, 0.9), radius);
       shell.add(overhead);
     }
   }
 
-  const torchWood = new THREE.MeshStandardMaterial({ color: 0x6b3f22, roughness: 0.84 });
-  const torchFlame = new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xea8a22, emissiveIntensity: 1.1, roughness: 0.38 });
-  const caveCrystal = new THREE.MeshStandardMaterial({ color: 0xa7e8ff, emissive: 0x38bdf8, emissiveIntensity: 0.55, roughness: 0.5 });
   for (let i = 0; i < 8; i += 1) {
     const z = CAVE_START_Z - 12 - (i / 7) * (CAVE_LENGTH - 28);
     const side = i % 2 === 0 ? -1 : 1;
     const x = side * (CAVE_WIDTH / 2 - 0.9);
-    const bracket = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.74, 7), torchWood);
+    const bracket = new THREE.Mesh(CAVE_TORCH_BRACKET_GEOMETRY, caveTorchWoodMaterial);
     bracket.position.set(x, 1.28, z);
     bracket.rotation.z = side * 0.72;
-    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), torchFlame);
+    const flame = new THREE.Mesh(CAVE_TORCH_FLAME_GEOMETRY, caveTorchFlameMaterial);
     flame.position.set(x - side * 0.28, 1.62, z);
     const light = new THREE.PointLight(0xffbd73, 1.5, 22, 1.55);
     light.position.set(x - side * 0.45, 1.78, z);
@@ -128,7 +146,8 @@ export function createCaveInterior(context: InteriorContext) {
     const cluster = new THREE.Group();
     for (let shard = 0; shard < 3; shard += 1) {
       const height = THREE.MathUtils.randFloat(0.32, 0.78);
-      const crystal = new THREE.Mesh(new THREE.ConeGeometry(0.12, height, 6), caveCrystal);
+      const crystal = new THREE.Mesh(CAVE_UNIT_CRYSTAL_GEOMETRY, caveCrystalMaterial);
+      crystal.scale.y = height;
       crystal.position.set(THREE.MathUtils.randFloatSpread(0.45), height / 2, THREE.MathUtils.randFloatSpread(0.38));
       crystal.rotation.z = THREE.MathUtils.randFloatSpread(0.18);
       cluster.add(crystal);
