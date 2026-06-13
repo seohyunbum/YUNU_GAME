@@ -3,6 +3,7 @@ import { createMirrorModel } from "../avatar";
 import { createBucketVisual } from "./bucketVisuals";
 import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
+import { addLegendaryWeapon } from "./legendaryWeapon";
 import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
 import {
   createBuildingBlockVisual,
@@ -176,46 +177,38 @@ export function createHeldItemModel(item: ItemId) {
     group.add(scoop);
     if (tv.gem) { const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.04), tierGemMaterial(tv)); gem.position.set(0.02, 0.66, 0.06); group.add(gem); }
   } else if (item.endsWith("_dagger") || item.endsWith("_sword")) {
-    // 티어가 오를수록 길어지고(블레이드), 보석·fuller·발광 엣지·오라가 붙는다 (다이아·흑요석이 가장 화려).
     const sword = item.endsWith("_sword");
     const tv = tierVisual(item);
-    const bladeMat = tierBladeMaterial(tv);
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.22, 8), handleMaterial);
-    handle.position.y = 0.1;
-    const guardW = (sword ? 0.32 : 0.22) + tv.rank * 0.012;
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(guardW, 0.05, 0.07), tv.rank >= 2 ? tierBladeMaterial(tv) : handleMaterial);
-    guard.position.y = 0.23;
-    const bladeLen = (sword ? 0.58 : 0.36) + tv.rank * 0.045;
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(sword ? 0.1 : 0.08, bladeLen, 0.035), bladeMat);
-    blade.position.y = 0.26 + bladeLen / 2;
-    group.add(handle, guard, blade);
-    if (tv.rank >= 2) {
-      // 중앙 융선(spine) — 블레이드 앞면보다 살짝 도드라지게 z 오프셋(동일 평면 z-fighting 회피)
-      const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.024, bladeLen * 0.82, 0.02), tierBladeMaterial(tv));
-      fuller.position.set(0, blade.position.y, 0.02);
-      group.add(fuller);
-    }
-    if (tv.gem) {
-      const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), tierGemMaterial(tv));
-      pommel.position.y = -0.01;
-      group.add(pommel);
-      for (const sx of [-1, 1]) {
-        const wing = new THREE.Mesh(new THREE.OctahedronGeometry(0.028), tierGemMaterial(tv));
-        wing.position.set((sx * guardW) / 2, 0.23, 0);
-        group.add(wing);
+    if (tv.rank >= 4) {
+      // 고급(gold/diamond/obsidian) — 전설 무기: 날개 가드·룬 마법진·에너지 불꽃·테이퍼드 블레이드·왕관 포멜
+      addLegendaryWeapon(group, tv, sword);
+    } else {
+      // 저~중급(wood..iron) — 박스 블레이드 + (copper+) fuller·보석
+      const bladeMat = tierBladeMaterial(tv);
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.22, 8), handleMaterial);
+      handle.position.y = 0.1;
+      const guardW = (sword ? 0.32 : 0.22) + tv.rank * 0.012;
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(guardW, 0.05, 0.07), tv.rank >= 2 ? tierBladeMaterial(tv) : handleMaterial);
+      guard.position.y = 0.23;
+      const bladeLen = (sword ? 0.58 : 0.36) + tv.rank * 0.045;
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(sword ? 0.1 : 0.08, bladeLen, 0.035), bladeMat);
+      blade.position.y = 0.26 + bladeLen / 2;
+      group.add(handle, guard, blade);
+      if (tv.rank >= 2) {
+        const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.024, bladeLen * 0.82, 0.02), tierBladeMaterial(tv));
+        fuller.position.set(0, blade.position.y, 0.02);
+        group.add(fuller);
       }
-    }
-    if (tv.fancy) {
-      // 발광 중앙선 — 융선보다 더 앞으로 얇게(층져서 z-fighting 없음)
-      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.026, bladeLen, 0.012), tierEdgeMaterial(tv));
-      edge.position.set(0, blade.position.y, 0.034);
-      group.add(edge);
-    }
-    if (tv.rank >= 5) {
-      const aura = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.008, 8, 22), new THREE.MeshBasicMaterial({ color: tv.gem ?? tv.base, transparent: true, opacity: 0.5 }));
-      aura.position.y = 0.27;
-      aura.rotation.x = Math.PI / 2;
-      group.add(aura);
+      if (tv.gem) {
+        const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), tierGemMaterial(tv));
+        pommel.position.y = -0.01;
+        group.add(pommel);
+        for (const sx of [-1, 1]) {
+          const wing = new THREE.Mesh(new THREE.OctahedronGeometry(0.028), tierGemMaterial(tv));
+          wing.position.set((sx * guardW) / 2, 0.23, 0);
+          group.add(wing);
+        }
+      }
     }
   } else if (item === "bed") {
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.5), handleMaterial);
