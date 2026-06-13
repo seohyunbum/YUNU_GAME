@@ -758,6 +758,12 @@ try {
         damageLocalPlayer: (amount, name) => { events.push(["playerHit", amount, name]); return state.nextPlayerHitKills; },
         animateWalkCycle: () => {},
         refreshSpatialObject: () => {},
+        chests: () => [...objects.values()].filter((object) => object.type === "chest" || object.type === "mineChest"),
+        caves: () => [...objects.values()].filter((object) => object.type === "cave"),
+        spawnChest: (x, z, mineRich, opened) => { const object = { id: `${role}-${nextId++}`, type: mineRich ? "mineChest" : "chest", name: "상자", opened, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(object.id, object); return object; },
+        spawnCave: (x, z) => { const object = { id: `${role}-${nextId++}`, type: "cave", name: "동굴", root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(object.id, object); return object; },
+        markChestOpened: (id) => { const chest = objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return false; chest.opened = true; events.push(["chestOpened", id]); return true; },
+        grantChestLoot: (items) => events.push(["chestLoot", items]),
       };
       return { session, objects, me, events, world, sent, state, getGameCb: () => gameCb };
     };
@@ -914,6 +920,12 @@ try {
         damageLocalPlayer: () => false,
         animateWalkCycle: () => {},
         refreshSpatialObject: () => {},
+        chests: () => [...objects.values()].filter((o) => o.type === "chest" || o.type === "mineChest"),
+        caves: () => [...objects.values()].filter((o) => o.type === "cave"),
+        spawnChest: (x, z, mineRich, opened) => { const o = { id: `${role}-${nextId++}`, type: mineRich ? "mineChest" : "chest", name: "상자", opened, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
+        spawnCave: (x, z) => { const o = { id: `${role}-${nextId++}`, type: "cave", name: "동굴", root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
+        markChestOpened: (id) => { const c = objects.get(id); if (!c || c.opened || (c.type !== "chest" && c.type !== "mineChest")) return false; c.opened = true; events.push(["chestOpened", id]); return true; },
+        grantChestLoot: (items) => events.push(["chestLoot", items]),
       };
       return { session, objects, me, events, sent, world, getGameCb: () => gameCb };
     };
@@ -957,6 +969,106 @@ try {
     guest.getGameCb()({ type: "partyKill", name: "마을 골렘", xp: 40, killer: "친구", mapId: "starter_valley", lootItem: "iron", lootCount: 1 });
     assert(guest.events.some(([k, a]) => k === "xp" && a === 40), "killer guest gains shared xp for the guard");
     assert(guest.events.some(([k, item, , source]) => k === "loot" && item === "iron" && source === "guard"), "killer guest rolls iron loot with the 'guard' reward source (matches solo)");
+    resetPartyWorldSync();
+    initPartyWorldSync({ session: () => null, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: null });
+  }
+
+  {
+    // 파티 7차 골든 — 동굴·보물상자 공유: isStaticShareType / 호스트 수집(objType·opened) / 게스트 spawnChest·spawnCave / 개봉 호스트 위임(전리품 1회) / 개봉 중복 방지
+    const { initPartyWorldSync, partyWorldSyncTick, isStaticShareType, partyGuestOpenIntercept, resetPartyWorldSync } = partyWorldSync;
+    assert(["cave", "chest", "mineChest"].every(isStaticShareType), "cave/chest/mineChest are static share types");
+    assert(!isStaticShareType("wildPredator") && !isStaticShareType("villageGolem") && !isStaticShareType(undefined), "mobs/guards are not static share types");
+
+    const makeWorld = (role) => {
+      const objects = new Map();
+      let nextId = 1;
+      const events = [];
+      const sent = [];
+      let gameCb = null;
+      const me = { nickname: role === "host" ? "방장" : "친구", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true, panelOpen: false };
+      const session = { role, sendGame: (m) => sent.push(m), onGame: (cb) => { gameCb = cb; }, onPresences: () => {} };
+      const world = {
+        entityContext: { addWorldObject: (type, name, root, extra) => { const o = { id: `${role}-${nextId++}`, type, name, root, ...extra }; objects.set(o.id, o); return o; }, getGroundHeightAt: () => 0, createWalkCycle: () => ({}), predatorStats: () => ({ hp: 30, attackDamage: 3 }), predatorAggroRange: () => 10, bossStats: () => ({}) },
+        activeRegions: () => [{ id: "r1", lootTier: 1, center: { x: 0, y: 0, z: 0 }, radius: 500 }],
+        mapXpScale: () => 1,
+        predators: () => [...objects.values()].filter((o) => o.type === "wildPredator"),
+        guards: () => [...objects.values()].filter((o) => ["villageKnight", "villageArcher", "villageMage", "villageGolem"].includes(o.type)),
+        chests: () => [...objects.values()].filter((o) => o.type === "chest" || o.type === "mineChest"),
+        caves: () => [...objects.values()].filter((o) => o.type === "cave"),
+        spawnGuard: (type, x, z, villageId) => { const o = { id: `${role}-${nextId++}`, type, name: "경비", villageId, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
+        spawnChest: (x, z, mineRich, opened) => { const o = { id: `${role}-${nextId++}`, type: mineRich ? "mineChest" : "chest", name: "상자", opened, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
+        spawnCave: (x, z) => { const o = { id: `${role}-${nextId++}`, type: "cave", name: "동굴", root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
+        markChestOpened: (id) => { const c = objects.get(id); if (!c || c.opened || (c.type !== "chest" && c.type !== "mineChest")) return false; c.opened = true; events.push(["chestOpened", id]); return true; },
+        grantChestLoot: (items) => events.push(["chestLoot", items]),
+        enrageVillage: () => {},
+        getObject: (id) => objects.get(id),
+        removeObject: (id) => { objects.delete(id); events.push(["remove", id]); },
+        removeObjectSilent: (id) => { objects.delete(id); events.push(["removeSilent", id]); },
+        hitFeedback: () => {},
+        showMessage: () => {},
+        gainExperience: () => {},
+        creditHostKill: () => {},
+        rollLoot: () => 0,
+        recordFieldBossDefeat: () => {},
+        damageLocalPlayer: () => false,
+        animateWalkCycle: () => {},
+        refreshSpatialObject: () => {},
+      };
+      return { session, objects, me, events, sent, world, getGameCb: () => gameCb };
+    };
+
+    // ── 호스트: 상자·동굴을 스냅샷에 수집 ──
+    const host = makeWorld("host");
+    const chest = host.world.entityContext.addWorldObject("chest", "보물 상자", { position: { x: 7, y: 0, z: 3 }, rotation: { y: 0 } }, {});
+    host.world.entityContext.addWorldObject("cave", "동굴 입구", { position: { x: -5, y: 0, z: 9 }, rotation: { y: 0 } }, {});
+    initPartyWorldSync({ session: () => host.session, localPresence: () => host.me, getGroundHeightAt: () => 0, world: host.world });
+    partyWorldSyncTick(1_000, 0.016);
+    const snapList = host.sent.find((m) => m.type === "mobs")?.list ?? [];
+    assert(snapList.some((e) => e.id === chest.id && e.objType === "chest" && e.opened === false), "host snapshot carries the chest with objType/opened");
+    assert(snapList.some((e) => e.objType === "cave"), "host snapshot carries the cave entrance");
+
+    // ── 호스트: 게스트 개봉 요청 → 1회만 개봉 + 요청자에게 chestLoot ──
+    host.getGameCb()({ type: "openRequest", objectId: chest.id }, "친구");
+    assert(host.events.some(([k, id]) => k === "chestOpened" && id === chest.id), "guest open request opens the chest on the host (authority)");
+    const lootMsg = host.sent.find((m) => m.type === "chestLoot");
+    assert(lootMsg && lootMsg.opener === "친구", "host sends chestLoot to the requesting guest only");
+    host.getGameCb()({ type: "openRequest", objectId: chest.id }, "친구");
+    assert(host.sent.filter((m) => m.type === "chestLoot").length === 1, "already-opened chest cannot be opened again (no double loot)");
+    resetPartyWorldSync();
+
+    // ── 게스트: 상자·동굴 스폰 + 개봉 요청 위임 + chestLoot 수령 ──
+    const guest = makeWorld("guest");
+    initPartyWorldSync({ session: () => guest.session, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: guest.world });
+    partyWorldSyncTick(2_000, 0.016);
+    guest.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [
+      { id: "H-C1", name: "보물 상자", objType: "chest", opened: false, x: 7, z: 3, yaw: 0, hp: 1 },
+      { id: "H-CAVE", name: "동굴 입구", objType: "cave", x: -5, z: 9, yaw: 0, hp: 1 },
+    ] });
+    const syncedChest = [...guest.objects.values()].find((o) => o.type === "chest");
+    const syncedCave = [...guest.objects.values()].find((o) => o.type === "cave");
+    assert(syncedChest && syncedChest.partyTransient === true, "guest spawns the synced chest (transient)");
+    assert(syncedCave && syncedCave.partyTransient === true, "guest spawns the synced cave entrance (transient)");
+    assert(syncedChest.collidable === false && syncedCave.collidable === false, "synced statics are non-colliding (host coords on guest terrain — avoid stuck)");
+    assert(partyGuestOpenIntercept(syncedChest) === true && guest.sent.some((m) => m.type === "openRequest" && m.objectId === "H-C1"), "guest opening a synced chest sends an openRequest instead of opening locally");
+    guest.getGameCb()({ type: "chestLoot", opener: "친구", items: [{ item: "wood", count: 2 }] });
+    assert(guest.events.some(([k, items]) => k === "chestLoot" && items[0].item === "wood"), "guest receives chest loot addressed to it");
+    guest.events.length = 0;
+    guest.getGameCb()({ type: "chestLoot", opener: "다른사람", items: [{ item: "wood", count: 2 }] });
+    assert(!guest.events.some(([k]) => k === "chestLoot"), "chest loot addressed to another player is ignored");
+    resetPartyWorldSync();
+
+    // ── opened 상태 보존: 게스트 자기 '이미 연' 상자가 합류(sweep) 후 탈퇴 시 열린 채 복원 (재개봉=이중 전리품 차단) ──
+    const g2 = makeWorld("guest");
+    const localOpenChest = g2.world.spawnChest(11, 4, false, true); // 이미 연 로컬 상자
+    let g2session = g2.session;
+    initPartyWorldSync({ session: () => g2session, localPresence: () => g2.me, getGroundHeightAt: () => 0, world: g2.world });
+    partyWorldSyncTick(3_000, 0.016); // 세션 훅 배선
+    g2.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [] }); // firstClear sweep → 로컬 상자 stash(opened) 후 제거
+    assert(!g2.objects.has(localOpenChest.id), "joining sweeps the guest's own local chest into the stash");
+    g2session = null; // 파티 탈퇴
+    partyWorldSyncTick(4_000, 0.016); // 동기화 해제 → 로컬 복원
+    const restoredChest = [...g2.objects.values()].find((o) => o.type === "chest");
+    assert(restoredChest && restoredChest.opened === true, "an already-opened chest is restored as opened (no re-loot exploit)");
     resetPartyWorldSync();
     initPartyWorldSync({ session: () => null, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: null });
   }
@@ -1291,6 +1403,7 @@ try {
         "party summon flow runs on guest sessions only (host never pulled)",
         "party world sync: host snapshots, guest diff/lerp, attack intercept, host-authoritative kills, shared xp/loot/boss, mobHit, stray-mob sweep",
         "party 6th: village guard sync — collect/spawnGuard/guest-attack enrage+iron/kill share",
+        "party 7th: cave/chest sync — collect/spawn, host-authoritative chest open (single loot to opener)",
         "party 5.1: attack broadcast, party heal send/receive/map-guard, player push-out collision",
         "nickname validation (length/charset/profanity/reserved/duplicate) and one-time immutability",
         "training ground difficulty curves, rewards, and clamps",

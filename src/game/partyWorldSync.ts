@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { rollChestLoot } from "./chestLoot";
 import { calculateCombatDamage } from "./combat";
 import { PREDATOR_RETALIATE_MS } from "./constants";
 import { spawnPredator, type EntitySpawnContext } from "./entitySpawns";
@@ -33,6 +34,11 @@ export function isGuardType(type: string | undefined): boolean {
   return type === "villageKnight" || type === "villageArcher" || type === "villageMage" || type === "villageGolem";
 }
 
+// 7차 — 정적 공유 오브젝트 (동굴 입구·보물 상자). 이동·hp 없음 → 보간/판정 제외.
+export function isStaticShareType(type: string | undefined): boolean {
+  return type === "cave" || type === "chest" || type === "mineChest";
+}
+
 // main 이 제공하는 월드 능력 — 게스트 렌더/판정 반영과 호스트 판정에 필요한 최소 집합
 export interface PartyWorldContext {
   entityContext: EntitySpawnContext;
@@ -42,6 +48,13 @@ export interface PartyWorldContext {
   guards(): Iterable<WorldObject>; // 6차 — 마을 경비 4종
   spawnGuard(type: string, x: number, z: number, villageId: string): WorldObject; // 게스트 측 경비 렌더 생성
   enrageVillage(villageId: string, message: string): void; // 게스트 공격이 마을 전체를 각성
+  // 7차 — 정적 오브젝트 공유 (동굴 입구·보물 상자)
+  chests(): Iterable<WorldObject>;
+  caves(): Iterable<WorldObject>;
+  spawnChest(x: number, z: number, mineRich: boolean, opened: boolean): WorldObject;
+  spawnCave(x: number, z: number): WorldObject;
+  markChestOpened(id: string): boolean; // 호스트: 상자 개봉 표시(틴트·만료) — 유효하면 true
+  grantChestLoot(items: { item: string; count: number }[]): void; // 게스트: 개봉 전리품 수령
   getObject(id: string): WorldObject | undefined;
   removeObject(id: string): void; // 리스폰 큐 정상 등록 (호스트 처치)
   removeObjectSilent(id: string): void; // 리스폰 큐 미등록 (동기화 몬스터·합류 정리)
@@ -75,6 +88,8 @@ interface ClearedMobDescriptor {
   villageId?: string;
   homeX?: number; // 경비 정위치 (추격 중 합류 시 복원 위치가 어긋나지 않게)
   homeZ?: number;
+  objType?: string; // 7차 — 정적 오브젝트(cave/chest) 복원용
+  opened?: boolean; // 상자 개봉 상태 복원 (탈퇴 후 재개봉=이중 전리품 방지)
 }
 
 interface MobTargetState {
@@ -94,6 +109,7 @@ let mobHitGraceUntil = 0; // 사망 직후 적체된 mobHit 일괄 적용(연쇄
 let knownPresences: PresenceData[] = [];
 const syncedByHostId = new Map<string, WorldObject>(); // 게스트: 호스트 id → 로컬 오브젝트
 const hostIdByLocalId = new Map<string, string>();
+const openRequestCooldown = new Map<string, number>(); // 게스트: 호스트상자 id → 재요청 억제 만료시각 (호스트 무응답 시 스팸·유령사운드 방지)
 const mobTargets = new Map<string, MobTargetState>(); // 보간 목표 (호스트 id 키)
 const pendingHitsByHostId = new Map<string, number[]>(); // 낙관적 타격 시각 — 스냅샷 역행 방지
 const clearedMobsByMap = new Map<string, ClearedMobDescriptor[]>();
@@ -102,6 +118,7 @@ let debugXpGained = 0;
 let debugLastKill: { name: string; killer: string; xp: number } | null = null;
 let debugLastSentIds: string[] = [];
 let debugAttackRequests = 0;
+let debugChestLootGot = 0;
 
 export function initPartyWorldSync(initArg: PartyWorldSyncInit) {
   init = initArg;
@@ -175,6 +192,20 @@ export function partyGuestAttackIntercept(target: WorldObject, power: number, ki
   return true;
 }
 
+// 게스트 상자 개봉 가로채기 (7차) — 동기화 상자면 호스트에 개봉 요청. true 반환 시 로컬 개봉 생략(전리품은 chestLoot 로).
+export function partyGuestOpenIntercept(target: WorldObject): boolean {
+  const session = init?.session() ?? null;
+  if (!init?.world || !session || session.role !== "guest") return false;
+  const hostId = hostIdByLocalId.get(target.id);
+  if (!hostId) return false; // 동기화 상자가 아니면 로컬 개봉 유지
+  const now = performance.now();
+  const until = openRequestCooldown.get(hostId);
+  if (until !== undefined && now < until) return true; // 쿨다운 중 — 재전송·재사운드 억제(로컬 개봉은 계속 차단)
+  openRequestCooldown.set(hostId, now + 1500);
+  session.sendGame({ type: "openRequest", objectId: hostId });
+  return true;
+}
+
 // 호스트 처치 알림 — combat.ts·summonerPet 의 처치 지점들이 호출한다 (호스트 역할일 때만 브로드캐스트).
 // 동기화 범위(wildPredator)와 XP 공유 범위를 일치시킨다 — 용·잼미니는 각자 로컬이므로 공유하면 이중 취득이 된다.
 export function partyHostNotifyKill(target: WorldObject) {
@@ -244,6 +275,11 @@ function processLocalRestore() {
 
 function spawnLocalMob(descriptor: ClearedMobDescriptor) {
   const world = init!.world!;
+  if (isStaticShareType(descriptor.objType)) {
+    // 파티 탈퇴 후 자기 동굴·상자 복원 (정상 로컬 오브젝트로). 열었던 상자는 열린 채로 복원.
+    world.refreshSpatialObject(descriptor.objType === "cave" ? world.spawnCave(descriptor.x, descriptor.z) : world.spawnChest(descriptor.x, descriptor.z, descriptor.objType === "mineChest", descriptor.opened === true));
+    return;
+  }
   if (isGuardType(descriptor.type)) {
     // 파티 탈퇴 후 자기 마을 경비 복원 — 추격하던 위치가 아니라 정위치(homePosition)로
     world.refreshSpatialObject(world.spawnGuard(descriptor.type!, descriptor.homeX ?? descriptor.x, descriptor.homeZ ?? descriptor.z, descriptor.villageId ?? "home-village"));
@@ -300,6 +336,13 @@ function collectMobs(): PartyMessage {
       armor: guard.armor || undefined,
     });
   }
+  // 7차 — 정적 오브젝트(동굴 입구·보물 상자). 위치 고정·hp 무의미(더미 1), 개봉 상태만 추적.
+  for (const chest of world.chests()) {
+    list.push({ id: chest.id, name: chest.name ?? "상자", objType: chest.type, opened: chest.opened === true, x: Math.round(chest.root.position.x * 10) / 10, z: Math.round(chest.root.position.z * 10) / 10, yaw: Math.round(chest.root.rotation.y * 100) / 100, hp: 1 });
+  }
+  for (const cave of world.caves()) {
+    list.push({ id: cave.id, name: cave.name ?? "동굴 입구", objType: "cave", x: Math.round(cave.root.position.x * 10) / 10, z: Math.round(cave.root.position.z * 10) / 10, yaw: Math.round(cave.root.rotation.y * 100) / 100, hp: 1 });
+  }
   debugLastSentIds = list.map((entry) => entry.id);
   return { type: "mobs", mapId: init!.localPresence().mapId, list };
 }
@@ -311,6 +354,15 @@ function handleGameMessage(message: PartyMessage, from?: string) {
     if (!init.localPresence().inGame) return;
     debugAttackRequests += 1;
     hostApplyGuestAttack(message.targetId, message.power, from ?? "파티원");
+  } else if (message.type === "openRequest" && hookedSession?.role === "host") {
+    // 호스트 권위 상자 개봉 — 1회 롤해 요청 게스트에게만 전달, 개봉 상태는 스냅샷으로 전파
+    if (!init.localPresence().inGame) return;
+    if (init.world.markChestOpened(message.objectId)) hookedSession.sendGame({ type: "chestLoot", opener: from ?? "파티원", items: rollChestLoot() });
+  } else if (message.type === "chestLoot") {
+    if (message.opener === init.localPresence().nickname) {
+      init.world.grantChestLoot(message.items);
+      debugChestLootGot += 1;
+    }
   } else if (message.type === "mobs") applyMobsSnapshot(message.mapId, message.list);
   else if (message.type === "partyKill") onPartyKill(message);
   else if (message.type === "mobHit") onMobHit(message.nickname, message.amount, message.name, message.mapId);
@@ -396,10 +448,22 @@ function applyMobsSnapshot(mapId: string, list: MobSnapshot[]) {
     if (stored) stored.push({ type: guard.type, villageId: guard.villageId, x: guard.root.position.x, z: guard.root.position.z, homeX: guard.homePosition?.x, homeZ: guard.homePosition?.z });
     sweepScratch.push(guard.id);
   }
+  // 7차 — 비동기화 로컬 동굴·상자도 제거(겹침 방지). 제너레이터 직접 순회로 할당 0(predator/guard 루프와 동일).
+  // 탈퇴 후 복원을 위해 objType/위치 보관 — 상자는 opened 도 보관해 재개봉(이중 전리품)을 막는다.
+  for (const stat of world.chests()) {
+    if (hostIdByLocalId.has(stat.id)) continue;
+    if (stored) stored.push({ objType: stat.type, opened: stat.opened === true, x: stat.root.position.x, z: stat.root.position.z });
+    sweepScratch.push(stat.id);
+  }
+  for (const stat of world.caves()) {
+    if (hostIdByLocalId.has(stat.id)) continue;
+    if (stored) stored.push({ objType: stat.type, x: stat.root.position.x, z: stat.root.position.z });
+    sweepScratch.push(stat.id);
+  }
   for (const id of sweepScratch) world.removeObjectSilent(id);
   sweepScratch.length = 0;
   if (stored) {
-    if (stored.length > 120) stored.length = 120; // 복원 보관 상한 (야생 48 + 경비 — 경비가 잘려 영구 소실되지 않게 여유)
+    if (stored.length > 256) stored.length = 256; // 복원 보관 상한 (야생~48 + 경비~17 + 정적 누적분 여유)
     clearedMobsByMap.set(me.mapId, stored);
   }
   const now = performance.now();
@@ -409,6 +473,11 @@ function applyMobsSnapshot(mapId: string, list: MobSnapshot[]) {
     const existing = syncedByHostId.get(snap.id);
     if (!existing) {
       spawnSyncedMob(snap, now);
+      continue;
+    }
+    if (isStaticShareType(snap.objType)) {
+      // 정적 오브젝트 — 위치 고정. 개봉 상태 변화만 반영(틴트).
+      if (snap.objType !== "cave" && snap.opened && !existing.opened) world.markChestOpened(existing.id);
       continue;
     }
     const targetState = mobTargets.get(snap.id)!;
@@ -447,6 +516,18 @@ function applyMobAttackMotion(object: WorldObject, targetState: MobTargetState, 
 function spawnSyncedMob(snap: MobSnapshot, now: number) {
   const world = init!.world!;
   let object: WorldObject;
+  if (isStaticShareType(snap.objType)) {
+    // 7차 정적 오브젝트 — 동굴 입구·보물 상자. 호스트 위치 그대로 렌더.
+    object = snap.objType === "cave" ? world.spawnCave(snap.x, snap.z) : world.spawnChest(snap.x, snap.z, snap.objType === "mineChest", snap.opened === true);
+    object.partyTransient = true;
+    object.collidable = false; // 위치 비결정 — 게스트 지형의 물·건물과 겹칠 수 있어 이동 충돌은 끔. 입구는 시각 참조·상호작용(개봉/진입)만.
+    object.root.rotation.y = snap.yaw;
+    object.root.position.y = init!.getGroundHeightAt(snap.x, snap.z);
+    world.refreshSpatialObject(object);
+    syncedByHostId.set(snap.id, object);
+    hostIdByLocalId.set(object.id, snap.id);
+    return;
+  }
   if (isGuardType(snap.type)) {
     // 마을 경비 — main 의 spawnKnight/Golem/RangedGuard 위임(정적 스탯·비주얼). spawnGuard 가 내부에서 접지.
     object = world.spawnGuard(snap.type!, snap.x, snap.z, snap.villageId ?? "party-guard");
@@ -479,6 +560,7 @@ function removeSyncedMob(hostId: string) {
   syncedByHostId.delete(hostId);
   mobTargets.delete(hostId);
   pendingHitsByHostId.delete(hostId);
+  openRequestCooldown.delete(hostId);
   if (!object) return;
   hostIdByLocalId.delete(object.id);
   init?.world?.removeObjectSilent(object.id);
@@ -582,6 +664,18 @@ function publishDebug(session: PartySession | null) {
       const guard = init.world.spawnGuard("villageGolem", me.x + 4, me.z + 1, "test-village");
       init.world.enrageVillage("test-village", "테스트");
       return guard.id;
+    },
+    // E2E: 호스트가 자기 옆에 테스트 보물 상자를 스폰 (동굴·상자 공유 검증용)
+    spawnTestChest: () => {
+      if (!init?.world || hookedSession?.role !== "host") return false;
+      const me = init.localPresence();
+      return init.world.spawnChest(me.x + 3, me.z + 1, false, false).id;
+    },
+    chestLootGot: debugChestLootGot,
+    // E2E: 게스트가 특정 호스트 id 의 동기화 상자를 개봉 요청 (호스트 위임 루프 검증)
+    openSyncedChest: (hostId: string) => {
+      const object = syncedByHostId.get(hostId);
+      return object && (object.type === "chest" || object.type === "mineChest") ? partyGuestOpenIntercept(object) : false;
     },
   };
 }

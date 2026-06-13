@@ -73,6 +73,9 @@ export interface MobSnapshot {
   type?: string; // "villageKnight" | "villageArcher" | "villageMage" | "villageGolem"
   villageId?: string;
   guardMode?: string; // "melee" | "ranged"
+  // 7차 — 정적 오브젝트 공유 (동굴 입구·보물 상자)
+  objType?: string; // "cave" | "chest" | "mineChest"
+  opened?: boolean; // 상자 개봉 상태
 }
 
 export type PartyMessage =
@@ -91,7 +94,10 @@ export type PartyMessage =
   | { type: "mobHit"; nickname: string; amount: number; name: string; mapId: string }
   // 5.1 — 원격 플레이어 표현
   | { type: "playerAttack"; nickname: string; mapId: string; kind: "melee" | "ranged" | "skill"; visual?: "arrow" | "magic" | "wind" | "tnt"; speed?: number; life?: number; ox?: number; oy?: number; oz?: number; dx?: number; dy?: number; dz?: number }
-  | { type: "partyHeal"; recipient: string; amount: number; mapId: string };
+  | { type: "partyHeal"; recipient: string; amount: number; mapId: string }
+  // 7차 — 보물 상자 개봉 (호스트 권위)
+  | { type: "openRequest"; objectId: string }
+  | { type: "chestLoot"; opener: string; items: { item: string; count: number }[] };
 
 export function encodePartyMessage(message: PartyMessage): string {
   return JSON.stringify(message);
@@ -213,7 +219,7 @@ export class PartySession {
         link.presenceAt = performance.now();
       }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
-      if (message.type === "attackRequest" && link.nickname) this.emitGame(message, link.nickname);
+      if ((message.type === "attackRequest" || message.type === "openRequest") && link.nickname) this.emitGame(message, link.nickname);
       // 5.1 — 게스트가 보낸 공격 연출·파티 힐: 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
       if (message.type === "playerAttack" || message.type === "partyHeal") {
         this.emitGame(message, link.nickname ?? undefined);
@@ -265,7 +271,7 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
-        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal") {
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "chestLoot") {
           this.emitGame(message);
           return;
         }
