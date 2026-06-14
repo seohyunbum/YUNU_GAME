@@ -81,8 +81,14 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
   const mapY = (z: number) => half + z * scale;
   const playerX = mapX(view.player.x);
   const playerY = mapY(view.player.z);
-  const directionX = playerX - Math.sin(view.player.yaw) * 16;
-  const directionY = playerY - Math.cos(view.player.yaw) * 16;
+  // 바라보는 방향을 한눈에 — 점+선 대신 큰 방향 화살표(삼각형)로 표시
+  const fwdX = -Math.sin(view.player.yaw);
+  const fwdY = -Math.cos(view.player.yaw);
+  const perpX = -fwdY;
+  const perpY = fwdX;
+  const arrowTip = `${(playerX + fwdX * 28).toFixed(1)},${(playerY + fwdY * 28).toFixed(1)}`;
+  const arrowL = `${(playerX + perpX * 13 - fwdX * 7).toFixed(1)},${(playerY + perpY * 13 - fwdY * 7).toFixed(1)}`;
+  const arrowR = `${(playerX - perpX * 13 - fwdX * 7).toFixed(1)},${(playerY - perpY * 13 - fwdY * 7).toFixed(1)}`;
   const waters = view.waterZones
     .map((zone) => `<circle cx="${mapX(zone.center.x).toFixed(1)}" cy="${mapY(zone.center.z).toFixed(1)}" r="${(zone.radius * scale).toFixed(1)}" fill="#38bdf8" opacity="0.34"><title>${escapeHtml(zone.name)}</title></circle>`)
     .join("");
@@ -213,8 +219,8 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
           ${homes}
           ${party}
           ${bosses}
-          <line x1="${playerX.toFixed(1)}" y1="${playerY.toFixed(1)}" x2="${directionX.toFixed(1)}" y2="${directionY.toFixed(1)}" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
-          <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="9" fill="#fff7d6" stroke="#111827" stroke-width="3" />
+          <polygon points="${arrowTip} ${arrowL} ${arrowR}" fill="#ffe24a" stroke="#111827" stroke-width="3" stroke-linejoin="round"><title>내 위치 · 바라보는 방향</title></polygon>
+          <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="6.5" fill="#fff7d6" stroke="#111827" stroke-width="2.5" />
         </svg>
         <aside class="map-region-list">
           <div class="map-player-level">현재 Lv ${view.player.level}</div>
