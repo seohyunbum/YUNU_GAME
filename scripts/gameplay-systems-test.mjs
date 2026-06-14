@@ -485,6 +485,19 @@ try {
   }
 
   {
+    // 나무 막대기 퀘스트: 돌 곡괭이 '바로 직전' 위치 + 막대기 보유(4) 조건 + 이웃 사이 XP 비감소
+    const ids = objectives.TUTORIAL_STEPS.map((s) => s.id);
+    const si = ids.indexOf("craft_stick");
+    const pi = ids.indexOf("craft_pickaxe");
+    assert(si >= 0 && pi >= 0 && si === pi - 1, "craft_stick must sit immediately before craft_pickaxe");
+    const stickStep = objectives.TUTORIAL_STEPS[si];
+    const snap = (sticks) => ({ countItem: (it) => (it === "stick" ? sticks : 0), achievedStepIds: [], completedStepIds: [] });
+    assert(!stickStep.completed(snap(3)) && stickStep.completed(snap(4)), "craft_stick completes at 4 sticks");
+    const xp = (id) => objectives.TUTORIAL_STEPS.find((s) => s.id === id).reward.experience;
+    assert(xp("craft_shovel") <= xp("craft_stick") && xp("craft_stick") <= xp("craft_pickaxe"), "stick quest XP stays non-decreasing between its neighbors");
+  }
+
+  {
     // 필드 보스: ensure 스폰은 1회만, 처치 기록이 있으면 스폰 안 함, 보스 공식 스탯 적용
     let spawned = null;
     const defeated = [];
