@@ -3,6 +3,7 @@ import { applyStylizedMeshDefaults } from "../visuals";
 import { CAVE_CENTER_Z, CAVE_END_Z, CAVE_LENGTH, CAVE_START_Z, CAVE_WIDTH, HOUSE_CENTER_Z } from "./constants";
 import { spawnGrinder, spawnSmelter, spawnWorkbench } from "./placeableSpawns";
 import type { SpawnContext } from "./spawnContext";
+import type { BedTier } from "./constants";
 import type { HouseKind, ItemId, WorldObject } from "./types";
 
 // 동굴 셸 공유 지오메트리·재료 — 진입마다 새로 만들지 않는다.
@@ -245,7 +246,7 @@ function createHomeSupplyVisual(position: THREE.Vector3) {
   return group;
 }
 
-export function createHouseInterior(context: InteriorContext, chestRich: boolean, houseKind: HouseKind = "home", playerOwned = false) {
+export function createHouseInterior(context: InteriorContext, chestRich: boolean, houseKind: HouseKind = "home", playerOwned = false, bedTier: BedTier = "wood") {
   const room = new THREE.Group();
   const twoStory = houseKind === "twoStory";
   const floor = new THREE.Mesh(
@@ -306,7 +307,7 @@ export function createHouseInterior(context: InteriorContext, chestRich: boolean
     pillow.position.set(-0.8, 0.74, 0);
     bedGroup.add(bed, pillow);
     bedGroup.position.set(-3.15, 0, HOUSE_CENTER_Z - 2.9);
-    const bedObject = context.addWorldObject("bed", "내 침대", bedGroup, { homeBed: true, collidable: true, collisionRadius: 1.1, collisionHeight: 0.8 });
+    const bedObject = context.addWorldObject("bed", "내 침대", bedGroup, { homeBed: true, bedTier, collidable: true, collisionRadius: 1.1, collisionHeight: 0.8 });
     context.trackHouseObjects(bedObject.id);
   } else {
     room.add(bed);

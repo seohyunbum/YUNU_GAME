@@ -10,6 +10,7 @@ export const HOUSE_BUILD_OPTIONS: HouseBuildOption[] = [
     houseKind: "home",
     variant: 0,
     craftXp: 100,
+    bedTier: "wood",
   },
   {
     id: "stone_house",
@@ -19,6 +20,7 @@ export const HOUSE_BUILD_OPTIONS: HouseBuildOption[] = [
     houseKind: "home",
     variant: 1,
     craftXp: 150,
+    bedTier: "stone",
   },
   {
     id: "two_story_house",
@@ -28,5 +30,6 @@ export const HOUSE_BUILD_OPTIONS: HouseBuildOption[] = [
     houseKind: "twoStory",
     variant: 3,
     craftXp: 200,
+    bedTier: "twoStory",
   },
 ];

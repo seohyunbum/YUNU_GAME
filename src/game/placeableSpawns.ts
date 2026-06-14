@@ -21,6 +21,7 @@ export function spawnBed(context: SpawnContext, position: THREE.Vector3, rotatio
       collidable: true,
       collisionRadius: 1.45,
       collisionHeight: 0.9,
+      bedTier: "crafted",
     },
   });
 }

@@ -22,6 +22,7 @@ import { HOME_STORAGE_SLOTS, HOME_SUPPLY_COOLDOWN_SECONDS } from "./homeBase";
 import { normalizeTrainingStats } from "./training";
 import { normalizeCraftStatAlloc } from "./craftLevel";
 import { normalizeDefeatedFieldBosses } from "./fieldBosses";
+import type { BedTier } from "./constants";
 import type { CompanionProgress, HouseKind, ItemId, LocationMode, PartialSavedGame, PlayerClassId, SavedGame, SavedObject, SavedVector, SavedWorldState, Slot, TutorialProgress, WorldMapId } from "./types";
 
 const DEFAULT_POSITION: SavedVector = { x: 0, y: PLAYER_HEIGHT, z: 12 };
@@ -93,6 +94,10 @@ export function savedLocationMode(value: unknown): LocationMode {
 
 export function savedHouseKind(value: unknown): HouseKind {
   return value === "blacksmith" || value === "twoStory" || value === "home" ? value : "home";
+}
+
+export function savedBedTier(value: unknown): BedTier {
+  return value === "stone" || value === "twoStory" || value === "crafted" ? value : "wood";
 }
 
 export function isPlayerClassId(value: unknown): value is PlayerClassId {
@@ -263,6 +268,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       ironGuardRemainingMs: savedNumber(player.ironGuardRemainingMs, 0, 0, IRON_GUARD_DURATION_SECONDS * 1000),
       locationMode: savedLocationMode(player.locationMode),
       currentHouseKind: savedHouseKind(player.currentHouseKind),
+      currentHouseBedTier: savedBedTier(player.currentHouseBedTier),
       currentHouseOwned: player.currentHouseOwned === true,
       trainingStats: normalizeTrainingStats(player.trainingStats),
       craftLevel: savedInteger(player.craftLevel, 1, 1, 999),

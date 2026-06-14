@@ -1560,6 +1560,9 @@ try {
     const migratedRich = migrateSaveData(richSave);
     assert(migratedRich.player.craftLevel === 5 && migratedRich.player.craftExperience === 30 && migratedRich.player.craftStatPoints === 2, "existing craft progress should survive migration");
     assert(migratedRich.player.craftStatAlloc.hp === 4 && migratedRich.player.craftStatAlloc.mana === 0 && migratedRich.player.craftStatAlloc.attack === 2, "craft alloc should be clamped/floored on migration");
+    // 집 안에서 저장했다 로드 시 침대 등급이 보존되어야 함 (마이그레이션이 currentHouseBedTier 를 누락하면 wood 로 회귀 — 회귀 가드)
+    assert(migrateSaveData({ version: 11, player: { level: 3, playerClass: "warrior", locationMode: "house", currentHouseBedTier: "twoStory" } }).player.currentHouseBedTier === "twoStory", "currentHouseBedTier should survive migration");
+    assert(migrateSaveData(baseSave).player.currentHouseBedTier === "wood", "missing currentHouseBedTier should default to wood");
   }
 
   {
@@ -1861,6 +1864,17 @@ try {
     assert(houseXp.stone_house === 150, `stone house craft xp should be 150, got ${houseXp.stone_house}`);
     assert(houseXp.two_story_house === 200, `two-story house craft xp should be 200, got ${houseXp.two_story_house}`);
     assert(HOUSE_BUILD_OPTIONS.every((o) => typeof o.craftXp === "number" && o.craftXp > 0), "every house option grants craft xp");
+    // 집별 침대 등급(휴식 회복 차등): 통나무집=wood / 돌집=stone / 이층집=twoStory
+    const houseBed = Object.fromEntries(HOUSE_BUILD_OPTIONS.map((o) => [o.id, o.bedTier]));
+    assert(houseBed.wood_cabin === "wood" && houseBed.stone_house === "stone" && houseBed.two_story_house === "twoStory", `house bed tiers mismatch: ${JSON.stringify(houseBed)}`);
+    // 침대 등급별 휴식 회복 — 직접제작 > 이층집 > 돌집 > 통나무집 (mult·floor 모두 단조 증가)
+    const { BED_REST_PROFILE } = await server.ssrLoadModule("/src/game/constants.ts");
+    const order = ["wood", "stone", "twoStory", "crafted"];
+    for (let i = 1; i < order.length; i += 1) {
+      const lo = BED_REST_PROFILE[order[i - 1]], hi = BED_REST_PROFILE[order[i]];
+      assert(hi.mult > lo.mult && hi.floorPerSec > lo.floorPerSec, `bed rest profile must increase ${order[i - 1]}→${order[i]}: ${JSON.stringify({ lo, hi })}`);
+    }
+    assert(BED_REST_PROFILE.crafted.mult === 7 && BED_REST_PROFILE.wood.mult === 4, "crafted=7x best, wood=4x weakest");
   }
 
   {

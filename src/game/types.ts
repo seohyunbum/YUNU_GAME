@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { BedTier } from "./constants";
 
 export type ItemId = string;
 export type TerrainKind = "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp" | "lava" | "savanna";
@@ -164,6 +165,7 @@ export interface WorldObject {
   houseKind?: HouseKind;
   playerOwned?: boolean;
   homeBed?: boolean;
+  bedTier?: BedTier;
   trainingKind?: TrainingKind;
   lockedStation?: boolean;
   harvestProgress?: number;
@@ -232,6 +234,7 @@ export interface SavedObject {
   houseChestRich?: boolean;
   houseKind?: HouseKind;
   playerOwned?: boolean;
+  bedTier?: BedTier;
   lockedStation?: boolean;
   harvestProgress?: number;
   antMeatRemaining?: number;
@@ -299,6 +302,7 @@ export interface SavedGame {
     ironGuardRemainingMs?: number;
     locationMode: LocationMode;
     currentHouseKind?: HouseKind;
+    currentHouseBedTier?: BedTier;
     currentHouseOwned?: boolean;
     homeStorage?: Slot[];
     homeSupplyCooldownSeconds?: number;
@@ -453,6 +457,7 @@ export interface HouseBuildOption {
   houseKind: HouseKind;
   variant: number;
   craftXp: number;
+  bedTier: BedTier;
 }
 
 export interface BiomeConfig {

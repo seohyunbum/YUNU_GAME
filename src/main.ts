@@ -170,7 +170,7 @@ import {
   RANGED_ATTACK_COOLDOWN,
   RUN_MULTIPLIER,
   MAX_SAVE_SLOTS,
-  AUTOSAVE_INTERVAL_SECONDS,
+  AUTOSAVE_INTERVAL_SECONDS, BED_REST_PROFILE,
   SMITHING_HITS_REQUIRED,
   SMITHING_ROUND_SECONDS,
   SMITHING_SUCCESS_POINTS,
@@ -499,7 +499,8 @@ class WildernessGame {
   private hunger = HUNGER_MAX;
   private hungerTimer = 0;
   private starvationNoticeTimer = 0;
-  private isResting = false; // 침대 휴식 중 — 체력 회복 5배, 풀피/이동/피격 시 해제
+  private isResting = false; // 침대 휴식 중 — 회복 가속, 풀피/이동(0.6 이탈)/피격 시 해제. 휴식 중인 침대는 충돌 면제(밀려나 깨지 않게)
+  private restingBedTier: keyof typeof BED_REST_PROFILE = "crafted"; // 침대 등급 — 직접제작 > 이층집 > 돌집 > 통나무집
   private readonly restAnchor = new THREE.Vector3();
   private dragonSpawnTimer = 0;
   private lastDamageTaken = 0;
@@ -602,7 +603,7 @@ class WildernessGame {
   private equippedArmor: ItemId | null = null;
   private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0;
   private locationMode: LocationMode = "overworld";
-  private currentHouseKind: HouseKind = "home";
+  private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
   private caveReturnPosition: THREE.Vector3 | null = null;
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
@@ -2780,10 +2781,10 @@ class WildernessGame {
     if (this.isResting && (this.currentPanel !== null || this.playerPosition.distanceTo(this.restAnchor) > 0.6)) {
       this.isResting = false; this.showMessage("침대에서 일어났습니다."); this.renderHud();
     }
-    const restMul = this.isResting ? 5 : 1; // 휴식 중 회복 5배
+    const restMul = this.isResting ? BED_REST_PROFILE[this.restingBedTier].mult : 1; // 침대 등급별 회복 배수
     const hungerLevel = Math.min(HUNGER_HP_REGEN.length - 1, Math.max(0, Math.floor(this.hunger)));
     let healthRegen = (CLASS_PASSIVES[this.playerClass].healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel]) * restMul;
-    if (this.isResting) healthRegen = Math.max(healthRegen, this.maxHealth * 0.1); // 레벨 무관 풀피까지 ~10초 보장
+    if (this.isResting) healthRegen = Math.max(healthRegen, this.maxHealth * BED_REST_PROFILE[this.restingBedTier].floorPerSec); // 등급별 레벨무관 풀피 보장(통나무 ~12.5s ~ 직접제작 ~7s)
     if (this.hunger <= 0) healthRegen = 0; // 배고픔 0 — 체력 회복 없음(데미지도 없음)
     if (healthRegen > 0 && this.health < this.maxHealth) {
       const previousHealth = Math.floor(this.health);
@@ -3123,6 +3124,7 @@ class WildernessGame {
       let changed = false;
       for (const object of this.objectsNear(position, 7)) {
         if (!object.collidable) continue;
+        if (this.isResting && object.type === "bed") continue; // 휴식 중인 침대엔 밀려나지 않게 (살짝 빗나가도 침대 밖으로 튕겨 깨지 않도록)
         if (object.collisionSegments?.length) {
           if (this.resolveSegmentCollisions(position, object, playerHeight)) changed = true;
           continue;
@@ -4028,14 +4030,11 @@ class WildernessGame {
   private sleepInBed(target: WorldObject) {
     if (target.type !== "bed") return;
     if (this.health >= this.maxHealth) { this.showMessage("체력이 이미 가득합니다."); return; }
-    // 즉시 회복이 아니라 침대에 누워 휴식 — 체력이 평소보다 빠르게 회복되고, 풀피가 되면 자동으로 일어난다.
-    this.playerPosition.x = target.root.position.x;
-    this.playerPosition.z = target.root.position.z;
-    this.restAnchor.copy(this.playerPosition);
-    this.isResting = true;
+    // 침대에 누워 휴식 — 침대 정중심으로 snap, 등급별 회복 가속, 풀피/이동 시 자동 기상.
+    this.playerPosition.x = target.root.position.x; this.playerPosition.z = target.root.position.z;
+    this.restAnchor.copy(this.playerPosition); this.isResting = true; this.restingBedTier = target.bedTier ?? "crafted";
     if (target.homeBed) { this.mana = this.maxMana; this.hunger = Math.min(HUNGER_MAX, this.hunger + 1); }
-    this.playHandAction();
-    this.playTone(660, 0.12, "triangle", 0.028);
+    this.playHandAction(); this.playTone(660, 0.12, "triangle", 0.028);
     this.showMessage("침대에 누웠습니다. 체력이 빠르게 회복됩니다 (움직이면 일어납니다).");
     this.renderHud();
   }
@@ -4291,8 +4290,9 @@ class WildernessGame {
     const houseKind = target.type === "blacksmith" ? "blacksmith" : target.houseKind ?? "home";
     this.currentHouseKind = houseKind;
     this.currentHouseOwned = Boolean(target.playerOwned);
+    this.currentHouseBedTier = target.bedTier ?? "wood";
     if (target.houseChestRich === undefined) target.houseChestRich = houseKind === "blacksmith" || Math.random() < 0.01;
-    createHouseInterior(this.interiorContext, target.houseChestRich, houseKind, this.currentHouseOwned);
+    createHouseInterior(this.interiorContext, target.houseChestRich, houseKind, this.currentHouseOwned, this.currentHouseBedTier);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "house:" + houseKind);
     this.playTransitionSound("enter");
     this.showMessage(
@@ -5584,6 +5584,7 @@ class WildernessGame {
         locationMode: this.locationMode,
         currentHouseKind: this.currentHouseKind,
         currentHouseOwned: this.currentHouseOwned,
+        currentHouseBedTier: this.currentHouseBedTier,
         trainingStats: this.trainingStats,
         homeStorage: this.homeStorage,
         homeSupplyCooldownSeconds: this.homeSupplyCooldownSeconds,
@@ -5681,6 +5682,7 @@ class WildernessGame {
     this.locationMode = save.player.locationMode;
     this.currentHouseKind = save.player.currentHouseKind ?? "home";
     this.currentHouseOwned = save.player.currentHouseOwned === true;
+    this.currentHouseBedTier = save.player.currentHouseBedTier ?? "wood";
     this.trainingStats = normalizeTrainingStats(save.player.trainingStats);
     this.homeStorage = normalizeHomeStorage(save.player.homeStorage);
     this.homeSupplyCooldownSeconds = Math.max(0, save.player.homeSupplyCooldownSeconds ?? 0);
@@ -5699,7 +5701,7 @@ class WildernessGame {
       createCaveInterior(this.interiorContext);
     } else if (this.locationMode === "house") {
       this.setHouseAtmosphere();
-      createHouseInterior(this.interiorContext, false, this.currentHouseKind, this.currentHouseOwned);
+      createHouseInterior(this.interiorContext, false, this.currentHouseKind, this.currentHouseOwned, this.currentHouseBedTier);
     } else {
       this.setOverworldAtmosphere();
     }
@@ -6020,6 +6022,7 @@ class WildernessGame {
     object.houseChestRich = savedObject.houseChestRich;
     object.houseKind = savedObject.houseKind;
     object.playerOwned = savedObject.playerOwned;
+    object.bedTier = savedObject.bedTier;
     object.lockedStation = savedObject.lockedStation;
     object.harvestProgress = savedObject.harvestProgress;
     object.antMeatRemaining = savedObject.antMeatRemaining;
@@ -6801,10 +6804,7 @@ class WildernessGame {
     }
     for (const [item, count] of Object.entries(option.ingredients)) this.removeItem(item, count);
     const house = this.spawnVillageHouse(position, option.name, false, `player-house-${crypto.randomUUID()}`, option.variant, { deluxe: true, signLabel: `${this.nickname || "나"}의 집` });
-    house.houseKind = option.houseKind;
-    house.name = option.name;
-    house.houseChestRich = false;
-    house.playerOwned = true;
+    house.houseKind = option.houseKind; house.name = option.name; house.houseChestRich = false; house.playerOwned = true; house.bedTier = option.bedTier;
     this.showMessage(`${option.name}을 지었습니다! 내 집 = 안전지대 + 침대 휴식(빠른 회복) + 집 창고 + 보급 상자 + 죽어도 집 앞 부활. 지도(M)에 표시됩니다.`);
     this.awardCraftXp(option.craftXp); // 막대한 재료를 들인 집 건축도 제작 경험치로 보상
     this.renderInventoryPanel();

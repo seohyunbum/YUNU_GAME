@@ -1,4 +1,5 @@
 import { SAVE_BUILD_ID, SAVE_VERSION } from "./constants";
+import type { BedTier } from "./constants";
 import { normalizeBossChapter } from "./bossChapters";
 import type {
   HouseKind,
@@ -61,6 +62,7 @@ export interface SaveDataSnapshot {
     ironGuardUntil: number;
     locationMode: LocationMode;
     currentHouseKind: HouseKind;
+    currentHouseBedTier: BedTier;
     currentHouseOwned: boolean;
     trainingStats: { hp: number; attack: number; armor: number; mana: number };
     homeStorage: readonly Slot[];
@@ -161,6 +163,7 @@ export function createSavedWorldState(snapshot: Pick<SaveDataSnapshot, "nowMs" |
         houseChestRich: object.houseChestRich,
         houseKind: object.houseKind,
         playerOwned: object.playerOwned,
+        bedTier: object.bedTier,
         lockedStation: object.lockedStation,
         harvestProgress: object.harvestProgress,
         antMeatRemaining: object.antMeatRemaining,
@@ -230,6 +233,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       ironGuardRemainingMs: Math.max(0, snapshot.player.ironGuardUntil - snapshot.nowMs),
       locationMode: snapshot.player.locationMode,
       currentHouseKind: snapshot.player.currentHouseKind,
+      currentHouseBedTier: snapshot.player.currentHouseBedTier,
       currentHouseOwned: snapshot.player.currentHouseOwned,
       trainingStats: { ...snapshot.player.trainingStats },
       homeStorage: cloneSlots(snapshot.player.homeStorage),
