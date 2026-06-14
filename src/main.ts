@@ -79,7 +79,7 @@ import { rollChestLoot, rollChestTier } from "./game/chestLoot";
 import { applyBossDefeat, bossLockMessage, DRAGON_RESPAWN_MS, ensureChapterBoss, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter, type ChapterBossContext } from "./game/bossChapters";
 import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
 import { createFinaleState, startFinale, startMiniFanfare, updateFinale, type FinaleContext } from "./game/finale";
-import { fieldBossDefeatMessage, fieldBossQuestFor, updateFieldBosses, type FieldBossContext } from "./game/fieldBosses";
+import { fieldBossDefeatMessage, updateFieldBosses, type FieldBossContext } from "./game/fieldBosses";
 import { showEndingScreen } from "./ui/endingScreen";
 import {
   createArrowProjectile,
@@ -6188,7 +6188,7 @@ class WildernessGame {
       trainingTotal: this.trainingStats.hp + this.trainingStats.attack + this.trainingStats.armor + this.trainingStats.mana,
       trainingKindsDone: [this.trainingStats.hp, this.trainingStats.attack, this.trainingStats.armor, this.trainingStats.mana].filter((count) => count > 0).length,
       bossChapter: this.bossChapter,
-      fieldBossQuest: fieldBossQuestFor(this.currentWorldMapId, this.defeatedFieldBosses),
+      defeatedFieldBosses: this.defeatedFieldBosses,
       completedStepIds: this.tutorialProgress.completedStepIds,
       achievedStepIds: this.tutorialProgress.achievedStepIds,
     };

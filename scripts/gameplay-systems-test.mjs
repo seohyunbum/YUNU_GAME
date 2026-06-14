@@ -474,7 +474,7 @@ try {
       health: 10, hunger: 5, countItem: () => 0, totalSteps: 60, level: 1,
       inCave: false, predatorKills: 0, mapOpened: false, saved: false, shopOpened: false,
       hasWorkbench, hasPickaxe: false, hasBag: false, playerClass: "warrior", classWeaponCount: 0, hasBasicArmor: false,
-      hasSmelter: false, bossChapter: 0, fieldBossQuest: null,
+      hasSmelter: false, bossChapter: 0, defeatedFieldBosses: [],
       completedStepIds: progress.completedStepIds, achievedStepIds: progress.achievedStepIds,
     });
     latchAchievedObjectives(progress, makeSnapshot(true));
@@ -495,6 +495,33 @@ try {
     assert(!stickStep.completed(snap(3)) && stickStep.completed(snap(4)), "craft_stick completes at 4 sticks");
     const xp = (id) => objectives.TUTORIAL_STEPS.find((s) => s.id === id).reward.experience;
     assert(xp("craft_shovel") <= xp("craft_stick") && xp("craft_stick") <= xp("craft_pickaxe"), "stick quest XP stays non-decreasing between its neighbors");
+    // 보강: 확장 제작대 퀘스트가 졸업(craft_basic_weapon) 바로 직전 + 보유 조건 (거너 소총 등 확장 제작대 필요 대비)
+    const ei = ids.indexOf("craft_extended_workbench");
+    const gi = ids.indexOf("craft_basic_weapon");
+    assert(ei >= 0 && gi >= 0 && ei === gi - 1, "craft_extended_workbench must sit immediately before the graduation quest");
+    const extStep = objectives.TUTORIAL_STEPS[ei];
+    const extSnap = (n) => ({ countItem: (it) => (it === "extended_workbench" ? n : 0), achievedStepIds: [], completedStepIds: [] });
+    assert(!extStep.completed(extSnap(0)) && extStep.completed(extSnap(1)), "extended workbench quest completes when one is owned (requires actually crafting it)");
+  }
+
+  {
+    // 보스 퀘스트: 튜토리얼 이후 필드보스 + 챕터 드래곤을 권장 레벨 오름차순으로 한 줄에 엮어 다음 미처치 보스를 제시
+    const allIds = objectives.TUTORIAL_STEPS.map((s) => s.id);
+    const base = (extra) => ({
+      health: 10, hunger: 5, countItem: () => 999, totalSteps: 9999, level: 200,
+      inCave: false, predatorKills: 99, mapOpened: true, saved: true, shopOpened: true,
+      hasWorkbench: true, hasPickaxe: true, hasBag: true, playerClass: "warrior", classWeaponCount: 9, hasBasicArmor: true,
+      hasSmelter: true, trainingTotal: 99, trainingKindsDone: 4, bossChapter: 0, defeatedFieldBosses: [],
+      completedStepIds: [...allIds], achievedStepIds: [...allIds], ...extra,
+    });
+    const first = objectives.currentObjective(base({}));
+    assert(first.id === "boss_starter_valley" && first.title.includes("권장 Lv 26") && first.completed === false, "lowest-level boss (Lv26 starter field boss) is the first post-tutorial objective, undefeated");
+    const defeated = objectives.currentObjective(base({ defeatedFieldBosses: ["boss_starter_valley"] }));
+    assert(defeated.id === "boss_starter_valley" && defeated.completed === true && defeated.kind === "tutorial", "defeated-but-unclaimed field boss is claimable for its reward");
+    const afterStarter = objectives.currentObjective(base({ defeatedFieldBosses: ["boss_starter_valley"], completedStepIds: [...allIds, "boss_starter_valley"] }));
+    assert(afterStarter.id === "boss_progression" && afterStarter.title.includes("챕터 1") && afterStarter.title.includes("권장 Lv 30"), "after the Lv26 field boss, the Lv30 chapter-1 dragon is next (interleaved by level)");
+    const afterCh1 = objectives.currentObjective(base({ defeatedFieldBosses: ["boss_starter_valley"], completedStepIds: [...allIds, "boss_starter_valley"], bossChapter: 1 }));
+    assert(afterCh1.id === "boss_dragon_plains" && afterCh1.title.includes("권장 Lv 33"), "after chapter 1 dragon, the Lv33 field boss is next — field & chapter bosses interspersed by recommended level");
   }
 
   {

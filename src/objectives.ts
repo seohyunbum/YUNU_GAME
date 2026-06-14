@@ -1,6 +1,6 @@
-import { FINAL_BOSS_CHAPTER, nextBossTarget } from "./game/bossChapters";
+import { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER } from "./game/bossChapters";
 import { getWorldMapById } from "./game/worldMaps";
-import type { FieldBossQuestView } from "./game/fieldBosses";
+import { FIELD_BOSSES } from "./game/fieldBosses";
 import { BOSS_STATS } from "./game/monsters";
 import type { ItemId, PlayerClassId, TutorialProgress } from "./game/types";
 
@@ -35,7 +35,7 @@ export interface ObjectiveSnapshot {
   trainingTotal: number;
   trainingKindsDone: number;
   bossChapter: number;
-  fieldBossQuest: FieldBossQuestView | null;
+  defeatedFieldBosses: readonly string[];
   completedStepIds: readonly string[];
   achievedStepIds: readonly string[];
 }
@@ -158,6 +158,8 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   countQuest("reach_level8", 8, (s) => s.level, "레벨 8 달성하기", "몬스터 사냥과 퀘스트 보상으로 경험치를 모으세요. 레벨이 오를 때마다 체력·공격·방어가 +1씩 늘어납니다.", { experience: 400, items: { iron: 6, gold: 3 }, label: "경험치 400 + 철 6개 + 금 3개" }),
   countQuest("train_once", 1, (s) => Math.min(1, s.trainingTotal), "훈련장에서 훈련 1번 성공하기", "시작 초원 마을 동쪽의 울타리 훈련장(레벨 10부터)에서 역기들기·과녁맞추기 같은 훈련에 도전하세요. 성공하면 스탯이 영구히 오릅니다!", { experience: 420, items: { medkit: 2 }, label: "경험치 420 + 구급상자 2개" }),
   countQuest("train_all_kinds", 4, (s) => s.trainingKindsDone, "네 가지 훈련 모두 성공하기", "역기들기(체력)·과녁맞추기(공격)·방패막기(방어)·명상호흡(마나)을 한 번씩 성공해 보세요. 훈련은 할수록 어려워지지만 스탯은 계속 쌓입니다.", { experience: 460, items: { diamond: 1, medkit: 2 }, label: "경험치 460 + 다이아몬드 1개 + 구급상자 2개" }),
+  // ── 졸업 준비 ──
+  checkQuest("craft_extended_workbench", (s) => s.countItem("extended_workbench") > 0, "확장 제작대 만들기", "일반 3x3 제작대에 제작대(crafting_table) 2개를 넣으면 6x6 확장 제작대가 됩니다. 소총·비전 지팡이·거울 등 최상급 장비는 확장 제작대에서만 만들 수 있습니다. 제작대는 나무 3 + 망치 1로 만들고, 설치한 제작대도 회수해 다시 쓸 수 있습니다.", { experience: 480, items: { refined_iron: 4 }, label: "경험치 480 + 제련된 철 4개" }),
   // ── 졸업 과제 ──
   {
     id: "craft_basic_weapon",
@@ -201,26 +203,33 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
       kind: "tutorial",
     };
   }
-  // 맵 필드 보스 퀘스트 — 현재 맵의 보스가 살아 있거나(처치 안내) 처치 후 보상 미수령이면 표시
-  const fieldBossQuest = snapshot.fieldBossQuest;
-  if (fieldBossQuest && !completed(snapshot, fieldBossQuest.id)) {
-    return {
-      id: fieldBossQuest.id,
-      title: `${fieldBossQuest.mapName}의 ${fieldBossQuest.bossName} 처치하기 (${fieldBossQuest.defeated ? 1 : 0}/1)`,
-      detail: `이 맵 어딘가에 Lv ${fieldBossQuest.level} ${fieldBossQuest.bossName}이(가) 있습니다. 지도(M)에 위치가 표시됩니다. 한 번 처치하면 다시 나타나지 않습니다.`,
-      progress: fieldBossQuest.defeated ? "처치 완료 — 클릭해서 보상 받기" : "맵 보스",
-      reward: { experience: fieldBossQuest.rewardExperience, items: fieldBossQuest.rewardItems, label: fieldBossQuest.rewardLabel },
-      completed: fieldBossQuest.defeated,
-      kind: "tutorial",
-    };
-  }
-
-  const nextBoss = nextBossTarget(snapshot.bossChapter);
-  if (nextBoss) {
+  // 튜토리얼 이후 — 맵 필드 보스 + 챕터 드래곤을 권장 레벨 오름차순으로 한 줄에 엮어 다음 미처치 보스를 제시한다.
+  // (필드보스: 처치 시 보상 수령형 / 챕터 드래곤: 봉인 해제 안내형. 레벨순이라 챕터 순서도 자연히 보존된다.)
+  const defeatedFieldBosses = snapshot.defeatedFieldBosses ?? [];
+  const bossLine = [
+    ...FIELD_BOSSES.map((def) => ({ kind: "field" as const, level: def.level, def })),
+    ...BOSS_PROGRESSION.map((step, index) => ({ kind: "chapter" as const, level: step.recommendedLevel, step, index })),
+  ].sort((a, b) => a.level - b.level);
+  for (const entry of bossLine) {
+    if (entry.kind === "field") {
+      if (completed(snapshot, entry.def.id)) continue; // 보상까지 수령 완료한 필드보스는 건너뜀
+      const defeated = defeatedFieldBosses.includes(entry.def.id);
+      const mapName = getWorldMapById(entry.def.mapId).name;
+      return {
+        id: entry.def.id,
+        title: `${mapName}의 ${entry.def.name} 처치하기 (권장 Lv ${entry.def.level}) (${defeated ? 1 : 0}/1)`,
+        detail: `${mapName}에 Lv ${entry.def.level} ${entry.def.name}이(가) 있습니다. 지도(M)에서 해당 맵으로 이동하면 위치가 표시됩니다. 한 번 처치하면 다시 나타나지 않습니다.`,
+        progress: defeated ? "처치 완료 — 클릭해서 보상 받기" : `권장 Lv ${entry.def.level}`,
+        reward: { experience: entry.def.rewardExperience, items: entry.def.rewardItems, label: entry.def.rewardLabel },
+        completed: defeated,
+        kind: "tutorial",
+      };
+    }
+    if (snapshot.bossChapter > entry.index) continue; // 이미 클리어한 챕터 드래곤은 건너뜀
     return {
       id: "boss_progression",
-      title: `챕터 ${nextBoss.chapter}/${FINAL_BOSS_CHAPTER} — ${BOSS_STATS[nextBoss.kind].name} 처치 준비하기`,
-      detail: `${getWorldMapById(nextBoss.mapId).name}에 있습니다 (지도 M에서 텔레포트, 권장 레벨 ${nextBoss.recommendedLevel} 이상). 장비를 강화한 뒤 처치하면 다음 보스의 봉인이 풀립니다.`,
+      title: `챕터 ${entry.step.chapter}/${FINAL_BOSS_CHAPTER} — ${BOSS_STATS[entry.step.kind].name} 처치하기 (권장 Lv ${entry.step.recommendedLevel})`,
+      detail: `${getWorldMapById(entry.step.mapId).name}에 있습니다 (지도 M에서 텔레포트, 권장 레벨 ${entry.step.recommendedLevel} 이상). 장비를 강화한 뒤 처치하면 다음 보스의 봉인이 풀립니다.`,
       progress: `챕터 ${snapshot.bossChapter}/${FINAL_BOSS_CHAPTER} 클리어`,
       reward: { experience: 0, label: "보스 전리품과 다음 성장 단계" },
       completed: false,
