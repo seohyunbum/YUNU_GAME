@@ -491,7 +491,6 @@ class WildernessGame {
   private playerBodyPosition: THREE.Vector3 | null = null;
   private hunger = HUNGER_MAX;
   private hungerTimer = 0;
-  private starvationTimer = 0;
   private starvationNoticeTimer = 0;
   private isResting = false; // 침대 휴식 중 — 체력 회복 5배, 풀피/이동/피격 시 해제
   private readonly restAnchor = new THREE.Vector3();
@@ -729,7 +728,7 @@ class WildernessGame {
     setHealth: (value) => { this.health = value; },
     setHunger: (value) => { this.hunger = value; },
     setHealItemCooldownUntil: (value) => { this.healItemCooldownUntil = value; },
-    resetStarvationTimer: () => { this.starvationTimer = 0; },
+    resetStarvationTimer: () => { this.starvationNoticeTimer = 0; },
     openPanel: (panel) => this.openPanel(panel),
     fireRangedWeapon: (item) => this.fireRangedWeapon(item),
     useSelectedBucketOnLook: () => this.useSelectedBucketOnLook(null, true),
@@ -2728,29 +2727,21 @@ class WildernessGame {
       this.hungerTimer -= HUNGER_TICK_SECONDS;
       if (this.hunger > 0) {
         this.hunger -= 1;
-        this.showMessage(this.hunger > 0 ? `배고픔이 줄었습니다. ${this.hunger}/${HUNGER_MAX}` : "배고픔이 0입니다. 고기를 먹지 않으면 체력이 줄어듭니다.");
+        this.showMessage(this.hunger > 0 ? `배고픔이 줄었습니다. ${this.hunger}/${HUNGER_MAX}` : "배고픔이 0입니다. 고기를 먹기 전까지 체력·마나가 회복되지 않습니다.");
         this.renderHud();
       }
     }
 
     if (this.hunger > 0) {
-      this.starvationTimer = 0;
       this.starvationNoticeTimer = 0;
       return;
     }
 
-    this.starvationTimer += delta;
+    // 배고픔 0 — 체력이 닳지는 않고, HP/MP 회복만 멈춘다(updateMana 에서 처리).
     this.starvationNoticeTimer += delta;
-    while (this.starvationTimer >= 1) {
-      this.starvationTimer -= 1;
-      if (this.damagePlayer(1, false, "굶주림으로 체력이 모두 떨어졌습니다.", true)) {
-        this.starvationNoticeTimer = 0;
-        return;
-      }
-    }
-    if (this.starvationNoticeTimer >= 5) {
+    if (this.starvationNoticeTimer >= 8) {
       this.starvationNoticeTimer = 0;
-      this.showMessage("너무 배고파서 체력이 줄고 있습니다. 고기를 먹어야 합니다.");
+      this.showMessage("배고픔이 0입니다. 고기를 먹기 전까지 체력·마나가 회복되지 않습니다.");
     }
   }
 
@@ -2773,6 +2764,7 @@ class WildernessGame {
     const hungerLevel = Math.min(HUNGER_HP_REGEN.length - 1, Math.max(0, Math.floor(this.hunger)));
     let healthRegen = (CLASS_PASSIVES[this.playerClass].healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel]) * restMul;
     if (this.isResting) healthRegen = Math.max(healthRegen, this.maxHealth * 0.1); // 레벨 무관 풀피까지 ~10초 보장
+    if (this.hunger <= 0) healthRegen = 0; // 배고픔 0 — 체력 회복 없음(데미지도 없음)
     if (healthRegen > 0 && this.health < this.maxHealth) {
       const previousHealth = Math.floor(this.health);
       this.health = Math.min(this.maxHealth, this.health + healthRegen * delta);
@@ -2781,7 +2773,7 @@ class WildernessGame {
     if (this.isResting && this.health >= this.maxHealth) {
       this.isResting = false; this.showMessage("체력이 가득 회복되어 침대에서 일어났습니다."); this.renderHud();
     }
-    if (this.mana >= this.maxMana) return;
+    if (this.mana >= this.maxMana || this.hunger <= 0) return; // 배고픔 0 이면 마나도 회복 안 됨
     const previous = Math.floor(this.mana);
     const manaRegenScale = CLASS_PASSIVES[this.playerClass].manaRegenScale * restMul;
     this.mana = Math.min(this.maxMana, this.mana + MANA_REGEN_PER_SECOND * manaRegenScale * delta);
@@ -4036,7 +4028,6 @@ class WildernessGame {
     this.restAnchor.copy(this.playerPosition);
     this.isResting = true;
     if (target.homeBed) { this.mana = this.maxMana; this.hunger = Math.min(HUNGER_MAX, this.hunger + 1); }
-    this.starvationTimer = 0;
     this.playHandAction();
     this.playTone(660, 0.12, "triangle", 0.028);
     this.showMessage("침대에 누웠습니다. 체력이 빠르게 회복됩니다 (움직이면 일어납니다).");
@@ -4942,7 +4933,6 @@ class WildernessGame {
       this.health = this.maxHealth;
       this.hunger = HUNGER_MAX;
       this.hungerTimer = 0;
-      this.starvationTimer = 0;
       if (this.locationMode === "cave") {
         this.locationMode = "overworld";
         this.clearCaveObjects();
@@ -5667,7 +5657,6 @@ class WildernessGame {
     this.hungerTimer = save.player.hungerTimer ?? 0;
     this.worldTimeSeconds = save.player.worldTimeSeconds ?? DAY_LENGTH_SECONDS * (8 / 24);
     this.timeHudTimer = 0;
-    this.starvationTimer = 0;
     this.starvationNoticeTimer = 0;
     this.dragonSpawnTimer = 0;
     this.totalSteps = save.player.totalSteps;
@@ -5787,7 +5776,6 @@ class WildernessGame {
     this.hungerTimer = 0;
     this.worldTimeSeconds = DAY_LENGTH_SECONDS * (8 / 24);
     this.timeHudTimer = 0;
-    this.starvationTimer = 0;
     this.starvationNoticeTimer = 0;
     this.equippedArmor = null;
     this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0;
