@@ -1702,6 +1702,32 @@ try {
   }
 
   {
+    // 챕터 보스 드래곤 리스폰 쿨다운: 처치 직후엔 재스폰 안 하고(부재여도), 10분 경과 후 재등장
+    const boss = await server.ssrLoadModule("/src/game/bossChapters.ts");
+    const step = boss.BOSS_PROGRESSION[0];
+    let spawned = 0, present = false, ready = true;
+    const ctx = {
+      locationMode: () => "overworld",
+      worldMapId: () => step.mapId,
+      hasDragonKind: () => present,
+      respawnReady: () => ready,
+      spawnDragon: () => { spawned += 1; present = true; return {}; },
+      getGroundHeightAt: () => 0,
+    };
+    boss.ensureChapterBoss(ctx);
+    assert(spawned === 1 && present, "chapter boss spawns when absent and respawn ready");
+    boss.ensureChapterBoss(ctx);
+    assert(spawned === 1, "no duplicate spawn while boss present");
+    present = false; ready = false; // 처치됨 + 쿨다운 중
+    boss.ensureChapterBoss(ctx);
+    assert(spawned === 1, "killed boss does NOT instantly respawn during cooldown (was: full-HP respawn next frame)");
+    ready = true; // 10분 경과
+    boss.ensureChapterBoss(ctx);
+    assert(spawned === 2 && present, "boss respawns only after the respawn cooldown elapses");
+    assert(boss.DRAGON_RESPAWN_MS === 600000, "dragon respawn cooldown is 10 minutes");
+  }
+
+  {
     // 궁극 무기 3종: 각 카테고리 최상위 초과 + 발사 분류 + epic + 확장 제작대 레시피(재료 유효)
     const { ITEM_NAMES, ITEM_RARITY, WEAPON_DAMAGE, SHIELD_DEFENSE, SHIELD_DURABILITY, RANGED_WEAPONS, RANGED_PROJECTILE } = items;
     const recipes = await server.ssrLoadModule("/src/game/recipes.ts");
@@ -1843,6 +1869,7 @@ try {
         "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",
         "treasure chest tiers: roll boundaries (74/20/5/1) + higher tier = rarer loot (monotonic)",
         "ultimate weapons: sharp obsidian shield/staff/gun exceed top of category, correct ranged/projectile class, epic, extended-workbench recipes with valid ingredients",
+        "chapter boss respawn: killed dragon does not instantly respawn; re-spawns only after 10-minute cooldown",
       ],
     }, null, 2));
   }

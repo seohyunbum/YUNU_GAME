@@ -175,7 +175,8 @@ export function createDragonVisual(bossKind: BossKind, stats: DragonVisualStats)
     const wingGroup = new THREE.Group();
     // 어깨에서 옆으로 활짝 — y 로 측면 전개, x 로 살짝 위로, z 는 날갯짓용(baseZ=0)
     wingGroup.position.set(0.2, 3.45, side * 0.55);
-    wingGroup.rotation.set(-0.32, side * 1.32, 0);
+    // 좌우 거울대칭: rx 도 side 로 부호 반전(rxR=-rxL). 과거 rx 가 양쪽 -0.32 동일이라 yaw 후 월드-x 틸트가 두 날개를 반대로 틀어 비대칭이었음.
+    wingGroup.rotation.set(side * -0.32, side * 1.32, 0);
     wingGroup.scale.setScalar(1.4);
     wingGroup.userData.dragonWing = true;
     wingGroup.userData.baseZ = 0;

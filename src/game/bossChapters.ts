@@ -26,6 +26,8 @@ export const BOSS_PROGRESSION: readonly BossChapterStep[] = [
 
 export const FINAL_BOSS_CHAPTER = BOSS_PROGRESSION.length;
 
+export const DRAGON_RESPAWN_MS = 10 * 60 * 1000; // 챕터 보스 드래곤 처치 후 재등장까지 10분
+
 export function normalizeBossChapter(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
   return Math.min(FINAL_BOSS_CHAPTER, Math.max(0, Math.floor(value)));
@@ -65,6 +67,7 @@ export interface ChapterBossContext {
   locationMode(): LocationMode;
   worldMapId(): WorldMapId;
   hasDragonKind(kind: BossKind): boolean;
+  respawnReady(kind: BossKind): boolean; // 처치 후 리스폰 쿨다운 경과 여부
   spawnDragon(kind: BossKind, position: THREE.Vector3): WorldObject;
   getGroundHeightAt(x: number, z: number): number;
 }
@@ -75,7 +78,7 @@ const chapterSpawnPoint = new THREE.Vector3();
 export function ensureChapterBoss(context: ChapterBossContext) {
   if (context.locationMode() !== "overworld") return;
   const step = BOSS_PROGRESSION.find((candidate) => candidate.mapId === context.worldMapId());
-  if (!step || context.hasDragonKind(step.kind)) return;
+  if (!step || context.hasDragonKind(step.kind) || !context.respawnReady(step.kind)) return; // 처치 후 10분 쿨다운 중이면 재스폰 안 함
   chapterSpawnPoint.set(step.position[0], 0, step.position[1]);
   chapterSpawnPoint.y = context.getGroundHeightAt(chapterSpawnPoint.x, chapterSpawnPoint.z);
   context.spawnDragon(step.kind, chapterSpawnPoint);

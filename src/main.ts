@@ -76,7 +76,7 @@ import {
   type ProjectileDamageContext,
 } from "./game/combat";
 import { rollChestLoot, rollChestTier } from "./game/chestLoot";
-import { applyBossDefeat, bossLockMessage, ensureChapterBoss, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter, type ChapterBossContext } from "./game/bossChapters";
+import { applyBossDefeat, bossLockMessage, DRAGON_RESPAWN_MS, ensureChapterBoss, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter, type ChapterBossContext } from "./game/bossChapters";
 import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
 import { createFinaleState, startFinale, startMiniFanfare, updateFinale, type FinaleContext } from "./game/finale";
 import { fieldBossDefeatMessage, fieldBossQuestFor, updateFieldBosses, type FieldBossContext } from "./game/fieldBosses";
@@ -516,6 +516,7 @@ class WildernessGame {
     bossStats: (kind) => this.bossStats(kind),
     bossLockMessage: (kind) => bossLockMessage(kind ?? "dragon", this.bossChapter),
     recordBossDefeat: (kind) => {
+      this.dragonRespawnAt.set(kind ?? "dragon", performance.now() + DRAGON_RESPAWN_MS); // 처치 → 10분 뒤 재등장
       const result = applyBossDefeat(this.bossChapter, kind ?? "dragon");
       this.bossChapter = result.bossChapter;
       if (result.message) this.showMessage(result.message);
@@ -571,12 +572,14 @@ class WildernessGame {
     showCredits: () => showEndingScreen(this.uiRoot, () => this.renderHud()), showMessage: (text) => this.showMessage(text),
   };
   private defeatedFieldBosses: string[] = [];
+  private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
   private readonly tutorialSignals = { predatorKills: 0, mapOpened: false, saved: false, shopOpened: false };
   private readonly chapterBossContext: ChapterBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
+    respawnReady: (kind) => (this.dragonRespawnAt.get(kind) ?? 0) <= performance.now(),
     spawnDragon: (kind, position) => spawnDragonEntity(this.entitySpawnContext, position, kind),
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
   };
