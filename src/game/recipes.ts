@@ -1,6 +1,6 @@
 import { BOW_DAMAGE, MAGIC_WAND_DAMAGE } from "./constants";
 import type { Recipe } from "./types";
-import { MATERIALS } from "./items";
+import { MATERIALS, WEAPON_DAMAGE } from "./items";
 
 export const MINI_RECIPES: Recipe[] = [
   {
@@ -183,7 +183,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "obsidian_dagger",
     count: 1,
     ingredients: { sharp_obsidian: 1, stick: 1 },
-    note: "데미지 50.",
+    note: "데미지 5.",
   },
   {
     id: "obsidian_sword",
@@ -191,7 +191,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "obsidian_sword",
     count: 1,
     ingredients: { sharp_obsidian: 2, stick: 1 },
-    note: "데미지 100.",
+    note: "데미지 10.",
   },
   {
     id: "leather_armor",
@@ -199,7 +199,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "leather_armor",
     count: 1,
     ingredients: { leather: 8 },
-    note: "방어력 +5.",
+    note: "방어력 +4.",
   },
   {
     id: "iron_bow",
@@ -250,7 +250,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "sharp_obsidian_shield",
     count: 1,
     ingredients: { sharp_obsidian: 5, refined_iron: 4, gold_powder: 2 },
-    note: "궁극의 방패 — 방어 +10, 강타 80, 피격 300회 후 부서집니다.",
+    note: "궁극의 방패 — 방어 +10, 강타 8, 피격 300회 후 부서집니다.",
     extendedOnly: true,
   },
   {
@@ -259,7 +259,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "sharp_obsidian_staff",
     count: 1,
     ingredients: { sharp_obsidian: 4, obsidian_powder: 3, diamond_powder: 3, gold_powder: 2 },
-    note: "데미지 120의 궁극 마법 지팡이입니다.",
+    note: "데미지 12의 궁극 마법 지팡이입니다.",
     extendedOnly: true,
   },
   {
@@ -268,7 +268,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "sharp_obsidian_gun",
     count: 1,
     ingredients: { sharp_obsidian: 5, refined_iron: 8, gold_powder: 2, coal: 4 },
-    note: "데미지 110의 궁극 총입니다.",
+    note: "데미지 11의 궁극 총입니다.",
     extendedOnly: true,
   },
 ];
@@ -308,7 +308,7 @@ for (const material of MATERIALS) {
       output: `${material.prefix}_dagger`,
       count: 1,
       ingredients: { [material.refined]: 1, stick: 1 },
-      note: `데미지 ${material.dagger}.`,
+      note: `데미지 ${WEAPON_DAMAGE[`${material.prefix}_dagger`]}.`,
     },
     {
       id: `${material.prefix}_sword`,
@@ -316,7 +316,7 @@ for (const material of MATERIALS) {
       output: `${material.prefix}_sword`,
       count: 1,
       ingredients: { [material.refined]: 2, stick: 1 },
-      note: `데미지 ${material.dagger * 2}.`,
+      note: `데미지 ${WEAPON_DAMAGE[`${material.prefix}_sword`]}.`,
     },
   );
 }
@@ -328,7 +328,7 @@ WORKBENCH_RECIPES.push(
     output: "copper_armor",
     count: 1,
     ingredients: { copper: 8 },
-    note: "방어력 +12.",
+    note: "방어력 +7.",
   },
   {
     id: "iron_armor",
@@ -336,7 +336,7 @@ WORKBENCH_RECIPES.push(
     output: "iron_armor",
     count: 1,
     ingredients: { iron: 8 },
-    note: "방어력 +22.",
+    note: "방어력 +10.",
   },
   {
     id: "gold_armor",
@@ -344,7 +344,7 @@ WORKBENCH_RECIPES.push(
     output: "gold_armor",
     count: 1,
     ingredients: { gold: 8 },
-    note: "방어력 +30. 높은 등급의 방어구입니다.",
+    note: "방어력 +15. 높은 등급의 방어구입니다.",
   },
   {
     id: "diamond_armor",
@@ -352,7 +352,7 @@ WORKBENCH_RECIPES.push(
     output: "diamond_armor",
     count: 1,
     ingredients: { diamond: 8 },
-    note: "방어력 +45.",
+    note: "방어력 +25.",
   },
   {
     id: "obsidian_armor",
@@ -360,7 +360,7 @@ WORKBENCH_RECIPES.push(
     output: "obsidian_armor",
     count: 1,
     ingredients: { obsidian: 8 },
-    note: "방어력 +65.",
+    note: "방어력 +40.",
     extendedOnly: true,
   },
 );
