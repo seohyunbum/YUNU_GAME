@@ -5968,7 +5968,7 @@ class WildernessGame {
     if (savedObject.type === "villageArcher" || savedObject.type === "villageMage") object = this.spawnRangedGuard(position, villageId, savedObject.type);
     if (savedObject.type === "villageGolem") object = this.spawnGolem(position, villageId);
     if (savedObject.type === "foodStorage" || savedObject.type === "villageHouse") {
-      object = this.spawnVillageHouse(position, savedObject.name, savedObject.type === "foodStorage", villageId, savedObject.houseKind === "twoStory" ? 3 : 0);
+      object = this.spawnVillageHouse(position, savedObject.name, savedObject.type === "foodStorage", villageId, savedObject.houseKind === "twoStory" ? 3 : 0, savedObject.playerOwned ? { deluxe: true, signLabel: `${this.nickname || "나"}의 집` } : undefined);
     }
     if (savedObject.type === "blacksmith") object = this.spawnBlacksmith(position, villageId);
     if (savedObject.type === "villageShop") object = this.spawnVillageShop(position, villageId);
@@ -6800,7 +6800,7 @@ class WildernessGame {
       return;
     }
     for (const [item, count] of Object.entries(option.ingredients)) this.removeItem(item, count);
-    const house = this.spawnVillageHouse(position, option.name, false, `player-house-${crypto.randomUUID()}`, option.variant);
+    const house = this.spawnVillageHouse(position, option.name, false, `player-house-${crypto.randomUUID()}`, option.variant, { deluxe: true, signLabel: `${this.nickname || "나"}의 집` });
     house.houseKind = option.houseKind;
     house.name = option.name;
     house.houseChestRich = false;
@@ -8397,9 +8397,9 @@ class WildernessGame {
     return createBuildingSignModel(label, kind, width, height);
   }
 
-  private spawnVillageHouse(position: THREE.Vector3, name: string, isStorage: boolean, villageId: string, variant = Math.floor(Math.random() * 4)) {
+  private spawnVillageHouse(position: THREE.Vector3, name: string, isStorage: boolean, villageId: string, variant = Math.floor(Math.random() * 4), options?: { deluxe?: boolean; signLabel?: string }) {
     position.y = this.getGroundHeightAt(position.x, position.z);
-    const visual = createVillageHouseVisual(name, isStorage, variant);
+    const visual = createVillageHouseVisual(name, isStorage, variant, options);
     this.mergeStaticMeshes(visual.group);
     visual.group.position.copy(position);
     return spawnObject(this.spawnContext, {

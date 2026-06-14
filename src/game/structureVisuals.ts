@@ -210,16 +210,64 @@ export function createTrainVisual(trackRadius: number): TrainVisual {
   };
 }
 
-export function createVillageHouseVisual(name: string, isStorage: boolean, variant: number): VillageHouseVisual {
+// 플레이어 전용 코티지 장식 — 포치·기둥·포치지붕·계단·줄무늬 차양·처마 스캘럽·굴뚝캡·우편함. 마을 집과 확실히 차별화.
+function addDeluxeCottage(house: THREE.Group, width: number, depth: number, bodyHeight: number) {
+  const white = makeToonMaterial(0xfdf6ee, { roughness: 0.7 });
+  const coral = makeToonMaterial(0xe0866a, { roughness: 0.8 });
+  const cream = makeToonMaterial(0xfff1cf, { roughness: 0.78 });
+  const front = depth / 2;
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(width + 0.5, 0.2, 1.9), white);
+  deck.position.set(0, 0.22, front + 1.05);
+  house.add(deck);
+  for (const x of [-(width / 2) - 0.1, width / 2 + 0.1]) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.3, 10), white);
+    col.position.set(x, 1.25, front + 1.78);
+    const colCap = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.12, 0.26), coral);
+    colCap.position.set(x, 2.42, front + 1.78);
+    house.add(col, colCap);
+  }
+  const porchRoof = new THREE.Mesh(new THREE.BoxGeometry(width + 0.85, 0.16, 2.0), coral);
+  porchRoof.position.set(0, 2.46, front + 1.25);
+  porchRoof.rotation.x = -0.13;
+  house.add(porchRoof);
+  for (let s = 0; s < 2; s += 1) {
+    const step = new THREE.Mesh(new THREE.BoxGeometry(1.7 - s * 0.34, 0.16, 0.42), white);
+    step.position.set(0, 0.13 - s * 0.005, front + 2.0 + s * 0.42);
+    house.add(step);
+  }
+  for (let i = 0; i < 7; i += 1) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.06, 0.52), i % 2 === 0 ? coral : cream);
+    stripe.position.set(-0.6 + i * 0.2, 1.66, front + 0.36);
+    stripe.rotation.x = -0.42;
+    house.add(stripe);
+  }
+  for (let i = 0; i <= 8; i += 1) {
+    const scallop = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), coral);
+    scallop.position.set(-width * 0.45 + (i * width * 0.9) / 8, bodyHeight + 0.06, front + 0.24);
+    scallop.rotation.x = Math.PI;
+    house.add(scallop);
+  }
+  const chimneyCap = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.14, 0.62), makeToonMaterial(0x3a2a22, { roughness: 0.9 }));
+  chimneyCap.position.set(width * 0.27, bodyHeight + 1.28, -depth * 0.18);
+  const mailPost = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.95, 8), white);
+  mailPost.position.set(width * 0.5 + 0.7, 0.48, front + 1.3);
+  const mailBox = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.24, 0.42), coral);
+  mailBox.position.set(width * 0.5 + 0.7, 1.0, front + 1.3);
+  house.add(chimneyCap, mailPost, mailBox);
+}
+
+export function createVillageHouseVisual(name: string, isStorage: boolean, variant: number, options?: { deluxe?: boolean; signLabel?: string }): VillageHouseVisual {
   const house = new THREE.Group();
-  const isTwoStory = !isStorage && variant % 4 === 3;
+  const deluxe = Boolean(options?.deluxe);
+  const isTwoStory = !isStorage && !deluxe && variant % 4 === 3;
   const houseStyles = [
     { width: 4.6, depth: 4.1, wall: ASSET_PALETTE.wallWarm, roof: ASSET_PALETTE.roofRed, roofHeight: 1.65, chimneyX: 0.24, bodyHeight: 2.7 },
     { width: 5.3, depth: 3.8, wall: ASSET_PALETTE.wallCream, roof: ASSET_PALETTE.roofBlue, roofHeight: 1.35, chimneyX: -0.22, bodyHeight: 2.7 },
     { width: 4.2, depth: 4.9, wall: 0xc98245, roof: 0x8e3f31, roofHeight: 1.9, chimneyX: 0.1, bodyHeight: 2.7 },
     { width: 5.6, depth: 4.9, wall: 0xb79b66, roof: 0x5367c8, roofHeight: 1.55, chimneyX: 0.25, bodyHeight: 4.85 },
   ];
-  const style = isStorage ? { width: 7.1, depth: 5.5, wall: 0xba7440, roof: 0xe0661d, roofHeight: 1.45, chimneyX: 0.28, bodyHeight: 2.7 } : houseStyles[variant % houseStyles.length];
+  const deluxeStyle = { width: 5.6, depth: 4.7, wall: 0xf5e3d0, roof: 0xe0866a, roofHeight: 1.95, chimneyX: 0.27, bodyHeight: 2.95 }; // 플레이어 전용 아늑한 코티지 — 파스텔 크림 벽 + 코랄 지붕
+  const style = deluxe ? deluxeStyle : isStorage ? { width: 7.1, depth: 5.5, wall: 0xba7440, roof: 0xe0661d, roofHeight: 1.45, chimneyX: 0.28, bodyHeight: 2.7 } : houseStyles[variant % houseStyles.length];
   const width = style.width;
   const depth = style.depth;
   const hut = new THREE.Mesh(
@@ -310,9 +358,12 @@ export function createVillageHouseVisual(name: string, isStorage: boolean, varia
       house.add(crate, sack);
     }
   } else {
-    const sign = createBuildingSignModel(isTwoStory ? "2층집" : "집", isTwoStory ? "twoStory" : "home", isTwoStory ? 2.25 : 1.62, 0.62);
-    sign.position.set(0, isTwoStory ? 2.18 : 2.08, depth / 2 + 0.16);
+    const signLabel = options?.signLabel ?? (isTwoStory ? "2층집" : "집");
+    const signWidth = options?.signLabel ? Math.min(3.4, Math.max(2.4, signLabel.length * 0.42)) : isTwoStory ? 2.25 : 1.62;
+    const sign = createBuildingSignModel(signLabel, isTwoStory ? "twoStory" : "home", signWidth, 0.66);
+    sign.position.set(0, deluxe ? style.bodyHeight + style.roofHeight * 0.32 : isTwoStory ? 2.18 : 2.08, depth / 2 + (deluxe ? 0.26 : 0.16));
     house.add(sign);
+    if (deluxe) addDeluxeCottage(house, width, depth, style.bodyHeight);
     if (isTwoStory) {
       const secondBand = new THREE.Mesh(new THREE.BoxGeometry(width * 1.04, 0.12, depth * 1.04), makeToonMaterial(ASSET_PALETTE.leatherDark, { roughness: 0.84 }));
       secondBand.position.y = 2.55;

@@ -114,7 +114,11 @@ export function createBuildingLabelTexture(label: string, kind: BuildingSignKind
   }
   context.restore();
 
-  context.font = "900 74px Arial, 'Malgun Gothic', sans-serif";
+  // 라벨 폭에 맞춰 폰트 자동 축소 — "닉네임의 집"처럼 긴 이름도 잘리지 않게.
+  let fontSize = 74;
+  const setFont = () => { context.font = `900 ${fontSize}px Arial, 'Malgun Gothic', sans-serif`; };
+  setFont();
+  while (context.measureText(label).width > 330 && fontSize > 30) { fontSize -= 4; setFont(); }
   context.textAlign = "left";
   context.textBaseline = "middle";
   context.fillStyle = "rgba(0,0,0,0.34)";
