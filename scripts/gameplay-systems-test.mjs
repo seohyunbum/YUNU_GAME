@@ -1678,7 +1678,7 @@ try {
   }
 
   {
-    // 자동저장 슬롯: 별도 키에만 기록(수동 저장/최신본 절대 미덮어쓰기) + 닉네임당 최신 3개 롤링 + 동기 이탈저장 + 복구
+    // 자동저장 슬롯: 별도 키에만 기록(수동 저장/최신본 절대 미덮어쓰기) + 닉네임당 1개 슬롯 계속 덮어쓰기 + 동기 이탈저장 + 복구
     const { appendSaveToAutosave, appendAutosaveSync, readAutosaveSlots, resolveHistorySave } = saveRepo;
     const { migrateSaveData } = saveMigration;
     const AUTOSAVE_KEY = "ai-game-lab:wilderness-autosave-v1";
@@ -1692,23 +1692,22 @@ try {
     const mkA = (lvl, i) => migrateSaveData({ version: 11, savedAt: new Date(Date.UTC(2026, 5, 2, 0, 0, i)).toISOString(), player: { level: lvl, playerClass: "gunner", position: { x: lvl, y: 1.7, z: i } } });
     for (let i = 1; i <= 5; i += 1) await appendSaveToAutosave(mkA(i, i), "거너씨", storage);
     const auto = readAutosaveSlots("거너씨", storage);
-    assert(auto.length === 3, `autosave should cap at 3 per nickname, got ${auto.length}`);
-    assert(new Date(auto[0].savedAt).getTime() > new Date(auto[1].savedAt).getTime(), "autosave list should be newest-first");
-    assert(auto.some((e) => e.savedAt === mkA(5, 5).savedAt) && !auto.some((e) => e.savedAt === mkA(1, 1).savedAt), "autosave keeps newest 3, evicts older");
+    assert(auto.length === 1, `autosave keeps a single rolling slot per nickname (overwrites), got ${auto.length}`);
+    assert(auto[0].savedAt === mkA(5, 5).savedAt, "the one autosave slot holds the most recent state (older overwritten)");
     // 핵심 요구사항: 자동저장이 수동 슬롯/최신본 키를 절대 덮어쓰지 않는다.
     assert(storage.getItem(LIST_KEY) === '[{"sentinel":"manual-slot"}]', "autosave must NEVER touch SAVE_LIST_KEY (manual saves)");
     assert(storage.getItem(LATEST_KEY) === '{"sentinel":"latest"}', "autosave must NEVER touch SAVE_KEY (latest)");
     assert(storage.getItem(AUTOSAVE_KEY) !== null, "autosave writes its own dedicated key");
-    // 동기 이탈 저장(beforeunload 경로): raw 저장, 즉시 읽기/복구 가능, 여전히 cap 3.
+    // 동기 이탈 저장(beforeunload 경로): raw 저장, 즉시 읽기/복구 가능, 여전히 1개 슬롯.
     appendAutosaveSync(mkA(6, 6), "거너씨", storage);
     const afterSync = readAutosaveSlots("거너씨", storage);
-    assert(afterSync.length === 3 && afterSync[0].savedAt === mkA(6, 6).savedAt, "sync exit autosave is stored newest and respects the cap");
+    assert(afterSync.length === 1 && afterSync[0].savedAt === mkA(6, 6).savedAt, "sync exit autosave overwrites the single slot with the newest state");
     const recovered = await resolveHistorySave(afterSync[0]);
     assert(recovered !== null && recovered.player.playerClass === "gunner" && recovered.player.level === 6, "autosave entry unpacks back for recovery");
     // 닉네임 격리.
     appendAutosaveSync(mkA(99, 99), "마법사씨", storage);
     assert(readAutosaveSlots("마법사씨", storage).length === 1, "autosave is isolated per nickname");
-    assert(readAutosaveSlots("거너씨", storage).length === 3, "appending another nickname's autosave must not evict mine");
+    assert(readAutosaveSlots("거너씨", storage).length === 1, "appending another nickname's autosave must not affect mine");
   }
 
   {
@@ -1960,7 +1959,7 @@ try {
         "save slots: overwrite replaces only the chosen slot and preserves all other saves (data-loss regression guard)",
         "world map gating: level gap OR predecessor field-boss defeat unlocks the next map",
         "save history ring: 30-per-nickname cap, nickname isolation, recover via unpack",
-        "autosave slot: dedicated key (never touches manual saves/latest), 3-per-nickname rolling cap, sync exit-save, recover, nickname isolation",
+        "autosave slot: dedicated key (never touches manual saves/latest), single rolling slot per nickname (overwrites), sync exit-save, recover, nickname isolation",
         "navigation guard: global contextmenu block, single-trap back absorb (no install/title trap, arm/disarm, onBlockedBack), beforeunload/pagehide sync + visibilitychange async autosave, uninstall",
         "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",
         "treasure chest tiers: roll boundaries (74/20/5/1) + higher tier = rarer loot (monotonic)",
