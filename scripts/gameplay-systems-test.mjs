@@ -1454,15 +1454,16 @@ try {
 
     const noBonus = () => 0.99;
     const low = rollHomeSupply(1, noBonus);
-    assert(low.some((reward) => reward.item === "meat" && reward.count === 2), "level 1 supply should give 2 meat");
+    assert(low.some((reward) => reward.item === "meat" && reward.count === 4), "level 1 supply should give 4 meat (buffed)");
     assert(!low.some((reward) => reward.item === "iron"), "level 1 supply should not give iron");
     const mid = rollHomeSupply(30, noBonus);
-    assert(mid.some((reward) => reward.item === "iron"), "level 30 supply should add iron");
+    assert(mid.some((reward) => reward.item === "iron") && mid.some((r) => r.item === "xp_bottle"), "level 30 supply adds iron + xp bottle (buffed)");
     const top = rollHomeSupply(100, noBonus);
-    assert(top.some((reward) => reward.item === "diamond" && reward.count === 2), "level 100 supply should add diamonds");
+    assert(top.some((reward) => reward.item === "diamond" && reward.count === 3), "level 100 supply should add diamonds (buffed to 3)");
     assert(top.some((reward) => reward.item === "obsidian"), "level 100 supply should add obsidian");
+    assert(top.some((reward) => reward.item === "sharp_obsidian") && top.some((r) => r.item === "obsidian_powder"), "endgame supply yields ultimate-weapon materials (balance vs field obsidian chest)");
     const bonus = rollHomeSupply(100, () => 0.01);
-    assert(bonus.length === top.length + 1, "supply bonus line should appear on a lucky roll");
+    assert(bonus.length === top.length + 1, "supply bonus line should appear on a lucky roll (still exactly one probabilistic line)");
     assert(homeSupplyReadyLabel(0).includes("준비"), "ready label should say ready");
     assert(homeSupplyReadyLabel(610).includes("11분"), "cooldown label should round up to minutes");
   }

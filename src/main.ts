@@ -3970,14 +3970,14 @@ class WildernessGame {
     }
     const loot = rollHomeSupply(this.level);
     const received: string[] = [];
-    for (const reward of loot) if (this.addItem(reward.item, reward.count)) received.push(`${ITEM_NAMES[reward.item] ?? reward.item} ${reward.count}`);
+    for (const reward of loot) if (this.addItem(reward.item, reward.count) || transferSlot({ item: reward.item, count: reward.count }, this.homeStorage)) received.push(`${ITEM_NAMES[reward.item] ?? reward.item} ${reward.count}`); // 가방 차면 집 창고로 자동 입고(유실 방지)
     if (received.length === 0) {
       this.showMessage("인벤토리가 가득 차서 보급품을 받을 수 없습니다. 칸을 비운 뒤 다시 여세요.");
       return;
     }
     this.homeSupplyCooldownSeconds = HOME_SUPPLY_COOLDOWN_SECONDS;
     this.playTone(880, 0.12, "triangle", 0.03);
-    this.showMessage(`보급 상자를 열었습니다: ${received.join(", ")}${received.length < loot.length ? " (일부는 가방이 가득 차 받지 못했습니다)" : ""}. 다음 보급은 30분 뒤!`);
+    this.showMessage(`보급 상자를 열었습니다: ${received.join(", ")} (가방이 차면 집 창고로 들어갑니다)${received.length < loot.length ? " — 가방·창고가 가득 차 일부 미수령" : ""}. 다음 보급은 30분 뒤!`);
     this.renderHud();
   }
 
