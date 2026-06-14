@@ -1529,10 +1529,15 @@ try {
     const recipeCommon = { id: "x", name: "x", output: "wood_pickaxe", count: 1, ingredients: { wood: 3, stick: 2 } };
     const recipeRare = { id: "y", name: "y", output: "diamond_sword", count: 1, ingredients: { diamond: 2, stick: 1 } };
     const recipeBulk = { id: "z", name: "z", output: "stick", count: 4, ingredients: { wood: 1 } };
+    // 저레벨 도구(부스트 임계값 20 이하)는 현 수준 그대로 보존
     assert(craftXpForRecipe(recipeCommon) === 13, `common recipe xp should be 13, got ${craftXpForRecipe(recipeCommon)}`);
-    assert(craftXpForRecipe(recipeRare) === 23, `rare recipe xp should be 23 (rarity-weighted), got ${craftXpForRecipe(recipeRare)}`);
     assert(craftXpForRecipe(recipeBulk) === 14, `bulk output recipe xp should be 14, got ${craftXpForRecipe(recipeBulk)}`);
+    // 난이도 높은 장비(임계값 초과)는 초과분을 2.25배 증폭 — diamond_sword raw 23 → 27
+    assert(craftXpForRecipe(recipeRare) === 27, `rare recipe xp should be boosted to 27 (raw 23 > threshold), got ${craftXpForRecipe(recipeRare)}`);
     assert(craftXpForRecipe(recipeRare) > craftXpForRecipe(recipeCommon), "rarer recipe should grant more craft xp");
+    // 최상위 장비는 약 2배 — diamond x13 raw 87 → 171 (≈1.97x)
+    const recipeUltra = { id: "u", name: "u", output: "diamond_sword", count: 1, ingredients: { diamond: 13 } };
+    assert(craftXpForRecipe(recipeUltra) === 171, `ultra recipe xp should boost ~2x, got ${craftXpForRecipe(recipeUltra)}`);
     assert(craftXpForRecipe({ id: "t", name: "t", output: "wood", count: 1, ingredients: {} }) >= 5, "craft xp should floor at 5");
     const curve = [1, 2, 3, 4, 5].map(craftXpForNextLevel);
     assert(JSON.stringify(curve) === JSON.stringify([18, 44, 75, 109, 145]), `craft level curve golden mismatch: ${JSON.stringify(curve)}`);
@@ -1843,6 +1848,19 @@ try {
       assert(r && r.output === id && r.extendedOnly === true, `${id} craftable at extended workbench`);
       for (const ing of Object.keys(r.ingredients)) assert(typeof ITEM_NAMES[ing] === "string", `${id} ingredient ${ing} is a known item`);
     }
+    // 고난도 장비 제작 경험치 부스트: 흑요석 지팡이 raw 82 → 160 (약 2배)
+    const obsidianStaffRecipe = [...recipes.WORKBENCH_RECIPES].find((x) => x.id === "sharp_obsidian_staff");
+    assert(craftLevel.craftXpForRecipe(obsidianStaffRecipe) === 160, `obsidian staff craft xp should be boosted to 160, got ${craftLevel.craftXpForRecipe(obsidianStaffRecipe)}`);
+  }
+
+  {
+    // 집 3종 제작 경험치: 막대한 재료를 들인 집 건축도 제작 경험치로 보상 (통나무집 100 / 돌집 150 / 이층집 200)
+    const { HOUSE_BUILD_OPTIONS } = await server.ssrLoadModule("/src/game/housing.ts");
+    const houseXp = Object.fromEntries(HOUSE_BUILD_OPTIONS.map((o) => [o.id, o.craftXp]));
+    assert(houseXp.wood_cabin === 100, `wood cabin craft xp should be 100, got ${houseXp.wood_cabin}`);
+    assert(houseXp.stone_house === 150, `stone house craft xp should be 150, got ${houseXp.stone_house}`);
+    assert(houseXp.two_story_house === 200, `two-story house craft xp should be 200, got ${houseXp.two_story_house}`);
+    assert(HOUSE_BUILD_OPTIONS.every((o) => typeof o.craftXp === "number" && o.craftXp > 0), "every house option grants craft xp");
   }
 
   {

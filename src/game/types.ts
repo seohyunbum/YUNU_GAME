@@ -452,6 +452,7 @@ export interface HouseBuildOption {
   ingredients: Record<ItemId, number>;
   houseKind: HouseKind;
   variant: number;
+  craftXp: number;
 }
 
 export interface BiomeConfig {

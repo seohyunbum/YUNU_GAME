@@ -6806,6 +6806,7 @@ class WildernessGame {
     house.houseChestRich = false;
     house.playerOwned = true;
     this.showMessage(`${option.name}을 지었습니다! 내 집 = 안전지대 + 침대 휴식(빠른 회복) + 집 창고 + 보급 상자 + 죽어도 집 앞 부활. 지도(M)에 표시됩니다.`);
+    this.awardCraftXp(option.craftXp); // 막대한 재료를 들인 집 건축도 제작 경험치로 보상
     this.renderInventoryPanel();
     this.renderHud();
   }
@@ -7029,8 +7030,15 @@ class WildernessGame {
       if (!this.addItem(recipe.output, recipe.count)) return false;
       this.autoEquip(recipe.output);
     }
-    // 제작 경험치 — 재료 양·희귀도에 비례. 레벨업 시 스탯 포인트 지급 (K 캐릭터창에서 분배).
-    const gain = applyCraftXp(this.craftLevel, this.craftXp, craftXpForRecipe(recipe));
+    this.awardCraftXp(craftXpForRecipe(recipe)); // 재료 양·희귀도에 비례한 제작 경험치
+    this.renderHud();
+    return true;
+  }
+
+  // 제작 경험치 지급 + 레벨업 해소. 레벨업 시 스탯 포인트 지급 (K 캐릭터창에서 분배). 도구 제작·집 건축 공용.
+  private awardCraftXp(amount: number) {
+    if (amount <= 0) return;
+    const gain = applyCraftXp(this.craftLevel, this.craftXp, amount);
     this.craftLevel = gain.craftLevel;
     this.craftXp = gain.craftXp;
     if (gain.levelsGained > 0) {
@@ -7039,8 +7047,6 @@ class WildernessGame {
       this.playTone(784, 0.12, "triangle", 0.05); this.playTone(1175, 0.18, "triangle", 0.045); // 레벨업 팡파레
       this.openPanel("character"); // 획득한 포인트를 바로 분배할 수 있게 캐릭터창 자동 오픈
     }
-    this.renderHud();
-    return true;
   }
 
   private smeltItem(item: ItemId) {

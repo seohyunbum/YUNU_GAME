@@ -9,6 +9,7 @@ export const HOUSE_BUILD_OPTIONS: HouseBuildOption[] = [
     ingredients: { wood: 120, stick: 60, stone: 40, hammer: 2 },
     houseKind: "home",
     variant: 0,
+    craftXp: 100,
   },
   {
     id: "stone_house",
@@ -17,6 +18,7 @@ export const HOUSE_BUILD_OPTIONS: HouseBuildOption[] = [
     ingredients: { wood: 120, stone: 150, iron: 24, hammer: 3 },
     houseKind: "home",
     variant: 1,
+    craftXp: 150,
   },
   {
     id: "two_story_house",
@@ -25,5 +27,6 @@ export const HOUSE_BUILD_OPTIONS: HouseBuildOption[] = [
     ingredients: { wood: 240, refined_wood: 80, stone: 180, iron: 40, hammer: 4 },
     houseKind: "twoStory",
     variant: 3,
+    craftXp: 200,
   },
 ];
