@@ -3,6 +3,7 @@ import { WORLD_SIZE } from "./constants";
 import { partyDamageRemotePlayer, partyHostCombatTargets, partyWorldGuestActive } from "./partyWorldSync";
 import { clampPointToRegion, getRegionById, regionAtPosition, type Region } from "./regions";
 import { clampOutOfSafeZones } from "./safeZones";
+import { spawnBossRoar, spawnGroundShockwave, type CombatEffectContext } from "./combatEffects";
 import type { MonsterId } from "./monsters";
 import type { LocationMode, PredatorKind, WorldObject } from "./types";
 
@@ -19,6 +20,33 @@ export interface PredatorAiContext {
   refreshSpatialObject(object: WorldObject): void;
   animateWalkCycle(object: WorldObject, delta: number, movementSpeed: number): void;
   damagePlayer(amount: number, showParticles: boolean, deathReason: string): boolean;
+  effects(): CombatEffectContext; // 보스 강타/충격파 VFX
+  showMessage(text: string): void; // 보스 궁극기 텔레그래프 안내
+}
+
+const BOSS_SLAM_COOLDOWN_MS = 9000;
+const BOSS_SLAM_TELEGRAPH_MS = 750;
+const BOSS_SLAM_RADIUS = 5.5;
+const BOSS_SLAM_COLOR = 0xffb703;
+
+// 보스 시그니처 슬램 — 예열(포효 텔레그래프) 예약. (비-update 이름 → VFX 허용)
+function castBossSlam(context: PredatorAiContext, predator: WorldObject, now: number) {
+  predator.root.userData.slamAt = now + BOSS_SLAM_TELEGRAPH_MS;
+  predator.root.userData.slamCdUntil = now + BOSS_SLAM_COOLDOWN_MS;
+  spawnBossRoar(context.effects(), predator.root.position, BOSS_SLAM_COLOR);
+  context.showMessage(`${predator.name ?? "보스"}가 강력한 내려찍기를 준비합니다! 빠르게 벗어나세요.`);
+}
+
+// 슬램 착탄 — 텔레그래프 후 충격파 + 반경 안이면 데미지. (비-update 이름 → VFX 허용)
+function resolveBossSlam(context: PredatorAiContext, predator: WorldObject, now: number) {
+  const at = Number(predator.root.userData.slamAt ?? 0);
+  if (at <= 0 || now < at) return;
+  predator.root.userData.slamAt = 0;
+  spawnGroundShockwave(context.effects(), predator.root.position, BOSS_SLAM_COLOR);
+  const dmg = Math.round((predator.attackDamage ?? 8) * 1.8);
+  if (Math.hypot(context.playerPosition.x - predator.root.position.x, context.playerPosition.z - predator.root.position.z) <= BOSS_SLAM_RADIUS) {
+    context.damagePlayer(dmg, true, `${predator.name ?? "보스"}의 내려찍기에 맞아 체력이 모두 떨어졌습니다.`);
+  }
 }
 
 const nextPosition = new THREE.Vector3();
@@ -69,7 +97,7 @@ function resetAttackExtras(predator: WorldObject) {
 
 export function triggerPredatorAttackMotion(predator: WorldObject, now: number, forwardX = 0, forwardZ = 0) {
   predator.root.userData.attackStartedAt = now;
-  predator.root.userData.attackDuration = (ATTACK_PROFILES[predator.predatorKind ?? "wolf"] ?? ATTACK_PROFILES.wolf).duration;
+  predator.root.userData.attackDuration = (ATTACK_PROFILES[predator.predatorKind ?? "wolf"] ?? ATTACK_PROFILES.wolf).duration * (predator.fieldBossId ? 1.3 : 1);
   predator.root.userData.attackForwardX = forwardX;
   predator.root.userData.attackForwardZ = forwardZ;
   if (!predator.root.userData.baseScale) predator.root.userData.baseScale = predator.root.scale.clone();
@@ -92,20 +120,21 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
   // 예열: 0→정점→도약 직후 소멸 / 도약: 예열이 끝나는 지점에서 폭발적으로
   const windup = phase < WINDUP_END ? Math.sin((phase / WINDUP_END) * (Math.PI / 2)) : Math.max(0, 1 - (phase - WINDUP_END) / 0.16);
   const strike = phase <= WINDUP_END ? 0 : Math.sin(((phase - WINDUP_END) / (1 - WINDUP_END)) * Math.PI);
-  const shake = windup * Math.sin(phase * 46) * 0.085; // 예열 떨림 — "곧 덤빈다"는 신호
+  const bf = predator.fieldBossId ? 1.5 : 1; // 보스급은 모션을 훨씬 크고 묵직하게(수직·스케일·떨림 증폭)
+  const shake = windup * Math.sin(phase * 46) * 0.085 * bf; // 예열 떨림 — "곧 덤빈다"는 신호
   const forwardX = Number(predator.root.userData.attackForwardX ?? 0);
   const forwardZ = Number(predator.root.userData.attackForwardZ ?? 0);
-  const advance = strike * profile.lunge - windup * profile.pullBack;
+  const advance = (strike * profile.lunge - windup * profile.pullBack) * (predator.fieldBossId ? 1.25 : 1);
 
   predator.root.position.x += forwardX * advance;
   predator.root.position.z += forwardZ * advance;
-  predator.root.position.y += windup * profile.rise + strike * profile.jump;
-  predator.root.rotation.x = windup * 0.14 - strike * profile.pitch - windup * (profile.rise > 0.3 ? 0.5 : 0);
+  predator.root.position.y += (windup * profile.rise + strike * profile.jump) * bf;
+  predator.root.rotation.x = (windup * 0.14 - strike * profile.pitch - windup * (profile.rise > 0.3 ? 0.5 : 0)) * (predator.fieldBossId ? 1.35 : 1);
   predator.root.rotation.z = shake;
   predator.root.scale.set(
-    baseScale.x * (1 + strike * profile.stretch - windup * 0.1),
-    baseScale.y * (1 - windup * profile.crouch + strike * 0.06 + windup * (profile.rise > 0.3 ? 0.16 : 0)),
-    baseScale.z * (1 + strike * profile.stretch * 0.4),
+    baseScale.x * (1 + (strike * profile.stretch - windup * 0.1) * bf),
+    baseScale.y * (1 + (-windup * profile.crouch + strike * 0.06 + windup * (profile.rise > 0.3 ? 0.16 : 0)) * bf),
+    baseScale.z * (1 + strike * profile.stretch * 0.4 * bf),
   );
 
   if (kind === "scorpion") {
@@ -178,11 +207,18 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     context.refreshSpatialObject(predator);
     context.animateWalkCycle(predator, delta, aggroed ? 0.82 : 0.28);
     predator.attackCooldown = Math.max(0, (predator.attackCooldown ?? 0) - delta);
+    if (predator.fieldBossId) resolveBossSlam(context, predator, now); // 예약된 슬램 착탄
     // 인벤토리/제작창 등을 보는 동안에는 공격하지 않는다 — 패널 중엔 이동도 못 하므로 불공정한 피격을 막는다
     // (원격 게스트도 프레즌스의 panelOpen 플래그로 같은 보호를 받는다)
-    if (aggroed && (remoteTarget !== null ? !remotePanelOpen : !context.isPanelOpen()) && distance < context.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
+    const canAct = aggroed && (remoteTarget !== null ? !remotePanelOpen : !context.isPanelOpen());
+    // 보스 시그니처 슬램(궁극기) — 쿨다운마다 텔레그래프 후 광역 내려찍기
+    if (predator.fieldBossId && canAct && distance < 13 && Number(predator.root.userData.slamCdUntil ?? 0) <= now && Number(predator.root.userData.slamAt ?? 0) <= 0) {
+      castBossSlam(context, predator, now);
+    }
+    if (canAct && distance < context.predatorStrikeRange(predator.predatorKind) && (predator.attackCooldown ?? 0) <= 0) {
       predator.attackCooldown = predatorStats.cooldown;
       triggerPredatorAttackMotion(predator, now, dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
+      if (predator.fieldBossId) spawnGroundShockwave(context.effects(), predator.root.position, BOSS_SLAM_COLOR); // 보스 강타 = 지면 충격파
       const attackDamage = predator.attackDamage ?? predatorStats.attackDamage;
       if (remoteTarget !== null) partyDamageRemotePlayer(remoteTarget, attackDamage, predator.name ?? "몬스터");
       else context.damagePlayer(attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
