@@ -1644,6 +1644,40 @@ try {
   }
 
   {
+    // 저장 용량 부족(quota) 회복력: writeJsonStorage 가 부가 백업(백업본·자동저장·백업 링)을 희생해 정본(명명 슬롯)을 살린다.
+    const { writeJsonStorage } = saveRepo;
+    const HISTORY = "ai-game-lab:wilderness-save-history-v1";
+    const AUTOSAVE = "ai-game-lab:wilderness-autosave-v1";
+    const BACKUP = "ai-game-lab:wilderness-save-backup-v1";
+    const LIST = "ai-game-lab:wilderness-saves-v1";
+    const m = new Map();
+    const size = () => [...m].reduce((s, [k, v]) => s + k.length + v.length, 0);
+    const LIMIT = 600;
+    const storage = {
+      getItem: (k) => (m.has(k) ? m.get(k) : null),
+      removeItem: (k) => m.delete(k),
+      setItem: (k, v) => {
+        const cur = m.get(k);
+        const projected = size() - (cur ? k.length + cur.length : 0) + k.length + String(v).length;
+        if (projected > LIMIT) { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; }
+        m.set(k, String(v));
+      },
+    };
+    storage.setItem(HISTORY, "H".repeat(300)); // 백업 링이 용량을 거의 다 점유
+    storage.setItem(AUTOSAVE, "A".repeat(120));
+    writeJsonStorage(LIST, "L".repeat(180), storage); // 정본 — 그냥 쓰면 quota 초과
+    assert(storage.getItem(LIST) !== null, "정본(명명 슬롯)은 용량 부족에도 기록되어야 한다");
+    assert(storage.getItem(HISTORY) === null && storage.getItem(AUTOSAVE) === null, "정본을 위해 백업 링·자동저장을 희생(삭제)한다");
+    // 쓰는 키 자신은 희생 목록에서 제외 — 백업 링을 쓸 땐 자신 대신 다른 희생키(백업본)를 비운다
+    const m2 = new Map();
+    const sz2 = () => [...m2].reduce((s, [k, v]) => s + k.length + v.length, 0);
+    const st2 = { getItem: (k) => (m2.has(k) ? m2.get(k) : null), removeItem: (k) => m2.delete(k), setItem: (k, v) => { const cur = m2.get(k); if (sz2() - (cur ? k.length + cur.length : 0) + k.length + String(v).length > 260) { const e = new Error("q"); e.name = "QuotaExceededError"; throw e; } m2.set(k, String(v)); } };
+    st2.setItem(BACKUP, "B".repeat(180));
+    writeJsonStorage(HISTORY, "h".repeat(120), st2);
+    assert(st2.getItem(HISTORY) !== null && st2.getItem(BACKUP) === null, "백업 링을 쓸 땐 자신은 보존하고 다른 희생키(백업본)를 비운다");
+  }
+
+  {
     // 자동저장 슬롯: 별도 키에만 기록(수동 저장/최신본 절대 미덮어쓰기) + 닉네임당 최신 3개 롤링 + 동기 이탈저장 + 복구
     const { appendSaveToAutosave, appendAutosaveSync, readAutosaveSlots, resolveHistorySave } = saveRepo;
     const { migrateSaveData } = saveMigration;

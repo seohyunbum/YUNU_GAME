@@ -40,8 +40,9 @@ export function writeJsonStorage(key: string, value: unknown, storage = localSto
     storage.removeItem(SAVE_WRITE_TEST_KEY);
     storage.setItem(key, raw);
   } catch (error) {
-    // 용량 초과 — 편의용 백업본을 비우고 한 번 더 시도한다
-    storage.removeItem(SAVE_BACKUP_KEY);
+    // 용량 초과 — 부가 백업(편의 복사본·자동저장 슬롯·자동 백업 링)을 비워 본 저장을 살린다.
+    // (쓰는 키 자신은 제외. 이들은 다음 저장 때 다시 쌓이므로 정본 저장을 위해 희생해도 안전.)
+    for (const sacrificial of [SAVE_BACKUP_KEY, SAVE_AUTOSAVE_KEY, SAVE_HISTORY_KEY]) if (sacrificial !== key) storage.removeItem(sacrificial);
     storage.removeItem(SAVE_WRITE_TEST_KEY);
     storage.setItem(key, raw);
   }

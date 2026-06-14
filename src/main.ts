@@ -5447,11 +5447,12 @@ class WildernessGame {
         this.openPanel("saveOverwrite");
         return;
       }
-      backupLatestSaveInRepository();
-      await writeLatestSaveInRepository(save);
-      await appendSaveToHistoryInRepository(save, this.nickname);
+      // 정본(명명 슬롯)을 먼저 기록 — 부가 백업이 실패해도 본 저장은 살아남는다.
       const requestedSaves = [createRepositorySaveSlot(save, formatSaveDate, saveSummary(save)), ...existingSaves];
       const storedCount = await writeRepositorySaveSlots(requestedSaves);
+      // 최신본·자동 백업 링은 best-effort — 용량 부족으로 실패해도 본 저장을 막지 않는다.
+      try { backupLatestSaveInRepository(); await writeLatestSaveInRepository(save); } catch (e) { console.warn("최신본 기록 실패(본 저장은 완료)", e); }
+      try { await appendSaveToHistoryInRepository(save, this.nickname); } catch (e) { console.warn("백업 링 기록 실패(본 저장은 완료)", e); }
       const trimmedText = requestedSaves.length > storedCount ? ` 최근 ${storedCount}개 저장만 보관했습니다.` : "";
       this.tutorialSignals.saved = true;
       this.showMessage(`저장 완료: ${formatSaveDate(save.savedAt)}.${trimmedText}`);
@@ -6249,15 +6250,14 @@ class WildernessGame {
           const newSlot = createRepositorySaveSlot(save, formatSaveDate, saveSummary(save));
           const next = list.map((slot) => (slot.id === slotId ? newSlot : slot));
           try {
-            backupLatestSaveInRepository();
-            await writeLatestSaveInRepository(save);
-            await writeRepositorySaveSlots(next);
-            await appendSaveToHistoryInRepository(save, this.nickname);
+            await writeRepositorySaveSlots(next); // 정본(명명 슬롯) 먼저 — 부가 백업 실패와 무관하게 보존
           } catch (error) {
             console.error(error);
             this.showMessage("저장에 실패했습니다. 브라우저 저장 공간을 확인해보세요.");
             return;
           }
+          try { backupLatestSaveInRepository(); await writeLatestSaveInRepository(save); } catch (e) { console.warn("최신본 기록 실패(본 저장은 완료)", e); }
+          try { await appendSaveToHistoryInRepository(save, this.nickname); } catch (e) { console.warn("백업 링 기록 실패(본 저장은 완료)", e); }
           this.pendingOverwriteSave = null;
           this.tutorialSignals.saved = true;
           this.closePanel();
