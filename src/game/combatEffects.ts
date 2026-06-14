@@ -481,6 +481,70 @@ export function spawnDragonClawBurst(context: CombatEffectContext, origin: THREE
   }
 }
 
+// 보스 속성 브레스 — source(주둥이)에서 target(플레이어)로 쏟아지는 원뿔형 발광 스트림. colors 로 속성 색 지정.
+export function spawnBossBreathStream(context: CombatEffectContext, source: THREE.Vector3, target: THREE.Vector3, colors: readonly number[]) {
+  const dir = target.clone().sub(source);
+  const dist = Math.max(0.5, dir.length());
+  dir.normalize();
+  for (let i = 0; i < 42; i += 1) {
+    const t = i / 42;
+    const spread = 0.2 + t * 1.1; // 끝으로 갈수록 퍼지는 원뿔
+    const at = source.clone().addScaledVector(dir, t * dist).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(spread), THREE.MathUtils.randFloatSpread(spread * 0.7), THREE.MathUtils.randFloatSpread(spread)));
+    const particle = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.1, 0.27), 8, 6),
+      new THREE.MeshBasicMaterial({ color: colors[i % colors.length], transparent: true, opacity: THREE.MathUtils.randFloat(0.6, 0.95), blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    particle.position.copy(at);
+    particle.renderOrder = 22;
+    const velocity = dir.clone().multiplyScalar(THREE.MathUtils.randFloat(4, 8.5)).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(1.3), THREE.MathUtils.randFloatSpread(0.9), THREE.MathUtils.randFloatSpread(1.3)));
+    context.scene.add(particle);
+    context.damageParticles.push({ mesh: particle, velocity, life: THREE.MathUtils.randFloat(0.34, 0.66), maxLife: 0.66 });
+  }
+}
+
+// 지면 충격파 — 바닥 확장 링 2겹(스케일 불가라 큰 반경+페이드) + 사방으로 튀는 흙/돌. 보스 강타·궁극기 임팩트용.
+export function spawnGroundShockwave(context: CombatEffectContext, center: THREE.Vector3, color: number) {
+  const base = center.clone();
+  base.y = context.getGroundHeightAt(base.x, base.z) + 0.05;
+  for (let i = 0; i < 2; i += 1) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(2.2 + i * 1.1, 3.3 + i * 1.1, 48),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5 - i * 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    ring.position.copy(base);
+    ring.rotation.x = -Math.PI / 2;
+    ring.renderOrder = 24;
+    context.scene.add(ring);
+    context.damageParticles.push({ mesh: ring, velocity: new THREE.Vector3(0, 0.05, 0), life: 0.42 + i * 0.1, maxLife: 0.55 });
+  }
+  for (let i = 0; i < 28; i += 1) {
+    const angle = (i / 28) * Math.PI * 2 + Math.random() * 0.22;
+    const particle = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.06, 0.16), 7, 5),
+      new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? color : 0x8a6a45, transparent: true, opacity: 0.86, depthWrite: false }),
+    );
+    particle.position.copy(base).add(new THREE.Vector3(Math.cos(angle) * 0.6, 0.15, Math.sin(angle) * 0.6));
+    particle.renderOrder = 23;
+    context.scene.add(particle);
+    context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(Math.cos(angle) * THREE.MathUtils.randFloat(2.4, 4.4), THREE.MathUtils.randFloat(1.2, 2.8), Math.sin(angle) * THREE.MathUtils.randFloat(2.4, 4.4)), life: 0.5, maxLife: 0.5 });
+  }
+}
+
+// 포효/충전 — 공격 예열(텔레그래프) 시 발밑에서 솟구치는 발광 입자.
+export function spawnBossRoar(context: CombatEffectContext, position: THREE.Vector3, color: number) {
+  for (let i = 0; i < 20; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const particle = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.06, 0.15), 7, 5),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    particle.position.copy(position).add(new THREE.Vector3(Math.cos(angle) * 0.5, THREE.MathUtils.randFloat(0, 1.4), Math.sin(angle) * 0.5));
+    particle.renderOrder = 22;
+    context.scene.add(particle);
+    context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(Math.cos(angle) * 1.6, THREE.MathUtils.randFloat(0.6, 2), Math.sin(angle) * 1.6), life: 0.5, maxLife: 0.5 });
+  }
+}
+
 // 치유 연출 — main.ts 에서 이동. 회복 링 + 떠오르는 입자
 export function spawnHealEffect(context: CombatEffectContext, position: THREE.Vector3) {
   const ring = new THREE.Mesh(

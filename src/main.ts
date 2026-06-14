@@ -321,6 +321,7 @@ import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
 import { publishProgress } from "./game/progressSync";
 import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
 import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
+import { updateDragons, type DragonAiContext } from "./game/dragonAi";
 import { buildSkillSlots } from "./ui/skillBar";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
@@ -583,6 +584,13 @@ class WildernessGame {
     respawnReady: (kind) => (this.dragonRespawnAt.get(kind) ?? 0) <= performance.now(),
     spawnDragon: (kind, position) => spawnDragonEntity(this.entitySpawnContext, position, kind),
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
+  };
+  private readonly dragonAiContext: DragonAiContext = {
+    locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition,
+    dragons: () => this.objectsOfType("dragon"), elapsed: () => this.clock.elapsedTime, now: () => performance.now(),
+    getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (o) => this.refreshSpatialObject(o),
+    effects: () => this.combatEffectContext, bossStats: (kind) => this.bossStats(kind), isBossUnlocked: (kind) => isBossUnlocked(kind, this.bossChapter),
+    damagePlayer: (a, s, r) => this.damagePlayer(a, s, r), showMessage: (t) => this.showMessage(t), playTone: (f, d, ty, v) => this.playTone(f, d, ty, v),
   };
   private readonly fieldBossContext: FieldBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
@@ -2531,7 +2539,7 @@ class WildernessGame {
     updateFinale(this.finaleContext);
     if (!partyWorldGuestActive()) updateFieldBosses(this.fieldBossContext); // 파티 게스트 — 보스는 호스트 스냅샷으로
     ensureChapterBoss(this.chapterBossContext);
-    this.updateDragons(delta);
+    updateDragons(this.dragonAiContext, delta);
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
     this.updateNightSpawns(delta); this.expirySweepTimer += delta; if (this.expirySweepTimer >= 1) { const now = performance.now(); this.expirySweepTimer = 0; for (const object of [...this.objects.values()]) if (object.expiresAt !== undefined && !object.partyTransient && object.expiresAt <= now && (object.type === "chest" || object.type === "mineChest" || object.type === "cave")) this.removeObject(object.id); }
@@ -3472,21 +3480,6 @@ class WildernessGame {
         child.position.x = Math.cos(angle) * radius;
         child.position.z = Math.sin(angle) * radius;
       });
-    }
-  }
-
-  private updateDragons(_delta: number) {
-    if (this.locationMode !== "overworld") return;
-    for (const dragon of this.objectsOfType("dragon")) {
-      const toPlayer = this.playerPosition.clone().sub(dragon.root.position);
-      const angle = Math.atan2(toPlayer.z, toPlayer.x);
-      dragon.root.rotation.y = -angle;
-      dragon.root.position.y = this.getGroundHeightAt(dragon.root.position.x, dragon.root.position.z) + 0.18 + Math.sin(this.clock.elapsedTime * 1.3 + dragon.root.position.x * 0.02) * 0.18;
-      dragon.root.children.forEach((child) => {
-        if (child.userData.dragonWing) child.rotation.z = (child.userData.baseZ ?? 0) + Math.sin(this.clock.elapsedTime * 4.8) * 0.22; // 양 날개 동위상 — 함께 위아래로 대칭 펄럭임(과거: position.z 부호로 역위상→비대칭)
-        if (child.userData.dragonTail) child.rotation.y = Math.sin(this.clock.elapsedTime * 2.2) * 0.18;
-      });
-      this.refreshSpatialObject(dragon);
     }
   }
 
