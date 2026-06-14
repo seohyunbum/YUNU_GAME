@@ -1625,22 +1625,22 @@ try {
   }
 
   {
-    // 자동 백업 링: 닉네임당 최신 30개 유지 + 닉네임 격리 + 복구 가능 (세이브 유실 대비)
+    // 자동 백업 링: 닉네임당 최신 15개 유지 + 닉네임 격리 + 복구 가능 (세이브 유실 대비)
     const { appendSaveToHistory, readSaveHistory, resolveHistorySave } = saveRepo;
     const { migrateSaveData } = saveMigration;
     const histStorage = (() => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; })();
     const mkH = (lvl, i) => migrateSaveData({ version: 11, savedAt: new Date(Date.UTC(2026, 5, 1, 0, 0, i)).toISOString(), player: { level: lvl, playerClass: "mage", position: { x: lvl, y: 1.7, z: i } } });
-    for (let i = 1; i <= 35; i += 1) await appendSaveToHistory(mkH(i, i), "마법사씨", histStorage);
+    for (let i = 1; i <= 20; i += 1) await appendSaveToHistory(mkH(i, i), "마법사씨", histStorage);
     const hist = readSaveHistory("마법사씨", histStorage);
-    assert(hist.length === 30, `history should cap at 30 per nickname, got ${hist.length}`);
+    assert(hist.length === 15, `history should cap at 15 per nickname, got ${hist.length}`);
     assert(new Date(hist[0].savedAt).getTime() > new Date(hist[1].savedAt).getTime(), "history should be newest-first");
-    assert(hist.some((e) => e.savedAt === mkH(35, 35).savedAt), "latest backup must be retained");
-    assert(!hist.some((e) => e.savedAt === mkH(1, 1).savedAt), "oldest backup beyond 30 must be evicted");
+    assert(hist.some((e) => e.savedAt === mkH(20, 20).savedAt), "latest backup must be retained");
+    assert(!hist.some((e) => e.savedAt === mkH(1, 1).savedAt), "oldest backup beyond 15 must be evicted");
     await appendSaveToHistory(mkH(99, 99), "전사씨", histStorage);
     assert(readSaveHistory("전사씨", histStorage).length === 1, "other nickname's history is isolated");
-    assert(readSaveHistory("마법사씨", histStorage).length === 30, "appending to another nickname must not evict mine");
+    assert(readSaveHistory("마법사씨", histStorage).length === 15, "appending to another nickname must not evict mine");
     const recovered = await resolveHistorySave(hist[0]);
-    assert(recovered !== null && recovered.player.playerClass === "mage" && recovered.player.level === 35, "history entry should unpack back to the saved game for recovery");
+    assert(recovered !== null && recovered.player.playerClass === "mage" && recovered.player.level === 20, "history entry should unpack back to the saved game for recovery");
   }
 
   {
@@ -1958,7 +1958,7 @@ try {
         "skill bar: per-class R/T slots (name/hotkey/total/icon match defs) + independent primary/second cooldown timestamps",
         "save slots: overwrite replaces only the chosen slot and preserves all other saves (data-loss regression guard)",
         "world map gating: level gap OR predecessor field-boss defeat unlocks the next map",
-        "save history ring: 30-per-nickname cap, nickname isolation, recover via unpack",
+        "save history ring: 15-per-nickname cap, nickname isolation, recover via unpack",
         "autosave slot: dedicated key (never touches manual saves/latest), single rolling slot per nickname (overwrites), sync exit-save, recover, nickname isolation",
         "navigation guard: global contextmenu block, single-trap back absorb (no install/title trap, arm/disarm, onBlockedBack), beforeunload/pagehide sync + visibilitychange async autosave, uninstall",
         "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",

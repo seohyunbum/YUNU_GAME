@@ -21,7 +21,7 @@ export interface LoadGamePanelCallbacks {
   onExportSave: () => Promise<object | null>;
   onImportSave: (save: object) => void;
   onResolveSummary?: (slotId: string) => Promise<string | null>;
-  // 자동 백업 이력(닉네임별 최신 30개) 복구
+  // 자동 백업 이력(닉네임별 최신 15개) 복구
   onShowHistory?: () => HistoryEntryView[];
   onRecoverHistory?: (savedAt: string) => void;
   // 자동저장 슬롯(실수 이탈 대비) 복구 — 수동 저장과 별개의 독립 슬롯
@@ -139,8 +139,8 @@ export function renderLoadGamePanel(
     if (!historyPanel.hidden) { historyPanel.hidden = true; return; }
     const entries = callbacks.onShowHistory();
     historyPanel.innerHTML = entries.length === 0
-      ? `<p class="inventory-subtitle">자동 백업이 아직 없습니다. 저장할 때마다 최신 30개까지 자동 보관됩니다.</p>`
-      : `<p class="inventory-subtitle">자동 백업 (닉네임별 최신 30개) — 잘못 덮어썼을 때 과거 시점으로 되돌릴 수 있습니다.</p>` +
+      ? `<p class="inventory-subtitle">자동 백업이 아직 없습니다. 저장할 때마다 최신 15개까지 자동 보관됩니다.</p>`
+      : `<p class="inventory-subtitle">자동 백업 (닉네임별 최신 15개) — 잘못 덮어썼을 때 과거 시점으로 되돌릴 수 있습니다.</p>` +
         entries
           .map(
             (entry) => `<article class="save-card save-history-card">
