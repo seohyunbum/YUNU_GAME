@@ -254,6 +254,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       bossChapter: normalizeBossChapter(player.bossChapter),
       defeatedFieldBosses: normalizeDefeatedFieldBosses(player.defeatedFieldBosses),
       totalSteps: savedNumber(player.totalSteps, 0, 0),
+      playSeconds: savedNumber(player.playSeconds, 0, 0),
       chestStepBank: savedNumber(player.chestStepBank, 0, 0),
       caveStepBank: savedNumber(player.caveStepBank, 0, 0),
       equippedArmor: player.equippedArmor ?? null,

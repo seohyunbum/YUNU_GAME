@@ -288,6 +288,7 @@ export interface SavedGame {
     bossChapter?: number;
     defeatedFieldBosses?: string[];
     totalSteps: number;
+    playSeconds: number;
     chestStepBank: number;
     caveStepBank: number;
     equippedArmor: ItemId | null;

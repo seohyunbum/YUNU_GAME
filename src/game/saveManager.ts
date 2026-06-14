@@ -52,6 +52,7 @@ export interface SaveDataSnapshot {
     bossChapter: number;
     defeatedFieldBosses: readonly string[];
     totalSteps: number;
+    playSeconds: number;
     chestStepBank: number;
     caveStepBank: number;
     equippedArmor: ItemId | null;
@@ -219,6 +220,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       bossChapter: normalizeBossChapter(snapshot.player.bossChapter),
       defeatedFieldBosses: [...snapshot.player.defeatedFieldBosses],
       totalSteps: snapshot.player.totalSteps,
+      playSeconds: snapshot.player.playSeconds,
       chestStepBank: snapshot.player.chestStepBank,
       caveStepBank: snapshot.player.caveStepBank,
       equippedArmor: snapshot.player.equippedArmor,

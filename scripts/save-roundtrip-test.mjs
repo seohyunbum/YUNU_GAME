@@ -49,6 +49,7 @@ function stableSaveShape(save) {
       bossChapter: save.player.bossChapter,
       defeatedFieldBosses: save.player.defeatedFieldBosses,
       totalSteps: save.player.totalSteps,
+      playSeconds: save.player.playSeconds,
       chestStepBank: save.player.chestStepBank,
       caveStepBank: save.player.caveStepBank,
       equippedArmor: save.player.equippedArmor,
@@ -152,6 +153,7 @@ try {
     game.worldTimeSeconds = 2400;
     game.currentWorldMapId = "mushroom_glen";
     game.totalSteps = 321;
+    game.playSeconds = 4567;
     game.chestStepBank = 22;
     game.caveStepBank = 33;
     game.equippedArmor = "diamond_armor";

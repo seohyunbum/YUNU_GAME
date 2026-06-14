@@ -36,7 +36,8 @@ export class FirebaseDirectory implements PartyDirectory {
     this.db = db;
 
     const meRef = fdb.ref(db, `users/${nickname}`);
-    await fdb.set(meRef, { online: true, lastSeen: fdb.serverTimestamp() });
+    // update(merge) — set 으로 덮으면 저장 시 발행한 진행도(level/playSeconds 등)가 재접속마다 지워진다.
+    await fdb.update(meRef, { online: true, lastSeen: fdb.serverTimestamp() });
     fdb.onDisconnect(meRef).update({ online: false, lastSeen: fdb.serverTimestamp() });
 
     const watch = (path: string, handler: (snapshot: import("firebase/database").DataSnapshot) => void) => {

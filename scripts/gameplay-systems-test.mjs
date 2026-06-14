@@ -1622,6 +1622,26 @@ try {
     void bamboo;
   }
 
+  {
+    // Firebase 진행도 발행: users/{닉}.json 에 PATCH(merge), 값 정수화, 닉네임 없으면 skip, 오류 시 false
+    const { publishProgress } = await server.ssrLoadModule("/src/game/progressSync.ts");
+    let captured = null;
+    const mockFetch = async (url, opts) => { captured = { url, opts }; return { ok: true }; };
+    const ok = await publishProgress("마법사씨", { level: 31, cls: "mage", steps: 24578.9, playSeconds: 3661.7 }, mockFetch);
+    assert(ok === true, "publishProgress returns true on ok response");
+    assert(captured.url.includes("/users/") && captured.url.endsWith(".json"), `progress should PATCH users/{nick}.json, got ${captured.url}`);
+    const seg = decodeURIComponent(captured.url.split("/users/")[1].replace(/\.json$/, ""));
+    assert(seg === "마법사씨", `nickname should be url-encoded in path, decoded=${seg}`);
+    assert(captured.opts.method === "PATCH", "progress must use PATCH (merge — preserves online/lastSeen)");
+    const sent = JSON.parse(captured.opts.body);
+    assert(sent.level === 31 && sent.class === "mage" && sent.steps === 24578 && sent.playSeconds === 3661, `progress body should floor/key correctly: ${captured.opts.body}`);
+    assert(typeof sent.progressAt === "number", "progress should include progressAt timestamp");
+    const skipped = await publishProgress("", { level: 1, cls: "warrior", steps: 0, playSeconds: 0 }, mockFetch);
+    assert(skipped === false, "publishProgress should skip when nickname is empty");
+    const onError = await publishProgress("x", { level: 1, cls: "warrior", steps: 0, playSeconds: 0 }, async () => { throw new Error("network"); });
+    assert(onError === false, "publishProgress should swallow network errors and return false");
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -1673,6 +1693,7 @@ try {
         "save slots: overwrite replaces only the chosen slot and preserves all other saves (data-loss regression guard)",
         "world map gating: level gap OR predecessor field-boss defeat unlocks the next map",
         "save history ring: 30-per-nickname cap, nickname isolation, recover via unpack",
+        "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",
       ],
     }, null, 2));
   }

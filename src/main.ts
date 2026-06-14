@@ -314,6 +314,7 @@ import {
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
+import { publishProgress } from "./game/progressSync";
 import { buildSkillSlots } from "./ui/skillBar";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
@@ -458,6 +459,7 @@ class WildernessGame {
   private fallDamageArmed = false;
   private jumpWasDown = false;
   private totalSteps = 0;
+  private playSeconds = 0; // 실시간 누적 플레이타임(초) — 타이틀·패널 제외
   private chestStepBank = 0;
   private caveStepBank = 0;
   private antStepBank = 0;
@@ -2503,6 +2505,7 @@ class WildernessGame {
       this.updateVillagers(delta);
       return;
     }
+    if (this.currentPanel === null) this.playSeconds += delta; // 실시간 플레이타임 누적(패널 열림 제외)
     this.applyMouseLook();
     this.updateAdaptiveQuality(delta);
     this.updateTimeOfDay(delta);
@@ -5437,6 +5440,7 @@ class WildernessGame {
   private async saveGame() {
     try {
       const save = this.createSaveData();
+      void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds }); // 운영 리포트용 진행도 발행(부가)
       const existingSaves = this.readStoredSlots().filter((slot) => slot.savedAt !== save.savedAt);
       if (existingSaves.length >= MAX_SAVE_SLOTS) {
         // 슬롯 가득 — 어떤 저장도 건드리기 전에 덮어쓸 슬롯을 직접 고르게 한다.
@@ -5571,6 +5575,7 @@ class WildernessGame {
         bossChapter: this.bossChapter,
         defeatedFieldBosses: this.defeatedFieldBosses,
         totalSteps: this.totalSteps,
+        playSeconds: this.playSeconds,
         chestStepBank: this.chestStepBank,
         caveStepBank: this.caveStepBank,
         equippedArmor: this.equippedArmor,
@@ -5666,6 +5671,7 @@ class WildernessGame {
     this.starvationNoticeTimer = 0;
     this.dragonSpawnTimer = 0;
     this.totalSteps = save.player.totalSteps;
+    this.playSeconds = save.player.playSeconds ?? 0;
     this.lastHudStepCount = Math.floor(this.totalSteps);
     this.movementHudTimer = 0;
     this.chestStepBank = save.player.chestStepBank;
@@ -5753,6 +5759,7 @@ class WildernessGame {
     this.isGrounded = true;
     this.jumpWasDown = false;
     this.totalSteps = 0;
+    this.playSeconds = 0;
     this.chestStepBank = 0;
     this.caveStepBank = 0;
     this.antStepBank = 0;

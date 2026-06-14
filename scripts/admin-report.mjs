@@ -61,7 +61,7 @@ function originOf(k) { return k.includes("127.0.0.1") ? "로컬:127.0.0.1:5173" 
 const accounts = new Map();
 const ensure = (nick) => {
   const key = nick || "(닉네임 미설정)";
-  if (!accounts.has(key)) accounts.set(key, { nickname: key, saves: new Map(), sources: new Set(), registeredOn: new Set(), friends: new Set(), inFirebase: false, online: false, lastSeen: null });
+  if (!accounts.has(key)) accounts.set(key, { nickname: key, saves: new Map(), sources: new Set(), registeredOn: new Set(), friends: new Set(), inFirebase: false, online: false, lastSeen: null, fbLevel: null, fbClass: null, fbSteps: null, fbPlaySeconds: null });
   return accounts.get(key);
 };
 const addSave = (nick, origin, rec) => {
@@ -69,7 +69,7 @@ const addSave = (nick, origin, rec) => {
   if (!save?.player || typeof save.savedAt !== "string") return;
   const acc = ensure(nick);
   acc.sources.add(origin);
-  if (!acc.saves.has(save.savedAt)) acc.saves.set(save.savedAt, { level: save.player.level ?? 1, cls: save.player.playerClass ?? "?", steps: Math.floor(save.player.totalSteps ?? 0), savedAt: save.savedAt });
+  if (!acc.saves.has(save.savedAt)) acc.saves.set(save.savedAt, { level: save.player.level ?? 1, cls: save.player.playerClass ?? "?", steps: Math.floor(save.player.totalSteps ?? 0), playSeconds: Math.floor(save.player.playSeconds ?? 0), savedAt: save.savedAt });
 };
 
 async function readSource(browserName, dbDir) {
@@ -130,6 +130,11 @@ if (!noFirebase) {
       acc.inFirebase = true;
       acc.online = Boolean(info?.online);
       acc.lastSeen = typeof info?.lastSeen === "number" ? info.lastSeen : acc.lastSeen;
+      // 게임이 저장 시 발행한 진행도(원격 유저 레벨/플레이타임 — 로컬 세이브가 없을 때 사용)
+      if (typeof info?.level === "number") acc.fbLevel = info.level;
+      if (typeof info?.class === "string") acc.fbClass = info.class;
+      if (typeof info?.steps === "number") acc.fbSteps = info.steps;
+      if (typeof info?.playSeconds === "number") acc.fbPlaySeconds = info.playSeconds;
     }
     for (const [nick, others] of Object.entries(fb.friends)) {
       if (others && typeof others === "object") for (const other of Object.keys(others)) ensure(nick).friends.add(other);
@@ -137,22 +142,32 @@ if (!noFirebase) {
   }
 }
 
+const fmtPlay = (sec) => { if (!sec || sec <= 0) return null; const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h > 0 ? `${h}시간 ${m}분` : `${m}분`; };
 const rows = [...accounts.values()].map((a) => {
   const saves = [...a.saves.values()].sort((x, y) => new Date(x.savedAt) - new Date(y.savedAt));
   const top = saves.reduce((m, sv) => (sv.level > (m?.level ?? -1) ? sv : m), null);
   const byClass = {};
   for (const sv of saves) byClass[sv.cls] = Math.max(byClass[sv.cls] ?? 0, sv.level);
+  const localPlay = saves.reduce((m, sv) => Math.max(m, sv.playSeconds ?? 0), 0);
+  const hasLocal = saves.length > 0;
+  // 레벨/직업/플레이타임: 로컬 세이브 우선, 없으면 게임이 발행한 Firebase 진행도 사용(원격 유저)
+  const topLevel = hasLocal ? top.level : a.fbLevel;
+  const topClassRaw = hasLocal ? top.cls : a.fbClass;
+  const playSeconds = Math.max(localPlay, a.fbPlaySeconds ?? 0);
   return {
     nickname: a.nickname,
     online: a.online,
     lastSeen: a.lastSeen ? new Date(a.lastSeen).toISOString() : null,
     inFirebase: a.inFirebase,
-    hasLocalSaves: saves.length > 0,
-    topLevel: top?.level ?? null,
-    topClass: top ? (CLASS_KO[top.cls] ?? top.cls) : null,
+    hasLocalSaves: hasLocal,
+    levelSource: hasLocal ? "local" : (a.fbLevel != null ? "firebase" : "none"),
+    topLevel: topLevel ?? null,
+    topClass: topClassRaw ? (CLASS_KO[topClassRaw] ?? topClassRaw) : null,
     byClass: Object.fromEntries(Object.entries(byClass).map(([c, l]) => [CLASS_KO[c] ?? c, l])),
     saveCount: saves.length,
-    maxSteps: saves.reduce((m, sv) => Math.max(m, sv.steps), 0),
+    maxSteps: Math.max(saves.reduce((m, sv) => Math.max(m, sv.steps), 0), a.fbSteps ?? 0),
+    playSeconds,
+    playLabel: fmtPlay(playSeconds),
     firstSavedAt: saves[0]?.savedAt ?? null,
     lastSavedAt: saves[saves.length - 1]?.savedAt ?? null,
     sources: [...a.sources],
@@ -167,21 +182,20 @@ console.log(`  YUNU_GAME 운영자 전체 유저 리포트 — ${now.toLocaleStr
 console.log(`  유저 ${rows.length}명 · 온라인 ${rows.filter((r) => r.online).length}명 · 이 PC 세이브 보유 ${rows.filter((r) => r.hasLocalSaves).length}명`);
 console.log(`  소스: ${fb ? "Firebase 디렉터리 + " : ""}${sources.map((s) => s.name).join(", ") || "(로컬 없음)"}`);
 console.log("=".repeat(74));
+const srcTag = { local: "", firebase: " [Firebase]", none: "" };
 for (const r of rows) {
-  const lvl = r.hasLocalSaves ? `Lv ${r.topLevel} (${r.topClass})` : "레벨 정보 없음 (원격 — 세이브는 본인 PC)";
+  const lvl = r.topLevel != null ? `Lv ${r.topLevel}${r.topClass ? ` (${r.topClass})` : ""}${srcTag[r.levelSource]}` : "레벨 정보 없음 (저장 전 — 게임에서 한 번 저장하면 표시)";
   console.log(`\n${r.online ? "🟢" : "⚪"} ${r.nickname}`);
   console.log(`   최고 레벨   : ${lvl}`);
-  if (r.hasLocalSaves) {
-    console.log(`   직업별 최고 : ${Object.entries(r.byClass).map(([c, l]) => `${c} Lv${l}`).join(", ")}`);
-    console.log(`   세이브/걸음 : ${r.saveCount}개 · ${r.maxSteps.toLocaleString()}걸음 · ${r.sources.join(", ")}`);
-  }
+  console.log(`   플레이타임  : ${r.playLabel ?? "기록 없음"}${r.maxSteps ? ` · ${r.maxSteps.toLocaleString()}걸음` : ""}`);
+  if (r.hasLocalSaves) console.log(`   직업별 최고 : ${Object.entries(r.byClass).map(([c, l]) => `${c} Lv${l}`).join(", ")} · 세이브 ${r.saveCount}개 · ${r.sources.join(", ")}`);
   console.log(`   접속        : ${r.online ? "온라인" : "오프라인"}${r.lastSeen ? ` · 최근 ${new Date(r.lastSeen).toLocaleString()}` : ""}`);
   if (r.friends.length) console.log(`   친구        : ${r.friends.join(", ")}`);
 }
 console.log("\n" + "-".repeat(74));
-console.log("※ 전체 유저 명부·접속 상태·친구는 Firebase 중앙 디렉터리에서 가져옵니다.");
-console.log("※ 레벨·세이브는 각 플레이어 본인 PC 의 브라우저에만 있어, 이 PC 에서 플레이된 계정만 표시됩니다.");
-console.log("※ 실제 플레이타임은 미기록 — 걸음수·저장 시각으로 추정.");
+console.log("※ 명부·접속·친구 + 최고레벨/플레이타임은 Firebase 중앙 디렉터리에서 가져옵니다(저장 시 게임이 발행).");
+console.log("※ [Firebase] = 원격 발행값, 표기 없음 = 이 PC 세이브에서 직접 집계. '저장 전' 유저는 한 번 저장하면 표시됩니다.");
+console.log("※ 세이브 상세(직업별·백업 이력)는 이 PC 에서 플레이된 계정만 표시됩니다.");
 
 // ── JSON ──
 const outDir = resolve("admin-reports");
