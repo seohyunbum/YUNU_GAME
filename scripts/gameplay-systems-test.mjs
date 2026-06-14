@@ -1702,6 +1702,27 @@ try {
   }
 
   {
+    // 안전구역: 마을·훈련장 안=차단, 밖=허용; 안의 점은 경계로 밀려남(클램프); 보스 좌표는 모두 안전구역 밖
+    const sz = await server.ssrLoadModule("/src/game/safeZones.ts");
+    const { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } = sz;
+    assert(VILLAGE_CENTERS.length === 3, "3 village centers (single source of truth)");
+    assert(isInSafeZone(58, -76) && isInSafeZone(245, 138) && isInSafeZone(58, 46), "village + training centers are safe zones");
+    assert(!isInSafeZone(0, 0) && !isInSafeZone(500, 500), "far points are not safe zones");
+    const p = { x: 60, z: -76 }; // 마을1(58,-76)에서 2칸 — 안쪽
+    clampOutOfSafeZones(p);
+    assert(!isInSafeZone(p.x, p.z), "clamped point is pushed out of every safe zone");
+    const pushed = Math.hypot(p.x - 58, p.z + 76);
+    assert(pushed >= 27.9 && pushed <= 28.1, `clamped to village safe radius ~28 (got ${pushed.toFixed(2)})`);
+    const q = { x: 0, z: 0 };
+    clampOutOfSafeZones(q);
+    assert(q.x === 0 && q.z === 0, "point outside all safe zones is unchanged by clamp");
+    const boss = await server.ssrLoadModule("/src/game/bossChapters.ts");
+    const fb = await server.ssrLoadModule("/src/game/fieldBosses.ts");
+    for (const s of boss.BOSS_PROGRESSION) assert(!isInSafeZone(s.position[0], s.position[1]), `chapter boss ${s.kind} must NOT be inside a safe zone (else it can't spawn)`);
+    for (const f of fb.FIELD_BOSSES) assert(!isInSafeZone(f.position[0], f.position[1]), `field boss ${f.id} must NOT be inside a safe zone`);
+  }
+
+  {
     // 챕터 보스 드래곤 리스폰 쿨다운: 처치 직후엔 재스폰 안 하고(부재여도), 10분 경과 후 재등장
     const boss = await server.ssrLoadModule("/src/game/bossChapters.ts");
     const step = boss.BOSS_PROGRESSION[0];
@@ -1870,6 +1891,7 @@ try {
         "treasure chest tiers: roll boundaries (74/20/5/1) + higher tier = rarer loot (monotonic)",
         "ultimate weapons: sharp obsidian shield/staff/gun exceed top of category, correct ranged/projectile class, epic, extended-workbench recipes with valid ingredients",
         "chapter boss respawn: killed dragon does not instantly respawn; re-spawns only after 10-minute cooldown",
+        "safe zones: villages + training block monster spawn (isInSafeZone) and movement (clampOutOfSafeZones pushes to boundary); all boss coords clear of safe zones",
       ],
     }, null, 2));
   }

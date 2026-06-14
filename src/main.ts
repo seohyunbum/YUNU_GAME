@@ -320,6 +320,7 @@ import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
 import { publishProgress } from "./game/progressSync";
 import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
+import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
 import { buildSkillSlots } from "./ui/skillBar";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
@@ -1853,9 +1854,7 @@ class WildernessGame {
       const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
       applyPredatorMonsterDefinition(predator, region, monsterId);
     }
-    this.spawnVillage(new THREE.Vector3(58, 0, -76));
-    this.spawnVillage(new THREE.Vector3(-96, 0, 120));
-    this.spawnVillage(new THREE.Vector3(245, 0, 138), 16, true);
+    for (const v of VILLAGE_CENTERS) this.spawnVillage(new THREE.Vector3(v.x, 0, v.z), v.special ? 16 : 5, v.special); // 안전구역(safeZones)과 단일 진실원천
   }
 
   private spawnStarterAnimalHerds() {
@@ -3505,6 +3504,7 @@ class WildernessGame {
         const next = jammini.root.position.clone();
         next.x += Math.cos(angle) * (aggroed ? 1.25 : 0.45) * delta;
         next.z += Math.sin(angle) * (aggroed ? 1.25 : 0.45) * delta;
+        clampOutOfSafeZones(next); // 마을·훈련장 진입 차단
         if (!this.isNaturalSpawnBlocked(next, 2)) {
           next.y = this.getGroundHeightAt(next.x, next.z);
           jammini.root.position.copy(next);
@@ -9371,7 +9371,7 @@ class WildernessGame {
       point.y = this.getGroundHeightAt(point.x, point.z);
       if (attempt === 0) fallback = point;
       if (Math.hypot(point.x, point.z - 12) < 64) continue;
-      if (!this.isNaturalSpawnBlocked(point, 5)) return point;
+      if (!this.isNaturalSpawnBlocked(point, 5) && !isInSafeZone(point.x, point.z, 5)) return point; // 마을·훈련장엔 스폰 안 함
     }
     return fallback;
   }
@@ -9384,7 +9384,7 @@ class WildernessGame {
       point.y = this.getGroundHeightAt(point.x, point.z);
       const minDistance = region ? Math.min(NIGHT_PREDATOR_MIN_PLAYER_DISTANCE, Math.max(28, region.radius * 0.52)) : NIGHT_PREDATOR_MIN_PLAYER_DISTANCE;
       if (point.distanceTo(this.playerPosition) < minDistance) continue;
-      if (region ? this.isNearWater(point, 8) || this.isPointInLava(point, 2) : this.isNaturalSpawnBlocked(point, 8)) continue;
+      if ((region ? this.isNearWater(point, 8) || this.isPointInLava(point, 2) : this.isNaturalSpawnBlocked(point, 8)) || isInSafeZone(point.x, point.z, 8)) continue; // 마을·훈련장 제외
       let blocked = false;
       for (const object of this.objectsNear(point, 12)) {
         if (object.type === "wildPredator" || object.type === "animal") continue;

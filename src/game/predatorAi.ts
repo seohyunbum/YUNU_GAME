@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { WORLD_SIZE } from "./constants";
 import { partyDamageRemotePlayer, partyHostCombatTargets, partyWorldGuestActive } from "./partyWorldSync";
 import { clampPointToRegion, getRegionById, regionAtPosition, type Region } from "./regions";
+import { clampOutOfSafeZones } from "./safeZones";
 import type { MonsterId } from "./monsters";
 import type { LocationMode, PredatorKind, WorldObject } from "./types";
 
@@ -168,10 +169,12 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     );
     const region = getRegionById(predator.regionId, context.activeRegions()) ?? regionAtPosition(predator.root.position, context.activeRegions());
     if (region) clampPointToRegion(nextPosition, region);
+    clampOutOfSafeZones(nextPosition); // 마을·훈련장 진입 차단(추격 중에도)
     nextPosition.y = context.getGroundHeightAt(nextPosition.x, nextPosition.z);
     predator.root.position.copy(nextPosition);
     predator.root.rotation.y = -angle;
     animatePredatorAttackMotion(predator, now);
+    clampOutOfSafeZones(predator.root.position); // 도약(lunge)이 안전구역으로 찌르지 못하게 재클램프
     context.refreshSpatialObject(predator);
     context.animateWalkCycle(predator, delta, aggroed ? 0.82 : 0.28);
     predator.attackCooldown = Math.max(0, (predator.attackCooldown ?? 0) - delta);

@@ -112,6 +112,34 @@ function rigVisual(kind: TrainingKind) {
   return group;
 }
 
+// 훈련장 안내 간판 텍스처 — 무엇을 하는 곳인지 직관적으로. 장착 시 1회 빌드(핫패스 아님).
+function trainingSignTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 232;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#3a2412";
+    ctx.fillRect(0, 0, 512, 232);
+    ctx.fillStyle = "#5a3a1e";
+    ctx.fillRect(10, 10, 492, 212);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffe9a8";
+    ctx.font = "bold 60px 'Malgun Gothic', sans-serif";
+    ctx.fillText("훈 련 장", 256, 76);
+    ctx.fillStyle = "#fde68a";
+    ctx.font = "bold 30px 'Malgun Gothic', sans-serif";
+    ctx.fillText("미니게임으로 스탯 영구 강화", 256, 128);
+    ctx.fillStyle = "#d8c9aa";
+    ctx.font = "25px 'Malgun Gothic', sans-serif";
+    ctx.fillText("체력 · 공격력 · 방어력 · 마나", 256, 168);
+    ctx.fillText("권장 Lv.10+ · 안전구역(몬스터 없음)", 256, 204);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 export function ensureTrainingGround(context: TrainingGroundContext) {
   if (context.locationMode() !== "overworld" || context.worldMapId() !== context.defaultMapId) return;
   if (context.hasTrainingGround()) return;
@@ -146,11 +174,14 @@ export function ensureTrainingGround(context: TrainingGroundContext) {
       ground.add(rail);
     }
   }
-  const sign = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.5, 0.08), new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.6 }));
-  sign.position.set(0, 1.7, TRAINING_RADIUS + 0.4);
-  const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.7, 7), postMaterial);
-  signPost.position.set(0, 0.85, TRAINING_RADIUS + 0.4);
-  ground.add(sign, signPost);
+  // 안내 간판 — 큰 나무판 + 캔버스 텍스트(앞뒤 양면)로 무엇을 하는 곳인지 바로 알 수 있게
+  const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.1, 8), postMaterial);
+  signPost.position.set(0, 1.05, TRAINING_RADIUS + 0.5);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.3, 0.1), new THREE.MeshStandardMaterial({ color: 0x4a2f17, roughness: 0.7 }));
+  board.position.set(0, 2.15, TRAINING_RADIUS + 0.5);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(2.55, 1.15), new THREE.MeshBasicMaterial({ map: trainingSignTexture(), side: THREE.DoubleSide }));
+  panel.position.set(0, 2.15, TRAINING_RADIUS + 0.56);
+  ground.add(signPost, board, panel);
   applyStylizedMeshDefaults(ground);
   ground.position.set(TRAINING_CENTER.x, centerY, TRAINING_CENTER.z);
   context.addWorldObject("trainingGround", "훈련장", ground, { collidable: false });
