@@ -83,7 +83,7 @@ import { fieldBossDefeatMessage, fieldBossQuestFor, updateFieldBosses, type Fiel
 import { showEndingScreen } from "./ui/endingScreen";
 import {
   createArrowProjectile,
-  createMagicProjectile,
+  createMagicProjectile, createFireballProjectile,
   spawnHealEffect,
   createTntProjectile,
   createWindCutterProjectile,
@@ -2908,12 +2908,12 @@ class WildernessGame {
   }
 
   // 스킬 투사체 공용 발사기 — TNT/강탄/파이어볼/바람정령이 공유한다
-  private fireSkillProjectile(kind: CombatProjectile["kind"], visual: "magic" | "wind" | "tnt" | "arrow", damage: number, speed: number, radius: number, explosionRadius?: number) {
+  private fireSkillProjectile(kind: CombatProjectile["kind"], visual: "magic" | "wind" | "tnt" | "arrow" | "fireball", damage: number, speed: number, radius: number, explosionRadius?: number) {
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion).normalize();
     const origin = this.camera.position.clone().addScaledVector(direction, 0.9).addScaledVector(right, 0.18).addScaledVector(up, -0.14);
-    const mesh = visual === "tnt" ? createTntProjectile(direction) : visual === "arrow" ? createArrowProjectile(direction) : visual === "wind" ? createWindCutterProjectile(direction) : createMagicProjectile(direction);
+    const mesh = visual === "tnt" ? createTntProjectile(direction) : visual === "arrow" ? createArrowProjectile(direction) : visual === "wind" ? createWindCutterProjectile(direction) : visual === "fireball" ? createFireballProjectile(direction) : createMagicProjectile(direction);
     const projectile: CombatProjectile = { kind, mesh, velocity: direction.multiplyScalar(speed), damage, radius, life: kind === "tnt" ? 2.1 : PROJECTILE_MAX_LIFE, explosionRadius };
     projectile.mesh.position.copy(origin);
     this.scene.add(projectile.mesh);
@@ -3481,7 +3481,7 @@ class WildernessGame {
       dragon.root.rotation.y = -angle;
       dragon.root.position.y = this.getGroundHeightAt(dragon.root.position.x, dragon.root.position.z) + 0.18 + Math.sin(this.clock.elapsedTime * 1.3 + dragon.root.position.x * 0.02) * 0.18;
       dragon.root.children.forEach((child) => {
-        if (child.userData.dragonWing) child.rotation.z = (child.userData.baseZ ?? 0) + Math.sin(this.clock.elapsedTime * 4.8) * 0.18 * (child.position.z < 0 ? -1 : 1);
+        if (child.userData.dragonWing) child.rotation.z = (child.userData.baseZ ?? 0) + Math.sin(this.clock.elapsedTime * 4.8) * 0.22; // 양 날개 동위상 — 함께 위아래로 대칭 펄럭임(과거: position.z 부호로 역위상→비대칭)
         if (child.userData.dragonTail) child.rotation.y = Math.sin(this.clock.elapsedTime * 2.2) * 0.18;
       });
       this.refreshSpatialObject(dragon);

@@ -95,7 +95,7 @@ export type PartyMessage =
   | { type: "partyKill"; name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string; lootItem?: string; lootCount?: number }
   | { type: "mobHit"; nickname: string; amount: number; name: string; mapId: string }
   // 5.1 — 원격 플레이어 표현
-  | { type: "playerAttack"; nickname: string; mapId: string; kind: "melee" | "ranged" | "skill"; visual?: "arrow" | "magic" | "wind" | "tnt"; speed?: number; life?: number; ox?: number; oy?: number; oz?: number; dx?: number; dy?: number; dz?: number }
+  | { type: "playerAttack"; nickname: string; mapId: string; kind: "melee" | "ranged" | "skill"; visual?: "arrow" | "magic" | "wind" | "tnt" | "fireball"; speed?: number; life?: number; ox?: number; oy?: number; oz?: number; dx?: number; dy?: number; dz?: number }
   | { type: "partyHeal"; recipient: string; amount: number; mapId: string }
   // 7차 — 보물 상자 개봉 (호스트 권위)
   | { type: "openRequest"; objectId: string }

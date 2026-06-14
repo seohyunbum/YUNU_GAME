@@ -64,6 +64,38 @@ export function createMagicProjectile(direction: THREE.Vector3) {
   return group;
 }
 
+// 파이어볼 전용 — 백황색 핵 + 주황/적색 불꽃 글로우 + 진행 반대쪽으로 늘어지는 혜성 꼬리.
+// (마법 지팡이의 createMagicProjectile 과 분리 — 지팡이는 기존 녹색 마법 그대로 유지)
+export function createFireballProjectile(direction: THREE.Vector3) {
+  const group = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.27, 20, 14),
+    new THREE.MeshBasicMaterial({ color: 0xfff2c2, transparent: true, opacity: 0.97, depthWrite: false }),
+  );
+  const inner = new THREE.Mesh(
+    new THREE.SphereGeometry(0.42, 20, 14),
+    new THREE.MeshBasicMaterial({ color: 0xff8a1e, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  const outer = new THREE.Mesh(
+    new THREE.SphereGeometry(0.62, 18, 12),
+    new THREE.MeshBasicMaterial({ color: 0xff3411, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  group.add(outer, inner, core);
+  // 혜성 꼬리 — 진행 반대(로컬 +z)로 늘어지는 콘 2겹(주황/노랑)
+  const tails: [number, number, number, number][] = [[0.38, 1.7, 0xff7a1a, 0.34], [0.22, 1.15, 0xffc24a, 0.42]];
+  for (const [tipR, len, tc, op] of tails) {
+    const tail = new THREE.Mesh(
+      new THREE.ConeGeometry(tipR, len, 14, 1, true),
+      new THREE.MeshBasicMaterial({ color: tc, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    tail.rotation.x = Math.PI / 2; // 콘 축을 z 로 (apex → +z = 뒤)
+    tail.position.z = len / 2; // base 는 오브, apex 는 뒤로
+    group.add(tail);
+  }
+  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction.clone().normalize()); // 로컬 -z = 진행, +z = 뒤
+  return group;
+}
+
 export function createWindCutterProjectile(direction: THREE.Vector3) {
   const group = new THREE.Group();
   const blade = new THREE.Mesh(

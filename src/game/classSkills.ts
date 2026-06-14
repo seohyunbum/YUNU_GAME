@@ -103,7 +103,7 @@ export interface SecondSkillContext {
   buffs: SkillBuffs;
   trySpend(skill: SecondSkillDef): boolean;
   lookCombatTarget(): WorldObject | null;
-  fireSkillProjectile(kind: "tnt" | "wind", visual: "magic" | "wind", damage: number, speed: number, radius: number, explosionRadius?: number): void;
+  fireSkillProjectile(kind: "tnt" | "wind", visual: "magic" | "wind" | "fireball", damage: number, speed: number, radius: number, explosionRadius?: number): void;
   applyDamage(target: WorldObject, damage: number): void;
   meleeEffects(target: WorldObject): void;
   playHandAction(kind: "melee" | "magic"): void;
@@ -133,7 +133,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   }
   if (playerClass === "mage") {
     if (!context.trySpend(skill)) return;
-    context.fireSkillProjectile("tnt", "magic", fireballDamage(bonus), 30, 0.4, FIREBALL_RADIUS);
+    context.fireSkillProjectile("tnt", "fireball", fireballDamage(bonus), 30, 0.4, FIREBALL_RADIUS);
     context.playHandAction("magic");
     context.playTone(300, 0.1, "sawtooth", 0.03);
     context.showMessage(`파이어볼! ${fireballDamage(bonus)} 범위 피해의 화염구를 발사했습니다.`);

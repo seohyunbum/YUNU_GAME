@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { createAvatarModel, CLASS_APPEARANCE } from "../avatar";
-import { createArrowProjectile, createMagicProjectile, createTntProjectile, createWindCutterProjectile } from "./combatEffects";
+import { createArrowProjectile, createMagicProjectile, createFireballProjectile, createTntProjectile, createWindCutterProjectile } from "./combatEffects";
 import type { PartyMessage, PartySession, PresenceData } from "./party";
 import { partyFlowOnPresences } from "./partyFlow";
 import { initPartyWorldSync, partyWorldSyncOnPresences, partyWorldSyncTick, type PartyWorldContext } from "./partyWorldSync";
@@ -238,7 +238,7 @@ function spawnRemoteProjectile(message: Extract<PartyMessage, { type: "playerAtt
   if (dir.lengthSq() < 0.0001) dir.set(0, 0, -1);
   dir.normalize();
   const visual = message.visual ?? "arrow";
-  const mesh = visual === "tnt" ? createTntProjectile(dir) : visual === "wind" ? createWindCutterProjectile(dir) : visual === "magic" ? createMagicProjectile(dir) : createArrowProjectile(dir);
+  const mesh = visual === "tnt" ? createTntProjectile(dir) : visual === "wind" ? createWindCutterProjectile(dir) : visual === "fireball" ? createFireballProjectile(dir) : visual === "magic" ? createMagicProjectile(dir) : createArrowProjectile(dir);
   mesh.position.set(message.ox ?? 0, message.oy ?? 1.4, message.oz ?? 0);
   const speed = message.speed ?? (visual === "magic" ? 29 : visual === "tnt" ? 18 : 41); // 권위 샷과 같은 속도·수명 (없으면 visual 기본)
   const life = message.life ?? (visual === "tnt" ? 2.1 : 1.6);
@@ -368,7 +368,7 @@ function updateRemoteProjectiles(delta: number) {
 
 // 로컬 공격을 파티에 알린다 — 친구 화면에 모션·투사체가 보이게. (게스트→호스트, 호스트→게스트 전원)
 // 동굴/집·타이틀(inGame=false)에서는 보내지 않는다 — 야외 친구 화면에 허공 투사체가 생기는 것을 막는다.
-export function notifyPartyAttack(kind: "melee" | "ranged" | "skill", origin?: THREE.Vector3, direction?: THREE.Vector3, visual?: "arrow" | "magic" | "wind" | "tnt", speed?: number, life?: number) {
+export function notifyPartyAttack(kind: "melee" | "ranged" | "skill", origin?: THREE.Vector3, direction?: THREE.Vector3, visual?: "arrow" | "magic" | "wind" | "tnt" | "fireball", speed?: number, life?: number) {
   const session = context?.session();
   if (!session || !context) return;
   const me = context.localPresence();
