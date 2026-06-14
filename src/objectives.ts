@@ -139,7 +139,7 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   checkQuest("craft_bag", (s) => s.hasBag, "제작대에서 가방 만들기", "제작대에서 가죽 7개로 가방을 만들면 인벤토리 가방 칸이 40칸으로 확장됩니다.", { experience: 96, items: { stone: 12, stick: 6 }, label: "경험치 96 + 돌 12개 + 막대기 6개" }),
   countQuest("craft_shovel", 1, (s) => SHOVEL_ITEMS.reduce((sum, item) => sum + s.countItem(item), 0), "나무 삽 만들기", "제작대에서 나무 1개 + 막대기 2개로 나무 삽을 만드세요. 삽이 있으면 흙을 훨씬 빠르게 팔 수 있습니다.", { experience: 110, items: { wood: 4 }, label: "경험치 110 + 나무 4개" }),
   // ── 3장. 도구와 광물 ──
-  checkQuest("craft_pickaxe", (s) => s.hasPickaxe, "돌 곡괭이 만들기", "제작대 3x3에서 막대기 2개와 돌 4개를 조합하면 돌 곡괭이를 만들 수 있습니다. 광물 채집의 시작입니다.", { experience: 120, items: { coal: 4 }, label: "경험치 120 + 석탄 4개" }),
+  checkQuest("craft_pickaxe", (s) => s.hasPickaxe, "돌 곡괭이 만들기", "제작대 3x3에서 막대기 2개와 돌 4개를 조합하면 돌 곡괭이를 만들 수 있습니다. 막대기는 인벤토리 2x2에서 나무 1개로 2개를 만들 수 있습니다. 광물 채집의 시작입니다.", { experience: 120, items: { coal: 4 }, label: "경험치 120 + 석탄 4개" }),
   countQuest("mine_stone", 6, (s) => s.countItem("stone"), "곡괭이로 돌 6개 캐기", "산 지형의 회색 돌 바닥을 곡괭이로 캐면 돌이 나옵니다. 돌은 도구와 건축의 기본 재료입니다.", { experience: 140, items: { stone: 4 }, label: "경험치 140 + 돌 4개" }),
   countQuest("mine_coal", 4, (s) => s.countItem("coal"), "석탄 4개 캐기", "검은 점이 박힌 석탄 광맥을 곡괭이로 캐세요. 석탄은 제련의 연료입니다.", { experience: 160, items: { iron: 2 }, label: "경험치 160 + 철 2개" }),
   checkQuest("visit_cave", (s) => s.inCave, "동굴에 들어가보기", "500걸음마다 낮은 확률로 동굴 입구가 나타납니다. 동굴 안에는 돌·석탄·철은 물론 금과 다이아몬드도 있습니다.", { experience: 180, items: { medkit: 2 }, label: "경험치 180 + 구급상자 2개" }),
