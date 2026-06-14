@@ -28,6 +28,9 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   rifle: "소총",
   crystal_staff: "수정 지팡이",
   arcane_staff: "비전 지팡이",
+  sharp_obsidian_shield: "날카로운 흑요석 방패",
+  sharp_obsidian_staff: "날카로운 흑요석 지팡이",
+  sharp_obsidian_gun: "날카로운 흑요석 총",
   bucket: "양동이",
   water_bucket: "물 양동이",
   lava_bucket: "용암 양동이",
@@ -154,6 +157,9 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   rifle: 7,
   crystal_staff: 6,
   arcane_staff: 9,
+  sharp_obsidian_shield: 8, // 방패 강타(iron_shield 3 초과)
+  sharp_obsidian_staff: 12, // 최상급 마법(arcane_staff 9 초과)
+  sharp_obsidian_gun: 11, // 최상급 총(rifle 7 초과)
   weak_wood_axe: 2,
   sharp_wood_axe: 4,
   stone_axe: 5,
@@ -164,11 +170,13 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
 };
 export const RANGED_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>([
   "bow", "magic_wand", "pistol", "iron_bow", "diamond_bow", "rifle", "crystal_staff", "arcane_staff",
+  "sharp_obsidian_staff", "sharp_obsidian_gun",
 ]);
 export const RANGED_PROJECTILE: Record<ItemId, "arrow" | "magic"> = {
   magic_wand: "magic",
   crystal_staff: "magic",
   arcane_staff: "magic",
+  sharp_obsidian_staff: "magic", // 흑요석 총은 미등재 → arrow 발사
 };
 export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => !RANGED_WEAPONS.has(item))) as Record<ItemId, number>;
 
@@ -196,6 +204,9 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   obsidian_armor: "epic",
   arcane_staff: "epic",
   xp_bottle: "epic",
+  sharp_obsidian_shield: "epic",
+  sharp_obsidian_staff: "epic",
+  sharp_obsidian_gun: "epic",
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
@@ -212,10 +223,12 @@ export const ARMOR_VALUE: Record<ItemId, number> = {
 
 export const SHIELD_DEFENSE: Record<ItemId, number> = {
   iron_shield: 5,
+  sharp_obsidian_shield: 10, // 최상급 방패(iron 5 초과)
 };
 
 export const SHIELD_DURABILITY: Record<ItemId, number> = {
   iron_shield: 200,
+  sharp_obsidian_shield: 300, // 더 단단(iron 200 초과)
 };
 
 export const AXE_POWER: Record<ItemId, number> = {

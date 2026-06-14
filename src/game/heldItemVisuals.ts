@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { createMirrorModel } from "../avatar";
 import { createBucketVisual } from "./bucketVisuals";
-import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel } from "./weaponVisuals";
+import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel, createObsidianGunModel, createObsidianShieldModel, createObsidianStaffModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
 import { addLegendaryWeapon } from "./legendaryWeapon";
 import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
@@ -116,6 +116,18 @@ export function createHeldItemModel(item: ItemId) {
     const cap = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.08, 12), headMaterial);
     cap.position.set(0.02, 0.55, 0);
     group.add(staff, cap, orb, ring);
+  } else if (item === "sharp_obsidian_shield") {
+    const shield = createObsidianShieldModel();
+    shield.position.set(0.06, 0.34, 0);
+    shield.rotation.set(0, 0.25, 0);
+    group.add(shield);
+  } else if (item === "sharp_obsidian_staff") {
+    group.add(createObsidianStaffModel());
+  } else if (item === "sharp_obsidian_gun") {
+    const gun = createObsidianGunModel();
+    gun.rotation.set(-0.05, 0.7, 0);
+    gun.scale.setScalar(1.12);
+    group.add(gun);
   } else if (item === "pistol") {
     // 총신이 화면 전방(-Z)을 향하도록 카메라 공간 보정 회전 (계산값)
     const pistol = createGunnerPistolModel();

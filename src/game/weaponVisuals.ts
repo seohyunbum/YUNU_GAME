@@ -186,3 +186,132 @@ export function createIronShieldModel() {
   shield.add(face, rim, ribVertical, ribHorizontal, boss, bossGem);
   return shield;
 }
+
+// ── 궁극 무기 3종 (흑요석 + 금장식 + 붉은 글로우) — 장착 시 1회 빌드(핫패스 아님) ──
+const OBSIDIAN = { color: 0x2a1330, metalness: 0.58, roughness: 0.32, emissive: 0x160520, emissiveIntensity: 0.45 };
+const ROYAL_GOLD = { color: 0xf0c64a, metalness: 0.82, roughness: 0.24 };
+
+// 날카로운 흑요석 방패 — 악마풍 붉은 글로우 + 금테 + 외곽 스파이크
+export function createObsidianShieldModel() {
+  const shield = new THREE.Group();
+  const obsidian = standard(OBSIDIAN);
+  const darkObsidian = standard({ color: 0x180a22, metalness: 0.5, roughness: 0.44 });
+  const gold = standard(ROYAL_GOLD);
+  const red = energyMaterial(0xff2438);
+
+  const outline = new THREE.Shape();
+  outline.moveTo(-0.25, 0.28);
+  outline.quadraticCurveTo(0, 0.35, 0.25, 0.28);
+  outline.quadraticCurveTo(0.29, 0.02, 0.18, -0.18);
+  outline.quadraticCurveTo(0.09, -0.34, 0, -0.4);
+  outline.quadraticCurveTo(-0.09, -0.34, -0.18, -0.18);
+  outline.quadraticCurveTo(-0.29, 0.02, -0.25, 0.28);
+  const faceGeometry = new THREE.ExtrudeGeometry(outline, { depth: 0.042, bevelEnabled: true, bevelThickness: 0.014, bevelSize: 0.016, bevelSegments: 2 });
+  const face = new THREE.Mesh(faceGeometry, obsidian);
+  const rim = new THREE.Mesh(faceGeometry, gold);
+  rim.scale.set(1.12, 1.12, 0.6);
+  rim.position.z = -0.016;
+
+  const ribV = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.58, 0.022), gold);
+  ribV.position.set(0, -0.04, 0.06);
+  const ribH = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.022), gold);
+  ribH.position.set(0, 0.12, 0.06);
+  const boss = new THREE.Mesh(new THREE.SphereGeometry(0.085, 16, 12), gold);
+  boss.position.set(0, 0.12, 0.06);
+  boss.scale.z = 0.55;
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.052), red);
+  core.position.set(0, 0.12, 0.11);
+  shield.add(face, rim, ribV, ribH, boss, core);
+
+  // 외곽 악마 스파이크 (상/하/좌/우)
+  const spikes: [number, number, number][] = [[0, 0.42, 0], [0, -0.5, Math.PI], [-0.28, 0.1, Math.PI / 2], [0.28, 0.1, -Math.PI / 2]];
+  for (const [x, y, rz] of spikes) {
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.18, 6), darkObsidian);
+    spike.position.set(x, y, 0.04);
+    spike.rotation.z = rz;
+    shield.add(spike);
+  }
+  const rivetGeo = new THREE.SphereGeometry(0.015, 8, 6);
+  for (const [x, y] of [[-0.2, 0.24], [0.2, 0.24], [-0.23, 0.06], [0.23, 0.06], [-0.15, -0.19], [0.15, -0.19]] as [number, number][]) {
+    const rivet = new THREE.Mesh(rivetGeo, gold);
+    rivet.position.set(x, y, 0.06);
+    shield.add(rivet);
+  }
+  return shield;
+}
+
+// 날카로운 흑요석 지팡이 — 흑요석 자루 + 금색 왕관 갈래 + 붉은 핵 + 헤일로
+export function createObsidianStaffModel() {
+  const staff = new THREE.Group();
+  const obsidian = standard(OBSIDIAN);
+  const gold = standard(ROYAL_GOLD);
+  const red = energyMaterial(0xff2438);
+
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.038, 0.78, 10), obsidian);
+  shaft.position.y = 0.39;
+  staff.add(shaft);
+  for (const y of [0.16, 0.42, 0.66]) {
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.043, 0.04, 10), gold);
+    band.position.set(0, y, 0);
+    staff.add(band);
+  }
+  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.016, 8, 20), gold);
+  crown.position.set(0.02, 0.84, 0);
+  crown.rotation.x = Math.PI / 2;
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.11), red);
+  core.position.set(0.02, 0.86, 0);
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.01, 8, 24), red);
+  halo.position.copy(core.position);
+  halo.rotation.x = Math.PI / 2.4;
+  staff.add(crown, core, halo);
+  for (let i = 0; i < 4; i += 1) {
+    const a = (i / 4) * Math.PI * 2;
+    const prong = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.13, 6), gold);
+    prong.position.set(0.02 + Math.cos(a) * 0.11, 0.94, Math.sin(a) * 0.11);
+    staff.add(prong);
+  }
+  return staff;
+}
+
+// 날카로운 흑요석 총 — 황금 몸체 + 흑요석 악센트 + 총구 화염
+export function createObsidianGunModel() {
+  const gun = new THREE.Group();
+  const gold = standard(ROYAL_GOLD);
+  const obsidian = standard(OBSIDIAN);
+  const flame = energyMaterial(0xff6a1a);
+
+  const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.1, 0.36), gold);
+  receiver.position.set(0, 0.34, -0.02);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.03, 0.54, 12), gold);
+  barrel.position.set(0, 0.36, -0.46);
+  barrel.rotation.x = Math.PI / 2;
+  const barrelWrap = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.26), obsidian);
+  barrelWrap.position.set(0, 0.33, -0.3);
+  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.07, 12), obsidian);
+  muzzle.position.set(0, 0.36, -0.72);
+  muzzle.rotation.x = Math.PI / 2;
+  const flameTip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 10, 1, true), flame);
+  flameTip.position.set(0, 0.36, -0.82);
+  flameTip.rotation.x = -Math.PI / 2;
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.17, 0.1), obsidian);
+  grip.position.set(0, 0.21, 0.12);
+  grip.rotation.x = 0.4;
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.13, 0.3), obsidian);
+  stock.position.set(0, 0.28, 0.3);
+  stock.rotation.x = 0.12;
+  const triggerGuard = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.011, 8, 16), gold);
+  triggerGuard.position.set(0, 0.27, 0.03);
+  triggerGuard.rotation.y = Math.PI / 2;
+  const magazine = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.09), obsidian);
+  magazine.position.set(0, 0.235, -0.08);
+  magazine.rotation.x = -0.18;
+  const energyCore = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.02, 0.26), flame);
+  energyCore.position.set(-0.047, 0.36, -0.02);
+  const energyCoreR = energyCore.clone();
+  energyCoreR.position.x = 0.047;
+  const topGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.03), flame);
+  topGem.position.set(0, 0.41, 0.04);
+
+  gun.add(receiver, barrel, barrelWrap, muzzle, flameTip, grip, stock, triggerGuard, magazine, energyCore, energyCoreR, topGem);
+  return gun;
+}

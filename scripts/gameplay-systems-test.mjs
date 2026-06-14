@@ -1321,7 +1321,7 @@ try {
     });
 
     useSecondClassSkill(makeContext("mage", null));
-    assert(calls.some(([kind, k, visual, damage]) => kind === "projectile" && k === "tnt" && visual === "magic" && damage === 61), "fireball should fire a magic-visual tnt projectile with scaled damage");
+    assert(calls.some(([kind, k, visual, damage]) => kind === "projectile" && k === "tnt" && visual === "fireball" && damage === 61), "fireball should fire a fireball-visual tnt projectile with scaled damage");
 
     calls.length = 0;
     useSecondClassSkill(makeContext("warrior", null));
@@ -1702,6 +1702,29 @@ try {
   }
 
   {
+    // 궁극 무기 3종: 각 카테고리 최상위 초과 + 발사 분류 + epic + 확장 제작대 레시피(재료 유효)
+    const { ITEM_NAMES, ITEM_RARITY, WEAPON_DAMAGE, SHIELD_DEFENSE, SHIELD_DURABILITY, RANGED_WEAPONS, RANGED_PROJECTILE } = items;
+    const recipes = await server.ssrLoadModule("/src/game/recipes.ts");
+    const ids = ["sharp_obsidian_shield", "sharp_obsidian_staff", "sharp_obsidian_gun"];
+    for (const id of ids) {
+      assert(typeof ITEM_NAMES[id] === "string" && ITEM_NAMES[id].length > 0, `${id} must have a name`);
+      assert(ITEM_RARITY[id] === "epic", `${id} must be epic`);
+    }
+    assert(SHIELD_DEFENSE.sharp_obsidian_shield > SHIELD_DEFENSE.iron_shield, "obsidian shield defense > iron");
+    assert(SHIELD_DURABILITY.sharp_obsidian_shield > SHIELD_DURABILITY.iron_shield, "obsidian shield durability > iron");
+    assert(WEAPON_DAMAGE.sharp_obsidian_shield > WEAPON_DAMAGE.iron_shield, "obsidian shield bash > iron");
+    assert(WEAPON_DAMAGE.sharp_obsidian_staff > WEAPON_DAMAGE.arcane_staff, "obsidian staff dmg > arcane (top staff)");
+    assert(RANGED_WEAPONS.has("sharp_obsidian_staff") && RANGED_PROJECTILE.sharp_obsidian_staff === "magic", "obsidian staff is ranged + fires magic");
+    assert(WEAPON_DAMAGE.sharp_obsidian_gun > WEAPON_DAMAGE.rifle, "obsidian gun dmg > rifle (top gun)");
+    assert(RANGED_WEAPONS.has("sharp_obsidian_gun") && RANGED_PROJECTILE.sharp_obsidian_gun === undefined, "obsidian gun is ranged + fires arrow (not magic)");
+    for (const id of ids) {
+      const r = [...recipes.WORKBENCH_RECIPES].find((x) => x.id === id);
+      assert(r && r.output === id && r.extendedOnly === true, `${id} craftable at extended workbench`);
+      for (const ing of Object.keys(r.ingredients)) assert(typeof ITEM_NAMES[ing] === "string", `${id} ingredient ${ing} is a known item`);
+    }
+  }
+
+  {
     // 맵 진입 게이트: 레벨 미달이어도 직전 맵 보스를 처치하면 다음 맵이 열린다.
     const { WORLD_MAPS, canTeleportToWorldMap, getWorldMapById } = worldMaps;
     const dragonPlains = getWorldMapById("dragon_plains"); // 권장 Lv 10~25, 직전 = starter_valley
@@ -1819,6 +1842,7 @@ try {
         "navigation guard: global contextmenu block, single-trap back absorb (no install/title trap, arm/disarm, onBlockedBack), beforeunload/pagehide sync + visibilitychange async autosave, uninstall",
         "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",
         "treasure chest tiers: roll boundaries (74/20/5/1) + higher tier = rarer loot (monotonic)",
+        "ultimate weapons: sharp obsidian shield/staff/gun exceed top of category, correct ranged/projectile class, epic, extended-workbench recipes with valid ingredients",
       ],
     }, null, 2));
   }

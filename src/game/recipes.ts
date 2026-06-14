@@ -244,6 +244,33 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     note: "데미지 9의 최상급 마법 지팡이입니다.",
     extendedOnly: true,
   },
+  {
+    id: "sharp_obsidian_shield",
+    name: "날카로운 흑요석 방패",
+    output: "sharp_obsidian_shield",
+    count: 1,
+    ingredients: { sharp_obsidian: 5, refined_iron: 4, gold_powder: 2 },
+    note: "궁극의 방패 — 방어 +10, 강타 80, 피격 300회 후 부서집니다.",
+    extendedOnly: true,
+  },
+  {
+    id: "sharp_obsidian_staff",
+    name: "날카로운 흑요석 지팡이",
+    output: "sharp_obsidian_staff",
+    count: 1,
+    ingredients: { sharp_obsidian: 4, obsidian_powder: 3, diamond_powder: 3, gold_powder: 2 },
+    note: "데미지 120의 궁극 마법 지팡이입니다.",
+    extendedOnly: true,
+  },
+  {
+    id: "sharp_obsidian_gun",
+    name: "날카로운 흑요석 총",
+    output: "sharp_obsidian_gun",
+    count: 1,
+    ingredients: { sharp_obsidian: 5, refined_iron: 8, gold_powder: 2, coal: 4 },
+    note: "데미지 110의 궁극 총입니다.",
+    extendedOnly: true,
+  },
 ];
 
 for (const material of MATERIALS) {
