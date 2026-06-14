@@ -13,9 +13,18 @@ export interface ChestVisual {
   type: "chest" | "mineChest";
   name: string;
   mineRich: boolean;
+  chestTier: number;
   collisionRadius: number;
   collisionHeight: number;
 }
+
+// 필드 상자 등급별 색/글로우 (0 일반 = null → 기존 나무색). 1 황금 / 2 다이아몬드 / 3 흑요석.
+const CHEST_TIER_PALETTE: ({ wood: number; lid: number; band: number; gem: number; em: number; emi: number; name: string } | null)[] = [
+  null,
+  { wood: 0x8a6d1e, lid: 0xc09524, band: 0xe7c45a, gem: 0xffe98a, em: 0xa16207, emi: 0.5, name: "황금 상자" },
+  { wood: 0x166e7a, lid: 0x2aa7b8, band: 0x7fe9f4, gem: 0xbafcff, em: 0x0a4d55, emi: 0.75, name: "다이아몬드 상자" },
+  { wood: 0x2a1438, lid: 0x4a2160, band: 0x9b5bff, gem: 0xd9b8ff, em: 0x7c2dff, emi: 1.0, name: "흑요석 상자" },
+];
 
 export interface TrainVisual {
   track: THREE.Mesh;
@@ -39,17 +48,18 @@ export interface VillageHouseVisual {
   foodRemaining?: number;
 }
 
-export function createChestVisual(mineRich: boolean): ChestVisual {
+export function createChestVisual(mineRich: boolean, chestTier = 0): ChestVisual {
   const group = new THREE.Group();
-  const woodColor = mineRich ? ASSET_PALETTE.woodDark : ASSET_PALETTE.wood;
+  const tp = mineRich ? null : (CHEST_TIER_PALETTE[Math.max(0, Math.min(3, Math.floor(chestTier)))] ?? null);
+  const woodColor = tp ? tp.wood : mineRich ? ASSET_PALETTE.woodDark : ASSET_PALETTE.wood;
   const baseWood = makeToonMaterial(woodColor, { roughness: 0.78 });
-  const lidWood = makeToonMaterial(mineRich ? 0x6a4931 : ASSET_PALETTE.woodLight, { roughness: 0.72 });
-  const bandMetal = makeMetalMaterial(mineRich ? ASSET_PALETTE.magicCyan : ASSET_PALETTE.brass, { metalness: mineRich ? 0.46 : 0.32 });
+  const lidWood = makeToonMaterial(tp ? tp.lid : mineRich ? 0x6a4931 : ASSET_PALETTE.woodLight, { roughness: 0.72 });
+  const bandMetal = makeMetalMaterial(tp ? tp.band : mineRich ? ASSET_PALETTE.magicCyan : ASSET_PALETTE.brass, { metalness: tp ? 0.62 : mineRich ? 0.46 : 0.32 });
   const strapMaterial = makeToonMaterial(mineRich ? 0x202738 : ASSET_PALETTE.leatherDark, { roughness: 0.76 });
   const lockMaterial = makeGlowMaterial(
-    mineRich ? ASSET_PALETTE.magicCyan : ASSET_PALETTE.gold,
-    mineRich ? 0x1d4ed8 : 0xa16207,
-    { metalness: 0.42, roughness: 0.34, emissiveIntensity: mineRich ? 0.44 : 0.22 },
+    tp ? tp.gem : mineRich ? ASSET_PALETTE.magicCyan : ASSET_PALETTE.gold,
+    tp ? tp.em : mineRich ? 0x1d4ed8 : 0xa16207,
+    { metalness: 0.42, roughness: 0.34, emissiveIntensity: tp ? tp.emi : mineRich ? 0.44 : 0.22 },
   );
   const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 1), baseWood);
   base.position.y = 0.4;
@@ -66,9 +76,9 @@ export function createChestVisual(mineRich: boolean): ChestVisual {
   lock.position.set(0, 0.58, 0.58);
   group.add(base, lid, frontBand, sideBandA, sideBandB, lock);
   const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(0.11, 10, 6),
-    makeGlowMaterial(mineRich ? ASSET_PALETTE.magicCyan : 0xffef9a, mineRich ? 0x1d4ed8 : 0xa16207, {
-      emissiveIntensity: mineRich ? 0.55 : 0.25,
+    new THREE.SphereGeometry(tp ? 0.13 : 0.11, 10, 6),
+    makeGlowMaterial(tp ? tp.gem : mineRich ? ASSET_PALETTE.magicCyan : 0xffef9a, tp ? tp.em : mineRich ? 0x1d4ed8 : 0xa16207, {
+      emissiveIntensity: tp ? tp.emi + 0.1 : mineRich ? 0.55 : 0.25,
       roughness: 0.3,
     }),
   );
@@ -94,8 +104,9 @@ export function createChestVisual(mineRich: boolean): ChestVisual {
   return {
     group,
     type: mineRich ? "mineChest" : "chest",
-    name: mineRich ? "광산 상자" : "상자",
+    name: tp ? tp.name : mineRich ? "광산 상자" : "상자",
     mineRich,
+    chestTier: tp ? Math.max(0, Math.min(3, Math.floor(chestTier))) : 0,
     collisionRadius: 0.95,
     collisionHeight: 0.95,
   };

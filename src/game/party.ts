@@ -77,6 +77,7 @@ export interface MobSnapshot {
   // 7차 — 정적 오브젝트 공유 (동굴 입구·보물 상자)
   objType?: string; // "cave" | "chest" | "mineChest"
   opened?: boolean; // 상자 개봉 상태
+  chestTier?: number; // 상자 등급 0 일반 / 1 황금 / 2 다이아 / 3 흑요석
 }
 
 export type PartyMessage =

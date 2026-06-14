@@ -132,6 +132,7 @@ export interface WorldObject {
   opened?: boolean;
   expiresAt?: number;
   mineRich?: boolean;
+  chestTier?: number; // 필드 상자 등급 0 일반 / 1 황금 / 2 다이아 / 3 흑요석
   caveReturn?: THREE.Vector3;
   collidable?: boolean;
   collisionRadius?: number;
@@ -206,6 +207,7 @@ export interface SavedObject {
   opened?: boolean;
   expiresRemainingMs?: number;
   mineRich?: boolean;
+  chestTier?: number;
   caveReturn?: SavedVector | null;
   collidable?: boolean;
   collisionRadius?: number;

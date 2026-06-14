@@ -136,6 +136,7 @@ export function createSavedWorldState(snapshot: Pick<SaveDataSnapshot, "nowMs" |
         opened: object.opened,
         expiresRemainingMs: object.expiresAt && object.expiresAt > snapshot.nowMs ? object.expiresAt - snapshot.nowMs : undefined,
         mineRich: object.mineRich,
+        chestTier: object.chestTier,
         caveReturn: object.caveReturn ? toSavedVector(object.caveReturn) : null,
         collidable: object.collidable,
         collisionRadius: object.collisionRadius,

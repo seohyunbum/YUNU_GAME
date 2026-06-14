@@ -51,9 +51,9 @@ export interface PartyWorldContext {
   // 7차 — 정적 오브젝트 공유 (동굴 입구·보물 상자)
   chests(): Iterable<WorldObject>;
   caves(): Iterable<WorldObject>;
-  spawnChest(x: number, z: number, mineRich: boolean, opened: boolean): WorldObject;
+  spawnChest(x: number, z: number, mineRich: boolean, opened: boolean, chestTier?: number): WorldObject;
   spawnCave(x: number, z: number): WorldObject;
-  markChestOpened(id: string): boolean; // 호스트: 상자 개봉 표시(틴트·만료) — 유효하면 true
+  markChestOpened(id: string): number | null; // 호스트: 상자 개봉 표시(틴트·만료) — 유효하면 등급(0~3), 무효면 null
   grantChestLoot(items: { item: string; count: number }[]): void; // 게스트: 개봉 전리품 수령
   getObject(id: string): WorldObject | undefined;
   removeObject(id: string): void; // 리스폰 큐 정상 등록 (호스트 처치)
@@ -90,6 +90,7 @@ interface ClearedMobDescriptor {
   homeZ?: number;
   objType?: string; // 7차 — 정적 오브젝트(cave/chest) 복원용
   opened?: boolean; // 상자 개봉 상태 복원 (탈퇴 후 재개봉=이중 전리품 방지)
+  chestTier?: number; // 상자 등급
 }
 
 interface MobTargetState {
@@ -277,7 +278,7 @@ function spawnLocalMob(descriptor: ClearedMobDescriptor) {
   const world = init!.world!;
   if (isStaticShareType(descriptor.objType)) {
     // 파티 탈퇴 후 자기 동굴·상자 복원 (정상 로컬 오브젝트로). 열었던 상자는 열린 채로 복원.
-    world.refreshSpatialObject(descriptor.objType === "cave" ? world.spawnCave(descriptor.x, descriptor.z) : world.spawnChest(descriptor.x, descriptor.z, descriptor.objType === "mineChest", descriptor.opened === true));
+    world.refreshSpatialObject(descriptor.objType === "cave" ? world.spawnCave(descriptor.x, descriptor.z) : world.spawnChest(descriptor.x, descriptor.z, descriptor.objType === "mineChest", descriptor.opened === true, descriptor.chestTier ?? 0));
     return;
   }
   if (isGuardType(descriptor.type)) {
@@ -338,7 +339,7 @@ function collectMobs(): PartyMessage {
   }
   // 7차 — 정적 오브젝트(동굴 입구·보물 상자). 위치 고정·hp 무의미(더미 1), 개봉 상태만 추적.
   for (const chest of world.chests()) {
-    list.push({ id: chest.id, name: chest.name ?? "상자", objType: chest.type, opened: chest.opened === true, x: Math.round(chest.root.position.x * 10) / 10, z: Math.round(chest.root.position.z * 10) / 10, yaw: Math.round(chest.root.rotation.y * 100) / 100, hp: 1 });
+    list.push({ id: chest.id, name: chest.name ?? "상자", objType: chest.type, opened: chest.opened === true, chestTier: chest.chestTier ?? 0, x: Math.round(chest.root.position.x * 10) / 10, z: Math.round(chest.root.position.z * 10) / 10, yaw: Math.round(chest.root.rotation.y * 100) / 100, hp: 1 });
   }
   for (const cave of world.caves()) {
     list.push({ id: cave.id, name: cave.name ?? "동굴 입구", objType: "cave", x: Math.round(cave.root.position.x * 10) / 10, z: Math.round(cave.root.position.z * 10) / 10, yaw: Math.round(cave.root.rotation.y * 100) / 100, hp: 1 });
@@ -357,7 +358,8 @@ function handleGameMessage(message: PartyMessage, from?: string) {
   } else if (message.type === "openRequest" && hookedSession?.role === "host") {
     // 호스트 권위 상자 개봉 — 1회 롤해 요청 게스트에게만 전달, 개봉 상태는 스냅샷으로 전파
     if (!init.localPresence().inGame) return;
-    if (init.world.markChestOpened(message.objectId)) hookedSession.sendGame({ type: "chestLoot", opener: from ?? "파티원", items: rollChestLoot() });
+    const openedTier = init.world.markChestOpened(message.objectId);
+    if (openedTier !== null) hookedSession.sendGame({ type: "chestLoot", opener: from ?? "파티원", items: rollChestLoot(openedTier) });
   } else if (message.type === "chestLoot") {
     if (message.opener === init.localPresence().nickname) {
       init.world.grantChestLoot(message.items);
@@ -452,7 +454,7 @@ function applyMobsSnapshot(mapId: string, list: MobSnapshot[]) {
   // 탈퇴 후 복원을 위해 objType/위치 보관 — 상자는 opened 도 보관해 재개봉(이중 전리품)을 막는다.
   for (const stat of world.chests()) {
     if (hostIdByLocalId.has(stat.id)) continue;
-    if (stored) stored.push({ objType: stat.type, opened: stat.opened === true, x: stat.root.position.x, z: stat.root.position.z });
+    if (stored) stored.push({ objType: stat.type, opened: stat.opened === true, chestTier: stat.chestTier ?? 0, x: stat.root.position.x, z: stat.root.position.z });
     sweepScratch.push(stat.id);
   }
   for (const stat of world.caves()) {
@@ -518,7 +520,7 @@ function spawnSyncedMob(snap: MobSnapshot, now: number) {
   let object: WorldObject;
   if (isStaticShareType(snap.objType)) {
     // 7차 정적 오브젝트 — 동굴 입구·보물 상자. 호스트 위치 그대로 렌더.
-    object = snap.objType === "cave" ? world.spawnCave(snap.x, snap.z) : world.spawnChest(snap.x, snap.z, snap.objType === "mineChest", snap.opened === true);
+    object = snap.objType === "cave" ? world.spawnCave(snap.x, snap.z) : world.spawnChest(snap.x, snap.z, snap.objType === "mineChest", snap.opened === true, snap.chestTier ?? 0);
     object.partyTransient = true;
     object.collidable = false; // 위치 비결정 — 게스트 지형의 물·건물과 겹칠 수 있어 이동 충돌은 끔. 입구는 시각 참조·상호작용(개봉/진입)만.
     object.root.rotation.y = snap.yaw;

@@ -853,7 +853,7 @@ try {
         caves: () => [...objects.values()].filter((object) => object.type === "cave"),
         spawnChest: (x, z, mineRich, opened) => { const object = { id: `${role}-${nextId++}`, type: mineRich ? "mineChest" : "chest", name: "상자", opened, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(object.id, object); return object; },
         spawnCave: (x, z) => { const object = { id: `${role}-${nextId++}`, type: "cave", name: "동굴", root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(object.id, object); return object; },
-        markChestOpened: (id) => { const chest = objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return false; chest.opened = true; events.push(["chestOpened", id]); return true; },
+        markChestOpened: (id) => { const chest = objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; events.push(["chestOpened", id]); return chest.chestTier ?? 0; },
         grantChestLoot: (items) => events.push(["chestLoot", items]),
       };
       return { session, objects, me, events, world, sent, state, getGameCb: () => gameCb };
@@ -1015,7 +1015,7 @@ try {
         caves: () => [...objects.values()].filter((o) => o.type === "cave"),
         spawnChest: (x, z, mineRich, opened) => { const o = { id: `${role}-${nextId++}`, type: mineRich ? "mineChest" : "chest", name: "상자", opened, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
         spawnCave: (x, z) => { const o = { id: `${role}-${nextId++}`, type: "cave", name: "동굴", root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
-        markChestOpened: (id) => { const c = objects.get(id); if (!c || c.opened || (c.type !== "chest" && c.type !== "mineChest")) return false; c.opened = true; events.push(["chestOpened", id]); return true; },
+        markChestOpened: (id) => { const c = objects.get(id); if (!c || c.opened || (c.type !== "chest" && c.type !== "mineChest")) return null; c.opened = true; events.push(["chestOpened", id]); return c.chestTier ?? 0; },
         grantChestLoot: (items) => events.push(["chestLoot", items]),
       };
       return { session, objects, me, events, sent, world, getGameCb: () => gameCb };
@@ -1089,7 +1089,7 @@ try {
         spawnGuard: (type, x, z, villageId) => { const o = { id: `${role}-${nextId++}`, type, name: "경비", villageId, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
         spawnChest: (x, z, mineRich, opened) => { const o = { id: `${role}-${nextId++}`, type: mineRich ? "mineChest" : "chest", name: "상자", opened, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
         spawnCave: (x, z) => { const o = { id: `${role}-${nextId++}`, type: "cave", name: "동굴", root: { position: { x, y: 0, z }, rotation: { y: 0 } } }; objects.set(o.id, o); return o; },
-        markChestOpened: (id) => { const c = objects.get(id); if (!c || c.opened || (c.type !== "chest" && c.type !== "mineChest")) return false; c.opened = true; events.push(["chestOpened", id]); return true; },
+        markChestOpened: (id) => { const c = objects.get(id); if (!c || c.opened || (c.type !== "chest" && c.type !== "mineChest")) return null; c.opened = true; events.push(["chestOpened", id]); return c.chestTier ?? 0; },
         grantChestLoot: (items) => events.push(["chestLoot", items]),
         enrageVillage: () => {},
         getObject: (id) => objects.get(id),
@@ -1110,7 +1110,7 @@ try {
 
     // ── 호스트: 상자·동굴을 스냅샷에 수집 ──
     const host = makeWorld("host");
-    const chest = host.world.entityContext.addWorldObject("chest", "보물 상자", { position: { x: 7, y: 0, z: 3 }, rotation: { y: 0 } }, {});
+    const chest = host.world.entityContext.addWorldObject("chest", "보물 상자", { position: { x: 7, y: 0, z: 3 }, rotation: { y: 0 } }, { chestTier: 3 });
     host.world.entityContext.addWorldObject("cave", "동굴 입구", { position: { x: -5, y: 0, z: 9 }, rotation: { y: 0 } }, {});
     initPartyWorldSync({ session: () => host.session, localPresence: () => host.me, getGroundHeightAt: () => 0, world: host.world });
     partyWorldSyncTick(1_000, 0.016);
@@ -1123,6 +1123,7 @@ try {
     assert(host.events.some(([k, id]) => k === "chestOpened" && id === chest.id), "guest open request opens the chest on the host (authority)");
     const lootMsg = host.sent.find((m) => m.type === "chestLoot");
     assert(lootMsg && lootMsg.opener === "친구", "host sends chestLoot to the requesting guest only");
+    assert(lootMsg.items.some((e) => e.item === "obsidian"), "guest-opened tier-3 chest must yield tier-3 loot (obsidian), not tier-0");
     host.getGameCb()({ type: "openRequest", objectId: chest.id }, "친구");
     assert(host.sent.filter((m) => m.type === "chestLoot").length === 1, "already-opened chest cannot be opened again (no double loot)");
     resetPartyWorldSync();
@@ -1642,6 +1643,28 @@ try {
     assert(onError === false, "publishProgress should swallow network errors and return false");
   }
 
+  {
+    // 보물상자 4등급: 추첨 경계(74/20/5/1) + 고급 상자일수록 희귀 전리품
+    const { rollChestTier, rollChestLoot, chestTierName } = await server.ssrLoadModule("/src/game/chestLoot.ts");
+    const { itemRarity } = items;
+    assert(rollChestTier(() => 0.005) === 3, "r<0.01 → 흑요석(3)");
+    assert(rollChestTier(() => 0.03) === 2, "r<0.06 → 다이아(2)");
+    assert(rollChestTier(() => 0.15) === 1, "r<0.26 → 황금(1)");
+    assert(rollChestTier(() => 0.5) === 0, "그 외 → 일반(0)");
+    assert(chestTierName(0) === "일반 상자" && chestTierName(3) === "흑요석 상자", "등급 이름 매핑");
+    const allRng = () => 0; // 모든 chance 통과, 수량=최소, pick=첫 항목
+    const idsOf = (t) => new Set(rollChestLoot(t, allRng).map((e) => e.item));
+    const t0 = idsOf(0), t1 = idsOf(1), t2 = idsOf(2), t3 = idsOf(3);
+    assert(!["diamond", "obsidian", "dragon_scale", "diamond_sword", "obsidian_sword"].some((i) => t0.has(i)), "일반 상자엔 희귀 전리품이 없어야 한다");
+    assert(t1.has("gold"), "황금 상자엔 금 재료");
+    assert(t2.has("diamond"), "다이아몬드 상자엔 다이아몬드");
+    assert(t3.has("obsidian") && t3.has("dragon_scale"), "흑요석 상자엔 흑요석 + 드래곤 재료");
+    const rareCount = (s) => [...s].filter((i) => itemRarity(i) !== "common").length;
+    assert(rareCount(t0) === 0, "일반 상자 전리품은 모두 common");
+    assert(rareCount(t3) >= 3, `흑요석 상자는 rare/epic 다수여야 한다 (got ${rareCount(t3)})`);
+    assert(rareCount(t3) >= rareCount(t2) && rareCount(t2) >= rareCount(t1) && rareCount(t1) >= rareCount(t0), "등급이 오를수록 희귀 전리품 수가 비감소");
+  }
+
   if (failures.length > 0) {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
@@ -1694,6 +1717,7 @@ try {
         "world map gating: level gap OR predecessor field-boss defeat unlocks the next map",
         "save history ring: 30-per-nickname cap, nickname isolation, recover via unpack",
         "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",
+        "treasure chest tiers: roll boundaries (74/20/5/1) + higher tier = rarer loot (monotonic)",
       ],
     }, null, 2));
   }

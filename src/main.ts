@@ -75,7 +75,7 @@ import {
   rollDragonLoot as rollDragonLootItem,
   type ProjectileDamageContext,
 } from "./game/combat";
-import { rollChestLoot } from "./game/chestLoot";
+import { rollChestLoot, rollChestTier } from "./game/chestLoot";
 import { applyBossDefeat, bossLockMessage, ensureChapterBoss, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter, type ChapterBossContext } from "./game/bossChapters";
 import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
 import { createFinaleState, startFinale, startMiniFanfare, updateFinale, type FinaleContext } from "./game/finale";
@@ -850,7 +850,7 @@ class WildernessGame {
     this.renderHud();
     ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });    initPartyLobby(() => this.nickname);
     initPartyFlow({ isInGame: () => this.gameStarted, startNewGame: () => { if (!this.pendingPlayerClass) this.pendingPlayerClass = this.playerClass ?? "warrior"; this.startGame("new"); }, summonTo: (mapId, x, z) => { if (this.locationMode === "cave") this.leaveCave(); else if (this.locationMode === "house") this.leaveHouse(); if (this.currentWorldMapId !== mapId) this.teleportToWorldMap(mapId, true); this.playerPosition.set(x + 2.5, this.playerPosition.y, z + 2.5); this.settlePlayerAfterTeleport(); this.camera.position.copy(this.playerPosition); }, showMessage: (text) => this.showMessage(text) });
-    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? this.spawnGolem(pos, villageId) : type === "villageKnight" ? this.spawnKnight(pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => this.spawnCave(new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return false; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return true; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed), showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target) => this.grantExperienceForTarget(target), rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object) } });
+    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? this.spawnGolem(pos, villageId) : type === "villageKnight" ? this.spawnKnight(pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened, chestTier) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich, chestTier ?? 0); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => this.spawnCave(new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return chest.chestTier ?? 0; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed), showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target) => this.grantExperienceForTarget(target), rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object) } });
     this.animate();
   }
 
@@ -1829,7 +1829,7 @@ class WildernessGame {
     for (let i = 0; i < 16; i += 1) this.spawnTerrainPatch(this.randomGroundPoint(), Math.random() < 0.72 ? "stone" : "ore", THREE.MathUtils.randFloat(1.8, 3), true);
     for (const waterZone of this.activeWaterZones) this.spawnWaterBody(waterZone.center.clone(), this.waterZoneRadius(waterZone), waterZone.name);
     this.spawnTrain(0.1);
-    for (let i = 0; i < 6; i += 1) this.spawnChest(this.randomGroundPoint(), false);
+    for (let i = 0; i < 6; i += 1) this.spawnChest(this.randomGroundPoint(), false, rollChestTier());
     for (let i = 0; i < Math.round(3 * (mapDef.caveScale ?? 1)); i += 1) this.spawnCave(this.randomGroundPoint());
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
@@ -3083,7 +3083,7 @@ class WildernessGame {
     while (this.chestStepBank >= CHEST_STEP_INTERVAL) {
       this.chestStepBank -= CHEST_STEP_INTERVAL;
       if (Math.random() < 0.5) {
-        this.spawnChest(this.pointNearPlayer(18, 30), false);
+        this.spawnChest(this.pointNearPlayer(18, 30), false, rollChestTier());
         this.showMessage("발자국 소리를 따라가 보니 상자가 생겼습니다. (100걸음 50%)");
       }
     }
@@ -4233,7 +4233,7 @@ class WildernessGame {
     this.tintObject(target.root, 0x6a5940);
     this.playChestSound();
     const loot: string[] = [];
-    for (const entry of rollChestLoot()) if (this.addItem(entry.item, entry.count)) loot.push(ITEM_NAMES[entry.item] ?? entry.item);
+    for (const entry of rollChestLoot(target.chestTier ?? 0)) if (this.addItem(entry.item, entry.count)) loot.push(ITEM_NAMES[entry.item] ?? entry.item);
     this.showMessage(loot.length > 0 ? `상자에서 ${loot.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다.");
   }
 
@@ -5944,7 +5944,7 @@ class WildernessGame {
     let object: WorldObject | null = null;
 
     if (savedObject.type === "smallTree" || savedObject.type === "bigTree") object = this.spawnTree(savedObject.type, position);
-    if (savedObject.type === "chest" || savedObject.type === "mineChest") object = this.spawnChest(position, savedObject.type === "mineChest" || Boolean(savedObject.mineRich));
+    if (savedObject.type === "chest" || savedObject.type === "mineChest") object = this.spawnChest(position, savedObject.type === "mineChest" || Boolean(savedObject.mineRich), savedObject.chestTier ?? 0);
     if (savedObject.type === "cave") object = this.spawnCave(position);
     if (savedObject.type === "water") object = this.spawnWaterBody(position, this.restoredWaterRadius(position, savedObject.terrainRadius ?? 12, savedObject.name), savedObject.name);
     if (savedObject.type === "droppedItem") object = this.spawnDroppedItem(savedObject.droppedItem ?? "tutorial_book", savedObject.droppedCount ?? 1, position);
@@ -7855,8 +7855,8 @@ class WildernessGame {
     });
   }
 
-  private spawnChest(position: THREE.Vector3, mineRich: boolean) {
-    const visual = createChestVisual(mineRich);
+  private spawnChest(position: THREE.Vector3, mineRich: boolean, chestTier = 0) {
+    const visual = createChestVisual(mineRich, chestTier);
     this.mergeStaticMeshes(visual.group);
     visual.group.position.copy(position);
     return spawnObject(this.spawnContext, {
@@ -7864,7 +7864,7 @@ class WildernessGame {
       name: visual.name,
       root: visual.group,
       extra: {
-        mineRich: visual.mineRich, expiresAt: performance.now() + 300_000,
+        mineRich: visual.mineRich, chestTier: visual.chestTier, expiresAt: performance.now() + 300_000,
         collidable: true,
         collisionRadius: visual.collisionRadius,
         collisionHeight: visual.collisionHeight,
