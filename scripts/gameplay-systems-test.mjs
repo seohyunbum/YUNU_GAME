@@ -1603,6 +1603,105 @@ try {
   }
 
   {
+    // 자동저장 슬롯: 별도 키에만 기록(수동 저장/최신본 절대 미덮어쓰기) + 닉네임당 최신 3개 롤링 + 동기 이탈저장 + 복구
+    const { appendSaveToAutosave, appendAutosaveSync, readAutosaveSlots, resolveHistorySave } = saveRepo;
+    const { migrateSaveData } = saveMigration;
+    const AUTOSAVE_KEY = "ai-game-lab:wilderness-autosave-v1";
+    const LIST_KEY = "ai-game-lab:wilderness-saves-v1";
+    const LATEST_KEY = "ai-game-lab:wilderness-save-v1";
+    const m = new Map();
+    const storage = { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) };
+    // 수동 저장/최신본을 미리 채워두고, 자동저장이 이들을 절대 건드리지 않음을 검증한다.
+    storage.setItem(LIST_KEY, '[{"sentinel":"manual-slot"}]');
+    storage.setItem(LATEST_KEY, '{"sentinel":"latest"}');
+    const mkA = (lvl, i) => migrateSaveData({ version: 11, savedAt: new Date(Date.UTC(2026, 5, 2, 0, 0, i)).toISOString(), player: { level: lvl, playerClass: "gunner", position: { x: lvl, y: 1.7, z: i } } });
+    for (let i = 1; i <= 5; i += 1) await appendSaveToAutosave(mkA(i, i), "거너씨", storage);
+    const auto = readAutosaveSlots("거너씨", storage);
+    assert(auto.length === 3, `autosave should cap at 3 per nickname, got ${auto.length}`);
+    assert(new Date(auto[0].savedAt).getTime() > new Date(auto[1].savedAt).getTime(), "autosave list should be newest-first");
+    assert(auto.some((e) => e.savedAt === mkA(5, 5).savedAt) && !auto.some((e) => e.savedAt === mkA(1, 1).savedAt), "autosave keeps newest 3, evicts older");
+    // 핵심 요구사항: 자동저장이 수동 슬롯/최신본 키를 절대 덮어쓰지 않는다.
+    assert(storage.getItem(LIST_KEY) === '[{"sentinel":"manual-slot"}]', "autosave must NEVER touch SAVE_LIST_KEY (manual saves)");
+    assert(storage.getItem(LATEST_KEY) === '{"sentinel":"latest"}', "autosave must NEVER touch SAVE_KEY (latest)");
+    assert(storage.getItem(AUTOSAVE_KEY) !== null, "autosave writes its own dedicated key");
+    // 동기 이탈 저장(beforeunload 경로): raw 저장, 즉시 읽기/복구 가능, 여전히 cap 3.
+    appendAutosaveSync(mkA(6, 6), "거너씨", storage);
+    const afterSync = readAutosaveSlots("거너씨", storage);
+    assert(afterSync.length === 3 && afterSync[0].savedAt === mkA(6, 6).savedAt, "sync exit autosave is stored newest and respects the cap");
+    const recovered = await resolveHistorySave(afterSync[0]);
+    assert(recovered !== null && recovered.player.playerClass === "gunner" && recovered.player.level === 6, "autosave entry unpacks back for recovery");
+    // 닉네임 격리.
+    appendAutosaveSync(mkA(99, 99), "마법사씨", storage);
+    assert(readAutosaveSlots("마법사씨", storage).length === 1, "autosave is isolated per nickname");
+    assert(readAutosaveSlots("거너씨", storage).length === 3, "appending another nickname's autosave must not evict mine");
+  }
+
+  {
+    // 네비게이션 가드: 우클릭 메뉴 전역 차단 + 뒤로가기 트랩(게임 중 흡수) + 이탈 자동저장 + uninstall
+    const nav = await server.ssrLoadModule("/src/game/navigationGuard.ts");
+    const makeTarget = () => {
+      const listeners = new Map();
+      return {
+        addEventListener: (type, fn) => { const arr = listeners.get(type) ?? []; arr.push(fn); listeners.set(type, arr); },
+        removeEventListener: (type, fn) => { listeners.set(type, (listeners.get(type) ?? []).filter((f) => f !== fn)); },
+        emit: (type, ev) => (listeners.get(type) ?? []).slice().forEach((f) => f(ev)),
+        count: (type) => (listeners.get(type) ?? []).length,
+      };
+    };
+    const win = makeTarget();
+    const doc = makeTarget();
+    const pushed = [];
+    const backs = { n: 0 };
+    const fakeWindow = { addEventListener: win.addEventListener, removeEventListener: win.removeEventListener, confirm: () => false };
+    const fakeDocument = { addEventListener: doc.addEventListener, removeEventListener: doc.removeEventListener, visibilityState: "visible" };
+    const saved = { window: globalThis.window, document: globalThis.document, history: globalThis.history, location: globalThis.location };
+    globalThis.window = fakeWindow;
+    globalThis.document = fakeDocument;
+    globalThis.history = { pushState: (s) => pushed.push(s), back: () => { backs.n += 1; } };
+    globalThis.location = { href: "http://test/" };
+    try {
+      let started = false;
+      let autosaves = 0; // 동기 저장(이탈 직전)
+      let asyncSaves = 0; // 비동기 저장(탭 전환 등)
+      let blockedBacks = 0; // 흡수된 뒤로가기 횟수
+      const handle = nav.installNavigationGuard({ getGameStarted: () => started, autosave: () => { asyncSaves += 1; }, autosaveSync: () => { autosaves += 1; }, onBlockedBack: () => { blockedBacks += 1; } });
+      assert(pushed.length === 0, "guard does NOT push a trap at install (title-screen back stays normal)");
+      let ctxPrevented = false;
+      win.emit("contextmenu", { preventDefault: () => { ctxPrevented = true; } });
+      assert(ctxPrevented, "contextmenu is always preventDefault'd (browser menu blocked)");
+      win.emit("popstate", {});
+      assert(pushed.length === 0 && blockedBacks === 0, "popstate at title (not started/armed) does NOT re-trap");
+      started = true;
+      handle.arm();
+      assert(pushed.length === 1, "arm() on game entry pushes exactly one trap");
+      handle.arm();
+      assert(pushed.length === 1, "arm() is idempotent — single-trap invariant (no duplicate/leak)");
+      win.emit("popstate", {});
+      assert(pushed.length === 2 && blockedBacks === 1, "in-game back is absorbed: re-pushes trap + notifies onBlockedBack");
+      assert(autosaves === 0 && backs.n === 0, "absorbed back neither autosaves nor leaves the page");
+      let buPrevented = false;
+      win.emit("beforeunload", { preventDefault: () => { buPrevented = true; }, returnValue: "" });
+      assert(autosaves === 1 && buPrevented, "beforeunload in-game autosaves (sync) and blocks unload");
+      win.emit("pagehide", {});
+      assert(autosaves === 2, "pagehide in-game autosaves (sync)");
+      fakeDocument.visibilityState = "hidden";
+      doc.emit("visibilitychange", {});
+      assert(asyncSaves === 1 && autosaves === 2, "visibilitychange:hidden uses async save (no sync jank on tab switch)");
+      handle.disarm();
+      assert(backs.n === 1, "disarm() removes our trap via one history.back()");
+      win.emit("popstate", {});
+      assert(pushed.length === 2 && blockedBacks === 1, "after disarm, back is no longer trapped (no re-push, no notify)");
+      handle.uninstall();
+      assert(win.count("contextmenu") === 0 && win.count("popstate") === 0 && doc.count("visibilitychange") === 0, "uninstall removes all listeners");
+    } finally {
+      globalThis.window = saved.window;
+      globalThis.document = saved.document;
+      globalThis.history = saved.history;
+      globalThis.location = saved.location;
+    }
+  }
+
+  {
     // 맵 진입 게이트: 레벨 미달이어도 직전 맵 보스를 처치하면 다음 맵이 열린다.
     const { WORLD_MAPS, canTeleportToWorldMap, getWorldMapById } = worldMaps;
     const dragonPlains = getWorldMapById("dragon_plains"); // 권장 Lv 10~25, 직전 = starter_valley
@@ -1716,6 +1815,8 @@ try {
         "save slots: overwrite replaces only the chosen slot and preserves all other saves (data-loss regression guard)",
         "world map gating: level gap OR predecessor field-boss defeat unlocks the next map",
         "save history ring: 30-per-nickname cap, nickname isolation, recover via unpack",
+        "autosave slot: dedicated key (never touches manual saves/latest), 3-per-nickname rolling cap, sync exit-save, recover, nickname isolation",
+        "navigation guard: global contextmenu block, single-trap back absorb (no install/title trap, arm/disarm, onBlockedBack), beforeunload/pagehide sync + visibilitychange async autosave, uninstall",
         "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",
         "treasure chest tiers: roll boundaries (74/20/5/1) + higher tier = rarer loot (monotonic)",
       ],

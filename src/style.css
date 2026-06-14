@@ -2992,6 +2992,14 @@ button[data-title-load]:disabled {
 .save-history-card {
   border-color: rgba(125, 211, 252, 0.28);
 }
+.save-autosave-card {
+  border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(20, 45, 32, 0.4);
+}
+.autosave-recover-button {
+  border-color: rgba(74, 222, 128, 0.5);
+  color: rgb(134, 239, 172);
+}
 
 .save-card {
   display: grid;

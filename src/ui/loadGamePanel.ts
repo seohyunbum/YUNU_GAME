@@ -24,6 +24,9 @@ export interface LoadGamePanelCallbacks {
   // 자동 백업 이력(닉네임별 최신 30개) 복구
   onShowHistory?: () => HistoryEntryView[];
   onRecoverHistory?: (savedAt: string) => void;
+  // 자동저장 슬롯(실수 이탈 대비) 복구 — 수동 저장과 별개의 독립 슬롯
+  onShowAutosave?: () => HistoryEntryView[];
+  onRecoverAutosave?: (savedAt: string) => void;
 }
 
 // 마지막 불러오기 실패 사유 — 패널이 다시 열릴 때 빨간 배너로 보여준다 (타이틀 화면에선 HUD 메시지가 가려지기 때문)
@@ -68,11 +71,13 @@ export function renderLoadGamePanel(
           <div class="save-file-actions">
             <button data-export-save>파일로 백업</button>
             <button data-import-save>파일 가져오기</button>
+            ${callbacks.onShowAutosave ? `<button class="autosave-recover-button" data-show-autosave>자동저장 복구</button>` : ""}
             ${callbacks.onShowHistory ? `<button data-show-history>백업 이력</button>` : ""}
             <button class="icon-button" data-close>닫기</button>
           </div>
         </header>
         <input type="file" accept=".json,application/json" data-import-input style="display:none" />
+        <div class="save-history" data-autosave-panel hidden></div>
         <div class="save-history" data-history-panel hidden></div>
         ${
           saves.length > 0
@@ -99,6 +104,33 @@ export function renderLoadGamePanel(
   panelEl.querySelector<HTMLButtonElement>("[data-export-save]")?.addEventListener("click", () => {
     void callbacks.onExportSave().then((save) => {
       if (save) downloadJson("야생마을-세이브.json", save);
+    });
+  });
+  const autosavePanel = panelEl.querySelector<HTMLElement>("[data-autosave-panel]");
+  panelEl.querySelector<HTMLButtonElement>("[data-show-autosave]")?.addEventListener("click", () => {
+    if (!autosavePanel || !callbacks.onShowAutosave) return;
+    if (!autosavePanel.hidden) { autosavePanel.hidden = true; return; }
+    const entries = callbacks.onShowAutosave();
+    autosavePanel.innerHTML = entries.length === 0
+      ? `<p class="inventory-subtitle">자동저장이 아직 없습니다. 게임 도중·이탈 시 자동으로 별도 슬롯에 저장됩니다.</p>`
+      : `<p class="inventory-subtitle">자동저장 (실수로 나갔을 때 대비) — <strong>직접 저장한 파일을 덮어쓰지 않는 별도 슬롯</strong>입니다. 직전 진행 시점부터 이어서 플레이할 수 있습니다.</p>` +
+        entries
+          .map(
+            (entry) => `<article class="save-card save-autosave-card">
+              <div><strong>${escapeHtml(entry.label)}</strong><p>${escapeHtml(entry.summary)}</p></div>
+              <button data-recover-autosave="${escapeHtml(entry.savedAt)}">이 자동저장으로 이어하기</button>
+            </article>`,
+          )
+          .join("");
+    autosavePanel.hidden = false;
+    autosavePanel.querySelectorAll<HTMLButtonElement>("[data-recover-autosave]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const savedAt = button.dataset.recoverAutosave;
+        if (!savedAt || !callbacks.onRecoverAutosave) return;
+        autosavePanel.querySelectorAll<HTMLButtonElement>("[data-recover-autosave]").forEach((other) => { other.disabled = true; });
+        button.textContent = "불러오는 중…";
+        callbacks.onRecoverAutosave(savedAt);
+      });
     });
   });
   const historyPanel = panelEl.querySelector<HTMLElement>("[data-history-panel]");

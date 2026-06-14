@@ -8,6 +8,8 @@ import {
   SAVE_BACKUP_KEY,
   SAVE_HISTORY_KEY,
   SAVE_HISTORY_PER_NICKNAME,
+  SAVE_AUTOSAVE_KEY,
+  SAVE_AUTOSAVE_PER_NICKNAME,
   SAVE_KEY,
   SAVE_LIST_KEY,
   SAVE_WRITE_TEST_KEY,
@@ -324,6 +326,67 @@ export async function resolveHistorySave(entry: SaveHistoryEntry): Promise<Parti
     }
   }
   return null;
+}
+
+// ── 자동저장 슬롯 (닉네임별 최신 N개) ──────────────────────────────
+// 게임 도중 주기적으로 / 이탈 직전에 자동으로 쌓는 별도 슬롯. 수동 저장(SAVE_LIST_KEY)·최신본(SAVE_KEY)·
+// 백업 링(SAVE_HISTORY_KEY)을 절대 건드리지 않는 독립 키(SAVE_AUTOSAVE_KEY)에만 기록한다. SaveHistoryEntry 형태를
+// 그대로 재사용하므로 readAutosaveSlots → resolveHistorySave 로 복구한다.
+function readRawAutosaves(storage: Storage): SaveHistoryEntry[] {
+  try {
+    const raw = storage.getItem(SAVE_AUTOSAVE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed.filter((e) => e && typeof e === "object") as SaveHistoryEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function commitAutosaveEntry(entry: SaveHistoryEntry, storage: Storage): void {
+  const key = entry.nickname;
+  let ring = readRawAutosaves(storage).filter((e) => !(e.nickname === key && e.savedAt === entry.savedAt));
+  ring.push(entry);
+  const mine = ring.filter((e) => e.nickname === key).sort((a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime());
+  if (mine.length > SAVE_AUTOSAVE_PER_NICKNAME) {
+    const evict = new Set(mine.slice(0, mine.length - SAVE_AUTOSAVE_PER_NICKNAME).map((e) => e.savedAt));
+    ring = ring.filter((e) => e.nickname !== key || !evict.has(e.savedAt));
+  }
+  try {
+    writeJsonStorage(SAVE_AUTOSAVE_KEY, ring, storage);
+  } catch {
+    ring.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+    while (ring.length > 0) {
+      ring.pop();
+      try {
+        writeJsonStorage(SAVE_AUTOSAVE_KEY, ring, storage);
+        return;
+      } catch {
+        /* keep shrinking */
+      }
+    }
+  }
+}
+
+// 주기적 자동저장 — 압축본으로 저장(비동기). 게임 루프에서 호출.
+export async function appendSaveToAutosave(save: SavedGame, nickname: string, storage = localStorage): Promise<void> {
+  const key = nickname || "";
+  const packed = await packSaveData(save);
+  commitAutosaveEntry({ nickname: key, savedAt: save.savedAt, label: formatSaveDate(save.savedAt), summary: saveSummary(save), ...(packed ? { packed } : { save }) }, storage);
+}
+
+// 이탈 직전 동기 자동저장 — beforeunload/pagehide 는 await 가 끝나기 전에 페이지가 종료될 수 있으므로
+// 압축 없이 raw save 를 동기적으로 기록한다(localStorage.setItem 은 동기 → 언로드 전에 확정 저장).
+export function appendAutosaveSync(save: SavedGame, nickname: string, storage = localStorage): void {
+  commitAutosaveEntry({ nickname: nickname || "", savedAt: save.savedAt, label: formatSaveDate(save.savedAt), summary: saveSummary(save), save }, storage);
+}
+
+// 닉네임의 자동저장 목록 — 최신순(메타데이터만). 복구는 resolveHistorySave 로 해제.
+export function readAutosaveSlots(nickname: string, storage = localStorage): SaveHistoryEntry[] {
+  const key = nickname || "";
+  return readRawAutosaves(storage)
+    .filter((e) => e.nickname === key && typeof e.savedAt === "string")
+    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
 }
 
 // 요약(description)이 없는 구버전 압축 슬롯: 해제해서 요약을 만들고, 다음을 위해 저장까지 해 둔다.

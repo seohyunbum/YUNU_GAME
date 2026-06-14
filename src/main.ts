@@ -170,6 +170,7 @@ import {
   RANGED_ATTACK_COOLDOWN,
   RUN_MULTIPLIER,
   MAX_SAVE_SLOTS,
+  AUTOSAVE_INTERVAL_SECONDS,
   SMITHING_HITS_REQUIRED,
   SMITHING_ROUND_SECONDS,
   SMITHING_SUCCESS_POINTS,
@@ -303,6 +304,9 @@ import {
   readSaveSlots as readRepositorySaveSlots,
   readStoredSlotList as readRepositoryStoredSlotList,
   appendSaveToHistory as appendSaveToHistoryInRepository,
+  appendSaveToAutosave,
+  appendAutosaveSync,
+  readAutosaveSlots,
   readSaveHistory as readRepositorySaveHistory,
   resolveHistorySave as resolveRepositoryHistorySave,
   resolveSlotSaveOrNull as resolveRepositorySlotSaveOrNull,
@@ -315,6 +319,7 @@ import {
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
 import { publishProgress } from "./game/progressSync";
+import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
 import { buildSkillSlots } from "./ui/skillBar";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
@@ -747,8 +752,10 @@ class WildernessGame {
   private readonly areaSkillEffects: AreaSkillEffect[] = [];
   private actionMode: HandActionMode = "use";
   private rangedCooldown = 0;
-  private gameStarted = false;
-  private nightSpawnTimer = 0; private expirySweepTimer = 0;
+  private gameStarted = false; private navGuard?: NavigationGuardHandle;
+  private nightSpawnTimer = 0; private expirySweepTimer = 0; private autosaveTimer = 0;
+  // 자동저장 flush — 별도 슬롯(SAVE_AUTOSAVE_KEY)에만 기록, 수동 저장 절대 미덮어쓰기. sync=true 는 이탈 직전 동기 저장.
+  private flushAutosave = (sync = false) => { if (!this.gameStarted) return; const save = this.createSaveData(); if (sync) appendAutosaveSync(save, this.nickname); else void appendSaveToAutosave(save, this.nickname); };
   private mirrorViewTimer = 0;
   private mirrorAvatar: THREE.Object3D | null = null;
   private audioContext: AudioContext | null = null;
@@ -1782,6 +1789,8 @@ class WildernessGame {
     document.addEventListener("mousemove", (event) => this.handleMouseMove(event));
     window.addEventListener("keydown", (event) => this.handleKeyDown(event), { capture: true });
     window.addEventListener("keyup", (event) => this.handleKeyUp(event), { capture: true });
+    // 뒤로가기 이탈 차단 + 우클릭 메뉴 전역 차단 + 이탈 직전 자동저장 (전부 navigationGuard leaf 가 소유)
+    this.navGuard = installNavigationGuard({ getGameStarted: () => this.gameStarted, autosave: () => this.flushAutosave(false), autosaveSync: () => this.flushAutosave(true), onBlockedBack: () => this.showMessage("뒤로가기로는 게임을 나갈 수 없습니다. 종료하려면 메뉴의 '새로시작'을 누르거나 탭을 닫으세요.") });
   }
 
   private requestGamePointerLock() {
@@ -2505,6 +2514,7 @@ class WildernessGame {
       return;
     }
     if (this.currentPanel === null) this.playSeconds += delta; // 실시간 플레이타임 누적(패널 열림 제외)
+    this.autosaveTimer += delta; if (this.autosaveTimer >= AUTOSAVE_INTERVAL_SECONDS && this.currentPanel === null) { this.autosaveTimer = 0; this.flushAutosave(); } // 주기적 자동저장(별도 슬롯)
     this.applyMouseLook();
     this.updateAdaptiveQuality(delta);
     this.updateTimeOfDay(delta);
@@ -5371,8 +5381,9 @@ class WildernessGame {
     if (mode === "load") {
       const saves = this.readSaveSlots();
       if (saves.length === 0) {
-        this.showMessage("불러올 저장 파일이 없습니다.");
-        return;
+        if (readAutosaveSlots(this.nickname).length === 0) { this.showMessage("불러올 저장 파일이 없습니다."); return; }
+        // 수동 저장은 없어도 자동저장이 있으면 패널을 열어 복구 가능하게 (실수 이탈 복구의 핵심 경로)
+        this.hideMiniGame(false); this.hideLavaMiniGame(false); this.hideSmithingMiniGame(false); this.openPanel("loadGame"); return;
       }
       if (saves.length > 1) {
         this.hideMiniGame(false);
@@ -5411,6 +5422,7 @@ class WildernessGame {
     this.uiRoot.classList.remove("title-active");
     this.handGroup.visible = true;
     this.ensureAudio();
+    this.autosaveTimer = 0; this.navGuard?.arm(); // 게임 진입 — 자동저장 타이머 리셋 + 뒤로가기 트랩 재무장
   }
 
   private newGame() {
@@ -5421,7 +5433,7 @@ class WildernessGame {
 
   // 인게임 → 타이틀 복귀 (새로시작 / 첫 로드 실패 복구 공용)
   private showTitleScreen() {
-    this.gameStarted = false; this.currentPanel = null; this.renderPanel();
+    this.gameStarted = false; this.navGuard?.disarm(); this.currentPanel = null; this.renderPanel();
     document.exitPointerLock?.(); this.handGroup.visible = false;
     this.renderClassSelection(); this.renderTitlePoints();
     this.titleScreenEl.classList.remove("hidden"); this.uiRoot.classList.add("title-active");
@@ -5456,8 +5468,8 @@ class WildernessGame {
   private loadGame() {
     const saves = this.readSaveSlots();
     if (saves.length === 0) {
-      this.showMessage("불러올 저장 파일이 없습니다.");
-      return;
+      if (readAutosaveSlots(this.nickname).length === 0) { this.showMessage("불러올 저장 파일이 없습니다."); return; }
+      this.openPanel("loadGame"); return; // 수동 저장은 없어도 자동저장이 있으면 복구 패널을 연다
     }
 
     if (saves.length > 1) {
@@ -6610,6 +6622,8 @@ class WildernessGame {
         onResolveSummary: async (slotId) => { const slots = this.readSaveSlots(); const slot = slots.find((candidate) => candidate.id === slotId); return slot ? backfillSlotDescription(slot, (save) => migratePartialSaveData(save), slots) : null; },
         onShowHistory: () => readRepositorySaveHistory(this.nickname).map((entry) => ({ savedAt: entry.savedAt, label: entry.label, summary: entry.summary })),
         onRecoverHistory: async (savedAt) => { const entry = readRepositorySaveHistory(this.nickname).find((candidate) => candidate.savedAt === savedAt); const save = entry ? await resolveRepositoryHistorySave(entry) : null; if (save) await this.applyLoadedSave(save, "백업에서 복구했습니다."); else this.showMessage("백업을 불러오지 못했습니다."); },
+        onShowAutosave: () => readAutosaveSlots(this.nickname).map((entry) => ({ savedAt: entry.savedAt, label: entry.label, summary: entry.summary })),
+        onRecoverAutosave: async (savedAt) => { const entry = readAutosaveSlots(this.nickname).find((candidate) => candidate.savedAt === savedAt); const save = entry ? await resolveRepositoryHistorySave(entry) : null; if (save) await this.applyLoadedSave(save, "자동저장에서 복구했습니다."); else this.showMessage("자동저장을 불러오지 못했습니다."); },
       },
     );
   }
