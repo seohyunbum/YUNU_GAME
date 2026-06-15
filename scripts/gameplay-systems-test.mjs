@@ -1829,10 +1829,12 @@ try {
     boss.ensureChapterBoss(ctx);
     assert(spawned === 2 && present, "boss respawns only after the respawn cooldown elapses");
     assert(boss.DRAGON_RESPAWN_MS === 600000, "dragon respawn cooldown is 10 minutes");
-    // 재등장 위치는 매번 달라지고(같은 자리 파밍 방지), 기준점 주변(반경 16~46) 안에 머문다
-    for (let n = 0; n < 5; n += 1) { present = false; boss.ensureChapterBoss(ctx); }
+    // 재등장 위치는 매번 달라지고(같은 자리 파밍 방지), 기준점 근방에 머물며, 마을 안전구역엔 절대 안 생긴다
+    const safe = await server.ssrLoadModule("/src/game/safeZones.ts");
+    for (let n = 0; n < 6; n += 1) { present = false; boss.ensureChapterBoss(ctx); }
     const dists = spawnPositions.map((p) => Math.hypot(p.x - step.position[0], p.z - step.position[1]));
-    assert(dists.every((d) => d >= 15 && d <= 47), `respawn positions must stay near base (16~46), got ${dists.map((d) => d.toFixed(1))}`);
+    assert(dists.every((d) => d <= 90), `respawn positions must stay near base, got ${dists.map((d) => d.toFixed(1))}`);
+    assert(spawnPositions.every((p) => !safe.isInSafeZone(p.x, p.z, -0.5)), "respawn must never land inside a safe zone (clamped to boundary)");
     const uniq = new Set(spawnPositions.map((p) => `${p.x.toFixed(2)},${p.z.toFixed(2)}`));
     assert(uniq.size === spawnPositions.length, "each respawn should pick a different location");
   }

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { WORLD_SIZE } from "./constants";
+import { clampOutOfSafeZones, isInSafeZone } from "./safeZones";
 import { partyWorldGuestActive } from "./partyWorldSync";
 import { spawnBossBreathStream, spawnBossRoar, spawnDragonClawBurst, spawnDragonFireBurst, spawnGroundShockwave, type CombatEffectContext } from "./combatEffects";
 import type { BossKind, LocationMode, WorldObject } from "./types";
@@ -124,6 +125,7 @@ export function updateDragons(context: DragonAiContext, delta: number) {
         const step = (DRAGON_CHASE_SPEED * delta) / Math.max(distance, 0.001);
         dragon.root.position.x = Math.max(-WORLD_SIZE / 2 + 6, Math.min(WORLD_SIZE / 2 - 6, dragon.root.position.x + dxp * step));
         dragon.root.position.z = Math.max(-WORLD_SIZE / 2 + 6, Math.min(WORLD_SIZE / 2 - 6, dragon.root.position.z + dzp * step));
+        clampOutOfSafeZones(dragon.root.position); // 마을·훈련장 안엔 못 들어옴 (다른 몬스터와 동일 — 마을은 안전지대 유지)
       }
     }
     dragon.root.rotation.y = -Math.atan2(dzp, dxp);
@@ -137,6 +139,6 @@ export function updateDragons(context: DragonAiContext, delta: number) {
     resolveDragonBreath(context, dragon, now);
     dragon.attackCooldown = Math.max(0, (dragon.attackCooldown ?? 0) - delta);
     if (panelOpen || !unlocked || (dragon.root.userData.dragonAttackAt ?? 0) > 0 || (dragon.attackCooldown ?? 0) > 0) continue;
-    if (distance <= attackRange) castDragonAttack(context, dragon, kind, distance, now);
+    if (distance <= attackRange && !isInSafeZone(context.playerPosition.x, context.playerPosition.z)) castDragonAttack(context, dragon, kind, distance, now); // 마을 안 플레이어는 공격 못 함
   }
 }

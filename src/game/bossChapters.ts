@@ -4,6 +4,7 @@
 // 챕터 보스는 권장 레벨대가 맞는 맵에 분산 배치되어, 권장 레벨에 실제로 도달 가능하다.
 import * as THREE from "three";
 import { BOSS_STATS } from "./monsters";
+import { clampOutOfSafeZones } from "./safeZones";
 import { getWorldMapById } from "./worldMaps";
 import type { BossKind, LocationMode, WorldMapId, WorldObject } from "./types";
 
@@ -83,6 +84,7 @@ export function ensureChapterBoss(context: ChapterBossContext) {
   const spawnAngle = Math.random() * Math.PI * 2;
   const spawnRadius = 16 + Math.random() * 30;
   chapterSpawnPoint.set(step.position[0] + Math.cos(spawnAngle) * spawnRadius, 0, step.position[1] + Math.sin(spawnAngle) * spawnRadius);
+  clampOutOfSafeZones(chapterSpawnPoint); // 마을 안전구역 안에 리스폰되지 않게
   chapterSpawnPoint.y = context.getGroundHeightAt(chapterSpawnPoint.x, chapterSpawnPoint.z);
   context.spawnDragon(step.kind, chapterSpawnPoint);
 }

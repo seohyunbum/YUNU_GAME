@@ -2539,7 +2539,7 @@ class WildernessGame {
     updateGraveTrap(this.graveTrapContext, delta);
     updateFinale(this.finaleContext);
     if (!partyWorldGuestActive()) updateFieldBosses(this.fieldBossContext); // 파티 게스트 — 보스는 호스트 스냅샷으로
-    ensureChapterBoss(this.chapterBossContext);
+    if (!partyWorldGuestActive()) ensureChapterBoss(this.chapterBossContext); // 게스트는 호스트 스냅샷 — 자기 드래곤 분기 스폰 방지
     updateDragons(this.dragonAiContext, delta);
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
