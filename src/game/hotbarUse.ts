@@ -4,7 +4,7 @@ import type { ItemId, PanelType } from "./types";
 
 const HEAL_ITEM_COOLDOWN_MS = 1000;
 export const XP_BOTTLE_LEVELS = 15; // 기준 점프량(경험치 환산 기준)
-export const XP_BOTTLE_FRACTION = 0.1; // 하향: 종전 15레벨치 경험치의 1/10만 지급
+export const XP_BOTTLE_FRACTION = 0.08; // 하향: 종전 15레벨치 경험치의 8% (직전 0.1의 80%)
 
 export interface HotbarUseContext {
   currentPanel(): PanelType;

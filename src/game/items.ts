@@ -232,9 +232,9 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   // 에픽(epic) — 흑요석·용 소재·최상급 장비
   obsidian: "epic", obsidian_powder: "epic", sharp_obsidian: "epic",
   obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
-  dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic", xp_bottle: "epic",
-  // 레전더리(legendary) — 최종 흑요석 무기 3종
-  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary",
+  dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic",
+  // 레전더리(legendary) — 최종 흑요석 무기 3종 + 경험치병(매우 희귀)
+  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", xp_bottle: "legendary",
 };
 export function itemTier(item: ItemId): ItemTier {
   return ITEM_TIER[item] ?? "common";

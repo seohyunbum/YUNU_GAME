@@ -56,7 +56,9 @@ export function rollHomeSupply(level: number, random: () => number = Math.random
     { item: "stone", count: 24 + tier * 14 },
   ];
   if (tier >= 1) loot.push({ item: "copper", count: 8 + tier * 3 }, { item: "refined_iron", count: 2 + tier });
-  if (tier >= 2) loot.push({ item: "iron", count: 8 + tier * 2 }, { item: "gold", count: 4 + tier }, { item: "xp_bottle", count: 1 });
+  if (tier >= 2) loot.push({ item: "iron", count: 8 + tier * 2 }, { item: "gold", count: 4 + tier });
+  // 경험치병(레전더리) — 매번이 아니라 tier≥2에서 50% 확률로만
+  if (tier >= 2 && random() < 0.5) loot.push({ item: "xp_bottle", count: 1 });
   if (tier >= 3) loot.push({ item: "diamond", count: 3 }, { item: "refined_diamond", count: 2 }, { item: "gold_powder", count: 3 }, { item: "diamond_powder", count: 2 });
   if (tier >= 4) loot.push({ item: "obsidian", count: 3 }, { item: "sharp_obsidian", count: 2 }, { item: "obsidian_powder", count: 2 }, { item: "dragon_scale", count: 2 });
   // 행운 보너스 1줄 — 등급별 상향(흑요석 베이스캠프는 용의 뿔까지)

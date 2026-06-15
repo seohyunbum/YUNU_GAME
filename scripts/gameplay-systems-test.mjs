@@ -395,11 +395,11 @@ try {
     const { state, context } = createHotbarContext();
     useHotbarItem("xp_bottle", context);
     assert(state.levelsGranted === 15, `xp bottle reference jump should stay 15 (got ${state.levelsGranted})`);
-    assert(Math.abs(state.effectiveLevels - 1.5) < 1e-9, `xp bottle should grant only 1/10 of the XP (effective 1.5 levels, got ${state.effectiveLevels})`);
+    assert(Math.abs(state.effectiveLevels - 1.2) < 1e-9, `xp bottle should grant 8% of the 15-level XP (effective 1.2 levels, got ${state.effectiveLevels})`);
     assert(state.itemCount === 0 && state.removed === 1, "xp bottle should be consumed on use");
     assert(state.hudRenders === 1 && state.tones === 1, "xp bottle should give use feedback");
     useHotbarItem("xp_bottle", context);
-    assert(Math.abs(state.effectiveLevels - 1.5) < 1e-9, "empty xp bottle stack should not grant more xp");
+    assert(Math.abs(state.effectiveLevels - 1.2) < 1e-9, "empty xp bottle stack should not grant more xp");
   }
 
   {
@@ -1500,13 +1500,17 @@ try {
     assert(low.some((reward) => reward.item === "meat" && reward.count === 4), "level 1 supply should give 4 meat (buffed)");
     assert(!low.some((reward) => reward.item === "iron"), "level 1 supply should not give iron");
     const mid = rollHomeSupply(30, noBonus);
-    assert(mid.some((reward) => reward.item === "iron") && mid.some((r) => r.item === "xp_bottle"), "level 30 supply adds iron + xp bottle (buffed)");
+    assert(mid.some((reward) => reward.item === "iron"), "level 30 supply adds iron (deterministic)");
+    assert(!mid.some((r) => r.item === "xp_bottle"), "xp bottle is NOT guaranteed — 50% gated (was every-time)");
+    const midLucky = rollHomeSupply(30, () => 0.01);
+    assert(midLucky.some((r) => r.item === "xp_bottle"), "xp bottle appears on a lucky (<0.5) supply roll");
     const top = rollHomeSupply(100, noBonus);
     assert(top.some((reward) => reward.item === "diamond" && reward.count === 3), "level 100 supply should add diamonds (buffed to 3)");
     assert(top.some((reward) => reward.item === "obsidian"), "level 100 supply should add obsidian");
     assert(top.some((reward) => reward.item === "sharp_obsidian") && top.some((r) => r.item === "obsidian_powder"), "endgame supply yields ultimate-weapon materials (balance vs field obsidian chest)");
-    const bonus = rollHomeSupply(100, () => 0.01);
-    assert(bonus.length === top.length + 1, "supply bonus line should appear on a lucky roll (still exactly one probabilistic line)");
+    assert(!top.some((r) => r.item === "xp_bottle"), "xp bottle not guaranteed even at endgame supply");
+    const allBonus = rollHomeSupply(100, () => 0.01);
+    assert(allBonus.length === top.length + 2, "lucky tier-4 roll adds xp bottle(50%) + bonus line(20%) — two probabilistic lines");
     assert(homeSupplyReadyLabel(0).includes("준비"), "ready label should say ready");
     assert(homeSupplyReadyLabel(610).includes("11분"), "cooldown label should round up to minutes");
   }

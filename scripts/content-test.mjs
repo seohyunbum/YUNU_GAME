@@ -248,13 +248,13 @@ try {
       if (!isItem(id)) problems.push(`ITEM_TIER has unknown item '${id}'`);
       if (id !== undefined && itemTier(id) === "common") problems.push(`ITEM_TIER['${id}'] should not resolve to common (listed = non-common)`);
     }
-    const anchors = { wood: "common", meat: "common", iron: "uncommon", gold: "rare", diamond: "rare", dragon_horn: "epic", obsidian_sword: "epic", sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary" };
+    const anchors = { wood: "common", meat: "common", iron: "uncommon", gold: "rare", diamond: "rare", dragon_horn: "epic", obsidian_sword: "epic", sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", xp_bottle: "legendary" };
     for (const [id, tier] of Object.entries(anchors)) {
       if (itemTier(id) !== tier) problems.push(`itemTier('${id}') = ${itemTier(id)}, expected ${tier}`);
     }
-    // 레전더리는 정확히 최종 흑요석 무기 3종
+    // 레전더리 = 최종 흑요석 무기 3종 + 경험치병
     const legendary = Object.keys(ITEM_NAMES).filter((id) => itemTier(id) === "legendary").sort();
-    const expectedLegendary = ["sharp_obsidian_gun", "sharp_obsidian_shield", "sharp_obsidian_staff"];
+    const expectedLegendary = ["sharp_obsidian_gun", "sharp_obsidian_shield", "sharp_obsidian_staff", "xp_bottle"];
     if (JSON.stringify(legendary) !== JSON.stringify(expectedLegendary)) problems.push(`legendary set mismatch: ${JSON.stringify(legendary)}`);
     // 에픽·레전더리 무기 공격력 상향(기본 ×1.3 반올림) — 최고등급 위상 보장
     const boosted = { obsidian_dagger: 7, obsidian_sword: 13, arcane_staff: 12, sharp_obsidian_staff: 16, sharp_obsidian_gun: 14, sharp_obsidian_shield: 10 };

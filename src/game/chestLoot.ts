@@ -40,7 +40,7 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.4)) add("arcane_staff", 1);
     add("dragon_scale", ri(1, 2, rng));
     if (chance(0.15)) add("dragon_horn", 1);
-    if (chance(0.6)) add("xp_bottle", ri(1, 2, rng));
+    if (chance(0.25)) add("xp_bottle", 1); // 레전더리 — 희귀하게(종전 60%·1~2개)
     add("medkit", ri(2, 3, rng));
   } else if (tier === 2) {
     // 다이아몬드 — 희귀 재료 + 다이아 장비
@@ -50,7 +50,7 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.5)) add(pick(["diamond_sword", "diamond_dagger", "diamond_bow"] as const, rng), 1);
     if (chance(0.35)) add("diamond_armor", 1);
     if (chance(0.3)) add(pick(["crystal_staff", "rifle"] as const, rng), 1);
-    if (chance(0.2)) add("xp_bottle", 1);
+    if (chance(0.1)) add("xp_bottle", 1); // 레전더리 — 희귀하게(종전 20%)
     add("medkit", ri(1, 2, rng));
   } else if (tier === 1) {
     // 황금 — 좋은 재료 + 철/금 장비·제작템 가능
