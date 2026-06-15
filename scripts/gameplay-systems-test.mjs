@@ -22,6 +22,7 @@ function createHotbarContext(overrides = {}) {
     itemCount: 1,
     removed: 0,
     levelsGranted: 0,
+    effectiveLevels: 0,
     openedPanel: null,
     handActions: 0,
     healEffects: 0,
@@ -63,8 +64,9 @@ function createHotbarContext(overrides = {}) {
         state.removed += 1;
         return true;
       },
-      grantLevels: (count) => {
+      grantLevels: (count, fraction = 1) => {
         state.levelsGranted += count;
+        state.effectiveLevels += count * fraction;
       },
       equipArmor: () => {},
       equipShield: (item) => {
@@ -389,14 +391,15 @@ try {
   }
 
   {
-    // 경험치병: 1병 = 15레벨, 소비형, 병이 없으면 아무 일도 없음
+    // 경험치병(하향): 종전 15레벨치 경험치의 1/10(=실효 1.5레벨)만 지급, 소비형, 병 없으면 아무 일도 없음
     const { state, context } = createHotbarContext();
     useHotbarItem("xp_bottle", context);
-    assert(state.levelsGranted === 15, `xp bottle should grant exactly 15 levels (got ${state.levelsGranted})`);
+    assert(state.levelsGranted === 15, `xp bottle reference jump should stay 15 (got ${state.levelsGranted})`);
+    assert(Math.abs(state.effectiveLevels - 1.5) < 1e-9, `xp bottle should grant only 1/10 of the XP (effective 1.5 levels, got ${state.effectiveLevels})`);
     assert(state.itemCount === 0 && state.removed === 1, "xp bottle should be consumed on use");
     assert(state.hudRenders === 1 && state.tones === 1, "xp bottle should give use feedback");
     useHotbarItem("xp_bottle", context);
-    assert(state.levelsGranted === 15, "empty xp bottle stack should not grant more levels");
+    assert(Math.abs(state.effectiveLevels - 1.5) < 1e-9, "empty xp bottle stack should not grant more xp");
   }
 
   {

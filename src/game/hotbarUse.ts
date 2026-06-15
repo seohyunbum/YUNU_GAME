@@ -3,7 +3,8 @@ import { ARMOR_VALUE, HEAL_ITEMS, ITEM_NAMES, PLACEABLE_TYPES, RANGED_WEAPONS, S
 import type { ItemId, PanelType } from "./types";
 
 const HEAL_ITEM_COOLDOWN_MS = 1000;
-export const XP_BOTTLE_LEVELS = 15;
+export const XP_BOTTLE_LEVELS = 15; // 기준 점프량(경험치 환산 기준)
+export const XP_BOTTLE_FRACTION = 0.1; // 하향: 종전 15레벨치 경험치의 1/10만 지급
 
 export interface HotbarUseContext {
   currentPanel(): PanelType;
@@ -22,7 +23,7 @@ export interface HotbarUseContext {
   useDragonSpawnItem(): void;
   showMirrorView(): void;
   removeItem(item: ItemId, count: number): boolean;
-  grantLevels(count: number): void;
+  grantLevels(count: number, fraction?: number): void;
   equipArmor(item: ItemId): void;
   equipShield(item: ItemId): void;
   playHandAction(): void;
@@ -68,13 +69,13 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
     return;
   }
   if (item === "xp_bottle") {
-    // 경험치병 — 치트(F4) 전용 아이템. 1병당 15레벨 상승.
+    // 경험치병 — 치트(F4) 전용. 하향: 종전 15레벨치 경험치의 1/10만 지급(레벨업은 gainExperience 가 알림).
     if (!context.removeItem(item, 1)) return;
-    context.grantLevels(XP_BOTTLE_LEVELS);
     context.playHandAction();
     context.spawnHealEffect();
     context.playTone(880, 0.22, "triangle", 0.05);
-    context.showMessage(`경험치병을 마셨습니다! 레벨이 ${XP_BOTTLE_LEVELS} 올랐습니다.`);
+    context.showMessage("경험치병을 마셨습니다! 경험치를 얻었습니다.");
+    context.grantLevels(XP_BOTTLE_LEVELS, XP_BOTTLE_FRACTION);
     context.renderHud();
     return;
   }

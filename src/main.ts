@@ -755,7 +755,7 @@ class WildernessGame {
     useDragonSpawnItem: () => this.useDragonSpawnItem(),
     showMirrorView: () => this.showMirrorView(),
     removeItem: (item, count) => this.removeItem(item, count),
-    grantLevels: (count) => this.gainExperience(experienceForLevelUps(this.level, this.experience, count)),
+    grantLevels: (count, fraction = 1) => this.gainExperience(Math.round(experienceForLevelUps(this.level, this.experience, count) * fraction)),
     equipArmor: (item) => { this.equippedArmor = item; },
     equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
     playHandAction: () => this.playHandAction(),
