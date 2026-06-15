@@ -44,9 +44,8 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     name: "권총",
     output: "pistol",
     count: 1,
-    ingredients: { refined_iron: 18, obsidian: 5 },
-    note: "확장 제작대 전용입니다. 거너의 주력 원거리 무기입니다.",
-    extendedOnly: true,
+    ingredients: { refined_iron: 5, stick: 2 },
+    note: "거너의 기본 원거리 무기. 데미지 4 (재료비 대폭 경감).",
   },
   {
     id: "grinder",
@@ -183,7 +182,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "obsidian_dagger",
     count: 1,
     ingredients: { sharp_obsidian: 1, stick: 1 },
-    note: "데미지 5.",
+    note: "데미지 7.",
   },
   {
     id: "obsidian_sword",
@@ -191,7 +190,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "obsidian_sword",
     count: 1,
     ingredients: { sharp_obsidian: 2, stick: 1 },
-    note: "데미지 10.",
+    note: "데미지 13.",
   },
   {
     id: "leather_armor",
@@ -215,7 +214,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "crystal_staff",
     count: 1,
     ingredients: { refined_wood: 3, diamond_powder: 2, gold_powder: 2 },
-    note: "데미지 6의 마법 지팡이입니다.",
+    note: "데미지 8의 마법 지팡이입니다.",
   },
   {
     id: "diamond_bow",
@@ -241,7 +240,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "arcane_staff",
     count: 1,
     ingredients: { refined_wood: 4, diamond_powder: 3, obsidian_powder: 2, gold_powder: 2 },
-    note: "데미지 9의 최상급 마법 지팡이입니다.",
+    note: "데미지 12의 최상급 마법 지팡이입니다.",
     extendedOnly: true,
   },
   {
@@ -250,7 +249,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "sharp_obsidian_shield",
     count: 1,
     ingredients: { sharp_obsidian: 5, refined_iron: 4, gold_powder: 2 },
-    note: "궁극의 방패 — 방어 +10, 강타 8, 피격 300회 후 부서집니다.",
+    note: "궁극의 방패 — 방어 +10, 강타 10, 피격 300회 후 부서집니다.",
     extendedOnly: true,
   },
   {
@@ -259,7 +258,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "sharp_obsidian_staff",
     count: 1,
     ingredients: { sharp_obsidian: 4, obsidian_powder: 3, diamond_powder: 3, gold_powder: 2 },
-    note: "데미지 12의 궁극 마법 지팡이입니다.",
+    note: "데미지 16의 궁극 마법 지팡이입니다.",
     extendedOnly: true,
   },
   {
@@ -268,7 +267,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "sharp_obsidian_gun",
     count: 1,
     ingredients: { sharp_obsidian: 5, refined_iron: 8, gold_powder: 2, coal: 4 },
-    note: "데미지 11의 궁극 총입니다.",
+    note: "데미지 14의 궁극 총입니다.",
     extendedOnly: true,
   },
 ];

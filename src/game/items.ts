@@ -138,14 +138,14 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   stone_dagger: 1,
   copper_dagger: 2,
   iron_dagger: 3,
-  gold_dagger: 3,
+  gold_dagger: 4, // 금=철(3)보다 비싼 재료 → 역전 해소
   diamond_dagger: 4,
   obsidian_dagger: 7, // 에픽 ×1.3 (기본 5)
   wood_sword: 1,
   stone_sword: 2,
   copper_sword: 4,
   iron_sword: 6,
-  gold_sword: 5,
+  gold_sword: 7, // 금=철(6)보다 비싼 재료 → 역전 해소(철 6 < 금 7 < 다이아 8)
   diamond_sword: 8,
   obsidian_sword: 13, // 에픽 ×1.3 (기본 10)
   bow: BOW_DAMAGE,
@@ -155,7 +155,7 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   iron_bow: 5,
   diamond_bow: 8,
   rifle: 7,
-  crystal_staff: 6,
+  crystal_staff: 8, // 마법 라인 가성비 보정(6→8, 다이아 검과 동급)
   arcane_staff: 12, // 에픽 ×1.3 (기본 9)
   sharp_obsidian_shield: 10, // 레전더리 ×1.3 (기본 8). 방패 강타(iron_shield 3 초과)
   sharp_obsidian_staff: 16, // 레전더리 ×1.3 (기본 12). 최상급 마법(arcane_staff 12 초과)
@@ -265,7 +265,7 @@ export const AXE_POWER: Record<ItemId, number> = {
   stone_axe: 2,
   copper_axe: 3,
   iron_axe: 4,
-  gold_axe: 3,
+  gold_axe: 4, // 금=철보다 비싼 재료 → 철(4) 미만 역전 해소
   diamond_axe: 5,
 };
 
@@ -274,7 +274,7 @@ export const PICKAXE_POWER: Record<ItemId, number> = {
   stone_pickaxe: 2,
   copper_pickaxe: 3,
   iron_pickaxe: 4,
-  gold_pickaxe: 3,
+  gold_pickaxe: 4, // 철(4) 미만 역전 해소
   diamond_pickaxe: 5,
 };
 
@@ -283,7 +283,7 @@ export const SHOVEL_POWER: Record<ItemId, number> = {
   stone_shovel: 2,
   copper_shovel: 3,
   iron_shovel: 4,
-  gold_shovel: 3,
+  gold_shovel: 4, // 철(4) 미만 역전 해소
   diamond_shovel: 5,
 };
 

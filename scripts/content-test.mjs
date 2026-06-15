@@ -267,6 +267,19 @@ try {
     if (!(WEAPON_DAMAGE.arcane_staff > WEAPON_DAMAGE.crystal_staff)) problems.push("arcane_staff should exceed crystal_staff");
     if (!(WEAPON_DAMAGE.sharp_obsidian_staff > WEAPON_DAMAGE.arcane_staff)) problems.push("legendary staff should exceed epic arcane_staff");
     if (!(WEAPON_DAMAGE.sharp_obsidian_gun > WEAPON_DAMAGE.rifle)) problems.push("legendary gun should exceed rifle");
+    // 재료비 대비 밸런스 보정: 금 무기/도구 역전 해소(금은 철보다 비싼 재료)
+    if (!(WEAPON_DAMAGE.gold_sword > WEAPON_DAMAGE.iron_sword)) problems.push("gold_sword should exceed iron_sword (pricier material)");
+    if (!(WEAPON_DAMAGE.gold_dagger > WEAPON_DAMAGE.iron_dagger)) problems.push("gold_dagger should exceed iron_dagger");
+    if (!(WEAPON_DAMAGE.gold_axe >= WEAPON_DAMAGE.iron_axe)) problems.push("gold_axe should be >= iron_axe");
+    for (const table of DURABLE_TOOL_TABLES) {
+      const goldKey = Object.keys(table).find((k) => k.startsWith("gold_"));
+      const ironKey = Object.keys(table).find((k) => k.startsWith("iron_"));
+      if (goldKey && ironKey && table[goldKey] < table[ironKey]) problems.push(`gold tool ${goldKey} power ${table[goldKey]} < iron ${table[ironKey]} (inversion)`);
+    }
+    // 권총 가성비 교정(데미지 2→4), 수정/마법봉 보정
+    if (!(WEAPON_DAMAGE.pistol >= 4)) problems.push(`pistol damage should be >= 4 (was 2), got ${WEAPON_DAMAGE.pistol}`);
+    if (WEAPON_DAMAGE.crystal_staff !== 8) problems.push(`crystal_staff should be 8, got ${WEAPON_DAMAGE.crystal_staff}`);
+    if (!(WEAPON_DAMAGE.magic_wand >= 4)) problems.push(`magic_wand should be >= 4, got ${WEAPON_DAMAGE.magic_wand}`);
   }
 
   // 보스 챕터 진행표: 모든 보스를 정확히 1회씩 포함 + 챕터/권장레벨 단조 증가
