@@ -79,7 +79,10 @@ export function ensureChapterBoss(context: ChapterBossContext) {
   if (context.locationMode() !== "overworld") return;
   const step = BOSS_PROGRESSION.find((candidate) => candidate.mapId === context.worldMapId());
   if (!step || context.hasDragonKind(step.kind) || !context.respawnReady(step.kind)) return; // 처치 후 10분 쿨다운 중이면 재스폰 안 함
-  chapterSpawnPoint.set(step.position[0], 0, step.position[1]);
+  // 재등장 때마다 기준점 주변 다른 위치로 — 같은 자리 파밍/예측 방지 (반경 16~46)
+  const spawnAngle = Math.random() * Math.PI * 2;
+  const spawnRadius = 16 + Math.random() * 30;
+  chapterSpawnPoint.set(step.position[0] + Math.cos(spawnAngle) * spawnRadius, 0, step.position[1] + Math.sin(spawnAngle) * spawnRadius);
   chapterSpawnPoint.y = context.getGroundHeightAt(chapterSpawnPoint.x, chapterSpawnPoint.z);
   context.spawnDragon(step.kind, chapterSpawnPoint);
 }

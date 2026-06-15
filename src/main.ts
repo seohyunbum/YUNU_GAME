@@ -321,7 +321,7 @@ import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
 import { publishProgress } from "./game/progressSync";
 import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
 import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
-import { updateDragons, type DragonAiContext } from "./game/dragonAi";
+import { updateDragons, DRAGON_AGGRO_MS, type DragonAiContext } from "./game/dragonAi";
 import { buildSkillSlots } from "./ui/skillBar";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
@@ -4403,6 +4403,7 @@ class WildernessGame {
   }
 
   private dragonCounterAttack(target: WorldObject) {
+    target.angryUntil = performance.now() + DRAGON_AGGRO_MS; // 건드리면 추격 시작 (dragonAi 가 따라붙음)
     const stats = this.bossStats(target.bossKind);
     const distance = Math.hypot(target.root.position.x - this.playerPosition.x, target.root.position.z - this.playerPosition.z);
     const claw = distance <= 5.2 && Math.random() < 0.55;

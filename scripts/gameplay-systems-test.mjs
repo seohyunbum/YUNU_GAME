@@ -1809,12 +1809,13 @@ try {
     const boss = await server.ssrLoadModule("/src/game/bossChapters.ts");
     const step = boss.BOSS_PROGRESSION[0];
     let spawned = 0, present = false, ready = true;
+    const spawnPositions = [];
     const ctx = {
       locationMode: () => "overworld",
       worldMapId: () => step.mapId,
       hasDragonKind: () => present,
       respawnReady: () => ready,
-      spawnDragon: () => { spawned += 1; present = true; return {}; },
+      spawnDragon: (_kind, position) => { spawned += 1; present = true; spawnPositions.push({ x: position.x, z: position.z }); return {}; },
       getGroundHeightAt: () => 0,
     };
     boss.ensureChapterBoss(ctx);
@@ -1828,6 +1829,12 @@ try {
     boss.ensureChapterBoss(ctx);
     assert(spawned === 2 && present, "boss respawns only after the respawn cooldown elapses");
     assert(boss.DRAGON_RESPAWN_MS === 600000, "dragon respawn cooldown is 10 minutes");
+    // 재등장 위치는 매번 달라지고(같은 자리 파밍 방지), 기준점 주변(반경 16~46) 안에 머문다
+    for (let n = 0; n < 5; n += 1) { present = false; boss.ensureChapterBoss(ctx); }
+    const dists = spawnPositions.map((p) => Math.hypot(p.x - step.position[0], p.z - step.position[1]));
+    assert(dists.every((d) => d >= 15 && d <= 47), `respawn positions must stay near base (16~46), got ${dists.map((d) => d.toFixed(1))}`);
+    const uniq = new Set(spawnPositions.map((p) => `${p.x.toFixed(2)},${p.z.toFixed(2)}`));
+    assert(uniq.size === spawnPositions.length, "each respawn should pick a different location");
   }
 
   {

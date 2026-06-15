@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { WORLD_SIZE } from "./constants";
 import { partyWorldGuestActive } from "./partyWorldSync";
 import { spawnBossBreathStream, spawnBossRoar, spawnDragonClawBurst, spawnDragonFireBurst, spawnGroundShockwave, type CombatEffectContext } from "./combatEffects";
 import type { BossKind, LocationMode, WorldObject } from "./types";
@@ -40,6 +41,9 @@ const ATTACK_DURATION = 900; // ms — rear-up(예열) → 내리꽂기(강타).
 const WINDUP = 0.4;
 const BREATH_DELAY_MS = 620; // 예열 후 브레스 착탄까지(텔레그래프로 회피 가능)
 const BREATH_RADIUS = 3.7;
+const DRAGON_CHASE_SPEED = 9.5; // 걷기(7) < 추격 < 달리기(14): 걸으면 따라잡히고 달려야 도망칠 수 있다
+const DRAGON_CHASE_STOP = 4.6; // 발톱 사거리 안까지 파고들되 플레이어와 겹치진 않게
+export const DRAGON_AGGRO_MS = 9000; // 피격/사거리 진입 시 추격 유지 시간 — 사거리 안이면 매 프레임 갱신(끈질긴 추격)
 
 // 공격 모션 — 루트를 pitch 로 뒤로 젖혔다 앞으로 내리꽂는다(머리 포함 전신 rear-up→strike). 날갯짓 증폭값 반환. (할당 없음)
 function dragonAttackBoost(dragon: WorldObject, now: number): number {
@@ -106,8 +110,22 @@ export function updateDragons(context: DragonAiContext, delta: number) {
   const now = context.now();
   const t = context.elapsed();
   for (const dragon of context.dragons()) {
+    const kind = (dragon.bossKind ?? "dragon") as BossKind;
+    const unlocked = context.isBossUnlocked(kind);
+    const panelOpen = context.isPanelOpen();
     const dxp = context.playerPosition.x - dragon.root.position.x;
     const dzp = context.playerPosition.z - dragon.root.position.z;
+    const distance = Math.hypot(dxp, dzp);
+    const attackRange = context.bossStats(kind).attackRange;
+    // 추격 — 한 번 노리면(피격 또는 사거리 진입) 끈질기게 따라온다. 걷기보다 빨라서 달려야 도망칠 수 있다.
+    if (unlocked && !panelOpen && ((dragon.angryUntil ?? 0) > now || distance <= attackRange)) {
+      dragon.angryUntil = now + DRAGON_AGGRO_MS; // 사거리 안이면 매 프레임 갱신 → 멀어져도 일정 시간 추격
+      if (distance > DRAGON_CHASE_STOP) {
+        const step = (DRAGON_CHASE_SPEED * delta) / Math.max(distance, 0.001);
+        dragon.root.position.x = Math.max(-WORLD_SIZE / 2 + 6, Math.min(WORLD_SIZE / 2 - 6, dragon.root.position.x + dxp * step));
+        dragon.root.position.z = Math.max(-WORLD_SIZE / 2 + 6, Math.min(WORLD_SIZE / 2 - 6, dragon.root.position.z + dzp * step));
+      }
+    }
     dragon.root.rotation.y = -Math.atan2(dzp, dxp);
     dragon.root.position.y = context.getGroundHeightAt(dragon.root.position.x, dragon.root.position.z) + 0.18 + Math.sin(t * 1.3 + dragon.root.position.x * 0.02) * 0.18;
     const boost = dragonAttackBoost(dragon, now);
@@ -117,11 +135,8 @@ export function updateDragons(context: DragonAiContext, delta: number) {
     }
     context.refreshSpatialObject(dragon);
     resolveDragonBreath(context, dragon, now);
-
-    const kind = (dragon.bossKind ?? "dragon") as BossKind;
     dragon.attackCooldown = Math.max(0, (dragon.attackCooldown ?? 0) - delta);
-    if (context.isPanelOpen() || !context.isBossUnlocked(kind) || (dragon.root.userData.dragonAttackAt ?? 0) > 0 || (dragon.attackCooldown ?? 0) > 0) continue;
-    const distance = Math.hypot(dxp, dzp);
-    if (distance <= context.bossStats(kind).attackRange) castDragonAttack(context, dragon, kind, distance, now);
+    if (panelOpen || !unlocked || (dragon.root.userData.dragonAttackAt ?? 0) > 0 || (dragon.attackCooldown ?? 0) > 0) continue;
+    if (distance <= attackRange) castDragonAttack(context, dragon, kind, distance, now);
   }
 }
