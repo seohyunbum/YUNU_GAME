@@ -7,9 +7,9 @@ import type { ItemId, PlayerClassId, TutorialProgress } from "./game/types";
 // 직업별 "한 단계 위" 무기 제작 퀘스트 — 시작 무기보다 상위 티어를 정확한 레시피와 함께 안내한다.
 export const CLASS_WEAPON_QUESTS: Record<PlayerClassId, { items: ItemId[]; title: string; detail: string }> = {
   warrior: { items: ["diamond_sword", "diamond_dagger"], title: "다이아 검 만들기", detail: "시작 무기인 철 검보다 강한 다이아 검(제련된 다이아몬드 2 + 막대기 1)을 제작대에서 만드세요. 다이아몬드는 동굴 깊은 곳에서 캘 수 있습니다." },
-  healer: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 가루는 분쇄기에서 만듭니다." },
-  mage: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 가루는 분쇄기에서 만듭니다." },
-  summoner: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 가루는 분쇄기에서 만듭니다." },
+  healer: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 제련된 나무는 제련대에서 나무를 제련해 만들고, 가루는 분쇄기에서 만듭니다." },
+  mage: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 제련된 나무는 제련대에서 나무를 제련해 만들고, 가루는 분쇄기에서 만듭니다." },
+  summoner: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 제련된 나무는 제련대에서 나무를 제련해 만들고, 가루는 분쇄기에서 만듭니다." },
   gunner: { items: ["rifle"], title: "소총 만들기", detail: "권총보다 강한 소총(제련된 철 10 + 제련된 나무 4 + 석탄 4)을 확장 제작대에서 만드세요." },
   tanker: { items: ["iron_sword", "iron_dagger"], title: "철 검 만들기", detail: "방패와 함께 쓸 철 검(제련된 철 2 + 막대기 1)을 제작대에서 만드세요." },
 };
