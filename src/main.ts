@@ -322,6 +322,7 @@ import { publishProgress } from "./game/progressSync";
 import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
 import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
 import { updateDragons, DRAGON_AGGRO_MS, type DragonAiContext } from "./game/dragonAi";
+import { tickMinimap, type MinimapContext } from "./ui/minimap";
 import { buildSkillSlots } from "./ui/skillBar";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
@@ -593,6 +594,7 @@ class WildernessGame {
     effects: () => this.combatEffectContext, bossStats: (kind) => this.bossStats(kind), isBossUnlocked: (kind) => isBossUnlocked(kind, this.bossChapter),
     damagePlayer: (a, s, r) => this.damagePlayer(a, s, r), showMessage: (t) => this.showMessage(t), playTone: (f, d, ty, v) => this.playTone(f, d, ty, v),
   };
+  private readonly minimapContext: MinimapContext = { active: () => this.gameStarted && this.locationMode === "overworld" && this.currentPanel === null, playerX: () => this.playerPosition.x, playerZ: () => this.playerPosition.z, yaw: () => this.yaw, homes: () => this.playerHomeMarkers(), dragons: () => this.objectsOfType("dragon"), fieldBosses: () => this.objectsOfType("wildPredator"), caves: () => this.objectsOfType("cave") };
   private readonly fieldBossContext: FieldBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     defeatedFieldBosses: () => this.defeatedFieldBosses,
@@ -2532,9 +2534,7 @@ class WildernessGame {
     this.updateAudio(delta);
     this.updateVisualEffects(delta);
     this.updateTrains(delta);
-    this.updateAnimals(delta);
-    this.updateVillagers(delta);
-    this.updateAnts(delta);
+    this.updateAnimals(delta); this.updateVillagers(delta); this.updateAnts(delta);
     updatePredatorAi(this.predatorAiContext, delta);
     updateGraveTrap(this.graveTrapContext, delta);
     updateFinale(this.finaleContext);
@@ -2544,7 +2544,7 @@ class WildernessGame {
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
     this.updateNightSpawns(delta); this.expirySweepTimer += delta; if (this.expirySweepTimer >= 1) { const now = performance.now(); this.expirySweepTimer = 0; for (const object of [...this.objects.values()]) if (object.expiresAt !== undefined && !object.partyTransient && object.expiresAt <= now && (object.type === "chest" || object.type === "mineChest" || object.type === "cave")) this.removeObject(object.id); }
-    this.updateMovement(delta);
+    this.updateMovement(delta); tickMinimap(this.minimapContext, delta);
     if (this.locationMode === "overworld") this.regionWarningState = maybeWarnRegionLevel(this.regionWarningState, this.playerPosition, this.level, performance.now(), (message) => this.showMessage(message), this.activeRegions);
     this.updateVisibilityCulling(delta);
     this.summonerCompanion.update(this.summonerPetContext, delta);

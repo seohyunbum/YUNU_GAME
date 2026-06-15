@@ -430,7 +430,7 @@ body {
 }
 
 .objective {
-  top: 86px;
+  top: 180px; /* 우측 상단 미니맵(top 14, 152px) 아래로 — 겹침 방지 */
   right: 14px;
   bottom: auto;
   left: auto;
