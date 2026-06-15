@@ -1788,13 +1788,8 @@ class WildernessGame {
         this.showMessage("우클릭은 설치물 사용과 주민/대장장이 거래에만 쓰입니다. 버리기/설치는 인벤토리에서 드래그앤드롭하세요.");
         return;
       }
-      if (event.button === 0) {
-        if (document.pointerLockElement === this.renderer.domElement) {
-          this.interact();
-          return;
-        }
-        if (this.nearbyObjectInView(["bed", "homeStorage", "homeSupply", "trainingRig", "workbench", "extendedWorkbench"]) || this.getLookTarget() || this.nearbyDroppedItemInView()) this.interact();
-      }
+      // 잠금 상태에서만 좌클릭=상호작용. 미잠금(창 닫은 직후 등) 첫 클릭은 위 click 핸들러가 시점고정만 재획득 → 그 클릭이 상호작용을 일으키지 않게 한다.
+      if (event.button === 0 && document.pointerLockElement === this.renderer.domElement) this.interact();
     });
     document.addEventListener("pointerlockchange", () => {
       this.pendingMouseX = 0;
@@ -5353,6 +5348,7 @@ class WildernessGame {
     this.currentPanel = this.currentPanel === panel ? null : panel;
     this.pendingStorageMove = null;
     if (this.currentPanel !== null && document.pointerLockElement) document.exitPointerLock();
+    else if (this.currentPanel === null && this.gameStarted) this.requestGamePointerLock(); // 토글로 닫을 때도 마우스 자동 재캡처
     this.renderPanel();
     this.renderHud();
   }
@@ -5372,6 +5368,7 @@ class WildernessGame {
     this.pendingStorageMove = null;
     this.renderPanel();
     this.renderHud();
+    if (this.gameStarted) this.requestGamePointerLock(); // 창 닫으면 마우스 자동 재캡처 — 재획득용 클릭 불필요(그 클릭이 제작대 회수/훈련장 재오픈 유발하던 문제 차단)
   }
 
   private startGame(mode: "new" | "load") {

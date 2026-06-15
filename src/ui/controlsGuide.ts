@@ -23,6 +23,7 @@ const GROUPS: { title: string; items: { key: string; label: string; accent?: boo
     { key: "B", label: "도감" },
     { key: "M", label: "지도" },
     { key: "Q", label: "퀘스트·보상", accent: true },
+    { key: "ESC", label: "마우스 커서 보이기 / 창 닫기", accent: true },
   ] },
   { title: "파티", items: [
     { key: "O", label: "파티 초대", accent: true },
