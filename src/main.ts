@@ -4556,12 +4556,12 @@ class WildernessGame {
     const bonus = this.levelStatBonus();
     if (this.possessedEagleId) return possessedEagleDamage(EAGLE_RAM_DAMAGE, this.hotbar[this.selectedHotbarIndex]?.item, bonus);
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
-    if (selectedItem && !this.isRangedWeapon(selectedItem) && WEAPON_DAMAGE[selectedItem]) return WEAPON_DAMAGE[selectedItem] + bonus + this.trainingStats.attack + this.craftStatAlloc.attack;
-    return Math.max(1, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus + this.trainingStats.attack + this.craftStatAlloc.attack;
+    const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한 → 약한 무기/맨손도 최고 근접 이상
+    return Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus + this.trainingStats.attack + this.craftStatAlloc.attack;
   }
 
   private currentRangedDamage(item: ItemId) {
-    const base = WEAPON_DAMAGE[item] ?? BOW_DAMAGE;
+    const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
     return base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack;
   }
 
