@@ -1,3 +1,5 @@
+import { itemTier } from "../game/items";
+
 export interface InventorySlotView {
   item: string | null;
   label: string;
@@ -82,10 +84,11 @@ function renderInventorySlot(slot: InventorySlotView) {
       ? ` draggable="true" data-drop-item="${escapeAttr(slot.item)}"`
       : "";
   const moveSelected = slot.moveSelected ? " move-selected" : "";
+  const tier = slot.item ? ` tier-${itemTier(slot.item)}` : "";
   const content = slot.item
     ? `<span class="slot-name">${escapeHtml(slot.label)}</span><span class="slot-count">${slot.count}</span>`
     : "";
-  return `<div class="mini-slot inventory-cell${slot.extraClass ?? ""}${moveSelected}"${sourceAttrs}${dragAttrs}>${content}</div>`;
+  return `<div class="mini-slot inventory-cell${slot.extraClass ?? ""}${moveSelected}${tier}"${sourceAttrs}${dragAttrs}>${content}</div>`;
 }
 
 function renderCraftSlot(slot: InventorySlotView, index: number) {
@@ -95,7 +98,8 @@ function renderCraftSlot(slot: InventorySlotView, index: number) {
   const dragAttrs = slot.item
     ? ` draggable="true" data-drop-item="${escapeAttr(slot.item)}" data-slot-source="craft" data-slot-index="${index}"`
     : "";
-  return `<button class="craft-slot inventory-cell" data-craft-slot="${index}"${dragAttrs}>${label}</button>`;
+  const tier = slot.item ? ` tier-${itemTier(slot.item)}` : "";
+  return `<button class="craft-slot inventory-cell${tier}" data-craft-slot="${index}"${dragAttrs}>${label}</button>`;
 }
 
 function renderMaterialButton(material: InventoryMaterialView, index: number) {

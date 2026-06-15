@@ -237,6 +237,27 @@ try {
     if (Object.keys(o.receive ?? {}).includes("xp_bottle")) problems.push(`xp_bottle: must not be obtainable from '${o.id}' (cheat-only item)`);
   }
 
+  // 아이템 5단계 등급(itemTier): 모든 아이템이 유효 등급으로 분류되고, 앵커 아이템 등급이 기준과 일치
+  {
+    const { itemTier, ITEM_TIER } = items;
+    const TIERS = ["common", "uncommon", "rare", "epic", "legendary"];
+    for (const id of Object.keys(ITEM_NAMES)) {
+      if (!TIERS.includes(itemTier(id))) problems.push(`itemTier('${id}') = ${itemTier(id)} is not a valid tier`);
+    }
+    for (const id of Object.keys(ITEM_TIER)) {
+      if (!isItem(id)) problems.push(`ITEM_TIER has unknown item '${id}'`);
+      if (id !== undefined && itemTier(id) === "common") problems.push(`ITEM_TIER['${id}'] should not resolve to common (listed = non-common)`);
+    }
+    const anchors = { wood: "common", meat: "common", iron: "uncommon", gold: "rare", diamond: "rare", dragon_horn: "epic", obsidian_sword: "epic", sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary" };
+    for (const [id, tier] of Object.entries(anchors)) {
+      if (itemTier(id) !== tier) problems.push(`itemTier('${id}') = ${itemTier(id)}, expected ${tier}`);
+    }
+    // 레전더리는 정확히 최종 흑요석 무기 3종
+    const legendary = Object.keys(ITEM_NAMES).filter((id) => itemTier(id) === "legendary").sort();
+    const expectedLegendary = ["sharp_obsidian_gun", "sharp_obsidian_shield", "sharp_obsidian_staff"];
+    if (JSON.stringify(legendary) !== JSON.stringify(expectedLegendary)) problems.push(`legendary set mismatch: ${JSON.stringify(legendary)}`);
+  }
+
   // 보스 챕터 진행표: 모든 보스를 정확히 1회씩 포함 + 챕터/권장레벨 단조 증가
   const bossKinds = Object.keys(BOSS_STATS);
   if (BOSS_PROGRESSION.length !== bossKinds.length) {

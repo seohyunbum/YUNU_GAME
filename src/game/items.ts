@@ -212,6 +212,34 @@ export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
 }
 
+// 5단계 아이템 등급(시각 표시용) — 일반 < 고급 < 희귀 < 에픽 < 레전더리.
+// 제작 경험치 가중치(itemRarity)와는 분리: 이 등급은 핫바/인벤토리 슬롯 배경색에만 쓰여 기존 밸런스에 영향 없음.
+// 미등재 = common(일반). 색: 일반=무색 / 고급=옅은초록 / 희귀=옅은파랑 / 에픽=옅은보라 / 레전더리=옅은붉은.
+export type ItemTier = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
+  // 고급(uncommon) — 중급 금속·실용 제작품
+  extended_workbench: "uncommon", special_smelter: "uncommon", grinder: "uncommon", mirror: "uncommon",
+  bag: "uncommon", medkit: "uncommon", bed: "uncommon", lava_bucket: "uncommon", mineral_compound: "uncommon",
+  iron: "uncommon", iron_powder: "uncommon", refined_iron: "uncommon",
+  sharp_wood_axe: "uncommon", iron_axe: "uncommon", iron_shovel: "uncommon", iron_pickaxe: "uncommon",
+  iron_dagger: "uncommon", iron_sword: "uncommon", iron_armor: "uncommon",
+  magic_wand: "uncommon", pistol: "uncommon", iron_shield: "uncommon", iron_bow: "uncommon",
+  // 희귀(rare) — 금·다이아몬드 계열
+  gold: "rare", gold_powder: "rare", refined_gold: "rare", diamond: "rare", diamond_powder: "rare", refined_diamond: "rare",
+  gold_axe: "rare", gold_shovel: "rare", gold_pickaxe: "rare", gold_dagger: "rare", gold_sword: "rare", gold_armor: "rare",
+  diamond_axe: "rare", diamond_shovel: "rare", diamond_pickaxe: "rare", diamond_dagger: "rare", diamond_sword: "rare",
+  diamond_armor: "rare", diamond_bow: "rare", rifle: "rare", crystal_staff: "rare", dragon_scale: "rare",
+  // 에픽(epic) — 흑요석·용 소재·최상급 장비
+  obsidian: "epic", obsidian_powder: "epic", sharp_obsidian: "epic",
+  obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
+  dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic", xp_bottle: "epic",
+  // 레전더리(legendary) — 최종 흑요석 무기 3종
+  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary",
+};
+export function itemTier(item: ItemId): ItemTier {
+  return ITEM_TIER[item] ?? "common";
+}
+
 export const ARMOR_VALUE: Record<ItemId, number> = {
   leather_armor: 4,
   copper_armor: 7,

@@ -3996,7 +3996,7 @@ class WildernessGame {
 
   private renderHomeStoragePanel() {
     const carry = this.allStorageSlots();
-    const toView = (slot: Slot) => ({ label: slot.item ? shortName(slot.item) : "", count: slot.count, empty: !slot.item || slot.count <= 0 });
+    const toView = (slot: Slot) => ({ label: slot.item ? shortName(slot.item) : "", count: slot.count, empty: !slot.item || slot.count <= 0, item: slot.item });
     renderHomeStoragePanelView(
       this.panelEl,
       { storage: this.homeStorage.map(toView), inventory: carry.map(toView) },
@@ -6125,6 +6125,7 @@ class WildernessGame {
         selectedHotbarIndex: this.selectedHotbarIndex,
         hotbar: this.hotbar.map((slot) => ({
           label: slot.item ? `${shortName(slot.item)} ${slot.count}` : "",
+          item: slot.item,
         })),
       },
       (index) => {

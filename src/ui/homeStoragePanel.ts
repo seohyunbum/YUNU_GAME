@@ -1,7 +1,10 @@
+import { itemTier } from "../game/items";
+
 export interface HomeStorageSlotView {
   label: string;
   count: number;
   empty: boolean;
+  item: string | null;
 }
 
 export interface HomeStoragePanelView {
@@ -26,7 +29,8 @@ function escapeHtml(value: string) {
 
 function renderCell(slot: HomeStorageSlotView, attr: string, index: number) {
   const label = slot.empty ? "" : `<span class="slot-name">${escapeHtml(slot.label)}</span><span class="slot-count">${slot.count}</span>`;
-  return `<button class="craft-slot inventory-cell" ${attr}="${index}" ${slot.empty ? "disabled" : ""}>${label}</button>`;
+  const tier = slot.empty || !slot.item ? "" : ` tier-${itemTier(slot.item)}`;
+  return `<button class="craft-slot inventory-cell${tier}" ${attr}="${index}" ${slot.empty ? "disabled" : ""}>${label}</button>`;
 }
 
 export function renderHomeStoragePanel(

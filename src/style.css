@@ -1858,6 +1858,12 @@ body {
   font-size: 11px;
 }
 
+/* 아이템 등급별 슬롯 배경 — 일반=기본(무색) / 고급=옅은초록 / 희귀=옅은파랑 / 에픽=옅은보라 / 레전더리=옅은붉은. (.slot.selected 보다 위 = 선택 하이라이트 우선) */
+.slot.tier-uncommon, .mini-slot.tier-uncommon, .craft-slot.tier-uncommon { background: rgba(22, 64, 40, 0.82); border-color: rgba(74, 222, 128, 0.6); }
+.slot.tier-rare, .mini-slot.tier-rare, .craft-slot.tier-rare { background: rgba(22, 48, 84, 0.84); border-color: rgba(96, 165, 250, 0.66); }
+.slot.tier-epic, .mini-slot.tier-epic, .craft-slot.tier-epic { background: rgba(52, 28, 78, 0.85); border-color: rgba(192, 132, 252, 0.72); }
+.slot.tier-legendary, .mini-slot.tier-legendary, .craft-slot.tier-legendary { background: rgba(78, 28, 34, 0.85); border-color: rgba(248, 113, 113, 0.74); }
+
 .slot.selected {
   border-color: #facc15;
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.25);

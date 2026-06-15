@@ -1,4 +1,5 @@
 import { ensureSkillBar, renderSkillBar, type SkillSlotView } from "./skillBar";
+import { itemTier } from "../game/items";
 
 export interface HudRenderElements {
   statsEl: HTMLElement;
@@ -16,6 +17,7 @@ export interface HudRenderCache {
 
 export interface HudHotbarSlotView {
   label: string;
+  item: string | null;
 }
 
 export interface HudViewModel {
@@ -149,7 +151,8 @@ function renderHotbarMarkup(view: HudViewModel) {
   return view.hotbar
     .map((slot, index) => {
       const selected = index === view.selectedHotbarIndex ? " selected" : "";
-      return `<button class="slot${selected}" data-hotbar="${index}"><span>${index + 1}</span>${escapeHtml(slot.label)}</button>`;
+      const tier = slot.item ? ` tier-${itemTier(slot.item)}` : "";
+      return `<button class="slot${selected}${tier}" data-hotbar="${index}"><span>${index + 1}</span>${escapeHtml(slot.label)}</button>`;
     })
     .join("");
 }
