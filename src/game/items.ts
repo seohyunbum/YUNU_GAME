@@ -140,14 +140,14 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   iron_dagger: 3,
   gold_dagger: 3,
   diamond_dagger: 4,
-  obsidian_dagger: 5,
+  obsidian_dagger: 7, // 에픽 ×1.3 (기본 5)
   wood_sword: 1,
   stone_sword: 2,
   copper_sword: 4,
   iron_sword: 6,
   gold_sword: 5,
   diamond_sword: 8,
-  obsidian_sword: 10,
+  obsidian_sword: 13, // 에픽 ×1.3 (기본 10)
   bow: BOW_DAMAGE,
   magic_wand: MAGIC_WAND_DAMAGE,
   pistol: PISTOL_DAMAGE,
@@ -156,10 +156,10 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   diamond_bow: 8,
   rifle: 7,
   crystal_staff: 6,
-  arcane_staff: 9,
-  sharp_obsidian_shield: 8, // 방패 강타(iron_shield 3 초과)
-  sharp_obsidian_staff: 12, // 최상급 마법(arcane_staff 9 초과)
-  sharp_obsidian_gun: 11, // 최상급 총(rifle 7 초과)
+  arcane_staff: 12, // 에픽 ×1.3 (기본 9)
+  sharp_obsidian_shield: 10, // 레전더리 ×1.3 (기본 8). 방패 강타(iron_shield 3 초과)
+  sharp_obsidian_staff: 16, // 레전더리 ×1.3 (기본 12). 최상급 마법(arcane_staff 12 초과)
+  sharp_obsidian_gun: 14, // 레전더리 ×1.3 (기본 11). 최상급 총(rifle 7 초과)
   weak_wood_axe: 2,
   sharp_wood_axe: 4,
   stone_axe: 5,
