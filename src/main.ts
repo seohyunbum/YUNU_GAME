@@ -2002,6 +2002,7 @@ class WildernessGame {
     if (Number.isInteger(number) && number >= 1 && number <= this.hotbar.length) {
       this.selectedHotbarIndex = number - 1;
       this.renderHud();
+      if (this.currentPanel !== null) this.renderPanel(); // 캐릭터창 등 열린 패널의 선택-의존 표시(무기) 갱신
       this.useSelectedHotbarItem();
     }
   }
@@ -6131,6 +6132,7 @@ class WildernessGame {
       (index) => {
         this.selectedHotbarIndex = index;
         this.renderHud();
+        if (this.currentPanel !== null) this.renderPanel(); // 캐릭터창 무기 표시가 선택 칸을 따라가도록 갱신
       },
     );
   }
