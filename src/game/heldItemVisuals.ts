@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { createMirrorModel } from "../avatar";
 import { createBucketVisual } from "./bucketVisuals";
-import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel, createObsidianGunModel, createObsidianShieldModel, createObsidianStaffModel } from "./weaponVisuals";
+import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel, createObsidianGunModel, createObsidianShieldModel, createObsidianStaffModel, createOrnateStaffModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
 import { addLegendaryWeapon } from "./legendaryWeapon";
 import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
@@ -99,23 +99,8 @@ export function createHeldItemModel(item: ItemId) {
       if (tv.fancy) { const glowTip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.09, 10), tierEdgeMaterial(tv)); glowTip.position.set(0.06, 0.55, -0.02); glowTip.rotation.x = -Math.PI / 2; group.add(glowTip); }
     }
   } else if (item === "magic_wand") {
-    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.62, 10), handleMaterial);
-    staff.position.y = 0.31;
-    staff.rotation.z = 0.06;
-    const orbMaterial = new THREE.MeshStandardMaterial({
-      color: 0x36f28f,
-      emissive: 0x10b981,
-      emissiveIntensity: 1.6,
-      roughness: 0.28,
-    });
-    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 18, 12), orbMaterial);
-    orb.position.set(0.04, 0.65, 0);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.008, 8, 24), new THREE.MeshBasicMaterial({ color: 0xb8ffe2, transparent: true, opacity: 0.78 }));
-    ring.position.copy(orb.position);
-    ring.rotation.x = Math.PI / 2;
-    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.08, 12), headMaterial);
-    cap.position.set(0.02, 0.55, 0);
-    group.add(staff, cap, orb, ring);
+    // 기본 마법봉 — 화려 빌더의 소형판(초록 보석, 날개 1겹, 불꽃 없음)
+    group.add(createOrnateStaffModel({ gem: 0x36f28f, glow: 0x10b981, wingsPerSide: 1, flames: 0, scale: 0.88 }));
   } else if (item === "sharp_obsidian_shield") {
     const shield = createObsidianShieldModel();
     shield.position.set(0.06, 0.34, 0);
@@ -146,17 +131,10 @@ export function createHeldItemModel(item: ItemId) {
     rifle.scale.setScalar(1.12);
     group.add(rifle);
   } else if (item.endsWith("_staff")) {
-    const arcane = item === "arcane_staff";
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.034, 0.72, 10), handleMaterial);
-    shaft.position.y = 0.36;
-    const orbColor = arcane ? 0x9b5cff : 0x5cc8ff;
-    const orbMat = new THREE.MeshStandardMaterial({ color: orbColor, emissive: orbColor, emissiveIntensity: 1.4, roughness: 0.28 });
-    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), orbMat);
-    orb.position.set(0.02, 0.8, 0);
-    const prongs = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.012, 8, 18), new THREE.MeshStandardMaterial({ color: 0xd9c46a, metalness: 0.4, roughness: 0.4 }));
-    prongs.position.copy(orb.position);
-    prongs.rotation.x = Math.PI / 2;
-    group.add(shaft, orb, prongs);
+    // 비전 지팡이(에픽) = 보라 + 날개 2겹·불꽃 6, 수정 지팡이(희귀) = 청록 + 날개 1겹·불꽃 4
+    group.add(item === "arcane_staff"
+      ? createOrnateStaffModel({ gem: 0xc05cff, glow: 0x9b5cff, wingsPerSide: 2, flames: 6 })
+      : createOrnateStaffModel({ gem: 0x6ee7f2, glow: 0x22d3ee, wingsPerSide: 1, flames: 4 }));
   } else if (AXE_POWER[item]) {
     const tv = tierVisual(item);
     const headMat = tierBladeMaterial(tv);

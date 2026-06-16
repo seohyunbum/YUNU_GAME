@@ -241,36 +241,103 @@ export function createObsidianShieldModel() {
 }
 
 // 날카로운 흑요석 지팡이 — 흑요석 자루 + 금색 왕관 갈래 + 붉은 핵 + 헤일로
-export function createObsidianStaffModel() {
-  const staff = new THREE.Group();
-  const obsidian = standard(OBSIDIAN);
-  const gold = standard(ROYAL_GOLD);
-  const red = energyMaterial(0xff2438);
+// 화려한 마법 지팡이 — 황금 트라이던트 헤드(중앙 크리스탈 + 곡선 프롱 + 피닉스 날개) +
+// 글로우 헤일로/에너지 불꽃 + 8각 엣지 봉(황금 밴드·포멜). 등급별로 날개 수·불꽃·봉 재질을 키운다.
+export interface OrnateStaffOptions {
+  gem: number; // 중앙 크리스탈/보석 색(발광)
+  glow: number; // 헤일로·불꽃 아우라 색
+  darkShaft?: boolean; // 흑요석 어두운 봉(레전더리) vs 황금 봉
+  wingsPerSide?: number; // 한쪽 날개 수(1~3)
+  flames?: number; // 헤드 둘레 에너지 불꽃 수(0=없음)
+  scale?: number; // 전체 스케일(마법봉은 작게)
+}
 
-  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.038, 0.78, 10), obsidian);
-  shaft.position.y = 0.39;
+export function createOrnateStaffModel(opts: OrnateStaffOptions) {
+  const { gem, glow, darkShaft = false, wingsPerSide = 2, flames = 0, scale = 1 } = opts;
+  const staff = new THREE.Group();
+  const gold = standard(ROYAL_GOLD);
+  const goldDeep = standard({ color: 0xb8902f, metalness: 0.82, roughness: 0.3 });
+  const crystal = standard({ color: gem, emissive: gem, emissiveIntensity: 1.7, roughness: 0.16, metalness: 0.1 });
+  const aura = standard({ color: glow, emissive: glow, emissiveIntensity: 1.4, roughness: 0.3, transparent: true, opacity: 0.82 });
+  const flame = energyMaterial(glow);
+  const HEAD = 0.82;
+
+  // 봉 — 8각 단면(엣지) + 황금 밴드 3개 + 뾰족 포멜
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.036, 0.72, 8), darkShaft ? standard(OBSIDIAN) : gold);
+  shaft.position.y = 0.36;
   staff.add(shaft);
-  for (const y of [0.16, 0.42, 0.66]) {
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.043, 0.04, 10), gold);
-    band.position.set(0, y, 0);
+  for (const y of [0.1, 0.3, 0.5]) {
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.013, 8, 14), gold);
+    band.position.set(0, y, 0); band.rotation.x = Math.PI / 2;
     staff.add(band);
   }
-  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.016, 8, 20), gold);
-  crown.position.set(0.02, 0.84, 0);
-  crown.rotation.x = Math.PI / 2;
-  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.11), red);
-  core.position.set(0.02, 0.86, 0);
-  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.01, 8, 24), red);
-  halo.position.copy(core.position);
-  halo.rotation.x = Math.PI / 2.4;
-  staff.add(crown, core, halo);
-  for (let i = 0; i < 4; i += 1) {
-    const a = (i / 4) * Math.PI * 2;
-    const prong = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.13, 6), gold);
-    prong.position.set(0.02 + Math.cos(a) * 0.11, 0.94, Math.sin(a) * 0.11);
-    staff.add(prong);
+  const pommel = new THREE.Mesh(new THREE.ConeGeometry(0.042, 0.11, 6), gold);
+  pommel.position.y = -0.04; pommel.rotation.x = Math.PI;
+  const pommelGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.03), crystal);
+  pommelGem.position.y = 0.02;
+  staff.add(pommel, pommelGem);
+
+  // 헤드 받침(플레어 collar)
+  const collar = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.14, 8), gold);
+  collar.position.y = HEAD - 0.12;
+  staff.add(collar);
+
+  // 트라이던트 프롱 3개(중앙 길게 + 좌우 벌어짐) + 끝 보석
+  const center = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.3, 6), gold);
+  center.position.y = HEAD + 0.22;
+  staff.add(center);
+  for (const sx of [-1, 1]) {
+    const prong = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.24, 6), gold);
+    prong.position.set(sx * 0.07, HEAD + 0.17, 0); prong.rotation.z = -sx * 0.42;
+    const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.02), crystal);
+    tip.position.set(sx * 0.14, HEAD + 0.29, 0);
+    staff.add(prong, tip);
   }
+
+  // 피닉스 날개(좌우 부채꼴) + 발광 깃끝
+  for (const sx of [-1, 1]) {
+    for (let w = 0; w < wingsPerSide; w += 1) {
+      const len = 0.19 - w * 0.03;
+      const wing = new THREE.Mesh(new THREE.ConeGeometry(0.042, len, 4), w === 0 ? gold : goldDeep);
+      wing.position.set(sx * (0.08 + w * 0.03), HEAD - 0.02 + w * 0.055, 0);
+      wing.rotation.z = sx * (Math.PI / 2 - 0.5 - w * 0.28);
+      wing.scale.set(1, 1, 0.3);
+      const featherTip = new THREE.Mesh(new THREE.ConeGeometry(0.02, len * 0.5, 4), flame);
+      featherTip.position.copy(wing.position); featherTip.rotation.copy(wing.rotation); featherTip.scale.copy(wing.scale);
+      staff.add(wing, featherTip);
+    }
+  }
+
+  // 중앙 크리스탈(길쭉한 보석) + 황금 베젤
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.085), crystal);
+  core.position.y = HEAD + 0.02; core.scale.set(1, 1.7, 1);
+  const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 8, 18), gold);
+  bezel.position.y = HEAD + 0.02; bezel.rotation.x = Math.PI / 2;
+  staff.add(core, bezel);
+
+  // 헤일로 아우라(뒤쪽 글로우 링 2겹)
+  const halo = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.013, 10, 30), aura);
+  halo.position.set(0, HEAD + 0.02, -0.02); halo.rotation.x = Math.PI / 2.3;
+  const inner = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.008, 8, 24), flame);
+  inner.position.copy(halo.position); inner.rotation.x = Math.PI / 2.3;
+  staff.add(halo, inner);
+
+  // 헤드 둘레 에너지 불꽃 호
+  for (let i = 0; i < flames; i += 1) {
+    const a = Math.PI * 0.15 + (i / Math.max(1, flames - 1)) * Math.PI * 1.7;
+    const f = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.16, 5), flame);
+    f.position.set(Math.cos(a) * 0.15, HEAD + 0.02 + Math.sin(a) * 0.15, -0.01);
+    f.rotation.z = a - Math.PI / 2; f.scale.set(1, 1, 0.5);
+    staff.add(f);
+  }
+
+  if (scale !== 1) staff.scale.setScalar(scale);
   return staff;
+}
+
+// 날카로운 흑요석 지팡이(레전더리) — 가장 화려: 흑요석 봉 + 3겹 날개 + 7불꽃 + 붉은 크리스탈.
+export function createObsidianStaffModel() {
+  return createOrnateStaffModel({ gem: 0xff6a3c, glow: 0xff2438, darkShaft: true, wingsPerSide: 3, flames: 7 });
 }
 
 // 날카로운 흑요석 총 — 황금 몸체 + 흑요석 악센트 + 총구 화염
