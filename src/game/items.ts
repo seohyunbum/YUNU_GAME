@@ -172,6 +172,8 @@ export const RANGED_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>([
   "bow", "magic_wand", "pistol", "iron_bow", "diamond_bow", "rifle", "crystal_staff", "arcane_staff",
   "sharp_obsidian_staff", "sharp_obsidian_gun",
 ]);
+// 총 계열 — 활과 같은 arrow 투사체지만 연사 보정(GUN_FIRE_RATE_SCALE)을 받는다.
+export const GUN_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["pistol", "rifle", "sharp_obsidian_gun"]);
 export const RANGED_PROJECTILE: Record<ItemId, "arrow" | "magic"> = {
   magic_wand: "magic",
   crystal_staff: "magic",

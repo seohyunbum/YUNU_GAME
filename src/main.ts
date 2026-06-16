@@ -167,7 +167,7 @@ import {
   PLAYER_RADIUS,
   PRONE_HEIGHT,
   PROJECTILE_MAX_LIFE,
-  RANGED_ATTACK_COOLDOWN,
+  RANGED_ATTACK_COOLDOWN, GUN_FIRE_RATE_SCALE, MAGIC_AOE_RADIUS,
   RUN_MULTIPLIER,
   MAX_SAVE_SLOTS,
   AUTOSAVE_INTERVAL_SECONDS, BED_REST_PROFILE,
@@ -270,7 +270,7 @@ import {
   SPECIAL_SMELTER_MATERIALS,
   WEAPON_DAMAGE,
   RANGED_WEAPONS,
-  RANGED_PROJECTILE,
+  RANGED_PROJECTILE, GUN_WEAPONS,
 } from "./game/items";
 import { MINI_RECIPES, WORKBENCH_RECIPES } from "./game/recipes";
 import {
@@ -4604,7 +4604,7 @@ class WildernessGame {
 
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
-    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES[this.playerClass].rangedCooldownScale * rapidFireCooldownScale(this.skillBuffs, performance.now());
+    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES[this.playerClass].rangedCooldownScale * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1);
     const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
@@ -4814,6 +4814,7 @@ class WildernessGame {
           spawnEnemyHitParticles(this.combatEffectContext, target, projectile.mesh.position);
           spawnProjectileImpact(this.combatEffectContext, projectile.mesh.position, projectile.kind);
           this.applyProjectileDamage(target, projectile.damage, projectile.kind);
+          if (projectile.kind === "magic") this.applyAreaDamage(projectile.mesh.position, MAGIC_AOE_RADIUS, projectile.damage, new Set([target.id]), "magic"); // 마법 소형 범위 피해 — 주 대상 주변 추가타
         }
         this.removeProjectile(index);
         continue;

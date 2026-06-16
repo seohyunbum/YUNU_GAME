@@ -181,7 +181,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     name: "날카로운 흑요석 단검",
     output: "obsidian_dagger",
     count: 1,
-    ingredients: { sharp_obsidian: 1, stick: 1 },
+    ingredients: { sharp_obsidian: 2, stick: 1 }, // 근접 재료비 ~1.5배
     note: "데미지 7.",
   },
   {
@@ -189,7 +189,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     name: "날카로운 흑요석 검",
     output: "obsidian_sword",
     count: 1,
-    ingredients: { sharp_obsidian: 2, stick: 1 },
+    ingredients: { sharp_obsidian: 3, stick: 1 }, // 근접 재료비 ~1.5배
     note: "데미지 13.",
   },
   {
@@ -306,7 +306,7 @@ for (const material of MATERIALS) {
       name: `${material.name} 단검`,
       output: `${material.prefix}_dagger`,
       count: 1,
-      ingredients: { [material.refined]: 1, stick: 1 },
+      ingredients: { [material.refined]: 2, stick: 1 }, // 근접 재료비 ~1.5배 상향(원거리/마법과 균형)
       note: `데미지 ${WEAPON_DAMAGE[`${material.prefix}_dagger`]}.`,
     },
     {
@@ -314,7 +314,7 @@ for (const material of MATERIALS) {
       name: `${material.name} 검`,
       output: `${material.prefix}_sword`,
       count: 1,
-      ingredients: { [material.refined]: 2, stick: 1 },
+      ingredients: { [material.refined]: 3, stick: 1 }, // 근접 재료비 ~1.5배 상향
       note: `데미지 ${WEAPON_DAMAGE[`${material.prefix}_sword`]}.`,
     },
   );

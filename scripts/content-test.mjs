@@ -282,6 +282,21 @@ try {
     if (!(WEAPON_DAMAGE.magic_wand >= 4)) problems.push(`magic_wand should be >= 4, got ${WEAPON_DAMAGE.magic_wand}`);
   }
 
+  // 무기밸런스#2: 근접 재료비 ~1.5배 / 총 연사 보정 / 마법 소형 AoE
+  {
+    const recById = Object.fromEntries(recipes.WORKBENCH_RECIPES.map((r) => [r.id, r]));
+    // 근접 검 refined×3, 단검 refined×2 (1.5배 상향), 흑요석 검3/단검2
+    if (recById.iron_sword?.ingredients?.refined_iron !== 3) problems.push(`iron_sword should use 3 refined_iron (1.5x), got ${recById.iron_sword?.ingredients?.refined_iron}`);
+    if (recById.iron_dagger?.ingredients?.refined_iron !== 2) problems.push(`iron_dagger should use 2 refined_iron (1.5x), got ${recById.iron_dagger?.ingredients?.refined_iron}`);
+    if (recById.obsidian_sword?.ingredients?.sharp_obsidian !== 3) problems.push(`obsidian_sword should use 3 sharp_obsidian, got ${recById.obsidian_sword?.ingredients?.sharp_obsidian}`);
+    if (recById.obsidian_dagger?.ingredients?.sharp_obsidian !== 2) problems.push(`obsidian_dagger should use 2 sharp_obsidian, got ${recById.obsidian_dagger?.ingredients?.sharp_obsidian}`);
+    // 총 계열 연사 보정 세트 + 쿨다운 스케일(<1)
+    const guns = [...items.GUN_WEAPONS].sort();
+    if (JSON.stringify(guns) !== JSON.stringify(["pistol", "rifle", "sharp_obsidian_gun"])) problems.push(`GUN_WEAPONS mismatch: ${JSON.stringify(guns)}`);
+    if (!(constants.GUN_FIRE_RATE_SCALE > 0 && constants.GUN_FIRE_RATE_SCALE < 1)) problems.push(`GUN_FIRE_RATE_SCALE should be in (0,1), got ${constants.GUN_FIRE_RATE_SCALE}`);
+    if (!(constants.MAGIC_AOE_RADIUS > 0)) problems.push(`MAGIC_AOE_RADIUS should be > 0, got ${constants.MAGIC_AOE_RADIUS}`);
+  }
+
   // 보스 챕터 진행표: 모든 보스를 정확히 1회씩 포함 + 챕터/권장레벨 단조 증가
   const bossKinds = Object.keys(BOSS_STATS);
   if (BOSS_PROGRESSION.length !== bossKinds.length) {
