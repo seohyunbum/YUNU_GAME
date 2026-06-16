@@ -305,7 +305,8 @@ export interface SavedGame {
     currentHouseBedTier?: BedTier;
     currentHouseOwned?: boolean;
     homeStorage?: Slot[];
-    homeSupplyCooldownSeconds?: number;
+    homeSupplyCooldownSeconds?: number; // 레거시(단일 쿨타임) — 마이그레이션 입력용
+    homeSupplyCooldowns?: Record<string, number>; // 집 종류별 보급 쿨타임
     trainingStats?: TrainingStats;
     craftLevel?: number;
     craftExperience?: number;

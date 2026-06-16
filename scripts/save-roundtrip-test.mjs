@@ -62,7 +62,7 @@ function stableSaveShape(save) {
       currentHouseKind: save.player.currentHouseKind,
       currentHouseOwned: save.player.currentHouseOwned,
       homeStorage: (save.player.homeStorage ?? []).filter((slot) => slot.item),
-      homeSupplyCooldownSeconds: Math.round(save.player.homeSupplyCooldownSeconds ?? 0),
+      homeSupplyCooldowns: { ...(save.player.homeSupplyCooldowns ?? {}) },
       selectedHotbarIndex: save.player.selectedHotbarIndex,
       hotbar: save.player.hotbar,
       bagSlots: save.player.bagSlots,
@@ -167,7 +167,7 @@ try {
     game.currentHouseOwned = true;
     game.homeStorage[0] = { item: "diamond", count: 3 };
     game.homeStorage[5] = { item: "iron_axe", count: 1, durabilityUsed: 11 };
-    game.homeSupplyCooldownSeconds = 754;
+    game.homeSupplyCooldowns = { stone: 754 };
     game.selectedHotbarIndex = 2;
 
     game.hotbar.splice(

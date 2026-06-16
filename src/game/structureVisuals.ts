@@ -259,7 +259,7 @@ function addDeluxeCottage(house: THREE.Group, width: number, depth: number, body
 export function createVillageHouseVisual(name: string, isStorage: boolean, variant: number, options?: { deluxe?: boolean; signLabel?: string }): VillageHouseVisual {
   const house = new THREE.Group();
   const deluxe = Boolean(options?.deluxe);
-  const isTwoStory = !isStorage && !deluxe && variant % 4 === 3;
+  const isTwoStory = !isStorage && variant % 4 === 3; // deluxe(플레이어 집)도 2층이면 2층 외관을 갖는다
   const houseStyles = [
     { width: 4.6, depth: 4.1, wall: ASSET_PALETTE.wallWarm, roof: ASSET_PALETTE.roofRed, roofHeight: 1.65, chimneyX: 0.24, bodyHeight: 2.7 },
     { width: 5.3, depth: 3.8, wall: ASSET_PALETTE.wallCream, roof: ASSET_PALETTE.roofBlue, roofHeight: 1.35, chimneyX: -0.22, bodyHeight: 2.7 },
@@ -267,7 +267,8 @@ export function createVillageHouseVisual(name: string, isStorage: boolean, varia
     { width: 5.6, depth: 4.9, wall: 0xb79b66, roof: 0x5367c8, roofHeight: 1.55, chimneyX: 0.25, bodyHeight: 4.85 },
   ];
   const deluxeStyle = { width: 5.6, depth: 4.7, wall: 0xf5e3d0, roof: 0xe0866a, roofHeight: 1.95, chimneyX: 0.27, bodyHeight: 2.95 }; // 플레이어 전용 아늑한 코티지 — 파스텔 크림 벽 + 코랄 지붕
-  const style = deluxe ? deluxeStyle : isStorage ? { width: 7.1, depth: 5.5, wall: 0xba7440, roof: 0xe0661d, roofHeight: 1.45, chimneyX: 0.28, bodyHeight: 2.7 } : houseStyles[variant % houseStyles.length];
+  const deluxeTwoStoryStyle = { width: 6.2, depth: 5.2, wall: 0xf5e3d0, roof: 0xe0866a, roofHeight: 2.2, chimneyX: 0.27, bodyHeight: 4.95 }; // 디럭스 2층집 — 단층 코티지보다 더 크고 높게
+  const style = deluxe ? (isTwoStory ? deluxeTwoStoryStyle : deluxeStyle) : isStorage ? { width: 7.1, depth: 5.5, wall: 0xba7440, roof: 0xe0661d, roofHeight: 1.45, chimneyX: 0.28, bodyHeight: 2.7 } : houseStyles[variant % houseStyles.length];
   const width = style.width;
   const depth = style.depth;
   const hut = new THREE.Mesh(

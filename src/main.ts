@@ -613,7 +613,7 @@ class WildernessGame {
   private currentHouseOwned = false;
   private saveLoadInProgress = false;
   private homeStorage = normalizeHomeStorage();
-  private homeSupplyCooldownSeconds = 0;
+  private homeSupplyCooldowns: Record<string, number> = {}; // 집 종류(currentHouseBedTier)별 보급 쿨타임 — 같은 종류끼리만 공유
   private ridingTrainId: string | null = null;
   private readonly toolUses: Record<ItemId, number> = {};
   private messageTimer = 0;
@@ -983,7 +983,7 @@ class WildernessGame {
 
   private updateTimeOfDay(delta: number) {
     this.worldTimeSeconds = (this.worldTimeSeconds + delta) % DAY_LENGTH_SECONDS;
-    if (this.homeSupplyCooldownSeconds > 0) this.homeSupplyCooldownSeconds = Math.max(0, this.homeSupplyCooldownSeconds - delta);
+    for (const key in this.homeSupplyCooldowns) if (this.homeSupplyCooldowns[key] > 0) this.homeSupplyCooldowns[key] = Math.max(0, this.homeSupplyCooldowns[key] - delta);
     const wrap = WORLD_SIZE * 0.56;
     for (const cloud of this.cloudLayer.children) {
       cloud.position.x += (cloud.userData.speed ?? 0.8) * delta;
@@ -3819,7 +3819,7 @@ class WildernessGame {
     if (target.type === "villageHouse") return target.enterable ? (target.playerOwned ? "E: 내 집 들어가기" : "E: 주민 집 들어가기") : target.name;
     if (target.type === "homeStorage") return "E: 집 창고 열기";
     if (target.type === "trainingRig") return this.level < TRAINING_MIN_LEVEL ? `${target.name} 훈련 (레벨 ${TRAINING_MIN_LEVEL}부터)` : `E: ${TRAINING_GAMES[target.trainingKind ?? "hp"].name} 훈련 시작`;
-    if (target.type === "homeSupply") return this.homeSupplyCooldownSeconds <= 0 ? "E: 보급 상자 열기 (준비됨!)" : `보급 상자 — ${homeSupplyReadyLabel(this.homeSupplyCooldownSeconds)}`;
+    if (target.type === "homeSupply") return (this.homeSupplyCooldowns[this.currentHouseBedTier] ?? 0) <= 0 ? "E: 보급 상자 열기 (준비됨!)" : `보급 상자 — ${homeSupplyReadyLabel(this.homeSupplyCooldowns[this.currentHouseBedTier] ?? 0)}`;
     if (this.isVillageGuard(target)) return `E: ${target.name} 공격`;
     if (target.type === "foodStorage") return "E: 식량창고 열기";
     if (target.type === "workbench" || target.type === "extendedWorkbench") return "좌클릭/E: 제작대 회수 | 우클릭: 제작대 사용";
@@ -3954,8 +3954,8 @@ class WildernessGame {
   }
 
   private claimHomeSupply() {
-    if (this.homeSupplyCooldownSeconds > 0) {
-      this.showMessage(`아직 보급이 차지 않았습니다. ${homeSupplyReadyLabel(this.homeSupplyCooldownSeconds)}.`);
+    const supplyKey = this.currentHouseBedTier; if ((this.homeSupplyCooldowns[supplyKey] ?? 0) > 0) { // 집 종류별 쿨타임(통나무/돌/이층 각자)
+      this.showMessage(`아직 보급이 차지 않았습니다. ${homeSupplyReadyLabel(this.homeSupplyCooldowns[supplyKey])}.`);
       return;
     }
     const loot = rollHomeSupply(this.level);
@@ -3965,7 +3965,7 @@ class WildernessGame {
       this.showMessage("인벤토리가 가득 차서 보급품을 받을 수 없습니다. 칸을 비운 뒤 다시 여세요.");
       return;
     }
-    this.homeSupplyCooldownSeconds = HOME_SUPPLY_COOLDOWN_SECONDS;
+    this.homeSupplyCooldowns[supplyKey] = HOME_SUPPLY_COOLDOWN_SECONDS;
     this.playTone(880, 0.12, "triangle", 0.03);
     this.showMessage(`보급 상자를 열었습니다: ${received.join(", ")} (가방이 차면 집 창고로 들어갑니다)${received.length < loot.length ? " — 가방·창고가 가득 차 일부 미수령" : ""}. 다음 보급은 30분 뒤!`);
     this.renderHud();
@@ -5586,7 +5586,7 @@ class WildernessGame {
         currentHouseBedTier: this.currentHouseBedTier,
         trainingStats: this.trainingStats,
         homeStorage: this.homeStorage,
-        homeSupplyCooldownSeconds: this.homeSupplyCooldownSeconds,
+        homeSupplyCooldowns: this.homeSupplyCooldowns,
         caveReturnPosition: this.caveReturnPosition,
         houseReturnPosition: this.houseReturnPosition,
         toolUses: { ...this.toolUses },
@@ -5684,7 +5684,7 @@ class WildernessGame {
     this.currentHouseBedTier = save.player.currentHouseBedTier ?? "wood";
     this.trainingStats = normalizeTrainingStats(save.player.trainingStats);
     this.homeStorage = normalizeHomeStorage(save.player.homeStorage);
-    this.homeSupplyCooldownSeconds = Math.max(0, save.player.homeSupplyCooldownSeconds ?? 0);
+    this.homeSupplyCooldowns = save.player.homeSupplyCooldowns ?? {};
     this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
     this.houseReturnPosition = save.player.houseReturnPosition ? this.fromSavedVector(save.player.houseReturnPosition) : null;
     Object.keys(this.toolUses).forEach((item) => delete this.toolUses[item]);

@@ -100,6 +100,16 @@ export function savedBedTier(value: unknown): BedTier {
   return value === "stone" || value === "twoStory" || value === "crafted" ? value : "wood";
 }
 
+// 집 종류별 보급 쿨타임 레코드 정규화. 레거시 단일 number 저장은 쿨타임이 일시적이므로 버리고 빈 레코드로 시작한다.
+export function normalizeSupplyCooldowns(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) out[key] = Math.min(raw, HOME_SUPPLY_COOLDOWN_SECONDS);
+  }
+  return out;
+}
+
 export function isPlayerClassId(value: unknown): value is PlayerClassId {
   return typeof value === "string" && value in PLAYER_CLASSES;
 }
@@ -276,7 +286,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       craftStatPoints: savedInteger(player.craftStatPoints, 0, 0, 9999),
       craftStatAlloc: normalizeCraftStatAlloc(player.craftStatAlloc),
       homeStorage: normalizeSavedSlots(player.homeStorage, HOME_STORAGE_SLOTS, [], player.toolUses),
-      homeSupplyCooldownSeconds: savedNumber(player.homeSupplyCooldownSeconds, 0, 0, HOME_SUPPLY_COOLDOWN_SECONDS),
+      homeSupplyCooldowns: normalizeSupplyCooldowns(player.homeSupplyCooldowns),
       caveReturnPosition: isSavedVector(player.caveReturnPosition) ? savedVector(player.caveReturnPosition, DEFAULT_POSITION) : null,
       houseReturnPosition: isSavedVector(player.houseReturnPosition) ? savedVector(player.houseReturnPosition, DEFAULT_POSITION) : null,
       toolUses: {},

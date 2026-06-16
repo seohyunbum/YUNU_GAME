@@ -66,7 +66,7 @@ export interface SaveDataSnapshot {
     currentHouseOwned: boolean;
     trainingStats: { hp: number; attack: number; armor: number; mana: number };
     homeStorage: readonly Slot[];
-    homeSupplyCooldownSeconds: number;
+    homeSupplyCooldowns: Record<string, number>;
     caveReturnPosition: VectorLike | null;
     houseReturnPosition: VectorLike | null;
     toolUses: Record<ItemId, number>;
@@ -237,7 +237,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       currentHouseOwned: snapshot.player.currentHouseOwned,
       trainingStats: { ...snapshot.player.trainingStats },
       homeStorage: cloneSlots(snapshot.player.homeStorage),
-      homeSupplyCooldownSeconds: snapshot.player.homeSupplyCooldownSeconds,
+      homeSupplyCooldowns: { ...snapshot.player.homeSupplyCooldowns },
       caveReturnPosition: snapshot.player.caveReturnPosition ? toSavedVector(snapshot.player.caveReturnPosition) : null,
       houseReturnPosition: snapshot.player.houseReturnPosition ? toSavedVector(snapshot.player.houseReturnPosition) : null,
       toolUses: { ...snapshot.player.toolUses },

@@ -93,11 +93,11 @@ try {
   assert.equal(legacy.player.caveStepBank, 30);
   assert.equal(legacy.player.locationMode, "overworld");
   assert.equal(legacy.player.currentHouseKind, "home");
-  // v10: 내 집 베이스캠프 기본값 — 빈 창고 24칸, 보급 즉시 가능(쿨다운 0), 내 집 아님
+  // v10: 내 집 베이스캠프 기본값 — 빈 창고 24칸, 보급 즉시 가능(집 종류별 쿨다운 빈 레코드), 내 집 아님
   assert.equal(legacy.player.currentHouseOwned, false);
   assert.equal(legacy.player.homeStorage.length, 24);
   assert.ok(legacy.player.homeStorage.every((slot) => slot.item === null && slot.count === 0));
-  assert.equal(legacy.player.homeSupplyCooldownSeconds, 0);
+  assert.deepEqual(legacy.player.homeSupplyCooldowns, {});
   assert.equal(legacy.player.selectedHotbarIndex, 7);
   assert.equal(legacy.player.hotbar.length, 8);
   assert.deepEqual(legacy.player.hotbar[1], { item: "stone_pickaxe", count: 1, durabilityUsed: 7 });
@@ -150,7 +150,7 @@ try {
       currentHouseKind: "twoStory",
       currentHouseOwned: true,
       homeStorage: [{ item: "iron_pickaxe", count: 1, durabilityUsed: 7 }, { item: "wood", count: 30 }],
-      homeSupplyCooldownSeconds: 999_999,
+      homeSupplyCooldowns: { wood: 999_999, stone: 600, twoStory: -5, bad: "x" },
       caveReturnPosition: { x: 7, y: 8, z: 9 },
       houseReturnPosition: { x: 1, y: 2, z: 3 },
       selectedHotbarIndex: -3,
@@ -204,7 +204,7 @@ try {
   assert.equal(current.player.homeStorage.length, 24);
   assert.deepEqual(current.player.homeStorage[0], { item: "iron_pickaxe", count: 1, durabilityUsed: 7 });
   assert.deepEqual(current.player.homeStorage[1], { item: "wood", count: 30 });
-  assert.equal(current.player.homeSupplyCooldownSeconds, 1800, "supply cooldown should clamp to the 30-minute max");
+  assert.deepEqual(current.player.homeSupplyCooldowns, { wood: 1800, stone: 600 }, "per-house supply cooldowns should clamp to the 30-minute max and drop invalid entries");
   assert.equal(current.worldStates.snowfield.mountains.length, 0);
   assert.equal(current.worldStates.dragon_lands.mountains[0].radius, 12);
   assert.equal(current.worldStates.dragon_lands.objects.length, 1);
