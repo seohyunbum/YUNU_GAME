@@ -1516,6 +1516,33 @@ try {
   }
 
   {
+    // 가방 자동정렬: 스택 합치기 + 카테고리(무기<방어구<도구<설비<소비<재료)별 + 등급 오름차순, 내구도 도구 개별 유지
+    const { sortInventory } = await server.ssrLoadModule("/src/game/inventorySort.ts");
+    const { itemSortCategory, itemTier } = await server.ssrLoadModule("/src/game/items.ts");
+    const TIER = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
+    const messy = [
+      { item: "wood", count: 50 }, { item: "obsidian_sword", count: 1 }, { item: null, count: 0 },
+      { item: "wood", count: 28 }, { item: "iron_sword", count: 1 }, { item: "diamond", count: 3 },
+      { item: "crafting_table", count: 1 }, { item: "medkit", count: 2 },
+      { item: "iron_axe", count: 1, durabilityUsed: 4 }, { item: "iron_axe", count: 1, durabilityUsed: 9 },
+    ];
+    const sorted = sortInventory(messy);
+    assert(sorted.length === messy.length, "sort preserves slot count");
+    const wood = sorted.filter((s) => s.item === "wood");
+    assert(wood.length === 1 && wood[0].count === 78, "same-item stacks merge (wood 50+28=78)");
+    assert(sorted.filter((s) => s.item === "iron_axe").length === 2, "durable tools kept separate");
+    const filled = sorted.filter((s) => s.item);
+    for (let i = 1; i < filled.length; i += 1) {
+      const ca = itemSortCategory(filled[i - 1].item), cb = itemSortCategory(filled[i].item);
+      assert(ca <= cb, `category non-decreasing: ${filled[i - 1].item}(${ca}) before ${filled[i].item}(${cb})`);
+      if (ca === cb) assert(TIER[itemTier(filled[i - 1].item)] <= TIER[itemTier(filled[i].item)], `tier ascending within category at ${filled[i].item}`);
+    }
+    const w = filled.findIndex((s) => itemSortCategory(s.item) === 0); // 무기
+    const m = filled.findIndex((s) => itemSortCategory(s.item) === 5); // 재료
+    assert(w >= 0 && m >= 0 && w < m, "weapons grouped before materials");
+  }
+
+  {
     // 수리 골든값: 등급 재료 매핑 + 50% 회복 + 완전 마모 도구는 재료 2개로 완전 회복
     const { repairMaterialFor, repairPerMaterial, toolMaxDurability } = items;
     assert(repairMaterialFor("iron_pickaxe") === "refined_iron", "iron pickaxe should repair with refined iron");

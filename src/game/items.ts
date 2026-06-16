@@ -358,3 +358,18 @@ export const PLACEABLE_TYPES: Record<ItemId, ObjectType> = {
   bed: "bed",
   building_block: "buildingBlock",
 };
+
+// 자동정렬용 카테고리 — 작을수록 앞. 무기 < 방어구 < 도구 < 제작설비 < 소비 < 재료 < 기타.
+// (방패는 WEAPON_DAMAGE 의 강타값도 있지만 방어구로, 도끼/곡괭이는 WEAPON_DAMAGE 여도 도구로 분류한다.)
+const SORT_CONSUMABLES = new Set<ItemId>(["meat", "medkit", "xp_bottle", "dragon_spawn"]);
+const SORT_TOOLS = new Set<ItemId>(["hammer", "bucket", "water_bucket", "lava_bucket"]);
+const SORT_MISC = new Set<ItemId>(["tutorial_book", "bag", "mirror"]);
+export function itemSortCategory(item: ItemId): number {
+  if (ARMOR_VALUE[item] !== undefined || SHIELD_DEFENSE[item] !== undefined) return 1; // 방어구
+  if (AXE_POWER[item] !== undefined || PICKAXE_POWER[item] !== undefined || SHOVEL_POWER[item] !== undefined || SORT_TOOLS.has(item)) return 2; // 도구
+  if (WEAPON_DAMAGE[item] !== undefined || RANGED_WEAPONS.has(item)) return 0; // 무기
+  if (PLACEABLE_TYPES[item] !== undefined) return 3; // 제작설비
+  if (SORT_CONSUMABLES.has(item)) return 4; // 소비
+  if (SORT_MISC.has(item)) return 6; // 기타
+  return 5; // 재료
+}

@@ -57,6 +57,7 @@ export interface InventoryPanelCallbacks {
   onClearCraft: () => void;
   onBuildHouse: (id: string) => void;
   onCraftGuide: (recipeId: string) => void;
+  onSortBag: () => void;
   bindDragDrop: () => void;
 }
 
@@ -176,7 +177,7 @@ export function renderInventoryPanel(
           <section class="inventory-board">
             <div class="inventory-label">하단 핫바 ${view.hotbarCount}칸</div>
             <div class="inventory-hotbar inventory-grid">${hotbar}</div>
-            <div class="inventory-label">가방 ${escapeHtml(view.bagLabel)}</div>
+            <div class="inventory-label">가방 ${escapeHtml(view.bagLabel)}<button class="bag-sort-btn" data-sort-bag title="재료·무기·도구별로 묶고 등급 오름차순 정렬 (가방만)">↕ 자동정렬</button></div>
             <div class="bag-grid inventory-grid">${bagGrid}</div>
           </section>
 
@@ -200,6 +201,7 @@ export function renderInventoryPanel(
     `;
 
   panelEl.querySelector<HTMLButtonElement>("[data-close]")?.addEventListener("click", callbacks.onClose);
+  panelEl.querySelector<HTMLButtonElement>("[data-sort-bag]")?.addEventListener("click", callbacks.onSortBag);
   panelEl.querySelectorAll<HTMLButtonElement>("[data-select-item-index]").forEach((button) => {
     button.addEventListener("click", () => {
       const material = view.materials[Number(button.dataset.selectItemIndex)];

@@ -158,8 +158,7 @@ import {
   MINI_GAME_PADDLE_WIDTH,
   MOVEMENT_COLLISION_STEP,
   MOVEMENT_HUD_MIN_INTERVAL,
-  MOUSE_SENSITIVITY_X,
-  MOUSE_SENSITIVITY_Y,
+  MOUSE_SENSITIVITY_X, MOUSE_SENSITIVITY_Y,
   NIGHT_PREDATOR_MAX_COUNT,
   NIGHT_PREDATOR_MIN_PLAYER_DISTANCE,
   NIGHT_PREDATOR_SPAWN_SECONDS,
@@ -172,8 +171,7 @@ import {
   MAX_SAVE_SLOTS,
   AUTOSAVE_INTERVAL_SECONDS, BED_REST_PROFILE,
   SMITHING_HITS_REQUIRED,
-  SMITHING_ROUND_SECONDS,
-  SMITHING_SUCCESS_POINTS,
+  SMITHING_ROUND_SECONDS, SMITHING_SUCCESS_POINTS,
   SPATIAL_CELL_SIZE,
   SPRINT_LOOK_TARGET_REFRESH_SECONDS,
   SPRINT_VISIBILITY_CHANGES_PER_PASS,
@@ -324,6 +322,7 @@ import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZ
 import { updateDragons, DRAGON_AGGRO_MS, type DragonAiContext } from "./game/dragonAi";
 import { tickMinimap, type MinimapContext } from "./ui/minimap";
 import { buildSkillSlots } from "./ui/skillBar";
+import { sortInventory } from "./game/inventorySort";
 import { renderInventoryPanel as renderInventoryPanelView } from "./ui/inventoryPanel";
 import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } from "./ui/loadGamePanel";
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
@@ -6346,6 +6345,7 @@ class WildernessGame {
         onMiniCraft: () => this.craftMiniRecipe(),
         onClearCraft: () => this.clearCraftSlots(),
         onBuildHouse: (id) => this.buildPlayerHouse(id),
+        onSortBag: () => { this.bagSlots.splice(0, this.bagSlots.length, ...sortInventory(this.bagSlots)); this.renderInventoryPanel(); this.renderHud(); this.showMessage("가방을 자동정렬했습니다 (재료·무기·도구별 + 등급순)."); },
         onCraftGuide: (guideId) => { const recipe = MINI_RECIPES.find((candidate) => guideId === `mini:${candidate.id}`); if (!recipe || !this.canCraft(recipe)) return; if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, isDurableTool, recipe.ingredients)) { this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요."); return; } for (const [item, count] of Object.entries(recipe.ingredients)) this.removeItem(item, count); this.addCraftedOutput(recipe); this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`); this.renderPanel(); this.renderHud(); },
         bindDragDrop: () => this.bindInventoryDragDrop(),
       },
