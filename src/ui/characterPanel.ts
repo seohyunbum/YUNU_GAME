@@ -14,12 +14,15 @@ export interface CharacterPanelView {
   weapon: string;
   armor: string;
   shield: string;
+  necklace: string;
+  ownedNecklaces: { item: string; name: string; equipped: boolean }[];
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
 }
 
 export interface CharacterPanelCallbacks {
   onSpend(kind: "hp" | "mana" | "attack" | "defense"): void;
+  onEquipNecklace(item: string | null): void;
   onClose(): void;
 }
 
@@ -54,6 +57,17 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
             <div class="character-gear-row"><span>🗡️ 무기</span><strong>${escapeHtml(view.weapon)}</strong></div>
             <div class="character-gear-row"><span>🛡️ 방어구</span><strong>${escapeHtml(view.armor)}</strong></div>
             <div class="character-gear-row"><span>🔰 방패</span><strong>${escapeHtml(view.shield)}</strong></div>
+            <div class="character-gear-row"><span>📿 목걸이</span><strong>${escapeHtml(view.necklace)}</strong></div>
+            ${
+              view.ownedNecklaces.length > 0
+                ? `<div class="character-necklace-choices">${view.ownedNecklaces
+                    .map(
+                      (n) =>
+                        `<button class="character-necklace-choice${n.equipped ? " equipped" : ""}" data-equip-necklace="${escapeHtml(n.item)}">${escapeHtml(n.name)}${n.equipped ? " ✓" : ""}</button>`,
+                    )
+                    .join("")}${view.ownedNecklaces.some((n) => n.equipped) ? `<button class="character-necklace-choice" data-equip-necklace="">해제</button>` : ""}</div>`
+                : `<div class="character-necklace-empty">보유한 목걸이가 없습니다. 확장 제작대에서 만들거나 흑요석 상자에서 얻으세요.</div>`
+            }
           </div>
           <div class="character-stats">
             <div class="inventory-label">스탯 ${points > 0 ? `· 남은 포인트 <b class="character-points">${points}</b>` : ""}</div>
@@ -74,5 +88,8 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
   panelEl.querySelector<HTMLButtonElement>("[data-close]")?.addEventListener("click", callbacks.onClose);
   panelEl.querySelectorAll<HTMLButtonElement>("[data-spend]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onSpend(button.dataset.spend as "hp" | "mana" | "attack" | "defense"));
+  });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-necklace]").forEach((button) => {
+    button.addEventListener("click", () => callbacks.onEquipNecklace(button.dataset.equipNecklace ? button.dataset.equipNecklace : null));
   });
 }

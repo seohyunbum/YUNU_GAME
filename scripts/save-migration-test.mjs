@@ -75,6 +75,7 @@ try {
   assert.equal(legacy.player.mana, BASE_MAX_MANA);
   assert.equal(legacy.player.classSkillCooldownRemainingMs, 0);
   assert.equal(legacy.player.equippedShield, null);
+  assert.equal(legacy.player.equippedNecklace, null);
   assert.equal(legacy.player.shieldDurabilityUsed, 0);
   assert.equal(legacy.player.ironGuardRemainingMs, 0);
   assert.deepEqual(legacy.player.companionProgress, { summoner: { level: 1, experience: 0 } });
@@ -144,6 +145,7 @@ try {
       caveStepBank: 5,
       equippedArmor: "diamond_armor",
       equippedShield: "iron_shield",
+      equippedNecklace: "guardian_necklace",
       shieldDurabilityUsed: 999,
       ironGuardRemainingMs: 999_999,
       locationMode: "cave",
@@ -185,6 +187,7 @@ try {
   assert.equal(current.player.mana, 120);
   assert.equal(current.player.classSkillCooldownRemainingMs, 24 * 60 * 60 * 1000);
   assert.equal(current.player.equippedShield, "iron_shield");
+  assert.equal(current.player.equippedNecklace, "guardian_necklace");
   assert.equal(current.player.shieldDurabilityUsed, 200);
   assert.equal(current.player.ironGuardRemainingMs, IRON_GUARD_DURATION_SECONDS * 1000);
   assert.deepEqual(current.player.companionProgress, { summoner: { level: 1, experience: 0 } });

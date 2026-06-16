@@ -1,5 +1,6 @@
 import { HUNGER_MAX } from "./constants";
 import { ARMOR_VALUE, HEAL_ITEMS, ITEM_NAMES, PLACEABLE_TYPES, RANGED_WEAPONS, SHIELD_DEFENSE } from "./items";
+import { isNecklace } from "./necklace";
 import type { ItemId, PanelType } from "./types";
 
 const HEAL_ITEM_COOLDOWN_MS = 1000;
@@ -26,6 +27,7 @@ export interface HotbarUseContext {
   grantLevels(count: number, fraction?: number): void;
   equipArmor(item: ItemId): void;
   equipShield(item: ItemId): void;
+  equipNecklace(item: ItemId): void;
   playHandAction(): void;
   spawnHealEffect(): void;
   playTone(frequency: number, duration: number, type: OscillatorType, volume: number): void;
@@ -130,5 +132,12 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
     context.equipShield(item);
     context.showMessage(`${ITEM_NAMES[item] ?? item}을 장착했습니다.`);
     context.renderHud();
+    return;
+  }
+  if (isNecklace(item)) {
+    context.equipNecklace(item);
+    context.showMessage(`${ITEM_NAMES[item] ?? item}을 착용했습니다. (하나만 착용 가능)`);
+    context.renderHud();
+    return;
   }
 }

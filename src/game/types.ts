@@ -298,6 +298,7 @@ export interface SavedGame {
     caveStepBank: number;
     equippedArmor: ItemId | null;
     equippedShield?: ItemId | null;
+    equippedNecklace?: ItemId | null;
     shieldDurabilityUsed?: number;
     ironGuardRemainingMs?: number;
     locationMode: LocationMode;

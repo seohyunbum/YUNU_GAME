@@ -25,6 +25,10 @@ export interface ObjectiveSnapshot {
   mapOpened: boolean;
   saved: boolean;
   shopOpened: boolean;
+  materialsSold: number;
+  shopPurchases: number;
+  craftedNecklace: boolean;
+  hasNecklaceEquipped: boolean;
   hasWorkbench: boolean;
   hasPickaxe: boolean;
   hasBag: boolean;
@@ -158,6 +162,9 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   countQuest("reach_level8", 8, (s) => s.level, "레벨 8 달성하기", "몬스터 사냥과 퀘스트 보상으로 경험치를 모으세요. 레벨이 오를 때마다 체력·공격·방어가 +1씩 늘어납니다.", { experience: 400, items: { iron: 6, gold: 3 }, label: "경험치 400 + 철 6개 + 금 3개" }),
   countQuest("train_once", 1, (s) => Math.min(1, s.trainingTotal), "훈련장에서 훈련 1번 성공하기", "시작 초원 마을 동쪽의 울타리 훈련장(레벨 10부터)에서 역기들기·과녁맞추기 같은 훈련에 도전하세요. 성공하면 스탯이 영구히 오릅니다!", { experience: 420, items: { medkit: 2 }, label: "경험치 420 + 구급상자 2개" }),
   countQuest("train_all_kinds", 4, (s) => s.trainingKindsDone, "네 가지 훈련 모두 성공하기", "역기들기(체력)·과녁맞추기(공격)·방패막기(방어)·명상호흡(마나)을 한 번씩 성공해 보세요. 훈련은 할수록 어려워지지만 스탯은 계속 쌓입니다.", { experience: 460, items: { diamond: 1, medkit: 2 }, label: "경험치 460 + 다이아몬드 1개 + 구급상자 2개" }),
+  // ── 마을 경제 ──
+  countQuest("sell_materials", 3, (s) => s.materialsSold, "마을 상점에 재료 3번 팔기", "마을 상점 건물의 판매대(좌클릭/E)에서 가지고 있는 재료를 3번 팔아 포인트를 벌어보세요. 미니게임 포인트와 함께 든든한 자금이 됩니다.", { experience: 462, items: { meat: 4 }, label: "경험치 462 + 고기 4개" }),
+  checkQuest("buy_from_shop", (s) => s.shopPurchases >= 1, "마을 상점에서 물건 사기", "마을 상점의 구매대에서 포인트로 아이템을 한 번 구매해 보세요. 재료·도구·방어구까지 다양하게 살 수 있습니다.", { experience: 464, items: { medkit: 2 }, label: "경험치 464 + 구급상자 2개" }),
   // ── 졸업 준비 ──
   checkQuest("craft_extended_workbench", (s) => s.countItem("extended_workbench") > 0, "확장 제작대 만들기", "일반 3x3 제작대에 제작대(crafting_table) 2개를 넣으면 6x6 확장 제작대가 됩니다. 소총·비전 지팡이·거울 등 최상급 장비는 확장 제작대에서만 만들 수 있습니다. 제작대는 나무 3 + 망치 1로 만들고, 설치한 제작대도 회수해 다시 쓸 수 있습니다.", { experience: 480, items: { refined_iron: 4 }, label: "경험치 480 + 제련된 철 4개" }),
   // ── 졸업 과제 ──
@@ -169,6 +176,9 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
     completed: (snapshot) => snapshot.classWeaponCount > 0,
     reward: { experience: 500, items: { iron: 8, diamond: 1, medkit: 3 }, label: "경험치 500 + 철 8개 + 다이아몬드 1개 + 구급상자 3개" },
   },
+  // ── 장신구 ──
+  checkQuest("craft_necklace", (s) => s.craftedNecklace, "에픽 목걸이 만들기", "확장 제작대에서 힘·수호·쾌속·현자의 목걸이(에픽) 중 하나를 직접 만드세요. 재료는 날카로운 흑요석 등 최상급입니다. (상자에서 주운 것은 인정되지 않습니다)", { experience: 510, items: { sharp_obsidian: 2, gold_powder: 2 }, label: "경험치 510 + 날카로운 흑요석 2개 + 금 가루 2개" }),
+  checkQuest("equip_necklace", (s) => s.hasNecklaceEquipped, "목걸이 착용하기", "K로 캐릭터 창을 열고 방패 아래 '목걸이' 칸에서 만든 목걸이를 골라 착용하세요. 목걸이는 한 번에 하나만 착용할 수 있습니다.", { experience: 520, items: { diamond: 2, medkit: 3 }, label: "경험치 520 + 다이아몬드 2개 + 구급상자 3개" }),
 ];
 
 // 퀘스트 보상 경험치 상향 — 초반 퀘스트는 2배에서 시작해 뒤로 갈수록 배율이 증가, 최종 퀘스트는 5배.

@@ -14,6 +14,7 @@ import {
   WORLD_SIZE,
 } from "./constants";
 import { DURABLE_TOOL_TABLES, SHIELD_DEFENSE, SHIELD_DURABILITY } from "./items";
+import { isNecklace } from "./necklace";
 import { PLAYER_CLASSES } from "./classes";
 import { DEFAULT_SUMMONER_PET_PROGRESS } from "./classPassives";
 import { DEFAULT_WORLD_MAP_ID, isWorldMapId } from "./worldMaps";
@@ -234,6 +235,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
   const migratedClassCooldown = savedNumber(player.classSkillCooldownRemainingMs, 0, 0, MAX_CLASS_COOLDOWN_MS);
   const migratedShield = player.equippedShield && SHIELD_DEFENSE[player.equippedShield] ? player.equippedShield : null;
   const migratedShieldDurability = migratedShield ? savedInteger(player.shieldDurabilityUsed, 0, 0, SHIELD_DURABILITY[migratedShield] ?? 0) : 0;
+  const migratedNecklace = isNecklace(player.equippedNecklace) ? player.equippedNecklace ?? null : null;
   const playerPosition = savedVector(player.position, DEFAULT_POSITION);
   const migratedWorldMapId = isWorldMapId(player.worldMapId) ? player.worldMapId : DEFAULT_WORLD_MAP_ID;
   const migratedMountains = normalizeSavedMountains(save.mountains);
@@ -274,6 +276,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       caveStepBank: savedNumber(player.caveStepBank, 0, 0),
       equippedArmor: player.equippedArmor ?? null,
       equippedShield: migratedShield,
+      equippedNecklace: migratedNecklace,
       shieldDurabilityUsed: migratedShieldDurability,
       ironGuardRemainingMs: savedNumber(player.ironGuardRemainingMs, 0, 0, IRON_GUARD_DURATION_SECONDS * 1000),
       locationMode: savedLocationMode(player.locationMode),

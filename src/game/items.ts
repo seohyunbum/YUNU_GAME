@@ -1,4 +1,5 @@
 import { BOW_DAMAGE, MAGIC_WAND_DAMAGE, PISTOL_DAMAGE } from "./constants";
+import { NECKLACE_IDS } from "./necklace";
 import type { ItemId, ObjectType } from "./types";
 
 export const ITEM_NAMES: Record<ItemId, string> = {
@@ -101,6 +102,10 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   gold_armor: "금 갑옷",
   diamond_armor: "다이아몬드 갑옷",
   obsidian_armor: "흑요석 갑옷",
+  strength_necklace: "힘의 목걸이",
+  guardian_necklace: "수호의 목걸이",
+  swift_necklace: "쾌속의 목걸이",
+  sage_necklace: "현자의 목걸이",
 };
 
 export const RAW_MATERIALS: ItemId[] = ["wood", "stone", "copper", "iron", "gold", "diamond"];
@@ -209,6 +214,10 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   sharp_obsidian_shield: "epic",
   sharp_obsidian_staff: "epic",
   sharp_obsidian_gun: "epic",
+  strength_necklace: "epic",
+  guardian_necklace: "epic",
+  swift_necklace: "epic",
+  sage_necklace: "epic",
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
@@ -235,6 +244,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   obsidian: "epic", obsidian_powder: "epic", sharp_obsidian: "epic",
   obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
   dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic",
+  strength_necklace: "epic", guardian_necklace: "epic", swift_necklace: "epic", sage_necklace: "epic",
   // 레전더리(legendary) — 최종 흑요석 무기 3종 + 경험치병(매우 희귀)
   sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", xp_bottle: "legendary",
 };
@@ -364,8 +374,9 @@ export const PLACEABLE_TYPES: Record<ItemId, ObjectType> = {
 const SORT_CONSUMABLES = new Set<ItemId>(["meat", "medkit", "xp_bottle", "dragon_spawn"]);
 const SORT_TOOLS = new Set<ItemId>(["hammer", "bucket", "water_bucket", "lava_bucket"]);
 const SORT_MISC = new Set<ItemId>(["tutorial_book", "bag", "mirror"]);
+const NECKLACE_SORT_SET = new Set<ItemId>(NECKLACE_IDS);
 export function itemSortCategory(item: ItemId): number {
-  if (ARMOR_VALUE[item] !== undefined || SHIELD_DEFENSE[item] !== undefined) return 1; // 방어구
+  if (ARMOR_VALUE[item] !== undefined || SHIELD_DEFENSE[item] !== undefined || NECKLACE_SORT_SET.has(item)) return 1; // 방어구·장신구
   if (AXE_POWER[item] !== undefined || PICKAXE_POWER[item] !== undefined || SHOVEL_POWER[item] !== undefined || SORT_TOOLS.has(item)) return 2; // 도구
   if (WEAPON_DAMAGE[item] !== undefined || RANGED_WEAPONS.has(item)) return 0; // 무기
   if (PLACEABLE_TYPES[item] !== undefined) return 3; // 제작설비

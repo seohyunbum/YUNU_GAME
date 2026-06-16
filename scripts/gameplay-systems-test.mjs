@@ -635,6 +635,7 @@ try {
       protectedItems: new Set(["tutorial_book", "medkit", "iron_sword"]),
       equippedArmor: "diamond_armor",
       equippedShield: "iron_shield",
+      equippedNecklace: "strength_necklace",
       isWeapon: (item) => item === "obsidian_sword" || item === "iron_sword" || item === "diamond_dagger",
     };
     assert(shouldDropSlotOnDeath("obsidian_sword", true, ctx) === false, "held weapon (selected slot) is kept on death");
@@ -642,6 +643,7 @@ try {
     assert(shouldDropSlotOnDeath("dirt", true, ctx) === true, "a non-weapon held in hand still drops (only weapons are kept)");
     assert(shouldDropSlotOnDeath("diamond_armor", false, ctx) === false, "equipped armor is kept on death");
     assert(shouldDropSlotOnDeath("iron_shield", false, ctx) === false, "equipped shield is kept on death");
+    assert(shouldDropSlotOnDeath("strength_necklace", false, ctx) === false, "equipped necklace is kept on death");
     assert(shouldDropSlotOnDeath("tutorial_book", false, ctx) === false && shouldDropSlotOnDeath("medkit", false, ctx) === false && shouldDropSlotOnDeath("iron_sword", false, ctx) === false, "protected items (book/medkit/starter) are kept");
     assert(shouldDropSlotOnDeath("gold", false, ctx) === true && shouldDropSlotOnDeath("diamond_pickaxe", false, ctx) === true, "loose materials and non-equipped tools drop");
   }

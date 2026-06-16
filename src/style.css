@@ -298,6 +298,35 @@ body {
 .character-gear-row strong {
   color: #f8fafc;
 }
+.character-necklace-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 4px 6px;
+}
+.character-necklace-choice {
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.character-necklace-choice:hover {
+  border-color: #c4b5fd;
+}
+.character-necklace-choice.equipped {
+  background: rgba(124, 58, 237, 0.35);
+  border-color: #c4b5fd;
+  color: #f5f3ff;
+}
+.character-necklace-empty {
+  padding: 6px 14px 8px;
+  color: #94a3b8;
+  font-size: 16px;
+}
 .character-stat-row {
   display: grid;
   grid-template-columns: 86px 1fr auto auto;

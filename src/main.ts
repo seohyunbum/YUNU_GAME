@@ -247,27 +247,9 @@ import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
-  ARMOR_VALUE,
-  AXE_POWER,
-  DURABLE_TOOL_TABLES,
-  GRINDABLE_MATERIALS,
-  HARVEST_HARDNESS,
-  ITEM_NAMES,
-  MELEE_WEAPON_DAMAGE,
-  PICKAXE_POWER,
-  PLACEABLE_TYPES,
-  POWDER_BY_MINERAL,
-  RAW_MATERIALS,
-  REFINED_BY_RAW,
-  SHOVEL_POWER,
-  isDurableTool,
-  shortName,
-  repairMaterialFor,
-  repairPerMaterial,
-  toolMaxDurability,
-  SPECIAL_SMELTER_MATERIALS,
-  WEAPON_DAMAGE,
-  RANGED_WEAPONS,
+  ARMOR_VALUE, AXE_POWER, DURABLE_TOOL_TABLES, GRINDABLE_MATERIALS, HARVEST_HARDNESS, ITEM_NAMES, MELEE_WEAPON_DAMAGE,
+  PICKAXE_POWER, PLACEABLE_TYPES, POWDER_BY_MINERAL, RAW_MATERIALS, REFINED_BY_RAW, SHOVEL_POWER, isDurableTool, shortName,
+  repairMaterialFor, repairPerMaterial, toolMaxDurability, SPECIAL_SMELTER_MATERIALS, WEAPON_DAMAGE, RANGED_WEAPONS,
   RANGED_PROJECTILE, GUN_WEAPONS,
 } from "./game/items";
 import { MINI_RECIPES, WORKBENCH_RECIPES } from "./game/recipes";
@@ -288,6 +270,7 @@ import { isStorageSlotSource } from "./game/inventoryCapacity";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
 import { buildRecipeGuideEntriesForStations, ingredientCounts } from "./game/recipeGuide";
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
+import { NECKLACE_IDS, necklaceAttackBonus, necklaceAttackSpeedMult, necklaceDefenseBonus, necklaceSkillCooldownMult } from "./game/necklace";
 import { experienceForLevelUps, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
 import {
@@ -578,7 +561,7 @@ class WildernessGame {
   private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
-  private readonly tutorialSignals = { predatorKills: 0, mapOpened: false, saved: false, shopOpened: false };
+  private readonly tutorialSignals = { predatorKills: 0, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false };
   private readonly chapterBossContext: ChapterBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
@@ -602,7 +585,7 @@ class WildernessGame {
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
   };
   private equippedArmor: ItemId | null = null;
-  private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0;
+  private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0; private equippedNecklace: ItemId | null = null;
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
   private caveReturnPosition: THREE.Vector3 | null = null;
@@ -757,6 +740,7 @@ class WildernessGame {
     grantLevels: (count, fraction = 1) => this.gainExperience(Math.round(experienceForLevelUps(this.level, this.experience, count) * fraction)),
     equipArmor: (item) => { this.equippedArmor = item; },
     equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
+    equipNecklace: (item) => { this.equippedNecklace = item; },
     playHandAction: () => this.playHandAction(),
     spawnHealEffect: () => spawnHealEffect(this.combatEffectContext, this.playerPosition),
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
@@ -2809,8 +2793,9 @@ class WildernessGame {
       return false;
     }
     this.mana = Math.max(0, this.mana - cost);
-    if (slot === "primary") this.classSkillCooldownUntil = performance.now() + cooldownSeconds * 1000;
-    else this.secondSkillCooldownUntil = performance.now() + cooldownSeconds * 1000;
+    const cdMs = cooldownSeconds * 1000 * necklaceSkillCooldownMult(this.equippedNecklace); // 현자의 목걸이 -10%
+    if (slot === "primary") this.classSkillCooldownUntil = performance.now() + cdMs;
+    else this.secondSkillCooldownUntil = performance.now() + cdMs;
     this.renderHud();
     return true;
   }
@@ -3661,7 +3646,7 @@ class WildernessGame {
     this.actionTimer = Math.max(0, this.actionTimer - delta);
     this.rangedCooldown = Math.max(0, this.rangedCooldown - delta);
 
-    const duration = this.actionMode === "melee" ? 0.42 : this.actionMode === "bow" || this.actionMode === "magic" ? 0.34 : 0.34;
+    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : necklaceAttackSpeedMult(this.equippedNecklace)); // 쾌속: 공격 모션(근접/활/마법)에 동일 적용
     const progress = this.actionTimer > 0 ? THREE.MathUtils.clamp(1 - this.actionTimer / duration, 0, 1) : 1;
     const swing = this.actionTimer > 0 ? Math.sin(progress * Math.PI) : 0;
 
@@ -3687,7 +3672,7 @@ class WildernessGame {
 
   private playHandAction(mode: HandActionMode = "use") {
     this.actionMode = mode;
-    this.actionTimer = mode === "melee" ? 0.42 : 0.34;
+    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : necklaceAttackSpeedMult(this.equippedNecklace));
   }
 
   private updateHeldItem() {
@@ -4556,12 +4541,12 @@ class WildernessGame {
     if (this.possessedEagleId) return possessedEagleDamage(EAGLE_RAM_DAMAGE, this.hotbar[this.selectedHotbarIndex]?.item, bonus);
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한 → 약한 무기/맨손도 최고 근접 이상
-    return Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus + this.trainingStats.attack + this.craftStatAlloc.attack;
+    return Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace);
   }
 
   private currentRangedDamage(item: ItemId) {
     const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
-    return base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack;
+    return base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace);
   }
 
   private eagleCombatTarget() {
@@ -4594,7 +4579,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return this.equipmentArmorValue() + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now());
+    return this.equipmentArmorValue() + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace);
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -4603,7 +4588,7 @@ class WildernessGame {
 
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
-    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES[this.playerClass].rangedCooldownScale * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1);
+    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES[this.playerClass].rangedCooldownScale * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * necklaceAttackSpeedMult(this.equippedNecklace);
     const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
@@ -4994,7 +4979,7 @@ class WildernessGame {
     const protectedItems = new Set<ItemId>(["tutorial_book", "medkit", starterItem]);
     // 착용 중인 무기(손에 든 슬롯이 무기류)·방어구·방패는 떨구지 않는다 (deathDrop.ts 순수 판정).
     const heldSlot = this.hotbar[this.selectedHotbarIndex];
-    const dropCtx: DeathDropContext = { protectedItems, equippedArmor: this.equippedArmor, equippedShield: this.equippedShield, isWeapon: (item) => WEAPON_DAMAGE[item] !== undefined };
+    const dropCtx: DeathDropContext = { protectedItems, equippedArmor: this.equippedArmor, equippedShield: this.equippedShield, equippedNecklace: this.equippedNecklace, isWeapon: (item) => WEAPON_DAMAGE[item] !== undefined };
     for (const slot of this.allStorageSlots()) {
       if (!slot.item || slot.count <= 0) continue;
       if (!shouldDropSlotOnDeath(slot.item, slot === heldSlot, dropCtx)) {
@@ -5578,6 +5563,7 @@ class WildernessGame {
         caveStepBank: this.caveStepBank,
         equippedArmor: this.equippedArmor,
         equippedShield: this.equippedShield,
+        equippedNecklace: this.equippedNecklace,
         shieldDurabilityUsed: this.shieldDurabilityUsed,
         ironGuardUntil: this.ironGuardUntil,
         locationMode: this.locationMode,
@@ -5675,7 +5661,7 @@ class WildernessGame {
     this.chestStepBank = save.player.chestStepBank;
     this.caveStepBank = save.player.caveStepBank;
     this.equippedArmor = save.player.equippedArmor;
-    this.equippedShield = save.player.equippedShield ?? null;
+    this.equippedShield = save.player.equippedShield ?? null; this.equippedNecklace = save.player.equippedNecklace ?? null;
     this.shieldDurabilityUsed = save.player.shieldDurabilityUsed ?? 0;
     this.ironGuardUntil = performance.now() + (save.player.ironGuardRemainingMs ?? 0);
     this.locationMode = save.player.locationMode;
@@ -5780,7 +5766,7 @@ class WildernessGame {
     this.summonerCompanion.reset();
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
-    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false;
+    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false;
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
@@ -5788,7 +5774,7 @@ class WildernessGame {
     this.timeHudTimer = 0;
     this.starvationNoticeTimer = 0;
     this.equippedArmor = null;
-    this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0;
+    this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0; this.equippedNecklace = null;
     this.locationMode = "overworld";
     this.currentHouseKind = "home";
     this.caveReturnPosition = null;
@@ -6113,7 +6099,7 @@ class WildernessGame {
         passiveStatus: passive.label,
         petStatus: this.playerClass === "tanker" ? tankerStatus : petStatus,
         equipmentArmor,
-        equippedGearLabel: [this.equippedArmor, this.equippedShield].filter((item): item is ItemId => Boolean(item)).map((item) => ITEM_NAMES[item] ?? item).join(" · ") || undefined,
+        equippedGearLabel: [this.equippedArmor, this.equippedShield, this.equippedNecklace].filter((item): item is ItemId => Boolean(item)).map((item) => ITEM_NAMES[item] ?? item).join(" · ") || undefined,
         statBonus,
         eagleHp: eagle ? eagle.hp ?? EAGLE_MAX_HP : undefined,
         eagleMaxHp: EAGLE_MAX_HP,
@@ -6180,6 +6166,7 @@ class WildernessGame {
       hasPickaxe: ["stone_pickaxe", "copper_pickaxe", "iron_pickaxe", "diamond_pickaxe"].some((item) => this.countItem(item) > 0),
       hasBag: this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT,
       playerClass: this.playerClass,
+      hasNecklaceEquipped: Boolean(this.equippedNecklace),
       classWeaponCount: CLASS_WEAPON_QUESTS[this.playerClass].items.reduce((sum, item) => sum + this.countItem(item), 0),
       hasBasicArmor: Boolean(this.equippedArmor) || ["leather_armor", "copper_armor", "iron_armor"].some((item) => this.countItem(item as ItemId) > 0),
       hasSmelter: this.hasWorldObjectType("smelter", "specialSmelter"),
@@ -6226,6 +6213,8 @@ class WildernessGame {
         attack: this.displayedAttackPower(), defense: this.equippedArmorValue(), weapon,
         armor: this.equippedArmor ? (ITEM_NAMES[this.equippedArmor] ?? this.equippedArmor) : "없음",
         shield: this.equippedShield ? (ITEM_NAMES[this.equippedShield] ?? this.equippedShield) : "없음",
+        necklace: this.equippedNecklace ? (ITEM_NAMES[this.equippedNecklace] ?? this.equippedNecklace) : "없음",
+        ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
       }, {
         onSpend: (kind) => {
@@ -6238,6 +6227,7 @@ class WildernessGame {
           this.renderHud();
           this.renderPanel();
         },
+        onEquipNecklace: (item) => { this.equippedNecklace = (item as ItemId | null) ?? null; this.playTone(880, 0.1, "triangle", 0.03); this.renderHud(); this.renderPanel(); },
         onClose: () => this.closePanel(),
       });
     }
@@ -7031,6 +7021,7 @@ class WildernessGame {
     } else {
       if (!this.addItem(recipe.output, recipe.count)) return false;
       this.autoEquip(recipe.output);
+      if (NECKLACE_IDS.includes(recipe.output)) this.tutorialSignals.craftedNecklace = true; // 목걸이 '제작' 퀘스트 신호(상자 드랍과 구분)
     }
     this.awardCraftXp(craftXpForRecipe(recipe)); // 재료 양·희귀도에 비례한 제작 경험치
     this.renderHud();
@@ -7122,7 +7113,7 @@ class WildernessGame {
       return;
     }
 
-    this.arcadePoints -= offer.cost;
+    this.arcadePoints -= offer.cost; this.tutorialSignals.shopPurchases += 1;
     this.saveArcadePoints();
     this.playTone(720, 0.12, "triangle", 0.035);
     this.showMessage(`상점 구매 완료: ${this.formatItemBundle(offer.receive)} 획득. 남은 포인트 ${this.arcadePoints}P.`);
@@ -7139,7 +7130,7 @@ class WildernessGame {
       return;
     }
 
-    this.arcadePoints += offer.points;
+    this.arcadePoints += offer.points; this.tutorialSignals.materialsSold += 1;
     this.saveArcadePoints();
     this.playTone(640, 0.12, "triangle", 0.035);
     this.showMessage(`판매 완료: ${ITEM_NAMES[offer.item] ?? offer.item} 1개를 ${offer.points}P에 팔았습니다. 현재 포인트 ${this.arcadePoints}P.`);
@@ -7345,6 +7336,7 @@ class WildernessGame {
   }
 
   private syncEquippedArmor(removedItem: ItemId) {
+    if (this.equippedNecklace === removedItem && this.countItem(removedItem) <= 0) this.equippedNecklace = null; // 목걸이도 소진 시 자동 해제
     if (this.equippedArmor !== removedItem || this.countItem(removedItem) > 0) return;
     this.equippedArmor = Object.keys(this.itemCounts()).reduce<ItemId | null>((best, item) => {
       if (!ARMOR_VALUE[item]) return best;

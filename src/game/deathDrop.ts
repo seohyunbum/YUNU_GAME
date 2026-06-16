@@ -5,6 +5,7 @@ export interface DeathDropContext {
   protectedItems: ReadonlySet<ItemId>; // tutorial_book / medkit / 직업 기본무기
   equippedArmor: ItemId | null;
   equippedShield: ItemId | null;
+  equippedNecklace?: ItemId | null;
   isWeapon(item: ItemId): boolean; // WEAPON_DAMAGE 보유 여부
 }
 
@@ -14,6 +15,6 @@ export interface DeathDropContext {
 export function shouldDropSlotOnDeath(item: ItemId, isHeldSlot: boolean, ctx: DeathDropContext): boolean {
   if (isHeldSlot && ctx.isWeapon(item)) return false; // 착용 중인 무기
   if (ctx.protectedItems.has(item)) return false; // 튜토리얼 책 / 구급상자 / 기본무기
-  if (item === ctx.equippedArmor || item === ctx.equippedShield) return false; // 착용 중인 방어구/방패
+  if (item === ctx.equippedArmor || item === ctx.equippedShield || item === ctx.equippedNecklace) return false; // 착용 중인 방어구/방패/목걸이
   return true;
 }

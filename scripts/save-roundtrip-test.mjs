@@ -54,6 +54,7 @@ function stableSaveShape(save) {
       caveStepBank: save.player.caveStepBank,
       equippedArmor: save.player.equippedArmor,
       equippedShield: save.player.equippedShield,
+      equippedNecklace: save.player.equippedNecklace,
       shieldDurabilityUsed: save.player.shieldDurabilityUsed,
       ironGuardRemainingSeconds: Math.round((save.player.ironGuardRemainingMs ?? 0) / 1000),
       secondSkillCooldownRemainingSeconds: Math.round((save.player.secondSkillCooldownRemainingMs ?? 0) / 1000),
@@ -158,6 +159,7 @@ try {
     game.caveStepBank = 33;
     game.equippedArmor = "diamond_armor";
     game.equippedShield = "iron_shield";
+    game.equippedNecklace = "swift_necklace";
     game.shieldDurabilityUsed = 12;
     game.ironGuardUntil = performance.now() + 43_000;
     game.secondSkillCooldownUntil = performance.now() + 27_000;

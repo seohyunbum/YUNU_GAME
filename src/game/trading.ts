@@ -35,9 +35,20 @@ export const POINT_SHOP_OFFERS: PointShopOffer[] = [
   { id: "smelter", name: "제련대 1개", cost: 2600, receive: { smelter: 1 }, note: "상자 운이 안 좋을 때 노려볼 수 있는 비싼 제작 도구입니다." },
   { id: "diamond", name: "다이아몬드 1개", cost: 3200, receive: { diamond: 1 }, note: "여러 판을 모아야 살 수 있는 희귀 재료입니다." },
   { id: "grinder", name: "분쇄기 1개", cost: 4200, receive: { grinder: 1 }, note: "가루 제작과 거래 루트를 빠르게 여는 고가 아이템입니다." },
+  // ── 확장 품목(일반·고급·희귀 중심) — 가격은 위 기존 단가와 희귀도에 맞춰 책정 ──
+  { id: "stick_pack", name: "나무 막대기 10개", cost: 120, receive: { stick: 10 }, note: "도구 손잡이로 두루 쓰는 값싼 소모 재료입니다." },
+  { id: "coal_pack", name: "석탄 6개", cost: 360, receive: { coal: 6 }, note: "제련 연료입니다. 돌과 비슷한 단가로 책정했습니다." },
+  { id: "copper_bundle", name: "구리 4개", cost: 500, receive: { copper: 4 }, note: "초중반 금속. 돌보다 비싸고 철보다 쌉니다." },
+  { id: "refined_iron_pack", name: "제련된 철 3개", cost: 1500, receive: { refined_iron: 3 }, note: "철 도구·무기·방어구의 핵심 재료입니다(제련 수고를 덜어주는 값)." },
+  { id: "medkit_pack", name: "구급상자 3개", cost: 600, receive: { medkit: 3 }, note: "체력 회복 소모품. 위급할 때 비축해 두세요." },
+  { id: "iron_shield_buy", name: "철 방패 1개", cost: 1200, receive: { iron_shield: 1 }, note: "방어 +5의 고급 방패. 직접 만들기 전 대안입니다." },
+  { id: "iron_armor_buy", name: "철 갑옷 1개", cost: 1400, receive: { iron_armor: 1 }, note: "방어 +10의 고급 방어구입니다." },
+  { id: "gold_bundle", name: "금 2개", cost: 1800, receive: { gold: 2 }, note: "희귀 금속. 철보다 비싸고 다이아몬드보다 쌉니다." },
+  { id: "gold_armor_buy", name: "금 갑옷 1개", cost: 2600, receive: { gold_armor: 1 }, note: "방어 +15의 희귀 방어구입니다." },
 ];
 
-export const SELL_SHOP_RATE = 0.85;
+// 판매가 배수 — 종전 0.85 의 70% 수준으로 하향(0.85×0.70=0.595). 재료 판매 포인트가 약 30% 줄어든다.
+export const SELL_SHOP_RATE = 0.595;
 
 function roundedSellPrice(shopUnitPrice: number) {
   const raw = shopUnitPrice * SELL_SHOP_RATE;
