@@ -566,7 +566,7 @@ class WildernessGame {
   private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
-  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false };
+  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), fortressBossKills: 0, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false };
   private readonly chapterBossContext: ChapterBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
@@ -4396,6 +4396,7 @@ class WildernessGame {
     this.summonerCompanion.awardExperience(Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
     if (target.type === "wildPredator") { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); }
     if (target.fortressBoss) {
+      this.tutorialSignals.fortressBossKills += 1; // 요새 보스 처치 퀘스트 신호
       const level = target.fortressLevel ?? 20; // 흑요석+전직의서 확정 드랍 — 고레벨 맵일수록 더 많이
       const obsidianCount = THREE.MathUtils.randInt(2, 4) + Math.floor(level / 30), tomeCount = THREE.MathUtils.randInt(1, 2) + Math.floor(level / 45);
       this.addItem("obsidian", obsidianCount); this.addItem("job_change_tome", tomeCount);
@@ -5767,7 +5768,7 @@ class WildernessGame {
     this.summonerCompanion.reset();
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
-    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
+    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
