@@ -120,7 +120,10 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
   // 예열: 0→정점→도약 직후 소멸 / 도약: 예열이 끝나는 지점에서 폭발적으로
   const windup = phase < WINDUP_END ? Math.sin((phase / WINDUP_END) * (Math.PI / 2)) : Math.max(0, 1 - (phase - WINDUP_END) / 0.16);
   const strike = phase <= WINDUP_END ? 0 : Math.sin(((phase - WINDUP_END) / (1 - WINDUP_END)) * Math.PI);
-  const bf = predator.fieldBossId ? 1.5 : 1; // 보스급은 모션을 훨씬 크고 묵직하게(수직·스케일·떨림 증폭)
+  // 보스급은 모션을 훨씬 크고 묵직하게. 추가로 고렙(50+) 일반 몬스터도 레벨에 비례해 모션을 더 화려·격하게.
+  const eliteLevel = Number(predator.monsterLevel ?? 0);
+  const eliteBoost = eliteLevel >= 50 ? Math.min(0.5, 0.15 + (eliteLevel - 50) / 150) : 0;
+  const bf = (predator.fieldBossId ? 1.5 : 1) + eliteBoost;
   const shake = windup * Math.sin(phase * 46) * 0.085 * bf; // 예열 떨림 — "곧 덤빈다"는 신호
   const forwardX = Number(predator.root.userData.attackForwardX ?? 0);
   const forwardZ = Number(predator.root.userData.attackForwardZ ?? 0);

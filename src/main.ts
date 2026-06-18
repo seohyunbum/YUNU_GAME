@@ -87,6 +87,9 @@ import {
   spawnDamageParticles,
   spawnDragonClawBurst,
   spawnDragonFireBurst,
+  spawnBossBreathStream,
+  spawnGroundShockwave,
+  bossBreathColors,
   spawnEnemyHitParticles,
   spawnExplosionVisual,
   spawnMagicTrail,
@@ -4337,17 +4340,26 @@ class WildernessGame {
   private dragonCounterAttack(target: WorldObject) {
     target.angryUntil = performance.now() + DRAGON_AGGRO_MS; // 건드리면 추격 시작 (dragonAi 가 따라붙음)
     const stats = this.bossStats(target.bossKind);
+    const colors = bossBreathColors(target.bossKind);
     const distance = Math.hypot(target.root.position.x - this.playerPosition.x, target.root.position.z - this.playerPosition.z);
     const claw = distance <= 5.2 && Math.random() < 0.55;
     if (claw) {
+      // 근접 할퀴기 — 큰 손톱 자국 + 발밑 충격파로 근접에서도 또렷하게
       spawnDragonClawBurst(this.combatEffectContext, target.root.position);
+      spawnGroundShockwave(this.combatEffectContext, this.playerPosition.clone(), colors[0]);
+      this.playTone(70, 0.22, "sawtooth", 0.05);
       this.damagePlayer(stats.clawDamage, true, `${stats.name}의 손톱 공격을 받아 체력이 모두 떨어졌습니다.`);
       this.showMessage(this.lastDamageBlocked ? "용의 손톱 공격을 방어구가 막았습니다." : `용의 손톱 공격! 피해 ${this.lastDamageTaken}.`);
       return;
     }
+    // 원거리 브레스 — 용의 주둥이(머리 높이)에서 플레이어를 향해 쏟아지는 원뿔 브레스 + 착탄 폭발
+    const muzzle = target.root.position.clone();
+    muzzle.y = this.getGroundHeightAt(muzzle.x, muzzle.z) + 3.4;
+    spawnBossBreathStream(this.combatEffectContext, muzzle, this.playerPosition.clone(), colors);
     spawnDragonFireBurst(this.combatEffectContext, this.playerPosition.clone());
+    this.playTone(110, 0.3, "sawtooth", 0.05);
     this.damagePlayer(stats.fireDamage, true, `${stats.name}의 원거리 공격을 받아 체력이 모두 떨어졌습니다.`);
-    this.showMessage(this.lastDamageBlocked ? "용의 불 공격을 방어구가 막았습니다." : `용이 하늘에서 불을 쏟았습니다! 피해 ${this.lastDamageTaken}.`);
+    this.showMessage(this.lastDamageBlocked ? "용의 브레스를 방어구가 막았습니다." : `${stats.name}의 브레스가 쏟아집니다! 피해 ${this.lastDamageTaken}.`);
   }
 
   private grantExperienceForTarget(target: WorldObject) {

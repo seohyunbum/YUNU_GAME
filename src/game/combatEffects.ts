@@ -462,23 +462,37 @@ export function spawnDragonClawBurst(context: CombatEffectContext, origin: THREE
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(context.camera.quaternion);
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(context.camera.quaternion);
   const up = new THREE.Vector3(0, 1, 0).applyQuaternion(context.camera.quaternion);
-  for (let index = 0; index < 3; index += 1) {
+  // 화면 가득 크게 베는 5줄 + 길고 오래 — 근접에서도 "보스가 할퀴었다"가 또렷하게 보이도록
+  for (let index = 0; index < 5; index += 1) {
     const slash = new THREE.Mesh(
-      new THREE.BoxGeometry(0.055, 0.86, 0.035),
-      new THREE.MeshBasicMaterial({ color: index === 1 ? 0xfff1a8 : 0xff3b30, transparent: true, opacity: 0.78, depthWrite: false }),
+      new THREE.BoxGeometry(0.09, 1.5, 0.05),
+      new THREE.MeshBasicMaterial({ color: index % 2 === 0 ? 0xff3b30 : 0xfff1a8, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
     );
     slash.position
       .copy(context.camera.position)
-      .addScaledVector(forward, 0.95)
-      .addScaledVector(right, (index - 1) * 0.22)
-      .addScaledVector(up, THREE.MathUtils.randFloat(-0.12, 0.24));
+      .addScaledVector(forward, 0.85)
+      .addScaledVector(right, (index - 2) * 0.26)
+      .addScaledVector(up, THREE.MathUtils.randFloat(-0.2, 0.32));
     slash.quaternion.copy(context.camera.quaternion);
-    slash.rotation.z += -0.72 + index * 0.42;
+    slash.rotation.z += -0.85 + index * 0.34;
     slash.renderOrder = 21;
-    const velocity = origin.clone().sub(context.playerPosition).setY(0).normalize().multiplyScalar(0.12);
+    const velocity = origin.clone().sub(context.playerPosition).setY(0).normalize().multiplyScalar(0.1);
     context.scene.add(slash);
-    context.damageParticles.push({ mesh: slash, velocity, life: 0.32, maxLife: 0.32 });
+    context.damageParticles.push({ mesh: slash, velocity, life: 0.5, maxLife: 0.5 });
   }
+}
+
+// 보스 종류별 브레스 색 — 속성에 맞춰 멀리서도 한눈에 보이게.
+const BOSS_BREATH_COLORS: Record<string, readonly number[]> = {
+  dragon: [0xff8a1f, 0xffd24a, 0xdc2626],
+  fire_dragon: [0xff5a1f, 0xff8a1f, 0xfff1a8],
+  red_dragon: [0xff2d2d, 0xb91c1c, 0xff8a8a],
+  laser_dragon: [0x38bdf8, 0x7c3aed, 0xe0f2fe],
+  dark_dragon: [0x9b5cff, 0x4c1d95, 0xc4b5fd],
+  immortal: [0xfff7cc, 0xffd24a, 0xffffff],
+};
+export function bossBreathColors(kind?: string): readonly number[] {
+  return BOSS_BREATH_COLORS[kind ?? "dragon"] ?? BOSS_BREATH_COLORS.dragon;
 }
 
 // 보스 속성 브레스 — source(주둥이)에서 target(플레이어)로 쏟아지는 원뿔형 발광 스트림. colors 로 속성 색 지정.

@@ -57,7 +57,9 @@ export function predatorExperienceReward(kind: PredatorKind | undefined, monster
   if (kind === "wolf" && !monsterLevel) return 45;
   if (kind === "lion" && !monsterLevel) return 60;
   const level = monsterLevel ?? (kind && MONSTER_DEFS[kind as MonsterId] ? MONSTER_DEFS[kind as MonsterId].level : 8);
-  return Math.round(level * 3);
+  // 50레벨 이상 몬스터 경험치 +10% (용/드래곤 보스는 type==="dragon" 으로 별도 처리되어 제외됨)
+  const highLevelMult = level >= 50 ? 1.1 : 1;
+  return Math.round(level * 3 * highLevelMult);
 }
 
 export type MonsterId =
@@ -219,11 +221,17 @@ export function applyPredatorMonsterDefinition(
   object.monsterId = monsterId;
   object.monsterLevel = def.level;
   object.lootTier = region.lootTier;
+  // 고렙(50+)일수록 종족색 발광을 강하게 — 엘리트 오라처럼 한눈에 "센 놈"이 보이게.
+  const elite = def.level >= 50;
+  const tintLerp = elite ? 0.5 : 0.35;
+  const emissiveLerp = elite ? 0.34 : 0.08;
+  const emissiveIntensity = elite ? Math.min(1.0, 0.3 + (def.level - 50) / 150) : null; // 50렙 0.3 → 최고렙 ~1.0
   object.root.traverse((child) => {
     if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
       child.material = child.material.clone();
-      child.material.color.lerp(new THREE.Color(def.tint), 0.35);
-      child.material.emissive.lerp(new THREE.Color(def.tint), 0.08);
+      child.material.color.lerp(new THREE.Color(def.tint), tintLerp);
+      child.material.emissive.lerp(new THREE.Color(def.tint), emissiveLerp);
+      if (emissiveIntensity !== null) child.material.emissiveIntensity = emissiveIntensity;
     }
   });
   return object;
