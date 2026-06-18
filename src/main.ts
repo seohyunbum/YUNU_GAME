@@ -2524,7 +2524,7 @@ class WildernessGame {
     this.updateLegoHazards(delta);
     this.updateNightSpawns(delta); this.expirySweepTimer += delta; if (this.expirySweepTimer >= 1) { const now = performance.now(); this.expirySweepTimer = 0; for (const object of [...this.objects.values()]) if (object.expiresAt !== undefined && !object.partyTransient && object.expiresAt <= now && (object.type === "chest" || object.type === "mineChest" || object.type === "cave")) this.removeObject(object.id); }
     this.updateMovement(delta); tickMinimap(this.minimapContext, delta);
-    if (this.locationMode === "overworld") this.regionWarningState = maybeWarnRegionLevel(this.regionWarningState, this.playerPosition, this.level, performance.now(), (message) => this.showMessage(message), this.activeRegions);
+    if (this.locationMode === "overworld") this.regionWarningState = maybeWarnRegionLevel(this.regionWarningState, this.playerPosition, this.level, performance.now(), (message, options) => this.showMessage(message, options), this.activeRegions);
     this.updateVisibilityCulling(delta);
     this.summonerCompanion.update(this.summonerPetContext, delta);
     this.updateEnvironmentHazards(delta);
@@ -7420,12 +7420,13 @@ class WildernessGame {
     return this.allStorageSlots().find((slot) => slot.item === item) ?? null;
   }
 
-  private showMessage(text: string) {
+  private showMessage(text: string, options?: { durationSeconds?: number; danger?: boolean }) {
     this.messageEl.textContent = text;
     this.messageEl.classList.remove("message-pop");
+    this.messageEl.classList.toggle("message-danger", options?.danger ?? false);
     void this.messageEl.offsetWidth;
     this.messageEl.classList.add("message-pop");
-    this.messageTimer = 5.2;
+    this.messageTimer = options?.durationSeconds ?? 5.2;
   }
 
   private spawnMountain(position: THREE.Vector3, radius: number, height: number) {

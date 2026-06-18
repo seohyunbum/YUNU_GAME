@@ -1826,6 +1826,13 @@ body {
   box-shadow: none;
 }
 
+.message-danger {
+  border-color: rgba(248, 113, 113, 0.95);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.42), 0 0 0 3px rgba(248, 113, 113, 0.3);
+  color: #fecaca;
+  font-weight: 800;
+}
+
 .message-pop {
   animation: message-pop 0.22s ease-out;
 }

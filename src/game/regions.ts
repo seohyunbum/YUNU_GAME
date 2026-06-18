@@ -352,20 +352,25 @@ export function regionLootChanceScale(region: Region | null) {
   return 1 + Math.max(0, (region?.lootTier ?? 1) - 1) * 0.08;
 }
 
+// 사냥터 레벨차이 경고 — 15↑ 짧게 안내, 30↑ 길고 붉은 위험 경고.
 export function maybeWarnRegionLevel(
   state: RegionWarningState,
   point: THREE.Vector3,
   playerLevel: number,
   nowMs: number,
-  showMessage: (message: string) => void,
+  showMessage: (message: string, options?: { durationSeconds?: number; danger?: boolean }) => void,
   regions: readonly Region[] = REGIONS,
 ) {
   const region = regionAtPosition(point, regions);
   if (!region) return { regionId: null, lastWarnAt: state.lastWarnAt };
   const dangerGap = region.level - playerLevel;
-  const shouldWarn = dangerGap >= 10 && (region.id !== state.regionId || nowMs - state.lastWarnAt >= 5_000);
+  const shouldWarn = dangerGap >= 15 && (region.id !== state.regionId || nowMs - state.lastWarnAt >= 5_000);
   if (shouldWarn) {
-    showMessage(`${region.name} 권장 Lv ${region.levelRange[0]}-${region.levelRange[1]} 지역입니다. 현재 Lv ${playerLevel}, 후퇴하면 안전합니다.`);
+    if (dangerGap >= 30) {
+      showMessage(`⚠ 위험! ${region.name}은(는) 권장 Lv ${region.levelRange[0]}-${region.levelRange[1]} 지역입니다. 현재 Lv ${playerLevel} — 레벨 차이가 ${dangerGap}이나 됩니다. 매우 위험하니 즉시 후퇴하세요!`, { durationSeconds: 6.5, danger: true });
+    } else {
+      showMessage(`${region.name} 권장 Lv ${region.levelRange[0]}-${region.levelRange[1]} (현재 Lv ${playerLevel})`, { durationSeconds: 2.6 });
+    }
     return { regionId: region.id, lastWarnAt: nowMs };
   }
   return { regionId: region.id, lastWarnAt: state.lastWarnAt };
