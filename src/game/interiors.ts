@@ -109,7 +109,8 @@ function createHouseExit(position: THREE.Vector3) {
 }
 
 // 동굴 공동(cavern) 셸 — 일반 동굴과 몬스터 요새가 공유하는 기반 구조(바닥·천장·벽 바위·횃불·크리스탈·조명).
-function buildCaveShell() {
+// fortress=true 면 푸른 크리스탈을 빼고 조명을 붉게 해 "요새" 분위기로 바꾼다.
+function buildCaveShell(fortress = false) {
   const shell = new THREE.Group();
   const floor = new THREE.Mesh(CAVE_FLOOR_GEOMETRY, caveFloorMaterial);
   floor.rotation.x = -Math.PI / 2;
@@ -162,25 +163,27 @@ function buildCaveShell() {
     shell.add(bracket, flame, light);
   }
 
-  for (let i = 0; i < 9; i += 1) {
-    const z = CAVE_START_Z - 18 - (i / 8) * (CAVE_LENGTH - 36);
-    const side = i % 2 === 0 ? 1 : -1;
-    const cluster = new THREE.Group();
-    for (let shard = 0; shard < 3; shard += 1) {
-      const height = THREE.MathUtils.randFloat(0.32, 0.78);
-      const crystal = new THREE.Mesh(CAVE_UNIT_CRYSTAL_GEOMETRY, caveCrystalMaterial);
-      crystal.scale.y = height;
-      crystal.position.set(THREE.MathUtils.randFloatSpread(0.45), height / 2, THREE.MathUtils.randFloatSpread(0.38));
-      crystal.rotation.z = THREE.MathUtils.randFloatSpread(0.18);
-      cluster.add(crystal);
+  if (!fortress) {
+    for (let i = 0; i < 9; i += 1) {
+      const z = CAVE_START_Z - 18 - (i / 8) * (CAVE_LENGTH - 36);
+      const side = i % 2 === 0 ? 1 : -1;
+      const cluster = new THREE.Group();
+      for (let shard = 0; shard < 3; shard += 1) {
+        const height = THREE.MathUtils.randFloat(0.32, 0.78);
+        const crystal = new THREE.Mesh(CAVE_UNIT_CRYSTAL_GEOMETRY, caveCrystalMaterial);
+        crystal.scale.y = height;
+        crystal.position.set(THREE.MathUtils.randFloatSpread(0.45), height / 2, THREE.MathUtils.randFloatSpread(0.38));
+        crystal.rotation.z = THREE.MathUtils.randFloatSpread(0.18);
+        cluster.add(crystal);
+      }
+      cluster.position.set(side * THREE.MathUtils.randFloat(CAVE_WIDTH / 2 - 2.7, CAVE_WIDTH / 2 - 1.3), 0.02, z + THREE.MathUtils.randFloatSpread(2.4));
+      shell.add(cluster);
     }
-    cluster.position.set(side * THREE.MathUtils.randFloat(CAVE_WIDTH / 2 - 2.7, CAVE_WIDTH / 2 - 1.3), 0.02, z + THREE.MathUtils.randFloatSpread(2.4));
-    shell.add(cluster);
   }
 
-  const entranceLight = new THREE.PointLight(0xffe3b0, 1.65, 26, 1.4);
+  const entranceLight = new THREE.PointLight(fortress ? 0xff7340 : 0xffe3b0, 1.65, 26, 1.4);
   entranceLight.position.set(0, 2.1, CAVE_START_Z - 5);
-  const deepGuideLight = new THREE.PointLight(0x9fd8ff, 1.0, 28, 1.7);
+  const deepGuideLight = new THREE.PointLight(fortress ? 0xff2d2d : 0x9fd8ff, fortress ? 1.6 : 1.0, 30, 1.6);
   deepGuideLight.position.set(0, 1.9, CAVE_END_Z + 10);
   shell.add(entranceLight, deepGuideLight);
   applyStylizedMeshDefaults(shell);
@@ -291,19 +294,23 @@ function buildFortressDecor() {
 }
 
 export function createMonsterFortressInterior(context: InteriorContext) {
-  const shell = buildCaveShell();
+  const shell = buildCaveShell(true);
   shell.add(buildFortressDecor());
   context.scene.add(shell);
   context.trackCaveObjects(`loose-${shell.uuid}`);
   addCaveExits(context);
 
-  // 맵 레벨대의 몬스터들이 통로 가득. 끝 제단에는 보스 1마리.
-  for (let i = 0; i < 13; i += 1) {
-    const monster = context.spawnFortressMonster(context.randomCavePoint(), false);
+  // 맵 레벨대의 몬스터들이 통로 전체에 고르게 분포(입구 몰림 방지). 끝 제단에는 보스 1마리.
+  // 입구(CAVE_START_Z)에서 30 들어간 지점부터 제단 직전까지 균등 배치 → 진행하며 계속 만난다.
+  const monsterCount = 13;
+  for (let i = 0; i < monsterCount; i += 1) {
+    const t = (i + 0.5) / monsterCount;
+    const z = CAVE_START_Z - 30 - t * (CAVE_LENGTH - 55); // ≈ -810 → -945
+    const x = THREE.MathUtils.randFloatSpread(CAVE_WIDTH - 4);
+    const monster = context.spawnFortressMonster(new THREE.Vector3(x, 0, z), false);
     if (monster) context.trackCaveObjects(monster.id);
   }
-  const bossPos = new THREE.Vector3(0, 0, CAVE_END_Z + 11);
-  const boss = context.spawnFortressMonster(bossPos, true);
+  const boss = context.spawnFortressMonster(new THREE.Vector3(0, 0, CAVE_END_Z + 11), true);
   if (boss) context.trackCaveObjects(boss.id);
 }
 

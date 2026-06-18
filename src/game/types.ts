@@ -173,6 +173,7 @@ export interface WorldObject {
   predatorKind?: PredatorKind;
   bossKind?: BossKind;
   fieldBossId?: string;
+  fortressMonster?: boolean; // 몬스터 요새 동굴에 스폰된 몬스터 — 동굴 전용 AI 대상(오버월드 포식자와 구분)
   fortressBoss?: boolean; // 몬스터 요새 동굴의 끝 보스 — 처치 시 흑요석·전직의서 확정 드랍
   fortressLevel?: number; // 드랍 수량 산정용 — 스폰된 맵 레벨대
   partyTransient?: boolean; // 파티 동기화로 빌려 온 호스트 월드의 뷰 — 세이브/worldState 에 영속 금지

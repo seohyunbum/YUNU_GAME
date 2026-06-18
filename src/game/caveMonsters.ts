@@ -24,6 +24,8 @@ export function spawnFortressMonster(deps: FortressSpawnDeps, position: THREE.Ve
   const monster = deps.spawnPredator(deps.kindForMonster(monsterId), position.clone());
   deps.applyMonsterDef(monster, region, monsterId);
   monster.root.position.y = 0;
+  monster.fortressMonster = true; // 동굴 전용 AI 가 오버월드 포식자와 구분하도록 태그
+  monster.root.visible = true; // 오버월드에서 컬링으로 숨겨졌을 가능성 차단
   if (boss) {
     const level = region.levelRange[1] + 6;
     const stats = monsterStatsFromLevel(level, true);
@@ -63,6 +65,7 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
   const now = performance.now();
   const panelOpen = context.isPanelOpen();
   for (const monster of context.predators()) {
+    if (!monster.fortressMonster) continue; // 요새 몬스터만 동굴 AI 대상 — 오버월드 포식자를 끌어들이지 않음
     const dx = context.playerPosition.x - monster.root.position.x;
     const dz = context.playerPosition.z - monster.root.position.z;
     const distance = Math.hypot(dx, dz);
