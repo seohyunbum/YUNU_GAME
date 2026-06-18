@@ -558,7 +558,7 @@ class WildernessGame {
   private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
-  private readonly tutorialSignals = { predatorKills: 0, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false };
+  private readonly tutorialSignals = { predatorKills: 0, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false };
   private readonly chapterBossContext: ChapterBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
@@ -5763,7 +5763,7 @@ class WildernessGame {
     this.summonerCompanion.reset();
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
-    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false;
+    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false;
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
@@ -7025,6 +7025,7 @@ class WildernessGame {
       if (!this.addItem(recipe.output, recipe.count)) return false;
       this.autoEquip(recipe.output);
       if (NECKLACE_IDS.includes(recipe.output)) this.tutorialSignals.craftedNecklace = true; // 목걸이 '제작' 퀘스트 신호(상자 드랍과 구분)
+      if (recipe.output === "advanced_medkit") this.tutorialSignals.craftedAdvancedMedkit = true; // 고급 구급상자 '제작' 퀘스트 신호(드랍과 구분)
     }
     this.awardCraftXp(craftXpForRecipe(recipe)); // 재료 양·희귀도에 비례한 제작 경험치
     this.renderHud();
