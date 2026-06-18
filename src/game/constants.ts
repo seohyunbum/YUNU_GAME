@@ -42,6 +42,7 @@ export const SAVE_AUTOSAVE_PER_NICKNAME = 1; // 닉네임당 자동저장 1개 �
 export const AUTOSAVE_INTERVAL_SECONDS = 60; // 게임 도중 자동저장 주기
 export const SAVE_WRITE_TEST_KEY = "ai-game-lab:wilderness-save-write-test";
 export const ARCADE_POINTS_KEY = "ai-game-lab:arcade-points-v1";
+export const PREDATOR_KILLS_KEY = "ai-game-lab:predator-kills-v1"; // 누적 몬스터 처치 수 — 리로드/세션 넘어 유지(플레이 처음부터)
 export const SAVE_VERSION = 11;
 export const SAVE_BUILD_ID = "2026-06-14-crafting-level";
 export const MAX_SAVE_SLOTS = 10;

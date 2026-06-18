@@ -103,6 +103,7 @@ import { celebrateLevelUp, celebrateRareDrop } from "./game/juice";
 import { createBannerElement } from "./ui/banner";
 import {
   ARCADE_POINTS_KEY,
+  PREDATOR_KILLS_KEY,
   BASE_BAG_SLOT_COUNT,
   BASE_MAX_MANA,
   BASE_PLAYER_MAX_HEALTH,
@@ -562,7 +563,7 @@ class WildernessGame {
   private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
-  private readonly tutorialSignals = { predatorKills: 0, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false };
+  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false };
   private readonly chapterBossContext: ChapterBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
@@ -867,6 +868,15 @@ class WildernessGame {
   private saveArcadePoints() {
     localStorage.setItem(ARCADE_POINTS_KEY, String(Math.max(0, Math.floor(this.arcadePoints))));
     this.renderTitlePoints();
+  }
+
+  private loadPredatorKills() {
+    const raw = Number(localStorage.getItem(PREDATOR_KILLS_KEY) ?? 0);
+    return Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+  }
+
+  private savePredatorKills() {
+    localStorage.setItem(PREDATOR_KILLS_KEY, String(Math.max(0, Math.floor(this.tutorialSignals.predatorKills))));
   }
 
   private setupRenderer() {
@@ -4365,7 +4375,7 @@ class WildernessGame {
 
   private grantExperienceForTarget(target: WorldObject) {
     this.summonerCompanion.awardExperience(Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
-    if (target.type === "wildPredator") this.tutorialSignals.predatorKills += 1;
+    if (target.type === "wildPredator") { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); }
     if (target.fieldBossId && !this.defeatedFieldBosses.includes(target.fieldBossId)) {
       this.defeatedFieldBosses.push(target.fieldBossId);
       startMiniFanfare(this.finaleContext);
@@ -5731,7 +5741,7 @@ class WildernessGame {
     this.summonerCompanion.reset();
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
-    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false;
+    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
@@ -9270,7 +9280,7 @@ class WildernessGame {
     const object = this.objects.get(id);
     if (!object) return;
     if (!this.suppressRespawn && this.locationMode === "overworld") {
-      const position = (object.homePosition ?? object.root.position).clone(); const dueAt = performance.now() + (object.type === "wildPredator" || object.type === "jammini" ? 45_000 : 90_000);
+      const position = (object.homePosition ?? object.root.position).clone(); const dueAt = performance.now() + (object.type === "wildPredator" || object.type === "jammini" ? 22_500 : 90_000);
       if (object.type === "wildPredator" || object.type === "jammini" || object.type === "villageKnight" || object.type === "villageArcher" || object.type === "villageMage" || object.type === "villageGolem") this.respawnQueue.push({ dueAt, type: object.type, position, villageId: object.villageId, predatorKind: object.predatorKind, monsterId: object.monsterId as MonsterId | undefined, regionId: object.regionId });
     }
     this.summonerCompanion.forgetObject(id);

@@ -163,12 +163,13 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   checkQuest("save_game", (s) => s.saved, "게임 저장하기", "Ctrl+S 또는 왼쪽 위 저장 버튼으로 진행 상황을 저장하세요. 저장은 5개까지 보관됩니다.", { experience: 300, items: { medkit: 2 }, label: "경험치 300 + 구급상자 2개" }),
   checkQuest("visit_shop", (s) => s.shopOpened, "마을 상점 구경하기", "들판의 마을을 찾아 상점 건물에 들어가 보세요. 미니게임 포인트로 물건을 사고팔 수 있습니다.", { experience: 320, items: { gold: 2 }, label: "경험치 320 + 금 2개" }),
   countQuest("reach_level8", 8, (s) => s.level, "레벨 8 달성하기", "몬스터 사냥과 퀘스트 보상으로 경험치를 모으세요. 레벨이 오를 때마다 체력·공격·방어가 +1씩 늘어납니다.", { experience: 400, items: { iron: 6, gold: 3 }, label: "경험치 400 + 철 6개 + 금 3개" }),
-  countQuest("hunt_100", 100, (s) => s.predatorKills, "누적 몬스터 100마리 처치", "누적 100마리를 처치하면 진정한 사냥꾼! 꾸준한 사냥이 성장의 핵심입니다.", { experience: 410, items: { diamond: 1, medkit: 2 }, label: "경험치 410 + 다이아몬드 1개 + 구급상자 2개" }),
   countQuest("train_once", 1, (s) => Math.min(1, s.trainingTotal), "훈련장에서 훈련 1번 성공하기", "시작 초원 마을 동쪽의 울타리 훈련장(레벨 10부터)에서 역기들기·과녁맞추기 같은 훈련에 도전하세요. 성공하면 스탯이 영구히 오릅니다!", { experience: 420, items: { medkit: 2 }, label: "경험치 420 + 구급상자 2개" }),
   countQuest("train_all_kinds", 4, (s) => s.trainingKindsDone, "네 가지 훈련 모두 성공하기", "역기들기(체력)·과녁맞추기(공격)·방패막기(방어)·명상호흡(마나)을 한 번씩 성공해 보세요. 훈련은 할수록 어려워지지만 스탯은 계속 쌓입니다.", { experience: 460, items: { diamond: 1, medkit: 2 }, label: "경험치 460 + 다이아몬드 1개 + 구급상자 2개" }),
   // ── 마을 경제 ──
   countQuest("sell_materials", 3, (s) => s.materialsSold, "마을 상점에 재료 3번 팔기", "마을 상점 건물의 판매대(좌클릭/E)에서 가지고 있는 재료를 3번 팔아 포인트를 벌어보세요. 미니게임 포인트와 함께 든든한 자금이 됩니다.", { experience: 462, items: { meat: 4 }, label: "경험치 462 + 고기 4개" }),
   checkQuest("buy_from_shop", (s) => s.shopPurchases >= 1, "마을 상점에서 물건 사기", "마을 상점의 구매대에서 포인트로 아이템을 한 번 구매해 보세요. 재료·도구·방어구까지 다양하게 살 수 있습니다.", { experience: 464, items: { medkit: 2 }, label: "경험치 464 + 구급상자 2개" }),
+  // ── 사냥의 정점 (30마리 퀘스트에서 한참 뒤) ──
+  countQuest("hunt_100", 100, (s) => s.predatorKills, "누적 몬스터 100마리 처치", "누적 100마리를 처치하면 진정한 사냥꾼! 꾸준한 사냥이 성장의 핵심입니다.", { experience: 470, items: { diamond: 1, medkit: 2 }, label: "경험치 470 + 다이아몬드 1개 + 구급상자 2개" }),
   // ── 졸업 준비 ──
   checkQuest("craft_extended_workbench", (s) => s.countItem("extended_workbench") > 0, "확장 제작대 만들기", "일반 3x3 제작대에 제작대(crafting_table) 2개를 넣으면 6x6 확장 제작대가 됩니다. 소총·비전 지팡이·거울 등 최상급 장비는 확장 제작대에서만 만들 수 있습니다. 제작대는 나무 3 + 망치 1로 만들고, 설치한 제작대도 회수해 다시 쓸 수 있습니다.", { experience: 480, items: { refined_iron: 4 }, label: "경험치 480 + 제련된 철 4개" }),
   // ── 졸업 과제 ──
