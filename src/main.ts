@@ -6526,12 +6526,14 @@ class WildernessGame {
         <div class="recipes shop-list">
           ${POINT_SHOP_OFFERS.map((offer) => {
             const receive = this.formatItemBundle(offer.receive);
+            const owned = (Object.entries(offer.receive) as [ItemId, number][]).map(([item]) => `보유 ${this.countItem(item)}개`).join(" · ");
             const disabled = this.arcadePoints >= offer.cost ? "" : "disabled";
             return `<article class="recipe-card shop-card">
               <div>
                 <strong>${offer.name}</strong>
                 <p>${offer.cost}P -> ${receive}</p>
                 <small>${offer.note}</small>
+                <small>${owned}</small>
               </div>
               <button data-shop-buy="${offer.id}" ${disabled}>구매</button>
             </article>`;
