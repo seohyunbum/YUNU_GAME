@@ -72,6 +72,15 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     note: "사용 시 체력 15를 회복합니다. 체력이 가득 차 있으면 소모되지 않습니다.",
   },
   {
+    id: "advanced_medkit",
+    name: "고급 구급상자",
+    output: "advanced_medkit",
+    count: 1,
+    ingredients: { medkit: 2, refined_diamond: 1 },
+    note: "에픽 소모품 — 사용 시 체력 25를 회복합니다. 체력이 가득 차 있으면 소모되지 않습니다.",
+    extendedOnly: true,
+  },
+  {
     id: "iron_shield",
     name: "철 방패",
     output: "iron_shield",

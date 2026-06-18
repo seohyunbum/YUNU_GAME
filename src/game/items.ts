@@ -18,6 +18,7 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   leather: "가죽",
   meat: "고기",
   medkit: "구급상자",
+  advanced_medkit: "고급 구급상자",
   bed: "침대",
   building_block: "쌓기블록",
   bow: "활",
@@ -189,6 +190,7 @@ export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMA
 
 export const HEAL_ITEMS: Record<ItemId, number> = {
   medkit: 15,
+  advanced_medkit: 25,
 };
 
 // 희귀 등급 — 주스(큰 순간 연출)용. 등재 안 된 아이템은 common.
@@ -218,6 +220,7 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   guardian_necklace: "epic",
   swift_necklace: "epic",
   sage_necklace: "epic",
+  advanced_medkit: "epic",
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
@@ -245,6 +248,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
   dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic",
   strength_necklace: "epic", guardian_necklace: "epic", swift_necklace: "epic", sage_necklace: "epic",
+  advanced_medkit: "epic",
   // 레전더리(legendary) — 최종 흑요석 무기 3종 + 경험치병(매우 희귀)
   sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", xp_bottle: "legendary",
 };
@@ -371,7 +375,7 @@ export const PLACEABLE_TYPES: Record<ItemId, ObjectType> = {
 
 // 자동정렬용 카테고리 — 작을수록 앞. 무기 < 방어구 < 도구 < 제작설비 < 소비 < 재료 < 기타.
 // (방패는 WEAPON_DAMAGE 의 강타값도 있지만 방어구로, 도끼/곡괭이는 WEAPON_DAMAGE 여도 도구로 분류한다.)
-const SORT_CONSUMABLES = new Set<ItemId>(["meat", "medkit", "xp_bottle", "dragon_spawn"]);
+const SORT_CONSUMABLES = new Set<ItemId>(["meat", "medkit", "advanced_medkit", "xp_bottle", "dragon_spawn"]);
 const SORT_TOOLS = new Set<ItemId>(["hammer", "bucket", "water_bucket", "lava_bucket"]);
 const SORT_MISC = new Set<ItemId>(["tutorial_book", "bag", "mirror"]);
 const NECKLACE_SORT_SET = new Set<ItemId>(NECKLACE_IDS);
