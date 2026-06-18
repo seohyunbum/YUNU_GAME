@@ -1,6 +1,6 @@
 import { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER } from "./game/bossChapters";
 import { getWorldMapById } from "./game/worldMaps";
-import { FIELD_BOSSES } from "./game/fieldBosses";
+import { FIELD_BOSSES, type FieldBossDef } from "./game/fieldBosses";
 import { BOSS_STATS } from "./game/monsters";
 import type { ItemId, PlayerClassId, TutorialProgress } from "./game/types";
 
@@ -154,6 +154,7 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   countQuest("smelt_iron", 3, (s) => s.countItem("refined_iron"), "철 3개 제련하기", "설치한 제련대에 철과 석탄을 넣어 제련된 철을 만드세요. 제련된 철은 철 도구·무기·갑옷의 재료입니다.", { experience: 220, items: { iron: 4 }, label: "경험치 220 + 철 4개" }),
   // ── 4장. 전투와 회복 ──
   countQuest("hunt_predators", 3, (s) => s.predatorKills, "야생 몬스터 3마리 처치하기", "거미나 늑대 같은 야생 몬스터가 부르르 떨면 공격 신호입니다. 옆으로 피했다가 반격해 보세요.", { experience: 240, items: { meat: 6 }, label: "경험치 240 + 고기 6개" }),
+  countQuest("hunt_30", 30, (s) => s.predatorKills, "누적 몬스터 30마리 처치", "야생 몬스터를 꾸준히 사냥해 누적 30마리를 처치하세요. 사냥은 경험치와 재료를 함께 줍니다.", { experience: 250, items: { medkit: 2 }, label: "경험치 250 + 구급상자 2개" }),
   checkQuest("craft_basic_armor", (s) => s.hasBasicArmor, "초급 방어구 만들기", "제작대에서 가죽 8개로 가죽 갑옷을 만들 수 있습니다. 방어력이 오르면 거미나 늑대의 피해를 더 잘 버팁니다.", { experience: 270, items: { leather: 6, iron: 3 }, label: "경험치 270 + 가죽 6개 + 철 3개" }),
   countQuest("craft_bed", 1, (s) => s.countItem("bed"), "침대 만들기", "제작대에서 가죽 3 + 나무 3 + 막대기 3으로 침대를 만드세요. 설치한 침대에서 우클릭으로 자면 체력이 회복됩니다.", { experience: 280, items: { leather: 4 }, label: "경험치 280 + 가죽 4개" }),
   // ── 5장. 세상 익히기 ──
@@ -161,6 +162,7 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   checkQuest("save_game", (s) => s.saved, "게임 저장하기", "Ctrl+S 또는 왼쪽 위 저장 버튼으로 진행 상황을 저장하세요. 저장은 5개까지 보관됩니다.", { experience: 300, items: { medkit: 2 }, label: "경험치 300 + 구급상자 2개" }),
   checkQuest("visit_shop", (s) => s.shopOpened, "마을 상점 구경하기", "들판의 마을을 찾아 상점 건물에 들어가 보세요. 미니게임 포인트로 물건을 사고팔 수 있습니다.", { experience: 320, items: { gold: 2 }, label: "경험치 320 + 금 2개" }),
   countQuest("reach_level8", 8, (s) => s.level, "레벨 8 달성하기", "몬스터 사냥과 퀘스트 보상으로 경험치를 모으세요. 레벨이 오를 때마다 체력·공격·방어가 +1씩 늘어납니다.", { experience: 400, items: { iron: 6, gold: 3 }, label: "경험치 400 + 철 6개 + 금 3개" }),
+  countQuest("hunt_100", 100, (s) => s.predatorKills, "누적 몬스터 100마리 처치", "누적 100마리를 처치하면 진정한 사냥꾼! 꾸준한 사냥이 성장의 핵심입니다.", { experience: 410, items: { diamond: 1, medkit: 2 }, label: "경험치 410 + 다이아몬드 1개 + 구급상자 2개" }),
   countQuest("train_once", 1, (s) => Math.min(1, s.trainingTotal), "훈련장에서 훈련 1번 성공하기", "시작 초원 마을 동쪽의 울타리 훈련장(레벨 10부터)에서 역기들기·과녁맞추기 같은 훈련에 도전하세요. 성공하면 스탯이 영구히 오릅니다!", { experience: 420, items: { medkit: 2 }, label: "경험치 420 + 구급상자 2개" }),
   countQuest("train_all_kinds", 4, (s) => s.trainingKindsDone, "네 가지 훈련 모두 성공하기", "역기들기(체력)·과녁맞추기(공격)·방패막기(방어)·명상호흡(마나)을 한 번씩 성공해 보세요. 훈련은 할수록 어려워지지만 스탯은 계속 쌓입니다.", { experience: 460, items: { diamond: 1, medkit: 2 }, label: "경험치 460 + 다이아몬드 1개 + 구급상자 2개" }),
   // ── 마을 경제 ──
@@ -204,25 +206,56 @@ function scaleQuestRewards(steps: readonly TutorialStep[]): readonly TutorialSte
 
 export const TUTORIAL_STEPS: readonly TutorialStep[] = scaleQuestRewards(RAW_TUTORIAL_STEPS);
 
+// 튜토리얼 단계 → 목표 뷰
+function tutorialStepObjective(step: TutorialStep, snapshot: ObjectiveSnapshot): TutorialObjective {
+  const achieved = stepAchieved(snapshot, step);
+  return {
+    id: step.id,
+    title: achieved ? `${step.title(snapshot).replace(/\(\d+\/(\d+)\)/, "($1/$1)")}` : step.title(snapshot),
+    detail: step.id === "craft_basic_weapon" ? CLASS_WEAPON_QUESTS[snapshot.playerClass].detail : step.detail,
+    progress: achieved ? "완료 — 클릭해서 보상 받기" : step.progress(snapshot),
+    reward: step.reward,
+    completed: achieved,
+    kind: "tutorial",
+  };
+}
+
+// 맵 필드 보스 → 목표 뷰 (보상은 보스 정의값 — 튜토리얼 경험치 점증 규칙과 분리)
+function fieldBossObjective(def: FieldBossDef, defeated: boolean): TutorialObjective {
+  const mapName = getWorldMapById(def.mapId).name;
+  return {
+    id: def.id,
+    title: `${mapName}의 ${def.name} 처치하기 (권장 Lv ${def.level}) (${defeated ? 1 : 0}/1)`,
+    detail: `${mapName}에 Lv ${def.level} ${def.name}이(가) 있습니다. 지도(M)에서 해당 맵으로 이동하면 위치가 표시됩니다. 한 번 처치하면 다시 나타나지 않습니다.`,
+    progress: defeated ? "처치 완료 — 클릭해서 보상 받기" : `권장 Lv ${def.level}`,
+    reward: { experience: def.rewardExperience, items: def.rewardItems, label: def.rewardLabel },
+    completed: defeated,
+    kind: "tutorial",
+  };
+}
+
 export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective {
   if (snapshot.health <= 3) return survivalObjective("체력이 낮습니다", "고기를 먹거나 침대/구급상자로 회복하세요.", "생존 우선");
   if (snapshot.hunger <= 1) return survivalObjective("배고픔이 낮습니다", "고기를 먹어 배고픔을 회복하세요. 배고픔이 0이면 체력이 줄어듭니다.", "생존 우선");
-  const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id));
-  if (nextStep) {
-    const achieved = stepAchieved(snapshot, nextStep);
-    return {
-      id: nextStep.id,
-      title: achieved ? `${nextStep.title(snapshot).replace(/\(\d+\/(\d+)\)/, "($1/$1)")}` : nextStep.title(snapshot),
-      detail: nextStep.id === "craft_basic_weapon" ? CLASS_WEAPON_QUESTS[snapshot.playerClass].detail : nextStep.detail,
-      progress: achieved ? "완료 — 클릭해서 보상 받기" : nextStep.progress(snapshot),
-      reward: nextStep.reward,
-      completed: achieved,
-      kind: "tutorial",
-    };
-  }
-  // 튜토리얼 이후 — 맵 필드 보스 + 챕터 드래곤을 권장 레벨 오름차순으로 한 줄에 엮어 다음 미처치 보스를 제시한다.
-  // (필드보스: 처치 시 보상 수령형 / 챕터 드래곤: 봉인 해제 안내형. 레벨순이라 챕터 순서도 자연히 보존된다.)
   const defeatedFieldBosses = snapshot.defeatedFieldBosses ?? [];
+  const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id));
+
+  // 튜토리얼 진행 중 — 레벨대(보스와 격차 20 미만)에 든 미수령 맵 보스를 목표로 끼워넣는다.
+  // (튜토리얼 완료 후에는 아래 bossLine 이 필드+챕터 보스를 레벨순으로 그대로 제시 — 기존 동작 유지)
+  if (nextStep) {
+    const nextStepReady = stepAchieved(snapshot, nextStep);
+    const eligibleBoss = FIELD_BOSSES
+      .filter((def) => !completed(snapshot, def.id) && (defeatedFieldBosses.includes(def.id) || def.level - snapshot.level < 20))
+      .sort((a, b) => a.level - b.level)[0];
+    const eligibleBossDefeated = eligibleBoss ? defeatedFieldBosses.includes(eligibleBoss.id) : false;
+    // 우선순위: ① 처치한 보스 보상 수령 → ② 완료된 튜토리얼 보상 수령 → ③ 레벨대 보스 도전 → ④ 진행 중 튜토리얼
+    if (eligibleBoss && eligibleBossDefeated) return fieldBossObjective(eligibleBoss, true);
+    if (nextStepReady) return tutorialStepObjective(nextStep, snapshot);
+    if (eligibleBoss) return fieldBossObjective(eligibleBoss, false);
+    return tutorialStepObjective(nextStep, snapshot);
+  }
+
+  // 튜토리얼 완료 — 맵 필드 보스 + 챕터 드래곤을 권장 레벨 오름차순으로 엮어 다음 미처치 보스를 제시.
   const bossLine = [
     ...FIELD_BOSSES.map((def) => ({ kind: "field" as const, level: def.level, def })),
     ...BOSS_PROGRESSION.map((step, index) => ({ kind: "chapter" as const, level: step.recommendedLevel, step, index })),
@@ -230,17 +263,7 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
   for (const entry of bossLine) {
     if (entry.kind === "field") {
       if (completed(snapshot, entry.def.id)) continue; // 보상까지 수령 완료한 필드보스는 건너뜀
-      const defeated = defeatedFieldBosses.includes(entry.def.id);
-      const mapName = getWorldMapById(entry.def.mapId).name;
-      return {
-        id: entry.def.id,
-        title: `${mapName}의 ${entry.def.name} 처치하기 (권장 Lv ${entry.def.level}) (${defeated ? 1 : 0}/1)`,
-        detail: `${mapName}에 Lv ${entry.def.level} ${entry.def.name}이(가) 있습니다. 지도(M)에서 해당 맵으로 이동하면 위치가 표시됩니다. 한 번 처치하면 다시 나타나지 않습니다.`,
-        progress: defeated ? "처치 완료 — 클릭해서 보상 받기" : `권장 Lv ${entry.def.level}`,
-        reward: { experience: entry.def.rewardExperience, items: entry.def.rewardItems, label: entry.def.rewardLabel },
-        completed: defeated,
-        kind: "tutorial",
-      };
+      return fieldBossObjective(entry.def, defeatedFieldBosses.includes(entry.def.id));
     }
     if (snapshot.bossChapter > entry.index) continue; // 이미 클리어한 챕터 드래곤은 건너뜀
     return {
