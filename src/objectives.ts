@@ -241,21 +241,22 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
   if (snapshot.health <= 3) return survivalObjective("체력이 낮습니다", "고기를 먹거나 침대/구급상자로 회복하세요.", "생존 우선");
   if (snapshot.hunger <= 1) return survivalObjective("배고픔이 낮습니다", "고기를 먹어 배고픔을 회복하세요. 배고픔이 0이면 체력이 줄어듭니다.", "생존 우선");
   const defeatedFieldBosses = snapshot.defeatedFieldBosses ?? [];
-  const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id));
 
-  // 튜토리얼 진행 중 — 레벨대(보스와 격차 20 미만)에 든 미수령 맵 보스를 목표로 끼워넣는다.
-  // (튜토리얼 완료 후에는 아래 bossLine 이 필드+챕터 보스를 레벨순으로 그대로 제시 — 기존 동작 유지)
+  // 처치했는데 보상 미수령인 맵 보스는 튜토리얼 단계와 무관하게 항상 즉시 수령 (보상 유실 방지)
+  const claimableBoss = FIELD_BOSSES.find((def) => !completed(snapshot, def.id) && defeatedFieldBosses.includes(def.id));
+  if (claimableBoss) return fieldBossObjective(claimableBoss, true);
+
+  const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id));
   if (nextStep) {
-    const nextStepReady = stepAchieved(snapshot, nextStep);
-    const eligibleBoss = FIELD_BOSSES
-      .filter((def) => !completed(snapshot, def.id) && (defeatedFieldBosses.includes(def.id) || def.level - snapshot.level < 20))
-      .sort((a, b) => a.level - b.level)[0];
-    const eligibleBossDefeated = eligibleBoss ? defeatedFieldBosses.includes(eligibleBoss.id) : false;
-    // 우선순위: ① 처치한 보스 보상 수령 → ② 완료된 튜토리얼 보상 수령 → ③ 레벨대 보스 도전 → ④ 진행 중 튜토리얼
-    if (eligibleBoss && eligibleBossDefeated) return fieldBossObjective(eligibleBoss, true);
-    if (nextStepReady) return tutorialStepObjective(nextStep, snapshot);
-    if (eligibleBoss) return fieldBossObjective(eligibleBoss, false);
-    return tutorialStepObjective(nextStep, snapshot);
+    // 기초 전투 튜토리얼(야생 몬스터 3마리 처치)까지 마친 뒤부터, 레벨대(격차 20 미만) 미처치 맵 보스를
+    // 목표로 끼워넣는다. 그 전까지는 기초 채집·제작 튜토리얼이 보스에 가려지지 않도록 순서대로 진행한다.
+    const foundationDone = completed(snapshot, "hunt_predators");
+    const eligibleBoss = foundationDone
+      ? FIELD_BOSSES.filter((def) => !completed(snapshot, def.id) && def.level - snapshot.level < 20).sort((a, b) => a.level - b.level)[0]
+      : undefined;
+    if (stepAchieved(snapshot, nextStep)) return tutorialStepObjective(nextStep, snapshot); // 완료된 튜토리얼 보상 먼저 수령
+    if (eligibleBoss) return fieldBossObjective(eligibleBoss, false); // 레벨대 보스 도전 끼워넣기
+    return tutorialStepObjective(nextStep, snapshot); // 진행 중 튜토리얼 (보스가 가리지 않음)
   }
 
   // 튜토리얼 완료 — 맵 필드 보스 + 챕터 드래곤을 권장 레벨 오름차순으로 엮어 다음 미처치 보스를 제시.
