@@ -2276,25 +2276,12 @@ body {
     inset 0 0 0 2px rgba(255, 255, 255, 0.16);
 }
 
-.ground-drop-zone {
-  display: grid;
-  place-items: center;
-  min-height: 54px;
+.ground-drop-hint {
   margin-top: 10px;
-  border: 2px dashed rgba(250, 204, 21, 0.64);
-  border-radius: 8px;
-  background: rgba(29, 21, 16, 0.68);
-  color: #fde68a;
-  font-size: 13px;
-  font-weight: 900;
+  color: #cbd5e1;
+  font-size: 12px;
   text-align: center;
-}
-
-.ground-drop-zone.drag-over {
-  border-color: #ffffff;
-  background: rgba(146, 64, 14, 0.9);
-  color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.22);
+  opacity: 0.82;
 }
 
 .icon-button {
@@ -2575,12 +2562,6 @@ body {
 
 .inventory-panel .item-button {
   min-height: 0;
-}
-
-.inventory-panel .ground-drop-zone {
-  min-height: 42px;
-  margin-top: 8px;
-  font-size: 12px;
 }
 
 .workbench-crafting-flow {

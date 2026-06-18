@@ -153,7 +153,6 @@ export function renderWorkbenchPanel(
             </div>
             <div class="inventory-label">재료 선택</div>
             <div class="item-list item-slot-grid">${itemButtons || '<div class="empty-inventory">비어 있음</div>'}</div>
-            <div class="ground-drop-zone" data-ground-drop>여기로 드래그하면 일반 아이템은 버리고 설치 아이템은 설치</div>
           </section>
 
           <section class="recipe-book-board">

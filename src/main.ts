@@ -2156,22 +2156,6 @@ class WildernessGame {
     return true;
   }
 
-  private dropItemFromInventory(item: ItemId) {
-    if (!this.removeItem(item, 1)) {
-      this.showMessage("내려놓을 아이템을 찾지 못했습니다.");
-      return false;
-    }
-    this.syncEquippedArmor(item);
-    this.syncEquippedShield(item);
-    const position = this.pointInFront(2.0);
-    this.spawnDroppedItem(item, 1, position);
-    this.playHandAction();
-    this.showMessage(`${ITEM_NAMES[item] ?? item}을 바닥에 내려놓았습니다. 가까이서 바라보고 E 또는 좌클릭하면 다시 주울 수 있습니다.`);
-    this.renderPanel();
-    this.renderHud();
-    return true;
-  }
-
   private placeItemFromSlot(slot: Slot | null | undefined) {
     if (!slot?.item || slot.count <= 0 || !PLACEABLE_TYPES[slot.item]) return false;
     const item = slot.item;
@@ -2184,19 +2168,6 @@ class WildernessGame {
     }
     this.syncEquippedArmor(item);
     this.syncEquippedShield(item);
-    this.spawnPlaceableItem(item);
-    this.renderPanel();
-    this.renderHud();
-    return true;
-  }
-
-  private placeItemFromInventory(item: ItemId) {
-    if (!PLACEABLE_TYPES[item]) return false;
-    if (item === "building_block") return this.placeBuildingBlockFromInventory();
-    if (!this.removeItem(item, 1)) {
-      this.showMessage("설치할 아이템을 찾지 못했습니다.");
-      return false;
-    }
     this.spawnPlaceableItem(item);
     this.renderPanel();
     this.renderHud();
@@ -2239,22 +2210,6 @@ class WildernessGame {
     this.playTone(360, 0.07, "triangle", 0.028);
     this.playTone(180, 0.045, "square", 0.016);
     this.showMessage("쌓기블록을 설치했습니다. 옆면이나 윗면을 보고 우클릭하면 이어 붙일 수 있습니다.");
-    this.renderPanel();
-    this.renderHud();
-    return true;
-  }
-
-  private placeBuildingBlockFromInventory() {
-    const placement = this.buildingBlockPlacement();
-    if (!placement) return false;
-    if (!this.removeItem("building_block", 1)) {
-      this.showMessage("설치할 쌓기블록을 찾지 못했습니다.");
-      return false;
-    }
-    spawnBuildingBlockObject(this.spawnContext, placement);
-    this.playHandAction();
-    this.playTone(360, 0.07, "triangle", 0.028);
-    this.showMessage("쌓기블록을 설치했습니다.");
     this.renderPanel();
     this.renderHud();
     return true;
@@ -6690,36 +6645,6 @@ class WildernessGame {
         if (PLACEABLE_TYPES[slot.item]) this.placeItemFromSlot(slot);
         else this.dropItemFromSlot(slot);
       });
-    });
-
-    const dropZone = this.panelEl.querySelector<HTMLElement>("[data-ground-drop]");
-    if (!dropZone) return;
-    dropZone.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      dropZone.classList.add("drag-over");
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    });
-    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
-    dropZone.addEventListener("drop", (event) => {
-      event.preventDefault();
-      dropZone.classList.remove("drag-over");
-      const raw = event.dataTransfer?.getData("application/json") || event.dataTransfer?.getData("text/plain");
-      if (!raw) return;
-      try {
-        const payload = JSON.parse(raw) as { item?: ItemId; source?: string | null; index?: string | null };
-        if (payload.source && payload.index !== null && payload.index !== undefined) {
-          const slot = this.inventorySlotBySource(payload.source, Number(payload.index));
-          if (payload.item && PLACEABLE_TYPES[payload.item]) this.placeItemFromSlot(slot);
-          else this.dropItemFromSlot(slot);
-          return;
-        }
-        if (payload.item) {
-          if (PLACEABLE_TYPES[payload.item]) this.placeItemFromInventory(payload.item);
-          else this.dropItemFromInventory(payload.item);
-        }
-      } catch {
-        this.showMessage("아이템을 내려놓지 못했습니다.");
-      }
     });
   }
 
