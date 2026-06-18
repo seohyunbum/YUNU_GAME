@@ -6240,7 +6240,7 @@ class WildernessGame {
   private renderInventoryPanel() {
     const slotView = (slot: Slot, source: "hotbar" | "bag", index: number, extraClass = "") => ({
       item: slot.item,
-      label: slot.item ? shortName(slot.item) : "",
+      label: slot.item ? (ITEM_NAMES[slot.item] ?? slot.item) : "",
       count: slot.count,
       source,
       index,
@@ -6259,17 +6259,9 @@ class WildernessGame {
         bagSlots,
         craftSlots: this.craftSlots.map((slot) => ({
           item: slot.item,
-          label: slot.item ? shortName(slot.item) : "",
+          label: slot.item ? (ITEM_NAMES[slot.item] ?? slot.item) : "",
           count: slot.count,
         })),
-        materials: Object.entries(itemCounts)
-          .filter(([item]) => item !== "tutorial_book")
-          .map(([item, count]) => ({
-            item,
-            label: shortName(item),
-            count,
-            selected: this.selectedCraftItem === item,
-          })),
         houseBuildOptions: HOUSE_BUILD_OPTIONS.map((option) => ({
           id: option.id,
           name: option.name,
@@ -6281,10 +6273,6 @@ class WildernessGame {
       },
       {
         onClose: () => this.closePanel(),
-        onSelectItem: (item) => {
-          this.selectedCraftItem = item;
-          this.renderInventoryPanel();
-        },
         onCraftSlotClick: (index) => this.handleCraftSlotClick(index),
         onMiniCraft: () => this.craftMiniRecipe(),
         onClearCraft: () => this.clearCraftSlots(),
@@ -6646,6 +6634,35 @@ class WildernessGame {
         else this.dropItemFromSlot(slot);
       });
     });
+
+    // 제작칸을 드롭 타깃으로 — 핫바/가방 아이템을 끌어다 넣으면 1개 들어간다
+    this.panelEl.querySelectorAll<HTMLElement>("[data-craft-slot]").forEach((element) => {
+      const craftIndex = Number(element.dataset.craftSlot);
+      if (!Number.isInteger(craftIndex)) return;
+      element.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        element.classList.add("drag-over");
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      });
+      element.addEventListener("dragleave", () => element.classList.remove("drag-over"));
+      element.addEventListener("drop", (event) => {
+        event.preventDefault();
+        element.classList.remove("drag-over");
+        const raw = event.dataTransfer?.getData("application/json") || event.dataTransfer?.getData("text/plain");
+        if (!raw) return;
+        try {
+          const payload = JSON.parse(raw) as { source?: string | null; index?: string | null };
+          if (!isStorageSlotSource(payload.source) || payload.index === null || payload.index === undefined) return;
+          if (this.placeIntoCraftSlot(craftIndex, payload.source, Number(payload.index))) {
+            this.pendingStorageMove = null;
+            this.renderInventoryPanel();
+            this.renderHud();
+          }
+        } catch {
+          this.showMessage("아이템을 제작칸에 넣지 못했습니다.");
+        }
+      });
+    });
   }
 
   private inventorySlotBySource(source: string, index: number) {
@@ -6664,7 +6681,7 @@ class WildernessGame {
       if (!slot.item) return;
       this.pendingStorageMove = { source, index };
       this.renderInventoryPanel();
-      this.showMessage("옮길 아이템을 선택했습니다. 이동할 핫바/가방 칸을 누르세요.");
+      this.showMessage("아이템을 골랐습니다. 다른 칸을 누르면 위치 교체, 제작칸을 누르면 제작에 넣기.");
       return;
     }
     const pending = this.pendingStorageMove;
@@ -6748,30 +6765,43 @@ class WildernessGame {
     const slot = this.craftSlots[index];
     if (!slot) return;
 
+    // 채워진 칸 클릭 → 인벤토리로 되돌림
     if (slot.item) {
       this.addItem(slot.item, slot.count);
       slot.item = null;
       slot.count = 0;
+      this.pendingStorageMove = null;
       this.renderInventoryPanel();
       this.renderHud();
       return;
     }
 
-    if (!this.selectedCraftItem) {
-      this.showMessage("먼저 보유 아이템을 선택하세요.");
+    // 빈 칸 클릭 → 핫바/가방에서 고른 아이템 1개를 넣음
+    const pending = this.pendingStorageMove;
+    if (!pending) {
+      this.showMessage("먼저 핫바·가방에서 넣을 아이템을 클릭해 고르세요.");
       return;
     }
-
-    if (!this.removeItem(this.selectedCraftItem, 1)) {
-      this.showMessage("선택한 아이템이 부족합니다.");
+    if (!this.placeIntoCraftSlot(index, pending.source, pending.index)) {
+      this.showMessage("넣을 아이템이 없습니다.");
       return;
     }
-
-    slot.item = this.selectedCraftItem;
-    slot.count = 1;
-    if (this.countItem(this.selectedCraftItem) <= 0) this.selectedCraftItem = null;
+    if (!this.inventorySlotBySource(pending.source, pending.index)?.item) this.pendingStorageMove = null; // 원본 칸 소진 시 선택 해제
     this.renderInventoryPanel();
     this.renderHud();
+  }
+
+  // 핫바/가방 칸의 아이템 1개를 빈 제작칸으로 옮긴다 (클릭·드래그 공용). 원본 칸을 직접 감소시켜 일관성 유지.
+  private placeIntoCraftSlot(craftIndex: number, source: string, sourceIndex: number) {
+    if (!isStorageSlotSource(source)) return false;
+    const craftSlot = this.craftSlots[craftIndex];
+    const srcSlot = this.inventorySlotBySource(source, sourceIndex);
+    if (!craftSlot || craftSlot.item || !srcSlot?.item) return false;
+    craftSlot.item = srcSlot.item;
+    craftSlot.count = 1;
+    srcSlot.count -= 1;
+    if (srcSlot.count <= 0) { srcSlot.item = null; srcSlot.count = 0; srcSlot.durabilityUsed = undefined; }
+    return true;
   }
 
   private craftMiniRecipe() {

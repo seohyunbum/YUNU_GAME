@@ -12,13 +12,6 @@ export interface InventorySlotView {
   locked?: boolean;
 }
 
-export interface InventoryMaterialView {
-  item: string;
-  label: string;
-  count: number;
-  selected: boolean;
-}
-
 export interface HouseBuildOptionView {
   id: string;
   name: string;
@@ -45,14 +38,12 @@ export interface InventoryPanelView {
   bagLabel: string;
   bagSlots: InventorySlotView[];
   craftSlots: InventorySlotView[];
-  materials: InventoryMaterialView[];
   houseBuildOptions: HouseBuildOptionView[];
   recipeGuide: InventoryRecipeGuideView[];
 }
 
 export interface InventoryPanelCallbacks {
   onClose: () => void;
-  onSelectItem: (item: string) => void;
   onCraftSlotClick: (index: number) => void;
   onMiniCraft: () => void;
   onClearCraft: () => void;
@@ -106,14 +97,6 @@ function renderCraftSlot(slot: InventorySlotView, index: number) {
   return `<button class="craft-slot inventory-cell${tier}" data-craft-slot="${index}"${dragAttrs}${infoAttr}>${label}</button>`;
 }
 
-function renderMaterialButton(material: InventoryMaterialView, index: number) {
-  const selected = material.selected ? " selected" : "";
-  return `<button class="item-button item-slot${selected}" draggable="true" data-drop-item="${escapeAttr(material.item)}" data-item="${escapeAttr(material.item)}" data-select-item-index="${index}">
-          <span class="slot-name">${escapeHtml(material.label)}</span>
-          <span class="slot-count">${material.count}</span>
-        </button>`;
-}
-
 // 부족한 재료는 빨간 "보유/필요" 로 — 클릭해보지 않아도 뭐가 몇 개 모자란지 보인다
 function renderIngredientCounts(ingredients: { label: string; short: boolean }[]) {
   return ingredients.map((entry) => `<span${entry.short ? ' class="ing-short"' : ""}>${escapeHtml(entry.label)}</span>`).join(" + ");
@@ -154,63 +137,55 @@ export function renderInventoryPanel(
   const hotbar = view.hotbar.map(renderInventorySlot).join("");
   const bagGrid = view.bagSlots.map(renderInventorySlot).join("");
   const craftSlots = view.craftSlots.map(renderCraftSlot).join("");
-  const itemButtons = view.materials.map(renderMaterialButton).join("");
   const recipeGuide = view.recipeGuide.map(renderRecipeGuideCard).join("");
 
   panelEl.innerHTML = `
-      <section class="panel inventory-panel">
+      <section class="panel inventory-panel inventory-panel-v2">
         <header>
           <div>
             <h2>인벤토리</h2>
-            <p class="inventory-subtitle">재료 위치는 상관없고 조합만 맞으면 제작됩니다.</p>
+            <p class="inventory-subtitle">아이템을 클릭해 고른 뒤 제작칸을 누르거나, 칸으로 드래그해 넣으세요. 다른 칸을 누르면 위치가 바뀝니다. 우클릭 = 설치/버리기.</p>
           </div>
           <button class="icon-button" data-close>닫기</button>
         </header>
-        <div class="inventory-layout">
-          <section class="craft-board house-build-panel">
-            <div class="inventory-label">집짓기</div>
-            <div class="recipes house-build-list">${buildOptions}</div>
-          </section>
-          <section class="craft-board recipe-guide-panel">
-            <div class="inventory-label">제작 검색</div>
-            <input class="recipe-search-input" data-recipe-search type="search" placeholder="아이템, 재료, 제작 장소 검색" autocomplete="off" />
-            <div class="recipe-search-list" data-recipe-search-list>${recipeGuide}</div>
-            <div class="recipe-search-empty hidden" data-recipe-search-empty>검색 결과가 없습니다.</div>
-          </section>
-          <section class="inventory-board">
-            <div class="inventory-label">하단 핫바 ${view.hotbarCount}칸</div>
+        <div class="inv2-layout">
+          <section class="inventory-board inv2-bag">
+            <div class="inventory-label">핫바 ${view.hotbarCount}칸</div>
             <div class="inventory-hotbar inventory-grid">${hotbar}</div>
             <div class="inventory-label">가방 ${escapeHtml(view.bagLabel)}<button class="bag-sort-btn" data-sort-bag title="재료·무기·도구별로 묶고 등급 오름차순 정렬 (가방만)">↕ 자동정렬</button></div>
             <div class="bag-grid inventory-grid">${bagGrid}</div>
           </section>
 
-          <section class="craft-board">
-            <div class="inventory-label">미니 제작대 2x2</div>
-            <div class="crafting-flow">
-              <div class="craft-grid inventory-craft-grid">${craftSlots}</div>
-              <div class="craft-arrow">→</div>
-              <div class="craft-result">제작</div>
-            </div>
-            <div class="panel-actions">
-              <button data-mini-craft>제작</button>
-              <button data-clear-craft>재료 빼기</button>
-            </div>
-            <div class="inventory-label">재료 선택</div>
-            <div class="item-list item-slot-grid">${itemButtons || '<div class="empty-inventory">비어 있음</div>'}</div>
-            <div class="ground-drop-hint">칸을 우클릭하면 설치 아이템은 설치, 일반 아이템은 바닥에 버립니다.</div>
-          </section>
+          <aside class="inv2-side">
+            <section class="craft-board">
+              <div class="inventory-label">미니 제작대 2x2</div>
+              <div class="crafting-flow">
+                <div class="craft-grid inventory-craft-grid">${craftSlots}</div>
+                <div class="craft-arrow">→</div>
+                <div class="craft-result">제작</div>
+              </div>
+              <div class="panel-actions">
+                <button data-mini-craft>제작</button>
+                <button data-clear-craft>재료 빼기</button>
+              </div>
+            </section>
+            <section class="craft-board recipe-guide-panel">
+              <div class="inventory-label">제작 검색 — 이 세계의 모든 제작 아이템</div>
+              <input class="recipe-search-input" data-recipe-search type="search" placeholder="아이템, 재료, 제작 장소 검색" autocomplete="off" />
+              <div class="recipe-search-list" data-recipe-search-list>${recipeGuide}</div>
+              <div class="recipe-search-empty hidden" data-recipe-search-empty>검색 결과가 없습니다.</div>
+            </section>
+            <section class="craft-board house-build-panel">
+              <div class="inventory-label">집짓기</div>
+              <div class="recipes house-build-list">${buildOptions}</div>
+            </section>
+          </aside>
         </div>
       </section>
     `;
 
   panelEl.querySelector<HTMLButtonElement>("[data-close]")?.addEventListener("click", callbacks.onClose);
   panelEl.querySelector<HTMLButtonElement>("[data-sort-bag]")?.addEventListener("click", callbacks.onSortBag);
-  panelEl.querySelectorAll<HTMLButtonElement>("[data-select-item-index]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const material = view.materials[Number(button.dataset.selectItemIndex)];
-      if (material) callbacks.onSelectItem(material.item);
-    });
-  });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-craft-slot]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onCraftSlotClick(Number(button.dataset.craftSlot)));
   });

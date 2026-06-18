@@ -2564,6 +2564,56 @@ body {
   min-height: 0;
 }
 
+/* ── 인벤토리 v2 — 좌: 내 아이템(단일 소스) / 우: 제작·검색·집짓기. 중복 재료목록 제거, 칸 확대, 이름 줄바꿈 ── */
+.inv2-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 12px;
+  align-items: start;
+}
+
+.inv2-side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.inventory-panel-v2 .inventory-hotbar,
+.inventory-panel-v2 .bag-grid {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+}
+
+/* 칸 크게 + 아이템명 두 줄까지 노출(잘림 최소화). 전체 이름은 호버 툴팁으로도 확인 가능 */
+.inventory-panel-v2 .inventory-cell,
+.inventory-panel-v2 .item-slot {
+  height: clamp(58px, 8vh, 74px);
+}
+
+.inventory-panel-v2 .slot-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: clip;
+  font-size: 11px;
+  line-height: 1.12;
+}
+
+.inventory-panel-v2 .craft-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.inventory-panel-v2 .craft-slot {
+  height: clamp(66px, 9vh, 82px);
+}
+
+.inventory-panel-v2 .recipe-search-list,
+.inventory-panel-v2 .house-build-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .workbench-crafting-flow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 28px 90px;
