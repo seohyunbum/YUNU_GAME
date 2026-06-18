@@ -6322,7 +6322,7 @@ class WildernessGame {
           ingredients: ingredientCounts(option.ingredients, itemCounts),
           canBuild: this.hasIngredients(option.ingredients) && this.locationMode === "overworld",
         })),
-        recipeGuide: buildRecipeGuideEntriesForStations(itemCounts, ["mini"]),
+        recipeGuide: buildRecipeGuideEntriesForStations(itemCounts), // 전 스테이션(제작대·제련대·분쇄기 등) 모든 제작 가능 아이템 검색
       },
       {
         onClose: () => this.closePanel(),
