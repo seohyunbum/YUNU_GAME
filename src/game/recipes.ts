@@ -130,6 +130,15 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     note: "인벤토리 가방 공간 40칸을 엽니다.",
   },
   {
+    id: "big_bag",
+    name: "확장 가방",
+    output: "big_bag",
+    count: 1,
+    ingredients: { leather: 14, refined_diamond: 3, refined_gold: 3 },
+    note: "에픽 — 가방 공간을 64칸으로 확장합니다(기본 가방 위로 +24칸). 재료가 꽤 희귀합니다.",
+    extendedOnly: true,
+  },
+  {
     id: "bed",
     name: "침대",
     output: "bed",

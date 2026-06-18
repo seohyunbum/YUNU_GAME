@@ -49,6 +49,7 @@ export const LOOK_TARGET_REFRESH_SECONDS = 0.08;
 export const SPRINT_LOOK_TARGET_REFRESH_SECONDS = 0.2;
 export const BASE_BAG_SLOT_COUNT = 8;
 export const EXPANDED_BAG_SLOT_COUNT = 40;
+export const MEGA_BAG_SLOT_COUNT = 64; // 확장 가방 — 기본 가방(40) 위로 +24칸
 export const WORKBENCH_SLOT_COUNT = 9;
 export const EXTENDED_WORKBENCH_SLOT_COUNT = 36;
 export const SPATIAL_CELL_SIZE = 18;

@@ -125,6 +125,7 @@ import {
   EAGLE_POSSESSION_DURATION_SECONDS,
   EAGLE_RAM_DAMAGE,
   EXPANDED_BAG_SLOT_COUNT,
+  MEGA_BAG_SLOT_COUNT,
   EXTENDED_WORKBENCH_SLOT_COUNT,
   FIELD_ANIMAL_COUNT,
   GRAVITY,
@@ -6129,6 +6130,7 @@ class WildernessGame {
       hasWorkbench: this.hasWorldObjectType("workbench", "extendedWorkbench"),
       hasPickaxe: ["stone_pickaxe", "copper_pickaxe", "iron_pickaxe", "diamond_pickaxe"].some((item) => this.countItem(item) > 0),
       hasBag: this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT,
+      hasBigBag: this.bagSlots.length >= MEGA_BAG_SLOT_COUNT,
       playerClass: this.playerClass,
       hasNecklaceEquipped: Boolean(this.equippedNecklace),
       classWeaponCount: CLASS_WEAPON_QUESTS[this.playerClass].items.reduce((sum, item) => sum + this.countItem(item), 0),
@@ -6988,6 +6990,8 @@ class WildernessGame {
     this.playCraftSound();
     if (recipe.output === "bag") {
       this.unlockBag();
+    } else if (recipe.output === "big_bag") {
+      this.expandBagTo(MEGA_BAG_SLOT_COUNT, "확장 가방 완성! 가방 공간이 64칸으로 늘었습니다 (+24칸).");
     } else {
       if (!this.addItem(recipe.output, recipe.count)) return false;
       this.autoEquip(recipe.output);
@@ -7175,6 +7179,10 @@ class WildernessGame {
       this.unlockBag();
       return true;
     }
+    if (item === "big_bag") {
+      this.expandBagTo(MEGA_BAG_SLOT_COUNT, "확장 가방 완성! 가방 공간이 64칸으로 늘었습니다 (+24칸).");
+      return true;
+    }
 
     if (isDurableTool(item)) {
       for (let index = 0; index < count; index += 1) {
@@ -7289,12 +7297,16 @@ class WildernessGame {
   }
 
   private unlockBag() {
-    if (this.bagSlots.length < EXPANDED_BAG_SLOT_COUNT) {
-      while (this.bagSlots.length < EXPANDED_BAG_SLOT_COUNT) this.bagSlots.push({ item: null, count: 0 });
-      this.showMessage("가방을 만들었습니다. 인벤토리 가방 공간 40칸이 열렸습니다.");
+    this.expandBagTo(EXPANDED_BAG_SLOT_COUNT, "가방을 만들었습니다. 인벤토리 가방 공간 40칸이 열렸습니다.");
+  }
+
+  private expandBagTo(target: number, openedMessage: string) {
+    if (this.bagSlots.length < target) {
+      while (this.bagSlots.length < target) this.bagSlots.push({ item: null, count: 0 });
+      this.showMessage(openedMessage);
     } else {
       this.addItem("leather", 2);
-      this.showMessage("이미 가방이 있어 보너스 가죽을 돌려받았습니다.");
+      this.showMessage("이미 더 큰 가방이 있어 보너스 가죽을 돌려받았습니다.");
     }
   }
 

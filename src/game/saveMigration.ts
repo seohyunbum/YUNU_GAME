@@ -4,6 +4,7 @@ import {
   BASE_BAG_SLOT_COUNT,
   DAY_LENGTH_SECONDS,
   EXPANDED_BAG_SLOT_COUNT,
+  MEGA_BAG_SLOT_COUNT,
   EXTENDED_WORKBENCH_SLOT_COUNT,
   HUNGER_MAX,
   HUNGER_TICK_SECONDS,
@@ -218,7 +219,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
     ...Array.from({ length: 7 }, () => ({ item: null, count: 0 })),
   ];
   const bagSource = Array.isArray(player.bagSlots) ? player.bagSlots : [];
-  const bagTargetLength = bagSource.length > BASE_BAG_SLOT_COUNT ? EXPANDED_BAG_SLOT_COUNT : BASE_BAG_SLOT_COUNT;
+  const bagTargetLength = bagSource.length > EXPANDED_BAG_SLOT_COUNT ? MEGA_BAG_SLOT_COUNT : bagSource.length > BASE_BAG_SLOT_COUNT ? EXPANDED_BAG_SLOT_COUNT : BASE_BAG_SLOT_COUNT;
   const migratedLevel = savedInteger(player.level, 1, 1, 999);
   const migratedExperience = savedInteger(player.experience, 0, 0, Number.POSITIVE_INFINITY);
   const migratedMaxHealth = Math.max(

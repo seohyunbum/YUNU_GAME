@@ -33,6 +33,7 @@ export interface ObjectiveSnapshot {
   hasWorkbench: boolean;
   hasPickaxe: boolean;
   hasBag: boolean;
+  hasBigBag: boolean;
   playerClass: PlayerClassId;
   classWeaponCount: number;
   hasBasicArmor: boolean;
@@ -184,6 +185,8 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   // ── 장신구 ──
   checkQuest("craft_necklace", (s) => s.craftedNecklace, "에픽 목걸이 만들기", "확장 제작대에서 힘·수호·쾌속·현자의 목걸이(에픽) 중 하나를 직접 만드세요. 재료는 날카로운 흑요석 등 최상급입니다. (상자에서 주운 것은 인정되지 않습니다)", { experience: 510, items: { sharp_obsidian: 2, gold_powder: 2 }, label: "경험치 510 + 날카로운 흑요석 2개 + 금 가루 2개" }),
   checkQuest("equip_necklace", (s) => s.hasNecklaceEquipped, "목걸이 착용하기", "K로 캐릭터 창을 열고 방패 아래 '목걸이' 칸에서 만든 목걸이를 골라 착용하세요. 목걸이는 한 번에 하나만 착용할 수 있습니다.", { experience: 520, items: { diamond: 2, medkit: 3 }, label: "경험치 520 + 다이아몬드 2개 + 구급상자 3개" }),
+  // ── 가방 확장 (고레벨 단계) ──
+  checkQuest("craft_big_bag", (s) => s.hasBigBag, "확장 가방 만들기", "확장 제작대에서 확장 가방(에픽)을 만들어 가방 공간을 64칸으로 늘리세요. 재료는 가죽 14 + 제련된 다이아몬드 3 + 제련된 금 3으로 꽤 희귀합니다.", { experience: 530, items: { refined_diamond: 1, medkit: 3 }, label: "경험치 530 + 제련된 다이아몬드 1개 + 구급상자 3개" }),
 ];
 
 // 퀘스트 보상 경험치 상향 — 초반 퀘스트는 2배에서 시작해 뒤로 갈수록 배율이 증가, 최종 퀘스트는 5배.

@@ -15,6 +15,7 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   mirror: "거울",
   xp_bottle: "경험치병",
   bag: "가방",
+  big_bag: "확장 가방",
   leather: "가죽",
   meat: "고기",
   medkit: "구급상자",
@@ -221,6 +222,7 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   swift_necklace: "epic",
   sage_necklace: "epic",
   advanced_medkit: "epic",
+  big_bag: "epic",
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
@@ -248,7 +250,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
   dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic",
   strength_necklace: "epic", guardian_necklace: "epic", swift_necklace: "epic", sage_necklace: "epic",
-  advanced_medkit: "epic",
+  advanced_medkit: "epic", big_bag: "epic",
   // 레전더리(legendary) — 최종 흑요석 무기 3종 + 경험치병(매우 희귀)
   sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", xp_bottle: "legendary",
 };
@@ -377,7 +379,7 @@ export const PLACEABLE_TYPES: Record<ItemId, ObjectType> = {
 // (방패는 WEAPON_DAMAGE 의 강타값도 있지만 방어구로, 도끼/곡괭이는 WEAPON_DAMAGE 여도 도구로 분류한다.)
 const SORT_CONSUMABLES = new Set<ItemId>(["meat", "medkit", "advanced_medkit", "xp_bottle", "dragon_spawn"]);
 const SORT_TOOLS = new Set<ItemId>(["hammer", "bucket", "water_bucket", "lava_bucket"]);
-const SORT_MISC = new Set<ItemId>(["tutorial_book", "bag", "mirror"]);
+const SORT_MISC = new Set<ItemId>(["tutorial_book", "bag", "big_bag", "mirror"]);
 const NECKLACE_SORT_SET = new Set<ItemId>(NECKLACE_IDS);
 export function itemSortCategory(item: ItemId): number {
   if (ARMOR_VALUE[item] !== undefined || SHIELD_DEFENSE[item] !== undefined || NECKLACE_SORT_SET.has(item)) return 1; // 방어구·장신구
