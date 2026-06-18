@@ -16,6 +16,7 @@ export interface GuardAiContext {
   showMessage(text: string): void;
   renderHud(): void;
   getLastDamage(): { blocked: boolean; taken: number };
+  keepOutOfBuildings(position: THREE.Vector3): void;
 }
 
 function lerpAngle(current: number, target: number, alpha: number) {
@@ -58,10 +59,12 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     let movementSpeed = 0;
     if (mode === "melee" && attackDistance > range) {
       if (centerDistance > 0.01) {
-        const chaseSpeed = guard.type === "villageGolem" ? 1.85 : 2.4;
+        // 추격 속도 +30% (골렘 1.85→2.405, 그 외 2.4→3.12)
+        const chaseSpeed = guard.type === "villageGolem" ? 2.405 : 3.12;
         const step = Math.min(attackDistance - range, chaseSpeed * delta);
         guard.root.position.x += (dx / centerDistance) * step;
         guard.root.position.z += (dz / centerDistance) * step;
+        context.keepOutOfBuildings(guard.root.position); // 가드는 건물 안으로 절대 못 들어간다
         guard.root.position.y = context.getGroundHeightAt(guard.root.position.x, guard.root.position.z);
         context.refreshSpatialObject(guard);
         movementSpeed = step / Math.max(delta, 0.001);
