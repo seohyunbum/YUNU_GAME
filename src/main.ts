@@ -45,10 +45,7 @@ import {
   createTrainVisual,
   createVillageHouseVisual,
 } from "./game/structureVisuals";
-import {
-  createHeldItemModel as createHeldItemVisualModel,
-  heldItemMaterialColor as resolveHeldItemMaterialColor,
-} from "./game/heldItemVisuals";
+import { createHeldItemModel as createHeldItemVisualModel } from "./game/heldItemVisuals";
 import { armorTierOf } from "./game/tierVisuals";
 import { shouldDropSlotOnDeath, type DeathDropContext } from "./game/deathDrop";
 import { createBucketVisual as createBucketVisualModel } from "./game/bucketVisuals";
@@ -7618,28 +7615,12 @@ class WildernessGame {
       bucket.position.y = 0.04;
       group.add(bucket);
     } else {
-      const color = resolveHeldItemMaterialColor(item);
-      const mesh = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(0.22),
-        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.08, roughness: 0.72, metalness: 0.08 }),
-      );
-      mesh.position.y = 0.18;
-      const rim = new THREE.Mesh(
-        new THREE.TorusGeometry(0.24, 0.018, 6, 28),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32 }),
-      );
-      rim.position.y = 0.18;
-      rim.rotation.x = Math.PI / 2;
-      const shard = new THREE.Mesh(
-        new THREE.ConeGeometry(0.07, 0.18, 5),
-        new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.12 }),
-      );
-      shard.position.set(0.16, 0.18, -0.13);
-      shard.rotation.set(0.4, 0.6, -0.3);
-      const shardB = shard.clone();
-      shardB.position.set(-0.14, 0.13, 0.12);
-      shardB.scale.setScalar(0.72);
-      group.add(mesh, rim, shard, shardB);
+      // 재료·기타 아이템도 손에 든 모델 그대로 바닥에 — 광물/주괴/가루/나무 등 컨셉이 드러나게
+      const model = createHeldItemVisualModel(item);
+      model.position.y = 0.18;
+      model.rotation.set(0, Math.random() * Math.PI * 2, 0);
+      model.scale.setScalar(1.15);
+      group.add(model);
     }
     const pickupTarget = new THREE.Mesh(
       new THREE.SphereGeometry(0.62, 12, 8),

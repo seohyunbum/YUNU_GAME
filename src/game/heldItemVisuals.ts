@@ -4,6 +4,7 @@ import { createBucketVisual } from "./bucketVisuals";
 import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel, createObsidianGunModel, createObsidianShieldModel, createObsidianStaffModel, createOrnateStaffModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
 import { createAdvancedMedkitModel, createArmorModel, createDragonTrophyModel, createGemClusterModel, createNecklaceModel, GEM_ITEMS } from "./accessoryVisuals";
+import { createMaterialModel } from "./materialVisuals";
 import { addLegendaryWeapon } from "./legendaryWeapon";
 import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
 import {
@@ -271,9 +272,14 @@ export function createHeldItemModel(item: ItemId) {
     block.position.y = 0.16;
     group.add(block);
   } else {
-    const pebble = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16), headMaterial);
-    pebble.position.y = 0.18;
-    group.add(pebble);
+    const material = createMaterialModel(item);
+    if (material) {
+      group.add(material);
+    } else {
+      const pebble = new THREE.Mesh(new THREE.DodecahedronGeometry(0.16), headMaterial);
+      pebble.position.y = 0.18;
+      group.add(pebble);
+    }
   }
 
   group.rotation.set(0.15, -0.35, -0.22);
