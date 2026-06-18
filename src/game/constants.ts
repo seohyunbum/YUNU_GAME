@@ -8,7 +8,7 @@ export const RUN_MULTIPLIER = 2;
 export const GRAVITY = 24;
 export const JUMP_SPEED = 8.5;
 export const HUNGER_MAX = 5;
-export const HUNGER_TICK_SECONDS = 300;
+export const HUNGER_TICK_SECONDS = 600; // 배고픔 1 감소 간격 — 종전 300s 의 2배로 완화
 export const HUNGER_HP_REGEN = [0, 0, 0.005, 0.015, 0.03, 0.05] as const;
 
 // 침대 등급별 휴식 회복 — 이층집·직접제작침대 > 돌집 > 통나무집. mult = 평소 회복 배수, floorPerSec = 레벨 무관 초당 최소 회복(최대체력 대비). 완전회복까지 ≈ 1/floorPerSec 초.
