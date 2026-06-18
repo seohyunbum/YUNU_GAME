@@ -76,7 +76,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     name: "고급 구급상자",
     output: "advanced_medkit",
     count: 1,
-    ingredients: { medkit: 2, refined_diamond: 1 },
+    ingredients: { medkit: 2, refined_diamond: 1, leather: 3, meat: 2 },
     note: "에픽 소모품 — 사용 시 체력 25를 회복합니다. 체력이 가득 차 있으면 소모되지 않습니다.",
     extendedOnly: true,
   },

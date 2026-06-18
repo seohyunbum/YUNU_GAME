@@ -105,6 +105,7 @@ export function applyProjectileDamage(
     const lootCount = context.rollRewardChance(1, "predator", loot) ? context.grantRewardItem(loot, predatorLoot.count, "predator") : 0;
     context.removeObject(target.id);
     context.showMessage(lootCount > 0 ? `${target.name}을 쓰러뜨리고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}을 쓰러뜨렸지만 재료는 나오지 않았습니다.`);
+    grantRarePredatorEpicDrop(context);
     context.grantExperienceForTarget(target);
     context.partyKillNotify?.(target);
     context.renderHud();
@@ -212,6 +213,13 @@ export function applyProjectileDamage(
   }
 }
 
+// 에픽 전리품 — 야생 포식자 처치 시 드물게(≈2%) 고급 구급상자가 추가로 떨어진다(에픽 등급답게 희귀).
+function grantRarePredatorEpicDrop(context: ProjectileDamageContext) {
+  if (!context.rollRewardChance(0.02, "predator", "advanced_medkit")) return;
+  const count = context.grantRewardItem("advanced_medkit", 1, "predator");
+  if (count > 0) context.showMessage(`✨ 에픽 전리품! ${ITEM_NAMES["advanced_medkit"] ?? "고급 구급상자"} ${count}개를 추가로 얻었습니다.`);
+}
+
 export function applyMeleePredatorAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
   if (target.type !== "wildPredator") return;
   if (context.partyAttackIntercept?.(target, attackPower, "melee")) return; // 파티 게스트 — 호스트가 판정
@@ -229,6 +237,7 @@ export function applyMeleePredatorAttack(context: ProjectileDamageContext, targe
   const loot = predatorLoot.item;
   context.removeObject(target.id);
   context.showMessage(lootCount > 0 ? `${target.name}를 물리치고 ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.` : `${target.name}를 물리쳤지만 재료는 나오지 않았습니다.`);
+  grantRarePredatorEpicDrop(context);
   context.grantExperienceForTarget(target);
   context.partyKillNotify?.(target);
 }
