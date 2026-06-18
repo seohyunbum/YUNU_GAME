@@ -2793,7 +2793,7 @@ class WildernessGame {
       return false;
     }
     this.mana = Math.max(0, this.mana - cost);
-    const cdMs = cooldownSeconds * 1000 * necklaceSkillCooldownMult(this.equippedNecklace); // 현자의 목걸이 -10%
+    const cdMs = cooldownSeconds * 1000 * necklaceSkillCooldownMult(this.equippedNecklace); // 현자의 목걸이 -15%
     if (slot === "primary") this.classSkillCooldownUntil = performance.now() + cdMs;
     else this.secondSkillCooldownUntil = performance.now() + cdMs;
     this.renderHud();

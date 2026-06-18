@@ -276,7 +276,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "strength_necklace",
     count: 1,
     ingredients: { sharp_obsidian: 2, refined_gold: 2, diamond_powder: 2 },
-    note: "에픽 장신구 — 착용 시 공격력 +5. 목걸이는 하나만 착용할 수 있습니다.",
+    note: "에픽 장신구 — 착용 시 공격력 +7. 목걸이는 하나만 착용할 수 있습니다.",
     extendedOnly: true,
   },
   {
@@ -285,7 +285,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "guardian_necklace",
     count: 1,
     ingredients: { sharp_obsidian: 2, refined_iron: 4, diamond_powder: 2 },
-    note: "에픽 장신구 — 착용 시 방어력 +5. 목걸이는 하나만 착용할 수 있습니다.",
+    note: "에픽 장신구 — 착용 시 방어력 +7. 목걸이는 하나만 착용할 수 있습니다.",
     extendedOnly: true,
   },
   {
@@ -294,7 +294,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "swift_necklace",
     count: 1,
     ingredients: { sharp_obsidian: 2, gold_powder: 3, refined_wood: 2 },
-    note: "에픽 장신구 — 착용 시 공격속도 +10%. 목걸이는 하나만 착용할 수 있습니다.",
+    note: "에픽 장신구 — 착용 시 공격속도 +25%. 목걸이는 하나만 착용할 수 있습니다.",
     extendedOnly: true,
   },
   {
@@ -303,7 +303,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "sage_necklace",
     count: 1,
     ingredients: { sharp_obsidian: 2, diamond_powder: 3, obsidian_powder: 2 },
-    note: "에픽 장신구 — 착용 시 스킬 쿨타임 -10%. 목걸이는 하나만 착용할 수 있습니다.",
+    note: "에픽 장신구 — 착용 시 스킬 쿨타임 -15%. 목걸이는 하나만 착용할 수 있습니다.",
     extendedOnly: true,
   },
 ];
