@@ -8175,7 +8175,8 @@ class WildernessGame {
       const offset = new THREE.Vector3(Math.cos(angle) * ringRadius, 0, Math.sin(angle) * ringRadius);
       this.spawnVillageHouse(position.clone().add(offset), special ? "큰 마을 집" : "주민의 집", false, villageId, i % 4);
     }
-    if (Math.random() < 0.5) {
+    if (special || Math.random() < 0.5) {
+      // 큰 마을(special)은 대장간 확정 — 제련대 교환처를 안정적으로 보장. 일반 마을은 50% 확률.
       this.spawnBlacksmith(position.clone().add(new THREE.Vector3(-ringRadius * 0.62, 0, ringRadius * 0.54)), villageId);
     }
     this.spawnVillageShop(position.clone().add(new THREE.Vector3(ringRadius * 0.58, 0, ringRadius * 0.46)), villageId);

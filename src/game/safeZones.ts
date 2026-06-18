@@ -5,7 +5,7 @@
 import { TRAINING_CENTER } from "./training";
 
 export const VILLAGE_CENTERS = [
-  { x: 58, z: -76, special: false },
+  { x: 58, z: -76, special: true }, // 시작 지점에 가장 가까운 중앙 마을 — 큰 마을 + 대장간 확정(제련대 교환용)
   { x: -96, z: 120, special: false },
   { x: 245, z: 138, special: true },
 ] as const;

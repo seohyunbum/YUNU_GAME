@@ -1826,11 +1826,15 @@ try {
     assert(VILLAGE_CENTERS.length === 3, "3 village centers (single source of truth)");
     assert(isInSafeZone(58, -76) && isInSafeZone(245, 138) && isInSafeZone(58, 46), "village + training centers are safe zones");
     assert(!isInSafeZone(0, 0) && !isInSafeZone(500, 500), "far points are not safe zones");
-    const p = { x: 60, z: -76 }; // 마을1(58,-76)에서 2칸 — 안쪽
+    const p = { x: -94, z: 120 }; // 일반 마을(-96,120)에서 2칸 — 안쪽 (58,-76 은 큰 마을 special 로 승격됨)
     clampOutOfSafeZones(p);
     assert(!isInSafeZone(p.x, p.z), "clamped point is pushed out of every safe zone");
-    const pushed = Math.hypot(p.x - 58, p.z + 76);
+    const pushed = Math.hypot(p.x + 96, p.z - 120);
     assert(pushed >= 27.9 && pushed <= 28.1, `clamped to village safe radius ~28 (got ${pushed.toFixed(2)})`);
+    const big = { x: 247, z: 138 }; // 큰 마을(245,138, special)에서 2칸 — 큰 마을 안전반경 ~37
+    clampOutOfSafeZones(big);
+    const pushedBig = Math.hypot(big.x - 245, big.z - 138);
+    assert(pushedBig >= 36.9 && pushedBig <= 37.1, `special village clamps to ~37 (got ${pushedBig.toFixed(2)})`);
     const q = { x: 0, z: 0 };
     clampOutOfSafeZones(q);
     assert(q.x === 0 && q.z === 0, "point outside all safe zones is unchanged by clamp");
