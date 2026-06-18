@@ -11,13 +11,14 @@ export const HUNGER_MAX = 5;
 export const HUNGER_TICK_SECONDS = 300;
 export const HUNGER_HP_REGEN = [0, 0, 0.005, 0.015, 0.03, 0.05] as const;
 
-// 침대 등급별 휴식 회복 — 직접제작침대 > 이층집 > 돌집 > 통나무집. mult = 평소 회복 배수, floorPerSec = 레벨 무관 초당 최소 회복(최대체력 대비). 완전회복까지 ≈ 1/floorPerSec 초.
+// 침대 등급별 휴식 회복 — 이층집·직접제작침대 > 돌집 > 통나무집. mult = 평소 회복 배수, floorPerSec = 레벨 무관 초당 최소 회복(최대체력 대비). 완전회복까지 ≈ 1/floorPerSec 초.
+// (직접제작=일반 침대는 회복이 과해 이층집과 동일 수준으로 하향 — crafted = twoStory.)
 export type BedTier = "wood" | "stone" | "twoStory" | "crafted";
 export const BED_REST_PROFILE: Record<BedTier, { mult: number; floorPerSec: number }> = {
   wood: { mult: 4, floorPerSec: 0.08 },
   stone: { mult: 5, floorPerSec: 0.1 },
   twoStory: { mult: 6, floorPerSec: 0.12 },
-  crafted: { mult: 7, floorPerSec: 0.14 },
+  crafted: { mult: 6, floorPerSec: 0.12 },
 };
 export const DAY_LENGTH_SECONDS = 3600;
 export const CLOUD_COUNT = 34;

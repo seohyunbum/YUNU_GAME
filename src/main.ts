@@ -483,7 +483,7 @@ class WildernessGame {
   private hungerTimer = 0;
   private starvationNoticeTimer = 0;
   private isResting = false; // 침대 휴식 중 — 회복 가속, 풀피/이동(0.6 이탈)/피격 시 해제. 휴식 중인 침대는 충돌 면제(밀려나 깨지 않게)
-  private restingBedTier: keyof typeof BED_REST_PROFILE = "crafted"; // 침대 등급 — 직접제작 > 이층집 > 돌집 > 통나무집
+  private restingBedTier: keyof typeof BED_REST_PROFILE = "crafted"; // 침대 등급 — 이층집=직접제작 > 돌집 > 통나무집
   private readonly restAnchor = new THREE.Vector3();
   private dragonSpawnTimer = 0;
   private lastDamageTaken = 0;
@@ -2763,7 +2763,7 @@ class WildernessGame {
     const restMul = this.isResting ? BED_REST_PROFILE[this.restingBedTier].mult : 1; // 침대 등급별 회복 배수
     const hungerLevel = Math.min(HUNGER_HP_REGEN.length - 1, Math.max(0, Math.floor(this.hunger)));
     let healthRegen = (CLASS_PASSIVES[this.playerClass].healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel]) * restMul;
-    if (this.isResting) healthRegen = Math.max(healthRegen, this.maxHealth * BED_REST_PROFILE[this.restingBedTier].floorPerSec); // 등급별 레벨무관 풀피 보장(통나무 ~12.5s ~ 직접제작 ~7s)
+    if (this.isResting) healthRegen = Math.max(healthRegen, this.maxHealth * BED_REST_PROFILE[this.restingBedTier].floorPerSec); // 등급별 레벨무관 풀피 보장(통나무 ~12.5s ~ 이층/직접제작 ~8.3s)
     if (this.hunger <= 0) healthRegen = 0; // 배고픔 0 — 체력 회복 없음(데미지도 없음)
     if (healthRegen > 0 && this.health < this.maxHealth) {
       const previousHealth = Math.floor(this.health);

@@ -1912,14 +1912,15 @@ try {
     // 집별 침대 등급(휴식 회복 차등): 통나무집=wood / 돌집=stone / 이층집=twoStory
     const houseBed = Object.fromEntries(HOUSE_BUILD_OPTIONS.map((o) => [o.id, o.bedTier]));
     assert(houseBed.wood_cabin === "wood" && houseBed.stone_house === "stone" && houseBed.two_story_house === "twoStory", `house bed tiers mismatch: ${JSON.stringify(houseBed)}`);
-    // 침대 등급별 휴식 회복 — 직접제작 > 이층집 > 돌집 > 통나무집 (mult·floor 모두 단조 증가)
+    // 침대 등급별 휴식 회복 — 집 등급은 통나무 < 돌 < 이층 단조 증가, 직접제작(일반)=이층집 동급(과회복 하향)
     const { BED_REST_PROFILE } = await server.ssrLoadModule("/src/game/constants.ts");
-    const order = ["wood", "stone", "twoStory", "crafted"];
-    for (let i = 1; i < order.length; i += 1) {
-      const lo = BED_REST_PROFILE[order[i - 1]], hi = BED_REST_PROFILE[order[i]];
-      assert(hi.mult > lo.mult && hi.floorPerSec > lo.floorPerSec, `bed rest profile must increase ${order[i - 1]}→${order[i]}: ${JSON.stringify({ lo, hi })}`);
+    const houseOrder = ["wood", "stone", "twoStory"];
+    for (let i = 1; i < houseOrder.length; i += 1) {
+      const lo = BED_REST_PROFILE[houseOrder[i - 1]], hi = BED_REST_PROFILE[houseOrder[i]];
+      assert(hi.mult > lo.mult && hi.floorPerSec > lo.floorPerSec, `bed rest profile must increase ${houseOrder[i - 1]}→${houseOrder[i]}: ${JSON.stringify({ lo, hi })}`);
     }
-    assert(BED_REST_PROFILE.crafted.mult === 7 && BED_REST_PROFILE.wood.mult === 4, "crafted=7x best, wood=4x weakest");
+    assert(BED_REST_PROFILE.crafted.mult === BED_REST_PROFILE.twoStory.mult && BED_REST_PROFILE.crafted.floorPerSec === BED_REST_PROFILE.twoStory.floorPerSec, "crafted(일반) bed rests at two-story level (lowered)");
+    assert(BED_REST_PROFILE.crafted.mult === 6 && BED_REST_PROFILE.wood.mult === 4, "crafted=6x (=twoStory), wood=4x weakest");
   }
 
   {
