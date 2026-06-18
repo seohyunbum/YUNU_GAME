@@ -7606,8 +7606,8 @@ class WildernessGame {
       model.rotation.set(-Math.PI / 2, 0, 0.35);
       model.scale.setScalar(item === "bow" ? 0.92 : 0.82);
       group.add(model);
-    } else if (/_(sword|dagger|axe|pickaxe|shovel|bow)$/.test(item)) {
-      const model = createHeldItemVisualModel(item); // 티어 무기/도구는 실제 모델로 떨어진다 (다이아·흑요석이 한눈에 보이게)
+    } else if (/_(sword|dagger|axe|pickaxe|shovel|bow|necklace|armor)$/.test(item) || item.startsWith("dragon_") || item === "advanced_medkit" || item === "diamond" || item === "refined_diamond" || item === "obsidian" || item === "sharp_obsidian") {
+      const model = createHeldItemVisualModel(item); // 티어 무기/도구·에픽 장신구/방어구·용 전리품·보석은 실제 모델로 떨어진다 (등급이 한눈에 보이게)
       model.position.y = 0.22;
       model.rotation.set(-Math.PI / 2.3, 0.3, 0.3);
       model.scale.setScalar(0.95);

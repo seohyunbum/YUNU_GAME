@@ -3,6 +3,7 @@ import { createMirrorModel } from "../avatar";
 import { createBucketVisual } from "./bucketVisuals";
 import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel, createObsidianGunModel, createObsidianShieldModel, createObsidianStaffModel, createOrnateStaffModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
+import { createAdvancedMedkitModel, createArmorModel, createDragonTrophyModel, createGemClusterModel, createNecklaceModel, GEM_ITEMS } from "./accessoryVisuals";
 import { addLegendaryWeapon } from "./legendaryWeapon";
 import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
 import {
@@ -255,6 +256,16 @@ export function createHeldItemModel(item: ItemId) {
     const bucket = createBucketVisual(item, 0.34);
     bucket.position.y = 0.1;
     group.add(bucket);
+  } else if (item.endsWith("_necklace")) {
+    group.add(createNecklaceModel(item));
+  } else if (item.endsWith("_armor")) {
+    group.add(createArmorModel(item));
+  } else if (item.startsWith("dragon_")) {
+    group.add(createDragonTrophyModel(item));
+  } else if (item === "advanced_medkit") {
+    group.add(createAdvancedMedkitModel());
+  } else if (GEM_ITEMS.has(item)) {
+    group.add(createGemClusterModel(item));
   } else if (PLACEABLE_TYPES[item]) {
     const block = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.28), headMaterial);
     block.position.y = 0.16;
