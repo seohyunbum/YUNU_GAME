@@ -163,13 +163,15 @@ function renderObjectiveMarkup(view: HudViewModel) {
   return `
     <button class="objective-card${doneClass}" type="button" title="${escapeHtml(objective.detail)}">
       <span class="objective-head">
-        <span class="objective-kicker">${objective.completed ? "🎁 보상 준비 완료" : "📜 현재 퀘스트"}</span>
-        <span class="objective-qkey"><kbd>Q</kbd>${objective.completed ? "받기" : "퀘스트"}</span>
+        <span class="objective-kicker">${objective.completed ? "🎁 보상 준비 완료!" : "📜 현재 퀘스트"}</span>
+        <span class="objective-progress${objective.completed ? " done" : ""}">${objective.completed ? "✅ 완료" : escapeHtml(objective.progress)}</span>
       </span>
       <strong>${escapeHtml(objective.title)}</strong>
-      <span class="objective-progress${objective.completed ? " done" : ""}">${objective.completed ? "✅ 완료!" : escapeHtml(objective.progress)}</span>
       <span class="objective-reward">🎁 보상: ${escapeHtml(objective.reward.label)}</span>
-      <span class="objective-claimhint">${objective.completed ? "클릭 또는 Q 로 보상 받기" : escapeHtml(objective.detail)}</span>
+      <span class="objective-action${objective.completed ? " ready" : ""}">
+        <kbd>Q</kbd>
+        <span class="objective-action-text">${objective.completed ? "눌러 보상 받기! (또는 클릭)" : "완료하면 Q로 보상 받기"}</span>
+      </span>
     </button>
   `;
 }
