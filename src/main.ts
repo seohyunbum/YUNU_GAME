@@ -95,6 +95,7 @@ import {
   spawnMagicTrail,
   spawnMeleeSlashTrail,
   spawnProjectileImpact,
+  spawnSkillCastImpact,
   spawnTntTrail,
   spawnWindCutterTrail,
   type CombatEffectContext,
@@ -2790,7 +2791,7 @@ class WildernessGame {
     useSecondClassSkill(this.secondSkillContext);
   }
 
-  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud() };
+  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
 
   private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, playerPosition: this.playerPosition };
 
@@ -2798,6 +2799,7 @@ class WildernessGame {
     const helpsParty = partyHasNearbyMember(this.playerPosition.x, this.playerPosition.z, HEAL_PARTY_RADIUS);
     if (this.health >= this.maxHealth && !helpsParty) { this.showMessage("이미 체력이 가득하고 근처에 도울 친구도 없습니다."); return; }
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, HEALER_SKILL_COST, HEALER_SKILL_COOLDOWN, "primary")) return;
+    spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     const previous = this.health;
     const amount = healerHealAmount(this.levelStatBonus());
     this.health = Math.min(this.maxHealth, this.health + amount);
@@ -2815,6 +2817,7 @@ class WildernessGame {
       return;
     }
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, SUMMONER_SKILL_COST, SUMMONER_SKILL_COOLDOWN, "primary")) return;
+    spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     this.playerBodyPosition = this.playerPosition.clone();
     const spawnPosition = this.playerPosition.clone();
     spawnPosition.y = this.getGroundHeightAt(spawnPosition.x, spawnPosition.z) + 1.6;
@@ -2833,6 +2836,7 @@ class WildernessGame {
 
   private useWarriorSkill() {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, WARRIOR_SKILL_COST, WARRIOR_SKILL_COOLDOWN, "primary")) return;
+    spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     const target = this.getLookTarget();
     const position = target && this.isCombatTarget(target) ? target.root.position.clone() : this.pointInFront(4.5);
     position.y = this.getGroundHeightAt(position.x, position.z) + 0.08;
@@ -2845,6 +2849,7 @@ class WildernessGame {
 
   private useMageSkill() {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, MAGE_TNT_COST, MAGE_TNT_COOLDOWN, "primary")) return;
+    spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     this.fireSkillProjectile("tnt", "tnt", mageTntDamage(this.levelStatBonus()), 24, 0.42, MAGE_TNT_RADIUS);
     this.playHandAction("magic");
     this.playTone(220, 0.08, "square", 0.024);
@@ -2853,6 +2858,7 @@ class WildernessGame {
 
   private useGunnerSkill() {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, GUNNER_SKILL_COST, GUNNER_SKILL_COOLDOWN, "primary")) return;
+    spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     this.fireSkillProjectile("arrow", "arrow", gunnerShotDamage(this.levelStatBonus()), 58, 0.22);
     this.playHandAction("bow");
     this.playBowShotSound();
@@ -2861,6 +2867,7 @@ class WildernessGame {
 
   private useTankerSkill() {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, TANKER_SKILL_COST, TANKER_SKILL_COOLDOWN, "primary")) return;
+    spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     this.ironGuardUntil = activateIronGuardUntil(performance.now());
     this.playHandAction("melee"); this.playTone(220, 0.16, "triangle", 0.03); this.showMessage(ironGuardMessage()); this.renderHud();
   }

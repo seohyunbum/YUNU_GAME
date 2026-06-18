@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { applyStylizedMeshDefaults } from "../visuals";
-import type { CombatProjectile, WorldObject } from "./types";
+import type { CombatProjectile, PlayerClassId, WorldObject } from "./types";
 
 export interface CombatEffectParticle {
   mesh: THREE.Mesh;
@@ -556,6 +556,194 @@ export function spawnBossRoar(context: CombatEffectContext, position: THREE.Vect
     particle.renderOrder = 22;
     context.scene.add(particle);
     context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(Math.cos(angle) * 1.6, THREE.MathUtils.randFloat(0.6, 2), Math.sin(angle) * 1.6), life: 0.5, maxLife: 0.5 });
+  }
+}
+
+// ── 직업별 스킬 시전 임팩트 ───────────────────────────────────────────────
+// 스킬을 쓰는 순간 직업 특성을 살린 캐스팅 연출을 분출한다(마법사=눈앞 마법진 등).
+// 모든 메시는 기존 damageParticles 페이드 시스템에 올려 수명 뒤 자동 정리된다.
+// (event-driven — update*/animate* 핫패스가 아니라 시전 시점에만 호출.)
+function pushFade(context: CombatEffectContext, mesh: THREE.Mesh, velocity: THREE.Vector3, life: number, renderOrder = 25) {
+  mesh.renderOrder = renderOrder;
+  context.scene.add(mesh);
+  context.damageParticles.push({ mesh, velocity, life, maxLife: life });
+}
+
+function flatForward(context: CombatEffectContext) {
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(context.camera.quaternion);
+  forward.y = 0;
+  if (forward.lengthSq() < 0.0001) forward.set(0, 0, -1);
+  return forward.normalize();
+}
+
+function groundPointInFront(context: CombatEffectContext, distance: number) {
+  const point = context.playerPosition.clone().addScaledVector(flatForward(context), distance);
+  point.y = context.getGroundHeightAt(point.x, point.z) + 0.06;
+  return point;
+}
+
+// 마법진 — 바닥에 깔리는 발광 디스크 + 2겹 룬 링 + 방사형 눈금 + 솟구치는 룬 입자.
+export function spawnMagicCircle(context: CombatEffectContext, center: THREE.Vector3, innerColor: number, runeColor: number, radius = 1.5) {
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(radius * 0.92, 36),
+    new THREE.MeshBasicMaterial({ color: innerColor, transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  disc.position.copy(center);
+  disc.rotation.x = -Math.PI / 2;
+  pushFade(context, disc, new THREE.Vector3(0, 0.02, 0), 0.55);
+  for (let i = 0; i < 2; i += 1) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(radius * (0.62 + i * 0.38), 0.04, 8, 52),
+      new THREE.MeshBasicMaterial({ color: runeColor, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    ring.position.copy(center).add(new THREE.Vector3(0, 0.02 + i * 0.01, 0));
+    ring.rotation.x = Math.PI / 2;
+    pushFade(context, ring, new THREE.Vector3(0, 0.02, 0), 0.62 + i * 0.06);
+  }
+  for (let i = 0; i < 10; i += 1) {
+    const angle = (i / 10) * Math.PI * 2;
+    const tick = new THREE.Mesh(
+      new THREE.BoxGeometry(0.07, 0.02, 0.3),
+      new THREE.MeshBasicMaterial({ color: runeColor, transparent: true, opacity: 0.88, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    tick.position.copy(center).add(new THREE.Vector3(Math.cos(angle) * radius * 0.82, 0.03, Math.sin(angle) * radius * 0.82));
+    tick.rotation.y = -angle;
+    pushFade(context, tick, new THREE.Vector3(0, 0.05, 0), 0.55);
+  }
+  for (let i = 0; i < 16; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = radius * Math.sqrt(Math.random());
+    const mote = new THREE.Mesh(
+      new THREE.OctahedronGeometry(THREE.MathUtils.randFloat(0.04, 0.09)),
+      new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? innerColor : runeColor, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    mote.position.copy(center).add(new THREE.Vector3(Math.cos(angle) * r, 0.05, Math.sin(angle) * r));
+    pushFade(context, mote, new THREE.Vector3(0, THREE.MathUtils.randFloat(1.6, 3.2), 0), THREE.MathUtils.randFloat(0.5, 0.85));
+  }
+}
+
+// 카메라 앞 발광 링 + 전방으로 쏘는 스파크 — 거너 머즐 플래시/사격 임팩트.
+function spawnMuzzleFlash(context: CombatEffectContext, color: number) {
+  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(context.camera.quaternion);
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(context.camera.quaternion);
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(context.camera.quaternion);
+  const origin = context.camera.position.clone().addScaledVector(forward, 1.0).addScaledVector(right, 0.16).addScaledVector(up, -0.12);
+  const flash = new THREE.Mesh(
+    new THREE.RingGeometry(0.06, 0.34, 22),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  flash.position.copy(origin);
+  flash.quaternion.copy(context.camera.quaternion);
+  pushFade(context, flash, forward.clone().multiplyScalar(0.4), 0.16);
+  for (let i = 0; i < 12; i += 1) {
+    const spark = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.025, 0.06), 7, 5),
+      new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? color : 0xffffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    spark.position.copy(origin);
+    const velocity = forward.clone().multiplyScalar(THREE.MathUtils.randFloat(6, 12))
+      .addScaledVector(right, THREE.MathUtils.randFloatSpread(2.4))
+      .addScaledVector(up, THREE.MathUtils.randFloatSpread(1.8));
+    pushFade(context, spark, velocity, THREE.MathUtils.randFloat(0.12, 0.26));
+  }
+}
+
+// 머리 위 후광 링 + 내려앉는 빛 입자 — 힐러 신성 캐스팅.
+function spawnHolyHalo(context: CombatEffectContext, color: number) {
+  const center = context.playerPosition.clone().setY(context.playerPosition.y + 0.9);
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(0.62, 0.045, 10, 40),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  halo.position.copy(center);
+  halo.rotation.x = Math.PI / 2;
+  pushFade(context, halo, new THREE.Vector3(0, 0.55, 0), 0.7);
+  for (let i = 0; i < 18; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const mote = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.04, 0.08), 8, 6),
+      new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? 0xffffff : color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    mote.position.copy(center).add(new THREE.Vector3(Math.cos(angle) * 0.7, THREE.MathUtils.randFloat(0.4, 1.2), Math.sin(angle) * 0.7));
+    pushFade(context, mote, new THREE.Vector3(0, THREE.MathUtils.randFloat(-1.4, -0.6), 0), THREE.MathUtils.randFloat(0.5, 0.8));
+  }
+}
+
+// 발밑 회오리 링 + 솟구치는 깃털 — 소환사 빙의 캐스팅.
+function spawnWindSummon(context: CombatEffectContext, color: number) {
+  const base = context.playerPosition.clone();
+  base.y = context.getGroundHeightAt(base.x, base.z) + 0.1;
+  for (let i = 0; i < 2; i += 1) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.7 + i * 0.5, 0.035, 8, 44),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.75 - i * 0.2, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    ring.position.copy(base).add(new THREE.Vector3(0, 0.05 + i * 0.05, 0));
+    ring.rotation.x = Math.PI / 2;
+    pushFade(context, ring, new THREE.Vector3(0, 1.0 + i * 0.4, 0), 0.6 + i * 0.08);
+  }
+  for (let i = 0; i < 16; i += 1) {
+    const angle = (i / 16) * Math.PI * 2;
+    const feather = new THREE.Mesh(
+      new THREE.BoxGeometry(0.05, 0.02, 0.18),
+      new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? color : 0xffffff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    feather.position.copy(base).add(new THREE.Vector3(Math.cos(angle) * 0.8, 0.2, Math.sin(angle) * 0.8));
+    feather.rotation.y = -angle;
+    const swirl = new THREE.Vector3(-Math.sin(angle), 0, Math.cos(angle)).multiplyScalar(2.2);
+    swirl.y = THREE.MathUtils.randFloat(2.2, 4.0);
+    pushFade(context, feather, swirl, THREE.MathUtils.randFloat(0.5, 0.85));
+  }
+}
+
+// 플레이어를 감싸는 6각 강철 방벽 + 발밑 링 — 탱커 철벽 캐스팅.
+function spawnIronBarrier(context: CombatEffectContext, color: number) {
+  const base = context.playerPosition.clone();
+  base.y = context.getGroundHeightAt(base.x, base.z) + 0.05;
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.25, 0.06, 10, 40),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  ring.position.copy(base).add(new THREE.Vector3(0, 0.08, 0));
+  ring.rotation.x = Math.PI / 2;
+  pushFade(context, ring, new THREE.Vector3(0, 0.2, 0), 0.6);
+  for (let i = 0; i < 6; i += 1) {
+    const angle = (i / 6) * Math.PI * 2;
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 1.2, 0.08),
+      new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? color : 0xcfd8e3, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    plate.position.copy(base).add(new THREE.Vector3(Math.cos(angle) * 1.25, 1.0, Math.sin(angle) * 1.25));
+    plate.rotation.y = -angle + Math.PI / 2;
+    pushFade(context, plate, new THREE.Vector3(0, 0.35, 0), 0.65);
+  }
+}
+
+// 직업별 캐스팅 임팩트 디스패치 — 1차/2차 스킬 시전 시 호출.
+export function spawnSkillCastImpact(context: CombatEffectContext, classId: PlayerClassId) {
+  switch (classId) {
+    case "mage":
+      spawnMagicCircle(context, groundPointInFront(context, 2.6), 0x7c5bff, 0x5eead4, 1.65);
+      break;
+    case "warrior": {
+      const feet = context.playerPosition.clone();
+      feet.y = context.getGroundHeightAt(feet.x, feet.z) + 0.05;
+      spawnGroundShockwave(context, feet, 0xff5a2a);
+      spawnBossRoar(context, feet, 0xffae42);
+      break;
+    }
+    case "gunner":
+      spawnMuzzleFlash(context, 0xfff0a3);
+      break;
+    case "healer":
+      spawnHolyHalo(context, 0xffe9a3);
+      break;
+    case "summoner":
+      spawnWindSummon(context, 0xdffcff);
+      break;
+    case "tanker":
+      spawnIronBarrier(context, 0x9fb4c9);
+      break;
   }
 }
 

@@ -1363,6 +1363,7 @@ try {
       playTone: () => {},
       showMessage: (text) => calls.push(["message", text]),
       renderHud: () => {},
+      castImpact: () => calls.push(["cast", playerClass]),
     });
 
     useSecondClassSkill(makeContext("mage", null));

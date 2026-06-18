@@ -110,6 +110,7 @@ export interface SecondSkillContext {
   playTone(frequency: number, duration?: number, type?: OscillatorType, volume?: number): void;
   showMessage(text: string): void;
   renderHud(): void;
+  castImpact(): void;
 }
 
 export function useSecondClassSkill(context: SecondSkillContext) {
@@ -123,6 +124,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
       return;
     }
     if (!context.trySpend(skill)) return;
+    context.castImpact();
     const strike = burningStrikeDamage(context.currentDamage());
     context.meleeEffects(target);
     context.applyDamage(target, strike);
@@ -133,6 +135,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   }
   if (playerClass === "mage") {
     if (!context.trySpend(skill)) return;
+    context.castImpact();
     context.fireSkillProjectile("tnt", "fireball", fireballDamage(bonus), 30, 0.4, FIREBALL_RADIUS);
     context.playHandAction("magic");
     context.playTone(300, 0.1, "sawtooth", 0.03);
@@ -141,6 +144,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   }
   if (playerClass === "summoner") {
     if (!context.trySpend(skill)) return;
+    context.castImpact();
     context.fireSkillProjectile("wind", "wind", windSpiritDamage(bonus), 34, 0.5);
     context.playHandAction("magic");
     context.playTone(780, 0.08, "triangle", 0.026);
@@ -149,6 +153,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   }
   if (playerClass === "gunner") {
     if (!context.trySpend(skill)) return;
+    context.castImpact();
     context.buffs.rapidFireUntil = context.now() + RAPID_FIRE_SECONDS * 1000;
     context.playTone(520, 0.07, "square", 0.028);
     context.showMessage(`속사! ${RAPID_FIRE_SECONDS}초 동안 연사 속도가 2배가 됩니다.`);
@@ -157,6 +162,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   }
   if (playerClass === "tanker") {
     if (!context.trySpend(skill)) return;
+    context.castImpact();
     context.buffs.burningShieldUntil = context.now() + BURNING_SHIELD_SECONDS * 1000;
     context.buffs.nextAuraTickAt = context.now() + BURN_TICK_MS;
     context.playHandAction("melee");
@@ -167,6 +173,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   }
   // healer
   if (!context.trySpend(skill)) return;
+  context.castImpact();
   context.buffs.healingRainUntil = context.now() + HEALING_RAIN_SECONDS * 1000;
   context.buffs.nextRainTickAt = context.now() + BURN_TICK_MS;
   context.playHandAction("magic");
