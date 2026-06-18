@@ -7188,7 +7188,7 @@ class WildernessGame {
       for (let index = 0; index < count; index += 1) {
         const emptySlot = this.allStorageSlots().find((slot) => !slot.item);
         if (!emptySlot) {
-          this.showMessage(`${ITEM_NAMES[item] ?? item}을 넣을 공간이 없습니다.`);
+          this.showMessage(`⚠️ 가방이 가득 찼습니다! ${ITEM_NAMES[item] ?? item}을(를) 넣을 빈 칸이 없어요. I로 인벤토리를 비우거나 확장 가방을 만드세요.`, { durationSeconds: 4.5, danger: true });
           return index > 0;
         }
         emptySlot.item = item;
@@ -7220,7 +7220,7 @@ class WildernessGame {
       }
     }
 
-    this.showMessage(`${ITEM_NAMES[item] ?? item}을 넣을 공간이 없습니다.`);
+    this.showMessage(`⚠️ 가방이 가득 찼습니다! ${ITEM_NAMES[item] ?? item}을(를) 주울 수 없어요. I로 인벤토리를 비우거나 확장 가방을 만드세요.`, { durationSeconds: 4.5, danger: true });
     return false;
   }
 
