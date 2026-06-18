@@ -6479,11 +6479,13 @@ class WildernessGame {
           ${trade.offers.map((offer) => {
             const give = this.formatItemBundle(offer.give);
             const receive = this.formatItemBundle(offer.receive);
+            const owned = (Object.entries(offer.receive) as [ItemId, number][]).map(([item]) => `보유 ${this.countItem(item)}개`).join(" · ");
             const disabled = this.hasIngredients(offer.give) ? "" : "disabled";
             return `<article class="recipe-card">
               <div>
                 <strong>${offer.name}</strong>
                 <p>${give} -> ${receive}</p>
+                <small>${owned}</small>
               </div>
               <button data-trade="${offer.id}" ${disabled}>거래</button>
             </article>`;
