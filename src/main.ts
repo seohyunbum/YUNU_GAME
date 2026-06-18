@@ -6214,6 +6214,8 @@ class WildernessGame {
         armor: this.equippedArmor ? (ITEM_NAMES[this.equippedArmor] ?? this.equippedArmor) : "없음",
         shield: this.equippedShield ? (ITEM_NAMES[this.equippedShield] ?? this.equippedShield) : "없음",
         necklace: this.equippedNecklace ? (ITEM_NAMES[this.equippedNecklace] ?? this.equippedNecklace) : "없음",
+        weaponItem: selected && WEAPON_DAMAGE[selected] !== undefined ? selected : null,
+        armorItem: this.equippedArmor, shieldItem: this.equippedShield, necklaceItem: this.equippedNecklace,
         ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
       }, {

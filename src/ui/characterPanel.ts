@@ -1,5 +1,6 @@
 // 캐릭터 정보 창 — 착용 장비 + 스탯 확인, 제작 레벨업으로 얻은 스탯 포인트 분배.
 // leaf: main.ts 를 import 하지 않는다 (view model + 콜백만 받는다).
+import { initItemTooltips } from "./itemTooltip";
 
 export interface CharacterPanelView {
   className: string;
@@ -15,6 +16,10 @@ export interface CharacterPanelView {
   armor: string;
   shield: string;
   necklace: string;
+  weaponItem: string | null;
+  armorItem: string | null;
+  shieldItem: string | null;
+  necklaceItem: string | null;
   ownedNecklaces: { item: string; name: string; equipped: boolean }[];
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
@@ -27,7 +32,12 @@ export interface CharacterPanelCallbacks {
 }
 
 function escapeHtml(value: string) {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+// 착용 아이템이 있을 때만 마우스오버 툴팁용 data-item 속성을 만든다.
+function gearInfoAttr(item: string | null) {
+  return item ? ` data-item="${escapeHtml(item)}"` : "";
 }
 
 const STAT_ROWS: { kind: "hp" | "mana" | "attack" | "defense"; label: string; per: number }[] = [
@@ -54,16 +64,16 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
         <div class="character-body">
           <div class="character-gear">
             <div class="inventory-label">착용 장비</div>
-            <div class="character-gear-row"><span>🗡️ 무기</span><strong>${escapeHtml(view.weapon)}</strong></div>
-            <div class="character-gear-row"><span>🛡️ 방어구</span><strong>${escapeHtml(view.armor)}</strong></div>
-            <div class="character-gear-row"><span>🔰 방패</span><strong>${escapeHtml(view.shield)}</strong></div>
-            <div class="character-gear-row"><span>📿 목걸이</span><strong>${escapeHtml(view.necklace)}</strong></div>
+            <div class="character-gear-row"${gearInfoAttr(view.weaponItem)}><span>🗡️ 무기</span><strong>${escapeHtml(view.weapon)}</strong></div>
+            <div class="character-gear-row"${gearInfoAttr(view.armorItem)}><span>🛡️ 방어구</span><strong>${escapeHtml(view.armor)}</strong></div>
+            <div class="character-gear-row"${gearInfoAttr(view.shieldItem)}><span>🔰 방패</span><strong>${escapeHtml(view.shield)}</strong></div>
+            <div class="character-gear-row"${gearInfoAttr(view.necklaceItem)}><span>📿 목걸이</span><strong>${escapeHtml(view.necklace)}</strong></div>
             ${
               view.ownedNecklaces.length > 0
                 ? `<div class="character-necklace-choices">${view.ownedNecklaces
                     .map(
                       (n) =>
-                        `<button class="character-necklace-choice${n.equipped ? " equipped" : ""}" data-equip-necklace="${escapeHtml(n.item)}">${escapeHtml(n.name)}${n.equipped ? " ✓" : ""}</button>`,
+                        `<button class="character-necklace-choice${n.equipped ? " equipped" : ""}" data-equip-necklace="${escapeHtml(n.item)}" data-item="${escapeHtml(n.item)}">${escapeHtml(n.name)}${n.equipped ? " ✓" : ""}</button>`,
                     )
                     .join("")}${view.ownedNecklaces.some((n) => n.equipped) ? `<button class="character-necklace-choice" data-equip-necklace="">해제</button>` : ""}</div>`
                 : `<div class="character-necklace-empty">보유한 목걸이가 없습니다. 확장 제작대에서 만들거나 흑요석 상자에서 얻으세요.</div>`
@@ -92,4 +102,5 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
   panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-necklace]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onEquipNecklace(button.dataset.equipNecklace ? button.dataset.equipNecklace : null));
   });
+  initItemTooltips();
 }

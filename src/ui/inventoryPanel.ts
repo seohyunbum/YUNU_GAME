@@ -1,4 +1,5 @@
 import { itemTier } from "../game/items";
+import { initItemTooltips } from "./itemTooltip";
 
 export interface InventorySlotView {
   item: string | null;
@@ -86,10 +87,11 @@ function renderInventorySlot(slot: InventorySlotView) {
       : "";
   const moveSelected = slot.moveSelected ? " move-selected" : "";
   const tier = slot.item ? ` tier-${itemTier(slot.item)}` : "";
+  const infoAttr = slot.item ? ` data-item="${escapeAttr(slot.item)}"` : "";
   const content = slot.item
     ? `<span class="slot-name">${escapeHtml(slot.label)}</span><span class="slot-count">${slot.count}</span>`
     : "";
-  return `<div class="mini-slot inventory-cell${slot.extraClass ?? ""}${moveSelected}${tier}"${sourceAttrs}${dragAttrs}>${content}</div>`;
+  return `<div class="mini-slot inventory-cell${slot.extraClass ?? ""}${moveSelected}${tier}"${sourceAttrs}${dragAttrs}${infoAttr}>${content}</div>`;
 }
 
 function renderCraftSlot(slot: InventorySlotView, index: number) {
@@ -100,12 +102,13 @@ function renderCraftSlot(slot: InventorySlotView, index: number) {
     ? ` draggable="true" data-drop-item="${escapeAttr(slot.item)}" data-slot-source="craft" data-slot-index="${index}"`
     : "";
   const tier = slot.item ? ` tier-${itemTier(slot.item)}` : "";
-  return `<button class="craft-slot inventory-cell${tier}" data-craft-slot="${index}"${dragAttrs}>${label}</button>`;
+  const infoAttr = slot.item ? ` data-item="${escapeAttr(slot.item)}"` : "";
+  return `<button class="craft-slot inventory-cell${tier}" data-craft-slot="${index}"${dragAttrs}${infoAttr}>${label}</button>`;
 }
 
 function renderMaterialButton(material: InventoryMaterialView, index: number) {
   const selected = material.selected ? " selected" : "";
-  return `<button class="item-button item-slot${selected}" draggable="true" data-drop-item="${escapeAttr(material.item)}" data-select-item-index="${index}">
+  return `<button class="item-button item-slot${selected}" draggable="true" data-drop-item="${escapeAttr(material.item)}" data-item="${escapeAttr(material.item)}" data-select-item-index="${index}">
           <span class="slot-name">${escapeHtml(material.label)}</span>
           <span class="slot-count">${material.count}</span>
         </button>`;
@@ -234,5 +237,6 @@ export function renderInventoryPanel(
   };
   searchInput?.addEventListener("input", applyRecipeFilter);
   applyRecipeFilter();
+  initItemTooltips();
   callbacks.bindDragDrop();
 }

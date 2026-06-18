@@ -16,6 +16,7 @@ try {
   const regions = await server.ssrLoadModule("/src/game/regions.ts");
   const trading = await server.ssrLoadModule("/src/game/trading.ts");
   const recipeGuide = await server.ssrLoadModule("/src/game/recipeGuide.ts");
+  const itemInfo = await server.ssrLoadModule("/src/game/itemInfo.ts");
   const worldMaps = await server.ssrLoadModule("/src/game/worldMaps.ts");
   const worldData = await server.ssrLoadModule("/src/game/worldData.ts");
   const objectives = await server.ssrLoadModule("/src/objectives.ts");
@@ -337,13 +338,37 @@ try {
     if (!(o.cost > 0)) problems.push(`shop '${o.id}': cost ${o.cost} <= 0`);
   }
 
+  // 5. 아이템 디스크라이버(마우스오버 툴팁): 모든 아이템에 이름·등급, 능력치/설명이 누락 없이 나오는가
+  {
+    const { describeItem } = itemInfo;
+    const tierLabels = new Set(["일반", "고급", "희귀", "에픽", "레전더리"]);
+    for (const id of Object.keys(ITEM_NAMES)) {
+      const info = describeItem(id);
+      if (!info || typeof info.name !== "string" || info.name.length === 0) problems.push(`itemInfo '${id}': missing name`);
+      if (!tierLabels.has(info.tierLabel)) problems.push(`itemInfo '${id}': bad tierLabel '${info.tierLabel}'`);
+      if (!Array.isArray(info.stats)) problems.push(`itemInfo '${id}': stats is not an array`);
+    }
+    // 대표 아이템 스탯/설명 표본 — 능력치 라인이 실제로 나오는지
+    const wand = describeItem("magic_wand");
+    if (!wand.stats.some((s) => s.includes("원거리 공격력") && s.includes("마법"))) problems.push(`itemInfo magic_wand: ranged/magic stat missing (${JSON.stringify(wand.stats)})`);
+    const armor = describeItem("iron_armor");
+    if (!armor.stats.some((s) => s.startsWith("방어력 +"))) problems.push(`itemInfo iron_armor: armor stat missing (${JSON.stringify(armor.stats)})`);
+    const medkit = describeItem("medkit");
+    if (!medkit.stats.some((s) => s.startsWith("체력 회복 +"))) problems.push(`itemInfo medkit: heal stat missing (${JSON.stringify(medkit.stats)})`);
+    const swift = describeItem("swift_necklace");
+    if (!swift.stats.some((s) => s.includes("공격속도"))) problems.push(`itemInfo swift_necklace: effect stat missing (${JSON.stringify(swift.stats)})`);
+    const pick = describeItem("iron_pickaxe");
+    if (!pick.stats.some((s) => s.startsWith("채굴력")) || !pick.stats.some((s) => s.startsWith("내구도"))) problems.push(`itemInfo iron_pickaxe: tool stats missing (${JSON.stringify(pick.stats)})`);
+    if (describeItem("magic_wand").note === null) problems.push("itemInfo magic_wand: note (recipe description) missing");
+  }
+
   if (problems.length > 0) {
     for (const p of problems) console.error(`CONTENT ✗ ${p}`);
     process.exitCode = 1;
   } else {
     console.log(JSON.stringify({
       ok: true,
-      checks: ["recipe items exist", "recipe guide searchable", "tutorial steps valid", "class starter/skill/passive valid", "hunger regen table valid", "weapons/shields/heal items named", "regions/monsters valid", "world maps valid", "boss progression valid", "field bosses valid", "trade/shop items exist"],
+      checks: ["recipe items exist", "recipe guide searchable", "tutorial steps valid", "class starter/skill/passive valid", "hunger regen table valid", "weapons/shields/heal items named", "regions/monsters valid", "world maps valid", "boss progression valid", "field bosses valid", "trade/shop items exist", "item describer (tooltip) valid"],
     }, null, 2));
   }
 } finally {

@@ -1893,6 +1893,32 @@ body {
 .slot.tier-epic, .mini-slot.tier-epic, .craft-slot.tier-epic { background: rgba(52, 28, 78, 0.85); border-color: rgba(192, 132, 252, 0.72); }
 .slot.tier-legendary, .mini-slot.tier-legendary, .craft-slot.tier-legendary { background: rgba(78, 28, 34, 0.85); border-color: rgba(248, 113, 113, 0.74); }
 
+/* 아이템 마우스오버 툴팁 — 인벤토리/캐릭터창의 data-item 요소에 호버 시 표시 */
+.item-tooltip {
+  position: fixed;
+  z-index: 9999;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(10, 14, 24, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.45;
+  pointer-events: none;
+}
+.item-tooltip.hidden { display: none; }
+.item-tooltip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.item-tooltip-name { font-weight: 700; font-size: 13px; color: #f8fafc; }
+.item-tooltip-tier { font-size: 11px; color: #94a3b8; }
+.item-tooltip-head.tier-uncommon .item-tooltip-name { color: #4ade80; }
+.item-tooltip-head.tier-rare .item-tooltip-name { color: #60a5fa; }
+.item-tooltip-head.tier-epic .item-tooltip-name { color: #c084fc; }
+.item-tooltip-head.tier-legendary .item-tooltip-name { color: #f87171; }
+.item-tooltip-stat { color: #fbbf24; }
+.item-tooltip-note { margin-top: 4px; color: #cbd5e1; }
+
 .slot.selected {
   border-color: #facc15;
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.25);
