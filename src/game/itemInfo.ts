@@ -67,6 +67,7 @@ const EXTRA_NOTES: Partial<Record<ItemId, string>> = {
   dragon_scale: "용 보스 전리품. 최상급 제작 재료입니다.",
   dragon_tail: "용 보스 전리품. 희귀 제작 재료입니다.",
   dragon_horn: "용 보스 전리품. 매우 희귀한 재료입니다.",
+  job_change_tome: "전직의서. 몬스터 요새 보스가 떨어뜨리는 에픽 재료입니다. 향후 전직 시스템에서 직업을 바꾸는 데 쓰입니다.",
   tutorial_book: "조작·목표를 안내하는 책입니다. 들고 사용하면 열립니다.",
   bag: "가방. 인벤토리 칸을 늘려 줍니다.",
   water_bucket: "물을 담은 양동이. 용암지대에 부으면 흑요석이 됩니다.",

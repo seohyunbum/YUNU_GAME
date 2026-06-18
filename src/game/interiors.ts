@@ -30,13 +30,32 @@ const caveTorchWoodMaterial = new THREE.MeshStandardMaterial({ color: 0x6b3f22, 
 const caveTorchFlameMaterial = new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xea8a22, emissiveIntensity: 1.1, roughness: 0.38 });
 const caveCrystalMaterial = new THREE.MeshStandardMaterial({ color: 0xa7e8ff, emissive: 0x38bdf8, emissiveIntensity: 0.55, roughness: 0.5 });
 
+// 몬스터 요새 전용 공유 props — 진입마다 재생성하지 않도록 모듈 레벨 1회 생성(셸과 동일 정책).
+const FORTRESS_BANNER_GEOMETRY = new THREE.PlaneGeometry(1.1, 2.0);
+const FORTRESS_BANNER_POLE_GEOMETRY = new THREE.CylinderGeometry(0.05, 0.05, 2.4, 6);
+const FORTRESS_BRAZIER_BOWL_GEOMETRY = new THREE.CylinderGeometry(0.34, 0.2, 0.34, 10);
+const FORTRESS_BRAZIER_LEG_GEOMETRY = new THREE.CylinderGeometry(0.045, 0.045, 1.0, 6);
+const FORTRESS_FLAME_GEOMETRY = new THREE.SphereGeometry(0.22, 12, 8);
+const FORTRESS_SKULL_GEOMETRY = new THREE.IcosahedronGeometry(0.18, 0);
+const FORTRESS_BONE_GEOMETRY = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 6);
+const FORTRESS_SPIKE_GEOMETRY = new THREE.ConeGeometry(0.12, 1.1, 6);
+const FORTRESS_BAR_GEOMETRY = new THREE.CylinderGeometry(0.04, 0.04, 2.4, 6);
+const FORTRESS_ALTAR_BASE_GEOMETRY = new THREE.CylinderGeometry(2.4, 2.8, 0.5, 18);
+const FORTRESS_ALTAR_RING_GEOMETRY = new THREE.TorusGeometry(2.1, 0.12, 10, 36);
+const fortressBannerMaterial = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, emissive: 0x450a0a, emissiveIntensity: 0.35, roughness: 0.85, side: THREE.DoubleSide });
+const fortressIronMaterial = new THREE.MeshStandardMaterial({ color: 0x2b2f36, metalness: 0.45, roughness: 0.55 });
+const fortressFlameMaterial = new THREE.MeshStandardMaterial({ color: 0xff7a33, emissive: 0xef4444, emissiveIntensity: 1.3, roughness: 0.34 });
+const fortressBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xe7e5d8, roughness: 0.8 });
+const fortressAltarMaterial = new THREE.MeshStandardMaterial({ color: 0x3b0d12, emissive: 0x7f1d1d, emissiveIntensity: 0.4, roughness: 0.7 });
+const fortressRuneMaterial = new THREE.MeshStandardMaterial({ color: 0xff3b3b, emissive: 0xff1f1f, emissiveIntensity: 1.0, roughness: 0.4 });
+
 // main 의 dispose-skip 등록용 — 동굴 셸은 모듈 공유 자산이라 채굴/퇴장 시 dispose 되면 다음 진입이 깨진다.
 // (현재 clearCaveObjects 는 scene.remove 만 하지만, 등록해 두면 실수로 dispose 경로를 타도 공유본이 보존된다.)
 export function caveSharedGeometries(): THREE.BufferGeometry[] {
-  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY];
+  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY, FORTRESS_BANNER_GEOMETRY, FORTRESS_BANNER_POLE_GEOMETRY, FORTRESS_BRAZIER_BOWL_GEOMETRY, FORTRESS_BRAZIER_LEG_GEOMETRY, FORTRESS_FLAME_GEOMETRY, FORTRESS_SKULL_GEOMETRY, FORTRESS_BONE_GEOMETRY, FORTRESS_SPIKE_GEOMETRY, FORTRESS_BAR_GEOMETRY, FORTRESS_ALTAR_BASE_GEOMETRY, FORTRESS_ALTAR_RING_GEOMETRY];
 }
 export function caveSharedMaterials(): THREE.MeshStandardMaterial[] {
-  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial];
+  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial, fortressBannerMaterial, fortressIronMaterial, fortressFlameMaterial, fortressBoneMaterial, fortressAltarMaterial, fortressRuneMaterial];
 }
 
 // 동굴/집 인테리어 빌더 — main.ts 에서 추출한 순수 장면 구성 로직.
@@ -49,6 +68,7 @@ export interface InteriorContext extends SpawnContext {
   spawnBlacksmithNpc(position: THREE.Vector3): WorldObject;
   randomCavePoint(): THREE.Vector3;
   rollMineMineral(): ItemId;
+  spawnFortressMonster(position: THREE.Vector3, boss: boolean): WorldObject | null;
   trackCaveObjects(...ids: string[]): void;
   trackHouseObjects(...ids: string[]): void;
   showMessage(text: string): void;
@@ -88,7 +108,8 @@ function createHouseExit(position: THREE.Vector3) {
   return group;
 }
 
-export function createCaveInterior(context: InteriorContext) {
+// 동굴 공동(cavern) 셸 — 일반 동굴과 몬스터 요새가 공유하는 기반 구조(바닥·천장·벽 바위·횃불·크리스탈·조명).
+function buildCaveShell() {
   const shell = new THREE.Group();
   const floor = new THREE.Mesh(CAVE_FLOOR_GEOMETRY, caveFloorMaterial);
   floor.rotation.x = -Math.PI / 2;
@@ -163,12 +184,20 @@ export function createCaveInterior(context: InteriorContext) {
   deepGuideLight.position.set(0, 1.9, CAVE_END_Z + 10);
   shell.add(entranceLight, deepGuideLight);
   applyStylizedMeshDefaults(shell);
-  context.scene.add(shell);
-  context.trackCaveObjects(`loose-${shell.uuid}`);
+  return shell;
+}
 
+function addCaveExits(context: InteriorContext) {
   const entranceId = context.addWorldObject("caveExit", "입구로 나가기", createExitPortal(new THREE.Vector3(0, 0, CAVE_START_Z + 2))).id;
   const deepExitId = context.addWorldObject("caveExit", "동굴 끝 출구", createExitPortal(new THREE.Vector3(0, 0, CAVE_END_Z + 4))).id;
   context.trackCaveObjects(entranceId, deepExitId);
+}
+
+export function createCaveInterior(context: InteriorContext) {
+  const shell = buildCaveShell();
+  context.scene.add(shell);
+  context.trackCaveObjects(`loose-${shell.uuid}`);
+  addCaveExits(context);
 
   for (let i = 0; i < 34; i += 1) context.spawnOre("stone", context.randomCavePoint());
   for (let i = 0; i < 20; i += 1) context.spawnOre("coal", context.randomCavePoint());
@@ -187,6 +216,95 @@ export function createCaveInterior(context: InteriorContext) {
     for (let i = 0; i < 3; i += 1) if (Math.random() < 0.35) context.spawnOre("obsidian", context.randomCavePoint());
     context.showMessage("엄청 드문 광산을 발견했습니다. 광산 상자가 많습니다!");
   }
+}
+
+// 몬스터 요새 장식 — 동굴 공동 셸 위에 군기·화로·해골 더미·창살·바닥 가시를 덧대 "요새" 분위기를 만든다.
+function buildFortressDecor() {
+  const decor = new THREE.Group();
+  // 벽을 따라 늘어선 붉은 군기 + 화로(붉은 불꽃) — 동굴의 푸른 크리스탈 대신 전쟁 캠프 느낌.
+  for (let i = 0; i < 8; i += 1) {
+    const z = CAVE_START_Z - 14 - (i / 7) * (CAVE_LENGTH - 34);
+    const side = i % 2 === 0 ? -1 : 1;
+    const x = side * (CAVE_WIDTH / 2 - 0.7);
+    const pole = new THREE.Mesh(FORTRESS_BANNER_POLE_GEOMETRY, fortressIronMaterial);
+    pole.position.set(x, 2.4, z);
+    const banner = new THREE.Mesh(FORTRESS_BANNER_GEOMETRY, fortressBannerMaterial);
+    banner.position.set(x - side * 0.15, 2.5, z);
+    banner.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    decor.add(pole, banner);
+  }
+  for (let i = 0; i < 6; i += 1) {
+    const z = CAVE_START_Z - 18 - (i / 5) * (CAVE_LENGTH - 40);
+    const side = i % 2 === 0 ? 1 : -1;
+    const x = side * (CAVE_WIDTH / 2 - 1.5);
+    const leg = new THREE.Mesh(FORTRESS_BRAZIER_LEG_GEOMETRY, fortressIronMaterial);
+    leg.position.set(x, 0.5, z);
+    const bowl = new THREE.Mesh(FORTRESS_BRAZIER_BOWL_GEOMETRY, fortressIronMaterial);
+    bowl.position.set(x, 1.05, z);
+    const flame = new THREE.Mesh(FORTRESS_FLAME_GEOMETRY, fortressFlameMaterial);
+    flame.position.set(x, 1.32, z);
+    const light = new THREE.PointLight(0xff5a33, 1.8, 16, 1.5);
+    light.position.set(x, 1.5, z);
+    decor.add(leg, bowl, flame, light);
+  }
+  // 바닥 곳곳의 해골·뼈 더미 + 벽가 가시 — 으스스한 요새 흔적.
+  for (let i = 0; i < 10; i += 1) {
+    const z = CAVE_START_Z - 16 - (i / 9) * (CAVE_LENGTH - 36);
+    const x = THREE.MathUtils.randFloatSpread(CAVE_WIDTH - 4);
+    const skull = new THREE.Mesh(FORTRESS_SKULL_GEOMETRY, fortressBoneMaterial);
+    skull.position.set(x, 0.18, z);
+    skull.rotation.set(THREE.MathUtils.randFloatSpread(0.6), Math.random() * Math.PI, 0);
+    decor.add(skull);
+    for (let b = 0; b < 2; b += 1) {
+      const bone = new THREE.Mesh(FORTRESS_BONE_GEOMETRY, fortressBoneMaterial);
+      bone.position.set(x + THREE.MathUtils.randFloatSpread(0.6), 0.08, z + THREE.MathUtils.randFloatSpread(0.6));
+      bone.rotation.z = Math.PI / 2 + THREE.MathUtils.randFloatSpread(0.8);
+      bone.rotation.y = Math.random() * Math.PI;
+      decor.add(bone);
+    }
+  }
+  for (let i = 0; i < 12; i += 1) {
+    const z = CAVE_START_Z - 10 - (i / 11) * (CAVE_LENGTH - 24);
+    const side = i % 2 === 0 ? -1 : 1;
+    const spike = new THREE.Mesh(FORTRESS_SPIKE_GEOMETRY, fortressIronMaterial);
+    spike.position.set(side * (CAVE_WIDTH / 2 - 1.1), 0.55, z);
+    spike.rotation.z = side * 0.12;
+    decor.add(spike);
+  }
+  // 동굴 끝 보스 제단 — 붉은 룬 링이 깔린 단상 + 양옆 창살 기둥.
+  const altarZ = CAVE_END_Z + 9;
+  const base = new THREE.Mesh(FORTRESS_ALTAR_BASE_GEOMETRY, fortressAltarMaterial);
+  base.position.set(0, 0.25, altarZ);
+  const ring = new THREE.Mesh(FORTRESS_ALTAR_RING_GEOMETRY, fortressRuneMaterial);
+  ring.position.set(0, 0.54, altarZ);
+  ring.rotation.x = Math.PI / 2;
+  const altarLight = new THREE.PointLight(0xff2d2d, 2.2, 20, 1.6);
+  altarLight.position.set(0, 2.0, altarZ);
+  decor.add(base, ring, altarLight);
+  for (const side of [-1, 1]) {
+    const bar = new THREE.Mesh(FORTRESS_BAR_GEOMETRY, fortressIronMaterial);
+    bar.position.set(side * 2.4, 1.2, altarZ);
+    decor.add(bar);
+  }
+  applyStylizedMeshDefaults(decor);
+  return decor;
+}
+
+export function createMonsterFortressInterior(context: InteriorContext) {
+  const shell = buildCaveShell();
+  shell.add(buildFortressDecor());
+  context.scene.add(shell);
+  context.trackCaveObjects(`loose-${shell.uuid}`);
+  addCaveExits(context);
+
+  // 맵 레벨대의 몬스터들이 통로 가득. 끝 제단에는 보스 1마리.
+  for (let i = 0; i < 13; i += 1) {
+    const monster = context.spawnFortressMonster(context.randomCavePoint(), false);
+    if (monster) context.trackCaveObjects(monster.id);
+  }
+  const bossPos = new THREE.Vector3(0, 0, CAVE_END_Z + 11);
+  const boss = context.spawnFortressMonster(bossPos, true);
+  if (boss) context.trackCaveObjects(boss.id);
 }
 
 function createHomeStorageVisual(position: THREE.Vector3) {

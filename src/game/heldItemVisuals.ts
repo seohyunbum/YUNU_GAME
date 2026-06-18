@@ -229,6 +229,20 @@ export function createHeldItemModel(item: ItemId) {
     const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.07, 10), handleMaterial);
     cork.position.y = 0.58;
     group.add(body, fill, neck, cork);
+  } else if (item === "job_change_tome") {
+    // 전직의서 — 보라빛 발광 표지의 두꺼운 책 + 금색 룬 잠금쇠
+    const coverMaterial = new THREE.MeshStandardMaterial({ color: 0x4c1d95, emissive: 0x7c3aed, emissiveIntensity: 0.5, roughness: 0.5 });
+    const pageMaterial = new THREE.MeshStandardMaterial({ color: 0xf5f3ff, roughness: 0.7 });
+    const runeMaterial = new THREE.MeshStandardMaterial({ color: 0xfcd34d, emissive: 0xf59e0b, emissiveIntensity: 0.9, roughness: 0.4 });
+    const cover = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.44, 0.1), coverMaterial);
+    cover.position.y = 0.34;
+    const pages = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.12), pageMaterial);
+    pages.position.set(0.02, 0.34, 0);
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.055), runeMaterial);
+    gem.position.set(-0.04, 0.34, 0.07);
+    const clasp = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.02), runeMaterial);
+    clasp.position.set(0.17, 0.34, 0.04);
+    group.add(pages, cover, gem, clasp);
   } else if (item === "medkit") {
     const caseMaterial = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.62 });
     const redMaterial = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.48 });

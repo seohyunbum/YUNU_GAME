@@ -237,7 +237,8 @@ import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
 import { updateVillageGuards, type GuardAiContext } from "./game/guardAi";
 import { keepOutOfBuildings } from "./game/npcMovement";
 import { hitStopScale, triggerHitFeedback, updateHitFeedback, type HitFeedbackDeps } from "./game/hitFeedback";
-import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, type InteriorContext } from "./game/interiors";
+import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, createMonsterFortressInterior, type InteriorContext } from "./game/interiors";
+import { spawnFortressMonster, updateCaveMonsters, type CaveMonsterContext, type FortressSpawnDeps } from "./game/caveMonsters";
 import { buildOreMesh, oreSharedGeometries, oreSharedMaterials } from "./game/oreVisual";
 import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
 import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeStoragePanel";
@@ -715,11 +716,15 @@ class WildernessGame {
     celebratePetLevel: (level) => celebrateLevelUp(this.juiceDeps, level),
     renderHud: () => this.renderHud(),
   };
-  private readonly interiorContext: InteriorContext = { scene: this.scene, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), spawnChest: (position, mineRich) => this.spawnChest(position, mineRich), spawnOre: (ore, position) => this.spawnOre(ore, position), spawnMiner: (position) => this.spawnMiner(position), spawnBlacksmithNpc: (position) => this.spawnBlacksmithNpc(position), randomCavePoint: () => this.randomCavePoint(), rollMineMineral: () => this.rollMineMineral(), trackCaveObjects: (...ids) => this.caveObjectIds.push(...ids), trackHouseObjects: (...ids) => this.houseObjectIds.push(...ids), showMessage: (text) => this.showMessage(text) };
+  private readonly interiorContext: InteriorContext = { scene: this.scene, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), spawnChest: (position, mineRich) => this.spawnChest(position, mineRich), spawnOre: (ore, position) => this.spawnOre(ore, position), spawnMiner: (position) => this.spawnMiner(position), spawnBlacksmithNpc: (position) => this.spawnBlacksmithNpc(position), randomCavePoint: () => this.randomCavePoint(), rollMineMineral: () => this.rollMineMineral(), spawnFortressMonster: (position, boss) => spawnFortressMonster(this.fortressSpawnDeps, position, boss), trackCaveObjects: (...ids) => this.caveObjectIds.push(...ids), trackHouseObjects: (...ids) => this.houseObjectIds.push(...ids), showMessage: (text) => this.showMessage(text) };
+
+  private readonly fortressSpawnDeps: FortressSpawnDeps = { activeRegions: () => this.activeRegions, spawnPredator: (kind, position) => spawnPredatorEntity(this.entitySpawnContext, position, kind), applyMonsterDef: (monster, region, monsterId) => applyPredatorMonsterDefinition(monster, region, monsterId), chooseMonster: (region) => chooseRegionPredatorMonster(region), kindForMonster: (id) => predatorKindForMonster(id), refreshSpatialObject: (object) => this.refreshSpatialObject(object) };
 
   private readonly hitFeedbackDeps: HitFeedbackDeps = { camera: this.camera, playerPosition: this.playerPosition, playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), refreshSpatialObject: (object) => this.refreshSpatialObject(object), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
 
   private readonly trainingGroundContext: TrainingGroundContext = { defaultMapId: DEFAULT_WORLD_MAP_ID, worldMapId: () => this.currentWorldMapId, locationMode: () => this.locationMode, hasTrainingGround: () => { for (const object of this.objectsOfType("trainingGround")) return Boolean(object); return false; }, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
+
+  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), effects: () => this.combatEffectContext };
 
   private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }), keepOutOfBuildings: (position) => keepOutOfBuildings(position, this.objectsNear(position, 7)) };
 
@@ -2483,6 +2488,7 @@ class WildernessGame {
     this.updateTrains(delta);
     this.updateAnimals(delta); this.updateVillagers(delta); this.updateAnts(delta);
     updatePredatorAi(this.predatorAiContext, delta);
+    if (this.locationMode === "cave") updateCaveMonsters(this.caveMonsterContext, delta); // 몬스터 요새 동굴의 몬스터·보스 추격
     updateGraveTrap(this.graveTrapContext, delta);
     updateFinale(this.finaleContext);
     if (!partyWorldGuestActive()) updateFieldBosses(this.fieldBossContext); // 파티 게스트 — 보스는 호스트 스냅샷으로
@@ -4195,10 +4201,14 @@ class WildernessGame {
     this.setCaveAtmosphere();
     this.playerPosition.set(0, PLAYER_HEIGHT, CAVE_START_Z);
     this.settlePlayerAfterTeleport();
-    createCaveInterior(this.interiorContext);
+    const fortress = Math.random() < 0.15; // 15% 확률로 몬스터 요새 동굴
+    if (fortress) createMonsterFortressInterior(this.interiorContext);
+    else createCaveInterior(this.interiorContext);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
-    this.showMessage("동굴 안으로 들어왔습니다. 돌과 석탄을 찾아보세요.");
+    this.showMessage(fortress
+      ? "⚔️ 몬스터 요새에 진입했습니다. 동굴 끝 보스몹을 처치하면 희귀템을 드랍합니다!"
+      : "동굴 안으로 들어왔습니다. 돌과 석탄을 찾아보세요.");
     this.renderHud();
   }
 
@@ -4385,6 +4395,13 @@ class WildernessGame {
   private grantExperienceForTarget(target: WorldObject) {
     this.summonerCompanion.awardExperience(Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
     if (target.type === "wildPredator") { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); }
+    if (target.fortressBoss) {
+      const level = target.fortressLevel ?? 20; // 흑요석+전직의서 확정 드랍 — 고레벨 맵일수록 더 많이
+      const obsidianCount = THREE.MathUtils.randInt(2, 4) + Math.floor(level / 30), tomeCount = THREE.MathUtils.randInt(1, 2) + Math.floor(level / 45);
+      this.addItem("obsidian", obsidianCount); this.addItem("job_change_tome", tomeCount);
+      startMiniFanfare(this.finaleContext); celebrateLevelUp(this.juiceDeps, this.level);
+      this.showMessage(`🏰 요새의 주인을 처치했습니다! 흑요석 ${obsidianCount}개 + 전직의서 ${tomeCount}개를 획득했습니다.`);
+    }
     if (target.fieldBossId && !this.defeatedFieldBosses.includes(target.fieldBossId)) {
       this.defeatedFieldBosses.push(target.fieldBossId);
       startMiniFanfare(this.finaleContext);
@@ -9310,6 +9327,7 @@ class WildernessGame {
   }
 
   private clearCaveObjects() {
+    const keepSuppress = this.suppressRespawn; this.suppressRespawn = true; // 요새 몬스터(wildPredator)가 오버월드 리스폰 큐에 들어가지 않게
     for (const id of this.caveObjectIds) {
       if (id.startsWith("loose-")) {
         const loose = this.scene.children.find((child) => `loose-${child.uuid}` === id);
@@ -9319,6 +9337,7 @@ class WildernessGame {
       }
     }
     this.caveObjectIds = [];
+    this.suppressRespawn = keepSuppress;
   }
 
   private clearHouseObjects() {

@@ -65,6 +65,7 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   refined_gold: "제련된 금",
   refined_diamond: "제련된 다이아몬드",
   sharp_obsidian: "날카로운 흑요석",
+  job_change_tome: "전직의서",
   weak_wood_axe: "약한 나무 도끼",
   sharp_wood_axe: "날카로운 나무 도끼",
   stone_axe: "돌 도끼",
@@ -223,6 +224,7 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   sage_necklace: "epic",
   advanced_medkit: "epic",
   big_bag: "epic",
+  job_change_tome: "epic",
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
@@ -250,7 +252,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
   dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic",
   strength_necklace: "epic", guardian_necklace: "epic", swift_necklace: "epic", sage_necklace: "epic",
-  advanced_medkit: "epic", big_bag: "epic",
+  advanced_medkit: "epic", big_bag: "epic", job_change_tome: "epic",
   // 레전더리(legendary) — 최종 흑요석 무기 3종 + 경험치병(매우 희귀)
   sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", xp_bottle: "legendary",
 };
