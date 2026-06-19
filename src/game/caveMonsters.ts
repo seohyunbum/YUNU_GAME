@@ -29,7 +29,7 @@ export function spawnFortressMonster(deps: FortressSpawnDeps, position: THREE.Ve
   if (boss) {
     const level = region.levelRange[1] + 6;
     const stats = monsterStatsFromLevel(level, true);
-    monster.name = `${region.name} 요새의 주인`;
+    monster.name = `${region.name} 동굴의 주인`;
     monster.hp = stats.hp; monster.armor = stats.armor; monster.attackDamage = stats.attackDamage;
     monster.attackRange = 30; monster.monsterLevel = level; monster.fortressBoss = true; monster.fortressLevel = level;
     monster.collisionRadius = (monster.collisionRadius ?? 1) * 2; monster.collisionHeight = (monster.collisionHeight ?? 1.5) * 2;
