@@ -170,6 +170,14 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
   const now = performance.now();
   const partyTargets = partyHostCombatTargets(); // 호스트: 같은 맵 게스트도 어그로/공격 대상
   for (const predator of context.predators()) {
+    // 화면 밖(거리컬링으로 root.visible=false)이고 비어그로(angry 아님 + 플레이어가 어그로 범위 밖)면 풀 갱신 스킵.
+    // 안 보이는 배회 몬스터의 이동·걷기·공간갱신 비용 제거 — 시각/추격 무영향(재가시·근접 시 즉시 재개).
+    if (!predator.root.visible && (predator.angryUntil ?? 0) <= now) {
+      const px = context.playerPosition.x - predator.root.position.x;
+      const pz = context.playerPosition.z - predator.root.position.z;
+      const ar = predator.attackRange ?? context.predatorAggroRange(predator.predatorKind);
+      if (px * px + pz * pz > ar * ar) continue;
+    }
     let dx = context.playerPosition.x - predator.root.position.x;
     let dz = context.playerPosition.z - predator.root.position.z;
     let distance = Math.hypot(dx, dz);
