@@ -6059,31 +6059,25 @@ class WildernessGame {
     });
   }
 
+  // 로드 시 마을 건물 보강 — 구세이브에 빠진 상점·판매대, 그리고 큰 마을(special) 대장간을 소급 스폰한다.
+  // (메서드명은 호환 위해 유지. foodStorage 좌표를 VILLAGE_CENTERS 와 대조해 큰 마을을 식별, spawnVillage 와 동일 배치·idempotent.)
   private ensureVillageShops() {
-    const villages = new Map<string, { center: THREE.Vector3; hasFoodStorage: boolean; hasShop: boolean; hasSellShop: boolean }>();
+    const villages = new Map<string, { center: THREE.Vector3; special: boolean; hasFoodStorage: boolean; hasShop: boolean; hasSellShop: boolean; hasBlacksmith: boolean }>();
     for (const object of this.objects.values()) {
       if (!object.villageId) continue;
-      const entry = villages.get(object.villageId) ?? { center: object.root.position.clone(), hasFoodStorage: false, hasShop: false, hasSellShop: false };
-      if (object.type === "foodStorage") {
-        entry.center.copy(object.root.position);
-        entry.hasFoodStorage = true;
-      }
-      if (object.type === "villageShop") entry.hasShop = true;
-      if (object.type === "villageSellShop") entry.hasSellShop = true;
+      const entry = villages.get(object.villageId) ?? { center: object.root.position.clone(), special: false, hasFoodStorage: false, hasShop: false, hasSellShop: false, hasBlacksmith: false };
+      if (object.type === "foodStorage") { entry.center.copy(object.root.position); entry.hasFoodStorage = true; entry.special = VILLAGE_CENTERS.some((v) => v.special && Math.hypot(v.x - object.root.position.x, v.z - object.root.position.z) < 6); }
+      else if (object.type === "villageShop") entry.hasShop = true;
+      else if (object.type === "villageSellShop") entry.hasSellShop = true;
+      else if (object.type === "blacksmith") entry.hasBlacksmith = true;
       villages.set(object.villageId, entry);
     }
+    const at = (c: THREE.Vector3, dx: number, dz: number) => { const p = c.clone().add(new THREE.Vector3(dx, 0, dz)); p.y = this.getGroundHeightAt(p.x, p.z); return p; };
     for (const [villageId, village] of villages) {
       if (!village.hasFoodStorage) continue;
-      if (!village.hasShop) {
-        const position = village.center.clone().add(new THREE.Vector3(10, 0, 8));
-        position.y = this.getGroundHeightAt(position.x, position.z);
-        this.spawnVillageShop(position, villageId);
-      }
-      if (!village.hasSellShop) {
-        const position = village.center.clone().add(new THREE.Vector3(10, 0, -8));
-        position.y = this.getGroundHeightAt(position.x, position.z);
-        this.spawnVillageSellShop(position, villageId);
-      }
+      if (!village.hasShop) this.spawnVillageShop(at(village.center, 10, 8), villageId);
+      if (!village.hasSellShop) this.spawnVillageSellShop(at(village.center, 10, -8), villageId);
+      if (village.special && !village.hasBlacksmith) this.spawnBlacksmith(at(village.center, -27 * 0.62, 27 * 0.54), villageId); // 큰 마을 대장간 확정(제련대 교환처) — spawnVillage 와 동일 위치
     }
   }
 

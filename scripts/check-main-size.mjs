@@ -10,7 +10,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-19: 몬스터 요새 디펜스 배선(siege 상태·진입/이탈·클램프/AI 경계·사망/저장 게이트·웨이브 spawn·HUD·요새 입구)으로 9550→9662.
 // 로직은 모두 리프(game/fortressSiege·interiors·caveMonsters)에 두었고 main.ts 증가분은 배선 + 요새 진입/이탈/스폰/게이트 메서드다.
 // 2026-06-19: 모바일 점검 — 새 게임 quality 모바일 분기 + useItem 배선(net 0) + 중복 performance 리셋 5줄 제거 → 9669(예산초과)→9664.
-const MAX_MAIN_LINES = 9664;
+// 2026-06-19: ensureVillageShops 를 대장간 보강까지 확장하며 상점 스폰 블록 압축 → 9664→9658.
+const MAX_MAIN_LINES = 9658;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
