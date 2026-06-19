@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 // 그래서 둘을 함께 본다. 예산은 ratchet: 내려가기만. (AGENTS.md §1·§7)
 // 2026-06-19: 전직 시스템의 입력/전이 배선 메서드 2개(useThirdSkill·tryAdvanceJob)로 460→462.
 // 2026-06-19: 몬스터 요새 디펜스 메서드 4개(enterFortressSiege·exitFortressSiege·spawnSiegeMonster·spawnFortressGate)로 462→466.
-const MAX_METHODS = 466;
+// 2026-06-19: 메테오 하늘낙하 스폰 메서드(fireMeteor) 1개로 466→467 (스킬 이펙트 고도화).
+const MAX_METHODS = 467;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

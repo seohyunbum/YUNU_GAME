@@ -16,7 +16,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-19: 세이브 후속 — 로드 세이브 명명슬롯 승급(promoteSaveToSlotList 리프) 배선 import+호출 → 9666→9669.
 // 2026-06-19: 적대적 리뷰 후속 — savedAt 없는 import 는 승급 제외(중복 슬롯 방지) 가드 1줄 → 9669→9670.
 // 2026-06-19: arcadePoints 세이브 포함(판매→로드 포인트 복제 차단) — snapshot 1줄 + restore 롤백 가드 2줄 → 9670→9673.
-const MAX_MAIN_LINES = 9673;
+// 2026-06-19: 스킬 이펙트 고도화 — 메테오 하늘낙하(fireMeteor 메서드)+치유의 비/정령 폭풍 배선 → 9673→9685.
+const MAX_MAIN_LINES = 9685;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

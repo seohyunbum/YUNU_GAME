@@ -769,3 +769,62 @@ export function spawnHealEffect(context: CombatEffectContext, position: THREE.Ve
     context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.25), THREE.MathUtils.randFloat(0.65, 1.35), THREE.MathUtils.randFloatSpread(0.25)), life: 0.62, maxLife: 0.62 });
   }
 }
+
+// 메테오 운석 — 용암 균열이 빛나는 검은 암석 + 2겹 화염 글로우 + 진행 반대로 늘어지는 불꼬리.
+// 파이어볼(구체)과 확실히 달라 보이게 불규칙 암석 + 큰 화염 꼬리. main.fireMeteor 가 하늘에서 떨어뜨린다.
+export function createMeteorProjectile(direction: THREE.Vector3) {
+  const group = new THREE.Group();
+  const rock = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.52, 0),
+    new THREE.MeshStandardMaterial({ color: 0x2a1206, emissive: 0xff4d12, emissiveIntensity: 0.95, roughness: 1, metalness: 0.1, flatShading: true }),
+  );
+  rock.scale.set(1, 0.92, 1.08);
+  const innerFlame = new THREE.Mesh(new THREE.SphereGeometry(0.68, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff7a18, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const outerFlame = new THREE.Mesh(new THREE.SphereGeometry(0.95, 14, 10), new THREE.MeshBasicMaterial({ color: 0xff2a08, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }));
+  group.add(outerFlame, innerFlame, rock);
+  const tail = new THREE.Mesh(
+    new THREE.ConeGeometry(0.52, 2.8, 16, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffb43a, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  tail.rotation.x = Math.PI / 2; tail.position.z = 1.4; // 로컬 +z = 진행 반대(꼬리)
+  group.add(tail);
+  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction.clone().normalize());
+  return group;
+}
+
+// 치유의 비 지속 연출 — 회복 틱마다 호출. 반경에 떨어지는 청록 빗방울 + 발밑 회복 물결 링.
+export function spawnHealingRain(context: CombatEffectContext, position: THREE.Vector3) {
+  const groundY = position.y - 1.7; // playerPosition.y 는 눈높이 → 발밑 기준
+  for (let i = 0; i < 16; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.sqrt(Math.random()) * 3.2;
+    const drop = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.03, 0.06), 6, 5),
+      new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? 0xa7f3d0 : 0x7dd3fc, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    drop.position.set(position.x + Math.cos(angle) * r, groundY + THREE.MathUtils.randFloat(2.4, 4.4), position.z + Math.sin(angle) * r);
+    pushFade(context, drop, new THREE.Vector3(0, THREE.MathUtils.randFloat(-5.6, -3.8), 0), THREE.MathUtils.randFloat(0.55, 0.85));
+  }
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.04, 8, 36), new THREE.MeshBasicMaterial({ color: 0xa7f3d0, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ring.position.set(position.x, groundY + 0.08, position.z); ring.rotation.x = Math.PI / 2;
+  pushFade(context, ring, new THREE.Vector3(0, 0.1, 0), 0.6);
+}
+
+// 정령 폭풍 — 플레이어 주변 회오리. 솟구치는 바람 링 + 나선으로 도는 바람칼.
+export function spawnSpiritStorm(context: CombatEffectContext, center: THREE.Vector3, radius: number) {
+  const base = center.clone(); base.y = context.getGroundHeightAt(base.x, base.z) + 0.1;
+  for (let i = 0; i < 3; i += 1) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(radius * (0.5 + i * 0.28), 0.05, 8, 44), new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xdffcff : 0x8eefff, transparent: true, opacity: 0.7 - i * 0.16, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ring.position.copy(base).add(new THREE.Vector3(0, 0.1 + i * 0.18, 0)); ring.rotation.x = Math.PI / 2;
+    pushFade(context, ring, new THREE.Vector3(0, 1.4 + i * 0.5, 0), 0.6 + i * 0.08);
+  }
+  for (let i = 0; i < 22; i += 1) {
+    const angle = (i / 22) * Math.PI * 2;
+    const r = radius * THREE.MathUtils.randFloat(0.4, 1.0);
+    const cutter = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.26), new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? 0xffffff : 0x8eefff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+    cutter.position.copy(base).add(new THREE.Vector3(Math.cos(angle) * r, THREE.MathUtils.randFloat(0.3, 1.6), Math.sin(angle) * r));
+    cutter.rotation.y = -angle;
+    const swirl = new THREE.Vector3(-Math.sin(angle), 0, Math.cos(angle)).multiplyScalar(3.0); swirl.y = THREE.MathUtils.randFloat(1.8, 3.6);
+    pushFade(context, cutter, swirl, THREE.MathUtils.randFloat(0.5, 0.85));
+  }
+}

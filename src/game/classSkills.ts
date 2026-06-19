@@ -223,6 +223,7 @@ export interface SkillEffectsContext {
   nearbyCombatTargets(radius: number): WorldObject[];
   applyDamage(target: WorldObject, damage: number): void;
   heal(amount: number): void;
+  healingRain(): void; // 치유의 비 지속 연출(틱마다 떨어지는 빗방울)
   playerPosition: THREE.Vector3;
 }
 
@@ -257,6 +258,7 @@ export function updateSecondSkillEffects(context: SkillEffectsContext) {
     const rain = healingRainTick(context.levelBonus());
     context.heal(rain);
     partyHealNearby(rain, HEAL_PARTY_RADIUS);
+    context.healingRain(); // 매 틱 빗방울 연출 — 캐스트 후광만 있고 지속 연출이 없던 문제 해결
   }
 }
 
@@ -305,6 +307,8 @@ export const THIRD_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
 export interface ThirdSkillContext extends SecondSkillContext {
   nearbyCombatTargets(radius: number): WorldObject[];
   heal(amount: number): void;
+  fireMeteor(damage: number, explosionRadius: number): void; // 메테오 — 하늘에서 운석 낙하 + 지면 폭발(파이어볼 전방 발사와 구분)
+  spiritStorm(radius: number): void; // 정령 폭풍 — 주변 회오리 광역 연출
 }
 
 export function useThirdClassSkill(context: ThirdSkillContext) {
@@ -342,7 +346,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   if (playerClass === "mage") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    context.fireSkillProjectile("tnt", "fireball", meteorDamage(bonus), 26, 0.5, METEOR_RADIUS);
+    context.fireMeteor(meteorDamage(bonus), METEOR_RADIUS); // 하늘에서 운석 낙하 → 지면 폭발(전방 파이어볼과 다른 연출)
     context.playHandAction("magic");
     context.playTone(200, 0.18, "sawtooth", 0.035);
     context.showMessage(`메테오! ${meteorDamage(bonus)} 광역 피해의 운석을 떨어뜨렸습니다.`);
@@ -351,6 +355,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   if (playerClass === "summoner") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
+    context.spiritStorm(SPIRIT_STORM_RADIUS); // 주변 회오리 광역 연출(종전엔 피해만 있고 비주얼이 없었음)
     const dmg = spiritStormDamage(bonus);
     const targets = context.nearbyCombatTargets(SPIRIT_STORM_RADIUS);
     for (const target of targets) context.applyDamage(target, dmg);
