@@ -91,9 +91,9 @@ const stepAchieved = (snapshot: ObjectiveSnapshot, step: TutorialStep) => snapsh
 function countQuest(id: string, goal: number, count: (snapshot: ObjectiveSnapshot) => number, titleText: string, detail: string, reward: TutorialReward): TutorialStep {
   return {
     id,
-    title: (snapshot) => `${titleText} (${Math.min(count(snapshot), goal)}/${goal})`,
+    title: (snapshot) => `${titleText} (${Math.floor(Math.min(count(snapshot), goal))}/${goal})`,
     detail,
-    progress: (snapshot) => `${Math.min(count(snapshot), goal)}/${goal}`,
+    progress: (snapshot) => `${Math.floor(Math.min(count(snapshot), goal))}/${goal}`,
     completed: (snapshot) => count(snapshot) >= goal,
     reward,
   };
