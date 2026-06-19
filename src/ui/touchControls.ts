@@ -9,6 +9,7 @@ export interface TouchControlsCallbacks {
   look(dx: number, dy: number): void; // 시점 드래그 px 델타 → main 이 감도 적용 후 rotateCameraByMouse
   interact(): void; // 공격/상호작용(데스크톱 좌클릭/E 와 동일 경로)
   useSkill(slot: 1 | 2 | 3): void;
+  useItem(): void; // 선택한 핫바 아이템 사용(먹기·구급상자·설치·전직의 인장 등) — 데스크톱 숫자키 재사용분
   togglePanel(panel: "inventory" | "map"): void;
   saveGame(): void; // 데스크톱 Ctrl+S 와 동일 — 모바일은 save-controls 가 숨겨지므로 버튼으로 제공
   isPlaying(): boolean; // 게임 진행 중(타이틀/패널 아님)일 때만 조이스틱·시점 활성
@@ -19,6 +20,18 @@ export interface TouchControlsHandle {
 }
 
 const MOVE_DEADZONE = 0.35; // 조이스틱 정규화 벡터가 이 값을 넘어야 해당 방향 키 ON
+
+// 조이스틱 정규화 벡터(nx,ny ∈ -1..1, 화면 아래가 +y)·크기(mag 0..1) → 이동 키 상태. (순수 — 테스트 가능)
+// NaN/Infinity 입력(레이아웃 전 radius=0 등)은 모든 비교가 false 가 되어 "정지"로 안전하게 처리된다.
+export function joystickKeyState(nx: number, ny: number, mag: number) {
+  return {
+    KeyW: ny < -MOVE_DEADZONE,
+    KeyS: ny > MOVE_DEADZONE,
+    KeyA: nx < -MOVE_DEADZONE,
+    KeyD: nx > MOVE_DEADZONE,
+    ShiftLeft: ny < -MOVE_DEADZONE && mag > TOUCH_SPRINT_THRESHOLD, // 앞으로 꽉 밀면 달리기
+  };
+}
 
 function btn(label: string, cls: string): HTMLButtonElement {
   const b = document.createElement("button");
@@ -54,7 +67,8 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   const skillR = btn("R", "touch-skill touch-skill-r");
   const skillT = btn("T", "touch-skill touch-skill-t");
   const skillF = btn("F", "touch-skill touch-skill-f");
-  actions.append(skillR, skillT, skillF, attackBtn);
+  const useBtn = btn("사용", "touch-use"); // 선택 아이템 먹기/구급상자/설치
+  actions.append(skillR, skillT, skillF, useBtn, attackBtn);
 
   // 핫바는 기존 데스크톱 핫바(.hotbar)가 이미 탭(click) 가능 + 아이템 아이콘 표시 → 재사용. 별도 생성 안 함.
 
@@ -108,11 +122,12 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
     const nx = dx / joystickRadius; // -1..1
     const ny = dy / joystickRadius; // -1..1 (화면 아래가 +)
     const mag = clamped / joystickRadius;
-    setMove("KeyW", ny < -MOVE_DEADZONE);
-    setMove("KeyS", ny > MOVE_DEADZONE);
-    setMove("KeyA", nx < -MOVE_DEADZONE);
-    setMove("KeyD", nx > MOVE_DEADZONE);
-    setMove("ShiftLeft", ny < -MOVE_DEADZONE && mag > TOUCH_SPRINT_THRESHOLD); // 앞으로 꽉 밀면 달리기
+    const ks = joystickKeyState(nx, ny, mag);
+    setMove("KeyW", ks.KeyW);
+    setMove("KeyS", ks.KeyS);
+    setMove("KeyA", ks.KeyA);
+    setMove("KeyD", ks.KeyD);
+    setMove("ShiftLeft", ks.ShiftLeft);
   }
 
   function resetJoystick() {
@@ -205,6 +220,7 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
     tap(skillR, () => cb.useSkill(1)),
     tap(skillT, () => cb.useSkill(2)),
     tap(skillF, () => cb.useSkill(3)),
+    tap(useBtn, () => cb.useItem()),
     tap(invBtn, () => cb.togglePanel("inventory")),
     tap(mapBtn, () => cb.togglePanel("map")),
     tap(saveBtn, () => cb.saveGame()),
