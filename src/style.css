@@ -4109,10 +4109,19 @@ body.touch-mode .touch-use {
 .skill-tile {
   cursor: pointer;
 }
-/* 팝업(인벤/지도/캐릭터) 70% + 가로 잘림 해소(폭강제 해제·내부 1열화) */
+/* 팝업(인벤/지도/캐릭터): 창은 키우고(화면 거의 가득) 폰트·내용물은 축소 + 가로 잘림 해소(폭강제 해제·내부 1열화) */
 body.touch-mode .panel-layer .panel {
-  transform: scale(0.7);
-  transform-origin: center;
+  width: min(97vw, 1400px);
+  max-width: 97vw;
+  max-height: 94dvh;
+  padding: 9px;
+  font-size: 12px;
+}
+body.touch-mode .panel-layer .slot {
+  padding: 9px 3px 3px;
+}
+body.touch-mode .panel-layer .slot span {
+  font-size: 8px;
 }
 body.touch-mode .character-panel {
   min-width: 0;
@@ -4120,6 +4129,17 @@ body.touch-mode .character-panel {
 body.touch-mode .map-layout,
 body.touch-mode .character-body {
   grid-template-columns: 1fr;
+}
+/* 스킬바 아이콘 탭 = 스킬 발동 (.skill-bar 가 pointer-events:none 이라 탭이 통과돼 안 먹던 문제) */
+body.touch-mode .skill-bar {
+  z-index: 30;
+}
+body.touch-mode .skill-tile {
+  pointer-events: auto;
+}
+/* 퀘스트 박스를 look-zone(z28) 위로 — 보상받기 탭 영역 전체 확보 */
+body.touch-mode .objective {
+  z-index: 30;
 }
 
 /* 몬스터 요새 디펜스 진행 표시 */

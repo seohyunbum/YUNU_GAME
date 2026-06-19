@@ -6312,7 +6312,7 @@ class WildernessGame {
       (index) => {
         this.selectedHotbarIndex = index;
         this.renderHud();
-        if (this.currentPanel !== null) this.renderPanel(); // 캐릭터창 무기 표시가 선택 칸을 따라가도록 갱신
+        if (this.currentPanel !== null) this.renderPanel(); else if (isTouchDevice()) this.useSelectedHotbarItem(); // 패널 갱신 / 터치: 핫바 탭=선택+사용
       },
     );
   }
