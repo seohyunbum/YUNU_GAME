@@ -3955,12 +3955,12 @@ body.touch-mode .stats {
 }
 
 .touch-menu {
-  /* 좌측 중앙 세로 스택 — 보스바(top-center)·미니맵(top-right)·목표(mid-right)·HP/MP(top-left)와 겹치지 않는 빈 구역 */
+  /* 좌측 중앙 2×2 그리드 — HP/MP(top-left)와 조이스틱(bottom-left) 사이 빈 구역. 버튼 4개라 세로 스택이면 조이스틱과 겹쳐 2열로 압축. */
   position: absolute;
-  top: 32%;
+  top: 30%;
   left: max(8px, env(safe-area-inset-left));
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
   gap: 8px;
   pointer-events: none;
 }
