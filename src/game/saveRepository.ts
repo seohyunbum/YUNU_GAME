@@ -220,7 +220,10 @@ export function readStoredSlotList({ migrateSaveData, formatSaveDate, storage = 
   return slots;
 }
 
-export async function writeSaveSlots(slots: SaveSlot[], storage = localStorage) {
+// allowTrim=false (덮어쓰기 등 '교체만' 의도한 호출): 용량 부족 시 다른 슬롯을 조용히 떨구지 않고 throw 한다.
+// → 호출부가 '공간 부족'을 사용자에게 알리고 기존 저장(SAVE_LIST)은 그대로 보존된다(setItem 실패 시 미기록).
+export async function writeSaveSlots(slots: SaveSlot[], storage = localStorage, options: { allowTrim?: boolean } = {}) {
+  const allowTrim = options.allowTrim !== false;
   let trimmed = slots.slice(0, MAX_SAVE_SLOTS);
   const stored: StoredSaveSlot[] = [];
   for (const slot of trimmed) {
@@ -239,6 +242,7 @@ export async function writeSaveSlots(slots: SaveSlot[], storage = localStorage) 
       return stored.length;
     } catch (error) {
       lastError = error;
+      if (!allowTrim) throw error;
       stored.pop();
       trimmed = trimmed.slice(0, -1);
     }

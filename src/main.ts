@@ -610,6 +610,7 @@ class WildernessGame {
   private readonly frameScratch = { titleFocus: new THREE.Vector3(58, 2.8, -76), moveDirection: new THREE.Vector3(), moveForward: new THREE.Vector3(), moveRight: new THREE.Vector3(), legoTarget: new THREE.Vector3() };
   private currentHouseOwned = false;
   private saveLoadInProgress = false;
+  private saveInProgress = false; // 수동 저장(SAVE_LIST 기록) 직렬화 — 동시 saveGame/덮어쓰기의 read-modify-write 경쟁(저장 유실) 방지
   private homeStorage = normalizeHomeStorage();
   private homeSupplyCooldowns: Record<string, number> = {}; // 집 종류(currentHouseBedTier)별 보급 쿨타임 — 같은 종류끼리만 공유
   private ridingTrainId: string | null = null;
@@ -1988,7 +1989,7 @@ class WildernessGame {
     }
     if (event.ctrlKey && event.code === "KeyS") {
       this.blockBrowserShortcut(event);
-      this.saveGame();
+      if (!event.repeat) this.saveGame(); // 오토리피트(꾹 누름)로 저장이 다중 발화돼 경쟁하지 않게 첫 입력만
       return;
     }
     if (event.ctrlKey && event.code === "KeyL") {
@@ -5585,6 +5586,8 @@ class WildernessGame {
 
   private async saveGame() {
     if (this.fortressSiege?.active) { this.showMessage("요새 진행 중에는 저장할 수 없습니다. 나가거나 끝낸 뒤 저장하세요."); return; }
+    if (this.saveInProgress) { this.showMessage("저장을 진행하고 있습니다…"); return; } // 동시 저장 차단 — 직전 저장이 덮어써져 사라지던 경쟁 방지
+    this.saveInProgress = true;
     try {
       const save = this.createSaveData();
       void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds }); // 운영 리포트용 진행도 발행(부가)
@@ -5602,12 +5605,15 @@ class WildernessGame {
       // 최신본·자동 백업 링은 best-effort — 용량 부족으로 실패해도 본 저장을 막지 않는다.
       try { backupLatestSaveInRepository(); await writeLatestSaveInRepository(save); } catch (e) { console.warn("최신본 기록 실패(본 저장은 완료)", e); }
       try { await appendSaveToHistoryInRepository(save, this.nickname); } catch (e) { console.warn("백업 링 기록 실패(본 저장은 완료)", e); }
-      const trimmedText = requestedSaves.length > storedCount ? ` 최근 ${storedCount}개 저장만 보관했습니다.` : "";
+      // 용량 부족으로 떨궈진 슬롯은 어느 것인지 이름으로 알린다(과거엔 '최근 N개만 보관'이라 무엇이 사라졌는지 알 수 없었다).
+      const droppedText = requestedSaves.length > storedCount ? ` ⚠️ 공간 부족으로 '${requestedSaves.slice(storedCount).map((s) => s.label).join("', '")}' 저장은 보관되지 못했습니다.` : "";
       this.tutorialSignals.saved = true;
-      this.showMessage(`저장 완료: ${formatSaveDate(save.savedAt)}.${trimmedText}`);
+      this.showMessage(`저장 완료: ${formatSaveDate(save.savedAt)}.${droppedText}`);
     } catch (error) {
       console.error(error);
       this.showMessage("저장에 실패했습니다. 브라우저 저장 공간을 확인해보세요.");
+    } finally {
+      this.saveInProgress = false;
     }
   }
 
@@ -6411,24 +6417,26 @@ class WildernessGame {
         onOverwrite: async (slotId) => {
           const save = this.pendingOverwriteSave;
           if (!save) return;
-          // 고른 명명 슬롯만 id 로 매칭해 교체(개수 불변·≤MAX → 트림/덮어쓰기로 다른 저장이 사라지지 않음).
-          const list = this.readStoredSlots();
-          if (!list.some((slot) => slot.id === slotId)) { this.showMessage("선택한 슬롯을 찾을 수 없습니다. 다시 시도해 주세요."); this.renderPanel(); return; }
-          const newSlot = createRepositorySaveSlot(save, formatSaveDate, saveSummary(save));
-          const next = list.map((slot) => (slot.id === slotId ? newSlot : slot));
+          if (this.saveInProgress) return; // 동시 저장 차단(saveGame 과 공유 가드)
+          this.saveInProgress = true;
           try {
-            await writeRepositorySaveSlots(next); // 정본(명명 슬롯) 먼저 — 부가 백업 실패와 무관하게 보존
+            // 고른 명명 슬롯만 id 로 매칭해 교체(개수 불변). allowTrim:false → 공간 부족 시 다른 슬롯을 떨구지 않고 실패(기존 저장 보존).
+            const list = this.readStoredSlots();
+            if (!list.some((slot) => slot.id === slotId)) { this.showMessage("선택한 슬롯을 찾을 수 없습니다. 다시 시도해 주세요."); this.renderPanel(); return; }
+            const next = list.map((slot) => (slot.id === slotId ? createRepositorySaveSlot(save, formatSaveDate, saveSummary(save)) : slot));
+            await writeRepositorySaveSlots(next, undefined, { allowTrim: false });
+            try { backupLatestSaveInRepository(); await writeLatestSaveInRepository(save); } catch (e) { console.warn("최신본 기록 실패(본 저장은 완료)", e); }
+            try { await appendSaveToHistoryInRepository(save, this.nickname); } catch (e) { console.warn("백업 링 기록 실패(본 저장은 완료)", e); }
+            this.pendingOverwriteSave = null;
+            this.tutorialSignals.saved = true;
+            this.closePanel();
+            this.showMessage(`저장 완료(덮어쓰기): ${formatSaveDate(save.savedAt)}`);
           } catch (error) {
             console.error(error);
-            this.showMessage("저장에 실패했습니다. 브라우저 저장 공간을 확인해보세요.");
-            return;
+            this.showMessage("저장 공간이 부족해 덮어쓰기를 완료하지 못했습니다. 다른 슬롯을 비우거나 정리해 주세요. (기존 저장은 그대로 보존됩니다)");
+          } finally {
+            this.saveInProgress = false;
           }
-          try { backupLatestSaveInRepository(); await writeLatestSaveInRepository(save); } catch (e) { console.warn("최신본 기록 실패(본 저장은 완료)", e); }
-          try { await appendSaveToHistoryInRepository(save, this.nickname); } catch (e) { console.warn("백업 링 기록 실패(본 저장은 완료)", e); }
-          this.pendingOverwriteSave = null;
-          this.tutorialSignals.saved = true;
-          this.closePanel();
-          this.showMessage(`저장 완료(덮어쓰기): ${formatSaveDate(save.savedAt)}`);
         },
       });
     }

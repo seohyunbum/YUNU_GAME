@@ -157,7 +157,28 @@ try {
   });
   assert.equal(recoveredSlots.length, 1, "broken slot list entries should be ignored");
 
-  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "packed latest save", "quota fallback evicts backup", "quiet bookkeeping failure", "corrupt packed slot rejects", "broken slot recovery"] }, null, 2));
+  // allowTrim:false (덮어쓰기 '교체만') — 공간 부족이면 다른 슬롯을 조용히 떨구지 않고 throw + 기존 SAVE_LIST 그대로 보존.
+  // (적대적 감사에서 확인된 '덮어쓰기 시 비선택 슬롯이 무경고로 사라지던' 데이터 유실의 회귀 가드)
+  {
+    const capStorage = new MemoryStorage();
+    const seeded = JSON.stringify([{ id: "keep", savedAt: "2026-03-01T00:00:00.000Z", label: "Keep", packed: "AA" }]);
+    capStorage.setItem(SAVE_LIST_KEY, seeded);
+    const realSet = capStorage.setItem.bind(capStorage);
+    capStorage.setItem = (key, value) => {
+      if (key === SAVE_LIST_KEY) { let n = 0; try { n = JSON.parse(value).length; } catch {} if (n > 1) throw new Error("QuotaExceededError(시뮬레이션: 슬롯 1개만 수용)"); }
+      realSet(key, value);
+    };
+    const twoSlots = [
+      { id: "keep", savedAt: "2026-03-01T00:00:00.000Z", label: "Keep", save },
+      { id: "incoming", savedAt: "2026-03-10T00:00:00.000Z", label: "Incoming", save },
+    ];
+    await assert.rejects(() => writeSaveSlots(twoSlots, capStorage, { allowTrim: false }), "allowTrim:false must throw under quota, not silently drop a non-chosen slot");
+    assert.equal(capStorage.getItem(SAVE_LIST_KEY), seeded, "failed allowTrim:false write must leave the existing SAVE_LIST untouched (no slot lost)");
+    const storedCount = await writeSaveSlots(twoSlots, capStorage);
+    assert.ok(storedCount < twoSlots.length, "default writeSaveSlots trims under quota and reports a reduced count");
+  }
+
+  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "packed latest save", "quota fallback evicts backup", "quiet bookkeeping failure", "corrupt packed slot rejects", "broken slot recovery", "allowTrim:false overwrite preserves other slots (no silent loss)"] }, null, 2));
 } finally {
   await server.close();
 }
