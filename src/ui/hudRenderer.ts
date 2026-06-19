@@ -167,6 +167,7 @@ function renderObjectiveMarkup(view: HudViewModel) {
         <span class="objective-progress${objective.completed ? " done" : ""}">${objective.completed ? "✅ 완료" : escapeHtml(objective.progress)}</span>
       </span>
       <strong>${escapeHtml(objective.title)}</strong>
+      <span class="objective-detail">🧭 ${escapeHtml(objective.detail)}</span>
       <span class="objective-reward">🎁 보상: ${escapeHtml(objective.reward.label)}</span>
       <span class="objective-action${objective.completed ? " ready" : ""}">
         <kbd>Q</kbd>
