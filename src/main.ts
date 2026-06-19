@@ -32,7 +32,7 @@ import {
   spawnWorkbench as spawnWorkbenchObject,
 } from "./game/placeableSpawns";
 import {
-  applyShadowQuality, shouldSkipTinyRaycastDetail,
+  applyShadowQuality, shouldSkipTinyRaycastDetail, capCreatureRaycastMeshes,
   precompileSceneShaders,
   registerDistanceCulledVisual,
   refreshTrackedVisualVisibility,
@@ -9331,12 +9331,11 @@ class WildernessGame {
       child.userData.objectId = id;
       if (child instanceof THREE.Mesh) {
         if (shouldHideInvisibleMeshFromRender(child)) child.visible = false;
-        if (raycastable && !child.userData.skipRaycastTarget && !shouldSkipTinyRaycastDetail(type, child)) {
-          this.raycastTargets.push(child);
-          raycastMeshes.push(child);
-        }
+        if (raycastable && !child.userData.skipRaycastTarget && !shouldSkipTinyRaycastDetail(type, child)) raycastMeshes.push(child);
       }
     });
+    capCreatureRaycastMeshes(type, raycastMeshes); // 크리처는 큰 메시 몇 개만 raycast 대상으로 — 근처 look-raycast 비용·등록 수↓(타겟 몸통 유지)
+    for (const mesh of raycastMeshes) this.raycastTargets.push(mesh);
     applyStylizedMeshDefaults(root, this.shadowOptionsForType(type));
     this.addCartoonOutlines(root, type);
     this.addContactShadow(root, type, extra);
