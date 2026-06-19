@@ -64,11 +64,9 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   const actions = document.createElement("div");
   actions.className = "touch-actions";
   const attackBtn = btn("공격", "touch-attack");
-  const skillR = btn("R", "touch-skill touch-skill-r");
-  const skillT = btn("T", "touch-skill touch-skill-t");
-  const skillF = btn("F", "touch-skill touch-skill-f");
   const useBtn = btn("사용", "touch-use"); // 선택 아이템 먹기/구급상자/설치
-  actions.append(skillR, skillT, skillF, useBtn, attackBtn);
+  // R/T/F 스킬 버튼 제거 — 데스크톱 스킬바 아이콘 탭(skillBar.ts)으로 발동.
+  actions.append(useBtn, attackBtn);
 
   // 핫바는 기존 데스크톱 핫바(.hotbar)가 이미 탭(click) 가능 + 아이템 아이콘 표시 → 재사용. 별도 생성 안 함.
 
@@ -78,7 +76,9 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   const mapBtn = btn("지도", "touch-menu-btn");
   const charBtn = btn("캐릭터", "touch-menu-btn"); // 캐릭터창(K) — 목걸이 착용·스탯 분배
   const saveBtn = btn("저장", "touch-menu-btn");
-  menu.append(invBtn, mapBtn, charBtn, saveBtn);
+  const loadBtn = btn("불러오기", "touch-menu-btn"); // 숨겨진 데스크톱 불러오기 버튼 재사용
+  const fsBtn = btn("⛶", "touch-menu-btn"); // 전체화면(주소창 숨김)
+  menu.append(invBtn, mapBtn, charBtn, saveBtn, loadBtn, fsBtn);
 
   controls.append(joystick, jumpBtn, actions, menu);
   parent.append(lookZone, controls);
@@ -216,16 +216,34 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   window.addEventListener("touchend", onWindowEnd, { passive: false });
   window.addEventListener("touchcancel", onWindowEnd, { passive: false });
 
+  // 전체화면(주소창 숨김) — 토글 버튼 + 첫 조작 터치 1회 자동(둘 다 사용자 제스처라 정책 충족, 미지원은 무시)
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen?.();
+    else void document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+  let fsAuto = false;
+  const autoFullscreen = () => {
+    if (fsAuto || document.fullscreenElement) return;
+    fsAuto = true;
+    void document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+  lookZone.addEventListener("touchstart", autoFullscreen, { passive: true });
+  joystick.addEventListener("touchstart", autoFullscreen, { passive: true });
+
   const cleanups = [
     tap(attackBtn, () => cb.interact()),
-    tap(skillR, () => cb.useSkill(1)),
-    tap(skillT, () => cb.useSkill(2)),
-    tap(skillF, () => cb.useSkill(3)),
     tap(useBtn, () => cb.useItem()),
     tap(invBtn, () => cb.togglePanel("inventory")),
     tap(mapBtn, () => cb.togglePanel("map")),
     tap(charBtn, () => cb.togglePanel("character")),
     tap(saveBtn, () => cb.saveGame()),
+    // 불러오기: 숨겨진 데스크톱 [data-load-game] 버튼 재사용(콜백/main.ts 무수정)
+    tap(loadBtn, () => (document.querySelector("[data-load-game]") as HTMLElement | null)?.click()),
+    tap(fsBtn, toggleFullscreen),
+    () => {
+      lookZone.removeEventListener("touchstart", autoFullscreen);
+      joystick.removeEventListener("touchstart", autoFullscreen);
+    },
   ];
 
   return {

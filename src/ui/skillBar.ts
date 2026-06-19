@@ -78,6 +78,7 @@ function startCooldownTicker(barEl: HTMLElement): void {
 export function ensureSkillBar(parent: HTMLElement): HTMLElement {
   const bar = document.createElement("div");
   bar.className = "skill-bar";
+  const SKILL_CODES = ["KeyR", "KeyT", "KeyF"];
   for (let i = 0; i < 3; i += 1) {
     const tile = document.createElement("div");
     tile.className = "skill-tile";
@@ -87,6 +88,9 @@ export function ensureSkillBar(parent: HTMLElement): HTMLElement {
       '<span class="skill-cd"></span>' +
       '<span class="skill-cd-text"></span>' +
       '<span class="skill-name"></span>';
+    // 스킬 아이콘 탭/클릭 = 해당 스킬 발동(데스크톱 R/T/F 키 경로 재사용 — 합성 keydown). 터치·데스크톱 공통.
+    const code = SKILL_CODES[i];
+    tile.addEventListener("click", () => window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true })));
     bar.appendChild(tile);
   }
   parent.appendChild(bar);
