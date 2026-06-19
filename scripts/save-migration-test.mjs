@@ -71,6 +71,8 @@ try {
   assert.equal(legacy.buildId, SAVE_BUILD_ID);
   assert.equal(legacy.migratedFromVersion, 1);
   assert.equal(legacy.player.playerClass, "warrior");
+  assert.equal(legacy.player.jobTier, 0); // 구세이브엔 전직 차수가 없음 → 0
+  assert.equal(legacy.player.thirdSkillCooldownRemainingMs, 0);
   assert.equal(legacy.player.maxMana, BASE_MAX_MANA);
   assert.equal(legacy.player.mana, BASE_MAX_MANA);
   assert.equal(legacy.player.classSkillCooldownRemainingMs, 0);
@@ -129,6 +131,7 @@ try {
       level: 5,
       experience: 12,
       playerClass: "mage",
+      jobTier: 1,
       mana: 999,
       maxMana: 120,
       classSkillCooldownRemainingMs: 999_999_999,
@@ -183,6 +186,7 @@ try {
   assert.equal(current.player.pitch, 1.32);
   assert.equal(current.player.health, current.player.maxHealth);
   assert.equal(current.player.playerClass, "mage");
+  assert.equal(current.player.jobTier, 1); // 전직 차수 보존
   assert.equal(current.player.maxMana, 120);
   assert.equal(current.player.mana, 120);
   assert.equal(current.player.classSkillCooldownRemainingMs, 24 * 60 * 60 * 1000);

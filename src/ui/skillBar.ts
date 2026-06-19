@@ -1,15 +1,15 @@
 import { PLAYER_CLASSES } from "../game/classes";
-import { SECOND_SKILLS } from "../game/classSkills";
+import { SECOND_SKILLS, THIRD_SKILLS } from "../game/classSkills";
 import type { PlayerClassId } from "../game/types";
 
-// 직업별 두 스킬(R 1차 / T 2차)에 어울리는 아이콘. 스킬 동작 기준으로 선정.
-const SKILL_ICONS: Record<PlayerClassId, { primary: string; second: string }> = {
-  warrior: { primary: "⚔️", second: "🔥" }, // 무거운공격 / 불타는 공격
-  healer: { primary: "💚", second: "🌧️" }, // 천상치유 / 치유의 비
-  mage: { primary: "💣", second: "☄️" }, // TNT발사 / 파이어볼
-  summoner: { primary: "🦅", second: "🌪️" }, // 독수리소환술 / 바람 정령
-  gunner: { primary: "🔫", second: "💨" }, // 강탄 / 속사
-  tanker: { primary: "🛡️", second: "♨️" }, // 철벽방어 / 불타는 방패
+// 직업별 세 스킬(R 1차 / T 2차 / F 3차=전직 해금)에 어울리는 아이콘. 스킬 동작 기준으로 선정.
+const SKILL_ICONS: Record<PlayerClassId, { primary: string; second: string; third: string }> = {
+  warrior: { primary: "⚔️", second: "🔥", third: "🌋" }, // 무거운공격 / 불타는 공격 / 대지가르기
+  healer: { primary: "💚", second: "🌧️", third: "✨" }, // 천상치유 / 치유의 비 / 심판의 빛
+  mage: { primary: "💣", second: "☄️", third: "🌠" }, // TNT발사 / 파이어볼 / 메테오
+  summoner: { primary: "🦅", second: "🌪️", third: "🍃" }, // 독수리소환술 / 바람 정령 / 정령 폭풍
+  gunner: { primary: "🔫", second: "💨", third: "🎯" }, // 강탄 / 속사 / 관통 강탄
+  tanker: { primary: "🛡️", second: "♨️", third: "📣" }, // 철벽방어 / 불타는 방패 / 불굴의 함성
 };
 
 export interface SkillSlotView {
@@ -21,18 +21,23 @@ export interface SkillSlotView {
 }
 
 /**
- * 현재 직업의 두 클래스 스킬(R 1차, T 2차)을 스킬바 슬롯으로 변환.
- * 두 슬롯의 until 은 서로 다른 필드(classSkillCooldownUntil / secondSkillCooldownUntil)에서
- * 오므로 쿨타임이 독립적으로 표시된다.
+ * 현재 직업의 클래스 스킬을 스킬바 슬롯으로 변환.
+ * 기본 2슬롯(R 1차, T 2차). jobTier>=1(1차 전직)이면 3슬롯(F 3차)이 추가된다.
+ * 각 슬롯의 until 은 서로 다른 필드에서 오므로 쿨타임이 독립적으로 표시된다.
  */
-export function buildSkillSlots(playerClass: PlayerClassId, classUntil: number, secondUntil: number): SkillSlotView[] {
+export function buildSkillSlots(playerClass: PlayerClassId, classUntil: number, secondUntil: number, thirdUntil: number, jobTier: number): SkillSlotView[] {
   const icons = SKILL_ICONS[playerClass];
   const primary = PLAYER_CLASSES[playerClass];
   const second = SECOND_SKILLS[playerClass];
-  return [
+  const slots: SkillSlotView[] = [
     { icon: icons.primary, name: primary.skillName, hotkey: "R", total: primary.cooldown, until: classUntil },
     { icon: icons.second, name: second.name, hotkey: "T", total: second.cooldown, until: secondUntil },
   ];
+  if (jobTier >= 1) {
+    const third = THIRD_SKILLS[playerClass];
+    slots.push({ icon: icons.third, name: third.name, hotkey: "F", total: third.cooldown, until: thirdUntil });
+  }
+  return slots;
 }
 
 let ticking = false;
@@ -73,7 +78,7 @@ function startCooldownTicker(barEl: HTMLElement): void {
 export function ensureSkillBar(parent: HTMLElement): HTMLElement {
   const bar = document.createElement("div");
   bar.className = "skill-bar";
-  for (let i = 0; i < 2; i += 1) {
+  for (let i = 0; i < 3; i += 1) {
     const tile = document.createElement("div");
     tile.className = "skill-tile";
     tile.innerHTML =
@@ -91,9 +96,13 @@ export function ensureSkillBar(parent: HTMLElement): HTMLElement {
 /** 슬롯 데이터를 타일에 반영하고 쿨타임 틱을 가동한다. */
 export function renderSkillBar(barEl: HTMLElement, slots: SkillSlotView[]): void {
   const tiles = barEl.querySelectorAll<HTMLElement>(".skill-tile");
-  slots.forEach((slot, index) => {
-    const tile = tiles[index];
-    if (!tile) return;
+  tiles.forEach((tile, index) => {
+    const slot = slots[index];
+    if (!slot) {
+      tile.style.display = "none"; // 미해금 슬롯(전직 전 3번째 등)은 숨긴다
+      return;
+    }
+    tile.style.display = "";
     const hotkey = tile.querySelector<HTMLElement>(".skill-hotkey");
     const icon = tile.querySelector<HTMLElement>(".skill-icon");
     const name = tile.querySelector<HTMLElement>(".skill-name");

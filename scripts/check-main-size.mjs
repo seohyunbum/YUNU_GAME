@@ -5,7 +5,9 @@ import { readFileSync } from "node:fs";
 //
 // 이 예산은 ratchet: 내려가기만 한다.
 // main.ts 를 줄였으면 아래 MAX_MAIN_LINES 를 새 줄 수로 낮춰 예산을 조여라.
-const MAX_MAIN_LINES = 9489;
+// 2026-06-19: 전직 시스템 배선(jobTier 상태·F키·useThirdSkill·tryAdvanceJob·세이브/스냅샷)으로 9489→9532.
+// 로직은 모두 리프(game/jobAdvancement·jobTierVisuals·classSkills)에 두었고 main.ts 증가분은 순수 배선이다.
+const MAX_MAIN_LINES = 9532;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

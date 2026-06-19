@@ -37,6 +37,7 @@ export interface ObjectiveSnapshot {
   hasBigBag: boolean;
   playerClass: PlayerClassId;
   classWeaponCount: number;
+  jobTier: number;
   hasBasicArmor: boolean;
   hasSmelter: boolean;
   trainingTotal: number;
@@ -191,6 +192,8 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   checkQuest("craft_big_bag", (s) => s.hasBigBag, "확장 가방 만들기", "확장 제작대에서 확장 가방(에픽)을 만들어 가방 공간을 64칸으로 늘리세요. 재료는 가죽 14 + 제련된 다이아몬드 3 + 제련된 금 3으로 꽤 희귀합니다.", { experience: 530, items: { refined_diamond: 1, medkit: 3 }, label: "경험치 530 + 제련된 다이아몬드 1개 + 구급상자 3개" }),
   // ── 요새 토벌 (최종 도전) ──
   countQuest("hunt_fortress_boss", 1, (s) => s.fortressBossKills, "몬스터 요새 보스 처치", "동굴에 낮은 확률로 나타나는 '몬스터 요새'를 찾아, 동굴 끝 제단의 보스를 처치하세요. 흑요석과 전직의서를 떨어뜨립니다!", { experience: 545, items: { diamond: 2, medkit: 3 }, label: "경험치 545 + 다이아몬드 2개 + 구급상자 3개" }),
+  // ── 1차 전직 — 전직의서로 전직의 인장을 만들어 레벨 30+에서 사용 ──
+  checkQuest("advance_job_tier1", (s) => s.jobTier >= 1, "1차 전직 달성", "전직의서로 제작대에서 '전직의 인장'을 만들고, 레벨 30 이상에서 인장을 핫바에 넣어 숫자키로 사용하면 1차 전직합니다. 직업별 새 스킬(F)·스탯 상승·새 외형을 얻습니다!", { experience: 600, items: { advanced_medkit: 2, diamond: 3 }, label: "경험치 600 + 고급 구급상자 2개 + 다이아몬드 3개" }),
 ];
 
 // 퀘스트 보상 경험치 상향 — 초반 퀘스트는 2배에서 시작해 뒤로 갈수록 배율이 증가, 최종 퀘스트는 5배.

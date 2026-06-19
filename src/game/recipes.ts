@@ -89,6 +89,14 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     note: "장착하면 방어 +5. 피격 200회 후 부서집니다.",
   },
   {
+    id: "job_seal",
+    name: "전직의 인장",
+    output: "job_seal",
+    count: 1,
+    ingredients: { job_change_tome: 1, gold: 3 },
+    note: "전직의서로 만드는 전직용 인장입니다. 레벨 30 이상에서 들고 사용하면 1차 전직합니다.",
+  },
+  {
     id: "dragon_spawn",
     name: "용 스폰",
     output: "dragon_spawn",

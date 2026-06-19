@@ -283,10 +283,12 @@ export interface SavedGame {
     level: number;
     experience: number;
     playerClass?: PlayerClassId;
+    jobTier?: number; // 전직 차수 (0=미전직, 1=1차…). 구세이브엔 없음 → 0.
     mana?: number;
     maxMana?: number;
     classSkillCooldownRemainingMs?: number;
     secondSkillCooldownRemainingMs?: number;
+    thirdSkillCooldownRemainingMs?: number;
     companionProgress?: CompanionProgress;
     tutorial?: TutorialProgress;
     hunger?: number;
