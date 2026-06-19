@@ -80,8 +80,8 @@ import { fieldBossDefeatMessage, updateFieldBosses, type FieldBossContext } from
 import { showEndingScreen } from "./ui/endingScreen";
 import {
   createArrowProjectile,
-  createMagicProjectile, createFireballProjectile,
-  spawnHealEffect,
+  createMagicProjectile, createFireballProjectile, createMeteorProjectile,
+  spawnHealEffect, spawnHealingRain, spawnSpiritStorm,
   createTntProjectile,
   createWindCutterProjectile,
   spawnDamageParticles,
@@ -2857,7 +2857,19 @@ class WildernessGame {
     trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "third"),
     nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; },
     heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } },
+    fireMeteor: (damage, explosionRadius) => this.fireMeteor(damage, explosionRadius),
+    spiritStorm: (radius) => spawnSpiritStorm(this.combatEffectContext, this.playerPosition, radius),
   };
+
+  // 전방 지면 위 하늘에서 불운석을 떨어뜨려 충돌 지점에서 폭발(tnt 폭발 경로 재사용 — 메테오 전용 비주얼·낙하궤적).
+  private fireMeteor(damage: number, explosionRadius: number) {
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion); forward.y = 0; forward.normalize();
+    const impact = this.playerPosition.clone().addScaledVector(forward, 9); impact.y = this.getGroundHeightAt(impact.x, impact.z);
+    const origin = impact.clone().add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(2), 21, THREE.MathUtils.randFloatSpread(2)));
+    const dir = impact.clone().sub(origin); const dist = dir.length(); dir.normalize(); const speed = 32;
+    const mesh = createMeteorProjectile(dir); mesh.position.copy(origin); this.scene.add(mesh);
+    this.projectiles.push({ kind: "tnt", mesh, velocity: dir.clone().multiplyScalar(speed), damage, radius: 0.95, life: dist / speed, explosionRadius });
+  }
 
   // 전직 시도 — 전직 아이템(표식/각서/상급 각서) 사용 시 호출. 레벨·아이템 일치 확인 → 1개 소비 → 스탯·외형·스킬 적용.
   private tryAdvanceJob(usedItem: ItemId) {
@@ -2877,7 +2889,7 @@ class WildernessGame {
     this.renderHud();
   }
 
-  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, playerPosition: this.playerPosition };
+  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, healingRain: () => spawnHealingRain(this.combatEffectContext, this.playerPosition), playerPosition: this.playerPosition };
 
   private useHealerSkill() {
     const helpsParty = partyHasNearbyMember(this.playerPosition.x, this.playerPosition.z, HEAL_PARTY_RADIUS);

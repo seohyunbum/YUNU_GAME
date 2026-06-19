@@ -1426,6 +1426,7 @@ try {
       nearbyCombatTargets: () => effectTargets,
       applyDamage: (object, damage) => calls.push(["tick", object.id, damage]),
       heal: (amount) => calls.push(["heal", amount]),
+      healingRain: () => calls.push(["healingRain"]),
       playerPosition: { x: 0, y: 1.7, z: 0 },
     };
     calls.length = 0;
