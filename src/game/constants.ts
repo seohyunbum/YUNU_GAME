@@ -29,6 +29,13 @@ export const CAVE_START_Z = -780;
 export const CAVE_LENGTH = 190;
 export const CAVE_WIDTH = 16;
 export const CAVE_END_Z = CAVE_START_Z - CAVE_LENGTH;
+// 몬스터 요새 디펜스 아레나(siege) — 동굴 인스턴스(locationMode="cave") 안의 정사각 아레나.
+// 경계는 물리충돌이 아니라 위치 클램프라 폭 확장이 안전하다.
+export const ARENA_HALF = 17; // 정사각 아레나 반폭(34×34)
+export const ARENA_CENTER_Z = CAVE_START_Z - CAVE_LENGTH / 2; // 동굴 인스턴스 중앙 ≈ -875
+export const SIEGE_WAVE_CLEAR_DELAY = 4; // 웨이브 전멸 후 다음 웨이브까지(초)
+export const SIEGE_MAX_ALIVE = 12; // 동시 생존 상한(perf) — 초과분은 다음 스폰으로 이연
+export const SIEGE_SPAWN_STAGGER = 0.22; // 스폰 간 최소 간격(초) — 히치 방지
 export const CAVE_CENTER_Z = (CAVE_START_Z + CAVE_END_Z) / 2;
 export const HOUSE_CENTER_Z = -1240;
 export const TRAIN_RADIUS = 476;

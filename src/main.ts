@@ -111,6 +111,8 @@ import {
   BOW_DAMAGE,
   BUILDING_BLOCK_REACH,
   BUILDING_BLOCK_SIZE,
+  ARENA_HALF,
+  ARENA_CENTER_Z,
   CAVE_END_Z,
   CAVE_START_Z,
   CAVE_STEP_INTERVAL,
@@ -230,7 +232,7 @@ import type {
   TrainingKind,
   WorldObject,
 } from "./game/types";
-import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
+import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, monsterStatsFromLevel, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -238,7 +240,8 @@ import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
 import { updateVillageGuards, type GuardAiContext } from "./game/guardAi";
 import { keepOutOfBuildings } from "./game/npcMovement";
 import { hitStopScale, triggerHitFeedback, updateHitFeedback, type HitFeedbackDeps } from "./game/hitFeedback";
-import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, createMonsterFortressInterior, type InteriorContext } from "./game/interiors";
+import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, createMonsterFortressInterior, createSiegeArenaInterior, type InteriorContext } from "./game/interiors";
+import { createSiegeState, siegeStatus, updateSiege, type SiegeContext, type SiegeState } from "./game/fortressSiege";
 import { spawnFortressMonster, updateCaveMonsters, type CaveMonsterContext, type FortressSpawnDeps } from "./game/caveMonsters";
 import { buildOreMesh, oreSharedGeometries, oreSharedMaterials } from "./game/oreVisual";
 import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
@@ -600,6 +603,7 @@ class WildernessGame {
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
   private caveReturnPosition: THREE.Vector3 | null = null;
+  private fortressSiege: SiegeState | null = null; // 몬스터 요새 디펜스 진행 상태(휘발 — 세이브 안 함)
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
   private houseObjectIds: string[] = [];
@@ -692,6 +696,7 @@ class WildernessGame {
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(),
   };
   private readonly bannerEl = createBannerElement();
+  private readonly siegeHudEl = document.createElement("div"); // 몬스터 요새 디펜스 진행 표시
   private readonly juiceDeps = {
     context: this.combatEffectContext,
     banner: this.bannerEl,
@@ -730,7 +735,19 @@ class WildernessGame {
 
   private readonly trainingGroundContext: TrainingGroundContext = { defaultMapId: DEFAULT_WORLD_MAP_ID, worldMapId: () => this.currentWorldMapId, locationMode: () => this.locationMode, hasTrainingGround: () => { for (const object of this.objectsOfType("trainingGround")) return Boolean(object); return false; }, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
 
-  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), effects: () => this.combatEffectContext };
+  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), effects: () => this.combatEffectContext, arenaBounds: () => this.fortressSiege?.active ? { minX: -ARENA_HALF + 1, maxX: ARENA_HALF - 1, minZ: ARENA_CENTER_Z - ARENA_HALF + 1, maxZ: ARENA_CENTER_Z + ARENA_HALF - 1 } : null };
+
+  private readonly siegeContext: SiegeContext = {
+    spawnSiegeMonster: (x, z, level, elite) => this.spawnSiegeMonster(x, z, level, elite),
+    isAlive: (id) => this.objects.has(id),
+    grantStageReward: (stage, tomes, items) => {
+      this.addItem("job_change_tome", tomes);
+      for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
+      startMiniFanfare(this.finaleContext);
+    },
+    showMessage: (text) => this.showMessage(text),
+    renderHud: () => this.renderHud(),
+  };
 
   private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }), keepOutOfBuildings: (position) => keepOutOfBuildings(position, this.objectsNear(position, 7)) };
 
@@ -769,7 +786,7 @@ class WildernessGame {
   private gameStarted = false; private navGuard?: NavigationGuardHandle;
   private nightSpawnTimer = 0; private expirySweepTimer = 0; private autosaveTimer = 0;
   // 자동저장 flush — 별도 슬롯(SAVE_AUTOSAVE_KEY)에만 기록, 수동 저장 절대 미덮어쓰기. sync=true 는 이탈 직전 동기 저장.
-  private flushAutosave = (sync = false) => { if (!this.gameStarted) return; const save = this.createSaveData(); if (sync) appendAutosaveSync(save, this.nickname); else void appendSaveToAutosave(save, this.nickname); };
+  private flushAutosave = (sync = false) => { if (!this.gameStarted || this.fortressSiege) return; const save = this.createSaveData(); if (sync) appendAutosaveSync(save, this.nickname); else void appendSaveToAutosave(save, this.nickname); };
   private mirrorViewTimer = 0;
   private mirrorAvatar: THREE.Object3D | null = null;
   private audioContext: AudioContext | null = null;
@@ -906,6 +923,9 @@ class WildernessGame {
     this.renderer.domElement.className = "game-canvas";
     this.container.appendChild(this.renderer.domElement);
     this.uiRoot.appendChild(this.bannerEl);
+    this.siegeHudEl.className = "siege-hud";
+    this.siegeHudEl.style.display = "none";
+    this.uiRoot.appendChild(this.siegeHudEl);
     if (isTouchDevice()) {
       createTouchControls(this.uiRoot, {
         setKey: (code, pressed) => (pressed ? this.keys.add(code) : this.keys.delete(code)),
@@ -1870,6 +1890,7 @@ class WildernessGame {
     this.spawnTrain(0.1);
     for (let i = 0; i < 6; i += 1) this.spawnChest(this.randomGroundPoint(), false, rollChestTier());
     for (let i = 0; i < Math.round(3 * (mapDef.caveScale ?? 1)); i += 1) this.spawnCave(this.randomGroundPoint());
+    this.spawnFortressGate(this.randomGroundPoint()); // 몬스터 요새 디펜스 입구(맵당 1개)
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? JAMMINI_FIELD_COUNT : Math.ceil(JAMMINI_FIELD_COUNT * 0.4)); i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
@@ -2500,7 +2521,7 @@ class WildernessGame {
       return;
     }
     if (this.currentPanel === null) this.playSeconds += delta; // 실시간 플레이타임 누적(패널 열림 제외)
-    this.autosaveTimer += delta; if (this.autosaveTimer >= AUTOSAVE_INTERVAL_SECONDS && this.currentPanel === null) { this.autosaveTimer = 0; this.flushAutosave(); } // 주기적 자동저장(별도 슬롯)
+    this.autosaveTimer += delta; if (this.autosaveTimer >= AUTOSAVE_INTERVAL_SECONDS && this.currentPanel === null && !this.fortressSiege) { this.autosaveTimer = 0; this.flushAutosave(); } // 주기적 자동저장(별도 슬롯). 요새 진행 중엔 저장 안 함
     this.applyMouseLook();
     this.updateAdaptiveQuality(delta);
     this.updateTimeOfDay(delta);
@@ -2509,7 +2530,7 @@ class WildernessGame {
     this.updateTrains(delta);
     this.updateAnimals(delta); this.updateVillagers(delta); this.updateAnts(delta);
     updatePredatorAi(this.predatorAiContext, delta);
-    if (this.locationMode === "cave") updateCaveMonsters(this.caveMonsterContext, delta); // 몬스터 요새 동굴의 몬스터·보스 추격
+    if (this.locationMode === "cave") { if (this.fortressSiege?.active) updateSiege(this.fortressSiege, this.siegeContext, delta); updateCaveMonsters(this.caveMonsterContext, delta); } // 동굴 몬스터·보스 추격 + 요새 디펜스 웨이브 진행
     updateGraveTrap(this.graveTrapContext, delta);
     updateFinale(this.finaleContext);
     if (!partyWorldGuestActive()) updateFieldBosses(this.fieldBossContext); // 파티 게스트 — 보스는 호스트 스냅샷으로
@@ -3056,8 +3077,13 @@ class WildernessGame {
       position.z = THREE.MathUtils.clamp(position.z, -WORLD_SIZE / 2 + 5, WORLD_SIZE / 2 - 5);
     }
     if (this.locationMode === "cave") {
-      position.x = THREE.MathUtils.clamp(position.x, -CAVE_WIDTH / 2 + 1.1, CAVE_WIDTH / 2 - 1.1);
-      position.z = THREE.MathUtils.clamp(position.z, CAVE_END_Z + 3.5, CAVE_START_Z + 3.5);
+      if (this.fortressSiege?.active) {
+        position.x = THREE.MathUtils.clamp(position.x, -ARENA_HALF + 1, ARENA_HALF - 1);
+        position.z = THREE.MathUtils.clamp(position.z, ARENA_CENTER_Z - ARENA_HALF + 1, ARENA_CENTER_Z + ARENA_HALF - 1);
+      } else {
+        position.x = THREE.MathUtils.clamp(position.x, -CAVE_WIDTH / 2 + 1.1, CAVE_WIDTH / 2 - 1.1);
+        position.z = THREE.MathUtils.clamp(position.z, CAVE_END_Z + 3.5, CAVE_START_Z + 3.5);
+      }
     }
     if (this.locationMode === "house") {
       position.x = THREE.MathUtils.clamp(position.x, -5.2, 5.2);
@@ -3813,8 +3839,9 @@ class WildernessGame {
     if (target.type === "droppedItem") return `좌클릭/E: ${target.name} 줍기`;
     if (target.type === "buildingBlock") return selectedItem === "building_block" ? "좌클릭/E: 쌓기블록 회수 | 우클릭: 바라보는 면에 이어 붙이기" : "좌클릭/E: 쌓기블록 회수";
     if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에 누워 휴식 (체력 빠르게 회복)" : "좌클릭/E/우클릭: 침대에 누워 휴식";
+    if (target.type === "fortressGate") return "E: 몬스터 요새 입장 (디펜스)";
     if (target.type === "cave") return "E: 동굴 들어가기";
-    if (target.type === "caveExit") return "E: 동굴 나가기";
+    if (target.type === "caveExit") return this.fortressSiege?.active ? "E: 요새에서 나가기 (포기)" : "E: 동굴 나가기";
     if (target.type === "houseExit") return "E: 집 밖으로 나가기";
     if (target.type === "train") return this.ridingTrainId === target.id ? "E: 기차에서 내리기" : "E: 기차 타기";
     if (target.type === "water") return target.name;
@@ -3945,8 +3972,9 @@ class WildernessGame {
     if (target.type === "smallTree") this.harvestSmallTree(target);
     if (target.type === "bigTree") this.harvestBigTree(target);
     if (target.type === "chest") this.openChest(target);
+    if (target.type === "fortressGate") this.enterFortressSiege(target);
     if (target.type === "cave") this.enterCave(target);
-    if (target.type === "caveExit") this.leaveCave();
+    if (target.type === "caveExit") { if (this.fortressSiege?.active) { this.showMessage("요새를 포기하고 나갑니다. 받은 보상은 유지됩니다."); this.exitFortressSiege(); } else this.leaveCave(); }
     if (target.type === "houseExit") this.leaveHouse();
     if (target.type === "train") this.boardTrain(target);
     if (target.type === "dirtPatch") this.digDirt(target);
@@ -4276,6 +4304,69 @@ class WildernessGame {
     this.playTransitionSound("exit");
     this.showMessage("다시 야생으로 나왔습니다.");
     this.renderHud();
+  }
+
+  // ===== 몬스터 요새 디펜스 아레나 =====
+  private enterFortressSiege(target: WorldObject) {
+    this.caveReturnPosition = target.caveReturn?.clone() ?? this.playerPosition.clone();
+    this.clearCaveObjects();
+    this.locationMode = "cave";
+    this.setCaveAtmosphere();
+    this.playerPosition.set(0, PLAYER_HEIGHT, ARENA_CENTER_Z);
+    this.settlePlayerAfterTeleport();
+    createSiegeArenaInterior(this.interiorContext);
+    const baseLevel = Math.max(this.level, ...this.activeRegions.map((region) => region.level), 1);
+    this.fortressSiege = createSiegeState(baseLevel);
+    precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
+    this.playTransitionSound("enter");
+    this.showMessage("🏰 몬스터 요새에 입성했습니다! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/포기해도 받은 보상은 유지)");
+    this.renderHud();
+  }
+
+  private exitFortressSiege() {
+    this.fortressSiege = null;
+    this.leaveCave();
+  }
+
+  private spawnSiegeMonster(x: number, z: number, level: number, elite: boolean): string | null {
+    const monster = spawnFortressMonster(this.fortressSpawnDeps, new THREE.Vector3(x, 0, z), false);
+    if (!monster) return null;
+    const stats = monsterStatsFromLevel(level, false);
+    monster.hp = stats.hp;
+    monster.attackDamage = stats.attackDamage;
+    monster.monsterLevel = level;
+    monster.attackRange = 44; // 아레나 어디서든 중앙 플레이어를 추격하도록 어그로 확대
+    if (elite) {
+      monster.root.scale.multiplyScalar(1.35);
+      monster.collisionRadius = (monster.collisionRadius ?? 1) * 1.3;
+      monster.hp = Math.round(monster.hp * 1.4);
+      monster.name = `정예 ${monster.name ?? "몬스터"}`;
+    }
+    this.refreshSpatialObject(monster);
+    this.caveObjectIds.push(monster.id);
+    return monster.id;
+  }
+
+  private spawnFortressGate(position: THREE.Vector3) {
+    const group = new THREE.Group();
+    const stone = makeToonMaterial(0x3a2326, { roughness: 0.95 });
+    const iron = makeMetalMaterial(ASSET_PALETTE.steelDark, { metalness: 0.4, roughness: 0.5 });
+    const glow = makeGlowMaterial(0xff3b3b, 0xff1f1f, { emissiveIntensity: 1.1, roughness: 0.4 });
+    const bone = makeToonMaterial(0xe7e5d8, { roughness: 0.8 });
+    for (const sx of [-1, 1]) {
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.2, 0.7), stone);
+      pillar.position.set(sx * 1.7, 2.1, 0);
+      const skull = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 0), bone);
+      skull.position.set(sx * 1.7, 4.5, 0);
+      group.add(pillar, skull);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.7, 0.8), iron);
+    lintel.position.set(0, 4.2, 0);
+    const portal = new THREE.Mesh(new THREE.BoxGeometry(2.7, 3.5, 0.3), glow);
+    portal.position.set(0, 1.95, 0);
+    group.add(lintel, portal);
+    group.position.copy(position);
+    return this.addWorldObject("fortressGate", "몬스터 요새 입구", group, { caveReturn: position.clone().add(new THREE.Vector3(0, PLAYER_HEIGHT, 5)) });
   }
 
   private boardTrain(train: WorldObject) {
@@ -4974,6 +5065,16 @@ class WildernessGame {
     if (showParticles) this.playTone(90, 0.12, "sawtooth", 0.03);
     this.health = Math.max(0, this.health - damage);
     if (this.health <= 0) {
+      if (this.fortressSiege?.active) {
+        // 요새 내 사망 — 아이템 손실 없음(드랍 생략), 요새 이탈. 받은 보상은 유지.
+        this.health = this.maxHealth;
+        this.hunger = HUNGER_MAX;
+        this.hungerTimer = 0;
+        this.exitFortressSiege();
+        this.showMessage("🏰 요새에서 쓰러졌습니다. 아이템은 잃지 않았습니다. (받은 보상은 유지)");
+        this.renderHud();
+        return true;
+      }
       const deathPosition = this.locationMode === "overworld" ? this.playerPosition.clone() : (this.caveReturnPosition ?? this.houseReturnPosition ?? new THREE.Vector3(0, PLAYER_HEIGHT, 12)).clone();
       this.dropInventoryOnDeath(deathPosition);
       this.health = this.maxHealth;
@@ -5478,6 +5579,7 @@ class WildernessGame {
   }
 
   private async saveGame() {
+    if (this.fortressSiege?.active) { this.showMessage("요새 진행 중에는 저장할 수 없습니다. 나가거나 끝낸 뒤 저장하세요."); return; }
     try {
       const save = this.createSaveData();
       void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds }); // 운영 리포트용 진행도 발행(부가)
@@ -5993,6 +6095,7 @@ class WildernessGame {
     if (savedObject.type === "smallTree" || savedObject.type === "bigTree") object = this.spawnTree(savedObject.type, position);
     if (savedObject.type === "chest" || savedObject.type === "mineChest") object = this.spawnChest(position, savedObject.type === "mineChest" || Boolean(savedObject.mineRich), savedObject.chestTier ?? 0);
     if (savedObject.type === "cave") object = this.spawnCave(position);
+    if (savedObject.type === "fortressGate") object = this.spawnFortressGate(position);
     if (savedObject.type === "water") object = this.spawnWaterBody(position, this.restoredWaterRadius(position, savedObject.terrainRadius ?? 12, savedObject.name), savedObject.name);
     if (savedObject.type === "droppedItem") object = this.spawnDroppedItem(savedObject.droppedItem ?? "tutorial_book", savedObject.droppedCount ?? 1, position);
     if (savedObject.type === "bed") object = spawnBedObject(this.spawnContext, position, savedObject.rotationY ?? 0);
@@ -6115,6 +6218,15 @@ class WildernessGame {
   }
 
   private renderHud() {
+    if (this.fortressSiege?.active) {
+      const status = siegeStatus(this.fortressSiege);
+      this.siegeHudEl.textContent = status.intermission
+        ? `🏰 ${status.stage}단계 · 잠시 후 다음 웨이브…`
+        : `🏰 ${status.stage}단계 · 웨이브 ${status.wave}/${status.waves} · 남은 몬스터 ${status.remaining}`;
+      this.siegeHudEl.style.display = "block";
+    } else if (this.siegeHudEl.style.display !== "none") {
+      this.siegeHudEl.style.display = "none";
+    }
     const armor = this.equippedArmorValue();
     const equipmentArmor = this.equipmentArmorValue();
     const statBonus = this.levelStatBonus();

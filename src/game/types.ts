@@ -17,6 +17,7 @@ export type ObjectType =
   | "bigTree"
   | "chest"
   | "cave"
+  | "fortressGate"
   | "caveExit"
   | "graveHand"
   | "houseExit"
