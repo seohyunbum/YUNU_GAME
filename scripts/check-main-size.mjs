@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 // 2026-06-19: 모바일 터치 배선(터치 컨트롤 생성·포인터락 우회·pixelRatio/quality 모바일 분기 + 저장 콜백)으로 9534→9550.
 // 2026-06-19: 몬스터 요새 디펜스 배선(siege 상태·진입/이탈·클램프/AI 경계·사망/저장 게이트·웨이브 spawn·HUD·요새 입구)으로 9550→9662.
 // 로직은 모두 리프(game/fortressSiege·interiors·caveMonsters)에 두었고 main.ts 증가분은 배선 + 요새 진입/이탈/스폰/게이트 메서드다.
-const MAX_MAIN_LINES = 9662;
+const MAX_MAIN_LINES = 9668;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

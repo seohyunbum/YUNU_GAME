@@ -4296,6 +4296,8 @@ class WildernessGame {
   }
 
   private leaveCave() {
+    if (this.possessedEagleId) this.endEaglePossession(false); // 빙의 중 이탈 시 독수리 정리(orphan 방지)
+    this.fortressSiege = null; // 어떤 경로로 동굴을 나가든 siege 플래그 해제(상태 일관성)
     this.locationMode = "overworld";
     this.clearCaveObjects();
     this.setOverworldAtmosphere();
@@ -4340,6 +4342,7 @@ class WildernessGame {
       monster.root.scale.multiplyScalar(1.35);
       monster.collisionRadius = (monster.collisionRadius ?? 1) * 1.3;
       monster.hp = Math.round(monster.hp * 1.4);
+      monster.attackDamage = Math.round((monster.attackDamage ?? stats.attackDamage) * 1.4); // HP·크기와 함께 위협도 비례
       monster.name = `정예 ${monster.name ?? "몬스터"}`;
     }
     this.refreshSpatialObject(monster);
@@ -4777,6 +4780,7 @@ class WildernessGame {
       collisionRadius: 0.75,
       collisionHeight: 1.4,
     });
+    if (this.locationMode === "cave") this.caveObjectIds.push(eagle.id); // 동굴/요새서 소환 시 이탈 정리 대상에 포함
     return eagle;
   }
 
@@ -5490,6 +5494,7 @@ class WildernessGame {
   }
 
   private togglePanel(panel: Exclude<PanelType, null>) {
+    if (this.fortressSiege?.active && panel === "map") { this.showMessage("요새 진행 중에는 지도를 열 수 없습니다."); return; }
     this.currentPanel = this.currentPanel === panel ? null : panel;
     this.pendingStorageMove = null;
     if (this.currentPanel !== null && document.pointerLockElement) document.exitPointerLock();
@@ -6452,6 +6457,7 @@ class WildernessGame {
   private teleportToWorldMap(mapId: string, force = false) {
     const map = getWorldMapById(mapId);
     if (map.id === this.currentWorldMapId) return;
+    if (this.fortressSiege?.active) { this.showMessage("요새 진행 중에는 다른 맵으로 이동할 수 없습니다. (나가기/사망으로 종료)"); return; }
     if (!force && this.gameStarted && !canTeleportToWorldMap(this.level, map, this.defeatedFieldBosses)) { this.showMessage(worldMapLockReason(this.level, map, this.defeatedFieldBosses)); this.renderRegionMapPanel(); return; }
     rememberWorldState(this.worldStates, this.currentWorldMapId, this.createSaveData().worldStates?.[this.currentWorldMapId]);
     this.currentWorldMapId = map.id; this.activeRegions = regionsForWorldMap(map.id); this.activeBiomes = biomesForWorldMap(map.id); this.activeWaterZones = waterZonesForWorldMap(map.id); this.biomeDecorContext.biomes = this.activeBiomes; this.regionWarningState = { regionId: null, lastWarnAt: 0 };
