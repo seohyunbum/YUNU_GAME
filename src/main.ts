@@ -6340,7 +6340,7 @@ class WildernessGame {
       hasNecklaceEquipped: Boolean(this.equippedNecklace),
       classWeaponCount: CLASS_WEAPON_QUESTS[this.playerClass].items.reduce((sum, item) => sum + this.countItem(item), 0),
       hasBasicArmor: Boolean(this.equippedArmor) || ["leather_armor", "copper_armor", "iron_armor"].some((item) => this.countItem(item as ItemId) > 0),
-      hasSmelter: this.hasWorldObjectType("smelter", "specialSmelter"),
+      hasSmelter: this.locationMode === "overworld" && this.hasWorldObjectType("smelter", "specialSmelter"), // 내가 설치한 제련대만 인정 — 대장간 내부 무료 제련대(house)는 제외해 '입장만으로 완료' 방지. 인벤토리 보유는 quest 의 countItem("smelter") 가 따로 인정(교환 즉시 완료)
       trainingTotal: this.trainingStats.hp + this.trainingStats.attack + this.trainingStats.armor + this.trainingStats.mana,
       trainingKindsDone: [this.trainingStats.hp, this.trainingStats.attack, this.trainingStats.armor, this.trainingStats.mana].filter((count) => count > 0).length,
       bossChapter: this.bossChapter,
