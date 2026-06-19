@@ -8,6 +8,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" href="data:," />
     <title>1인칭 야생 마을</title>
+    <script>
+      // 일부 모바일 브라우저(삼성 인터넷 등)에서 100dvh 가 하단 툴바를 못 빼 화면 하단이 잘리는 문제 →
+      // 실제 visible 높이(window.innerHeight)를 --app-height 로 박아 루트 높이로 사용(폴백 dvh).
+      (function () {
+        var d = document.documentElement;
+        function setH() { d.style.setProperty("--app-height", window.innerHeight + "px"); }
+        setH();
+        window.addEventListener("resize", setH);
+        window.addEventListener("orientationchange", setH);
+      })();
+    </script>
   </head>
   <body>
     <main id="app">

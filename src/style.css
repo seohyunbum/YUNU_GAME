@@ -16,7 +16,8 @@ body,
 #game {
   width: 100%;
   height: 100vh; /* 폴백(dvh 미지원 구형 브라우저) */
-  height: 100dvh; /* 모바일 동적 뷰포트 — 주소창 제외한 실제 가시영역. 하단 터치 컨트롤이 화면 밖으로 잘리는 문제 해결 */
+  height: 100dvh; /* 동적 뷰포트 폴백 */
+  height: var(--app-height, 100dvh); /* JS 가 innerHeight 주입 — 삼성 인터넷 등 dvh 가 하단 툴바를 못 빼 잘리는 문제 대응 */
   margin: 0;
   overflow: hidden;
 }
@@ -3828,8 +3829,8 @@ body.touch-mode .save-controls {
   display: none; /* 키보드 안내·Ctrl 저장 버튼은 터치에서 숨김 */
 }
 body.touch-mode .stats {
-  /* HP/MP 를 좌상단으로 — 조이스틱이 좌하단을 쓰므로 */
-  top: max(10px, env(safe-area-inset-top));
+  /* HP/MP 를 좌상단으로 + 상단 여백 최소화(딱 붙임) */
+  top: max(2px, env(safe-area-inset-top));
   bottom: auto;
   left: max(10px, env(safe-area-inset-left));
 }
@@ -4081,7 +4082,7 @@ body.touch-mode .stats {
   transform-origin: top left;
 }
 body.touch-mode [data-minimap] {
-  transform: scale(0.7);
+  transform: translateY(-12px) scale(0.7);
   transform-origin: top right;
 }
 /* 메뉴: 스탯 절반 축소에 맞춰 위로 + 6버튼 3열 + 80% 크기 */
@@ -4145,7 +4146,7 @@ body.touch-mode .skill-tile {
 /* 퀘스트 박스: look-zone(z28) 위로(보상 탭 영역 확보) + 미니맵(70% 축소) 바로 아래로(우측 시점드래그 영역 확보) */
 body.touch-mode .objective {
   z-index: 30;
-  top: 8px;
+  top: 2px;
   left: 50%;
   right: auto;
   transform: translateX(-50%) scale(0.9);
