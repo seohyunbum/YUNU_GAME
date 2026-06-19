@@ -3635,7 +3635,7 @@ class WildernessGame {
     if (this.locationMode !== "overworld") return;
     const now = performance.now();
     for (let index = this.respawnQueue.length - 1; index >= 0; index -= 1) {
-      const entry = this.respawnQueue[index]; if (partyWorldGuestActive() && (entry.type === "wildPredator" || isGuardType(entry.type))) continue; if (entry.dueAt > now) continue; if (entry.position.distanceTo(this.playerPosition) < 42) { entry.dueAt = now + 10_000; continue; }
+      const entry = this.respawnQueue[index]; if (partyWorldGuestActive() && (entry.type === "wildPredator" || isGuardType(entry.type))) continue; if (entry.dueAt > now) continue; if (entry.position.distanceTo(this.playerPosition) < 10) { entry.dueAt = now + 5_000; continue; } // 근접 게이트 42→10u·연기 10→5s: 사냥하던 자리에 머물러도 몬스터가 훨씬 잘 리스폰되게
       this.respawnQueue.splice(index, 1); const position = entry.position.clone(); position.y = this.getGroundHeightAt(position.x, position.z); const villageId = entry.villageId ?? "respawn-village";
       if (entry.type === "wildPredator") { const region = this.activeRegions.find((candidate) => candidate.id === entry.regionId) ?? regionAtPosition(position, this.activeRegions); const monsterId = (entry.monsterId as MonsterId | undefined) ?? chooseRegionPredatorMonster(region); const predator = spawnPredatorEntity(this.entitySpawnContext, this.randomPredatorSpawnPoint(region) ?? position, entry.predatorKind ?? predatorKindForMonster(monsterId)); applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(predator.root.position, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId); }
       else if (entry.type === "jammini") spawnJamminiEntity(this.entitySpawnContext, position);
