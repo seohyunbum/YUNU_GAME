@@ -3965,3 +3965,21 @@ body.touch-mode .stats {
   border-radius: 12px;
   font-size: 13px;
 }
+
+/* 몬스터 요새 디펜스 진행 표시 */
+.siege-hud {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 19;
+  padding: 6px 16px;
+  background: rgba(60, 10, 12, 0.82);
+  border: 1.5px solid rgba(255, 59, 59, 0.6);
+  border-radius: 10px;
+  color: #ffd9d9;
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+  pointer-events: none;
+}

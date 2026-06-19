@@ -1,6 +1,7 @@
 # 몬스터 요새 (디펜스 아레나) 설계 + 기존 요새→동굴 리네임
 
-> 상태: **설계** (정밀 분석 완료, 결정 대기). 두 작업: (A) 기존 '몬스터 요새'→'몬스터 동굴' 리네임, (B) 신규 '몬스터 요새' = 웨이브 디펜스 아레나.
+> 상태: **구현 완료** (브랜치 `feat/monster-fortress`). (A) 리네임 + (B) 신규 디펜스 아레나(무한 웨이브). 결정 4종 확정.
+> 구현: 신규 리프 `game/fortressSiege.ts`(상태머신·점증 공식·보상), `interiors.ts:createSiegeArenaInterior`(아레나 셸), `caveMonsters.ts`(AI 아레나 경계), `main.ts`(배선: 진입/이탈·클램프·사망/저장 게이트·웨이브 spawn·요새 입구), `style.css`(siege-hud). cave 라이프사이클 재사용, 세이브 마이그레이션 0.
 > 작업지침 정본 `AGENTS.md`. 밸런스 컨텍스트 `docs/boss-chapter-economy-balance.md`.
 
 ## 0. 핵심 아키텍처 판단 (코드 근거)

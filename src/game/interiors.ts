@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { applyStylizedMeshDefaults } from "../visuals";
-import { CAVE_CENTER_Z, CAVE_END_Z, CAVE_LENGTH, CAVE_START_Z, CAVE_WIDTH, HOUSE_CENTER_Z } from "./constants";
+import { ARENA_CENTER_Z, ARENA_HALF, CAVE_CENTER_Z, CAVE_END_Z, CAVE_LENGTH, CAVE_START_Z, CAVE_WIDTH, HOUSE_CENTER_Z } from "./constants";
 import { spawnGrinder, spawnSmelter, spawnWorkbench } from "./placeableSpawns";
 import type { SpawnContext } from "./spawnContext";
 import type { BedTier } from "./constants";
@@ -49,13 +49,19 @@ const fortressBoneMaterial = new THREE.MeshStandardMaterial({ color: 0xe7e5d8, r
 const fortressAltarMaterial = new THREE.MeshStandardMaterial({ color: 0x3b0d12, emissive: 0x7f1d1d, emissiveIntensity: 0.4, roughness: 0.7 });
 const fortressRuneMaterial = new THREE.MeshStandardMaterial({ color: 0xff3b3b, emissive: 0xff1f1f, emissiveIntensity: 1.0, roughness: 0.4 });
 
+// 몬스터 요새 디펜스 아레나 전용 공유 자산(모듈 1회 생성).
+const ARENA_FLOOR_GEOMETRY = new THREE.PlaneGeometry(ARENA_HALF * 2 + 2, ARENA_HALF * 2 + 2);
+const ARENA_WALL_SEG_GEOMETRY = new THREE.BoxGeometry(ARENA_HALF - 4, 4.4, 1.2); // 한 변에 2 세그먼트(가운데 통로 개구부)
+const ARENA_PLATFORM_GEOMETRY = new THREE.CylinderGeometry(3.4, 3.8, 0.45, 24);
+const arenaFloorMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2024, roughness: 1 });
+
 // main 의 dispose-skip 등록용 — 동굴 셸은 모듈 공유 자산이라 채굴/퇴장 시 dispose 되면 다음 진입이 깨진다.
 // (현재 clearCaveObjects 는 scene.remove 만 하지만, 등록해 두면 실수로 dispose 경로를 타도 공유본이 보존된다.)
 export function caveSharedGeometries(): THREE.BufferGeometry[] {
-  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY, FORTRESS_BANNER_GEOMETRY, FORTRESS_BANNER_POLE_GEOMETRY, FORTRESS_BRAZIER_BOWL_GEOMETRY, FORTRESS_BRAZIER_LEG_GEOMETRY, FORTRESS_FLAME_GEOMETRY, FORTRESS_SKULL_GEOMETRY, FORTRESS_BONE_GEOMETRY, FORTRESS_SPIKE_GEOMETRY, FORTRESS_BAR_GEOMETRY, FORTRESS_ALTAR_BASE_GEOMETRY, FORTRESS_ALTAR_RING_GEOMETRY];
+  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY, FORTRESS_BANNER_GEOMETRY, FORTRESS_BANNER_POLE_GEOMETRY, FORTRESS_BRAZIER_BOWL_GEOMETRY, FORTRESS_BRAZIER_LEG_GEOMETRY, FORTRESS_FLAME_GEOMETRY, FORTRESS_SKULL_GEOMETRY, FORTRESS_BONE_GEOMETRY, FORTRESS_SPIKE_GEOMETRY, FORTRESS_BAR_GEOMETRY, FORTRESS_ALTAR_BASE_GEOMETRY, FORTRESS_ALTAR_RING_GEOMETRY, ARENA_FLOOR_GEOMETRY, ARENA_WALL_SEG_GEOMETRY, ARENA_PLATFORM_GEOMETRY];
 }
 export function caveSharedMaterials(): THREE.MeshStandardMaterial[] {
-  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial, fortressBannerMaterial, fortressIronMaterial, fortressFlameMaterial, fortressBoneMaterial, fortressAltarMaterial, fortressRuneMaterial];
+  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial, fortressBannerMaterial, fortressIronMaterial, fortressFlameMaterial, fortressBoneMaterial, fortressAltarMaterial, fortressRuneMaterial, arenaFloorMaterial];
 }
 
 // 동굴/집 인테리어 빌더 — main.ts 에서 추출한 순수 장면 구성 로직.
@@ -312,6 +318,75 @@ export function createMonsterFortressInterior(context: InteriorContext) {
   }
   const boss = context.spawnFortressMonster(new THREE.Vector3(0, 0, CAVE_END_Z + 11), true);
   if (boss) context.trackCaveObjects(boss.id);
+}
+
+// 몬스터 요새 디펜스 아레나(신규) — 정사각 셸 + 중앙 단상 + 4 통로 개구부 + 붉은 요새 분위기.
+// 몬스터는 웨이브로 스폰(여기서 스폰하지 않음). 셸/조명만 깐다. 나가기(포기) 출구 1개.
+export function createSiegeArenaInterior(context: InteriorContext) {
+  const cz = ARENA_CENTER_Z;
+  const half = ARENA_HALF;
+  const group = new THREE.Group();
+
+  const floor = new THREE.Mesh(ARENA_FLOOR_GEOMETRY, arenaFloorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, 0, cz);
+  group.add(floor);
+
+  // 4 변 성벽 — 한 변당 2 세그먼트, 가운데는 통로 개구부.
+  const segOffset = half / 2 + 1;
+  for (const sign of [-1, 1]) {
+    const north = new THREE.Mesh(ARENA_WALL_SEG_GEOMETRY, fortressIronMaterial);
+    north.position.set(sign * segOffset, 2.2, cz - half);
+    const south = new THREE.Mesh(ARENA_WALL_SEG_GEOMETRY, fortressIronMaterial);
+    south.position.set(sign * segOffset, 2.2, cz + half);
+    const west = new THREE.Mesh(ARENA_WALL_SEG_GEOMETRY, fortressIronMaterial);
+    west.rotation.y = Math.PI / 2;
+    west.position.set(-half, 2.2, cz + sign * segOffset);
+    const east = new THREE.Mesh(ARENA_WALL_SEG_GEOMETRY, fortressIronMaterial);
+    east.rotation.y = Math.PI / 2;
+    east.position.set(half, 2.2, cz + sign * segOffset);
+    group.add(north, south, west, east);
+  }
+
+  // 중앙 단상 + 룬 링.
+  const platform = new THREE.Mesh(ARENA_PLATFORM_GEOMETRY, fortressAltarMaterial);
+  platform.position.set(0, 0.22, cz);
+  const ring = new THREE.Mesh(FORTRESS_ALTAR_RING_GEOMETRY, fortressRuneMaterial);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(0, 0.5, cz);
+  group.add(platform, ring);
+
+  // 코너 화로(불꽃 + 조명) + 깃발.
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const bx = sx * (half - 2);
+      const bz = cz + sz * (half - 2);
+      const bowl = new THREE.Mesh(FORTRESS_BRAZIER_BOWL_GEOMETRY, fortressIronMaterial);
+      bowl.position.set(bx, 1.0, bz);
+      const flame = new THREE.Mesh(FORTRESS_FLAME_GEOMETRY, fortressFlameMaterial);
+      flame.position.set(bx, 1.34, bz);
+      const light = new THREE.PointLight(0xff5a33, 1.35, 22, 1.5);
+      light.position.set(bx, 2.0, bz);
+      group.add(bowl, flame, light);
+    }
+    const pole = new THREE.Mesh(FORTRESS_BANNER_POLE_GEOMETRY, fortressIronMaterial);
+    pole.position.set(sx * (half - 0.6), 1.2, cz);
+    const banner = new THREE.Mesh(FORTRESS_BANNER_GEOMETRY, fortressBannerMaterial);
+    banner.position.set(sx * (half - 0.6), 2.1, cz);
+    group.add(pole, banner);
+  }
+
+  // 중앙 강한 붉은 조명 + 앰비언트(요새 한가운데 분위기).
+  const centerLight = new THREE.PointLight(0xff2d2d, 2.3, 44, 1.5);
+  centerLight.position.set(0, 7, cz);
+  group.add(centerLight, new THREE.AmbientLight(0xff5544, 0.32));
+
+  context.scene.add(group);
+  context.trackCaveObjects(`loose-${group.uuid}`);
+
+  // 나가기(포기) 출구 — 남쪽 통로 옆. 진행 중 사용 시 보상 보존하고 이탈.
+  const exitId = context.addWorldObject("caveExit", "요새에서 나가기 (포기)", createExitPortal(new THREE.Vector3(half - 2.5, 0, cz + half - 2))).id;
+  context.trackCaveObjects(exitId);
 }
 
 function createHomeStorageVisual(position: THREE.Vector3) {

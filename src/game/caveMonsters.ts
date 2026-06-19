@@ -53,6 +53,7 @@ export interface CaveMonsterContext {
   animateWalkCycle(object: WorldObject, delta: number, movementSpeed: number): void;
   damagePlayer(amount: number, showParticles: boolean, deathReason: string): boolean;
   effects(): CombatEffectContext;
+  arenaBounds?(): { minX: number; maxX: number; minZ: number; maxZ: number } | null; // siege 아레나면 그 경계로 클램프(없으면 동굴 복도)
 }
 
 const CAVE_MIN_X = -CAVE_WIDTH / 2 + 1.0;
@@ -64,6 +65,11 @@ const next = new THREE.Vector3();
 export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
   const now = performance.now();
   const panelOpen = context.isPanelOpen();
+  const arena = context.arenaBounds?.() ?? null;
+  const minX = arena ? arena.minX : CAVE_MIN_X;
+  const maxX = arena ? arena.maxX : CAVE_MAX_X;
+  const minZ = arena ? arena.minZ : CAVE_MIN_Z;
+  const maxZ = arena ? arena.maxZ : CAVE_MAX_Z;
   for (const monster of context.predators()) {
     if (!monster.fortressMonster) continue; // 요새 몬스터만 동굴 AI 대상 — 오버월드 포식자를 끌어들이지 않음
     const dx = context.playerPosition.x - monster.root.position.x;
@@ -76,9 +82,9 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
     if (!aggroed && Math.random() < 0.02) monster.wanderAngle = Math.random() * Math.PI * 2;
     const speed = (aggroed ? stats.speed : stats.speed * 0.3) * (monster.fortressBoss ? 0.82 : 1);
     next.set(
-      THREE.MathUtils.clamp(monster.root.position.x + Math.cos(angle) * speed * delta, CAVE_MIN_X, CAVE_MAX_X),
+      THREE.MathUtils.clamp(monster.root.position.x + Math.cos(angle) * speed * delta, minX, maxX),
       0,
-      THREE.MathUtils.clamp(monster.root.position.z + Math.sin(angle) * speed * delta, CAVE_MIN_Z, CAVE_MAX_Z),
+      THREE.MathUtils.clamp(monster.root.position.z + Math.sin(angle) * speed * delta, minZ, maxZ),
     );
     next.y = context.getGroundHeightAt(next.x, next.z);
     monster.root.position.copy(next);

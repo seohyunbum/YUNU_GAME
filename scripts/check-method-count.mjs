@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 // 줄 수(check:size)는 비주얼/순수부만 빼도 줄지만, 메서드 수는 "메서드 통째 이동" 때만 줄어든다.
 // 그래서 둘을 함께 본다. 예산은 ratchet: 내려가기만. (AGENTS.md §1·§7)
 // 2026-06-19: 전직 시스템의 입력/전이 배선 메서드 2개(useThirdSkill·tryAdvanceJob)로 460→462.
-const MAX_METHODS = 462;
+// 2026-06-19: 몬스터 요새 디펜스 메서드 4개(enterFortressSiege·exitFortressSiege·spawnSiegeMonster·spawnFortressGate)로 462→466.
+const MAX_METHODS = 466;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");
