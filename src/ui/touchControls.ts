@@ -10,6 +10,7 @@ export interface TouchControlsCallbacks {
   interact(): void; // 공격/상호작용(데스크톱 좌클릭/E 와 동일 경로)
   useSkill(slot: 1 | 2 | 3): void;
   togglePanel(panel: "inventory" | "map"): void;
+  saveGame(): void; // 데스크톱 Ctrl+S 와 동일 — 모바일은 save-controls 가 숨겨지므로 버튼으로 제공
   isPlaying(): boolean; // 게임 진행 중(타이틀/패널 아님)일 때만 조이스틱·시점 활성
 }
 
@@ -61,7 +62,8 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   menu.className = "touch-menu";
   const invBtn = btn("가방", "touch-menu-btn");
   const mapBtn = btn("지도", "touch-menu-btn");
-  menu.append(invBtn, mapBtn);
+  const saveBtn = btn("저장", "touch-menu-btn");
+  menu.append(invBtn, mapBtn, saveBtn);
 
   controls.append(joystick, jumpBtn, actions, menu);
   parent.append(lookZone, controls);
@@ -149,18 +151,23 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   };
 
   const onWindowMove = (e: TouchEvent) => {
+    let tracked = false; // 조이스틱/시점 터치가 움직일 때만 preventDefault → 패널 목록 스크롤은 방해 안 함
     for (let i = 0; i < e.changedTouches.length; i += 1) {
       const t = e.changedTouches[i];
-      if (t.identifier === joystickId) updateJoystick(t.clientX, t.clientY);
-      else if (t.identifier === lookId) {
+      if (t.identifier === joystickId) {
+        updateJoystick(t.clientX, t.clientY);
+        tracked = true;
+      } else if (t.identifier === lookId) {
         // 빠른 스와이프의 시점 점프 방지 — 한 이벤트당 델타를 ±100px 로 제한
         const dx = Math.max(-100, Math.min(100, t.clientX - lookLastX));
         const dy = Math.max(-100, Math.min(100, t.clientY - lookLastY));
         lookLastX = t.clientX;
         lookLastY = t.clientY;
         if (cb.isPlaying()) cb.look(dx, dy);
+        tracked = true;
       }
     }
+    if (tracked && e.cancelable) e.preventDefault();
   };
 
   const onWindowEnd = (e: TouchEvent) => {
@@ -200,6 +207,7 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
     tap(skillF, () => cb.useSkill(3)),
     tap(invBtn, () => cb.togglePanel("inventory")),
     tap(mapBtn, () => cb.togglePanel("map")),
+    tap(saveBtn, () => cb.saveGame()),
   ];
 
   return {

@@ -913,6 +913,7 @@ class WildernessGame {
         interact: () => this.interact(),
         useSkill: (slot) => (slot === 1 ? this.useClassSkill() : slot === 2 ? this.useSecondSkill() : this.useThirdSkill()),
         togglePanel: (panel) => this.togglePanel(panel),
+        saveGame: () => void this.saveGame(),
         isPlaying: () => this.gameStarted && this.currentPanel === null,
       });
     }
