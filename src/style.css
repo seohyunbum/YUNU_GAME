@@ -3949,18 +3949,19 @@ body.touch-mode .stats {
 }
 
 .touch-menu {
+  /* 좌측 중앙 세로 스택 — 보스바(top-center)·미니맵(top-right)·목표(mid-right)·HP/MP(top-left)와 겹치지 않는 빈 구역 */
   position: absolute;
-  top: max(10px, env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
+  top: 32%;
+  left: max(8px, env(safe-area-inset-left));
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   pointer-events: none;
 }
 .touch-menu-btn {
   pointer-events: auto;
-  width: 60px;
-  height: 42px;
+  width: 58px;
+  height: 40px;
   border-radius: 12px;
   font-size: 13px;
 }
