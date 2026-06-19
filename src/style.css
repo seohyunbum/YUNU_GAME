@@ -4137,9 +4137,20 @@ body.touch-mode .skill-bar {
 body.touch-mode .skill-tile {
   pointer-events: auto;
 }
-/* 퀘스트 박스를 look-zone(z28) 위로 — 보상받기 탭 영역 전체 확보 */
+/* 퀘스트 박스: look-zone(z28) 위로(보상 탭 영역 확보) + 미니맵(70% 축소) 바로 아래로(우측 시점드래그 영역 확보) */
 body.touch-mode .objective {
   z-index: 30;
+  top: 120px;
+}
+/* 핫바·스킬바 90% 축소 + 스킬바를 핫바 가까이 아래로 */
+body.touch-mode .hotbar {
+  transform: translateX(-50%) scale(0.9);
+  transform-origin: bottom center;
+}
+body.touch-mode .skill-bar {
+  bottom: 64px;
+  transform: translateX(-50%) scale(0.9);
+  transform-origin: bottom center;
 }
 
 /* 몬스터 요새 디펜스 진행 표시 */
