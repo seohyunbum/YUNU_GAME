@@ -1,5 +1,6 @@
 import { HUNGER_MAX } from "./constants";
 import { ARMOR_VALUE, HEAL_ITEMS, ITEM_NAMES, PLACEABLE_TYPES, RANGED_WEAPONS, SHIELD_DEFENSE } from "./items";
+import { isJobAdvanceItem } from "./jobAdvancement";
 import { isNecklace } from "./necklace";
 import type { ItemId, PanelType } from "./types";
 
@@ -22,7 +23,7 @@ export interface HotbarUseContext {
   fireRangedWeapon(item: ItemId): void;
   useSelectedBucketOnLook(): void;
   useDragonSpawnItem(): void;
-  tryAdvanceJob(): void;
+  tryAdvanceJob(item: ItemId): void;
   showMirrorView(): void;
   removeItem(item: ItemId, count: number): boolean;
   grantLevels(count: number, fraction?: number): void;
@@ -60,8 +61,8 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
     context.useDragonSpawnItem();
     return;
   }
-  if (item === "job_seal") {
-    context.tryAdvanceJob(); // 레벨 확인·인장 소비·전직 적용은 모두 tryAdvanceJob 안에서 처리
+  if (isJobAdvanceItem(item)) {
+    context.tryAdvanceJob(item); // 레벨·아이템 일치 확인·소비·전직 적용은 모두 tryAdvanceJob 안에서 처리
     return;
   }
   if (item === "building_block") {

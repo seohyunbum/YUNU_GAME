@@ -66,7 +66,9 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   refined_diamond: "제련된 다이아몬드",
   sharp_obsidian: "날카로운 흑요석",
   job_change_tome: "전직의서",
-  job_seal: "전직의 인장",
+  job_seal: "전직의 표식",
+  job_decree: "전직의 각서",
+  job_decree_high: "상급 전직의 각서",
   weak_wood_axe: "약한 나무 도끼",
   sharp_wood_axe: "날카로운 나무 도끼",
   stone_axe: "돌 도끼",
@@ -227,6 +229,8 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   big_bag: "epic",
   job_change_tome: "epic",
   job_seal: "epic",
+  job_decree: "epic",
+  job_decree_high: "epic",
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
@@ -254,9 +258,9 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
   dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic",
   strength_necklace: "epic", guardian_necklace: "epic", swift_necklace: "epic", sage_necklace: "epic",
-  advanced_medkit: "epic", big_bag: "epic", job_change_tome: "epic", job_seal: "epic",
-  // 레전더리(legendary) — 최종 흑요석 무기 3종 + 경험치병(매우 희귀)
-  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", xp_bottle: "legendary",
+  advanced_medkit: "epic", big_bag: "epic", job_change_tome: "epic", job_seal: "epic", job_decree: "epic",
+  // 레전더리(legendary) — 최종 흑요석 무기 3종 + 상급 전직의 각서 + 경험치병(매우 희귀)
+  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", job_decree_high: "legendary", xp_bottle: "legendary",
 };
 export function itemTier(item: ItemId): ItemTier {
   return ITEM_TIER[item] ?? "common";

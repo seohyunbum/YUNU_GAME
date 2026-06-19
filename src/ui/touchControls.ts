@@ -9,7 +9,7 @@ export interface TouchControlsCallbacks {
   look(dx: number, dy: number): void; // 시점 드래그 px 델타 → main 이 감도 적용 후 rotateCameraByMouse
   interact(): void; // 공격/상호작용(데스크톱 좌클릭/E 와 동일 경로)
   useSkill(slot: 1 | 2 | 3): void;
-  useItem(): void; // 선택한 핫바 아이템 사용(먹기·구급상자·설치·전직의 인장 등) — 데스크톱 숫자키 재사용분
+  useItem(): void; // 선택한 핫바 아이템 사용(먹기·구급상자·설치·전직 아이템 등) — 데스크톱 숫자키 재사용분
   togglePanel(panel: "inventory" | "map" | "character"): void;
   saveGame(): void; // 데스크톱 Ctrl+S 와 동일 — 모바일은 save-controls 가 숨겨지므로 버튼으로 제공
   isPlaying(): boolean; // 게임 진행 중(타이틀/패널 아님)일 때만 조이스틱·시점 활성
