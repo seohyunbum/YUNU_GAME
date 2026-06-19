@@ -4055,9 +4055,9 @@ body.touch-mode .prompt {
     height: 42px;
   }
   body.touch-mode .touch-jump {
-    width: 52px;
-    height: 52px;
-    font-size: 13px;
+    width: 42px;
+    height: 42px;
+    font-size: 11px;
     left: calc(max(22px, env(safe-area-inset-left)) + 108px);
   }
   body.touch-mode .touch-attack {
@@ -4065,15 +4065,61 @@ body.touch-mode .prompt {
     height: 64px;
     font-size: 14px;
   }
-  body.touch-mode .touch-skill,
   body.touch-mode .touch-use {
-    width: 46px;
-    height: 46px;
-    font-size: 13px;
+    width: 37px;
+    height: 37px;
+    font-size: 10px;
   }
   body.touch-mode .touch-actions {
     gap: 9px;
   }
+}
+
+/* === 사용자 요청 추가 축소: 스탯 50% · 미니맵 70% · 팝업 70% · 기타 컨트롤 80% (공격·조이스틱 제외) === */
+body.touch-mode .stats {
+  transform: scale(0.5);
+  transform-origin: top left;
+}
+body.touch-mode [data-minimap] {
+  transform: scale(0.7);
+  transform-origin: top right;
+}
+/* 메뉴: 스탯 절반 축소에 맞춰 위로 + 6버튼 3열 + 80% 크기 */
+body.touch-mode .touch-menu {
+  top: calc(max(10px, env(safe-area-inset-top)) + 50px);
+  grid-template-columns: repeat(3, auto);
+}
+body.touch-mode .touch-menu-btn {
+  width: 40px;
+  height: 30px;
+  font-size: 9px;
+}
+/* 점프·사용 80% (공격·조이스틱은 유지) */
+body.touch-mode .touch-jump {
+  width: 53px;
+  height: 53px;
+  font-size: 12px;
+}
+body.touch-mode .touch-use {
+  width: 46px;
+  height: 46px;
+  font-size: 11px;
+}
+/* 스킬 아이콘 탭 가능 — 커서 표시(데스크톱 보조) */
+.skill-tile {
+  cursor: pointer;
+}
+/* 팝업(인벤/지도/캐릭터) 70% + 가로 잘림 해소(폭강제 해제·내부 1열화) */
+body.touch-mode .panel-layer .panel {
+  transform: scale(0.7);
+  transform-origin: center;
+}
+body.touch-mode .character-panel {
+  min-width: 0;
+}
+body.touch-mode .map-layout,
+body.touch-mode .character-body {
+  grid-template-columns: 1fr;
 }
 
 /* 몬스터 요새 디펜스 진행 표시 */
