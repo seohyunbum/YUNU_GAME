@@ -323,7 +323,7 @@ import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/s
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { isTouchDevice } from "./game/platform";
-import { createTouchControls } from "./ui/touchControls";
+import { createTouchControls, showStationChoice } from "./ui/touchControls";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackIntercept, partyGuestOpenIntercept, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
@@ -3956,15 +3956,15 @@ class WildernessGame {
       return;
     }
     if (target.type === "workbench" || target.type === "extendedWorkbench") {
-      if (isTouchDevice()) this.useLookedWorkbench(); else this.pickUpWorkbench(target); // 모바일: 우클릭이 없으니 탭=사용(회수는 데스크톱)
+      if (isTouchDevice()) showStationChoice(this.uiRoot, () => this.useLookedWorkbench(), () => this.pickUpWorkbench(target)); else this.pickUpWorkbench(target); // 터치: 사용/줍기 선택창
       return;
     }
     if (target.type === "smelter" || target.type === "specialSmelter") {
-      if (isTouchDevice()) this.useLookedSmelter(); else this.pickUpSmelter(target);
+      if (isTouchDevice()) showStationChoice(this.uiRoot, () => this.useLookedSmelter(), () => this.pickUpSmelter(target)); else this.pickUpSmelter(target);
       return;
     }
     if (target.type === "grinder") {
-      if (isTouchDevice()) this.useLookedGrinder(); else this.pickUpGrinder(target);
+      if (isTouchDevice()) showStationChoice(this.uiRoot, () => this.useLookedGrinder(), () => this.pickUpGrinder(target)); else this.pickUpGrinder(target);
       return;
     }
     if (target.type === "antHill") {
