@@ -292,6 +292,8 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       craftLevel: savedInteger(player.craftLevel, 1, 1, 999),
       craftExperience: savedInteger(player.craftExperience, 0, 0, Number.POSITIVE_INFINITY),
       craftStatPoints: savedInteger(player.craftStatPoints, 0, 0, 9999),
+      // 구세이브엔 없을 수 있다 — 있으면 보존, 없으면 키 자체를 빼서 restoreSaveData 가 현재 포인트를 유지(0 으로 덮어쓰지 않음).
+      ...(typeof player.arcadePoints === "number" ? { arcadePoints: savedInteger(player.arcadePoints, 0, 0, Number.POSITIVE_INFINITY) } : {}),
       craftStatAlloc: normalizeCraftStatAlloc(player.craftStatAlloc),
       homeStorage: normalizeSavedSlots(player.homeStorage, HOME_STORAGE_SLOTS, [], player.toolUses),
       homeSupplyCooldowns: normalizeSupplyCooldowns(player.homeSupplyCooldowns),

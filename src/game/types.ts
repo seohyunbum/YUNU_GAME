@@ -318,6 +318,7 @@ export interface SavedGame {
     craftLevel?: number;
     craftExperience?: number;
     craftStatPoints?: number;
+    arcadePoints?: number; // 미니게임/판매 포인트 — 세이브에 포함해 로드 시 롤백(판매→로드 복제 익스플로잇 차단). 구세이브엔 없을 수 있음(optional)
     craftStatAlloc?: { hp: number; mana: number; attack: number; defense: number };
     caveReturnPosition: SavedVector | null;
     houseReturnPosition?: SavedVector | null;

@@ -15,7 +15,8 @@ import { readFileSync } from "node:fs";
 //   덮어쓰기 allowTrim:false 안전화, 떨궈진 슬롯 식별 경고. 정본 저장 orchestration 이라 리프 추출 불가 → 9658→9666.
 // 2026-06-19: 세이브 후속 — 로드 세이브 명명슬롯 승급(promoteSaveToSlotList 리프) 배선 import+호출 → 9666→9669.
 // 2026-06-19: 적대적 리뷰 후속 — savedAt 없는 import 는 승급 제외(중복 슬롯 방지) 가드 1줄 → 9669→9670.
-const MAX_MAIN_LINES = 9670;
+// 2026-06-19: arcadePoints 세이브 포함(판매→로드 포인트 복제 차단) — snapshot 1줄 + restore 롤백 가드 2줄 → 9670→9673.
+const MAX_MAIN_LINES = 9673;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
