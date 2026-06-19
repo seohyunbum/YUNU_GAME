@@ -22,6 +22,7 @@ export interface HotbarUseContext {
   fireRangedWeapon(item: ItemId): void;
   useSelectedBucketOnLook(): void;
   useDragonSpawnItem(): void;
+  tryAdvanceJob(): void;
   showMirrorView(): void;
   removeItem(item: ItemId, count: number): boolean;
   grantLevels(count: number, fraction?: number): void;
@@ -56,6 +57,10 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
   }
   if (item === "dragon_spawn") {
     context.useDragonSpawnItem();
+    return;
+  }
+  if (item === "job_seal") {
+    context.tryAdvanceJob(); // 레벨 확인·인장 소비·전직 적용은 모두 tryAdvanceJob 안에서 처리
     return;
   }
   if (item === "building_block") {

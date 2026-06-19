@@ -17,6 +17,7 @@ import {
 import { DURABLE_TOOL_TABLES, SHIELD_DEFENSE, SHIELD_DURABILITY } from "./items";
 import { isNecklace } from "./necklace";
 import { PLAYER_CLASSES } from "./classes";
+import { normalizeJobTier } from "./jobAdvancement";
 import { DEFAULT_SUMMONER_PET_PROGRESS } from "./classPassives";
 import { DEFAULT_WORLD_MAP_ID, isWorldMapId } from "./worldMaps";
 import { normalizeBossChapter } from "./bossChapters";
@@ -231,6 +232,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
     savedInteger(player.health, migratedMaxHealth, 1, migratedMaxHealth),
   );
   const migratedPlayerClass = isPlayerClassId(player.playerClass) ? player.playerClass : "warrior";
+  const migratedJobTier = normalizeJobTier(player.jobTier, migratedPlayerClass);
   const migratedMaxMana = savedNumber(player.maxMana, BASE_MAX_MANA, 1, 9999);
   const migratedMana = savedNumber(player.mana, migratedMaxMana, 0, migratedMaxMana);
   const migratedClassCooldown = savedNumber(player.classSkillCooldownRemainingMs, 0, 0, MAX_CLASS_COOLDOWN_MS);
@@ -259,10 +261,12 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       level: migratedLevel,
       experience: migratedExperience,
       playerClass: migratedPlayerClass,
+      jobTier: migratedJobTier,
       mana: migratedMana,
       maxMana: migratedMaxMana,
       classSkillCooldownRemainingMs: migratedClassCooldown,
       secondSkillCooldownRemainingMs: savedNumber(player.secondSkillCooldownRemainingMs, 0, 0, MAX_CLASS_COOLDOWN_MS),
+      thirdSkillCooldownRemainingMs: savedNumber(player.thirdSkillCooldownRemainingMs, 0, 0, MAX_CLASS_COOLDOWN_MS),
       companionProgress: normalizeCompanionProgress(player.companionProgress),
       tutorial: normalizeTutorialProgress(player.tutorial),
       hunger: savedNumber(player.hunger, HUNGER_MAX, 0, HUNGER_MAX),

@@ -1338,6 +1338,11 @@ try {
     assert(classIds.every((id) => SECOND_SKILLS[id]), "every class must define a second skill");
     assert(SECOND_SKILLS.mage.name === "파이어볼" && SECOND_SKILLS.warrior.name === "불타는 공격" && SECOND_SKILLS.tanker.name === "불타는 방패", "designed second-skill names must match the spec");
     assert(classIds.every((id) => SECOND_SKILLS[id].manaCost > 0 && SECOND_SKILLS[id].cooldown > 0 && SECOND_SKILLS[id].summary.length > 0), "second skills need cost, cooldown, and summary");
+    // 3스킬 테이블(1차 전직 해금): 6직업 전부 정의 + 양수 코스트/쿨다운/요약
+    const { THIRD_SKILLS } = classSkills;
+    assert(classIds.every((id) => THIRD_SKILLS[id]), "every class must define a third (advancement) skill");
+    assert(THIRD_SKILLS.warrior.name === "대지가르기" && THIRD_SKILLS.mage.name === "메테오" && THIRD_SKILLS.tanker.name === "불굴의 함성", "designed third-skill names must match the spec");
+    assert(classIds.every((id) => THIRD_SKILLS[id].manaCost > 0 && THIRD_SKILLS[id].cooldown > 0 && THIRD_SKILLS[id].summary.length > 0), "third skills need cost, cooldown, and summary");
   }
 
   {
@@ -1606,11 +1611,11 @@ try {
     // 스킬바 골든: 직업별 두 슬롯(R 1차 / T 2차)의 이름·단축키·쿨타임·아이콘 + 쿨타임 독립성
     const { buildSkillSlots } = skillBar;
     const { PLAYER_CLASSES } = classes;
-    const { SECOND_SKILLS } = classSkills;
+    const { SECOND_SKILLS, THIRD_SKILLS } = classSkills;
     const CLASS_IDS = ["warrior", "healer", "mage", "summoner", "gunner", "tanker"];
     for (const id of CLASS_IDS) {
-      const slots = buildSkillSlots(id, 0, 0);
-      assert(slots.length === 2, `${id}: skill bar should have exactly 2 slots`);
+      const slots = buildSkillSlots(id, 0, 0, 0, 0);
+      assert(slots.length === 2, `${id}: jobTier 0 skill bar should have exactly 2 slots`);
       assert(slots[0].hotkey === "R" && slots[1].hotkey === "T", `${id}: slots should be R(primary)/T(second)`);
       assert(slots[0].name === PLAYER_CLASSES[id].skillName, `${id}: primary slot name should match PLAYER_CLASSES.skillName`);
       assert(slots[1].name === SECOND_SKILLS[id].name, `${id}: second slot name should match SECOND_SKILLS.name`);
@@ -1627,8 +1632,17 @@ try {
     const both = buildSkillSlots("healer", 1_111, 2_222);
     assert(both[0].until === 1_111 && both[1].until === 2_222, "each slot should carry its own independent until timestamp");
     // 아이콘이 직업/슬롯별로 구분되는지(전부 동일 문자열이 아님)
-    const allIcons = CLASS_IDS.flatMap((id) => { const s = buildSkillSlots(id, 0, 0); return [s[0].icon, s[1].icon]; });
+    const allIcons = CLASS_IDS.flatMap((id) => { const s = buildSkillSlots(id, 0, 0, 0, 0); return [s[0].icon, s[1].icon]; });
     assert(new Set(allIcons).size >= 6, "skill icons should be reasonably varied across classes/slots");
+    // 1차 전직(jobTier>=1) 시 3번째 슬롯(F) 해금 — 미전직이면 2슬롯 유지
+    for (const id of CLASS_IDS) {
+      assert(buildSkillSlots(id, 0, 0, 0, 0).length === 2, `${id}: jobTier 0 should keep 2 slots`);
+      const advanced = buildSkillSlots(id, 0, 0, 3_333, 1);
+      assert(advanced.length === 3, `${id}: jobTier 1 should unlock a 3rd (F) slot`);
+      assert(advanced[2].hotkey === "F", `${id}: 3rd slot hotkey should be F`);
+      assert(advanced[2].name === THIRD_SKILLS[id].name, `${id}: 3rd slot name should match THIRD_SKILLS.name`);
+      assert(advanced[2].until === 3_333, `${id}: 3rd slot should carry its own thirdUntil`);
+    }
   }
 
   {

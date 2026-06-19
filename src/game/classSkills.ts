@@ -80,10 +80,11 @@ export interface SkillBuffs {
   rapidFireUntil: number;
   nextAuraTickAt: number;
   nextRainTickAt: number;
+  unbreakableUntil: number; // 탱커 3스킬(불굴의 함성) — 방어 +UNBREAKABLE_ARMOR
 }
 
 export function createSkillBuffs(): SkillBuffs {
-  return { burningShieldUntil: 0, healingRainUntil: 0, rapidFireUntil: 0, nextAuraTickAt: 0, nextRainTickAt: 0 };
+  return { burningShieldUntil: 0, healingRainUntil: 0, rapidFireUntil: 0, nextAuraTickAt: 0, nextRainTickAt: 0, unbreakableUntil: 0 };
 }
 
 export function burningShieldArmorBonus(buffs: SkillBuffs, now: number) {
@@ -103,7 +104,7 @@ export interface SecondSkillContext {
   buffs: SkillBuffs;
   trySpend(skill: SecondSkillDef): boolean;
   lookCombatTarget(): WorldObject | null;
-  fireSkillProjectile(kind: "tnt" | "wind", visual: "magic" | "wind" | "fireball", damage: number, speed: number, radius: number, explosionRadius?: number): void;
+  fireSkillProjectile(kind: "tnt" | "wind" | "arrow", visual: "magic" | "wind" | "fireball" | "arrow", damage: number, speed: number, radius: number, explosionRadius?: number): void;
   applyDamage(target: WorldObject, damage: number): void;
   meleeEffects(target: WorldObject): void;
   playHandAction(kind: "melee" | "magic"): void;
@@ -207,6 +208,7 @@ export function resetSecondSkillEffects(buffs: SkillBuffs) {
   buffs.burningShieldUntil = 0;
   buffs.healingRainUntil = 0;
   buffs.rapidFireUntil = 0;
+  buffs.unbreakableUntil = 0;
 }
 
 export function activeBurnCount() {
@@ -256,4 +258,124 @@ export function updateSecondSkillEffects(context: SkillEffectsContext) {
     context.heal(rain);
     partyHealNearby(rain, HEAL_PARTY_RADIUS);
   }
+}
+
+// ===== 3스킬 (F 키) — 1차 전직 시 해금되는 직업별 시그니처 스킬 =====
+// 데이터·로직 모두 여기(리프)에 둔다. main.ts 는 F 입력 → useThirdSkill 배선만.
+export const UNBREAKABLE_SECONDS = 20;
+export const UNBREAKABLE_ARMOR = 6;
+
+// 탱커 불굴의 함성 — 지속되는 방어 보너스. burningShieldArmorBonus 와 같은 패턴.
+export function unbreakableArmorBonus(buffs: SkillBuffs, now: number) {
+  return buffs.unbreakableUntil > now ? UNBREAKABLE_ARMOR : 0;
+}
+
+// 3스킬 수치 — 전직 보상답게 2스킬보다 강하게 스케일.
+export function earthCleaveDamage(currentDamage: number) {
+  return Math.floor(currentDamage * 2);
+}
+export function judgmentLightDamage(levelBonus: number) {
+  return scaledSkillValue(50, levelBonus, 1.4);
+}
+export const JUDGMENT_SELF_HEAL = 30;
+export function meteorDamage(levelBonus: number) {
+  return scaledSkillValue(70, levelBonus, 1.8);
+}
+export const METEOR_RADIUS = MAGE_TNT_RADIUS * 1.1;
+export function spiritStormDamage(levelBonus: number) {
+  return scaledSkillValue(30, levelBonus, 1.2);
+}
+export function piercingShotDamage(levelBonus: number) {
+  return scaledSkillValue(120, levelBonus, 2.2);
+}
+export const EARTH_CLEAVE_RADIUS = 4;
+export const SPIRIT_STORM_RADIUS = 5;
+export const RALLY_BURST_RADIUS = 3.5;
+
+export const THIRD_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
+  warrior: { name: "대지가르기", summary: "주변 모든 적에게 공격력 2배의 광역 강타.", manaCost: 50, cooldown: 35 },
+  healer: { name: "심판의 빛", summary: `전방에 신성한 빛을 쏘아 피해를 주고 자신을 ${JUDGMENT_SELF_HEAL} 회복합니다.`, manaCost: 50, cooldown: 28 },
+  mage: { name: "메테오", summary: "거대한 운석을 떨어뜨려 넓은 범위에 큰 피해를 줍니다.", manaCost: 55, cooldown: 32 },
+  summoner: { name: "정령 폭풍", summary: "주변에 바람 정령 폭풍을 일으켜 광역 피해를 줍니다.", manaCost: 45, cooldown: 28 },
+  gunner: { name: "관통 강탄", summary: "강력한 관통탄을 발사해 직선상의 적에게 큰 피해를 줍니다.", manaCost: 55, cooldown: 30 },
+  tanker: { name: "불굴의 함성", summary: `${UNBREAKABLE_SECONDS}초 동안 방어 +${UNBREAKABLE_ARMOR}, 주변 적에게 즉시 화상 피해.`, manaCost: 50, cooldown: 70 },
+};
+
+// 3스킬 컨텍스트 — 2스킬 컨텍스트에 광역 대상/자가회복만 추가.
+export interface ThirdSkillContext extends SecondSkillContext {
+  nearbyCombatTargets(radius: number): WorldObject[];
+  heal(amount: number): void;
+}
+
+export function useThirdClassSkill(context: ThirdSkillContext) {
+  const playerClass = context.playerClass();
+  const skill = THIRD_SKILLS[playerClass];
+  const bonus = context.levelBonus();
+  if (playerClass === "warrior") {
+    const targets = context.nearbyCombatTargets(EARTH_CLEAVE_RADIUS);
+    if (targets.length === 0) {
+      context.showMessage("대지가르기: 주변에 적이 있을 때 사용하세요.");
+      return;
+    }
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    const dmg = earthCleaveDamage(context.currentDamage());
+    for (const target of targets) {
+      context.meleeEffects(target);
+      context.applyDamage(target, dmg);
+    }
+    context.playHandAction("melee");
+    context.playTone(140, 0.18, "sawtooth", 0.04);
+    context.showMessage(`대지가르기! 주변 ${targets.length}명에게 ${dmg} 광역 피해.`);
+    return;
+  }
+  if (playerClass === "healer") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    context.fireSkillProjectile("tnt", "magic", judgmentLightDamage(bonus), 30, 0.45);
+    context.heal(JUDGMENT_SELF_HEAL);
+    context.playHandAction("magic");
+    context.playTone(900, 0.14, "sine", 0.028);
+    context.showMessage(`심판의 빛! ${judgmentLightDamage(bonus)} 피해 + 체력 ${JUDGMENT_SELF_HEAL} 회복.`);
+    return;
+  }
+  if (playerClass === "mage") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    context.fireSkillProjectile("tnt", "fireball", meteorDamage(bonus), 26, 0.5, METEOR_RADIUS);
+    context.playHandAction("magic");
+    context.playTone(200, 0.18, "sawtooth", 0.035);
+    context.showMessage(`메테오! ${meteorDamage(bonus)} 광역 피해의 운석을 떨어뜨렸습니다.`);
+    return;
+  }
+  if (playerClass === "summoner") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    const dmg = spiritStormDamage(bonus);
+    const targets = context.nearbyCombatTargets(SPIRIT_STORM_RADIUS);
+    for (const target of targets) context.applyDamage(target, dmg);
+    context.playHandAction("magic");
+    context.playTone(720, 0.12, "triangle", 0.03);
+    context.showMessage(targets.length > 0 ? `정령 폭풍! 주변 ${targets.length}명에게 ${dmg} 피해.` : "정령 폭풍을 일으켰지만 닿는 적이 없습니다.");
+    return;
+  }
+  if (playerClass === "gunner") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    context.fireSkillProjectile("arrow", "arrow", piercingShotDamage(bonus), 64, 0.26);
+    context.playHandAction("magic");
+    context.playTone(480, 0.08, "square", 0.03);
+    context.showMessage(`관통 강탄! ${piercingShotDamage(bonus)} 피해의 관통탄을 발사했습니다.`);
+    return;
+  }
+  // tanker — 불굴의 함성
+  if (!context.trySpend(skill)) return;
+  context.castImpact();
+  context.buffs.unbreakableUntil = context.now() + UNBREAKABLE_SECONDS * 1000;
+  const burst = thornsTickDamage(bonus) * 2;
+  for (const target of context.nearbyCombatTargets(RALLY_BURST_RADIUS)) context.applyDamage(target, burst);
+  context.playHandAction("melee");
+  context.playTone(220, 0.2, "sawtooth", 0.035);
+  context.showMessage(`불굴의 함성! ${UNBREAKABLE_SECONDS}초 동안 방어 +${UNBREAKABLE_ARMOR}.`);
+  context.renderHud();
 }

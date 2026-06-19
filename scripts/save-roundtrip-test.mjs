@@ -58,6 +58,8 @@ function stableSaveShape(save) {
       shieldDurabilityUsed: save.player.shieldDurabilityUsed,
       ironGuardRemainingSeconds: Math.round((save.player.ironGuardRemainingMs ?? 0) / 1000),
       secondSkillCooldownRemainingSeconds: Math.round((save.player.secondSkillCooldownRemainingMs ?? 0) / 1000),
+      thirdSkillCooldownRemainingSeconds: Math.round((save.player.thirdSkillCooldownRemainingMs ?? 0) / 1000),
+      jobTier: save.player.jobTier,
       trainingStats: save.player.trainingStats,
       locationMode: save.player.locationMode,
       currentHouseKind: save.player.currentHouseKind,
@@ -146,6 +148,7 @@ try {
     game.experience = 123;
     game.playerClass = "tanker";
     game.pendingPlayerClass = "tanker";
+    game.jobTier = 1;
     game.mana = 42;
     game.maxMana = 120;
     game.summonerCompanion.restore({ summoner: { level: 4, experience: 17 } });
@@ -163,6 +166,7 @@ try {
     game.shieldDurabilityUsed = 12;
     game.ironGuardUntil = performance.now() + 43_000;
     game.secondSkillCooldownUntil = performance.now() + 27_000;
+    game.thirdSkillCooldownUntil = performance.now() + 31_000;
     game.trainingStats = { hp: 3, attack: 5, armor: 2, mana: 1 };
     game.locationMode = "overworld";
     game.currentHouseKind = "twoStory";

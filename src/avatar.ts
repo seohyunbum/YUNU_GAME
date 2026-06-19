@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createIronShieldModel } from "./game/weaponVisuals";
 import { addLegendaryArmor } from "./game/legendaryArmor";
+import { createJobTierCosmetic } from "./game/jobTierVisuals";
 import { TIER_VISUALS, tierBladeMaterial, tierGemMaterial, type TierId } from "./game/tierVisuals";
 import { ASSET_PALETTE, makeGlowMaterial, makeMetalMaterial, makeToonMaterial } from "./visuals";
 
@@ -34,7 +35,7 @@ export const CLASS_APPEARANCE: Record<AvatarClassId, AvatarAppearance> = {
   tanker: { skinColor: ASSET_PALETTE.skin, hairColor: 0x29313a, shirtColor: 0x596473, pantsColor: 0x25313d, bootColor: 0x151a20, accentColor: 0xa8b3c7 },
 };
 
-export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE, classId?: AvatarClassId, armorTier?: string | null) {
+export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE, classId?: AvatarClassId, armorTier?: string | null, jobTier = 0) {
   const pal = classId ? CLASS_APPEARANCE[classId] : appearance;
   const group = new THREE.Group();
   const skin = makeToonMaterial(pal.skinColor, { roughness: 0.72 });
@@ -119,6 +120,10 @@ export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_
 
   if (classId) addClassAccessories(group, classId, pal);
   if (armorTier) addArmorOverlay(group, armorTier);
+  if (classId && jobTier >= 1) {
+    const cosmetic = createJobTierCosmetic(classId, jobTier);
+    if (cosmetic) group.add(cosmetic);
+  }
   return group;
 }
 
