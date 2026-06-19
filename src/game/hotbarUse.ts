@@ -34,6 +34,7 @@ export interface HotbarUseContext {
   playTone(frequency: number, duration: number, type: OscillatorType, volume: number): void;
   showMessage(text: string): void;
   renderHud(): void;
+  placeSelected(): void; // 설치 아이템 설치 — 데스크톱은 드래그 안내, 터치는 즉시 정면 설치(우클릭/드래그 미지원 대체)
 }
 
 function isBucketItem(item: ItemId) {
@@ -68,7 +69,7 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
     return;
   }
   if (PLACEABLE_TYPES[item]) {
-    context.showMessage("설치 아이템은 인벤토리에서 아래 드롭존으로 드래그하면 설치합니다.");
+    context.placeSelected();
     return;
   }
   if (item === "mirror") {

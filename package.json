@@ -19,11 +19,12 @@
     "test:content": "node scripts/content-test.mjs",
     "test:systems": "node scripts/gameplay-systems-test.mjs",
     "test:balance": "node scripts/balance-test.mjs",
+    "test:mobile": "node scripts/mobile-test.mjs",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:size": "node scripts/check-main-size.mjs",
     "check:methods": "node scripts/check-method-count.mjs",
     "check:hotpath": "node scripts/check-hotpath-allocations.mjs",
-    "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run check:hotpath && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:systems && npm run test:balance",
+    "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run check:hotpath && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:systems && npm run test:balance && npm run test:mobile",
     "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run visual:weapons && npm run perf-check",
     "admin-report": "node scripts/admin-report.mjs"
   },

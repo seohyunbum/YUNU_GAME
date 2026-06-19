@@ -759,8 +759,7 @@ class WildernessGame {
     hunger: () => this.hunger,
     healItemCooldownUntil: () => this.healItemCooldownUntil,
     now: () => performance.now(),
-    setHealth: (value) => { this.health = value; },
-    setHunger: (value) => { this.hunger = value; },
+    setHealth: (value) => { this.health = value; }, setHunger: (value) => { this.hunger = value; },
     setHealItemCooldownUntil: (value) => { this.healItemCooldownUntil = value; },
     resetStarvationTimer: () => { this.starvationNoticeTimer = 0; },
     openPanel: (panel) => this.openPanel(panel),
@@ -779,6 +778,7 @@ class WildernessGame {
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
     showMessage: (text) => this.showMessage(text),
     renderHud: () => this.renderHud(),
+    placeSelected: () => { const s = this.hotbar[this.selectedHotbarIndex]; if (isTouchDevice() && s) this.placeItemFromSlot(s); else this.showMessage("설치 아이템은 인벤토리에서 아래 드롭존으로 드래그하면 설치합니다."); },
   };
   private readonly areaSkillEffects: AreaSkillEffect[] = [];
   private actionMode: HandActionMode = "use";
@@ -933,7 +933,7 @@ class WildernessGame {
         interact: () => this.interact(),
         useSkill: (slot) => (slot === 1 ? this.useClassSkill() : slot === 2 ? this.useSecondSkill() : this.useThirdSkill()),
         togglePanel: (panel) => this.togglePanel(panel),
-        saveGame: () => void this.saveGame(),
+        saveGame: () => void this.saveGame(), useItem: () => this.useSelectedHotbarItem(),
         isPlaying: () => this.gameStarted && this.currentPanel === null,
       });
     }
@@ -3942,15 +3942,15 @@ class WildernessGame {
       return;
     }
     if (target.type === "workbench" || target.type === "extendedWorkbench") {
-      this.pickUpWorkbench(target);
+      if (isTouchDevice()) this.useLookedWorkbench(); else this.pickUpWorkbench(target); // 모바일: 우클릭이 없으니 탭=사용(회수는 데스크톱)
       return;
     }
     if (target.type === "smelter" || target.type === "specialSmelter") {
-      this.pickUpSmelter(target);
+      if (isTouchDevice()) this.useLookedSmelter(); else this.pickUpSmelter(target);
       return;
     }
     if (target.type === "grinder") {
-      this.pickUpGrinder(target);
+      if (isTouchDevice()) this.useLookedGrinder(); else this.pickUpGrinder(target);
       return;
     }
     if (target.type === "antHill") {
@@ -5967,15 +5967,10 @@ class WildernessGame {
     this.performanceSampleSum = 0;
     this.performanceSlowFrames = 0;
     this.performanceHitchFrames = 0;
-    this.qualityMode = "high";
+    this.qualityMode = isTouchDevice() ? "performance" : "high"; // 모바일은 새 게임에서도 저사양 프리셋 유지
     this.visibilityCullTimer = 0;
     this.visibilityCullCursor = 0;
     this.performanceWarmupTimer = 0;
-    this.performanceSampleTimer = 0;
-    this.performanceSampleFrames = 0;
-    this.performanceSampleSum = 0;
-    this.performanceSlowFrames = 0;
-    this.performanceHitchFrames = 0;
     this.renderer.setPixelRatio(this.pixelRatioForQuality());
     applyShadowQuality(this.sunLight, this.qualityMode);
     refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, false);
