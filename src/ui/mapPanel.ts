@@ -33,6 +33,11 @@ export interface MapCaveMarker {
   z: number;
 }
 
+export interface MapFortressMarker {
+  x: number;
+  z: number;
+}
+
 export interface RegionMapPanelView {
   regions: Region[];
   currentRegionId: string | null;
@@ -43,6 +48,7 @@ export interface RegionMapPanelView {
   bosses: MapBossMarker[];
   homes: MapHomeMarker[];
   caves: MapCaveMarker[];
+  fortresses: MapFortressMarker[];
   party: MapPartyMarker[];
 }
 
@@ -157,6 +163,22 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
       </g>`;
     })
     .join("");
+  // 몬스터 요새 입구 — 보라 성벽(크레넬레이션) + 붉은 깃발 + 라벨. 무한 웨이브 디펜스 아레나 진입점(맵당 1개)
+  const fortresses = view.fortresses
+    .map((fort) => {
+      const cx = Number(mapX(fort.x).toFixed(1));
+      const cy = Number(mapY(fort.z).toFixed(1));
+      const textHalo = `paint-order="stroke" stroke="#15231d" stroke-width="3.5" stroke-linejoin="round"`;
+      const wall = `<path d="M ${cx - 11} ${cy + 8} L ${cx - 11} ${cy - 4} L ${cx - 7} ${cy - 4} L ${cx - 7} ${cy - 8} L ${cx - 3.5} ${cy - 8} L ${cx - 3.5} ${cy - 4} L ${cx + 3.5} ${cy - 4} L ${cx + 3.5} ${cy - 8} L ${cx + 7} ${cy - 8} L ${cx + 7} ${cy - 4} L ${cx + 11} ${cy - 4} L ${cx + 11} ${cy + 8} Z" fill="#a855f7" stroke="#2e1065" stroke-width="2" />`;
+      const door = `<path d="M ${cx - 2.6} ${cy + 8} L ${cx - 2.6} ${cy + 1.5} Q ${cx} ${cy - 2} ${cx + 2.6} ${cy + 1.5} L ${cx + 2.6} ${cy + 8} Z" fill="#2e1065" />`;
+      const pole = `<line x1="${cx}" y1="${cy - 8}" x2="${cx}" y2="${cy - 19}" stroke="#2e1065" stroke-width="2" />`;
+      const flag = `<path d="M ${cx} ${cy - 19} L ${cx + 10} ${cy - 16} L ${cx} ${cy - 13} Z" fill="#f43f5e" stroke="#2e1065" stroke-width="1.2" stroke-linejoin="round" />`;
+      return `<g data-fortress-marker>
+        ${wall}${door}${pole}${flag}
+        <text x="${cx}" y="${cy + 22}" text-anchor="middle" fill="#d8b4fe" font-size="13" font-weight="800" ${textHalo}>몬스터 요새</text>
+      </g>`;
+    })
+    .join("");
   // 파티원 마커 — 하늘색 점 + 닉네임
   const party = view.party
     .map((member) => {
@@ -216,6 +238,7 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
           ${waters}
           ${regions}
           ${caves}
+          ${fortresses}
           ${homes}
           ${party}
           ${bosses}

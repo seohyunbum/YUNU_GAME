@@ -15,6 +15,7 @@ export interface MinimapContext {
   dragons(): Iterable<WorldObject>;
   fieldBosses(): Iterable<WorldObject>; // wildPredator 중 fieldBossId 가 있는 것만 보스로
   caves(): Iterable<WorldObject>;
+  fortresses(): Iterable<WorldObject>; // 몬스터 요새 입구(fortressGate) — 디펜스 아레나 진입점, 맵당 1개
 }
 
 const SIZE = 152;
@@ -53,10 +54,19 @@ function dot(cx: number, cy: number, r: number, fill: string, stroke = "#0c1812"
 function diamond(cx: number, cy: number, r: number, fill: string) {
   return `<path d="M ${cx.toFixed(1)} ${(cy - r).toFixed(1)} L ${(cx + r).toFixed(1)} ${cy.toFixed(1)} L ${cx.toFixed(1)} ${(cy + r).toFixed(1)} L ${(cx - r).toFixed(1)} ${cy.toFixed(1)} Z" fill="${fill}" stroke="#111827" stroke-width="1.2" />`;
 }
+function fortress(cx: number, cy: number) {
+  // 보라 성벽 + 붉은 깃발 — 몬스터 요새 입구. 동굴(원형)·보스(마름모)·집과 한눈에 구분되게 사각+깃발 형태.
+  const s = 3.4;
+  const wall = `<rect x="${(cx - s).toFixed(1)}" y="${(cy - s).toFixed(1)}" width="${(s * 2).toFixed(1)}" height="${(s * 2).toFixed(1)}" rx="0.6" fill="#a855f7" stroke="#1f1033" stroke-width="1.2" />`;
+  const pole = `<line x1="${cx.toFixed(1)}" y1="${(cy - s).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${(cy - s - 6.5).toFixed(1)}" stroke="#1f1033" stroke-width="1.1" />`;
+  const flag = `<path d="M ${cx.toFixed(1)} ${(cy - s - 6.5).toFixed(1)} L ${(cx + 5).toFixed(1)} ${(cy - s - 4.7).toFixed(1)} L ${cx.toFixed(1)} ${(cy - s - 2.9).toFixed(1)} Z" fill="#f43f5e" stroke="#1f1033" stroke-width="0.8" stroke-linejoin="round" />`;
+  return wall + pole + flag;
+}
 
 function buildMarkers(ctx: MinimapContext): string {
   let svg = "";
   for (const cave of ctx.caves()) svg += dot(proj(cave.root.position.x), proj(cave.root.position.z), 2.4, "#3f2d20", "#0a0705");
+  for (const fort of ctx.fortresses()) svg += fortress(proj(fort.root.position.x), proj(fort.root.position.z));
   for (const home of ctx.homes()) {
     const hx = proj(home.x), hy = proj(home.z);
     svg += `<rect x="${(hx - 3).toFixed(1)}" y="${(hy - 1.5).toFixed(1)}" width="6" height="5" fill="#fef3c7" stroke="#0c1812" stroke-width="1" /><path d="M ${(hx - 4).toFixed(1)} ${(hy - 1).toFixed(1)} L ${hx.toFixed(1)} ${(hy - 5).toFixed(1)} L ${(hx + 4).toFixed(1)} ${(hy - 1).toFixed(1)} Z" fill="#34d399" stroke="#0c1812" stroke-width="1" />`;
