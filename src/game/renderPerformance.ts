@@ -154,3 +154,23 @@ export function shouldSkipTinyRaycastDetail(type: string, mesh: THREE.Mesh) {
   const radius = (mesh.geometry.boundingSphere?.radius ?? 1) * Math.max(Math.abs(mesh.scale.x), Math.abs(mesh.scale.y), Math.abs(mesh.scale.z));
   return radius < 0.09;
 }
+
+// 크리처(동물·주민·포식자·경비 등)는 단일 타겟이라 모든 팔다리 메시를 raycast 대상으로 둘 필요가 없다.
+// 가장 큰 메시 몇 개만 남겨 타겟 가능성(몸통)은 유지하면서 등록 수·근처 look-raycast 비용을 대폭 줄인다.
+// 보스 드래곤은 제외(거대·중요 타겟이라 전체 유지). 최소 1개는 항상 남는다.
+export const CREATURE_RAYCAST_TYPES = new Set<string>([
+  "animal", "villager", "wildPredator", "jammini",
+  "villageKnight", "villageArcher", "villageMage", "villageGolem", "villageKing",
+]);
+export const CREATURE_RAYCAST_KEEP = 4;
+function raycastMeshSize(obj: THREE.Object3D): number {
+  const mesh = obj as THREE.Mesh;
+  if (!mesh.geometry) return 0;
+  if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+  return (mesh.geometry.boundingSphere?.radius ?? 0) * Math.max(Math.abs(mesh.scale.x), Math.abs(mesh.scale.y), Math.abs(mesh.scale.z));
+}
+export function capCreatureRaycastMeshes(type: string, meshes: THREE.Object3D[]) {
+  if (!CREATURE_RAYCAST_TYPES.has(type) || meshes.length <= CREATURE_RAYCAST_KEEP) return;
+  meshes.sort((a, b) => raycastMeshSize(b) - raycastMeshSize(a));
+  meshes.length = CREATURE_RAYCAST_KEEP;
+}

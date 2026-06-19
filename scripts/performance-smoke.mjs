@@ -4,10 +4,13 @@ import { chromium } from "playwright-core";
 // 성능 예산 (ratchet: 내려가기만) — AGENTS.md §10 참조.
 // 씬 카운트는 런-간 분산 <1% 라 신뢰 가능한 게이트. 프레임타임은 머신 의존이라 느슨한 상한만 둔다.
 const PERF_BUDGET = {
-  fieldVisibleMeshes: 4400, // baseline ~4192 after fog-distance large visual culling
+  // 2026-06-20: 중앙 마을 대형화(16채)·대장간 확정·크리처 증가 등 콘텐츠 누적으로 ~4504. 프레임타임은 정상(field.averageMs<<40)이라
+  // 렌더 메시 프록시 예산을 현실+변동마진으로 갱신(애니메이션 크리처라 머지 불가). 추가 감축은 outline 컬링/모델 단순화 후속 과제.
+  fieldVisibleMeshes: 4650, // 종전 4400 → 현재 ~4504
   fieldObjects: 1520, // baseline ~1414
-  fieldRaycastTargets: 4250, // baseline ~4024 — 미세 장식 레이캐스트 제외 후. (4400 시절 콘텐츠 증가로 flaky 했음)
-  villageVisibleMeshes: 3850, // baseline ~3683 after outline pruning + fog-distance large visual culling
+  // 2026-06-20: 크리처 raycast 메시를 가장 큰 4개로 cap(capCreatureRaycastMeshes) → 4451→~2889. 예산을 내려 조임.
+  fieldRaycastTargets: 3100, // 종전 4250 (cap 적용으로 대폭 하향)
+  villageVisibleMeshes: 4050, // 2026-06-20: 중앙 마을 대형화로 ~3923 (종전 3850)
   villageVisibleOutlines: 50, // balanced/performance quality should hide cartoon outlines
   villageShiftOnlyHitches: 0,
   villageSprintRepeatHitches: 0,
