@@ -882,6 +882,17 @@ class WildernessGame {
       },
     );
     this.partyChat = setupPartyChat({ mount: this.uiRoot, isPartyActive: () => currentPartySession() !== null, isInGame: () => this.gameStarted && this.locationMode === "overworld", getMembers: () => currentPartySession()?.members().map((member) => member.nickname) ?? [], myNickname: () => this.nickname, send: (message) => currentPartySession()?.sendGame(message), exitPointerLock: () => document.exitPointerLock?.() });
+    // 터치 컨트롤은 setupGameUi 가 uiRoot.innerHTML 을 비운 *뒤* 생성해야 함(partyChat 와 동일) — setupRenderer 안에서 만들면 함께 지워져 모바일 컨트롤이 사라진다.
+    if (isTouchDevice()) {
+      createTouchControls(this.uiRoot, {
+        setKey: (code, pressed) => (pressed ? this.keys.add(code) : this.keys.delete(code)),
+        look: (dx, dy) => this.rotateCameraByMouse(dx * TOUCH_SENSITIVITY_X, dy * TOUCH_SENSITIVITY_Y),
+        interact: () => this.interact(),
+        useSkill: (slot) => (slot === 1 ? this.useClassSkill() : slot === 2 ? this.useSecondSkill() : this.useThirdSkill()),
+        togglePanel: (panel) => this.togglePanel(panel), saveGame: () => void this.saveGame(),
+        useItem: () => this.useSelectedHotbarItem(), isPlaying: () => this.gameStarted && this.currentPanel === null,
+      });
+    }
     this.setupEvents();
     this.seedOverworld();
     precompileSceneShaders(this.renderer, this.scene, this.camera);
@@ -927,17 +938,6 @@ class WildernessGame {
     this.siegeHudEl.className = "siege-hud";
     this.siegeHudEl.style.display = "none";
     this.uiRoot.appendChild(this.siegeHudEl);
-    if (isTouchDevice()) {
-      createTouchControls(this.uiRoot, {
-        setKey: (code, pressed) => (pressed ? this.keys.add(code) : this.keys.delete(code)),
-        look: (dx, dy) => this.rotateCameraByMouse(dx * TOUCH_SENSITIVITY_X, dy * TOUCH_SENSITIVITY_Y),
-        interact: () => this.interact(),
-        useSkill: (slot) => (slot === 1 ? this.useClassSkill() : slot === 2 ? this.useSecondSkill() : this.useThirdSkill()),
-        togglePanel: (panel) => this.togglePanel(panel),
-        saveGame: () => void this.saveGame(), useItem: () => this.useSelectedHotbarItem(),
-        isPlaying: () => this.gameStarted && this.currentPanel === null,
-      });
-    }
     this.camera.position.copy(this.playerPosition);
   }
 
