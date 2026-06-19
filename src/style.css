@@ -4130,6 +4130,11 @@ body.touch-mode .map-layout,
 body.touch-mode .character-body {
   grid-template-columns: 1fr;
 }
+/* 가방·캐릭터 팝업: 내용물(폰트·박스 등) 75% 축소 — 창 크기는 유지(zoom 은 레이아웃까지 줄여 잘림 해소). 지도·불러오기는 제외(요청). */
+body.touch-mode .inventory-panel > *,
+body.touch-mode .character-panel > * {
+  zoom: 0.75;
+}
 /* 스킬바 아이콘 탭 = 스킬 발동 (.skill-bar 가 pointer-events:none 이라 탭이 통과돼 안 먹던 문제) */
 body.touch-mode .skill-bar {
   z-index: 30;
