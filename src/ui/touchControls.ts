@@ -59,14 +59,11 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   stick.className = "touch-stick";
   joystick.appendChild(stick);
 
-  const jumpBtn = btn("점프", "touch-jump");
-
   const actions = document.createElement("div");
   actions.className = "touch-actions";
   const attackBtn = btn("공격", "touch-attack");
-  const useBtn = btn("사용", "touch-use"); // 선택 아이템 먹기/구급상자/설치
-  // R/T/F 스킬 버튼 제거 — 데스크톱 스킬바 아이콘 탭(skillBar.ts)으로 발동.
-  actions.append(useBtn, attackBtn);
+  // 점프·사용·R/T/F 버튼 제거 — 사용은 핫바 탭(=사용), 스킬은 스킬바 아이콘 탭(skillBar.ts).
+  actions.append(attackBtn);
 
   // 핫바는 기존 데스크톱 핫바(.hotbar)가 이미 탭(click) 가능 + 아이템 아이콘 표시 → 재사용. 별도 생성 안 함.
 
@@ -80,7 +77,7 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   const fsBtn = btn("⛶", "touch-menu-btn"); // 전체화면(주소창 숨김)
   menu.append(invBtn, mapBtn, charBtn, saveBtn, loadBtn, fsBtn);
 
-  controls.append(joystick, jumpBtn, actions, menu);
+  controls.append(joystick, actions, menu);
   parent.append(lookZone, controls);
 
   // ===== 입력 상태(스크래치 — 매 이동마다 할당 금지) =====
@@ -91,7 +88,6 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   let lookId: number | null = null;
   let lookLastX = 0;
   let lookLastY = 0;
-  let jumpId: number | null = null;
   const moveCodes = ["KeyW", "KeyA", "KeyS", "KeyD", "ShiftLeft"] as const;
   const moveState: Record<string, boolean> = { KeyW: false, KeyA: false, KeyS: false, KeyD: false, ShiftLeft: false };
 
@@ -159,13 +155,6 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
     lookLastY = t.clientY;
   };
 
-  const onJumpStart = (e: TouchEvent) => {
-    e.preventDefault();
-    if (jumpId !== null) return;
-    jumpId = e.changedTouches[0].identifier;
-    cb.setKey("Space", true);
-  };
-
   const onWindowMove = (e: TouchEvent) => {
     let tracked = false; // 조이스틱/시점 터치가 움직일 때만 preventDefault → 패널 목록 스크롤은 방해 안 함
     for (let i = 0; i < e.changedTouches.length; i += 1) {
@@ -191,10 +180,6 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
       const id = e.changedTouches[i].identifier;
       if (id === joystickId) resetJoystick();
       else if (id === lookId) lookId = null;
-      else if (id === jumpId) {
-        cb.setKey("Space", false);
-        jumpId = null;
-      }
     }
   };
 
@@ -211,7 +196,6 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
 
   joystick.addEventListener("touchstart", onJoystickStart, { passive: false });
   lookZone.addEventListener("touchstart", onLookStart, { passive: false });
-  jumpBtn.addEventListener("touchstart", onJumpStart, { passive: false });
   window.addEventListener("touchmove", onWindowMove, { passive: false });
   window.addEventListener("touchend", onWindowEnd, { passive: false });
   window.addEventListener("touchcancel", onWindowEnd, { passive: false });
@@ -232,7 +216,6 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
 
   const cleanups = [
     tap(attackBtn, () => cb.interact()),
-    tap(useBtn, () => cb.useItem()),
     tap(invBtn, () => cb.togglePanel("inventory")),
     tap(mapBtn, () => cb.togglePanel("map")),
     tap(charBtn, () => cb.togglePanel("character")),
@@ -250,7 +233,6 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
     destroy() {
       joystick.removeEventListener("touchstart", onJoystickStart);
       lookZone.removeEventListener("touchstart", onLookStart);
-      jumpBtn.removeEventListener("touchstart", onJumpStart);
       window.removeEventListener("touchmove", onWindowMove);
       window.removeEventListener("touchend", onWindowEnd);
       window.removeEventListener("touchcancel", onWindowEnd);
