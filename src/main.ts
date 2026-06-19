@@ -4262,7 +4262,7 @@ class WildernessGame {
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
     this.showMessage(fortress
-      ? "⚔️ 몬스터 요새에 진입했습니다. 동굴 끝 보스몹을 처치하면 희귀템을 드랍합니다!"
+      ? "⚔️ 몬스터 동굴에 진입했습니다. 동굴 끝 보스몹을 처치하면 희귀템을 드랍합니다!"
       : "동굴 안으로 들어왔습니다. 돌과 석탄을 찾아보세요.");
     this.renderHud();
   }
@@ -4456,7 +4456,7 @@ class WildernessGame {
       const obsidianCount = THREE.MathUtils.randInt(2, 4) + Math.floor(level / 30), tomeCount = THREE.MathUtils.randInt(1, 2) + Math.floor(level / 45);
       this.addItem("obsidian", obsidianCount); this.addItem("job_change_tome", tomeCount);
       startMiniFanfare(this.finaleContext); celebrateLevelUp(this.juiceDeps, this.level);
-      this.showMessage(`🏰 요새의 주인을 처치했습니다! 흑요석 ${obsidianCount}개 + 전직의서 ${tomeCount}개를 획득했습니다.`);
+      this.showMessage(`🏰 동굴의 주인을 처치했습니다! 흑요석 ${obsidianCount}개 + 전직의서 ${tomeCount}개를 획득했습니다.`);
     }
     if (target.fieldBossId && !this.defeatedFieldBosses.includes(target.fieldBossId)) {
       this.defeatedFieldBosses.push(target.fieldBossId);
