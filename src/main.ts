@@ -362,6 +362,7 @@ class WildernessGame {
   private readonly respawnQueue: { dueAt: number; type: ObjectType; position: THREE.Vector3; villageId?: string; predatorKind?: PredatorKind; monsterId?: MonsterId; regionId?: string }[] = []; private suppressRespawn = false;
   private readonly spatialBuckets = new Map<string, Set<string>>();
   private readonly spatialKeysByObject = new Map<string, Set<string>>();
+  private readonly spatialRangeByObject = new Map<string, { minX: number; maxX: number; minZ: number; maxZ: number }>(); // refreshSpatialObject 셀범위 캐시 — 불변 시 할당0 조기반환
   private readonly waterObjects: WorldObject[] = [];
   private readonly waterRippleMeshes: THREE.Object3D[] = [];
   private readonly waterSurfaceMeshes: THREE.Mesh[] = [];
@@ -9150,14 +9151,6 @@ class WildernessGame {
     return keys;
   }
 
-  private sameSpatialKeys(a: Set<string> | undefined, b: Set<string>) {
-    if (!a || a.size !== b.size) return false;
-    for (const key of b) {
-      if (!a.has(key)) return false;
-    }
-    return true;
-  }
-
   private registerSpatialObject(object: WorldObject) {
     const keys = this.spatialKeysForObject(object);
     this.spatialKeysByObject.set(object.id, keys);
@@ -9172,6 +9165,7 @@ class WildernessGame {
   }
 
   private unregisterSpatialObject(id: string) {
+    this.spatialRangeByObject.delete(id);
     const keys = this.spatialKeysByObject.get(id);
     if (!keys) return;
     for (const key of keys) {
@@ -9184,17 +9178,19 @@ class WildernessGame {
   }
 
   private refreshSpatialObject(object: WorldObject) {
-    const nextKeys = this.spatialKeysForObject(object);
-    const currentKeys = this.spatialKeysByObject.get(object.id);
-    if (this.sameSpatialKeys(currentKeys, nextKeys)) return;
+    const r = this.spatialRadiusForObject(object);
+    const p = object.root.position;
+    const minX = this.spatialCell(p.x - r), maxX = this.spatialCell(p.x + r), minZ = this.spatialCell(p.z - r), maxZ = this.spatialCell(p.z + r);
+    const prev = this.spatialRangeByObject.get(object.id);
+    if (prev && prev.minX === minX && prev.maxX === maxX && prev.minZ === minZ && prev.maxZ === maxZ) return; // 셀범위 불변 → Set/문자열 할당 없이 조기반환(GC↓)
     this.unregisterSpatialObject(object.id);
-    this.spatialKeysByObject.set(object.id, nextKeys);
-    for (const key of nextKeys) {
+    this.spatialRangeByObject.set(object.id, { minX, maxX, minZ, maxZ });
+    const keys = new Set<string>();
+    for (let cellX = minX; cellX <= maxX; cellX += 1) for (let cellZ = minZ; cellZ <= maxZ; cellZ += 1) keys.add(this.spatialKey(cellX, cellZ));
+    this.spatialKeysByObject.set(object.id, keys);
+    for (const key of keys) {
       let bucket = this.spatialBuckets.get(key);
-      if (!bucket) {
-        bucket = new Set<string>();
-        this.spatialBuckets.set(key, bucket);
-      }
+      if (!bucket) { bucket = new Set<string>(); this.spatialBuckets.set(key, bucket); }
       bucket.add(object.id);
     }
   }
