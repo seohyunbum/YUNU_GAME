@@ -4140,7 +4140,11 @@ body.touch-mode .skill-tile {
 /* 퀘스트 박스: look-zone(z28) 위로(보상 탭 영역 확보) + 미니맵(70% 축소) 바로 아래로(우측 시점드래그 영역 확보) */
 body.touch-mode .objective {
   z-index: 30;
-  top: 120px;
+  top: 8px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%) scale(0.9);
+  transform-origin: top center;
 }
 /* 핫바·스킬바 90% 축소 + 스킬바를 핫바 가까이 아래로 */
 body.touch-mode .hotbar {
@@ -4179,6 +4183,34 @@ body.touch-mode .skill-bar {
 }
 .station-choice-btn:active {
   transform: scale(0.94);
+}
+
+/* 게임 시작 로딩 오버레이 — 동기 로딩(약 5초) 동안 메시지 표시 + 재탭 차단. JS 블로킹이라 정적 메시지. */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 13, 20, 0.88);
+  pointer-events: auto;
+}
+.loading-box {
+  padding: 22px 28px;
+  border: 2px solid rgba(148, 163, 184, 0.5);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.95);
+  color: #f1f5f9;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.6;
+}
+.loading-box small {
+  font-size: 14px;
+  font-weight: 600;
+  color: #94a3b8;
 }
 
 /* 몬스터 요새 디펜스 진행 표시 */

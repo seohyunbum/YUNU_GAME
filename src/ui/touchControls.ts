@@ -42,6 +42,24 @@ function btn(label: string, cls: string): HTMLButtonElement {
   return b;
 }
 
+// 게임 시작/로딩(동기 ~5초) 오버레이 — 메시지를 먼저 그린 뒤(double-rAF) 무거운 작업 실행. 재탭은 오버레이가 차단. 데스크톱·모바일 공통.
+export function runWithLoading(parent: HTMLElement, fn: () => void): void {
+  if (parent.querySelector(".loading-overlay")) return; // 중복 시작 방지
+  const overlay = document.createElement("div");
+  overlay.className = "loading-overlay";
+  overlay.innerHTML = '<div class="loading-box">⏳ 게임을 불러오는 중입니다…<br><small>잠시만 기다려 주세요 (약 5초)</small></div>';
+  parent.append(overlay);
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      try {
+        fn();
+      } finally {
+        overlay.remove();
+      }
+    }),
+  );
+}
+
 // 설치물(제작대/제련대/분쇄기) 탭 시 사용/줍기 컨텍스트 선택창 — 터치 전용, 그 순간만 표시(상시 버튼 없음).
 export function showStationChoice(parent: HTMLElement, onUse: () => void, onPickup: () => void): void {
   parent.querySelector(".station-choice")?.remove();

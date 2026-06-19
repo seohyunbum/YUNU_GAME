@@ -323,7 +323,7 @@ import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/s
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { isTouchDevice } from "./game/platform";
-import { createTouchControls, showStationChoice } from "./ui/touchControls";
+import { createTouchControls, showStationChoice, runWithLoading } from "./ui/touchControls";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackIntercept, partyGuestOpenIntercept, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
@@ -835,7 +835,7 @@ class WildernessGame {
         onNewGame: () => this.newGame(),
         onSaveGame: () => this.saveGame(),
         onLoadGame: () => this.loadGame(),
-        onTitleNew: () => this.startGame("new"),
+        onTitleNew: () => runWithLoading(this.uiRoot, () => this.startGame("new")),
         onClassChoice: (choice) => {
           if (!this.isPlayerClassId(choice)) return;
           this.pendingPlayerClass = choice;
