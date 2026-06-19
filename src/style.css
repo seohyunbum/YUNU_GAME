@@ -3988,6 +3988,94 @@ body.touch-mode .stats {
   font-size: 13px;
 }
 
+/* ===== P4 모바일 HUD 컴팩트 — 데스크톱 HUD ↔ 터치 컨트롤 겹침 해소 (전부 body.touch-mode 스코프 = 데스크톱 무영향) ===== */
+
+/* 스탯: HP/MP/LV 만 — 부가행(능력·배고픔·EXP·제작·상세) 숨김 + 컴팩트 폭 */
+body.touch-mode .stats {
+  width: min(248px, 52vw);
+  gap: 8px;
+  padding: 7px 8px;
+  grid-template-columns: 58px minmax(0, 1fr);
+  font-size: 11px;
+}
+body.touch-mode .stats-level-card {
+  min-height: 60px;
+  padding: 3px 2px 4px;
+}
+body.touch-mode .stats-heading,
+body.touch-mode .stats-sub-bars,
+body.touch-mode .craft-bar,
+body.touch-mode .stats-detail {
+  display: none;
+}
+
+/* 메뉴(가방/지도/캐릭터/저장): 컴팩트 스탯 아래, 좌상단 1줄 4버튼 */
+body.touch-mode .touch-menu {
+  top: calc(max(10px, env(safe-area-inset-top)) + 96px);
+  left: max(8px, env(safe-area-inset-left));
+  grid-template-columns: repeat(4, auto);
+  gap: 6px;
+}
+body.touch-mode .touch-menu-btn {
+  width: 50px;
+  height: 38px;
+  font-size: 11px;
+}
+
+/* 퀘스트: 제목+진행만 — 안내·보상·Q 줄 숨김, 미니맵 아래 좁게 */
+body.touch-mode .objective {
+  top: 172px;
+  right: max(8px, env(safe-area-inset-right));
+  width: min(200px, 40vw);
+  font-size: 11px;
+}
+body.touch-mode .objective-card {
+  padding: 7px 10px;
+  gap: 3px;
+}
+body.touch-mode .objective-detail,
+body.touch-mode .objective-reward,
+body.touch-mode .objective-action {
+  display: none;
+}
+
+/* 데스크톱 컨텍스트/포인터락 안내("화면 클릭…")는 터치에서 숨김 */
+body.touch-mode .prompt {
+  display: none;
+}
+
+/* 짧은 가로화면(폰): 터치 컨트롤 축소로 플레이 영역 확보 */
+@media (orientation: landscape) and (max-height: 480px) {
+  body.touch-mode .touch-joystick {
+    width: 96px;
+    height: 96px;
+  }
+  body.touch-mode .touch-stick {
+    width: 42px;
+    height: 42px;
+  }
+  body.touch-mode .touch-jump {
+    width: 52px;
+    height: 52px;
+    font-size: 13px;
+    left: calc(max(22px, env(safe-area-inset-left)) + 108px);
+  }
+  body.touch-mode .touch-attack {
+    width: 64px;
+    height: 64px;
+    font-size: 14px;
+  }
+  body.touch-mode .touch-skill,
+  body.touch-mode .touch-use {
+    width: 46px;
+    height: 46px;
+    font-size: 13px;
+  }
+  body.touch-mode .touch-actions {
+    gap: 9px;
+  }
+}
+
 /* 몬스터 요새 디펜스 진행 표시 */
 .siege-hud {
   position: absolute;
