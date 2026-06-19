@@ -56,6 +56,14 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     note: "광물을 가루로 만들 수 있는 설치형 도구입니다.",
   },
   {
+    id: "smelter",
+    name: "제련대",
+    output: "smelter",
+    count: 1,
+    ingredients: { stone: 8, iron: 4, coal: 3 },
+    note: "광물을 제련하는 설치형 도구입니다. 설치해서 철·구리 등을 제련하면 도구·무기·갑옷 재료가 됩니다. (대장간 안 제련대를 무료로 써도 되고, 직접 만들어 어디서든 쓸 수도 있습니다.)",
+  },
+  {
     id: "bucket",
     name: "\uc591\ub3d9\uc774",
     output: "bucket",
