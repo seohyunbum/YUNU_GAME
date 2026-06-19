@@ -42,6 +42,24 @@ function btn(label: string, cls: string): HTMLButtonElement {
   return b;
 }
 
+// 설치물(제작대/제련대/분쇄기) 탭 시 사용/줍기 컨텍스트 선택창 — 터치 전용, 그 순간만 표시(상시 버튼 없음).
+export function showStationChoice(parent: HTMLElement, onUse: () => void, onPickup: () => void): void {
+  parent.querySelector(".station-choice")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "station-choice";
+  const make = (label: string, fn: () => void) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "station-choice-btn";
+    b.textContent = label;
+    b.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); overlay.remove(); fn(); }, { passive: false });
+    return b;
+  };
+  overlay.append(make("🔨 사용", onUse), make("✋ 줍기", onPickup));
+  overlay.addEventListener("touchstart", (e) => { if (e.target === overlay) { e.preventDefault(); overlay.remove(); } }, { passive: false });
+  parent.append(overlay);
+}
+
 export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallbacks): TouchControlsHandle {
   document.body.classList.add("touch-mode");
 

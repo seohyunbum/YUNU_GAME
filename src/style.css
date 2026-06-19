@@ -4153,6 +4153,34 @@ body.touch-mode .skill-bar {
   transform-origin: bottom center;
 }
 
+/* 설치물(제작대/제련대/분쇄기) 탭 시 사용/줍기 선택창 — 터치 전용, showStationChoice 가 그 순간만 생성 */
+.station-choice {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+}
+.station-choice-btn {
+  pointer-events: auto;
+  padding: 16px 22px;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  color: #f1f5f9;
+  background: rgba(30, 41, 59, 0.96);
+  border: 2px solid rgba(148, 163, 184, 0.6);
+  border-radius: 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+.station-choice-btn:active {
+  transform: scale(0.94);
+}
+
 /* 몬스터 요새 디펜스 진행 표시 */
 .siege-hud {
   position: absolute;
