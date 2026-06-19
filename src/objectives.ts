@@ -194,6 +194,8 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   countQuest("hunt_fortress_boss", 1, (s) => s.fortressBossKills, "몬스터 요새 보스 처치", "동굴에 낮은 확률로 나타나는 '몬스터 요새'를 찾아, 동굴 끝 제단의 보스를 처치하세요. 흑요석과 전직의서를 떨어뜨립니다!", { experience: 545, items: { diamond: 2, medkit: 3 }, label: "경험치 545 + 다이아몬드 2개 + 구급상자 3개" }),
   // ── 1차 전직 — 전직의서로 전직의 인장을 만들어 레벨 30+에서 사용 ──
   checkQuest("advance_job_tier1", (s) => s.jobTier >= 1, "1차 전직 달성", "전직의서로 제작대에서 '전직의 인장'을 만들고, 레벨 30 이상에서 인장을 핫바에 넣어 숫자키로 사용하면 1차 전직합니다. 직업별 새 스킬(F)·스탯 상승·새 외형을 얻습니다!", { experience: 600, items: { advanced_medkit: 2, diamond: 3 }, label: "경험치 600 + 고급 구급상자 2개 + 다이아몬드 3개" }),
+  checkQuest("advance_job_tier2", (s) => s.jobTier >= 2, "2차 전직 달성", "레벨 50 이상에서 전직의 인장 2개를 사용해 2차 전직하세요. 스탯이 더 오르고 모든 스킬의 쿨다운이 짧아지며, 외형이 한층 화려해집니다.", { experience: 1100, items: { advanced_medkit: 3, refined_diamond: 2 }, label: "경험치 1100 + 고급 구급상자 3개 + 제련된 다이아몬드 2개" }),
+  checkQuest("advance_job_tier3", (s) => s.jobTier >= 3, "3차 전직 달성 (최종)", "레벨 70 이상에서 전직의 인장 3개를 사용해 3차 전직하세요. 최고 칭호와 최강의 스탯·쿨다운, 가장 멋진 외형을 얻습니다!", { experience: 2000, items: { sharp_obsidian: 2, advanced_medkit: 5 }, label: "경험치 2000 + 날카로운 흑요석 2개 + 고급 구급상자 5개" }),
 ];
 
 // 퀘스트 보상 경험치 상향 — 초반 퀘스트는 2배에서 시작해 뒤로 갈수록 배율이 증가, 최종 퀘스트는 5배.

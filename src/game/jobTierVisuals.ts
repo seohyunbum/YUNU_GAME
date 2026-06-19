@@ -115,11 +115,123 @@ function buildTier1(classId: PlayerClassId, group: THREE.Group) {
   group.add(emblem);
 }
 
-// 전직 외형 그룹을 만든다. 미전직(jobTier<1)이면 null.
+// 2차 전직 외형 — 1차 위에 누적. 발광 오라 고리 + 직업별 강화 실루엣.
+function buildTier2(classId: PlayerClassId, group: THREE.Group) {
+  const pal = PALETTE[classId];
+  const glow = makeGlowMaterial(pal.trim, pal.trim, { emissiveIntensity: 0.9 });
+  const metal = makeMetalMaterial(pal.primary, { metalness: 0.5, roughness: 0.36 });
+  const aura = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.045, 8, 32), glow); // 공통: 허리 높이 발광 오라
+  aura.position.y = 0.95;
+  aura.rotation.x = Math.PI / 2;
+  group.add(aura);
+  if (classId === "warrior") {
+    for (const side of [-1, 1]) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.34, 8), glow);
+      spike.position.set(side * 0.58, 1.8, 0);
+      group.add(spike);
+    }
+    return;
+  }
+  if (classId === "healer") {
+    const halo2 = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.03, 10, 28), glow);
+    halo2.position.set(0, 2.5, 0);
+    halo2.rotation.x = Math.PI / 2;
+    group.add(halo2);
+    return;
+  }
+  if (classId === "mage") {
+    for (const side of [-1, 1]) {
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), glow);
+      orb.position.set(side * 0.44, 2.08, -0.08);
+      group.add(orb);
+    }
+    return;
+  }
+  if (classId === "summoner") {
+    for (const x of [-0.42, 0.42]) {
+      const feather = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.34, 6), glow);
+      feather.position.set(x, 2.0, -0.16);
+      feather.rotation.z = x < 0 ? 0.5 : -0.5;
+      group.add(feather);
+    }
+    return;
+  }
+  if (classId === "gunner") {
+    for (const side of [-1, 1]) {
+      const tail = box(0.22, 0.6, 0.06, metal);
+      tail.position.set(side * 0.18, 0.62, -0.24);
+      group.add(tail);
+    }
+    return;
+  }
+  // tanker — 대형 견갑 추가
+  for (const side of [-1, 1]) {
+    const plate = box(0.5, 0.32, 0.5, metal);
+    plate.position.set(side * 0.62, 1.5, 0);
+    group.add(plate);
+  }
+}
+
+// 3차 전직 외형 — 2차 위에 누적. 머리 위 왕관 고리 + 직업별 백 오너먼트(뿔·날개·룬·배너).
+function buildTier3(classId: PlayerClassId, group: THREE.Group) {
+  const pal = PALETTE[classId];
+  const glow = makeGlowMaterial(pal.trim, pal.trim, { emissiveIntensity: 1.2 });
+  const crown = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.05, 10, 24), glow); // 공통: 발광 왕관
+  crown.position.y = 2.46;
+  crown.rotation.x = Math.PI / 2;
+  group.add(crown);
+  if (classId === "warrior") {
+    for (const side of [-1, 1]) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.3, 8), glow);
+      horn.position.set(side * 0.2, 2.28, 0);
+      horn.rotation.z = side * -0.4;
+      group.add(horn);
+    }
+    const cape = box(0.82, 1.2, 0.05, makeGlowMaterial(pal.trim, pal.trim, { emissiveIntensity: 0.5 }));
+    cape.position.set(0, 0.95, -0.3);
+    cape.rotation.x = 0.1;
+    group.add(cape);
+    return;
+  }
+  if (classId === "healer" || classId === "summoner") {
+    for (const side of [-1, 1]) {
+      const wing = box(0.06, 0.92, 0.5, glow); // 빛나는 날개
+      wing.position.set(side * 0.5, 1.32, -0.28);
+      wing.rotation.y = side * 0.5;
+      wing.rotation.z = side * 0.2;
+      group.add(wing);
+    }
+    return;
+  }
+  if (classId === "mage") {
+    for (let i = 0; i < 4; i += 1) {
+      const cube = box(0.08, 0.08, 0.08, glow); // 머리 위를 도는 룬 큐브
+      const angle = (i / 4) * Math.PI * 2;
+      cube.position.set(Math.cos(angle) * 0.3, 2.46, Math.sin(angle) * 0.3);
+      group.add(cube);
+    }
+    return;
+  }
+  if (classId === "gunner") {
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.04, 20), makeMetalMaterial(pal.primary, { metalness: 0.4, roughness: 0.5 }));
+    brim.position.set(0, 2.22, 0);
+    const visor = box(0.3, 0.06, 0.05, glow);
+    visor.position.set(0, 1.94, 0.31);
+    group.add(brim, visor);
+    return;
+  }
+  // tanker — 등 배너
+  const banner = box(0.5, 1.0, 0.04, makeGlowMaterial(pal.trim, pal.trim, { emissiveIntensity: 0.5 }));
+  banner.position.set(0, 1.0, -0.3);
+  group.add(banner);
+}
+
+// 전직 외형 그룹을 만든다. 미전직(jobTier<1)이면 null. 차수가 오를수록 레이어가 누적된다.
 export function createJobTierCosmetic(classId: PlayerClassId, jobTier: number): THREE.Group | null {
   if (!jobTier || jobTier < 1) return null;
   const group = new THREE.Group();
   buildTier1(classId, group);
-  // 2·3차 외형은 후속 작업에서 jobTier>=2 분기로 추가.
+  if (jobTier >= 2) buildTier2(classId, group);
+  if (jobTier >= 3) buildTier3(classId, group);
   return group;
 }

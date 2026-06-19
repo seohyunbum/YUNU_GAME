@@ -249,7 +249,7 @@ import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView } from "./ui/trainingPanel";
 import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
-import { canAdvanceJob, JOB_SEAL, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
+import { canAdvanceJob, JOB_SEAL, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
@@ -2772,7 +2772,7 @@ class WildernessGame {
       return false;
     }
     this.mana = Math.max(0, this.mana - cost);
-    const cdMs = cooldownSeconds * 1000 * necklaceSkillCooldownMult(this.equippedNecklace); // 현자의 목걸이 -15%
+    const cdMs = cooldownSeconds * 1000 * necklaceSkillCooldownMult(this.equippedNecklace) * jobTierCooldownMult(this.playerClass, this.jobTier); // 목걸이 -15% + 2·3차 전직 쿨다운 단축
     if (slot === "primary") this.classSkillCooldownUntil = performance.now() + cdMs;
     else if (slot === "second") this.secondSkillCooldownUntil = performance.now() + cdMs;
     else this.thirdSkillCooldownUntil = performance.now() + cdMs;
@@ -2824,15 +2824,17 @@ class WildernessGame {
   private tryAdvanceJob() {
     const check = canAdvanceJob(this.playerClass, this.jobTier, this.level);
     if (!check.ok || !check.next) { this.showMessage(check.reason ?? "지금은 전직할 수 없습니다."); return; }
-    if (!this.removeItem(JOB_SEAL, 1)) { this.showMessage("전직의 인장이 필요합니다."); return; }
+    const sealCost = check.next.sealCost;
+    if (!this.removeItem(JOB_SEAL, sealCost)) { this.showMessage(`전직의 인장이 ${sealCost}개 필요합니다. (현재 ${this.countItem(JOB_SEAL)}개)`); return; }
     this.jobTier = check.next.tier;
     const previousMaxHealth = this.maxHealth; // 전직 보너스가 levelStatBonus 에 반영 → 최대 체력 즉시 상향
     this.maxHealth = Math.max(this.maxHealth, this.maxHealthForLevel());
     this.health = Math.min(this.maxHealth, this.health + Math.max(0, this.maxHealth - previousMaxHealth));
     this.refreshMirrorAvatar();
     const title = jobTierTitle(this.playerClass, this.jobTier) ?? "전직";
+    const perk = check.next.unlockThirdSkill ? "새 스킬(F)·스탯 상승·새 외형" : "스탯 상승·스킬 쿨다운 단축·더 멋진 외형";
     startMiniFanfare(this.finaleContext);
-    this.showMessage(`✦ ${check.next.tier}차 전직! 이제 '${title}'(이)가 되었습니다. 새 스킬(F)·스탯 상승·새 외형을 얻었습니다!`);
+    this.showMessage(`✦ ${check.next.tier}차 전직! 이제 '${title}'(이)가 되었습니다. ${perk}을 얻었습니다!`);
     this.renderHud();
   }
 

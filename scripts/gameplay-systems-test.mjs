@@ -122,6 +122,7 @@ try {
   const partyFlow = await server.ssrLoadModule("/src/game/partyFlow.ts");
   const partyWorldSync = await server.ssrLoadModule("/src/game/partyWorldSync.ts");
   const tierVisuals = await server.ssrLoadModule("/src/game/tierVisuals.ts");
+  const jobAdvancement = await server.ssrLoadModule("/src/game/jobAdvancement.ts");
   const craftLevel = await server.ssrLoadModule("/src/game/craftLevel.ts");
   const saveMigration = await server.ssrLoadModule("/src/game/saveMigration.ts");
   const skillBar = await server.ssrLoadModule("/src/ui/skillBar.ts");
@@ -1343,6 +1344,38 @@ try {
     assert(classIds.every((id) => THIRD_SKILLS[id]), "every class must define a third (advancement) skill");
     assert(THIRD_SKILLS.warrior.name === "대지가르기" && THIRD_SKILLS.mage.name === "메테오" && THIRD_SKILLS.tanker.name === "불굴의 함성", "designed third-skill names must match the spec");
     assert(classIds.every((id) => THIRD_SKILLS[id].manaCost > 0 && THIRD_SKILLS[id].cooldown > 0 && THIRD_SKILLS[id].summary.length > 0), "third skills need cost, cooldown, and summary");
+  }
+
+  {
+    // 전직 차수: 3차 정의 + 스탯 누적 + 쿨다운 단축 + 레벨 게이트 + 인장 비용
+    const { JOB_TIERS, MAX_JOB_TIER, jobTierStatBonus, jobTierCooldownMult, canAdvanceJob, normalizeJobTier, jobTierTitle } = jobAdvancement;
+    const classIds = Object.keys(classes.PLAYER_CLASSES);
+    assert(MAX_JOB_TIER === 3, "max job tier should be 3");
+    assert(classIds.every((id) => JOB_TIERS[id] && JOB_TIERS[id].length === 3), "every class must define 3 advancement tiers");
+    assert(classIds.every((id) => JOB_TIERS[id].every((t, i) => t.tier === i + 1 && t.requiredLevel > 0 && t.statLevelBonus > 0 && t.sealCost > 0 && t.title.length > 0)), "every tier needs ascending tier#, level, stat bonus, seal cost, title");
+    assert(classIds.every((id) => JOB_TIERS[id][0].unlockThirdSkill === true), "tier 1 must unlock the third skill");
+    // 누적 스탯 보너스: 0 → 5 → 10 → 17 (5/5/7)
+    for (const id of classIds) {
+      assert(jobTierStatBonus(id, 0) === 0, `${id}: jobTier 0 stat bonus should be 0`);
+      assert(jobTierStatBonus(id, 1) === 5, `${id}: jobTier 1 stat bonus should be 5`);
+      assert(jobTierStatBonus(id, 2) === 10, `${id}: jobTier 2 stat bonus should be 10`);
+      assert(jobTierStatBonus(id, 3) === 17, `${id}: jobTier 3 stat bonus should be 17`);
+    }
+    // 쿨다운 배율: 1차=1.0, 2차=0.85, 3차=0.68(=0.85*0.8). 강화는 단조 감소.
+    assert(Math.abs(jobTierCooldownMult("warrior", 1) - 1) < 1e-9, "tier 1 cooldown mult should be 1.0");
+    assert(Math.abs(jobTierCooldownMult("warrior", 2) - 0.85) < 1e-9, "tier 2 cooldown mult should be 0.85");
+    assert(Math.abs(jobTierCooldownMult("warrior", 3) - 0.68) < 1e-9, "tier 3 cooldown mult should be 0.85*0.8");
+    // 레벨 게이트 + 차수 진행
+    assert(canAdvanceJob("warrior", 0, 10).ok === false, "level 10 cannot reach tier 1 (needs 30)");
+    assert(canAdvanceJob("warrior", 0, 30).ok === true, "level 30 can reach tier 1");
+    assert(canAdvanceJob("warrior", 1, 49).ok === false, "level 49 cannot reach tier 2 (needs 50)");
+    assert(canAdvanceJob("warrior", 2, 70).ok === true, "level 70 can reach tier 3");
+    assert(canAdvanceJob("warrior", 3, 999).ok === false, "no tier beyond 3");
+    assert(canAdvanceJob("warrior", 2, 70).next.sealCost === 3, "tier 3 should cost 3 seals");
+    // 정규화 + 칭호
+    assert(normalizeJobTier(99, "mage") === 3, "jobTier clamps to defined tiers");
+    assert(normalizeJobTier(-5, "mage") === 0, "negative jobTier clamps to 0");
+    assert(jobTierTitle("warrior", 3) === "워로드" && jobTierTitle("mage", 1) === "원소술사" && jobTierTitle("warrior", 0) === null, "titles resolve per tier");
   }
 
   {

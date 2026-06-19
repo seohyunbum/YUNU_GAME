@@ -94,7 +94,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "job_seal",
     count: 1,
     ingredients: { job_change_tome: 1, gold: 3 },
-    note: "전직의서로 만드는 전직용 인장입니다. 레벨 30 이상에서 들고 사용하면 1차 전직합니다.",
+    note: "전직의서로 만드는 전직용 인장입니다. 레벨이 충분하면 들고 사용해 다음 차수로 전직합니다(1차 30·2차 50·3차 70, 차수가 오를수록 더 필요).",
   },
   {
     id: "dragon_spawn",
