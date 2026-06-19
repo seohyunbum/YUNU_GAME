@@ -10,7 +10,7 @@ export interface TouchControlsCallbacks {
   interact(): void; // 공격/상호작용(데스크톱 좌클릭/E 와 동일 경로)
   useSkill(slot: 1 | 2 | 3): void;
   useItem(): void; // 선택한 핫바 아이템 사용(먹기·구급상자·설치·전직의 인장 등) — 데스크톱 숫자키 재사용분
-  togglePanel(panel: "inventory" | "map"): void;
+  togglePanel(panel: "inventory" | "map" | "character"): void;
   saveGame(): void; // 데스크톱 Ctrl+S 와 동일 — 모바일은 save-controls 가 숨겨지므로 버튼으로 제공
   isPlaying(): boolean; // 게임 진행 중(타이틀/패널 아님)일 때만 조이스틱·시점 활성
 }
@@ -76,8 +76,9 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   menu.className = "touch-menu";
   const invBtn = btn("가방", "touch-menu-btn");
   const mapBtn = btn("지도", "touch-menu-btn");
+  const charBtn = btn("캐릭터", "touch-menu-btn"); // 캐릭터창(K) — 목걸이 착용·스탯 분배
   const saveBtn = btn("저장", "touch-menu-btn");
-  menu.append(invBtn, mapBtn, saveBtn);
+  menu.append(invBtn, mapBtn, charBtn, saveBtn);
 
   controls.append(joystick, jumpBtn, actions, menu);
   parent.append(lookZone, controls);
@@ -223,6 +224,7 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
     tap(useBtn, () => cb.useItem()),
     tap(invBtn, () => cb.togglePanel("inventory")),
     tap(mapBtn, () => cb.togglePanel("map")),
+    tap(charBtn, () => cb.togglePanel("character")),
     tap(saveBtn, () => cb.saveGame()),
   ];
 
