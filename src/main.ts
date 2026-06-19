@@ -162,6 +162,7 @@ import {
   MOVEMENT_COLLISION_STEP,
   MOVEMENT_HUD_MIN_INTERVAL,
   MOUSE_SENSITIVITY_X, MOUSE_SENSITIVITY_Y,
+  TOUCH_SENSITIVITY_X, TOUCH_SENSITIVITY_Y, MOBILE_PIXEL_RATIO_CAP,
   NIGHT_PREDATOR_MAX_COUNT,
   NIGHT_PREDATOR_MIN_PLAYER_DISTANCE,
   NIGHT_PREDATOR_SPAWN_SECONDS,
@@ -317,6 +318,8 @@ import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } fr
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
+import { isTouchDevice } from "./game/platform";
+import { createTouchControls } from "./ui/touchControls";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackIntercept, partyGuestOpenIntercept, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
@@ -628,7 +631,7 @@ class WildernessGame {
   private performanceWarmupTimer = 0;
   private lastRawFrameDelta = 0;
   private readonly hudRenderCache = createHudRenderCache();
-  private qualityMode: QualityMode = "high";
+  private qualityMode: QualityMode = isTouchDevice() ? "performance" : "high"; // 모바일은 저사양 프리셋으로 시작
   private ctrlWBlocked = false;
   private arcadePoints = this.loadArcadePoints();
   private readonly miniGameKeys = new Set<string>();
@@ -903,6 +906,16 @@ class WildernessGame {
     this.renderer.domElement.className = "game-canvas";
     this.container.appendChild(this.renderer.domElement);
     this.uiRoot.appendChild(this.bannerEl);
+    if (isTouchDevice()) {
+      createTouchControls(this.uiRoot, {
+        setKey: (code, pressed) => (pressed ? this.keys.add(code) : this.keys.delete(code)),
+        look: (dx, dy) => this.rotateCameraByMouse(dx * TOUCH_SENSITIVITY_X, dy * TOUCH_SENSITIVITY_Y),
+        interact: () => this.interact(),
+        useSkill: (slot) => (slot === 1 ? this.useClassSkill() : slot === 2 ? this.useSecondSkill() : this.useThirdSkill()),
+        togglePanel: (panel) => this.togglePanel(panel),
+        isPlaying: () => this.gameStarted && this.currentPanel === null,
+      });
+    }
     this.camera.position.copy(this.playerPosition);
   }
 
@@ -957,7 +970,8 @@ class WildernessGame {
 
   private pixelRatioForQuality(mode: QualityMode = this.qualityMode) {
     const cap = mode === "high" ? 1.35 : mode === "balanced" ? 1.12 : 1;
-    return Math.min(window.devicePixelRatio, cap);
+    const effective = isTouchDevice() ? Math.min(cap, MOBILE_PIXEL_RATIO_CAP) : cap; // 모바일 GPU 대역폭 절감
+    return Math.min(window.devicePixelRatio, effective);
   }
 
   private setupMirrorView() {
@@ -1809,6 +1823,7 @@ class WildernessGame {
   }
 
   private requestGamePointerLock() {
+    if (isTouchDevice()) return; // 모바일은 포인터락 미지원 — 터치 드래그로 시점 제어
     const canvas = this.renderer.domElement as HTMLCanvasElement & {
       requestPointerLock(options?: { unadjustedMovement?: boolean }): Promise<void> | void;
     };

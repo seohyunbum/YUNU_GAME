@@ -56,6 +56,13 @@ export const EXTENDED_WORKBENCH_SLOT_COUNT = 36;
 export const SPATIAL_CELL_SIZE = 18;
 export const MOUSE_SENSITIVITY_X = 0.0024;
 export const MOUSE_SENSITIVITY_Y = 0.002;
+// 터치 시점 드래그 — 손가락 px 델타를 rotateCameraByMouse 에 넣을 때 곱하는 배율(마우스 대비). 조정 가능.
+export const TOUCH_SENSITIVITY_X = 1.15;
+export const TOUCH_SENSITIVITY_Y = 1.05;
+// 모바일 GPU 저사양 대비 — devicePixelRatio 상한(네이티브의 75%까지만 렌더 → 대역폭/발열 절감).
+export const MOBILE_PIXEL_RATIO_CAP = 0.75;
+// 모바일 가상 조이스틱을 최대로 밀었을 때 달리기(Shift)로 전환되는 기준(0~1).
+export const TOUCH_SPRINT_THRESHOLD = 0.85;
 export const MAX_MOUSE_EVENT_DELTA = 4096;
 export const NIGHT_PREDATOR_SPAWN_SECONDS = 16;
 export const NIGHT_PREDATOR_MAX_COUNT = 8;
