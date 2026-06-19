@@ -305,6 +305,7 @@ import {
   writeLatestSave as writeLatestSaveInRepository,
   persistLatestSaveQuietly,
   writeSaveSlots as writeRepositorySaveSlots,
+  promoteSaveToSlotList as promoteSaveToSlotListInRepository,
   saveSummary,
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
@@ -5656,6 +5657,9 @@ class WildernessGame {
       this.currentPanel = null;
       this.restoreSaveData(save);
       precompileSceneShaders(this.renderer, this.scene, this.camera);
+      // 명명 슬롯에 없던 세이브(백업/자동저장 복구·유령 latest)는 명명 슬롯으로 승급 — 다음 저장의 링 회전에 유실되지 않게(부가, 실패 무시).
+      // 단 savedAt 없는 임의 import 는 매 로드마다 새 timestamp 가 찍혀 dedup 을 우회 → 중복 슬롯이 쌓이므로 승급 제외(실제 세이브/복구본만 승급).
+      if (typeof rawSave.savedAt === "string") void promoteSaveToSlotListInRepository(save, { migrateSaveData: (s) => migratePartialSaveData(s), formatSaveDate: (a) => formatSaveDate(a) });
       this.showMessage(successMessage);
     } catch (error) {
       console.error(error);

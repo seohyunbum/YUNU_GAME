@@ -1739,7 +1739,8 @@ try {
   }
 
   {
-    // 저장 용량 부족(quota) 회복력: writeJsonStorage 가 부가 백업(백업본·자동저장·백업 링)을 희생해 정본(명명 슬롯)을 살린다.
+    // 저장 용량 부족(quota) 회복력: writeJsonStorage 가 부가 백업을 '가치 낮은 순(백업본→자동저장→복구 링)'으로 하나씩만 희생해
+    // 정본(명명 슬롯)을 살리되, 들어가는 즉시 멈춰 복구 링(HISTORY)을 가능한 한 보존한다(과거엔 세 키를 통째로 전삭제했다).
     const { writeJsonStorage } = saveRepo;
     const HISTORY = "ai-game-lab:wilderness-save-history-v1";
     const AUTOSAVE = "ai-game-lab:wilderness-autosave-v1";
@@ -1762,7 +1763,7 @@ try {
     storage.setItem(AUTOSAVE, "A".repeat(120));
     writeJsonStorage(LIST, "L".repeat(180), storage); // 정본 — 그냥 쓰면 quota 초과
     assert(storage.getItem(LIST) !== null, "정본(명명 슬롯)은 용량 부족에도 기록되어야 한다");
-    assert(storage.getItem(HISTORY) === null && storage.getItem(AUTOSAVE) === null, "정본을 위해 백업 링·자동저장을 희생(삭제)한다");
+    assert(storage.getItem(AUTOSAVE) === null && storage.getItem(HISTORY) !== null, "가치 낮은 자동저장부터 희생하고, 들어가면 멈춰 복구 링(HISTORY)은 보존한다(점증 희생)");
     // 쓰는 키 자신은 희생 목록에서 제외 — 백업 링을 쓸 땐 자신 대신 다른 희생키(백업본)를 비운다
     const m2 = new Map();
     const sz2 = () => [...m2].reduce((s, [k, v]) => s + k.length + v.length, 0);

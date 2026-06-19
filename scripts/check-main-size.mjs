@@ -13,7 +13,9 @@ import { readFileSync } from "node:fs";
 // 2026-06-19: ensureVillageShops 를 대장간 보강까지 확장하며 상점 스폰 블록 압축 → 9664→9658.
 // 2026-06-19: 세이브 데이터 유실 수정 — saveGame/덮어쓰기 동시저장 직렬화 가드(saveInProgress)+finally,
 //   덮어쓰기 allowTrim:false 안전화, 떨궈진 슬롯 식별 경고. 정본 저장 orchestration 이라 리프 추출 불가 → 9658→9666.
-const MAX_MAIN_LINES = 9666;
+// 2026-06-19: 세이브 후속 — 로드 세이브 명명슬롯 승급(promoteSaveToSlotList 리프) 배선 import+호출 → 9666→9669.
+// 2026-06-19: 적대적 리뷰 후속 — savedAt 없는 import 는 승급 제외(중복 슬롯 방지) 가드 1줄 → 9669→9670.
+const MAX_MAIN_LINES = 9670;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

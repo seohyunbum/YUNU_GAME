@@ -44,6 +44,8 @@ try {
     backupLatestSave,
     persistLatestSaveQuietly,
     readSaveSlots,
+    readStoredSlotList,
+    promoteSaveToSlotList,
     resolveSlotSave,
     writeJsonStorage,
     writeLatestSave,
@@ -52,6 +54,8 @@ try {
   const { migrateSaveData } = migration;
   const {
     SAVE_BACKUP_KEY,
+    SAVE_AUTOSAVE_KEY,
+    SAVE_HISTORY_KEY,
     SAVE_KEY,
     SAVE_LIST_KEY,
     SAVE_WRITE_TEST_KEY,
@@ -96,7 +100,10 @@ try {
     storage,
   });
 
-  assert.equal(slots.length, 1, "duplicate save entries should be deduped across list/latest/backup");
+  // 명명 슬롯은 id 로 구분 — savedAt 가 같아도 서로 다른 슬롯(slot-a/slot-duplicate)이면 둘 다 보존(저장했는데 안 보이던 유실 방지).
+  // latest(SAVE_KEY)/backup 의 같은 savedAt 사본만 억제되어 중복 표시되지 않는다.
+  assert.equal(slots.length, 2, "distinct named slots (by id) must both stay visible; only latest/backup copies are suppressed");
+  assert.ok(!slots.some((s) => s.id === "latest-save" || s.id === "backup-save"), "latest/backup copies of a named slot must not appear as extra phantom slots");
   assert.equal(slots[0].id, "slot-a", "first valid slot id should be preserved");
   assert.equal(slots[0].label, "Slot A", "stored slot label should be preserved");
   assert.equal(slots[0].description, "요약", "stored slot description should be preserved");
@@ -178,7 +185,42 @@ try {
     assert.ok(storedCount < twoSlots.length, "default writeSaveSlots trims under quota and reports a reduced count");
   }
 
-  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "packed latest save", "quota fallback evicts backup", "quiet bookkeeping failure", "corrupt packed slot rejects", "broken slot recovery", "allowTrim:false overwrite preserves other slots (no silent loss)"] }, null, 2));
+  // 점증 희생(graceful) — quota 가 BACKUP 제거만으로 풀리면 AUTOSAVE/HISTORY(복구 링)는 보존(과거엔 세 키를 통째로 전삭제했다).
+  {
+    const gradualStorage = new MemoryStorage();
+    gradualStorage.setItem(SAVE_BACKUP_KEY, "백업본");
+    gradualStorage.setItem(SAVE_AUTOSAVE_KEY, "자동저장");
+    gradualStorage.setItem(SAVE_HISTORY_KEY, "복구링");
+    const baseSet = gradualStorage.setItem.bind(gradualStorage);
+    gradualStorage.setItem = (key, value) => {
+      // 'main' 키 쓰기는 BACKUP 이 남아있는 동안에만 실패(=BACKUP 제거하면 통과)
+      if (key === "main" && gradualStorage.getItem(SAVE_BACKUP_KEY) !== null) throw new Error("QuotaExceededError(시뮬레이션)");
+      baseSet(key, value);
+    };
+    writeJsonStorage("main", { ok: 1 }, gradualStorage);
+    assert.equal(gradualStorage.getItem(SAVE_BACKUP_KEY), null, "gradual sacrifice removes the least-valuable key (backup) first");
+    assert.equal(gradualStorage.getItem(SAVE_AUTOSAVE_KEY), "자동저장", "autosave ring is preserved when backup alone frees enough space");
+    assert.equal(gradualStorage.getItem(SAVE_HISTORY_KEY), "복구링", "history recovery ring is preserved (no wholesale wipe)");
+    assert.ok(gradualStorage.getItem("main"), "the primary write succeeds after gradual sacrifice");
+  }
+
+  // promoteSaveToSlotList — 명명 슬롯에 없던 로드 세이브(백업/자동저장 복구·유령 latest)를 명명 슬롯으로 승급.
+  // 이미 있으면 무시(중복 방지), 가득(MAX)이면 승급 안 함(다른 슬롯 떨굼 방지). 유령 슬롯이 저장 2회 만에 사라지던 유실의 회귀 가드.
+  {
+    const promoStorage = new MemoryStorage();
+    const opts = { migrateSaveData, formatSaveDate: (a) => a, storage: promoStorage };
+    assert.equal(await promoteSaveToSlotList(save, opts), true, "loading a save absent from the slot list should promote it to a named slot");
+    assert.equal(readStoredSlotList(opts).length, 1, "promotion adds exactly one named slot");
+    assert.equal(await promoteSaveToSlotList(save, opts), false, "re-promoting the same savedAt is a no-op (no duplicate)");
+    assert.equal(readStoredSlotList(opts).length, 1, "no duplicate named slot after re-promote");
+    const full = Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, savedAt: `2026-04-${String(i + 10)}T00:00:00.000Z`, label: `S${i}`, packed: "AA" }));
+    promoStorage.setItem(SAVE_LIST_KEY, JSON.stringify(full));
+    const freshSave = migrateSaveData({ version: 1, savedAt: "2026-05-05T00:00:00.000Z", player: { position: { x: 7, y: 0, z: 0 }, totalSteps: 1, hotbar: [], bagSlots: [], craftSlots: [] }, mountains: [], objects: [] });
+    assert.equal(await promoteSaveToSlotList(freshSave, opts), false, "promotion must not run when slots are full (would risk dropping another slot)");
+    assert.equal(readStoredSlotList(opts).length, 10, "a blocked (full) promotion leaves the slot list untouched");
+  }
+
+  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "packed latest save", "quota fallback evicts backup", "quiet bookkeeping failure", "corrupt packed slot rejects", "broken slot recovery", "allowTrim:false overwrite preserves other slots (no silent loss)", "graceful quota: gradual sacrifice", "promote loaded phantom save to named slot"] }, null, 2));
 } finally {
   await server.close();
 }

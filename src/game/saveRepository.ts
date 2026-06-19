@@ -34,18 +34,17 @@ export function backupLatestSave(storage = localStorage) {
 
 export function writeJsonStorage(key: string, value: unknown, storage = localStorage) {
   const raw = JSON.stringify(value);
-  try {
-    // 쓰기 가능 여부만 확인한다 — 전체 본문을 프로브로 쓰면 일시적으로 사용량이 2배가 되어 대형 세이브에서 quota 를 터뜨린다.
-    storage.setItem(SAVE_WRITE_TEST_KEY, "1");
-    storage.removeItem(SAVE_WRITE_TEST_KEY);
-    storage.setItem(key, raw);
-  } catch (error) {
-    // 용량 초과 — 부가 백업(편의 복사본·자동저장 슬롯·자동 백업 링)을 비워 본 저장을 살린다.
-    // (쓰는 키 자신은 제외. 이들은 다음 저장 때 다시 쌓이므로 정본 저장을 위해 희생해도 안전.)
-    for (const sacrificial of [SAVE_BACKUP_KEY, SAVE_AUTOSAVE_KEY, SAVE_HISTORY_KEY]) if (sacrificial !== key) storage.removeItem(sacrificial);
-    storage.removeItem(SAVE_WRITE_TEST_KEY);
-    storage.setItem(key, raw);
+  // 쓰기 가능 여부만 확인한다 — 전체 본문을 프로브로 쓰면 일시적으로 사용량이 2배가 되어 대형 세이브에서 quota 를 터뜨린다.
+  const attempt = () => { storage.setItem(SAVE_WRITE_TEST_KEY, "1"); storage.removeItem(SAVE_WRITE_TEST_KEY); storage.setItem(key, raw); };
+  try { attempt(); return; } catch { storage.removeItem(SAVE_WRITE_TEST_KEY); }
+  // 용량 초과 — 부가 자산을 '가치 낮은 순'으로 하나씩만 비우며 재시도한다. 들어가는 즉시 멈춰 복구 안전망을 필요 이상으로 날리지 않는다.
+  // (쓰는 키 자신은 제외. 복구 링 SAVE_HISTORY_KEY 는 최후의 수단 — 과거엔 세 키를 통째로 전삭제해 다른 캐릭터 백업까지 한 번에 사라졌다.)
+  for (const sacrificial of [SAVE_BACKUP_KEY, SAVE_AUTOSAVE_KEY, SAVE_HISTORY_KEY]) {
+    if (sacrificial === key) continue;
+    storage.removeItem(sacrificial);
+    try { attempt(); return; } catch { storage.removeItem(SAVE_WRITE_TEST_KEY); }
   }
+  storage.setItem(key, raw); // 마지막 시도 — 여기서도 실패하면 throw 되어 호출부가 처리한다.
 }
 
 // 최신본(SAVE_KEY)도 슬롯과 같은 압축 스텁으로 저장한다 — Lv451급 대형 세이브의 raw JSON 이 quota 를 다 먹는 것을 막는다.
@@ -124,37 +123,28 @@ export function readSaveSlots({
   storage = localStorage,
 }: ReadSaveSlotsOptions): SaveSlot[] {
   const slots: SaveSlot[] = [];
-  const seen = new Set<string>();
-  const seenSavedAt = new Set<string>();
-  const addSlot = (candidate: unknown, fallbackId: string) => {
+  const seenIds = new Set<string>();     // 명명 슬롯(SAVE_LIST): id 로 중복 제거 — 같은 savedAt 라도 서로 다른 슬롯이면 둘 다 보존(저장했는데 안 보이던 문제 방지)
+  const seenSavedAt = new Set<string>(); // latest/backup 유령: 이미 등장한 savedAt(=명명 슬롯의 사본)이면 숨겨 중복 표시만 억제
+  const addSlot = (candidate: unknown, fallbackId: string, origin: "list" | "ring") => {
     try {
       if (!candidate || typeof candidate !== "object") return;
       const record = candidate as StoredSaveSlot & PartialSavedGame;
+      const id = typeof record.id === "string" ? record.id : fallbackId;
+      const accept = (savedAt: string) => {
+        if (origin === "list" ? seenIds.has(id) : seenSavedAt.has(savedAt)) return false;
+        seenIds.add(id);
+        seenSavedAt.add(savedAt);
+        return true;
+      };
       if (typeof record.packed === "string" && typeof record.savedAt === "string") {
         // 압축 슬롯 — 목록 표시는 메타데이터만으로, 해제는 로드 시점에
-        if (seenSavedAt.has(record.savedAt)) return;
-        seenSavedAt.add(record.savedAt);
-        slots.push({
-          id: typeof record.id === "string" ? record.id : fallbackId,
-          savedAt: record.savedAt,
-          label: typeof record.label === "string" ? record.label : formatSaveDate(record.savedAt),
-          description: typeof record.description === "string" ? record.description : undefined,
-          packed: record.packed,
-        });
+        if (!accept(record.savedAt)) return;
+        slots.push({ id, savedAt: record.savedAt, label: typeof record.label === "string" ? record.label : formatSaveDate(record.savedAt), description: typeof record.description === "string" ? record.description : undefined, packed: record.packed });
         return;
       }
-      const source = record.save ?? record;
-      const save = migrateSaveData(source as PartialSavedGame);
-      const dedupeKey = `${save.savedAt}:${save.player.position.x.toFixed(2)},${save.player.position.y.toFixed(2)},${save.player.position.z.toFixed(2)}`;
-      if (seen.has(dedupeKey) || seenSavedAt.has(save.savedAt)) return;
-      seen.add(dedupeKey);
-      seenSavedAt.add(save.savedAt);
-      slots.push({
-        id: typeof record.id === "string" ? record.id : fallbackId,
-        savedAt: save.savedAt,
-        label: typeof record.label === "string" ? record.label : formatSaveDate(save.savedAt),
-        save,
-      });
+      const save = migrateSaveData((record.save ?? record) as PartialSavedGame);
+      if (!accept(save.savedAt)) return;
+      slots.push({ id, savedAt: save.savedAt, label: typeof record.label === "string" ? record.label : formatSaveDate(save.savedAt), save });
     } catch {
       // Ignore a broken entry so the rest of the save list still works.
     }
@@ -165,7 +155,7 @@ export function readSaveSlots({
     if (rawList) {
       const parsed = JSON.parse(rawList) as unknown;
       if (Array.isArray(parsed)) {
-        parsed.forEach((entry, index) => addSlot(entry, `save-list-${index}`));
+        parsed.forEach((entry, index) => addSlot(entry, `save-list-${index}`, "list"));
       }
     }
   } catch {
@@ -174,14 +164,14 @@ export function readSaveSlots({
 
   try {
     const rawLatest = storage.getItem(SAVE_KEY);
-    if (rawLatest) addSlot(JSON.parse(rawLatest), "latest-save");
+    if (rawLatest) addSlot(JSON.parse(rawLatest), "latest-save", "ring");
   } catch {
     // No usable legacy/latest save.
   }
 
   try {
     const rawBackup = storage.getItem(SAVE_BACKUP_KEY);
-    if (rawBackup) addSlot(JSON.parse(rawBackup), "backup-save");
+    if (rawBackup) addSlot(JSON.parse(rawBackup), "backup-save", "ring");
   } catch {
     // No usable backup save.
   }
@@ -218,6 +208,22 @@ export function readStoredSlotList({ migrateSaveData, formatSaveDate, storage = 
     // no usable list
   }
   return slots;
+}
+
+// 로드한 세이브가 명명 슬롯(SAVE_LIST)에 없으면 승급해 둔다 — latest/backup 유령이나 백업/자동저장 복구본을
+// 로드했을 때, 다음 저장의 latest 링 회전에 그 세이브가 사라지지 않게 한다. 이미 명명 슬롯이면(같은 savedAt) 무시.
+// 가득(≥MAX)이면 다른 슬롯을 떨굴 위험이 있어 자동 승급하지 않는다(allowTrim:false 로도 보강). 부가 기능이라 실패는 삼킨다.
+export async function promoteSaveToSlotList(save: SavedGame, options: ReadSaveSlotsOptions): Promise<boolean> {
+  try {
+    const stored = readStoredSlotList(options);
+    if (stored.some((slot) => slot.savedAt === save.savedAt)) return false;
+    if (stored.length >= MAX_SAVE_SLOTS) return false;
+    await writeSaveSlots([createSaveSlot(save, options.formatSaveDate, saveSummary(save)), ...stored], options.storage, { allowTrim: false });
+    return true;
+  } catch (error) {
+    console.warn("로드한 세이브의 슬롯 승급 실패(무시)", error);
+    return false;
+  }
 }
 
 // allowTrim=false (덮어쓰기 등 '교체만' 의도한 호출): 용량 부족 시 다른 슬롯을 조용히 떨구지 않고 throw 한다.
