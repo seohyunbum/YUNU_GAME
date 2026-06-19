@@ -740,7 +740,7 @@ class WildernessGame {
   private readonly siegeContext: SiegeContext = {
     spawnSiegeMonster: (x, z, level, elite) => this.spawnSiegeMonster(x, z, level, elite),
     isAlive: (id) => this.objects.has(id),
-    grantStageReward: (stage, tomes, items) => {
+    grantStageReward: (_stage, tomes, items) => {
       this.addItem("job_change_tome", tomes);
       for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
       startMiniFanfare(this.finaleContext);
