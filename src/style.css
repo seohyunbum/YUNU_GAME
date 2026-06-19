@@ -502,9 +502,9 @@ body {
   gap: 8px;
 }
 .objective-reward {
-  color: #fde68a;
-  font-size: 12.5px;
-  font-weight: 800;
+  color: rgba(253, 230, 138, 0.66); /* 방법 안내가 1순위 — 보상은 한 단계 낮춰 보조 정보로 */
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* Q 완료 액션 바 — 평상시엔 안내, 완료 시엔 크고 강한 초록 콜투액션 */
@@ -621,32 +621,26 @@ body {
   font-weight: 900;
 }
 
+/* 수행 방법 안내 — 보상보다 중요하므로 항상 보이게(상시 인라인). 마우스가 잠긴 1인칭에서 hover 팝오버는 무의미. */
 .objective-detail {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  bottom: auto;
-  left: 0;
-  display: none;
-  padding: 12px 14px;
-  border: 1px solid rgba(250, 204, 21, 0.42);
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.96);
-  color: #f8fafc;
+  display: block;
+  margin-top: 1px;
+  padding: 8px 10px;
+  border-left: 3px solid rgba(96, 165, 250, 0.8);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.5);
+  color: #eaf2ff;
   font-size: 13px;
-  line-height: 1.45;
+  font-weight: 600;
+  line-height: 1.46;
   text-align: left;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.46);
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .objective-detail em {
   color: #bbf7d0;
   font-style: normal;
-}
-
-.objective-card:hover .objective-detail,
-.objective-card:focus .objective-detail {
-  display: block;
 }
 
 .save-controls {
