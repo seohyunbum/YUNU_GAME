@@ -3914,8 +3914,8 @@ class WildernessGame {
     }
 
     if (this.useSelectedBucketOnLook(target)) return;
-    this.playHandAction();
-    if (this.isCombatTarget(target)) this.playMeleeAttackEffects(target);
+    if (this.isCombatTarget(target)) { if (this.actionTimer > 0) return; this.playHandAction("melee"); this.playMeleeAttackEffects(target); } // 기본 공격 쿨다운 = 스윙 지속(actionTimer): E 꾹/연타로 광속 사냥하던 버그 차단. 쾌속 목걸이는 스윙을 줄여 공속↑
+    else this.playHandAction();
     if (target.type === "droppedItem") {
       this.pickUpDroppedItem(target);
       return;
