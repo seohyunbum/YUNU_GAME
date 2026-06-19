@@ -160,6 +160,7 @@ try {
     game.playSeconds = 4567;
     game.chestStepBank = 22;
     game.caveStepBank = 33;
+    game.arcadePoints = 8765;
     game.equippedArmor = "diamond_armor";
     game.equippedShield = "iron_shield";
     game.equippedNecklace = "swift_necklace";
@@ -228,10 +229,16 @@ try {
     const before = game.createSaveData();
     game.restoreSaveData(before);
     const after = game.createSaveData();
-    return { before, after };
+    // 익스플로잇 회귀 가드: 로드는 포인트를 세이브 시점 값으로 롤백한다(판매로 번 포인트가 로드로 복제되지 않게).
+    game.arcadePoints = 999999;
+    game.restoreSaveData(before);
+    const arcadePointsAfterReload = game.arcadePoints;
+    return { before, after, arcadePointsAfterReload };
   });
 
   assert.deepEqual(stableSaveShape(result.after), stableSaveShape(result.before));
+  assert.equal(result.before.player.arcadePoints, 8765, "arcadePoints must be persisted inside the save");
+  assert.equal(result.arcadePointsAfterReload, 8765, "loading must roll arcadePoints back to the saved value (sell→load point-dupe exploit guard)");
   assert.deepEqual(browserErrors, []);
 
   console.log(JSON.stringify({

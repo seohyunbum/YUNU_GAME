@@ -42,6 +42,7 @@ export interface SaveDataSnapshot {
     craftLevel: number;
     craftExperience: number;
     craftStatPoints: number;
+    arcadePoints: number;
     craftStatAlloc: { hp: number; mana: number; attack: number; defense: number };
     classSkillCooldownUntil: number;
     secondSkillCooldownUntil: number;
@@ -214,6 +215,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       craftLevel: snapshot.player.craftLevel,
       craftExperience: snapshot.player.craftExperience,
       craftStatPoints: snapshot.player.craftStatPoints,
+      arcadePoints: snapshot.player.arcadePoints,
       craftStatAlloc: { ...snapshot.player.craftStatAlloc },
       classSkillCooldownRemainingMs: Math.max(0, snapshot.player.classSkillCooldownUntil - snapshot.nowMs),
       secondSkillCooldownRemainingMs: Math.max(0, snapshot.player.secondSkillCooldownUntil - snapshot.nowMs),

@@ -47,8 +47,9 @@ export const POINT_SHOP_OFFERS: PointShopOffer[] = [
   { id: "gold_armor_buy", name: "금 갑옷 1개", cost: 2600, receive: { gold_armor: 1 }, note: "방어 +15의 희귀 방어구입니다." },
 ];
 
-// 판매가 배수 — 종전 0.85 의 70% 수준으로 하향(0.85×0.70=0.595). 재료 판매 포인트가 약 30% 줄어든다.
-export const SELL_SHOP_RATE = 0.595;
+// 판매가 배수 — 0.595(0.85×0.70)에서 다시 현재의 70% 수준으로 하향(0.595×0.70≈0.4165).
+// 판매로 얻는 포인트 이득을 더 낮춰 포인트 파밍 유인을 줄인다(로드 복제 익스플로잇 차단과 함께).
+export const SELL_SHOP_RATE = 0.4165;
 
 function roundedSellPrice(shopUnitPrice: number) {
   const raw = shopUnitPrice * SELL_SHOP_RATE;

@@ -5722,6 +5722,7 @@ class WildernessGame {
         craftLevel: this.craftLevel,
         craftExperience: this.craftXp,
         craftStatPoints: this.craftStatPoints,
+        arcadePoints: this.arcadePoints,
         craftStatAlloc: { ...this.craftStatAlloc },
         classSkillCooldownUntil: this.classSkillCooldownUntil,
         secondSkillCooldownUntil: this.secondSkillCooldownUntil,
@@ -5809,6 +5810,8 @@ class WildernessGame {
     this.craftLevel = Math.max(1, Math.floor(save.player.craftLevel ?? 1));
     this.craftXp = Math.max(0, Math.floor(save.player.craftExperience ?? 0));
     this.craftStatPoints = Math.max(0, Math.floor(save.player.craftStatPoints ?? 0));
+    // 포인트는 세이브 시점 값으로 롤백 — 판매→로드 복제 익스플로잇 차단. 구세이브(필드 없음)는 현재 포인트 유지(0 으로 안 덮어씀).
+    if (typeof save.player.arcadePoints === "number") { this.arcadePoints = Math.max(0, Math.floor(save.player.arcadePoints)); this.saveArcadePoints(); }
     this.maxHealth = Math.max(save.player.maxHealth, this.maxHealthForLevel());
     this.health = Math.min(save.player.health, this.maxHealth);
     this.playerClass = save.player.playerClass ?? "warrior";
