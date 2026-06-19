@@ -41,6 +41,7 @@ export interface SiegeState {
   clearTimer: number; // 웨이브/단계 클리어 후 다음까지(초). >0 이면 대기 중.
   aliveIds: string[]; // 스폰된 생존 몬스터 id
   baseLevel: number;
+  spawnCursor: number; // 통로 라운드로빈 — 진입마다 리셋(모듈 전역 누적 방지)
 }
 
 export function createSiegeState(baseLevel: number): SiegeState {
@@ -55,6 +56,7 @@ export function createSiegeState(baseLevel: number): SiegeState {
     clearTimer: 0,
     aliveIds: [],
     baseLevel: Math.max(1, Math.floor(baseLevel)),
+    spawnCursor: 0,
   };
 }
 
@@ -78,8 +80,6 @@ function lanePoint(index: number): { x: number; z: number } {
   }
 }
 
-let spawnCursor = 0;
-
 // 매 프레임 호출(동굴 모드 + siege.active). 상태를 진행시킨다.
 export function updateSiege(state: SiegeState, context: SiegeContext, delta: number) {
   if (!state.active) return;
@@ -100,8 +100,8 @@ export function updateSiege(state: SiegeState, context: SiegeContext, delta: num
   if (state.toSpawn > 0) {
     state.spawnTimer -= delta;
     if (state.spawnTimer <= 0 && state.aliveIds.length < SIEGE_MAX_ALIVE) {
-      const point = lanePoint(spawnCursor);
-      spawnCursor += 1;
+      const point = lanePoint(state.spawnCursor);
+      state.spawnCursor += 1;
       const elite = Math.random() < eliteChance(state.stage);
       const level = levelForStage(state.baseLevel, state.stage) + (elite ? 4 : 0);
       const id = context.spawnSiegeMonster(point.x, point.z, level, elite);
