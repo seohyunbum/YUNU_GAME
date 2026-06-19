@@ -11,7 +11,9 @@ import { readFileSync } from "node:fs";
 // 로직은 모두 리프(game/fortressSiege·interiors·caveMonsters)에 두었고 main.ts 증가분은 배선 + 요새 진입/이탈/스폰/게이트 메서드다.
 // 2026-06-19: 모바일 점검 — 새 게임 quality 모바일 분기 + useItem 배선(net 0) + 중복 performance 리셋 5줄 제거 → 9669(예산초과)→9664.
 // 2026-06-19: ensureVillageShops 를 대장간 보강까지 확장하며 상점 스폰 블록 압축 → 9664→9658.
-const MAX_MAIN_LINES = 9658;
+// 2026-06-19: 세이브 데이터 유실 수정 — saveGame/덮어쓰기 동시저장 직렬화 가드(saveInProgress)+finally,
+//   덮어쓰기 allowTrim:false 안전화, 떨궈진 슬롯 식별 경고. 정본 저장 orchestration 이라 리프 추출 불가 → 9658→9666.
+const MAX_MAIN_LINES = 9666;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
