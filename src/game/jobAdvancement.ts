@@ -6,16 +6,24 @@ import type { ItemId, PlayerClassId } from "./types";
 
 export const MAX_JOB_TIER = 3;
 
-// 전직 아이템 흐름: 전직의서(드랍) → 전직의 인장(제작) → 사용 → 전직. 차수가 오를수록 인장을 더 쓴다.
+// 전직 아이템 흐름: 전직의서(드랍) → 차수별 전용 전직 아이템(제작) → 사용 → 전직.
+//   1차 = 전직의 표식(job_seal), 2차 = 전직의 각서(job_decree), 3차 = 상급 전직의 각서(job_decree_high).
+//   각 차수는 해당 전용 아이템 1개를 소비한다(상위 아이템은 하위 아이템·고급 재료로 제작).
 export const JOB_CHANGE_TOME: ItemId = "job_change_tome";
-export const JOB_SEAL: ItemId = "job_seal";
+export const JOB_SEAL: ItemId = "job_seal"; // 1차 — 표시명 "전직의 표식"
+export const JOB_DECREE: ItemId = "job_decree"; // 2차 — "전직의 각서"
+export const JOB_DECREE_HIGH: ItemId = "job_decree_high"; // 3차 — "상급 전직의 각서"
+export const JOB_ADVANCE_ITEMS: readonly ItemId[] = [JOB_SEAL, JOB_DECREE, JOB_DECREE_HIGH];
+export function isJobAdvanceItem(item: ItemId | null | undefined): boolean {
+  return item === JOB_SEAL || item === JOB_DECREE || item === JOB_DECREE_HIGH;
+}
 
 export interface JobTierDef {
   tier: 1 | 2 | 3;
   title: string; // 직업·차수별 칭호 (예: 전사 1차 = "광전사")
   requiredLevel: number; // 전직 가능 최소 레벨
   statLevelBonus: number; // 이 차수가 더하는 "레벨 환산" 보너스 (levelStatBonus 에 누적 가산)
-  sealCost: number; // 이 차수 전직에 드는 전직의 인장 수
+  advanceItem: ItemId; // 이 차수 전직에 사용·소비하는 전용 아이템(1개)
   unlockThirdSkill?: boolean; // 1차: F 키 3번째 스킬 해금
   skillCooldownMult?: number; // 2·3차: 모든 스킬 쿨다운 배율(이 차수에서 곱해짐, 누적) — "기존 스킬 강화"
 }
@@ -23,34 +31,34 @@ export interface JobTierDef {
 // 각 직업의 1·2·3차 정의. 신규 스킬은 1차에서만 추가하고, 2·3차는 스탯↑ + 쿨다운 단축으로 강화한다.
 export const JOB_TIERS: Record<PlayerClassId, JobTierDef[]> = {
   warrior: [
-    { tier: 1, title: "광전사", requiredLevel: 30, statLevelBonus: 5, sealCost: 1, unlockThirdSkill: true },
-    { tier: 2, title: "버서커", requiredLevel: 50, statLevelBonus: 5, sealCost: 2, skillCooldownMult: 0.85 },
-    { tier: 3, title: "워로드", requiredLevel: 70, statLevelBonus: 7, sealCost: 3, skillCooldownMult: 0.8 },
+    { tier: 1, title: "광전사", requiredLevel: 30, statLevelBonus: 5, advanceItem: JOB_SEAL, unlockThirdSkill: true },
+    { tier: 2, title: "버서커", requiredLevel: 50, statLevelBonus: 5, advanceItem: JOB_DECREE, skillCooldownMult: 0.85 },
+    { tier: 3, title: "워로드", requiredLevel: 70, statLevelBonus: 7, advanceItem: JOB_DECREE_HIGH, skillCooldownMult: 0.8 },
   ],
   healer: [
-    { tier: 1, title: "사제", requiredLevel: 30, statLevelBonus: 5, sealCost: 1, unlockThirdSkill: true },
-    { tier: 2, title: "주교", requiredLevel: 50, statLevelBonus: 5, sealCost: 2, skillCooldownMult: 0.85 },
-    { tier: 3, title: "대성자", requiredLevel: 70, statLevelBonus: 7, sealCost: 3, skillCooldownMult: 0.8 },
+    { tier: 1, title: "사제", requiredLevel: 30, statLevelBonus: 5, advanceItem: JOB_SEAL, unlockThirdSkill: true },
+    { tier: 2, title: "주교", requiredLevel: 50, statLevelBonus: 5, advanceItem: JOB_DECREE, skillCooldownMult: 0.85 },
+    { tier: 3, title: "대성자", requiredLevel: 70, statLevelBonus: 7, advanceItem: JOB_DECREE_HIGH, skillCooldownMult: 0.8 },
   ],
   mage: [
-    { tier: 1, title: "원소술사", requiredLevel: 30, statLevelBonus: 5, sealCost: 1, unlockThirdSkill: true },
-    { tier: 2, title: "대마법사", requiredLevel: 50, statLevelBonus: 5, sealCost: 2, skillCooldownMult: 0.85 },
-    { tier: 3, title: "현자", requiredLevel: 70, statLevelBonus: 7, sealCost: 3, skillCooldownMult: 0.8 },
+    { tier: 1, title: "원소술사", requiredLevel: 30, statLevelBonus: 5, advanceItem: JOB_SEAL, unlockThirdSkill: true },
+    { tier: 2, title: "대마법사", requiredLevel: 50, statLevelBonus: 5, advanceItem: JOB_DECREE, skillCooldownMult: 0.85 },
+    { tier: 3, title: "현자", requiredLevel: 70, statLevelBonus: 7, advanceItem: JOB_DECREE_HIGH, skillCooldownMult: 0.8 },
   ],
   summoner: [
-    { tier: 1, title: "야수술사", requiredLevel: 30, statLevelBonus: 5, sealCost: 1, unlockThirdSkill: true },
-    { tier: 2, title: "야수군주", requiredLevel: 50, statLevelBonus: 5, sealCost: 2, skillCooldownMult: 0.85 },
-    { tier: 3, title: "정령왕", requiredLevel: 70, statLevelBonus: 7, sealCost: 3, skillCooldownMult: 0.8 },
+    { tier: 1, title: "야수술사", requiredLevel: 30, statLevelBonus: 5, advanceItem: JOB_SEAL, unlockThirdSkill: true },
+    { tier: 2, title: "야수군주", requiredLevel: 50, statLevelBonus: 5, advanceItem: JOB_DECREE, skillCooldownMult: 0.85 },
+    { tier: 3, title: "정령왕", requiredLevel: 70, statLevelBonus: 7, advanceItem: JOB_DECREE_HIGH, skillCooldownMult: 0.8 },
   ],
   gunner: [
-    { tier: 1, title: "총사", requiredLevel: 30, statLevelBonus: 5, sealCost: 1, unlockThirdSkill: true },
-    { tier: 2, title: "저격수", requiredLevel: 50, statLevelBonus: 5, sealCost: 2, skillCooldownMult: 0.85 },
-    { tier: 3, title: "총사령관", requiredLevel: 70, statLevelBonus: 7, sealCost: 3, skillCooldownMult: 0.8 },
+    { tier: 1, title: "총사", requiredLevel: 30, statLevelBonus: 5, advanceItem: JOB_SEAL, unlockThirdSkill: true },
+    { tier: 2, title: "저격수", requiredLevel: 50, statLevelBonus: 5, advanceItem: JOB_DECREE, skillCooldownMult: 0.85 },
+    { tier: 3, title: "총사령관", requiredLevel: 70, statLevelBonus: 7, advanceItem: JOB_DECREE_HIGH, skillCooldownMult: 0.8 },
   ],
   tanker: [
-    { tier: 1, title: "수호기사", requiredLevel: 30, statLevelBonus: 5, sealCost: 1, unlockThirdSkill: true },
-    { tier: 2, title: "성기사", requiredLevel: 50, statLevelBonus: 5, sealCost: 2, skillCooldownMult: 0.85 },
-    { tier: 3, title: "불멸기사", requiredLevel: 70, statLevelBonus: 7, sealCost: 3, skillCooldownMult: 0.8 },
+    { tier: 1, title: "수호기사", requiredLevel: 30, statLevelBonus: 5, advanceItem: JOB_SEAL, unlockThirdSkill: true },
+    { tier: 2, title: "성기사", requiredLevel: 50, statLevelBonus: 5, advanceItem: JOB_DECREE, skillCooldownMult: 0.85 },
+    { tier: 3, title: "불멸기사", requiredLevel: 70, statLevelBonus: 7, advanceItem: JOB_DECREE_HIGH, skillCooldownMult: 0.8 },
   ],
 };
 

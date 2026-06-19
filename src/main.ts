@@ -253,7 +253,7 @@ import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView } from "./ui/trainingPanel";
 import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
-import { canAdvanceJob, JOB_SEAL, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
+import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
@@ -766,7 +766,7 @@ class WildernessGame {
     fireRangedWeapon: (item) => this.fireRangedWeapon(item),
     useSelectedBucketOnLook: () => this.useSelectedBucketOnLook(null, true),
     useDragonSpawnItem: () => this.useDragonSpawnItem(),
-    tryAdvanceJob: () => this.tryAdvanceJob(),
+    tryAdvanceJob: (item) => this.tryAdvanceJob(item),
     showMirrorView: () => this.showMirrorView(),
     removeItem: (item, count) => this.removeItem(item, count),
     grantLevels: (count, fraction = 1) => this.gainExperience(Math.round(experienceForLevelUps(this.level, this.experience, count) * fraction)),
@@ -2857,12 +2857,12 @@ class WildernessGame {
     heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } },
   };
 
-  // 전직 시도 — 전직의 인장(job_seal) 사용 시 호출. 레벨 확인 → 인장 소비 → 스탯·외형·스킬 적용.
-  private tryAdvanceJob() {
+  // 전직 시도 — 전직 아이템(표식/각서/상급 각서) 사용 시 호출. 레벨·아이템 일치 확인 → 1개 소비 → 스탯·외형·스킬 적용.
+  private tryAdvanceJob(usedItem: ItemId) {
     const check = canAdvanceJob(this.playerClass, this.jobTier, this.level);
     if (!check.ok || !check.next) { this.showMessage(check.reason ?? "지금은 전직할 수 없습니다."); return; }
-    const sealCost = check.next.sealCost;
-    if (!this.removeItem(JOB_SEAL, sealCost)) { this.showMessage(`전직의 인장이 ${sealCost}개 필요합니다. (현재 ${this.countItem(JOB_SEAL)}개)`); return; }
+    const required = check.next.advanceItem;
+    if (usedItem !== required || !this.removeItem(required, 1)) { this.showMessage(usedItem !== required ? `${check.next.tier}차 전직에는 '${ITEM_NAMES[required] ?? required}'이(가) 필요합니다. 제작대에서 만들어 사용하세요.` : `'${ITEM_NAMES[required] ?? required}'이(가) 필요합니다. (현재 ${this.countItem(required)}개)`); return; }
     this.jobTier = check.next.tier;
     const previousMaxHealth = this.maxHealth; // 전직 보너스가 levelStatBonus 에 반영 → 최대 체력 즉시 상향
     this.maxHealth = Math.max(this.maxHealth, this.maxHealthForLevel());

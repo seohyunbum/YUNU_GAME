@@ -5,7 +5,9 @@
 
 ## 0. 한 줄 요약
 
-레벨 도달(1차 30·2차 50·3차 70) + **전직의서**로 만든 **전직의 인장**(차수당 1·2·3개)을 사용해 전직하면 → ① **1차**: 직업별 새 3번째 스킬(F) 해금 · ② 전투 스탯이 차수마다 누적 상승(+5/+10/+17레벨) · ③ **2·3차**: 모든 스킬 쿨다운 단축(기존 스킬 강화) · ④ 차수가 오를수록 외형이 직업 특징에 맞게 화려해짐 · ⑤ 차수별 전직 퀘스트.
+레벨 도달(1차 30·2차 50·3차 70) + **차수별 전용 전직 아이템**(1차 전직의 표식 `job_seal` / 2차 전직의 각서 `job_decree` / 3차 상급 전직의 각서 `job_decree_high`)을 각 1개 사용해 전직하면 → ① **1차**: 직업별 새 3번째 스킬(F) 해금 · ② 전투 스탯이 차수마다 누적 상승(+5/+10/+17레벨) · ③ **2·3차**: 모든 스킬 쿨다운 단축(기존 스킬 강화) · ④ 차수가 오를수록 외형이 직업 특징에 맞게 화려해짐 · ⑤ 차수별 전직 퀘스트.
+
+> **2026-06-19 개편**: 종전 "전직의 인장 1종을 차수당 1·2·3개" → **차수별 전용 아이템 3종**으로 변경. 전직의서 드랍이 흔해 1차가 너무 쉬웠던 점을 보정. 레시피: 표식 = 전직의서 3 / 각서 = 흑요석 2 + 표식 1 + 전직의서 5 / 상급 각서 = 표식 5 + 각서 1 + 용의 꼬리 1 + 흑요석 7. (내부 식별자 `JobTierDef.advanceItem`, 각 차수 1개 소비. 세이브 마이그레이션 불필요 — `job_seal` id·jobTier 불변.)
 
 ## 1. 확정 결정 (사용자 승인 2026-06-19)
 
@@ -13,8 +15,8 @@
 | --- | --- | --- |
 | D1 | "스킬 하나 더"의 정체 | **새 3번째 스킬 추가** (R 1차 / T 2차는 그대로, 1차 전직 시 F 3차 신규 해금) |
 | D2 | 3차 스킬 단축키 | **F** |
-| D4 | 전직 조건 | 레벨(1차 30·2차 50·3차 70) + 전직의 인장 사용 |
-| D5 | 전직 아이템 흐름 | 전직의서 → 전직의 인장 제작 → 인장 사용 → 전직 (차수당 인장 1·2·3개) |
+| D4 | 전직 조건 | 레벨(1차 30·2차 50·3차 70) + 차수별 전용 전직 아이템 1개 사용 |
+| D5 | 전직 아이템 흐름 | 전직의서 → 차수별 전직 아이템(표식/각서/상급 각서) 제작 → 사용 → 전직. 상위 아이템은 하위 아이템·고급 재료(흑요석·용의 꼬리)로 제작 *(2026-06-19 개편, 0번 항목 참조)* |
 | D6 | 2·3차 방식 | **신규 스킬 없이 기존 스킬 강화** = 스탯 누적 상승 + 모든 스킬 쿨다운 단축(2차 ×0.85, 3차 ×0.8 누적) |
 
 > 코드에 이미 직업별 2번째 스킬(T)이 잠금 없이 존재(`SECOND_SKILLS`). 1차 전직은 그걸 잠그는 게 아니라 **별도의 3번째 스킬(F)을 신규 해금**한다.
@@ -37,7 +39,7 @@ interface JobTierDef {
   title: string;            // 직업·차수별 칭호
   requiredLevel: number;    // 30 / 50 / 70
   statLevelBonus: number;   // 5 / 5 / 7 (levelStatBonus 에 누적 가산)
-  sealCost: number;         // 전직의 인장 소비 수 (1 / 2 / 3)
+  advanceItem: ItemId;      // 차수별 전용 전직 아이템(1개 소비): job_seal / job_decree / job_decree_high
   unlockThirdSkill?: boolean;   // 1차만
   skillCooldownMult?: number;   // 2차 0.85 / 3차 0.8 (누적 곱)
 }
@@ -54,7 +56,7 @@ export const JOB_TIERS: Record<PlayerClassId, JobTierDef[]>;  // 직업당 3차
 | 스탯 +레벨(누적) | `main.ts:levelStatBonus()` 에 `jobTierStatBonus` 가산 → HP·공격·방어·전 스킬 한 지점 상승 |
 | 스킬 쿨다운 단축(2·3차) | `main.ts:trySpendSkill` cdMs 에 `jobTierCooldownMult` 곱 |
 | 외형(차수 누적) | `game/jobTierVisuals.ts:createJobTierCosmetic` — `buildTier1/2/3` 레이어 누적. `avatar.ts` 가 `jobTier` 로 부착 |
-| 제작→사용 | `job_seal`(items/itemInfo) + 레시피(제작대) + `hotbarUse` → `tryAdvanceJob`(레벨확인·인장 sealCost 소비·전이) |
+| 제작→사용 | `job_seal`/`job_decree`/`job_decree_high`(items/itemInfo) + 레시피 3종(제작대) + `hotbarUse`(`isJobAdvanceItem`) → `tryAdvanceJob(usedItem)`(레벨·아이템 일치 확인·1개 소비·전이) |
 | 퀘스트 | `objectives.ts` `advance_job_tier1/2/3` (jobTier>=N) |
 
 ## 5. 직업별 전직 사양 (칭호 / 외형 누적)
