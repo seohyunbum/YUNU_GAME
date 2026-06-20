@@ -71,6 +71,7 @@ export interface PartyWorldContext {
   spawnStationView(objType: string, x: number, z: number, bedTier?: string): WorldObject; // 게스트: 동기화 설치물 렌더
   pickupSharedObject(id: string): { item: string; count: number }[] | null; // 호스트: 제거 + 들어있던 아이템 반환(무효면 null)
   hostSpawnDroppedGround(item: string, count: number, x: number, z: number): void; // 호스트: 게스트 dropRequest 로 드롭 생성
+  hostSpawnStation(item: string, x: number, z: number, yaw: number): void; // 호스트: 게스트 placeRequest 로 설치물 생성(스냅샷 전파 → 전원 공유)
   canAddItem(item: ItemId, count: number): boolean; // 줍기 전 인벤토리 공간 확인(비파괴) — 없으면 요청 안 보냄(호스트가 객체 유지 → 유실 방지)
   receivePickupItems(items: { item: string; count: number }[]): { item: string; count: number }[]; // 받아 넣고, 못 넣은 것 반환(호스트 월드에 되돌려 떨어뜨리기용)
   getObject(id: string): WorldObject | undefined;
@@ -252,6 +253,14 @@ export function partyGuestDropIntercept(item: string, count: number, x: number, 
   return true;
 }
 
+// 8차 — 게스트가 설치물(제작대·제련대 등)을 놓으면 호스트 월드에 생성 요청(전원 동기화 → 모두가 봄·사용). true 시 로컬 설치 생략.
+export function partyGuestPlaceIntercept(item: string, x: number, z: number, yaw: number): boolean {
+  const session = init?.session() ?? null;
+  if (!init?.world || !session || session.role !== "guest" || !partyWorldGuestActive()) return false;
+  session.sendGame({ type: "placeRequest", item, x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, yaw: Math.round(yaw * 100) / 100 });
+  return true;
+}
+
 // 호스트 처치 알림 — combat.ts·summonerPet 의 처치 지점들이 호출한다 (호스트 역할일 때만 브로드캐스트).
 // 동기화 범위(wildPredator)와 XP 공유 범위를 일치시킨다 — 용·잼미니는 각자 로컬이므로 공유하면 이중 취득이 된다.
 export function partyHostNotifyKill(target: WorldObject) {
@@ -428,6 +437,10 @@ function handleGameMessage(message: PartyMessage, from?: string) {
     // 8차 — 게스트가 떨어뜨린 아이템을 호스트 월드에 생성(스냅샷으로 전원에 보임 → 누구나 줍기).
     if (!init.localPresence().inGame) return;
     init.world.hostSpawnDroppedGround(message.item, message.count, message.x, message.z);
+  } else if (message.type === "placeRequest" && hookedSession?.role === "host") {
+    // 8차 — 게스트가 놓은 설치물을 호스트 월드에 생성(스냅샷으로 전원 공유·사용).
+    if (!init.localPresence().inGame) return;
+    init.world.hostSpawnStation(message.item, message.x, message.z, message.yaw);
   } else if (message.type === "mobs") { if (message.hour != null) init!.world!.setSyncedHour?.(message.hour); applyMobsSnapshot(message.mapId, message.list); }
   else if (message.type === "partyKill") onPartyKill(message);
   else if (message.type === "mobHit") onMobHit(message.nickname, message.amount, message.name, message.mapId);
