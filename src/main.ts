@@ -109,6 +109,7 @@ import {
   PREDATOR_KILLS_KEY,
   BEST_FORTRESS_STAGE_KEY,
   BEST_FORTRESS_BASELEVEL_KEY,
+  QUALITY_MODE_KEY,
   BASE_BAG_SLOT_COUNT,
   BASE_MAX_MANA,
   BASE_PLAYER_MAX_HEALTH,
@@ -653,7 +654,8 @@ class WildernessGame {
   private performanceWarmupTimer = 0;
   private lastRawFrameDelta = 0;
   private readonly hudRenderCache = createHudRenderCache();
-  private qualityMode: QualityMode = isTouchDevice() ? "performance" : "high"; // 모바일은 저사양 프리셋으로 시작
+  private qualityMode: QualityMode = this.loadQualityMode(); // 저장된 사용자 선택 우선, 없으면 모바일=저사양/PC=고품질
+  private qualityLocked = localStorage.getItem(QUALITY_MODE_KEY) !== null; // 직접 고른 품질 — 자동 다운그레이드보다 우선(안 바뀜)
   private ctrlWBlocked = false;
   private arcadePoints = this.loadArcadePoints();
   private readonly miniGameKeys = new Set<string>();
@@ -863,6 +865,9 @@ class WildernessGame {
           this.renderClassSelection();
           this.playTone(520, 0.06, "triangle", 0.018);
         },
+        onQualityChoice: (mode) => {
+          if (mode === "high" || mode === "balanced" || mode === "performance") { this.applyQualityMode(mode, true); this.showMessage(`그래픽 품질: ${mode === "high" ? "고품질" : mode === "balanced" ? "보통" : "저사양 ⚡ (렉 완화)"}`); this.playTone(520, 0.06, "triangle", 0.018); }
+        },
         onTitleLoad: () => this.startGame("load"),
         onShowMiniGame: () => this.showMiniGame(),
         onShowLavaMiniGame: () => this.showLavaMiniGame(),
@@ -902,6 +907,7 @@ class WildernessGame {
         onRenderSmithingMiniGame: () => this.renderSmithingMiniGame(),
       },
     );
+    this.updateQualityButtons(); // 타이틀 품질 버튼 활성 표시
     this.partyChat = setupPartyChat({ mount: this.uiRoot, isPartyActive: () => currentPartySession() !== null, isInGame: () => this.gameStarted && this.locationMode === "overworld", getMembers: () => currentPartySession()?.members().map((member) => member.nickname) ?? [], myNickname: () => this.nickname, send: (message) => currentPartySession()?.sendGame(message), exitPointerLock: () => document.exitPointerLock?.() });
     // 터치 컨트롤은 setupGameUi 가 uiRoot.innerHTML 을 비운 *뒤* 생성해야 함(partyChat 와 동일) — setupRenderer 안에서 만들면 함께 지워져 모바일 컨트롤이 사라진다.
     if (isTouchDevice()) {
@@ -985,12 +991,12 @@ class WildernessGame {
 
   private setupScene() {
     this.scene.background = new THREE.Color(0xaed8ff);
-    this.scene.fog = new THREE.Fog(0xaed8ff, 70, 460);
+    this.scene.fog = new THREE.Fog(0xaed8ff, 70, this.fogFarForQuality()); // 시야·컬링 거리(품질별)
     this.setupSkyDome();
 
     this.scene.add(this.ambientLight);
     this.sunLight.position.set(80, 140, 40);
-    this.sunLight.castShadow = true;
+    this.sunLight.castShadow = this.qualityMode !== "performance"; // 저사양: 그림자 끔
     this.sunLight.shadow.mapSize.set(1024, 1024);
     this.sunLight.shadow.camera.near = 10;
     this.sunLight.shadow.camera.far = 420;
@@ -1033,7 +1039,7 @@ class WildernessGame {
   }
 
   private pixelRatioForQuality(mode: QualityMode = this.qualityMode) {
-    const cap = mode === "high" ? 1.35 : mode === "balanced" ? 1.12 : 1;
+    const cap = mode === "high" ? 1.35 : mode === "balanced" ? 1.12 : 0.8; // 저사양: 해상도 0.8 로(픽셀 36%↓ → GPU 부하 ↓)
     const effective = isTouchDevice() ? Math.min(cap, MOBILE_PIXEL_RATIO_CAP) : cap; // 모바일 GPU 대역폭 절감
     return Math.min(window.devicePixelRatio, effective);
   }
@@ -2638,9 +2644,9 @@ class WildernessGame {
     if (this.performanceSampleTimer < 2.5) return;
     const averageFrame = this.performanceSampleSum / Math.max(1, this.performanceSampleFrames);
     const slowRatio = this.performanceSlowFrames / Math.max(1, this.performanceSampleFrames);
-    if (this.qualityMode === "high" && (averageFrame > 0.034 || slowRatio > 0.1 || this.performanceHitchFrames > 2)) {
+    if (!this.qualityLocked && this.qualityMode === "high" && (averageFrame > 0.034 || slowRatio > 0.1 || this.performanceHitchFrames > 2)) {
       this.applyQualityMode("balanced");
-    } else if (this.qualityMode === "balanced" && (averageFrame > 0.045 || slowRatio > 0.18 || this.performanceHitchFrames > 4)) {
+    } else if (!this.qualityLocked && this.qualityMode === "balanced" && (averageFrame > 0.045 || slowRatio > 0.18 || this.performanceHitchFrames > 4)) {
       this.applyQualityMode("performance");
     }
     this.performanceSampleTimer = 0;
@@ -2650,14 +2656,37 @@ class WildernessGame {
     this.performanceHitchFrames = 0;
   }
 
-  private applyQualityMode(mode: QualityMode) {
-    if (this.qualityMode === mode) return;
-    this.qualityMode = mode;
-    this.shadowRefreshInterval = mode === "high" ? 0.4 : mode === "balanced" ? 0.65 : 1.1;
-    this.renderer.setPixelRatio(this.pixelRatioForQuality(mode));
-    applyShadowQuality(this.sunLight, mode);
-    refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, false);
-    this.renderer.shadowMap.needsUpdate = true;
+  private loadQualityMode(): QualityMode {
+    const saved = localStorage.getItem(QUALITY_MODE_KEY);
+    return saved === "high" || saved === "balanced" || saved === "performance" ? saved : isTouchDevice() ? "performance" : "high";
+  }
+
+  private fogFarForQuality(): number {
+    return this.qualityMode === "high" ? 460 : this.qualityMode === "balanced" ? 380 : 280; // 저사양일수록 시야·컬링 거리 짧게 → 보이는 메시·드로우콜 ↓
+  }
+
+  private updateQualityButtons() {
+    this.titleScreenEl.querySelectorAll<HTMLButtonElement>("[data-quality]").forEach((b) => {
+      const active = b.dataset.quality === this.qualityMode;
+      b.style.background = active ? "#f4d488" : "rgba(255,255,255,.06)";
+      b.style.color = active ? "#1a2b1f" : "#f3ead6";
+      b.style.borderColor = active ? "#f4d488" : "rgba(255,255,255,.25)";
+      b.style.fontWeight = active ? "700" : "400";
+    });
+  }
+
+  private applyQualityMode(mode: QualityMode, manual = false) {
+    if (this.qualityMode !== mode) {
+      this.qualityMode = mode;
+      this.shadowRefreshInterval = mode === "high" ? 0.4 : mode === "balanced" ? 0.65 : 1.1;
+      this.renderer.setPixelRatio(this.pixelRatioForQuality(mode));
+      this.sunLight.castShadow = mode !== "performance"; // 저사양: 그림자 완전 끔(큰 GPU 절감)
+      applyShadowQuality(this.sunLight, mode);
+      if (this.locationMode === "overworld" && this.scene.fog instanceof THREE.Fog) this.scene.fog.far = this.fogFarForQuality(); // 시야·컬링 거리 즉시 반영
+      refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, false);
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+    if (manual) { this.qualityLocked = true; localStorage.setItem(QUALITY_MODE_KEY, mode); this.updateQualityButtons(); } // 직접 선택 = 유지 + 자동 다운그레이드 잠금
   }
 
   private updateVisualEffects(delta: number) {
@@ -6079,11 +6108,13 @@ class WildernessGame {
     this.performanceSampleSum = 0;
     this.performanceSlowFrames = 0;
     this.performanceHitchFrames = 0;
-    this.qualityMode = isTouchDevice() ? "performance" : "high"; // 모바일은 새 게임에서도 저사양 프리셋 유지
+    this.qualityMode = this.loadQualityMode(); // 새 게임에서도 사용자가 고른 품질 유지
     this.visibilityCullTimer = 0;
     this.visibilityCullCursor = 0;
     this.performanceWarmupTimer = 0;
     this.renderer.setPixelRatio(this.pixelRatioForQuality());
+    this.sunLight.castShadow = this.qualityMode !== "performance"; // 저사양 그림자 끔
+    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.far = this.fogFarForQuality();
     applyShadowQuality(this.sunLight, this.qualityMode);
     refreshTrackedVisualVisibility(this.outlineVisuals, this.qualityMode, false);
     this.renderer.shadowMap.needsUpdate = true;
