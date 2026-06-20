@@ -1946,7 +1946,8 @@ class WildernessGame {
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? JAMMINI_FIELD_COUNT : Math.ceil(JAMMINI_FIELD_COUNT * 0.4)); i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
-    const predatorCount = this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? 60 : 78; // 밀도 상향 + 리전 밖 평원까지 균등 분포(빈 지역 제거)
+    const ambientMul = this.qualityMode === "performance" ? 1.3 : 2.0; // 몬스터 밀도 ~2배(저사양은 1.3배 — 짧은 fog가 화면당 밀도를 더 높여 렉 위험↑이라 보수적)
+    const predatorCount = Math.round((this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? 60 : 78) * ambientMul); // 밀도 상향 + 리전 밖 평원까지 균등 분포(빈 지역 제거)
     for (let i = 0; i < predatorCount; i += 1) {
       const point = this.randomPredatorSpawnPoint(null); if (!point) continue; // 맵 전체 랜덤 좌표(리전 우선 아님)
       const region = regionAtPosition(point, this.activeRegions) ?? nearestRegion(point, this.activeRegions); if (!region) continue; // 평원은 가장 가까운 리전의 종/레벨
@@ -3741,7 +3742,8 @@ class WildernessGame {
     const region = regionAtPosition(this.playerPosition, this.activeRegions);
     if (!isNight && (!region || region.levelRange[1] < 10)) return;
     let predatorCount = 0; for (const predator of this.objectsOfType("wildPredator")) if (!region || predator.regionId === region.id) predatorCount += 1;
-    const maxPredators = isNight ? NIGHT_PREDATOR_MAX_COUNT : NIGHT_PREDATOR_MAX_COUNT + 4;
+    const capMul = this.qualityMode === "performance" ? 1.3 : 2.0; // 초기 2배 인구가 감쇠로 다시 ~12로 줄지 않도록 리전 정상상태 캡도 동일 비율 상향(저사양 1.3배)
+    const maxPredators = Math.round((isNight ? NIGHT_PREDATOR_MAX_COUNT : NIGHT_PREDATOR_MAX_COUNT + 4) * capMul);
     if (predatorCount >= maxPredators || Math.random() > (isNight ? 0.36 : 0.3)) return;
     const point = this.randomPredatorSpawnPoint(region);
     if (!point) return;
