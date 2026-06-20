@@ -328,6 +328,7 @@ import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { isTouchDevice } from "./game/platform";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
+import { showObjectiveGuide } from "./ui/objectiveGuide";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby, togglePartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackIntercept, partyGuestOpenIntercept, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
@@ -1839,7 +1840,9 @@ class WildernessGame {
     window.addEventListener("resize", () => this.resize());
     this.objectiveEl.addEventListener("click", (event) => {
       if (!(event.target as HTMLElement).closest(".objective-card")) return;
-      claimObjective(this.tutorialProgress, this.currentObjectiveView(), this.objectiveClaimDeps);
+      const view = this.currentObjectiveView();
+      if (!view.completed) { showObjectiveGuide(this.uiRoot, { title: view.title, detail: view.detail, progress: view.progress, rewardLabel: view.reward.label, touch: isTouchDevice() }); return; } // 미완료 퀘스트 = 상세 클리어 가이드(모바일 hover 없음)
+      claimObjective(this.tutorialProgress, view, this.objectiveClaimDeps);
     });
     this.renderer.domElement.addEventListener("click", () => {
       if (!this.gameStarted) return;
@@ -2873,7 +2876,7 @@ class WildernessGame {
   }
 
   private useSecondSkill() {
-    if (!this.gameStarted || this.currentPanel !== null) return;    if (this.possessedEagleId) { this.showMessage("빙의 중에는 두 번째 스킬을 쓸 수 없습니다. X로 빙의를 해제하세요."); return; }
+    if (!this.gameStarted || this.currentPanel !== null) return;    if (this.possessedEagleId) { tryEagleWindCutter(this.eagleActionContext); return; } // 빙의 중 T = 윈드커터(데스크톱 우클릭 대체)
     useSecondClassSkill(this.secondSkillContext);
   }
 
@@ -2882,8 +2885,8 @@ class WildernessGame {
   // 3번째 스킬(F) — 1차 전직 시 해금. 2스킬 컨텍스트를 재사용하되 쿨다운 슬롯/광역·자가회복만 보강.
   private useThirdSkill() {
     if (!this.gameStarted || this.currentPanel !== null) return;
+    if (this.possessedEagleId) { this.endEaglePossession(false); this.showMessage("독수리 빙의를 해제했습니다."); return; } // 빙의 중 F = 해제(데스크톱 KeyX 대체) — 전직 단계 무관
     if (this.jobTier < 1) { this.showMessage("3번째 스킬은 1차 전직 후 사용할 수 있습니다. (F)"); return; }
-    if (this.possessedEagleId) { this.showMessage("빙의 중에는 스킬을 쓸 수 없습니다. X로 빙의를 해제하세요."); return; }
     useThirdClassSkill(this.thirdSkillContext);
   }
 
