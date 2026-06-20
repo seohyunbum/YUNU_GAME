@@ -7,7 +7,8 @@ import type { CombatProjectile, HandActionMode, ItemId, WorldObject } from "./ty
 export interface EagleActionContext {
   possessedEagleId(): string | null;
   selectedItem(): ItemId | null | undefined;
-  levelBonus(): number;
+  bodyAttackPower(): number; // 본체 전체 공격력(무기+레벨+훈련+제작+목걸이+버프) — 빙의 공격이 이를 받음
+  healEagle(amount: number): void; // 할퀴기 흡혈 — 독수리 HP 회복
   clawCooldownUntil(): number;
   windCutterCooldownUntil(): number;
   setClawCooldownUntil(value: number): void;
@@ -29,8 +30,8 @@ export function eagleHeldWeaponDamage(item: ItemId | null | undefined) {
   return item ? WEAPON_DAMAGE[item] ?? 0 : 0;
 }
 
-export function possessedEagleDamage(base: number, item: ItemId | null | undefined, levelBonus: number) {
-  return base + eagleHeldWeaponDamage(item) + levelBonus;
+export function possessedEagleDamage(skillBase: number, bodyAttack: number) {
+  return skillBase + bodyAttack; // bodyAttack 에 무기·훈련·제작·목걸이·버프 모두 포함(본체와 동일)
 }
 
 export function eagleSkillCooldownRemaining(until: number, now = performance.now()) {
@@ -55,7 +56,7 @@ export function tryEagleClaw(context: EagleActionContext) {
     context.showMessage("할퀴기 대상이 시야 안에 없습니다.");
     return true;
   }
-  const damage = possessedEagleDamage(EAGLE_CLAW_DAMAGE, context.selectedItem(), context.levelBonus());
+  const damage = possessedEagleDamage(EAGLE_CLAW_DAMAGE, context.bodyAttackPower());
   context.setClawCooldownUntil(performance.now() + EAGLE_CLAW_COOLDOWN * 1000);
   context.playHandAction("melee");
   spawnMeleeSlashTrail(context.combatEffectContext);
@@ -63,6 +64,7 @@ export function tryEagleClaw(context: EagleActionContext) {
   context.playMeleeWhoosh();
   context.playTone(720, 0.07, "triangle", 0.026);
   context.applyDamage(target, damage, "wind");
+  context.healEagle(Math.round(damage * 0.3)); // 입힌 데미지 30% 흡혈 → 독수리 HP 회복
   context.renderHud();
   return true;
 }
@@ -87,7 +89,7 @@ export function tryEagleWindCutter(context: EagleActionContext) {
     kind: "wind",
     mesh: createWindCutterProjectile(direction),
     velocity: direction.multiplyScalar(37),
-    damage: possessedEagleDamage(WIND_CUTTER_DAMAGE, context.selectedItem(), context.levelBonus()),
+    damage: possessedEagleDamage(WIND_CUTTER_DAMAGE, context.bodyAttackPower()),
     radius: 0.42,
     life: PROJECTILE_MAX_LIFE,
   };
