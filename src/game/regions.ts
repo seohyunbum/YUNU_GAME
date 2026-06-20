@@ -304,6 +304,19 @@ export function regionAtPosition(point: THREE.Vector3, regions: readonly Region[
   return regions.find((region) => containsRegion(region, point)) ?? null;
 }
 
+// 점을 포함하는 리전이 없을 때(리전 밖 평원) 가장 가까운 리전 — 평원 스폰의 몬스터 종/레벨 결정용.
+export function nearestRegion(point: THREE.Vector3, regions: readonly Region[] = REGIONS): Region | null {
+  let best: Region | null = null;
+  let bestSq = Infinity;
+  for (const region of regions) {
+    const dx = point.x - region.center.x;
+    const dz = point.z - region.center.z;
+    const distSq = dx * dx + dz * dz;
+    if (distSq < bestSq) { bestSq = distSq; best = region; }
+  }
+  return best;
+}
+
 export function getRegionById(id?: string | null, regions: readonly Region[] = REGIONS) {
   return regions.find((region) => region.id === id) ?? null;
 }
