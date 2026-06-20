@@ -787,7 +787,7 @@ class WildernessGame {
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
     showMessage: (text) => this.showMessage(text),
     renderHud: () => this.renderHud(),
-    placeSelected: () => { const s = this.hotbar[this.selectedHotbarIndex]; if (isTouchDevice() && s) this.placeItemFromSlot(s); else this.showMessage("설치 아이템은 인벤토리에서 아래 드롭존으로 드래그하면 설치합니다."); },
+    placeSelected: () => { const s = this.hotbar[this.selectedHotbarIndex]; if (isTouchDevice() && s) this.placeItemFromSlot(s); else this.showMessage("설치 아이템은 인벤토리(I)에서 우클릭하면 바로 설치됩니다(또는 아래 드롭존으로 드래그)."); },
   };
   private readonly areaSkillEffects: AreaSkillEffect[] = [];
   private actionMode: HandActionMode = "use";
@@ -2049,7 +2049,7 @@ class WildernessGame {
     if (event.code === "KeyT" && !event.repeat) this.useSecondSkill();
     if (event.code === "KeyF" && !event.repeat) this.useThirdSkill();
     if (event.code === "KeyX" && !event.repeat && this.possessedEagleId) { this.endEaglePossession(false); this.showMessage("독수리 빙의를 해제했습니다."); }
-    if (event.code === "KeyP") this.showMessage("설치는 인벤토리에서 아이템을 아래 드롭존으로 드래그하세요.");
+    if (event.code === "KeyP") this.showMessage("설치는 인벤토리(I)에서 아이템을 우클릭하세요(또는 아래 드롭존으로 드래그).");
     if (event.code.startsWith("Digit") && !event.repeat) this.selectHotbarByKey(event.code);
   }
 
@@ -3882,7 +3882,7 @@ class WildernessGame {
     if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에 누워 휴식 (체력 빠르게 회복)" : "좌클릭/E/우클릭: 침대에 누워 휴식";
     if (target.type === "fortressGate") return "E: 몬스터 요새 입장 (디펜스)";
     if (target.type === "cave") return "E: 동굴 들어가기";
-    if (target.type === "caveExit") return this.fortressSiege?.active ? "E: 요새에서 나가기 (포기)" : "E: 동굴 나가기";
+    if (target.type === "caveExit") return this.fortressSiege?.active ? "E: 요새에서 나가기 (보상 유지)" : "E: 동굴 나가기";
     if (target.type === "houseExit") return "E: 집 밖으로 나가기";
     if (target.type === "train") return this.ridingTrainId === target.id ? "E: 기차에서 내리기" : "E: 기차 타기";
     if (target.type === "water") return target.name;
@@ -4015,7 +4015,7 @@ class WildernessGame {
     if (target.type === "chest") this.openChest(target);
     if (target.type === "fortressGate") this.enterFortressSiege(target);
     if (target.type === "cave") this.enterCave(target);
-    if (target.type === "caveExit") { if (this.fortressSiege?.active) { this.showMessage("요새를 포기하고 나갑니다. 받은 보상은 유지됩니다."); this.exitFortressSiege(); } else this.leaveCave(); }
+    if (target.type === "caveExit") { if (this.fortressSiege?.active) { this.showMessage("요새에서 나갑니다. 지금까지 받은 보상은 그대로 유지됩니다."); this.exitFortressSiege(); } else this.leaveCave(); }
     if (target.type === "houseExit") this.leaveHouse();
     if (target.type === "train") this.boardTrain(target);
     if (target.type === "dirtPatch") this.digDirt(target);
@@ -4362,7 +4362,7 @@ class WildernessGame {
     this.fortressSiege = createSiegeState(baseLevel);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
-    this.showMessage("🏰 몬스터 요새 입성 — 1단계 도전 시작! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/포기해도 받은 보상은 유지)");
+    this.showMessage("🏰 몬스터 요새 입성 — 1단계 도전 시작! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/중도 퇴장해도 받은 보상은 유지)");
     this.renderHud();
   }
 
