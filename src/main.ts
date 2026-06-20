@@ -4921,7 +4921,7 @@ class WildernessGame {
     projectile.mesh.position.copy(origin);
     this.scene.add(projectile.mesh);
     this.projectiles.push(projectile);
-    this.playHandAction(kind === "magic" ? "magic" : "bow"); notifyPartyAttack("ranged", origin, direction, kind === "magic" ? "magic" : "arrow", speed, PROJECTILE_MAX_LIFE);
+    this.playHandAction(kind === "magic" ? "magic" : "bow"); notifyPartyAttack("ranged", origin, direction, kind === "magic" ? "magic" : "arrow", speed, PROJECTILE_MAX_LIFE, item === "sharp_obsidian_staff" || item === "sharp_obsidian_gun"); // 흑요석 궁극은 파티원에게도 붉게
     if (kind === "magic") this.playMagicShotSound();
     else this.playBowShotSound();
   }
