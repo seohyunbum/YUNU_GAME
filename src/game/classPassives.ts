@@ -58,16 +58,16 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     healthRegenPerSec: 0,
     pet: {
       label: "독수리 정령",
-      baseDamage: 2,
-      attackInterval: 1.5,
+      baseDamage: 4,
+      attackInterval: 1.0, // 초당 1회 공격
       attackRange: 13,
       flightAhead: 2.2,
       flightSide: 1.3,
       flightRise: 0.5,
-      playerXpShare: 0.7,
-      petXpShare: 0.3,
-      damagePerLevels: 5,
-      maxDamage: 10,
+      playerXpShare: 1.0, // 플레이어는 항상 full XP(펫 몫을 차감하지 않음) — petXpShare 는 추가 보너스
+      petXpShare: 0.6, // 0.3→0.6: 펫 레벨업 가속(플레이어 XP 가산 보너스)
+      damagePerLevels: 2, // 2레벨마다 +1
+      maxDamage: 25, // 캡 상향(base4 + 최대 +21 ≈ Lv43 도달). 균형 조정 가능
     },
   },
   gunner: {
