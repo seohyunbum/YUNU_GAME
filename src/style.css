@@ -3384,8 +3384,8 @@ button[data-title-load]:disabled {
   }
 
   .controls-guide,
-  .party-chat {
-    display: none; /* 터치 기기엔 키보드 가이드·채팅 입력 불필요 */
+  .party-chat-input {
+    display: none; /* 터치: 키보드 가이드·채팅 입력창만 숨김 — 수신 로그(.party-chat-log)는 표시해 파티 채팅 수신 가능 */
   }
 
   .save-controls button {
@@ -3823,6 +3823,12 @@ body.touch-mode {
 }
 body.touch-mode #game {
   touch-action: none;
+}
+/* 타이틀 메뉴(새시작·불러오기 등)는 높이 제한 세로 스크롤 컨테이너 — #game 의 touch-action:none 이 조상에서 패닝을 막아
+   손가락 스크롤이 죽어 '새시작' 버튼이 화면 밖에 갇히던 문제. 이 컨테이너만 세로 패닝 재허용(룩존·캔버스는 none 유지). */
+body.touch-mode .title-menu {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 body.touch-mode .controls-guide,
 body.touch-mode .save-controls {

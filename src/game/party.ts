@@ -90,7 +90,7 @@ export type PartyMessage =
   | { type: "ping"; t: number }
   | { type: "pong"; t: number }
   // 5차 — 호스트 권위 월드 공유
-  | { type: "mobs"; mapId: string; list: MobSnapshot[] }
+  | { type: "mobs"; mapId: string; list: MobSnapshot[]; hour?: number }
   | { type: "attackRequest"; targetId: string; power: number; kind: string }
   | { type: "partyKill"; name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string; lootItem?: string; lootCount?: number }
   | { type: "mobHit"; nickname: string; amount: number; name: string; mapId: string }

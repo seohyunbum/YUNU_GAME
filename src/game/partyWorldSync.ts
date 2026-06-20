@@ -44,6 +44,8 @@ export interface PartyWorldContext {
   entityContext: EntitySpawnContext;
   activeRegions(): readonly Region[];
   mapXpScale(): number;
+  hostGameHour?(): number; // 호스트 시계(시 0~24) — mobs 스냅샷에 piggyback 해 게스트 밤/낮 동기(없으면 시간 미동기)
+  setSyncedHour?(hour: number): void; // 게스트: 호스트 시각 수신 적용
   predators(): Iterable<WorldObject>;
   guards(): Iterable<WorldObject>; // 6차 — 마을 경비 4종
   spawnGuard(type: string, x: number, z: number, villageId: string): WorldObject; // 게스트 측 경비 렌더 생성
@@ -345,7 +347,7 @@ function collectMobs(): PartyMessage {
     list.push({ id: cave.id, name: cave.name ?? "동굴 입구", objType: "cave", x: Math.round(cave.root.position.x * 10) / 10, z: Math.round(cave.root.position.z * 10) / 10, yaw: Math.round(cave.root.rotation.y * 100) / 100, hp: 1 });
   }
   debugLastSentIds = list.map((entry) => entry.id);
-  return { type: "mobs", mapId: init!.localPresence().mapId, list };
+  return { type: "mobs", mapId: init!.localPresence().mapId, list, hour: init!.world!.hostGameHour?.() };
 }
 
 function handleGameMessage(message: PartyMessage, from?: string) {
@@ -365,7 +367,7 @@ function handleGameMessage(message: PartyMessage, from?: string) {
       init.world.grantChestLoot(message.items);
       debugChestLootGot += 1;
     }
-  } else if (message.type === "mobs") applyMobsSnapshot(message.mapId, message.list);
+  } else if (message.type === "mobs") { if (message.hour != null) init!.world!.setSyncedHour?.(message.hour); applyMobsSnapshot(message.mapId, message.list); }
   else if (message.type === "partyKill") onPartyKill(message);
   else if (message.type === "mobHit") onMobHit(message.nickname, message.amount, message.name, message.mapId);
 }
