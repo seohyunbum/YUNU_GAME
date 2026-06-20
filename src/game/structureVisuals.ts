@@ -205,7 +205,7 @@ export function createTrainVisual(trackRadius: number): TrainVisual {
     name: "탑승 가능한 기차",
     collisionRadius: 1.9,
     collisionHeight: 2.4,
-    trainSpeed: 0.075,
+    trainSpeed: 0.045, // 각속도 — 반경 476 기준 ≈ 21칸/초(달리기보다 약간 빠름). 종전 0.075(≈35칸/초)는 너무 빨라 완화.
     trainDirection: 1,
     trainPause: 0,
   };
