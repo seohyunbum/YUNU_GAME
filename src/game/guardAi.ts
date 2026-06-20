@@ -32,7 +32,7 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     if (!guard.angryUntil || guard.angryUntil < now) continue;
     if (partyTargets === null) partyTargets = partyHostCombatTargets(); // 호스트: 같은 맵 게스트도 추격/공격 대상
     const mode = guard.guardMode ?? "melee";
-    const range = guard.attackRange ?? (mode === "ranged" ? 18 : 2.05);
+    const range = guard.attackRange ?? (mode === "ranged" ? 18 : 2.6); // 근접 가드 정지 거리 ↑(2.05→2.6) — 플레이어와 덜 겹쳐 타게팅 쉽게
     const damage = guard.attackDamage ?? (guard.type === "villageMage" ? 2 : guard.type === "villageGolem" ? 9 : 1);
     // 가장 가까운 대상(로컬 플레이어 + 같은 맵 파티원)을 노린다
     let targetX = context.playerPosition.x;
