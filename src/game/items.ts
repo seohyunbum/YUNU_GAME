@@ -192,6 +192,15 @@ export const RANGED_PROJECTILE: Record<ItemId, "arrow" | "magic"> = {
   sharp_obsidian_staff: "magic", // 흑요석 총은 미등재 → arrow 발사
 };
 export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => !RANGED_WEAPONS.has(item))) as Record<ItemId, number>;
+// 지팡이류(마법 투사체 무기) — 직업 패시브 "지팡이 장착 데미지" 판정용.
+export const STAFF_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["magic_wand", "crystal_staff", "arcane_staff", "sharp_obsidian_staff"]);
+export function isStaffWeapon(item: ItemId | null | undefined): boolean {
+  return Boolean(item && STAFF_WEAPONS.has(item));
+}
+// 근접무기 — WEAPON_DAMAGE 보유 && 원거리 아님 && 방패 아님(도끼 포함). 전사 패시브 판정용.
+export function isMeleeWeapon(item: ItemId | null | undefined): boolean {
+  return Boolean(item && WEAPON_DAMAGE[item] !== undefined && !RANGED_WEAPONS.has(item) && item !== "iron_shield" && item !== "sharp_obsidian_shield");
+}
 
 export const HEAL_ITEMS: Record<ItemId, number> = {
   medkit: 15,

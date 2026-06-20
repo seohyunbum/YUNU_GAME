@@ -1,4 +1,5 @@
-import type { PlayerClassId, SummonerPetProgress } from "./types";
+import type { ItemId, PlayerClassId, SummonerPetProgress } from "./types";
+import { isStaffWeapon, isMeleeWeapon } from "./items";
 
 export interface SummonerPetPassive {
   label: string;
@@ -18,44 +19,87 @@ export interface ClassPassive {
   label: string;
   summary: string;
   armorBonus: number;
+  armorPerLevel: number; // 레벨업(레벨-1)당 방어 가산
   rangedCooldownScale: number;
+  gunOnlyRangedCooldown: boolean; // rangedCooldownScale 을 총기 장착 시에만 적용
   manaRegenScale: number;
+  manaRegenFlat: number; // 마나 회복 평탄 가산(초당)
   healthRegenPerSec: number;
+  shieldHealthRegenBase: number; // 방패 장착 시 체력 회복 base(초당)
+  shieldHealthRegenPerLevel: number; // 방패 장착 시 레벨당 추가 회복(초당)
+  moveSpeedMult: number; // 이동속도 배수
+  weaponDamage?: { group: "melee" | "staff"; pct: number; affectsHeal?: boolean }; // 무기조건 데미지(힐량) 배수
   pet?: SummonerPetPassive;
+}
+
+// 무기조건 데미지 배수 — 든 무기가 직업 조건(근접/지팡이)에 맞을 때만 (1 + pct), 아니면 1.
+export function classWeaponDamageMult(playerClass: PlayerClassId, heldItem: ItemId | null): number {
+  const wd = CLASS_PASSIVES[playerClass].weaponDamage;
+  if (!wd) return 1;
+  const match = wd.group === "melee" ? isMeleeWeapon(heldItem) : isStaffWeapon(heldItem);
+  return match ? 1 + wd.pct : 1;
 }
 
 export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
   warrior: {
-    label: "단단함",
-    summary: "방어력이 6 증가합니다.",
-    armorBonus: 6,
+    label: "단단한 근접딜러",
+    summary: "방어 +4 (레벨당 +0.2) · 근접무기 장착 시 데미지 +10%(스킬 포함).",
+    armorBonus: 4,
+    armorPerLevel: 0.2,
     rangedCooldownScale: 1,
+    gunOnlyRangedCooldown: false,
     manaRegenScale: 1,
+    manaRegenFlat: 0,
     healthRegenPerSec: 0,
+    shieldHealthRegenBase: 0,
+    shieldHealthRegenPerLevel: 0,
+    moveSpeedMult: 1,
+    weaponDamage: { group: "melee", pct: 0.1 },
   },
   healer: {
     label: "재생",
-    summary: "전투 중에도 천천히 체력을 회복합니다.",
+    summary: "체력 +0.25/s · 마나 +0.25/s · 지팡이 장착 시 데미지·힐량 +10%.",
     armorBonus: 0,
+    armorPerLevel: 0,
     rangedCooldownScale: 1,
+    gunOnlyRangedCooldown: false,
     manaRegenScale: 1,
+    manaRegenFlat: 0.25,
     healthRegenPerSec: 0.25,
+    shieldHealthRegenBase: 0,
+    shieldHealthRegenPerLevel: 0,
+    moveSpeedMult: 1,
+    weaponDamage: { group: "staff", pct: 0.1, affectsHeal: true },
   },
   mage: {
     label: "마나 순환",
-    summary: "마나 회복 속도가 2배가 됩니다.",
+    summary: "마나 회복 ×2 · 지팡이 장착 시 데미지 +15%(스킬 포함).",
     armorBonus: 0,
+    armorPerLevel: 0,
     rangedCooldownScale: 1,
+    gunOnlyRangedCooldown: false,
     manaRegenScale: 2,
+    manaRegenFlat: 0,
     healthRegenPerSec: 0,
+    shieldHealthRegenBase: 0,
+    shieldHealthRegenPerLevel: 0,
+    moveSpeedMult: 1,
+    weaponDamage: { group: "staff", pct: 0.15 },
   },
   summoner: {
     label: "정령 동료",
-    summary: "작은 독수리 정령이 곁에서 함께 성장합니다.",
+    summary: "독수리 정령이 함께 성장 · 지팡이 장착 시 데미지 +10%(스킬 포함).",
     armorBonus: 0,
+    armorPerLevel: 0,
     rangedCooldownScale: 1,
+    gunOnlyRangedCooldown: false,
     manaRegenScale: 1,
+    manaRegenFlat: 0,
     healthRegenPerSec: 0,
+    shieldHealthRegenBase: 0,
+    shieldHealthRegenPerLevel: 0,
+    moveSpeedMult: 1,
+    weaponDamage: { group: "staff", pct: 0.1 },
     pet: {
       label: "독수리 정령",
       baseDamage: 4,
@@ -72,19 +116,31 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
   },
   gunner: {
     label: "빠른 사격",
-    summary: "원거리 무기 연사 속도가 빨라집니다.",
+    summary: "총기 장착 시 연사 속도 ↑ · 이동속도 +10%.",
     armorBonus: 0,
-    rangedCooldownScale: 0.667, // 연사속도 90% 로 하향(쿨다운 0.6→0.667, ×1.11)
+    armorPerLevel: 0,
+    rangedCooldownScale: 0.667, // 연사속도 90% 로 하향(쿨다운 0.6→0.667, ×1.11). 총기 장착 시에만 적용.
+    gunOnlyRangedCooldown: true,
     manaRegenScale: 1,
+    manaRegenFlat: 0,
     healthRegenPerSec: 0,
+    shieldHealthRegenBase: 0,
+    shieldHealthRegenPerLevel: 0,
+    moveSpeedMult: 1.1,
   },
   tanker: {
     label: "철벽",
-    summary: "방어력이 8 증가하고 방패를 더 잘 활용합니다.",
+    summary: "방어 +8 (레벨당 +0.4) · 방패 장착 시 체력 +(0.25+레벨/50)/s.",
     armorBonus: 8,
+    armorPerLevel: 0.4,
     rangedCooldownScale: 1,
+    gunOnlyRangedCooldown: false,
     manaRegenScale: 1,
+    manaRegenFlat: 0,
     healthRegenPerSec: 0,
+    shieldHealthRegenBase: 0.25,
+    shieldHealthRegenPerLevel: 0.02, // 1/50
+    moveSpeedMult: 1,
   },
 };
 

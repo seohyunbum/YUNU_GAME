@@ -32,14 +32,8 @@ import {
   spawnWorkbench as spawnWorkbenchObject,
 } from "./game/placeableSpawns";
 import {
-  applyShadowQuality, shouldSkipTinyRaycastDetail, capCreatureRaycastMeshes,
-  precompileSceneShaders,
-  registerDistanceCulledVisual,
-  refreshTrackedVisualVisibility,
-  shouldHideInvisibleMeshFromRender,
-  shouldShowPerformanceHiddenVisual,
-  updateDistanceCulledVisuals,
-  applyOutlineDistanceGate,
+  applyShadowQuality, shouldSkipTinyRaycastDetail, capCreatureRaycastMeshes, precompileSceneShaders, registerDistanceCulledVisual, refreshTrackedVisualVisibility,
+  shouldHideInvisibleMeshFromRender, shouldShowPerformanceHiddenVisual, updateDistanceCulledVisuals, applyOutlineDistanceGate,
 } from "./game/renderPerformance";
 import {
   createChestVisual,
@@ -259,7 +253,7 @@ import { applyCraftXp, craftXpForNextLevel, craftXpForRecipe, createCraftStatAll
 import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard } from "./ui/trainingPanel";
 import { burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
-import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
+import { CLASS_PASSIVES, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
@@ -2876,7 +2870,8 @@ class WildernessGame {
     }
     const restMul = this.isResting ? BED_REST_PROFILE[this.restingBedTier].mult : 1; // 침대 등급별 회복 배수
     const hungerLevel = Math.min(HUNGER_HP_REGEN.length - 1, Math.max(0, Math.floor(this.hunger)));
-    let healthRegen = (CLASS_PASSIVES[this.playerClass].healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel]) * restMul;
+    const cp = CLASS_PASSIVES[this.playerClass];
+    let healthRegen = (cp.healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel]) * restMul + (this.equippedShield ? cp.shieldHealthRegenBase + cp.shieldHealthRegenPerLevel * Math.floor(this.level) : 0); // 탱커 철벽: 방패 장착 시 체력 +(0.25+레벨/50)/s
     if (this.isResting) healthRegen = Math.max(healthRegen, this.maxHealth * BED_REST_PROFILE[this.restingBedTier].floorPerSec); // 등급별 레벨무관 풀피 보장(통나무 ~12.5s ~ 이층/직접제작 ~8.3s)
     if (this.hunger <= 0) healthRegen = 0; // 배고픔 0 — 체력 회복 없음(데미지도 없음)
     if (healthRegen > 0 && this.health < this.maxHealth) {
@@ -2889,8 +2884,8 @@ class WildernessGame {
     }
     if (this.mana >= this.maxMana || this.hunger <= 0) return; // 배고픔 0 이면 마나도 회복 안 됨
     const previous = Math.floor(this.mana);
-    const manaRegenScale = CLASS_PASSIVES[this.playerClass].manaRegenScale * restMul;
-    this.mana = Math.min(this.maxMana, this.mana + (MANA_REGEN_PER_SECOND * manaRegenScale + necklaceManaRegenBonus(this.equippedNecklace)) * delta); // 현자의 목걸이 = 마나 회복 초당 +1(평탄)
+    const manaRegenScale = cp.manaRegenScale * restMul;
+    this.mana = Math.min(this.maxMana, this.mana + (MANA_REGEN_PER_SECOND * manaRegenScale + cp.manaRegenFlat + necklaceManaRegenBonus(this.equippedNecklace)) * delta); // 힐러 +0.25/s + 현자의 목걸이(평탄, 휴식배수 비적용)
     if (Math.floor(this.mana) !== previous) this.renderHud();
   }
 
@@ -2938,7 +2933,7 @@ class WildernessGame {
     useSecondClassSkill(this.secondSkillContext);
   }
 
-  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
+  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
 
   // 3번째 스킬(F) — 1차 전직 시 해금. 2스킬 컨텍스트를 재사용하되 쿨다운 슬롯/광역·자가회복만 보강.
   private useThirdSkill() {
@@ -2993,7 +2988,7 @@ class WildernessGame {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, HEALER_SKILL_COST, HEALER_SKILL_COOLDOWN, "primary")) return;
     spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     const previous = this.health;
-    const amount = healerHealAmount(this.levelStatBonus());
+    const amount = Math.round(healerHealAmount(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 재생: 지팡이 장착 시 힐량 +10%
     this.health = Math.min(this.maxHealth, this.health + amount);
     const friends = partyHealNearby(amount, HEAL_PARTY_RADIUS);
     spawnHealEffect(this.combatEffectContext, this.playerPosition);
@@ -3042,10 +3037,11 @@ class WildernessGame {
   private useMageSkill() {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, MAGE_TNT_COST, MAGE_TNT_COOLDOWN, "primary")) return;
     spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
-    this.fireSkillProjectile("tnt", "tnt", mageTntDamage(this.levelStatBonus()), 24, 0.42, MAGE_TNT_RADIUS);
+    const tntDmg = Math.round(mageTntDamage(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 마나순환: 지팡이 장착 시 +15%
+    this.fireSkillProjectile("tnt", "tnt", tntDmg, 24, 0.42, MAGE_TNT_RADIUS);
     this.playHandAction("magic");
     this.playTone(220, 0.08, "square", 0.024);
-    this.showMessage(`TNT발사! ${mageTntDamage(this.levelStatBonus())} 범위 피해.`);
+    this.showMessage(`TNT발사! ${tntDmg} 범위 피해.`);
   }
 
   private useGunnerSkill() {
@@ -3114,7 +3110,7 @@ class WildernessGame {
     if (movingHorizontally) {
       direction.normalize();
       sprinting = this.isSprinting();
-      let speed = WALK_SPEED * (sprinting ? RUN_MULTIPLIER : 1);
+      let speed = WALK_SPEED * (sprinting ? RUN_MULTIPLIER : 1) * CLASS_PASSIVES[this.playerClass].moveSpeedMult; // 거너 +10%
       if (this.keys.has("KeyC")) speed *= 0.38;
       else if (this.isShiftDown() && !sprinting) speed *= 0.62;
       const horizontalDistance = speed * delta;
@@ -4858,7 +4854,7 @@ class WildernessGame {
   private bodyMeleeAttackPower() { // 본체 근접 공격력(무기+레벨+훈련+제작+목걸이 ×심판의빛) — 빙의 공격도 이를 사용
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한
-    return Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()));
+    return Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null));
   }
   private currentDamage() {
     if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE; // 빙의 박치기 = 본체 공격력 + 5
@@ -4867,7 +4863,7 @@ class WildernessGame {
 
   private currentRangedDamage(item: ItemId) {
     const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
-    return Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()));
+    return Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item));
   }
 
   private eagleCombatTarget() {
@@ -4901,7 +4897,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return Math.round((this.equipmentArmorValue() + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()));
+    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()));
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -4910,7 +4906,7 @@ class WildernessGame {
 
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
-    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES[this.playerClass].rangedCooldownScale * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * necklaceAttackSpeedMult(this.equippedNecklace);
+    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * (CLASS_PASSIVES[this.playerClass].gunOnlyRangedCooldown && !GUN_WEAPONS.has(item) ? 1 : CLASS_PASSIVES[this.playerClass].rangedCooldownScale) * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * necklaceAttackSpeedMult(this.equippedNecklace); // 거너: 총기 장착 시에만 쿨감
     const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
@@ -5034,7 +5030,7 @@ class WildernessGame {
       expiresAt: performance.now() + WARRIOR_EXPLOSION_SECONDS * 1000,
       nextTickAt: 0,
       radius: WARRIOR_EXPLOSION_RADIUS,
-      damage: warriorExplosionDamage(this.levelStatBonus()),
+      damage: Math.round(warriorExplosionDamage(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)), // 근접무기 장착 시 +10%
       damagedThisTick: new Set<string>(),
     });
     spawnExplosionVisual(this.combatEffectContext, position, WARRIOR_EXPLOSION_RADIUS * 0.55);
