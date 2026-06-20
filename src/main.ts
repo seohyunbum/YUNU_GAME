@@ -6291,7 +6291,7 @@ class WildernessGame {
     object.lootTier = savedObject.lootTier; object.expiresAt = savedObject.expiresRemainingMs !== undefined ? performance.now() + savedObject.expiresRemainingMs : object.opened && (object.type === "chest" || object.type === "mineChest") ? performance.now() + 8_000 : object.expiresAt;
     object.trainAngle = savedObject.trainAngle;
     object.trainRadius = savedObject.trainRadius;
-    object.trainSpeed = savedObject.trainSpeed;
+    object.trainSpeed = Math.min(savedObject.trainSpeed ?? 0.045, 0.045); // 구버전 세이브의 빠른 기차(0.075)도 0.045 로 캡
     object.trainDirection = savedObject.trainDirection;
     object.trainPause = savedObject.trainPause;
     object.droppedItem = savedObject.droppedItem ?? object.droppedItem;
