@@ -31,7 +31,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 적대적QA #14 — 데스크탑 상자 획득 카드(chestContents leaf, import+호출 2줄) → 9758→9760.
 // 2026-06-20: 마을 가드 — 골렘 바위 던지기(guardRocks leaf 배선: import+throwRock+필드2+update) → 9760→9764.
 // 2026-06-20: 훈련장 종목별 글로벌 TOP5 랭킹(progressUpdate/loadTrainingBoard 메서드·trainingTries 배선·onSuccess/onFail) → 9764→9785.
-const MAX_MAIN_LINES = 9785;
+// 2026-06-20: 저사양 모드 선택 — 타이틀 품질 선택기(loadQualityMode·fogFarForQuality·updateQualityButtons)+applyQualityMode 확장 → 9785→9816.
+const MAX_MAIN_LINES = 9816;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

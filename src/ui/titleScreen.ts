@@ -171,6 +171,15 @@ export function renderTitleScreen(titleScreenEl: HTMLElement, view: TitleScreenV
             .join("")}
         </div>
       </div>
+      <div class="quality-select" data-quality-select>
+        <strong>그래픽 품질 (렉 줄이기)</strong>
+        <div class="quality-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;">
+          <button class="quality-btn" data-quality="high" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#f3ead6;cursor:pointer;font-size:14px;">고품질</button>
+          <button class="quality-btn" data-quality="balanced" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#f3ead6;cursor:pointer;font-size:14px;">보통</button>
+          <button class="quality-btn" data-quality="performance" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#f3ead6;cursor:pointer;font-size:14px;">⚡ 저사양</button>
+        </div>
+        <small style="opacity:.7;">저사양: 그림자 끔 · 해상도·시야거리 ↓ → 저사양 노트북도 매끄럽게.</small>
+      </div>
       <div class="title-actions">
         <button data-title-new>새로시작</button>
         <button data-title-load>불러오기</button>

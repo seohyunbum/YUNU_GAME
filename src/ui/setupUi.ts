@@ -28,6 +28,7 @@ export interface GameUiCallbacks {
   onLoadGame(): void;
   onTitleNew(): void;
   onClassChoice(choice: string | undefined): void;
+  onQualityChoice(mode: string | undefined): void;
   onTitleLoad(): void;
   onShowMiniGame(): void;
   onShowLavaMiniGame(): void;
@@ -99,6 +100,12 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       callbacks.onClassChoice(button.dataset.classChoice);
+    });
+  });
+  titleScreenEl.querySelectorAll<HTMLButtonElement>("[data-quality]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      callbacks.onQualityChoice(button.dataset.quality);
     });
   });
   bindButton(titleScreenEl, "[data-title-load]", callbacks.onTitleLoad);
