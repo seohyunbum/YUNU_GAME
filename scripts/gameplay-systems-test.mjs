@@ -854,7 +854,7 @@ try {
     const { initPartyWorldSync, partyWorldSyncTick, partyWorldSyncOnPresences, partyGuestAttackIntercept, partyHostNotifyKill, partyWorldGuestActive, resetPartyWorldSync, MOB_SYNC_INTERVAL_MS, MOB_SYNC_STALE_MS } = partyWorldSync;
     const { decodePartyMessage, encodePartyMessage, PARTY_PROTOCOL_VERSION } = party;
     const { calculateCombatDamage } = combat;
-    assert(PARTY_PROTOCOL_VERSION === 2, "world sharing bumps the protocol to v2");
+    assert(PARTY_PROTOCOL_VERSION === 3, "item/station/home sharing bumps the protocol to v3 (구버전 접속 차단)");
     const mobsMessage = { type: "mobs", mapId: "starter_valley", list: [{ id: "h1", name: "늑대", kind: "wolf", x: 10, z: 4, yaw: 0.5, hp: 30 }] };
     assert(JSON.stringify(decodePartyMessage(encodePartyMessage(mobsMessage))) === JSON.stringify(mobsMessage), "mobs message roundtrips");
 
