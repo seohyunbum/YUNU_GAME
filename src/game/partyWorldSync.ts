@@ -93,6 +93,7 @@ export interface PartyWorldContext {
   recordFieldBossDefeat(id: string): void;
   damageLocalPlayer(amount: number, sourceName: string): boolean; // true = 사망
   healLocalPlayer?(amount: number): void; // 5.1 — 파티 힐 수신 적용
+  empowerLocalPlayer?(durationMs: number): void; // 심판의 빛 — 파티 공격·방어 버프 수신 적용
   animateWalkCycle(object: WorldObject, delta: number, speed: number): void;
   refreshSpatialObject(object: WorldObject): void;
 }
