@@ -14,7 +14,7 @@
 import type { ItemId } from "./types";
 
 export const PARTY_LEDGER_KEY = "ai-game-lab:party-transfer-ledger-v1";
-const MAX_EVENTS_PER_CHARACTER = 5000; // 무한증가 방지(넉넉히). 과보존은 안전, 과소제거만 위험하므로 크게 둔다.
+const MAX_EVENTS_PER_CHARACTER = 50000; // 무한증가 방지(넉넉히 — 이벤트 ~100B 라 5MB). 과보존은 안전, 과소제거만 위험(옛 세이브가 필요로 하는 이벤트 삭제 시 복제)하므로 크게 둔다.
 
 export interface LedgerEvent {
   epoch: number; // 단조 증가 — 비교(>savedEpoch) + 재적용 순서 둘 다 담당
@@ -42,11 +42,13 @@ function readStore(storage: LedgerStorage): LedgerStore {
     return {};
   }
 }
-function writeStore(storage: LedgerStorage, store: LedgerStore): void {
+function writeStore(storage: LedgerStorage, store: LedgerStore): boolean {
   try {
     storage.setItem(PARTY_LEDGER_KEY, JSON.stringify(store));
+    return true;
   } catch {
-    // quota 등 — 게임을 막지 않는다(기록 실패 시 그 1건은 비가역화 안 됨. 차단보다 진행 우선).
+    // quota 등 — 게임을 막지 않는다. 실패를 알려 호출자가 카운터 전진을 되돌리게 한다(epoch 가 디스크와 어긋나지 않게).
+    return false;
   }
 }
 function charLedger(store: LedgerStore, characterId: string): CharacterLedger {
@@ -69,11 +71,11 @@ export function appendPartyLedgerEvent(storage: LedgerStorage, characterId: stri
   const store = readStore(storage);
   const led = charLedger(store, characterId);
   if (!characterId || delta === 0) return led.counter;
+  const prevCounter = led.counter; // ★저장 실패 시 되돌릴 값 — epoch 가 디스크 원장보다 앞서가면 로드 때 실제 이벤트를 건너뛰어(과다/과소 재적용) 소실·복제가 된다.
   led.counter += 1;
   led.events.push({ epoch: led.counter, item, delta, durabilityUsed });
   if (led.events.length > MAX_EVENTS_PER_CHARACTER) led.events.splice(0, led.events.length - MAX_EVENTS_PER_CHARACTER);
-  writeStore(storage, store);
-  return led.counter;
+  return writeStore(storage, store) ? led.counter : prevCounter; // 영속 성공 시에만 새 카운터를 알린다(epoch 동기 보장)
 }
 
 export interface ReconcileApply {

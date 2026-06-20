@@ -65,6 +65,22 @@ try {
     const e2 = appendPartyLedgerEvent(s, "A", "iron", -1); // 로드 후 새 거래
     assert(e2 === 2, `reload 후 새 이벤트 epoch 2, got ${e2}`); }
 
+  // 11. ★저장 실패(quota) → 카운터 전진 안 함 + 이벤트 미영속(epoch 가 디스크보다 앞서가 과다/과소 재적용되는 소실·복제 차단)
+  { const m = new Map(); let throwing = false;
+    const s = { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { if (throwing) throw new Error("quota"); m.set(k, v); } };
+    const e1 = appendPartyLedgerEvent(s, "A", "stone", -1); assert(e1 === 1, `정상 기록 counter 1, got ${e1}`);
+    throwing = true; const e2 = appendPartyLedgerEvent(s, "A", "iron", -1); // 저장 실패
+    assert(e2 === 1, `저장 실패 시 prev 카운터 반환(전진 안 함), got ${e2}`);
+    throwing = false; assert(latestPartyLedgerEpoch(s, "A") === 1, `디스크 카운터 1 유지(실패분 미영속), got ${latestPartyLedgerEpoch(s, "A")}`); }
+
+  // 12. ★마이그레이션 보존 — characterId/partyLedgerEpoch 가 살아남아야(stripped 되면 매 로드 epoch 0=과다재적용→소실). 구세이브는 생략(legacy 백필).
+  { const { migrateSaveData } = await server.ssrLoadModule("/src/game/saveMigration.ts");
+    const kept = migrateSaveData({ player: { characterId: "uuid-xyz", partyLedgerEpoch: 7 } });
+    assert(kept.player.characterId === "uuid-xyz", `마이그레이션이 characterId 보존, got ${kept.player.characterId}`);
+    assert(kept.player.partyLedgerEpoch === 7, `마이그레이션이 partyLedgerEpoch 보존, got ${kept.player.partyLedgerEpoch}`);
+    const legacy = migrateSaveData({ player: {} });
+    assert(legacy.player.characterId === undefined && legacy.player.partyLedgerEpoch === undefined, `구세이브는 필드 생략(legacy 백필용)`); }
+
 } finally {
   await server.close();
 }
