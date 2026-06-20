@@ -2,6 +2,7 @@
 // 능력치·설명을 띄운다. body 에 단일 툴팁 div 를 두고 전역 위임으로 처리하므로
 // 패널이 innerHTML 로 다시 그려져도 재바인딩이 필요 없다. 호버 이벤트에서만 동작(매 프레임 비용 0).
 import { describeItem } from "../game/itemInfo";
+import { isTouchDevice } from "../game/platform";
 import type { ItemId } from "../game/types";
 
 const CURSOR_OFFSET = 16;
@@ -65,6 +66,33 @@ function itemFromEvent(event: Event): { item: ItemId; target: HTMLElement } | nu
 export function initItemTooltips() {
   if (initialized) return;
   initialized = true;
+
+  if (isTouchDevice()) {
+    // 터치: hover 가 없으므로 [data-item] 롱프레스(≈380ms)로 능력치 툴팁 표시 + 자동 숨김. 일반 탭(슬롯 액션)과 분리.
+    let lpTimer = 0;
+    let lpFired = false;
+    document.addEventListener("touchstart", (event) => {
+      hide();
+      const match = itemFromEvent(event);
+      if (!match) return;
+      lpFired = false;
+      lpTimer = window.setTimeout(() => {
+        lpFired = true;
+        const el = ensureTooltip();
+        el.innerHTML = renderTooltip(match.item);
+        el.classList.remove("hidden");
+        const t = event.touches[0];
+        positionTooltip(el, t ? t.clientX : window.innerWidth / 2, t ? t.clientY : window.innerHeight / 2);
+        window.setTimeout(hide, 3500);
+      }, 380);
+    }, { passive: true });
+    const cancel = () => { if (lpTimer) { clearTimeout(lpTimer); lpTimer = 0; } };
+    document.addEventListener("touchmove", cancel, { passive: true });
+    document.addEventListener("touchend", cancel, { passive: true });
+    // 롱프레스로 툴팁이 떴으면 뒤따르는 click(슬롯 액션 등)을 1회 억제 — 정보 보기와 동작을 분리.
+    document.addEventListener("click", (event) => { if (lpFired) { event.stopPropagation(); event.preventDefault(); lpFired = false; } }, true);
+    return;
+  }
 
   document.addEventListener("pointerover", (event) => {
     const match = itemFromEvent(event);

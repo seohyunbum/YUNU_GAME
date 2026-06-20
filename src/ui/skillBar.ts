@@ -90,7 +90,7 @@ export function ensureSkillBar(parent: HTMLElement): HTMLElement {
       '<span class="skill-name"></span>';
     // 스킬 아이콘 탭/클릭 = 해당 스킬 발동(데스크톱 R/T/F 키 경로 재사용 — 합성 keydown). 터치·데스크톱 공통.
     const code = SKILL_CODES[i];
-    tile.addEventListener("click", () => window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true })));
+    tile.addEventListener("click", () => { window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true })); window.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true })); }); // keyup 동반 — 합성 keydown 이 this.keys 에 영구 잔류하지 않도록
     bar.appendChild(tile);
   }
   parent.appendChild(bar);

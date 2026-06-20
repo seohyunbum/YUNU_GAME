@@ -73,6 +73,8 @@ function disposeObject(object: THREE.Object3D) {
 
 let context: PresenceContext | null = null;
 let hookedSession: PartySession | null = null;
+let presenceVisibilityHooked = false; // 모바일 백그라운드/잠금 시 프레즌스 끊김 방지(아래 visibilitychange)
+let presenceKeepAlive = 0;
 const remotes = new Map<string, RemoteMember>();
 const remoteProjectiles: RemoteProjectile[] = [];
 let lastSentAt = 0;
@@ -158,6 +160,15 @@ function removeRemote(nickname: string) {
 export function initPartyPresence(presenceContext: PresenceContext) {
   context = presenceContext;
   initPartyWorldSync({ session: () => presenceContext.session(), localPresence: () => presenceContext.localPresence(), getGroundHeightAt: (x, z) => presenceContext.getGroundHeightAt(x, z), world: presenceContext.world ?? null });
+  if (!presenceVisibilityHooked && typeof document !== "undefined") {
+    presenceVisibilityHooked = true;
+    // 모바일은 백그라운드/화면잠금 시 rAF(updatePartyPresence 송신)가 멈춰 6초 후 파티에서 사라짐.
+    document.addEventListener("visibilitychange", () => {
+      const send = () => { if (hookedSession && context) hookedSession.sendPresence(context.localPresence()); };
+      if (document.hidden) { if (!presenceKeepAlive) presenceKeepAlive = window.setInterval(send, 3000); } // best-effort keepalive
+      else { if (presenceKeepAlive) { clearInterval(presenceKeepAlive); presenceKeepAlive = 0; } send(); } // 복귀 즉시 송신 → 파티에서 즉시 복귀
+    });
+  }
 }
 
 export function resetPartyPresence() {
