@@ -288,7 +288,7 @@ import { isStorageSlotSource } from "./game/inventoryCapacity";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
 import { buildRecipeGuideEntriesForStations, ingredientCounts, itemsUsing } from "./game/recipeGuide";
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
-import { NECKLACE_IDS, necklaceAttackBonus, necklaceAttackSpeedMult, necklaceDefenseBonus, necklaceSkillCooldownMult } from "./game/necklace";
+import { NECKLACE_IDS, necklaceAttackBonus, necklaceAttackSpeedMult, necklaceDefenseBonus, necklaceManaRegenBonus, necklaceSkillCooldownMult } from "./game/necklace";
 import { experienceForLevelUps, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
 import {
@@ -2882,7 +2882,7 @@ class WildernessGame {
     if (this.mana >= this.maxMana || this.hunger <= 0) return; // 배고픔 0 이면 마나도 회복 안 됨
     const previous = Math.floor(this.mana);
     const manaRegenScale = CLASS_PASSIVES[this.playerClass].manaRegenScale * restMul;
-    this.mana = Math.min(this.maxMana, this.mana + MANA_REGEN_PER_SECOND * manaRegenScale * delta);
+    this.mana = Math.min(this.maxMana, this.mana + (MANA_REGEN_PER_SECOND * manaRegenScale + necklaceManaRegenBonus(this.equippedNecklace)) * delta); // 현자의 목걸이 = 마나 회복 초당 +1(평탄)
     if (Math.floor(this.mana) !== previous) this.renderHud();
   }
 
