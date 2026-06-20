@@ -11,6 +11,7 @@ export interface ProgressUpdate {
   steps: number;
   playSeconds: number;
   bestFortressStage: number; // 몬스터 요새 최고 클리어 단계(랭킹용)
+  baseLevel: number; // 그 단계 기록 당시 baseLevel(난이도 맥락 표기용)
   kills: number; // 누적 처치 몬스터 수(랭킹 보조 지표)
 }
 
@@ -18,6 +19,7 @@ export interface ProgressUpdate {
 export interface RankEntry {
   nickname: string;
   stage: number;
+  baseLevel: number; // 기록 당시 도전 레벨(0 = 미상/레거시)
   kills: number;
 }
 
@@ -41,6 +43,7 @@ export async function publishProgress(
     steps: Math.max(0, Math.floor(progress.steps)),
     playSeconds: Math.max(0, Math.floor(progress.playSeconds)),
     fortressStage: Math.max(0, Math.floor(progress.bestFortressStage)),
+    fortressBase: Math.max(0, Math.floor(progress.baseLevel)),
     kills: Math.max(0, Math.floor(progress.kills)),
     progressAt: Date.now(),
   });
@@ -67,10 +70,10 @@ export async function fetchLeaderboard(
   try {
     const res = await fetchImpl(url);
     if (!res?.ok) return empty;
-    const data = (await res.json()) as Record<string, { fortressStage?: number; kills?: number }> | null;
+    const data = (await res.json()) as Record<string, { fortressStage?: number; fortressBase?: number; level?: number; kills?: number }> | null;
     if (!data || typeof data !== "object") return empty;
     const entries: RankEntry[] = Object.entries(data)
-      .map(([nickname, v]) => ({ nickname, stage: Math.max(0, Math.floor(Number(v?.fortressStage ?? 0))), kills: Math.max(0, Math.floor(Number(v?.kills ?? 0))) }))
+      .map(([nickname, v]) => ({ nickname, stage: Math.max(0, Math.floor(Number(v?.fortressStage ?? 0))), baseLevel: Math.max(0, Math.floor(Number(v?.fortressBase ?? v?.level ?? 0))), kills: Math.max(0, Math.floor(Number(v?.kills ?? 0))) }))
       .filter((e) => e.stage > 0)
       .sort((a, b) => b.stage - a.stage || b.kills - a.kills || a.nickname.localeCompare(b.nickname));
     const myRank = myNickname ? (entries.findIndex((e) => e.nickname === myNickname) + 1) || null : null;

@@ -20,7 +20,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 크리처 raycast cap 적용 시 addWorldObject raycast 등록부 압축 → 9685→9684.
 // 2026-06-20: 요새 최고 단계 기록(bestFortressStage load/save·field·기록 표시 배선) → 9684→9694.
 // 2026-06-20: 전체 플레이어 TOP3 랭킹(leaderboard field·loadLeaderboard·패널 훅·publish 확장) → 9694→9703.
-const MAX_MAIN_LINES = 9703;
+// 2026-06-20: 랭킹 공정성 — 기록 당시 baseLevel 저장/발행(난이도 맥락 'Lv N' 표기) → 9703→9711.
+const MAX_MAIN_LINES = 9711;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

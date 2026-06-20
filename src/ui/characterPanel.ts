@@ -54,7 +54,8 @@ function renderLeaderboard(board: LeaderboardResult | null, myNickname: string):
   const rows = board.top
     .map((entry, i) => {
       const self = entry.nickname === myNickname;
-      return `<div class="character-gear-row"><span>${RANK_MEDALS[i] ?? `${i + 1}.`} ${escapeHtml(entry.nickname)}${self ? " <b>(나)</b>" : ""}</span><strong>${entry.stage}단계 · ${entry.kills.toLocaleString("ko-KR")}마리</strong></div>`;
+      const lvCtx = entry.baseLevel > 0 ? ` · Lv${entry.baseLevel}` : ""; // 도전 레벨 맥락(같은 단계라도 난이도 차이를 드러냄). 레거시 기록은 생략
+      return `<div class="character-gear-row"><span>${RANK_MEDALS[i] ?? `${i + 1}.`} ${escapeHtml(entry.nickname)}${self ? " <b>(나)</b>" : ""}</span><strong>${entry.stage}단계${lvCtx}</strong></div>`;
     })
     .join("");
   const mine = board.myRank && board.myRank > board.top.length ? `<div class="character-necklace-empty">내 순위 ${board.myRank}위 / 총 ${board.total}명</div>` : "";
@@ -119,7 +120,7 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
           <div class="character-gear-row"><span>🏰 요새 최고 단계</span><strong>${view.bestFortressStage > 0 ? `${view.bestFortressStage}단계` : "아직 없음"}</strong></div>
         </div>
         <div class="character-gear character-records">
-          <div class="inventory-label">🏆 전체 TOP 3 <span class="character-records-sub">(요새 최고 단계)</span></div>
+          <div class="inventory-label">🏆 전체 TOP 3 <span class="character-records-sub">(단계 · 도전 레벨)</span></div>
           ${renderLeaderboard(view.leaderboard, view.myNickname)}
         </div>
         <p class="character-note">제작 레벨이 오르면 포인트를 얻어 위 스탯을 올릴 수 있어요 (체력·마나 +2, 공격·방어 +1).</p>
