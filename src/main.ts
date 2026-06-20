@@ -492,6 +492,7 @@ class WildernessGame {
   private nickname = "";
   private currentTrainingKind: TrainingKind = "hp";
   private lastObjectiveReady = false;
+  private firstCombatHintShown = localStorage.getItem("ai-game-lab:first-combat-hint") === "1"; // 첫 전투 교육 1회만(#11)
   private trainingStats = createTrainingStats();
   private craftLevel = 1;
   private craftXp = 0;
@@ -6312,6 +6313,7 @@ class WildernessGame {
     const healthValue = Math.max(0, Math.ceil(this.health));
     const objectiveView = this.currentObjectiveView(); // 보상 대기 전환 감지용 스냅샷
     if (objectiveView.completed && !this.lastObjectiveReady) { this.playTone(988, 0.1, "triangle", 0.032); this.playTone(1319, 0.16, "triangle", 0.028); } this.lastObjectiveReady = objectiveView.completed;
+    if (objectiveView.id === "hunt_predators" && !this.firstCombatHintShown) { this.firstCombatHintShown = true; localStorage.setItem("ai-game-lab:first-combat-hint", "1"); this.showMessage("⚔️ 이제 전투예요! 몬스터가 부르르 떨면 공격 신호 — 양옆으로 빠르게 피했다가 좌클릭으로 반격하세요. 가죽 갑옷을 입으면 훨씬 잘 버팁니다.", { durationSeconds: 7, danger: true }); } // 첫 전투 교육(#11)
     const manaValue = Math.floor(this.mana);
     const hour = this.gameHour();
     const playerClass = PLAYER_CLASSES[this.playerClass];
