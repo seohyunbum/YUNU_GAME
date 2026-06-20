@@ -7,7 +7,7 @@ import { initPartyWorldSync, partyWorldSyncOnPresences, partyWorldSyncTick, type
 import type { PlayerClassId } from "./types";
 
 // main 의 import 한 줄을 넓히는 것만으로 5차 API 를 쓸 수 있도록 재수출 (라쳇 0줄 전략)
-export { isGuardType, partyGuestAttackIntercept, partyGuestOpenIntercept, partyHostNotifyKill, partyWorldGuestActive } from "./partyWorldSync";
+export { isGuardType, partyGuestAttackIntercept, partyGuestOpenIntercept, partyGuestPickupIntercept, partyGuestDropIntercept, partyHostNotifyKill, partyWorldGuestActive } from "./partyWorldSync";
 
 // 파티 3차 — 프레즌스 동기화. 같은 맵의 파티원을 월드에 아바타+닉네임 표찰로 그리고, 지역 지도에 마커를 제공.
 // 5.1 — 닉네임 표찰 축소 + 친구 HP바, 보간 개선(순간이동 방지), 원격 공격 모션·투사체, 플레이어 충돌, 파티 힐.
