@@ -43,7 +43,7 @@ const WINDUP = 0.4;
 const BREATH_DELAY_MS = 620; // 예열 후 브레스 착탄까지(텔레그래프로 회피 가능)
 const BREATH_RADIUS = 3.7;
 const DRAGON_CHASE_SPEED = 9.5; // 걷기(7) < 추격 < 달리기(14): 걸으면 따라잡히고 달려야 도망칠 수 있다
-const DRAGON_CHASE_STOP = 4.6; // 발톱 사거리 안까지 파고들되 플레이어와 겹치진 않게
+const DRAGON_CHASE_STOP = 7; // 덩치가 커서 더 멀리서 멈춰야 시야에 들어오고 타게팅 가능(4.6→7). 발톱은 ≤8 이라 여전히 닿음
 export const DRAGON_AGGRO_MS = 9000; // 피격/사거리 진입 시 추격 유지 시간 — 사거리 안이면 매 프레임 갱신(끈질긴 추격)
 
 // 공격 모션 — 루트를 pitch 로 뒤로 젖혔다 앞으로 내리꽂는다(머리 포함 전신 rear-up→strike). 날갯짓 증폭값 반환. (할당 없음)
@@ -83,7 +83,7 @@ function castDragonAttack(context: DragonAiContext, dragon: WorldObject, kind: B
   const stats = context.bossStats(kind);
   const profile = DRAGON_PROFILES[kind] ?? DRAGON_PROFILES.dragon;
   dragon.root.userData.dragonAttackAt = now; // 모션 시작
-  if (distance <= 6 && Math.random() < 0.5) {
+  if (distance <= 8 && Math.random() < 0.5) {
     dragon.attackCooldown = 1.8;
     spawnDragonClawBurst(context.effects(), dragon.root.position);
     context.playTone(150, 0.16, "sawtooth", 0.03);

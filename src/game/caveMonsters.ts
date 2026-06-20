@@ -80,7 +80,10 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
     const stats = context.predatorStats(monster.predatorKind, monster.monsterId as MonsterId | undefined);
     const angle = aggroed ? Math.atan2(dz, dx) : (monster.wanderAngle ?? 0);
     if (!aggroed && Math.random() < 0.02) monster.wanderAngle = Math.random() * Math.PI * 2;
-    const speed = (aggroed ? stats.speed : stats.speed * 0.3) * (monster.fortressBoss ? 0.82 : 1);
+    // 근접 정지/공격 사거리 — 겹치지 않고 시야에 들어오게 일정 거리 밖에서 멈춰 공격(몸집 클수록 더 멀리)
+    const reach = context.predatorStrikeRange(monster.predatorKind) + 0.8 + (monster.collisionRadius ?? 0) * 0.5;
+    const moving = aggroed ? distance > reach : true;
+    const speed = (aggroed ? (moving ? stats.speed : 0) : stats.speed * 0.3) * (monster.fortressBoss ? 0.82 : 1);
     next.set(
       THREE.MathUtils.clamp(monster.root.position.x + Math.cos(angle) * speed * delta, minX, maxX),
       0,
@@ -95,7 +98,7 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
 
     monster.attackCooldown = Math.max(0, (monster.attackCooldown ?? 0) - delta);
     const canAct = aggroed && !panelOpen;
-    if (canAct && distance < context.predatorStrikeRange(monster.predatorKind) && (monster.attackCooldown ?? 0) <= 0) {
+    if (canAct && distance <= reach && (monster.attackCooldown ?? 0) <= 0) {
       monster.attackCooldown = stats.cooldown;
       triggerPredatorAttackMotion(monster, now, dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
       if (monster.fortressBoss) spawnGroundShockwave(context.effects(), monster.root.position, 0xff3b3b);
