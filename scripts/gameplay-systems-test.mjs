@@ -132,7 +132,7 @@ try {
 
   const { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, EAGLE_RAM_DAMAGE, HUNGER_HP_REGEN, HUNGER_MAX, IRON_GUARD_ARMOR, IRON_GUARD_DURATION_SECONDS, MANA_REGEN_PER_SECOND, NIGHT_PREDATOR_MAX_COUNT, RANGED_ATTACK_COOLDOWN, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } = constants;
   const { HEAL_ITEMS, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE } = items;
-  const { CLASS_PASSIVES, DEFAULT_SUMMONER_PET_PROGRESS, summonerPetDamage } = classPassives;
+  const { CLASS_PASSIVES, DEFAULT_SUMMONER_PET_PROGRESS, summonerPetDamage, classWeaponDamageMult } = classPassives;
   const { PLAYER_CLASSES } = classes;
   const { calculateCombatDamage, calculateIncomingPlayerDamage } = combat;
   const { useHotbarItem } = hotbarUse;
@@ -156,7 +156,21 @@ try {
   almostEqual(HUNGER_HP_REGEN[1], 0, "hunger 1 regen");
   almostEqual(HUNGER_HP_REGEN[0], 0, "hunger 0 regen");
 
-  almostEqual(CLASS_PASSIVES.warrior.armorBonus, 6, "warrior armor passive");
+  almostEqual(CLASS_PASSIVES.warrior.armorBonus, 4, "warrior armor passive base (개편: 6→4 + 레벨당)");
+  almostEqual(CLASS_PASSIVES.warrior.armorPerLevel, 0.2, "warrior armor per level");
+  almostEqual(CLASS_PASSIVES.tanker.armorPerLevel, 0.4, "tanker armor per level");
+  almostEqual(CLASS_PASSIVES.healer.manaRegenFlat, 0.25, "healer flat mana regen");
+  almostEqual(CLASS_PASSIVES.tanker.shieldHealthRegenBase + CLASS_PASSIVES.tanker.shieldHealthRegenPerLevel * 50, 1.25, "tanker shield regen at Lv50 = 0.25+50/50");
+  almostEqual(CLASS_PASSIVES.gunner.moveSpeedMult, 1.1, "gunner move speed +10%");
+  assert(CLASS_PASSIVES.gunner.gunOnlyRangedCooldown === true, "gunner cooldown is gun-only");
+  almostEqual(classWeaponDamageMult("warrior", "iron_sword"), 1.1, "warrior +10% with melee weapon");
+  almostEqual(classWeaponDamageMult("warrior", "iron_axe"), 1.1, "warrior +10% with axe (도끼 포함)");
+  almostEqual(classWeaponDamageMult("warrior", "crystal_staff"), 1, "warrior no bonus with staff");
+  almostEqual(classWeaponDamageMult("warrior", null), 1, "warrior no bonus bare-handed");
+  almostEqual(classWeaponDamageMult("mage", "crystal_staff"), 1.15, "mage +15% with staff");
+  almostEqual(classWeaponDamageMult("healer", "magic_wand"), 1.1, "healer +10% with staff");
+  almostEqual(classWeaponDamageMult("summoner", "arcane_staff"), 1.1, "summoner +10% with staff");
+  almostEqual(classWeaponDamageMult("gunner", "rifle"), 1, "gunner has no weapon damage bonus");
   almostEqual(RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES.gunner.rangedCooldownScale, 0.28014, "gunner ranged cooldown (연사 90% 하향: 0.42×0.667)");
   almostEqual(MANA_REGEN_PER_SECOND * CLASS_PASSIVES.mage.manaRegenScale, 2, "mage mana regen");
   almostEqual(CLASS_PASSIVES.healer.healthRegenPerSec + HUNGER_HP_REGEN[5], 0.3, "healer full-hunger regen");
@@ -1396,6 +1410,7 @@ try {
       playerClass: () => playerClass,
       levelBonus: () => 10,
       currentDamage: () => 30,
+      damageMult: () => 1,
       now: () => nowMs,
       buffs,
       trySpend: () => { calls.push(["spend", playerClass]); return true; },

@@ -111,6 +111,7 @@ export interface SecondSkillContext {
   playerClass(): PlayerClassId;
   levelBonus(): number;
   currentDamage(): number;
+  damageMult(): number; // 무기조건 데미지 배수(직업 패시브). 플랫 스킬에만 곱함 — currentDamage 파생 스킬은 이미 포함.
   now(): number;
   buffs: SkillBuffs;
   trySpend(skill: SecondSkillDef): boolean;
@@ -148,19 +149,21 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   if (playerClass === "mage") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    context.fireSkillProjectile("tnt", "fireball", fireballDamage(bonus), 30, 0.4, FIREBALL_RADIUS);
+    const fbDmg = Math.round(fireballDamage(bonus) * context.damageMult());
+    context.fireSkillProjectile("tnt", "fireball", fbDmg, 30, 0.4, FIREBALL_RADIUS);
     context.playHandAction("magic");
     context.playTone(300, 0.1, "sawtooth", 0.03);
-    context.showMessage(`파이어볼! ${fireballDamage(bonus)} 범위 피해의 화염구를 발사했습니다.`);
+    context.showMessage(`파이어볼! ${fbDmg} 범위 피해의 화염구를 발사했습니다.`);
     return;
   }
   if (playerClass === "summoner") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    context.fireSkillProjectile("wind", "wind", windSpiritDamage(bonus), 34, 0.5);
+    const windDmg = Math.round(windSpiritDamage(bonus) * context.damageMult());
+    context.fireSkillProjectile("wind", "wind", windDmg, 34, 0.5);
     context.playHandAction("magic");
     context.playTone(780, 0.08, "triangle", 0.026);
-    context.showMessage(`바람 정령! ${windSpiritDamage(bonus)} 피해의 윈드커터를 발사했습니다.`);
+    context.showMessage(`바람 정령! ${windDmg} 피해의 윈드커터를 발사했습니다.`);
     return;
   }
   if (playerClass === "gunner") {
@@ -368,10 +371,11 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   if (playerClass === "mage") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    context.fireMeteor(meteorDamage(bonus), METEOR_RADIUS); // 하늘에서 운석 낙하 → 지면 폭발(전방 파이어볼과 다른 연출)
+    const meteorDmg = Math.round(meteorDamage(bonus) * context.damageMult());
+    context.fireMeteor(meteorDmg, METEOR_RADIUS); // 하늘에서 운석 낙하 → 지면 폭발(전방 파이어볼과 다른 연출)
     context.playHandAction("magic");
     context.playTone(200, 0.18, "sawtooth", 0.035);
-    context.showMessage(`메테오! ${meteorDamage(bonus)} 광역 피해의 운석을 떨어뜨렸습니다.`);
+    context.showMessage(`메테오! ${meteorDmg} 광역 피해의 운석을 떨어뜨렸습니다.`);
     return;
   }
   if (playerClass === "summoner") {
