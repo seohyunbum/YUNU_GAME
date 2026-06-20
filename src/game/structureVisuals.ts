@@ -7,6 +7,7 @@ import {
   makeToonMaterial,
 } from "../visuals";
 import { createBuildingSign as createBuildingSignModel } from "./buildingSigns";
+import { isTouchDevice } from "./platform";
 
 export interface ChestVisual {
   group: THREE.Group;
@@ -259,6 +260,7 @@ function addDeluxeCottage(house: THREE.Group, width: number, depth: number, body
 export function createVillageHouseVisual(name: string, isStorage: boolean, variant: number, options?: { deluxe?: boolean; signLabel?: string }): VillageHouseVisual {
   const house = new THREE.Group();
   const deluxe = Boolean(options?.deluxe);
+  const mobile = isTouchDevice(); // 모바일: 집의 작은 장식 메시 생략(각자 다른 머티리얼=draws) — 외형 골격은 유지
   const isTwoStory = !isStorage && variant % 4 === 3; // deluxe(플레이어 집)도 2층이면 2층 외관을 갖는다
   const houseStyles = [
     { width: 4.6, depth: 4.1, wall: ASSET_PALETTE.wallWarm, roof: ASSET_PALETTE.roofRed, roofHeight: 1.65, chimneyX: 0.24, bodyHeight: 2.7 },
@@ -314,7 +316,8 @@ export function createVillageHouseVisual(name: string, isStorage: boolean, varia
     }),
   );
   roofGem.position.set(0, style.bodyHeight + style.roofHeight * 0.85, depth / 2 + 0.06);
-  house.add(foundation, roofLipFront, roofLipBack, doorKnob, roofGem);
+  house.add(foundation, roofLipFront, roofLipBack);
+  if (!mobile) house.add(doorKnob, roofGem);
   for (const x of [-width / 2 - 0.05, width / 2 + 0.05]) {
     for (const z of [-depth / 2 - 0.05, depth / 2 + 0.05]) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, style.bodyHeight + 0.18, 0.18), makeToonMaterial(ASSET_PALETTE.leatherDark, { roughness: 0.84 }));
@@ -322,7 +325,7 @@ export function createVillageHouseVisual(name: string, isStorage: boolean, varia
       house.add(post);
     }
   }
-  for (const x of [-width * 0.28, width * 0.28]) {
+  if (!mobile) for (const x of [-width * 0.28, width * 0.28]) {
     const shutterLeft = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.56, 0.07), makeToonMaterial(0x315f72, { roughness: 0.72 }));
     shutterLeft.position.set(x - 0.44, 1.52, depth / 2 + 0.09);
     const shutterRight = shutterLeft.clone();
@@ -341,7 +344,7 @@ export function createVillageHouseVisual(name: string, isStorage: boolean, varia
     makeGlowMaterial(0xffdd87, 0xc56b12, { emissiveIntensity: 0.48, roughness: 0.38 }),
   );
   lantern.position.set(-width * 0.42, 2.15, depth / 2 + 0.17);
-  house.add(lantern);
+  if (!mobile) house.add(lantern);
   if (isStorage) {
     const doubleDoor = new THREE.Mesh(new THREE.BoxGeometry(1.65, 1.75, 0.1), makeToonMaterial(ASSET_PALETTE.leatherDark, { roughness: 0.88 }));
     doubleDoor.position.set(0, 0.88, depth / 2 + 0.07);

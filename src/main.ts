@@ -1931,7 +1931,7 @@ class WildernessGame {
       const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
       applyPredatorMonsterDefinition(predator, region, monsterId);
     }
-    for (const v of VILLAGE_CENTERS) this.spawnVillage(new THREE.Vector3(v.x, 0, v.z), v.special ? 16 : 5, v.special); // 안전구역(safeZones)과 단일 진실원천
+    for (const v of VILLAGE_CENTERS) this.spawnVillage(new THREE.Vector3(v.x, 0, v.z), v.special ? (isTouchDevice() ? 10 : 16) : 5, v.special); // 안전구역(safeZones)과 단일 진실원천 · 모바일은 특별마을 집 16→10(드로우콜 절감)
   }
 
   private spawnStarterAnimalHerds() {
