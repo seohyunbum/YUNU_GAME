@@ -85,10 +85,12 @@ export interface SkillBuffs {
   nextRainTickAt: number;
   unbreakableUntil: number; // 탱커 3스킬(불굴의 함성) — 방어 +UNBREAKABLE_ARMOR
   empowerUntil: number; // 힐러 3스킬(심판의 빛) — 자신·파티 공격·방어 +10%
+  nextSpiritStormTickAt: number; // 소환사 3스킬(정령 폭풍) — DoT 다음 틱 시각
+  spiritStormTicksLeft: number; // 정령 폭풍 남은 틱(3초간 초당 1회 = 3)
 }
 
 export function createSkillBuffs(): SkillBuffs {
-  return { burningShieldUntil: 0, healingRainUntil: 0, rapidFireUntil: 0, nextAuraTickAt: 0, nextRainTickAt: 0, unbreakableUntil: 0, empowerUntil: 0 };
+  return { burningShieldUntil: 0, healingRainUntil: 0, rapidFireUntil: 0, nextAuraTickAt: 0, nextRainTickAt: 0, unbreakableUntil: 0, empowerUntil: 0, nextSpiritStormTickAt: 0, spiritStormTicksLeft: 0 };
 }
 
 export function burningShieldArmorBonus(buffs: SkillBuffs, now: number) {
@@ -219,6 +221,7 @@ export function resetSecondSkillEffects(buffs: SkillBuffs) {
   buffs.rapidFireUntil = 0;
   buffs.unbreakableUntil = 0;
   buffs.empowerUntil = 0;
+  buffs.spiritStormTicksLeft = 0;
 }
 
 export function activeBurnCount() {
@@ -260,6 +263,14 @@ export function updateSecondSkillEffects(context: SkillEffectsContext) {
     context.buffs.nextAuraTickAt = now + BURN_TICK_MS;
     const damage = thornsTickDamage(context.levelBonus());
     for (const target of context.nearbyCombatTargets(BURNING_SHIELD_RADIUS)) if (!partyGuestAttackIntercept(target, damage, "dot")) context.applyDamage(target, damage);
+  }
+
+  // 정령 폭풍 — 3초간 1초 간격 광역 DoT(총 3회), 매 틱 주변 적 재탐색
+  if (context.buffs.spiritStormTicksLeft > 0 && now >= context.buffs.nextSpiritStormTickAt) {
+    context.buffs.nextSpiritStormTickAt = now + BURN_TICK_MS;
+    context.buffs.spiritStormTicksLeft -= 1;
+    const damage = spiritStormDamage(context.levelBonus());
+    for (const target of context.nearbyCombatTargets(SPIRIT_STORM_RADIUS)) if (!partyGuestAttackIntercept(target, damage, "dot")) context.applyDamage(target, damage);
   }
 
   // 치유의 비 — 1초 간격 회복 (자신 + 사정거리 내 파티원)
@@ -308,7 +319,7 @@ export const THIRD_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   warrior: { name: "대지가르기", summary: "주변 모든 적에게 공격력 2배의 광역 강타.", manaCost: 50, cooldown: 35 },
   healer: { name: "심판의 빛", summary: "5분간 자신과 파티원 전체의 공격력·방어력을 +10% 높입니다.", manaCost: 50, cooldown: 240 },
   mage: { name: "메테오", summary: "거대한 운석을 떨어뜨려 넓은 범위에 큰 피해를 줍니다.", manaCost: 55, cooldown: 32 },
-  summoner: { name: "정령 폭풍", summary: "주변에 바람 정령 폭풍을 일으켜 광역 피해를 줍니다.", manaCost: 45, cooldown: 28 },
+  summoner: { name: "정령 폭풍", summary: "주변에 바람 정령 폭풍을 일으켜 3초간 초당 광역 피해(총 3회)를 줍니다.", manaCost: 45, cooldown: 28 },
   gunner: { name: "관통 강탄", summary: "강력한 관통탄을 발사해 직선상의 적에게 큰 피해를 줍니다.", manaCost: 55, cooldown: 30 },
   tanker: { name: "불굴의 함성", summary: `${UNBREAKABLE_SECONDS}초 동안 방어 +${UNBREAKABLE_ARMOR}, 주변 적에게 즉시 화상 피해.`, manaCost: 50, cooldown: 70 },
 };
@@ -366,13 +377,12 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   if (playerClass === "summoner") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    context.spiritStorm(SPIRIT_STORM_RADIUS); // 주변 회오리 광역 연출(종전엔 피해만 있고 비주얼이 없었음)
-    const dmg = spiritStormDamage(bonus);
-    const targets = context.nearbyCombatTargets(SPIRIT_STORM_RADIUS);
-    for (const target of targets) context.applyDamage(target, dmg);
+    context.spiritStorm(SPIRIT_STORM_RADIUS); // 주변 회오리 광역 연출
+    context.buffs.nextSpiritStormTickAt = context.now(); // 즉시 첫 틱부터
+    context.buffs.spiritStormTicksLeft = 3; // 3초간 초당 1회(총 3회) — updateSecondSkillEffects 가 매 틱 주변 적 재탐색·피해
     context.playHandAction("magic");
     context.playTone(720, 0.12, "triangle", 0.03);
-    context.showMessage(targets.length > 0 ? `정령 폭풍! 주변 ${targets.length}명에게 ${dmg} 피해.` : "정령 폭풍을 일으켰지만 닿는 적이 없습니다.");
+    context.showMessage(`정령 폭풍! 3초간 주변 적에게 초당 ${spiritStormDamage(bonus)} 피해(총 3회).`);
     return;
   }
   if (playerClass === "gunner") {
