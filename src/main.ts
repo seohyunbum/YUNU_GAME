@@ -106,6 +106,7 @@ import {
   ARCADE_POINTS_KEY,
   PREDATOR_KILLS_KEY,
   BEST_FORTRESS_STAGE_KEY,
+  BEST_FORTRESS_BASELEVEL_KEY,
   BASE_BAG_SLOT_COUNT,
   BASE_MAX_MANA,
   BASE_PLAYER_MAX_HEALTH,
@@ -608,6 +609,7 @@ class WildernessGame {
   private caveReturnPosition: THREE.Vector3 | null = null;
   private fortressSiege: SiegeState | null = null; // 몬스터 요새 디펜스 진행 상태(휘발 — 세이브 안 함)
   private bestFortressStage = this.loadBestFortressStage(); // 몬스터 요새 최고 클리어 단계(기록용 — 전역 유지, 새 게임 시 리셋)
+  private bestFortressBaseLevel = this.loadBestFortressBaseLevel(); // 그 최고 단계 기록 당시 baseLevel(난이도 맥락)
   private leaderboard: LeaderboardResult | null = null; // 캐릭터 창 전체 랭킹(null = 불러오는 중). 창 열 때마다 재조회
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
@@ -749,7 +751,7 @@ class WildernessGame {
     grantStageReward: (stage, tomes, items) => {
       this.addItem("job_change_tome", tomes);
       for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
-      if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.saveBestFortressStage(); void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, kills: this.tutorialSignals.predatorKills }); } // 최고 단계 갱신 → 랭킹 즉시 반영
+      if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.bestFortressBaseLevel = this.fortressSiege?.baseLevel ?? this.bestFortressBaseLevel; this.saveBestFortressStage(); void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, baseLevel: this.bestFortressBaseLevel, kills: this.tutorialSignals.predatorKills }); } // 최고 단계 갱신(당시 baseLevel 기록) → 랭킹 즉시 반영
       startMiniFanfare(this.finaleContext);
     },
     showMessage: (text) => this.showMessage(text),
@@ -933,8 +935,14 @@ class WildernessGame {
     return Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
   }
 
+  private loadBestFortressBaseLevel() {
+    const raw = Number(localStorage.getItem(BEST_FORTRESS_BASELEVEL_KEY) ?? 0);
+    return Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+  }
+
   private saveBestFortressStage() {
     localStorage.setItem(BEST_FORTRESS_STAGE_KEY, String(Math.max(0, Math.floor(this.bestFortressStage))));
+    localStorage.setItem(BEST_FORTRESS_BASELEVEL_KEY, String(Math.max(0, Math.floor(this.bestFortressBaseLevel)))); // 단계 기록과 함께 그 당시 baseLevel 도 저장
   }
 
   private loadLeaderboard() {
@@ -5624,7 +5632,7 @@ class WildernessGame {
     this.saveInProgress = true;
     try {
       const save = this.createSaveData();
-      void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, kills: this.tutorialSignals.predatorKills }); // 운영 리포트 + 랭킹용 진행도 발행(부가)
+      void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, baseLevel: this.bestFortressBaseLevel, kills: this.tutorialSignals.predatorKills }); // 운영 리포트 + 랭킹용 진행도 발행(부가)
       const existingSaves = this.readStoredSlots().filter((slot) => slot.savedAt !== save.savedAt);
       if (existingSaves.length >= MAX_SAVE_SLOTS) {
         // 슬롯 가득 — 어떤 저장도 건드리기 전에 덮어쓸 슬롯을 직접 고르게 한다.
@@ -5983,7 +5991,7 @@ class WildernessGame {
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
     this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
-    this.bestFortressStage = 0; this.saveBestFortressStage(); // 새 게임 시 요새 기록도 초기화(잡은 몬스터 수와 일관)
+    this.bestFortressStage = 0; this.bestFortressBaseLevel = 0; this.saveBestFortressStage(); // 새 게임 시 요새 기록도 초기화(잡은 몬스터 수와 일관)
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
