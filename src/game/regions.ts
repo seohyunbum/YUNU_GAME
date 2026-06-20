@@ -366,7 +366,7 @@ export function maybeWarnRegionLevel(
   const dangerGap = region.level - playerLevel;
   const shouldWarn = dangerGap >= 15 && (region.id !== state.regionId || nowMs - state.lastWarnAt >= 5_000);
   if (shouldWarn) {
-    if (dangerGap >= 30) {
+    if (dangerGap >= 20) {
       showMessage(`⚠ 위험! ${region.name}은(는) 권장 Lv ${region.levelRange[0]}-${region.levelRange[1]} 지역입니다. 현재 Lv ${playerLevel} — 레벨 차이가 ${dangerGap}이나 됩니다. 매우 위험하니 즉시 후퇴하세요!`, { durationSeconds: 6.5, danger: true });
     } else {
       showMessage(`${region.name} 권장 Lv ${region.levelRange[0]}-${region.levelRange[1]} (현재 Lv ${playerLevel})`, { durationSeconds: 2.6 });
