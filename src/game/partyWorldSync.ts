@@ -44,6 +44,8 @@ const SHARED_STATION_TYPES = new Set(["smelter", "specialSmelter", "workbench", 
 export function isSharedGroundType(type: string | undefined): boolean {
   return type === "droppedItem" || (type !== undefined && SHARED_STATION_TYPES.has(type));
 }
+// 설치물 타입 → 회수 시 받는 아이템 id (pickupSharedObject 와 일치). 줍기 전 공간 확인용.
+const STATION_PICKUP_ITEM: Record<string, string> = { smelter: "smelter", specialSmelter: "special_smelter", workbench: "crafting_table", extendedWorkbench: "extended_workbench", grinder: "grinder", bed: "bed" };
 
 // main 이 제공하는 월드 능력 — 게스트 렌더/판정 반영과 호스트 판정에 필요한 최소 집합
 export interface PartyWorldContext {
@@ -69,6 +71,8 @@ export interface PartyWorldContext {
   spawnStationView(objType: string, x: number, z: number, bedTier?: string): WorldObject; // 게스트: 동기화 설치물 렌더
   pickupSharedObject(id: string): { item: string; count: number }[] | null; // 호스트: 제거 + 들어있던 아이템 반환(무효면 null)
   hostSpawnDroppedGround(item: string, count: number, x: number, z: number): void; // 호스트: 게스트 dropRequest 로 드롭 생성
+  canAddItem(item: ItemId, count: number): boolean; // 줍기 전 인벤토리 공간 확인(비파괴) — 없으면 요청 안 보냄(호스트가 객체 유지 → 유실 방지)
+  receivePickupItems(items: { item: string; count: number }[]): { item: string; count: number }[]; // 받아 넣고, 못 넣은 것 반환(호스트 월드에 되돌려 떨어뜨리기용)
   getObject(id: string): WorldObject | undefined;
   removeObject(id: string): void; // 리스폰 큐 정상 등록 (호스트 처치)
   removeObjectSilent(id: string): void; // 리스폰 큐 미등록 (동기화 몬스터·합류 정리)
@@ -228,6 +232,9 @@ export function partyGuestPickupIntercept(target: WorldObject): boolean {
   if (!init?.world || !session || session.role !== "guest") return false;
   const hostId = hostIdByLocalId.get(target.id);
   if (!hostId) return false; // 동기화 객체가 아니면 로컬 처리 유지(내 로컬 드롭/설치물)
+  // ★유실 방지 — 인벤토리에 못 받으면 요청을 보내지 않는다(호스트가 객체를 제거하지 않음). false 반환 → 로컬 경로가 '공간 부족' 안내 후 객체 유지(솔로와 동일 동작).
+  const wantItem = (target.droppedItem ?? STATION_PICKUP_ITEM[target.type]) as ItemId | undefined;
+  if (wantItem && !init.world.canAddItem(wantItem, target.droppedItem ? (target.droppedCount ?? 1) : 1)) return false;
   const now = performance.now();
   const until = openRequestCooldown.get(hostId);
   if (until !== undefined && now < until) return true; // 쿨다운 중 — 재전송 억제(로컬 처리는 계속 차단)
@@ -412,7 +419,10 @@ function handleGameMessage(message: PartyMessage, from?: string) {
     const items = init.world.pickupSharedObject(message.objectId);
     if (items && items.length > 0) hookedSession.sendGame({ type: "pickupGrant", nickname: from ?? "파티원", items });
   } else if (message.type === "pickupGrant") {
-    if (message.nickname === init.localPresence().nickname) init.world.grantChestLoot(message.items);
+    if (message.nickname === init.localPresence().nickname) {
+      const leftover = init.world.receivePickupItems(message.items); // 넣을 수 있는 만큼 인벤토리에 넣고
+      if (leftover.length > 0 && hookedSession) { const me = init.localPresence(); for (const it of leftover) hookedSession.sendGame({ type: "dropRequest", item: it.item, count: it.count, x: me.x, z: me.z }); } // 못 넣은 건 호스트 월드에 되돌려 떨어뜨림(어떤 경우에도 유실 0)
+    }
   } else if (message.type === "dropRequest" && hookedSession?.role === "host") {
     // 8차 — 게스트가 떨어뜨린 아이템을 호스트 월드에 생성(스냅샷으로 전원에 보임 → 누구나 줍기).
     if (!init.localPresence().inGame) return;
