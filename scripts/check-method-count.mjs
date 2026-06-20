@@ -10,7 +10,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 전체 랭킹 조회 메서드(loadLeaderboard)로 468→469.
 // 2026-06-20: 기록 당시 baseLevel 로드 메서드(loadBestFortressBaseLevel)로 469→470.
 // 2026-06-20: 요새 보상 즉시저장 메서드(saveSiegeRewardSnapshot)로 470→471.
-const MAX_METHODS = 471;
+// 2026-06-20: 훈련 랭킹 — progressUpdate()+loadTrainingBoard() 메서드로 471→473.
+const MAX_METHODS = 473;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

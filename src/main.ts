@@ -256,7 +256,7 @@ import { PLAYER_CLASSES } from "./game/classes";
 import { createTrainingStats, ensureTrainingGround, normalizeTrainingStats, TRAINING_GAMES, TRAINING_MIN_LEVEL, TRAINING_REWARDS, type TrainingGroundContext } from "./game/training";
 import { applyCraftXp, craftXpForNextLevel, craftXpForRecipe, createCraftStatAlloc, normalizeCraftStatAlloc, type CraftStatAlloc } from "./game/craftLevel";
 import { renderCharacterPanelView } from "./ui/characterPanel";
-import { renderTrainingPanel as renderTrainingPanelView } from "./ui/trainingPanel";
+import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard } from "./ui/trainingPanel";
 import { burningShieldArmorBonus, createSkillBuffs, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { CLASS_PASSIVES, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
@@ -316,7 +316,7 @@ import {
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
-import { publishProgress, fetchLeaderboard, type LeaderboardResult } from "./game/progressSync";
+import { publishProgress, fetchLeaderboard, fetchTrainingLeaderboard, type LeaderboardResult, type ProgressUpdate } from "./game/progressSync";
 import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
 import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
 import { updateDragons, DRAGON_AGGRO_MS, type DragonAiContext } from "./game/dragonAi";
@@ -496,6 +496,8 @@ class WildernessGame {
   private lastObjectiveReady = false;
   private firstCombatHintShown = localStorage.getItem("ai-game-lab:first-combat-hint") === "1"; // 첫 전투 교육 1회만(#11)
   private trainingStats = createTrainingStats();
+  private trainingTries = createTrainingStats(); // 종목별 최고단계 달성 시도수(랭킹 타이브레이크). 저장됨
+  private triesSinceBest = createTrainingStats(); // 마지막 성공 이후 실패 누적(휘발) — 다음 성공 시 trainingTries 에 합산
   private craftLevel = 1;
   private craftXp = 0;
   private craftStatPoints = 0; // 미사용 스탯 포인트
@@ -759,7 +761,7 @@ class WildernessGame {
     grantStageReward: (stage, tomes, items) => {
       this.addItem("job_change_tome", tomes);
       for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
-      if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.bestFortressBaseLevel = this.fortressSiege?.baseLevel ?? this.bestFortressBaseLevel; this.saveBestFortressStage(); void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, baseLevel: this.bestFortressBaseLevel, kills: this.tutorialSignals.predatorKills }); } // 최고 단계 갱신(당시 baseLevel 기록) → 랭킹 즉시 반영
+      if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.bestFortressBaseLevel = this.fortressSiege?.baseLevel ?? this.bestFortressBaseLevel; this.saveBestFortressStage(); void publishProgress(this.nickname, this.progressUpdate()); } // 최고 단계 갱신(당시 baseLevel 기록) → 랭킹 즉시 반영
       startMiniFanfare(this.finaleContext);
       this.saveSiegeRewardSnapshot(); // 단계 보상을 즉시 디스크에 고정 — 크래시/탭닫힘 유실 방지(#1)
     },
@@ -4091,19 +4093,35 @@ class WildernessGame {
     return homes;
   }
 
+  private progressUpdate(): ProgressUpdate {
+    return {
+      level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds,
+      bestFortressStage: this.bestFortressStage, baseLevel: this.bestFortressBaseLevel, kills: this.tutorialSignals.predatorKills,
+      training: { hp: { stage: this.trainingStats.hp, tries: this.trainingTries.hp }, attack: { stage: this.trainingStats.attack, tries: this.trainingTries.attack }, armor: { stage: this.trainingStats.armor, tries: this.trainingTries.armor }, mana: { stage: this.trainingStats.mana, tries: this.trainingTries.mana } },
+    };
+  }
+
+  private loadTrainingBoard(kind: TrainingKind) {
+    void fetchTrainingLeaderboard(this.nickname, kind, 5).then((board) => { if (this.currentPanel === "training" && this.currentTrainingKind === kind) fillTrainingLeaderboard(this.panelEl, kind, board, this.nickname); });
+  }
+
   private renderTrainingPanel() {
     renderTrainingPanelView(this.panelEl, this.currentTrainingKind, {
       getCount: (kind) => this.trainingStats[kind],
       onSuccess: (kind) => {
         this.trainingStats[kind] += 1;
+        this.trainingTries[kind] += this.triesSinceBest[kind] + 1; this.triesSinceBest[kind] = 0; // 이번 성공 + 이 단계 도전 중 실패들 = 이 단계 달성 시도수(랭킹)
         if (kind === "hp") { this.maxHealth = this.maxHealthForLevel(); this.health = Math.min(this.maxHealth, this.health + TRAINING_REWARDS.hp); }
         if (kind === "mana") { this.maxMana += TRAINING_REWARDS.mana; this.mana = Math.min(this.maxMana, this.mana + TRAINING_REWARDS.mana); }
         this.playTone(880, 0.12, "triangle", 0.032); this.playTone(1175, 0.16, "triangle", 0.026);
         this.showMessage(`${TRAINING_GAMES[kind].name} 성공! ${TRAINING_GAMES[kind].statLabel} +${TRAINING_REWARDS[kind]} (누적 ${this.trainingStats[kind]}회)`);
         this.renderHud();
+        void publishProgress(this.nickname, this.progressUpdate()); this.loadTrainingBoard(kind); // 훈련 기록 즉시 발행 + 순위 갱신
       },
+      onFail: (kind) => { this.triesSinceBest[kind] += 1; }, // 실패/리셋 1회 = 시도 1회
       onClose: () => this.closePanel(),
     });
+    this.loadTrainingBoard(this.currentTrainingKind); // 패널 열 때 해당 종목 TOP5 조회
   }
 
   private renderHomeStoragePanel() {
@@ -5668,7 +5686,7 @@ class WildernessGame {
     this.saveInProgress = true;
     try {
       const save = this.createSaveData();
-      void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, baseLevel: this.bestFortressBaseLevel, kills: this.tutorialSignals.predatorKills }); // 운영 리포트 + 랭킹용 진행도 발행(부가)
+      void publishProgress(this.nickname, this.progressUpdate()); // 운영 리포트 + 랭킹(요새·훈련)용 진행도 발행(부가)
       const existingSaves = this.readStoredSlots().filter((slot) => slot.savedAt !== save.savedAt);
       if (existingSaves.length >= MAX_SAVE_SLOTS) {
         // 슬롯 가득 — 어떤 저장도 건드리기 전에 덮어쓸 슬롯을 직접 고르게 한다.
@@ -5826,6 +5844,7 @@ class WildernessGame {
         currentHouseOwned: this.currentHouseOwned,
         currentHouseBedTier: this.currentHouseBedTier,
         trainingStats: this.trainingStats,
+        trainingTries: this.trainingTries,
         homeStorage: this.homeStorage,
         homeSupplyCooldowns: this.homeSupplyCooldowns,
         caveReturnPosition: this.caveReturnPosition,
@@ -5928,6 +5947,7 @@ class WildernessGame {
     this.currentHouseOwned = save.player.currentHouseOwned === true;
     this.currentHouseBedTier = save.player.currentHouseBedTier ?? "wood";
     this.trainingStats = normalizeTrainingStats(save.player.trainingStats);
+    this.trainingTries = normalizeTrainingStats(save.player.trainingTries);
     this.homeStorage = normalizeHomeStorage(save.player.homeStorage);
     this.homeSupplyCooldowns = save.player.homeSupplyCooldowns ?? {};
     this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
@@ -6019,6 +6039,7 @@ class WildernessGame {
     this.classSkillCooldownUntil = 0;
     this.secondSkillCooldownUntil = 0; this.thirdSkillCooldownUntil = 0; resetSecondSkillEffects(this.skillBuffs);
     this.trainingStats = createTrainingStats();
+    this.trainingTries = createTrainingStats(); this.triesSinceBest = createTrainingStats();
     this.craftLevel = 1; this.craftXp = 0; this.craftStatPoints = 0; this.craftStatAlloc = createCraftStatAlloc();
     this.healItemCooldownUntil = 0;
     this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
