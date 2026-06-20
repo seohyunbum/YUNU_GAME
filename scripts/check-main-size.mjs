@@ -32,7 +32,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 마을 가드 — 골렘 바위 던지기(guardRocks leaf 배선: import+throwRock+필드2+update) → 9760→9764.
 // 2026-06-20: 훈련장 종목별 글로벌 TOP5 랭킹(progressUpdate/loadTrainingBoard 메서드·trainingTries 배선·onSuccess/onFail) → 9764→9785.
 // 2026-06-20: 저사양 모드 선택 — 타이틀 품질 선택기(loadQualityMode·fogFarForQuality·updateQualityButtons)+applyQualityMode 확장 → 9785→9816.
-const MAX_MAIN_LINES = 9816;
+// 2026-06-20: 파티 아이템·설치물 공유(드롭/제련대/침대 sync + pickup/drop intercept·context 메서드) → 9816→9820.
+const MAX_MAIN_LINES = 9820;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

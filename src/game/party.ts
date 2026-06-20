@@ -75,9 +75,13 @@ export interface MobSnapshot {
   villageId?: string;
   guardMode?: string; // "melee" | "ranged"
   // 7차 — 정적 오브젝트 공유 (동굴 입구·보물 상자)
-  objType?: string; // "cave" | "chest" | "mineChest"
+  objType?: string; // "cave" | "chest" | "mineChest" | "droppedItem" | "smelter"|"specialSmelter"|"workbench"|"extendedWorkbench"|"grinder"|"bed" (8차 공유 드롭·설치물)
   opened?: boolean; // 상자 개봉 상태
   chestTier?: number; // 상자 등급 0 일반 / 1 황금 / 2 다이아 / 3 흑요석
+  // 8차 — 파티 공유 드롭 아이템·설치물
+  item?: string; // droppedItem 의 아이템 id
+  count?: number; // droppedItem 수량
+  bedTier?: string; // 침대 등급
 }
 
 export type PartyMessage =
@@ -100,6 +104,10 @@ export type PartyMessage =
   // 7차 — 보물 상자 개봉 (호스트 권위)
   | { type: "openRequest"; objectId: string }
   | { type: "chestLoot"; opener: string; items: { item: string; count: number }[] }
+  // 8차 — 파티 공유 드롭·설치물 (호스트 권위). 줍기/회수 = pickupRequest → 호스트 제거 + 요청자에게 pickupGrant. 떨어뜨리기 = dropRequest → 호스트 월드에 생성(스냅샷 전파).
+  | { type: "pickupRequest"; objectId: string }
+  | { type: "pickupGrant"; nickname: string; items: { item: string; count: number }[] }
+  | { type: "dropRequest"; item: string; count: number; x: number; z: number }
   // 파티 채팅 — to 없으면 전체, 있으면 귓속말(호스트가 대상에게만 중계)
   | { type: "chat"; from: string; text: string; to?: string };
 
@@ -258,7 +266,7 @@ export class PartySession {
         link.presenceAt = performance.now();
       }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
-      if ((message.type === "attackRequest" || message.type === "openRequest") && link.nickname) this.emitGame(message, link.nickname);
+      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest") && link.nickname) this.emitGame(message, link.nickname);
       // 5.1 — 게스트가 보낸 공격 연출·파티 힐: 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
       if (message.type === "playerAttack" || message.type === "partyHeal") {
         this.emitGame(message, link.nickname ?? undefined);

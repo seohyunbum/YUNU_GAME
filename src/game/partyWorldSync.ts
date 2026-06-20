@@ -39,6 +39,12 @@ export function isStaticShareType(type: string | undefined): boolean {
   return type === "cave" || type === "chest" || type === "mineChest";
 }
 
+// 8차 — 파티 공유 드롭 아이템·설치물(제련대·침대·제작대·분쇄기). 위치 고정·hp 없음 → 정적 취급, 줍기/회수는 pickupRequest.
+const SHARED_STATION_TYPES = new Set(["smelter", "specialSmelter", "workbench", "extendedWorkbench", "grinder", "bed"]);
+export function isSharedGroundType(type: string | undefined): boolean {
+  return type === "droppedItem" || (type !== undefined && SHARED_STATION_TYPES.has(type));
+}
+
 // main 이 제공하는 월드 능력 — 게스트 렌더/판정 반영과 호스트 판정에 필요한 최소 집합
 export interface PartyWorldContext {
   entityContext: EntitySpawnContext;
@@ -57,6 +63,12 @@ export interface PartyWorldContext {
   spawnCave(x: number, z: number): WorldObject;
   markChestOpened(id: string): number | null; // 호스트: 상자 개봉 표시(틴트·만료) — 유효하면 등급(0~3), 무효면 null
   grantChestLoot(items: { item: string; count: number }[]): void; // 게스트: 개봉 전리품 수령
+  // 8차 — 파티 공유 드롭·설치물
+  sharedGroundObjects(): Iterable<WorldObject>; // 호스트: 동기화할 드롭아이템 + 설치물(제련대·침대 등)
+  spawnDroppedItemView(item: string, count: number, x: number, z: number): WorldObject; // 게스트: 동기화 드롭 렌더
+  spawnStationView(objType: string, x: number, z: number, bedTier?: string): WorldObject; // 게스트: 동기화 설치물 렌더
+  pickupSharedObject(id: string): { item: string; count: number }[] | null; // 호스트: 제거 + 들어있던 아이템 반환(무효면 null)
+  hostSpawnDroppedGround(item: string, count: number, x: number, z: number): void; // 호스트: 게스트 dropRequest 로 드롭 생성
   getObject(id: string): WorldObject | undefined;
   removeObject(id: string): void; // 리스폰 큐 정상 등록 (호스트 처치)
   removeObjectSilent(id: string): void; // 리스폰 큐 미등록 (동기화 몬스터·합류 정리)
@@ -209,6 +221,28 @@ export function partyGuestOpenIntercept(target: WorldObject): boolean {
   return true;
 }
 
+// 8차 — 게스트가 동기화된 드롭/설치물을 줍기·회수 → 호스트에 요청. true 반환 시 로컬 처리 생략(아이템은 pickupGrant 로 받음).
+export function partyGuestPickupIntercept(target: WorldObject): boolean {
+  const session = init?.session() ?? null;
+  if (!init?.world || !session || session.role !== "guest") return false;
+  const hostId = hostIdByLocalId.get(target.id);
+  if (!hostId) return false; // 동기화 객체가 아니면 로컬 처리 유지(내 로컬 드롭/설치물)
+  const now = performance.now();
+  const until = openRequestCooldown.get(hostId);
+  if (until !== undefined && now < until) return true; // 쿨다운 중 — 재전송 억제(로컬 처리는 계속 차단)
+  openRequestCooldown.set(hostId, now + 1500);
+  session.sendGame({ type: "pickupRequest", objectId: hostId });
+  return true;
+}
+
+// 8차 — 게스트가 아이템을 떨어뜨리면 호스트 월드에 생성 요청(전원 동기화 → 누구나 줍기). true 시 로컬 드롭 생략.
+export function partyGuestDropIntercept(item: string, count: number, x: number, z: number): boolean {
+  const session = init?.session() ?? null;
+  if (!init?.world || !session || session.role !== "guest" || !partyWorldGuestActive()) return false;
+  session.sendGame({ type: "dropRequest", item, count, x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10 });
+  return true;
+}
+
 // 호스트 처치 알림 — combat.ts·summonerPet 의 처치 지점들이 호출한다 (호스트 역할일 때만 브로드캐스트).
 // 동기화 범위(wildPredator)와 XP 공유 범위를 일치시킨다 — 용·잼미니는 각자 로컬이므로 공유하면 이중 취득이 된다.
 export function partyHostNotifyKill(target: WorldObject) {
@@ -346,6 +380,10 @@ function collectMobs(): PartyMessage {
   for (const cave of world.caves()) {
     list.push({ id: cave.id, name: cave.name ?? "동굴 입구", objType: "cave", x: Math.round(cave.root.position.x * 10) / 10, z: Math.round(cave.root.position.z * 10) / 10, yaw: Math.round(cave.root.rotation.y * 100) / 100, hp: 1 });
   }
+  // 8차 — 파티 공유 드롭 아이템 + 설치물(제련대·침대·제작대·분쇄기). 위치 고정.
+  for (const obj of world.sharedGroundObjects?.() ?? []) {
+    list.push({ id: obj.id, name: obj.name ?? "아이템", objType: obj.type, item: obj.droppedItem, count: obj.droppedCount, bedTier: obj.bedTier as string | undefined, x: Math.round(obj.root.position.x * 10) / 10, z: Math.round(obj.root.position.z * 10) / 10, yaw: Math.round(obj.root.rotation.y * 100) / 100, hp: 1 });
+  }
   debugLastSentIds = list.map((entry) => entry.id);
   return { type: "mobs", mapId: init!.localPresence().mapId, list, hour: init!.world!.hostGameHour?.() };
 }
@@ -367,6 +405,17 @@ function handleGameMessage(message: PartyMessage, from?: string) {
       init.world.grantChestLoot(message.items);
       debugChestLootGot += 1;
     }
+  } else if (message.type === "pickupRequest" && hookedSession?.role === "host") {
+    // 8차 — 게스트가 호스트의 드롭/설치물을 줍기 요청. 호스트가 제거 + 들어있던 아이템을 요청자에게만 지급(제거는 스냅샷으로 전파).
+    if (!init.localPresence().inGame) return;
+    const items = init.world.pickupSharedObject(message.objectId);
+    if (items && items.length > 0) hookedSession.sendGame({ type: "pickupGrant", nickname: from ?? "파티원", items });
+  } else if (message.type === "pickupGrant") {
+    if (message.nickname === init.localPresence().nickname) init.world.grantChestLoot(message.items);
+  } else if (message.type === "dropRequest" && hookedSession?.role === "host") {
+    // 8차 — 게스트가 떨어뜨린 아이템을 호스트 월드에 생성(스냅샷으로 전원에 보임 → 누구나 줍기).
+    if (!init.localPresence().inGame) return;
+    init.world.hostSpawnDroppedGround(message.item, message.count, message.x, message.z);
   } else if (message.type === "mobs") { if (message.hour != null) init!.world!.setSyncedHour?.(message.hour); applyMobsSnapshot(message.mapId, message.list); }
   else if (message.type === "partyKill") onPartyKill(message);
   else if (message.type === "mobHit") onMobHit(message.nickname, message.amount, message.name, message.mapId);
@@ -479,8 +528,8 @@ function applyMobsSnapshot(mapId: string, list: MobSnapshot[]) {
       spawnSyncedMob(snap, now);
       continue;
     }
-    if (isStaticShareType(snap.objType)) {
-      // 정적 오브젝트 — 위치 고정. 개봉 상태 변화만 반영(틴트).
+    if (isStaticShareType(snap.objType) || isSharedGroundType(snap.objType)) {
+      // 정적 오브젝트 — 위치 고정. 상자는 개봉 상태 변화만 반영(틴트). 드롭/설치물은 존재만(제거는 스냅샷 누락으로 처리).
       if (snap.objType !== "cave" && snap.opened && !existing.opened) world.markChestOpened(existing.id);
       continue;
     }
@@ -525,6 +574,18 @@ function spawnSyncedMob(snap: MobSnapshot, now: number) {
     object = snap.objType === "cave" ? world.spawnCave(snap.x, snap.z) : world.spawnChest(snap.x, snap.z, snap.objType === "mineChest", snap.opened === true, snap.chestTier ?? 0);
     object.partyTransient = true;
     object.collidable = false; // 위치 비결정 — 게스트 지형의 물·건물과 겹칠 수 있어 이동 충돌은 끔. 입구는 시각 참조·상호작용(개봉/진입)만.
+    object.root.rotation.y = snap.yaw;
+    object.root.position.y = init!.getGroundHeightAt(snap.x, snap.z);
+    world.refreshSpatialObject(object);
+    syncedByHostId.set(snap.id, object);
+    hostIdByLocalId.set(object.id, snap.id);
+    return;
+  }
+  if (isSharedGroundType(snap.objType)) {
+    // 8차 — 파티 공유 드롭/설치물. 호스트 위치 그대로 렌더(상호작용은 줍기/회수=pickupRequest, 사용은 로컬).
+    object = snap.objType === "droppedItem" ? world.spawnDroppedItemView(snap.item ?? "stone", snap.count ?? 1, snap.x, snap.z) : world.spawnStationView(snap.objType!, snap.x, snap.z, snap.bedTier);
+    object.partyTransient = true;
+    object.collidable = false; // 위치 비결정 — 이동 충돌은 끔. 줍기/사용 등 상호작용만.
     object.root.rotation.y = snap.yaw;
     object.root.position.y = init!.getGroundHeightAt(snap.x, snap.z);
     world.refreshSpatialObject(object);
