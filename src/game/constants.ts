@@ -50,6 +50,7 @@ export const AUTOSAVE_INTERVAL_SECONDS = 60; // 게임 도중 자동저장 주�
 export const SAVE_WRITE_TEST_KEY = "ai-game-lab:wilderness-save-write-test";
 export const ARCADE_POINTS_KEY = "ai-game-lab:arcade-points-v1";
 export const PREDATOR_KILLS_KEY = "ai-game-lab:predator-kills-v1"; // 누적 몬스터 처치 수 — 리로드/세션 넘어 유지(플레이 처음부터)
+export const BEST_FORTRESS_STAGE_KEY = "ai-game-lab:best-fortress-stage-v1"; // 몬스터 요새 최고 클리어 단계 — 리로드/세션 넘어 유지(새 게임 시 리셋)
 export const SAVE_VERSION = 12;
 export const SAVE_BUILD_ID = "2026-06-19-job-advancement";
 export const MAX_SAVE_SLOTS = 10;

@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-19: 전직 시스템의 입력/전이 배선 메서드 2개(useThirdSkill·tryAdvanceJob)로 460→462.
 // 2026-06-19: 몬스터 요새 디펜스 메서드 4개(enterFortressSiege·exitFortressSiege·spawnSiegeMonster·spawnFortressGate)로 462→466.
 // 2026-06-19: 메테오 하늘낙하 스폰 메서드(fireMeteor) 1개로 466→467 (스킬 이펙트 고도화).
-const MAX_METHODS = 467;
+// 2026-06-20: 요새 최고 단계 기록 load/save 메서드로 467→468.
+const MAX_METHODS = 468;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");
