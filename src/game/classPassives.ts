@@ -64,10 +64,10 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
       flightAhead: 2.2,
       flightSide: 1.3,
       flightRise: 0.5,
-      playerXpShare: 1.0, // 플레이어는 항상 full XP(펫 몫을 차감하지 않음) — petXpShare 는 추가 보너스
-      petXpShare: 0.6, // 0.3→0.6: 펫 레벨업 가속(플레이어 XP 가산 보너스)
-      damagePerLevels: 2, // 2레벨마다 +1
-      maxDamage: 25, // 캡 상향(base4 + 최대 +21 ≈ Lv43 도달). 균형 조정 가능
+      playerXpShare: 0.85, // 플레이어는 85% 습득(15% 손해) — 소환수 밸런스 비용
+      petXpShare: 0.6, // 펫 레벨업 가속(플레이어 85%와 별개의 추가 보너스)
+      damagePerLevels: 1, // 1레벨마다 +1
+      maxDamage: 200, // 데미지 캡
     },
   },
   gunner: {

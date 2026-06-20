@@ -90,7 +90,7 @@ try {
   if (!summonerPet) {
     problems.push("summoner: missing passive pet");
   } else {
-    if (summonerPet.playerXpShare !== 1) problems.push(`summoner pet: playerXpShare ${summonerPet.playerXpShare}, expected 1 (플레이어 full, 차감 없음)`);
+    if (!(summonerPet.playerXpShare > 0 && summonerPet.playerXpShare <= 1)) problems.push(`summoner pet: playerXpShare ${summonerPet.playerXpShare} out of (0,1]`);
     if (!(summonerPet.petXpShare > 0)) problems.push("summoner pet: petXpShare should be positive (추가 보너스 XP)");
     if (summonerPet.baseDamage !== 4) problems.push(`summoner pet: baseDamage ${summonerPet.baseDamage}, expected 4`);
     if (summonerPet.attackInterval <= 0 || summonerPet.attackRange <= 0) problems.push("summoner pet: invalid attack timing/range");
