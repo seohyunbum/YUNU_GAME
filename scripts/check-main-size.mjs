@@ -35,7 +35,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 파티 아이템·설치물 공유(드롭/제련대/침대 sync + pickup/drop intercept·context 메서드) → 9816→9820.
 // 2026-06-20: 맵당 몬스터 ~2배(저사양 1.3배) — 초기 predatorCount + 리전 정상상태 캡 둘 다 품질연동 상향(ambientMul/capMul) → 9820→9822.
 // 2026-06-20: 게스트 설치물 공유(placeRequest→hostSpawnStation) — 게스트가 놓은 제작대/제련대 등도 파티 전원에 보이게. spawnPlaceableItem 게스트 라우팅 → 9822→9827.
-const MAX_MAIN_LINES = 9828;
+// 2026-06-20: 날카로운 흑요석 궁극 FX — OBSIDIAN_PROJECTILE import 1줄 → 9828→9829.
+const MAX_MAIN_LINES = 9829;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

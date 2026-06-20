@@ -19,11 +19,11 @@ export interface CombatEffectContext {
 
 let slashTrailTexture: THREE.Texture | null = null;
 
-export function createArrowProjectile(direction: THREE.Vector3) {
+export function createArrowProjectile(direction: THREE.Vector3, obsidian = false) {
   const group = new THREE.Group();
-  const shaftMaterial = new THREE.MeshStandardMaterial({ color: 0xd7b98d, roughness: 0.55 });
-  const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.48, roughness: 0.34 });
-  const featherMaterial = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.92 });
+  const shaftMaterial = new THREE.MeshStandardMaterial({ color: obsidian ? 0x4a0d0d : 0xd7b98d, roughness: 0.55 });
+  const metalMaterial = new THREE.MeshStandardMaterial({ color: obsidian ? 0xff2438 : 0xd1d5db, metalness: 0.48, roughness: 0.34, emissive: obsidian ? 0x7a0a12 : 0x000000, emissiveIntensity: obsidian ? 0.7 : 0 });
+  const featherMaterial = new THREE.MeshBasicMaterial({ color: obsidian ? 0xff8a5a : 0xf8fafc, transparent: true, opacity: 0.92 });
   const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.84, 8), shaftMaterial);
   const tip = new THREE.Mesh(new THREE.ConeGeometry(0.052, 0.16, 12), metalMaterial);
   tip.position.y = 0.5;
@@ -34,21 +34,31 @@ export function createArrowProjectile(direction: THREE.Vector3) {
   featherB.position.x = -0.05;
   featherB.rotation.z = -0.28;
   group.add(shaft, tip, featherA, featherB);
+  if (obsidian) { // 날카로운 흑요석 총(궁극) — 붉은 글로우 + 1.35배 크기
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 10), new THREE.MeshBasicMaterial({ color: 0xff6a3c, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.position.y = 0.42;
+    group.add(glow);
+    group.scale.setScalar(1.35);
+  }
   group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
   applyStylizedMeshDefaults(group, { castShadow: true, receiveShadow: false });
   return group;
 }
 
-export function createMagicProjectile(direction: THREE.Vector3) {
+// 날카로운 흑요석 지팡이(궁극) 전용 마법 팔레트 — 붉은 핵+글로우+링, ~1.4배 크기(무기 모델 색과 일치).
+export const OBSIDIAN_PROJECTILE = { core: 0xff2438, glow: 0xff6a3c, ring: 0xffb199, coreR: 0.26, glowR: 0.44, ringR: 0.34 };
+
+export function createMagicProjectile(direction: THREE.Vector3, palette?: { core: number; glow: number; ring: number; coreR: number; glowR: number; ringR: number }) {
+  const p = palette ?? { core: 0x42ff9b, glow: 0x7dffbf, ring: 0xc4ffe3, coreR: 0.18, glowR: 0.31, ringR: 0.24 }; // 기본 녹색 마법(타 지팡이 불변)
   const group = new THREE.Group();
   const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.18, 18, 12),
-    new THREE.MeshBasicMaterial({ color: 0x42ff9b, transparent: true, opacity: 0.92, depthWrite: false }),
+    new THREE.SphereGeometry(p.coreR, 18, 12),
+    new THREE.MeshBasicMaterial({ color: p.core, transparent: true, opacity: 0.92, depthWrite: false }),
   );
   const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(0.31, 18, 12),
+    new THREE.SphereGeometry(p.glowR, 18, 12),
     new THREE.MeshBasicMaterial({
-      color: 0x7dffbf,
+      color: p.glow,
       transparent: true,
       opacity: 0.28,
       blending: THREE.AdditiveBlending,
@@ -56,8 +66,8 @@ export function createMagicProjectile(direction: THREE.Vector3) {
     }),
   );
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.24, 0.018, 8, 28),
-    new THREE.MeshBasicMaterial({ color: 0xc4ffe3, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false }),
+    new THREE.TorusGeometry(p.ringR, 0.018, 8, 28),
+    new THREE.MeshBasicMaterial({ color: p.ring, transparent: true, opacity: 0.82, blending: THREE.AdditiveBlending, depthWrite: false }),
   );
   ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction.clone().normalize());
   group.add(glow, core, ring);
@@ -230,14 +240,15 @@ export function spawnTntTrail(context: CombatEffectContext, position: THREE.Vect
   context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(0, -0.03, 0), life: 0.22, maxLife: 0.22 });
 }
 
-export function spawnMeleeSlashTrail(context: CombatEffectContext) {
+export function spawnMeleeSlashTrail(context: CombatEffectContext, obsidian = false) {
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(context.camera.quaternion).normalize();
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(context.camera.quaternion).normalize();
   const up = new THREE.Vector3(0, 1, 0).applyQuaternion(context.camera.quaternion).normalize();
   const slash = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.92, 0.38),
+    new THREE.PlaneGeometry(obsidian ? 1.4 : 0.92, obsidian ? 0.58 : 0.38), // 날카로운 흑요석 방패(궁극) = 더 넓은 궤적
     new THREE.MeshBasicMaterial({
       map: getSlashTrailTexture(),
+      color: obsidian ? 0xff3a2a : 0xffffff, // 붉은 기운 — 가산블렌딩이라 흰 텍스처×붉은색=붉은 궤적
       transparent: true,
       opacity: 0.82,
       blending: THREE.AdditiveBlending,

@@ -95,6 +95,7 @@ import {
   spawnExplosionVisual,
   spawnMagicTrail,
   spawnMeleeSlashTrail,
+  OBSIDIAN_PROJECTILE,
   spawnProjectileImpact,
   spawnSkillCastImpact,
   spawnTntTrail,
@@ -4888,7 +4889,7 @@ class WildernessGame {
     const speed = kind === "magic" ? 29 : 41;
     const projectile: CombatProjectile = {
       kind,
-      mesh: kind === "magic" ? createMagicProjectile(direction) : createArrowProjectile(direction),
+      mesh: kind === "magic" ? createMagicProjectile(direction, item === "sharp_obsidian_staff" ? OBSIDIAN_PROJECTILE : undefined) : createArrowProjectile(direction, item === "sharp_obsidian_gun"), // 날카로운 흑요석 궁극(지팡이·총) = 붉고 큰 투사체
       velocity: direction.multiplyScalar(speed),
       damage: this.currentRangedDamage(item),
       radius: kind === "magic" ? 0.36 : 0.16,
@@ -5137,7 +5138,7 @@ class WildernessGame {
 
   private playMeleeAttackEffects(target: WorldObject) {
     this.playHandAction("melee");
-    spawnMeleeSlashTrail(this.combatEffectContext);
+    spawnMeleeSlashTrail(this.combatEffectContext, this.hotbar[this.selectedHotbarIndex]?.item === "sharp_obsidian_shield"); // 날카로운 흑요석 방패(궁극) = 붉고 넓은 휘두르기 궤적
     spawnEnemyHitParticles(this.combatEffectContext, target);
     this.playMeleeWhoosh(); notifyPartyAttack("melee");
   }
