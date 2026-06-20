@@ -1,5 +1,6 @@
 import { WORLD_SIZE } from "../game/constants";
 import type { WorldObject } from "../game/types";
+import { isTouchDevice } from "../game/platform";
 
 // leaf: 우측 상단 상시 미니맵 + 나침반(N/E/S/W). 길 찾기 보조.
 // 좌표 규약은 지도 패널(mapPanel)과 동일 — 위=북(-z), 아래=남(+z), 우=동(+x), 좌=서(-x). yaw 0 = 북.
@@ -8,6 +9,7 @@ import type { WorldObject } from "../game/types";
 interface MinimapPoint { x: number; z: number }
 export interface MinimapContext {
   active(): boolean; // 게임 중 + 야외 + 패널 닫힘일 때만 표시
+  onTap?(): void; // 모바일: 미니맵 탭 → 지도 패널 열기(데스크톱은 KeyM)
   playerX(): number;
   playerZ(): number;
   yaw(): number;
@@ -82,6 +84,13 @@ export function tickMinimap(ctx: MinimapContext, delta: number) {
     return;
   }
   ensureDom();
+  if (root && isTouchDevice() && ctx.onTap && !root.dataset.tapWired) {
+    // 모바일: 미니맵을 탭 가능하게 + 탭 시 지도 열기('지도' 버튼 대체). 1회만 배선.
+    root.dataset.tapWired = "1";
+    root.style.pointerEvents = "auto";
+    root.style.cursor = "pointer";
+    root.addEventListener("click", () => ctx.onTap?.());
+  }
   root!.style.display = "block";
   markerTimer -= delta;
   if (markerTimer <= 0) {

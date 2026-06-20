@@ -138,12 +138,11 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   const menu = document.createElement("div");
   menu.className = "touch-menu";
   const invBtn = btn("가방", "touch-menu-btn");
-  const mapBtn = btn("지도", "touch-menu-btn");
   const charBtn = btn("캐릭터", "touch-menu-btn"); // 캐릭터창(K) — 목걸이 착용·스탯 분배
   const saveBtn = btn("저장", "touch-menu-btn");
   const loadBtn = btn("불러오기", "touch-menu-btn"); // 숨겨진 데스크톱 불러오기 버튼 재사용
   const fsBtn = btn("⛶", "touch-menu-btn"); // 전체화면(주소창 숨김)
-  menu.append(invBtn, mapBtn, charBtn, saveBtn, loadBtn, fsBtn);
+  menu.append(invBtn, charBtn, saveBtn, loadBtn, fsBtn); // '지도' 버튼 제거 — 미니맵 탭으로 지도 열기(minimap.ts onTap)
 
   controls.append(joystick, actions, menu);
   parent.append(lookZone, controls);
@@ -285,7 +284,6 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   const cleanups = [
     tap(attackBtn, () => cb.interact()),
     tap(invBtn, () => cb.togglePanel("inventory")),
-    tap(mapBtn, () => cb.togglePanel("map")),
     tap(charBtn, () => cb.togglePanel("character")),
     tap(saveBtn, () => cb.saveGame()),
     // 불러오기: 숨겨진 데스크톱 [data-load-game] 버튼 재사용(콜백/main.ts 무수정)

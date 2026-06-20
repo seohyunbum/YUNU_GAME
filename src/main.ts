@@ -597,7 +597,7 @@ class WildernessGame {
     effects: () => this.combatEffectContext, bossStats: (kind) => this.bossStats(kind), isBossUnlocked: (kind) => isBossUnlocked(kind, this.bossChapter),
     damagePlayer: (a, s, r) => this.damagePlayer(a, s, r), showMessage: (t) => this.showMessage(t), playTone: (f, d, ty, v) => this.playTone(f, d, ty, v),
   };
-  private readonly minimapContext: MinimapContext = { active: () => this.gameStarted && this.locationMode === "overworld" && this.currentPanel === null, playerX: () => this.playerPosition.x, playerZ: () => this.playerPosition.z, yaw: () => this.yaw, homes: () => this.playerHomeMarkers(), dragons: () => this.objectsOfType("dragon"), fieldBosses: () => this.objectsOfType("wildPredator"), caves: () => this.objectsOfType("cave"), fortresses: () => this.objectsOfType("fortressGate") };
+  private readonly minimapContext: MinimapContext = { active: () => this.gameStarted && this.locationMode === "overworld" && this.currentPanel === null, playerX: () => this.playerPosition.x, playerZ: () => this.playerPosition.z, yaw: () => this.yaw, homes: () => this.playerHomeMarkers(), dragons: () => this.objectsOfType("dragon"), fieldBosses: () => this.objectsOfType("wildPredator"), caves: () => this.objectsOfType("cave"), fortresses: () => this.objectsOfType("fortressGate"), onTap: () => this.togglePanel("map") };
   private readonly fieldBossContext: FieldBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     defeatedFieldBosses: () => this.defeatedFieldBosses,
