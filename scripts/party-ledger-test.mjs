@@ -81,6 +81,11 @@ try {
     const legacy = migrateSaveData({ player: {} });
     assert(legacy.player.characterId === undefined && legacy.player.partyLedgerEpoch === undefined, `구세이브는 필드 생략(legacy 백필용)`); }
 
+  // 13. ★설치(−1)+회수(+1) 대칭 — 설치 전 세이브 로드 시 net 0(유령 설치물 복제 차단). main.ts 설치 로그 누락이 회귀하면 이 대칭이 깨짐(통합지점이라 여기선 원장 로직 보장).
+  { const s = makeStore(); appendPartyLedgerEvent(s, "A", "crafting_table", -1); appendPartyLedgerEvent(s, "A", "crafting_table", 1);
+    const a = makeInv({ crafting_table: 1 }); reconcilePartyLedger(s, "A", 0, a); // 설치 전(제작대 보유) 세이브 로드 모사
+    assert(a.inv.crafting_table === 1, `place(-1)+retrieve(+1) net 0: 제작대 1 유지, got ${a.inv.crafting_table}`); }
+
 } finally {
   await server.close();
 }

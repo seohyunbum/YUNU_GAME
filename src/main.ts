@@ -2304,6 +2304,7 @@ class WildernessGame {
   private spawnPlaceableItem(item: ItemId) {
     const position = this.pointInFront(4);
     if (item !== "building_block" && partyGuestPlaceIntercept(item, position.x, position.z, this.yaw)) { // 파티 게스트: 호스트 월드에 설치 요청(공유 → 모두가 보고 사용). 로컬 설치 생략 — 동기화 뷰로 보임.
+      this.appendPartyLedger(item, -1); // ★설치=호스트 월드로 양도(−). 회수는 receivePickupItems 가 +1 기록하므로 설치도 대칭으로 기록해야 한다. 안 그러면 설치 전 세이브 로드 시 회수분(+1)만 재적용돼 유령 설치물이 복제된다(설치물은 이미 slot에서 차감된 상태).
       this.playHandAction();
       this.showMessage(`${ITEM_NAMES[item] ?? item}를 설치했습니다. (파티원과 공유)`);
       this.playTone(420, 0.09, "triangle", 0.035);
