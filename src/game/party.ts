@@ -48,6 +48,7 @@ export interface PresenceData {
   health?: number; // 친구 머리 위 HP바 표시용 (5.1)
   maxHealth?: number;
   armorTier?: string; // 장착 방어구 티어 — 원격 아바타 갑옷 오버레이용 (없으면 갑옷 미표시)
+  hasPet?: boolean; // 소환사 패시브 펫(독수리) 활성 — 파티원 화면에 원격 펫 렌더용
 }
 
 // 프레즌스가 이 시간 이상 끊긴 게스트(백그라운드 탭 등)는 명단에서 제외 — 몬스터 타게팅·아바타에서 빠진다

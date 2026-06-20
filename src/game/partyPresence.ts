@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createAvatarModel, CLASS_APPEARANCE } from "../avatar";
+import { createEagleVisual } from "./creatureVisuals";
 import { createArrowProjectile, createMagicProjectile, createFireballProjectile, createTntProjectile, createWindCutterProjectile, OBSIDIAN_PROJECTILE } from "./combatEffects";
 import type { PartyMessage, PartySession, PresenceData } from "./party";
 import { partyFlowOnPresences } from "./partyFlow";
@@ -46,6 +47,7 @@ interface RemoteMember {
   lastSeenAt: number;
   onLocalMap: boolean;
   actionUntil: number; // 공격 모션 종료 시각
+  pet: THREE.Group | null; // 소환사 친구의 패시브 펫(독수리) — hasPet 일 때 로컬에서 따라다니게 렌더
 }
 
 interface RemoteProjectile {
@@ -129,6 +131,14 @@ function updateHpBar(remote: RemoteMember) {
   remote.hpFill.material.color.setHSL(ratio * 0.33, 0.85, 0.5); // 빨강(0) → 초록(0.33)
 }
 
+// 소환사 친구의 원격 펫 모델 — 로컬 펫과 같은 독수리(createEagleVisual) + 보라 오라. 위치는 친구 아바타를 로컬에서 따라가므로 추가 동기화 비용 0.
+function createRemotePet(): THREE.Group {
+  const pet = createEagleVisual();
+  pet.scale.setScalar(0.74);
+  pet.add(new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 10), new THREE.MeshBasicMaterial({ color: 0x9b6bff, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false })));
+  return pet;
+}
+
 function spawnRemote(data: PresenceData, nowMs: number): RemoteMember {
   const classId = (data.playerClass in CLASS_APPEARANCE ? data.playerClass : "warrior") as PlayerClassId;
   const root = new THREE.Group();
@@ -144,7 +154,7 @@ function spawnRemote(data: PresenceData, nowMs: number): RemoteMember {
   root.position.set(data.x, context!.getGroundHeightAt(data.x, data.z), data.z);
   root.rotation.y = data.yaw + Math.PI; // 아바타 모델은 +Z(앞면)로 만들어졌고 플레이어 forward 규약은 -Z → 180° 보정(목 역전 방지)
   context!.scene.add(root);
-  const remote: RemoteMember = { data, root, body, hpFill, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: true, actionUntil: 0 };
+  const remote: RemoteMember = { data, root, body, hpFill, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: true, actionUntil: 0, pet: null };
   updateHpBar(remote);
   return remote;
 }
@@ -154,6 +164,7 @@ function removeRemote(nickname: string) {
   if (!remote) return;
   context?.scene.remove(remote.root);
   disposeObject(remote.root); // 아바타·닉네임 표찰(CanvasTexture)·HP바 GPU 리소스 해제
+  if (remote.pet) { context?.scene.remove(remote.pet); disposeObject(remote.pet); } // 원격 펫도 정리
   remotes.delete(nickname);
 }
 
@@ -196,7 +207,7 @@ function receivePresences(list: PresenceData[], nowMs: number) {
           existing.onLocalMap = false;
         }
       } else {
-        remotes.set(data.nickname, { data, root: new THREE.Group(), body: null, hpFill: null, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: false, actionUntil: 0 });
+        remotes.set(data.nickname, { data, root: new THREE.Group(), body: null, hpFill: null, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: false, actionUntil: 0, pet: null });
       }
       continue;
     }
@@ -310,7 +321,7 @@ export function updatePartyPresence(nowMs: number, delta: number) {
       removeRemote(nickname);
       continue;
     }
-    if (!remote.onLocalMap) continue;
+    if (!remote.onLocalMap) { if (remote.pet) { context.scene.remove(remote.pet); disposeObject(remote.pet); remote.pet = null; } continue; } // 다른 맵으로 가면 펫 숨김
     const root = remote.root;
     const dx = remote.targetX - root.position.x;
     const dz = remote.targetZ - root.position.z;
@@ -340,6 +351,16 @@ export function updatePartyPresence(nowMs: number, delta: number) {
       } else if (remote.body.rotation.x !== 0 || remote.body.rotation.y !== 0 || remote.body.rotation.z !== 0) {
         remote.body.rotation.set(0, 0, 0); // 모션 종료 — 자세 복귀
       }
+    }
+    // 소환사 친구의 패시브 펫 — hasPet 변화에 생성/제거 + 아바타를 살짝 뒤·위에서 호버하며 따라감(로컬 시뮬, 동기화 비용 0)
+    if (remote.data.hasPet && !remote.pet) { remote.pet = createRemotePet(); context.scene.add(remote.pet); }
+    else if (!remote.data.hasPet && remote.pet) { context.scene.remove(remote.pet); disposeObject(remote.pet); remote.pet = null; }
+    if (remote.pet) {
+      const ptx = root.position.x - Math.sin(root.rotation.y) * 0.4, ptz = root.position.z - Math.cos(root.rotation.y) * 0.4;
+      remote.pet.position.x += (ptx - remote.pet.position.x) * alpha;
+      remote.pet.position.z += (ptz - remote.pet.position.z) * alpha;
+      remote.pet.position.y += ((root.position.y + 1.55 + Math.sin(nowMs / 380) * 0.12) - remote.pet.position.y) * Math.min(1, delta * 6);
+      remote.pet.rotation.y = root.rotation.y;
     }
   }
   publishPresenceDebug();
