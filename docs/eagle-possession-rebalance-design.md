@@ -4,7 +4,7 @@
 > 근거: 후반부 빙의가 무의미 → 사용자 지정 3개 변경. 데스크톱/모바일 공통(플랫폼 무관).
 
 ## 0. 목표 (사용자 스펙)
-1. **생존 스케일**: 독수리 HP 65 / 방어 8 (고정) → **본체 HP + 65 / 본체 방어 + 8** (본체 능력치에 가산).
+1. **생존 스케일**: 독수리 HP 65 / 방어 8 (고정) → **본체 maxHealth + 레벨 / 본체 방어 + ⌊레벨/5⌋** (본체 능력치에 레벨 비례 가산). ※고정 65/8 은 폐기.
 2. **데미지 스케일**: 빙의 공격이 **훈련스탯·제작분배·목걸이·버프 등을 본체와 동일하게** 반영.
 3. **할퀴기(R)**: 쿨다운 30s → **14s** + **입힌 데미지의 30% 흡혈**(독수리 HP 회복).
 
@@ -16,31 +16,34 @@
 
 ---
 
-## 2. 변경 ① — HP/방어를 본체 가산으로
+## 2. 변경 ① — HP/방어를 본체 + 레벨 비례 가산으로
+
+> 가산 보너스 = **HP +레벨, 방어 +⌊레벨/5⌋** (레벨 = `this.level`, 캐릭터 레벨). 고정 상수 `EAGLE_MAX_HP(65)`·`EAGLE_ARMOR(8)`는 가산에 **사용하지 않음**(상수 제거 또는 방치 무방).
 
 ### 2.1 신규 필드 (main.ts)
 ```ts
-private eaglePossessionMaxHp = 0; // 빙의 시 독수리 최대 HP = 본체 maxHealth + EAGLE_MAX_HP (메시지·HUD·흡혈 캡)
+private eaglePossessionMaxHp = 0; // 빙의 시 독수리 최대 HP = 본체 maxHealth + ⌊레벨⌋ (메시지·HUD·흡혈 캡)
 ```
 
 ### 2.2 생성 시 HP (spawnEagleSummon, main.ts:4933-4938)
 ```ts
 // before: hp: EAGLE_MAX_HP, armor: EAGLE_ARMOR
-this.eaglePossessionMaxHp = this.maxHealth + EAGLE_MAX_HP;   // 호출 직전(useSummonerSkill) 또는 여기서 세팅
+this.eaglePossessionMaxHp = this.maxHealth + Math.floor(this.level); // 본체 maxHealth + 레벨
 const eagle = this.addWorldObject("eagleSummon", "소환 독수리", root, {
-  hp: this.eaglePossessionMaxHp,        // = 본체 maxHealth + 65
-  armor: EAGLE_ARMOR,                    // armor 필드는 표시용; 실제 피해계산은 §2.3 에서 동적
+  hp: this.eaglePossessionMaxHp,        // = 본체 maxHealth + 레벨
+  armor: Math.floor(this.level / 5),    // 표시용; 실제 피해계산은 §2.3 에서 (본체방어 + 레벨/5)
   ...
 });
 ```
-- ★결정: 시작 HP 기준은 **본체 maxHealth**(가득 찬 새 풀). 현재 HP 기준을 원하면 `this.health + EAGLE_MAX_HP` 로 1줄 교체(상처 입은 채 빙의하면 비례). **권장=maxHealth**(직관적).
+- ★결정: 시작 HP 기준은 **본체 maxHealth**(가득 찬 새 풀). 현재 HP 기준을 원하면 `this.health + Math.floor(this.level)` 로 1줄 교체. **권장=maxHealth**(직관적).
+- 저레벨 주의: Lv1 이면 HP +1, 방어 +0(=⌊1/5⌋). 본체 maxHealth 가 기반이라 생존엔 문제없으나, 최소치를 원하면 `Math.max(N, ...)` 로 바닥값 부여 가능(스펙엔 없음).
 
 ### 2.3 피격 방어 (main.ts:4985)
 ```ts
 // before: const armor = ignoreArmor ? 0 : EAGLE_ARMOR;
-const armor = ignoreArmor ? 0 : this.equippedArmorValue() + EAGLE_ARMOR; // 본체 방어 + 8
+const armor = ignoreArmor ? 0 : this.equippedArmorValue() + Math.floor(this.level / 5); // 본체 방어 + ⌊레벨/5⌋
 ```
-- 동적 계산 → 빙의 중 본체 방어 버프(불굴/심판의빛 등)도 즉시 반영(스펙 "버프 동일"). `equippedArmorValue()`는 이미 장비·레벨·훈련·제작·목걸이·버프(×심판의빛) 합산.
+- 동적 계산 → 빙의 중 본체 방어 버프(불굴/심판의빛 등)도 즉시 반영(스펙 "버프 동일"). `equippedArmorValue()`는 이미 장비·레벨·훈련·제작·목걸이·버프(×심판의빛) 합산. 여기에 레벨/5 가산.
 
 ### 2.4 max 표기 교체 (EAGLE_MAX_HP → eaglePossessionMaxHp)
 - 피해 메시지 [main.ts:5000](../src/main.ts): `... ${Math.ceil(eagle.hp)}/${this.eaglePossessionMaxHp}`.
@@ -133,7 +136,8 @@ healEagle: (amount) => {
 - eaglePossession.ts·constants.ts 는 leaf(게이트 무관).
 
 ## 7. 밸런스 메모 (구현 후 검토)
-- 빙의 화력이 **본체 + 흡혈 + 14s 할퀴기 + 본체방어+65HP**로 크게 상향 → 강력. 과하면: 할퀴기 base(20)·흡혈%·EAGLE_*_DAMAGE/HP 보너스 상수로 조정.
+- 빙의 화력이 **본체 + 흡혈 + 14s 할퀴기 + (본체방어 +⌊레벨/5⌋ 방어 / +레벨 HP)**로 크게 상향 → 강력. 과하면: 할퀴기 base(20)·흡혈%·HP/방어 가산 계수(레벨, 레벨/5)로 조정.
+- HP/방어 보너스가 레벨 비례라 후반(고레벨)일수록 생존이 크게 늘어남 — 후반 무의미 문제 해소에 부합. 저레벨은 보너스 미미(설계 의도, 필요 시 §2.2 바닥값).
 - 윈드커터 쿨 40s(>빙의 30s)는 이번 스펙 밖 — 필요 시 후속(예 18~20s)으로 빙의 중 재사용 가능하게.
 
 ## 8. 구현 체크리스트
