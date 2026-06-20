@@ -14,6 +14,7 @@ let lastStatus = "";
 let directory: PartyDirectory | null = null;
 let directoryReady = false;
 let myNickname = "";
+let lobbyNickname: () => string = () => ""; // 인게임 파티패널 토글용 live 닉네임 getter(togglePartyLobby)
 let knownRosterSize = 1;
 const pendingOutgoingInvites = new Set<string>(); // 내가 보낸 파티 요청 — 교차 초대 감지용
 
@@ -121,7 +122,16 @@ function runMigration(code: string, amWinner: boolean, attempt = 0) {
   );
 }
 
+export function togglePartyLobby() { // 인게임 파티패널 토글 — 데스크톱 'O' 키와 동일 경로(터치 '파티' 버튼용)
+  if (document.querySelector(".nickname-overlay")) return;
+  const open = document.querySelector(".party-overlay");
+  if (open) { open.remove(); return; }
+  document.exitPointerLock?.();
+  openPartyLobby(lobbyNickname());
+}
+
 export function initPartyLobby(getNickname: () => string) {
+  lobbyNickname = getNickname; // 터치 '파티' 버튼이 호출 시점에 평가(스냅샷 금지)
   // DEV/E2E 전용 — 디렉터리 팝업 DOM 을 거치지 않고 세션/승계 로직을 직접 구동·관측 (프로덕션 영향 없음)
   if (import.meta.env.DEV && typeof window !== "undefined") {
     (window as unknown as Record<string, unknown>).__partyTest = {

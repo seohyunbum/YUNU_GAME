@@ -13,6 +13,7 @@ export interface TouchControlsCallbacks {
   togglePanel(panel: "inventory" | "map" | "character"): void;
   saveGame(): void; // 데스크톱 Ctrl+S 와 동일 — 모바일은 save-controls 가 숨겨지므로 버튼으로 제공
   isPlaying(): boolean; // 게임 진행 중(타이틀/패널 아님)일 때만 조이스틱·시점 활성
+  openParty(): void; // 인게임 파티 패널 열기(데스크톱 'O' 키 대체)
 }
 
 export interface TouchControlsHandle {
@@ -61,7 +62,7 @@ export function runWithLoading(parent: HTMLElement, fn: () => void): void {
 }
 
 // 설치물(제작대/제련대/분쇄기) 탭 시 사용/줍기 컨텍스트 선택창 — 터치 전용, 그 순간만 표시(상시 버튼 없음).
-export function showStationChoice(parent: HTMLElement, onUse: () => void, onPickup: () => void): void {
+export function showStationChoice(parent: HTMLElement, onUse: () => void, onPickup: () => void, useLabel = "🔨 사용"): void {
   parent.querySelector(".station-choice")?.remove();
   const overlay = document.createElement("div");
   overlay.className = "station-choice";
@@ -73,7 +74,27 @@ export function showStationChoice(parent: HTMLElement, onUse: () => void, onPick
     b.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); overlay.remove(); fn(); }, { passive: false });
     return b;
   };
-  overlay.append(make("🔨 사용", onUse), make("✋ 줍기", onPickup));
+  overlay.append(make(useLabel, onUse), make("✋ 줍기", onPickup));
+  overlay.addEventListener("touchstart", (e) => { if (e.target === overlay) { e.preventDefault(); overlay.remove(); } }, { passive: false });
+  parent.append(overlay);
+}
+
+// 인벤토리 슬롯 터치 액션 선택창(우클릭/드래그 대체) — 옮기기 / 설치(설치물일 때만) / 버리기 / 취소.
+export function showSlotActionChoice(parent: HTMLElement, cb: { onMove: () => void; onUseOrPlace?: () => void; onDrop: () => void }): void {
+  parent.querySelector(".station-choice")?.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "station-choice";
+  const make = (label: string, fn: () => void) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "station-choice-btn";
+    b.textContent = label;
+    b.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); overlay.remove(); fn(); }, { passive: false });
+    return b;
+  };
+  overlay.append(make("↔ 옮기기", cb.onMove));
+  if (cb.onUseOrPlace) overlay.append(make("🪛 설치", cb.onUseOrPlace));
+  overlay.append(make("🗑 버리기", cb.onDrop), make("✖ 취소", () => {}));
   overlay.addEventListener("touchstart", (e) => { if (e.target === overlay) { e.preventDefault(); overlay.remove(); } }, { passive: false });
   parent.append(overlay);
 }
@@ -139,10 +160,11 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   menu.className = "touch-menu";
   const invBtn = btn("가방", "touch-menu-btn");
   const charBtn = btn("캐릭터", "touch-menu-btn"); // 캐릭터창(K) — 목걸이 착용·스탯 분배
+  const partyBtn = btn("파티", "touch-menu-btn"); // 인게임 파티 패널(데스크톱 O 키 대체)
   const saveBtn = btn("저장", "touch-menu-btn");
   const loadBtn = btn("불러오기", "touch-menu-btn"); // 숨겨진 데스크톱 불러오기 버튼 재사용
   const fsBtn = btn("⛶", "touch-menu-btn"); // 전체화면(주소창 숨김)
-  menu.append(invBtn, charBtn, saveBtn, loadBtn, fsBtn); // '지도' 버튼 제거 — 미니맵 탭으로 지도 열기(minimap.ts onTap)
+  menu.append(invBtn, charBtn, partyBtn, saveBtn, loadBtn, fsBtn); // '지도' 버튼 제거 — 미니맵 탭으로 지도 열기(minimap.ts onTap)
 
   controls.append(joystick, actions, menu);
   parent.append(lookZone, controls);
@@ -285,6 +307,7 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
     tap(attackBtn, () => cb.interact()),
     tap(invBtn, () => cb.togglePanel("inventory")),
     tap(charBtn, () => cb.togglePanel("character")),
+    tap(partyBtn, () => cb.openParty()),
     tap(saveBtn, () => cb.saveGame()),
     // 불러오기: 숨겨진 데스크톱 [data-load-game] 버튼 재사용(콜백/main.ts 무수정)
     tap(loadBtn, () => (document.querySelector("[data-load-game]") as HTMLElement | null)?.click()),

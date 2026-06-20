@@ -2,6 +2,7 @@ import { HUNGER_MAX } from "./constants";
 import { ARMOR_VALUE, HEAL_ITEMS, ITEM_NAMES, PLACEABLE_TYPES, RANGED_WEAPONS, SHIELD_DEFENSE } from "./items";
 import { isJobAdvanceItem } from "./jobAdvancement";
 import { isNecklace } from "./necklace";
+import { isTouchDevice } from "./platform";
 import type { ItemId, PanelType } from "./types";
 
 const HEAL_ITEM_COOLDOWN_MS = 1000;
@@ -66,6 +67,7 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
     return;
   }
   if (item === "building_block") {
+    if (isTouchDevice()) { context.placeSelected(); return; } // 터치: 정면 설치(우클릭 대체)
     context.showMessage("쌓기블록을 들었습니다. 오른쪽 클릭으로 바라보는 블록의 옆에 붙이고 좌클릭/E로 회수합니다.");
     return;
   }
