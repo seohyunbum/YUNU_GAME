@@ -60,8 +60,8 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     let movementSpeed = 0;
     if (mode === "melee" && attackDistance > range) {
       if (centerDistance > 0.01) {
-        // 추격 속도 — 저레벨 경험치 농사 방지로 추가 +50% (골렘 2.405→3.6, 그 외 3.12→4.68)
-        const chaseSpeed = guard.type === "villageGolem" ? 3.6 : 4.68;
+        // 추격 속도 — 전체 +1 상향(골렘 3.6→4.6, 그 외 4.68→5.68)
+        const chaseSpeed = guard.type === "villageGolem" ? 4.6 : 5.68;
         const step = Math.min(attackDistance - range, chaseSpeed * delta);
         guard.root.position.x += (dx / centerDistance) * step;
         guard.root.position.z += (dz / centerDistance) * step;

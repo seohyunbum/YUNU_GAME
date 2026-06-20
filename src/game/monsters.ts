@@ -3,17 +3,17 @@ import { DRAGON_MAX_HP, DRAGON_ARMOR } from "./constants";
 import type { PredatorKind, BossKind, WorldObject } from "./types";
 
 export const PREDATOR_STATS: Record<PredatorKind, { hp: number; attackDamage: number; aggroRange: number; strikeRange: number; speed: number; cooldown: number }> = {
-  spider: { hp: 25, attackDamage: 3, aggroRange: 8, strikeRange: 1.7, speed: 2.2, cooldown: 1.45 },
-  wolf: { hp: 65, attackDamage: 6, aggroRange: 13, strikeRange: 2.05, speed: 3.05, cooldown: 1.35 },
-  lion: { hp: 78, attackDamage: 7, aggroRange: 15, strikeRange: 2.35, speed: 3.3, cooldown: 1.15 },
-  boar: { hp: 48, attackDamage: 5, aggroRange: 11, strikeRange: 1.95, speed: 3.5, cooldown: 1.55 },
-  snake: { hp: 42, attackDamage: 6, aggroRange: 9, strikeRange: 2.3, speed: 2.7, cooldown: 1.7 },
-  bat: { hp: 50, attackDamage: 6, aggroRange: 17, strikeRange: 1.85, speed: 3.7, cooldown: 1.1 },
-  scorpion: { hp: 120, attackDamage: 9, aggroRange: 10, strikeRange: 2.1, speed: 2.45, cooldown: 1.8 },
-  bear: { hp: 200, attackDamage: 12, aggroRange: 12, strikeRange: 2.5, speed: 2.75, cooldown: 1.9 },
-  zombie: { hp: 660, attackDamage: 28, aggroRange: 14, strikeRange: 1.95, speed: 2.0, cooldown: 1.5 },
-  ghost: { hp: 500, attackDamage: 34, aggroRange: 18, strikeRange: 2.15, speed: 3.1, cooldown: 1.35 },
-  drake: { hp: 70, attackDamage: 7, aggroRange: 13, strikeRange: 2.1, speed: 3.2, cooldown: 1.4 },
+  spider: { hp: 25, attackDamage: 3, aggroRange: 8, strikeRange: 1.7, speed: 3.2, cooldown: 1.45 },
+  wolf: { hp: 65, attackDamage: 6, aggroRange: 13, strikeRange: 2.05, speed: 4.05, cooldown: 1.35 },
+  lion: { hp: 78, attackDamage: 7, aggroRange: 15, strikeRange: 2.35, speed: 4.3, cooldown: 1.15 },
+  boar: { hp: 48, attackDamage: 5, aggroRange: 11, strikeRange: 1.95, speed: 4.5, cooldown: 1.55 },
+  snake: { hp: 42, attackDamage: 6, aggroRange: 9, strikeRange: 2.3, speed: 3.7, cooldown: 1.7 },
+  bat: { hp: 50, attackDamage: 6, aggroRange: 17, strikeRange: 1.85, speed: 4.7, cooldown: 1.1 },
+  scorpion: { hp: 120, attackDamage: 9, aggroRange: 10, strikeRange: 2.1, speed: 3.45, cooldown: 1.8 },
+  bear: { hp: 200, attackDamage: 12, aggroRange: 12, strikeRange: 2.5, speed: 3.75, cooldown: 1.9 },
+  zombie: { hp: 660, attackDamage: 28, aggroRange: 14, strikeRange: 1.95, speed: 3.0, cooldown: 1.5 },
+  ghost: { hp: 500, attackDamage: 34, aggroRange: 18, strikeRange: 2.15, speed: 4.1, cooldown: 1.35 },
+  drake: { hp: 70, attackDamage: 7, aggroRange: 13, strikeRange: 2.1, speed: 4.2, cooldown: 1.4 },
 };
 
 // 포식자 처치 전리품 — 종 특성에 맞는 재료 (양쪽 전투 경로가 공유)
@@ -185,8 +185,8 @@ export function predatorStatsForMonster(id: MonsterId, fallbackKind: PredatorKin
     hp: Math.max(base.hp, scaled.hp),
     attackDamage: Math.max(base.attackDamage, scaled.attackDamage),
     aggroRange: Math.min(28, Math.max(base.aggroRange, 8 + def.level * 0.12)),
-    // 레벨이 오를수록 추격이 빨라진다 — 상한 6.2 는 걷기(7)보다 느려서 도주는 항상 가능
-    speed: Math.min(base.speed * (1 + def.level * 0.02), 6.2),
+    // 레벨이 오를수록 추격이 빨라진다 — 상한 7.2(전체 +1 상향). 걷기(7) 보다 약간 빨라 고렙은 걸어선 못 벗어나고, 달리기(14)로만 도주 가능.
+    speed: Math.min(base.speed * (1 + def.level * 0.02), 7.2),
     cooldown: Math.max(0.72, base.cooldown - def.level / 300),
   };
   return def.statsOverride ? { ...result, ...def.statsOverride } : result;
