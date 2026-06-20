@@ -209,3 +209,13 @@
 - 수정: 초기 스폰을 "맵 전체 랜덤 좌표 → 그 위치의 리전(없으면 nearestRegion)으로 종/레벨 결정"으로 변경 → 평원 포함 균등 분포. 마릿수도 상향(기본맵 36→60, 그 외 48→78). regions.ts 에 nearestRegion 추가(leaf).
 - ⚠ 보류/주의: 엔티티 수 증가는 AGENTS §10 상 perf-check 비교가 필요한데, 이 원격 환경은 브라우저(Chrome)가 없어 perf-check/verify:full 을 못 돌린다. 가시성 컬링(updateVisibilityCulling)이 먼 몬스터를 숨겨 draw call 증가는 제한적이라 판단하고 진행. 사용자 기기에서 FPS 체감 확인 권장. 렉 시 predatorCount(60/78) 를 낮추면 됨.
 - 관련 파일: src/main.ts(초기 스폰 루프), src/game/regions.ts(nearestRegion).
+
+## 🔴 미해결 TODO — 속도(성능) 검증 필요: 몬스터 밀도 상향분
+
+- **무엇**: 2026-06-20 야생 몬스터 마릿수 상향(기본맵 36→60, 그 외 48→78) + 전맵 균등 분포(commit 3dbf4f7).
+- **왜 미검증**: 이 원격 환경엔 브라우저(Chrome)가 없어 `npm run perf-check` / `verify:full` 을 돌릴 수 없음. typecheck·단위테스트·build 만 통과.
+- **해야 할 일** (브라우저 있는 PC 에서):
+  1. `npm run perf-check` 실행 → `PERF_BUDGET`(scripts/performance-smoke.mjs) 초과 여부 확인.
+  2. 실기기, 특히 **모바일 가로모드**에서 FPS 체감(개방 필드 ~30fps 기준 유지되는지).
+  3. 렉 발생 시 `src/main.ts` 의 `predatorCount`(60/78) 를 낮춰 재조정. 컬링은 이미 적용됨.
+- **상태**: 기능은 마스터 배포 완료, 성능만 미검증.
