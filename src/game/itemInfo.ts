@@ -42,7 +42,7 @@ const NECKLACE_EFFECT: Partial<Record<ItemId, string>> = {
   strength_necklace: `공격력 +${necklaceAttackBonus("strength_necklace")}`,
   guardian_necklace: `방어력 +${necklaceDefenseBonus("guardian_necklace")}`,
   swift_necklace: "공격속도 +25%",
-  sage_necklace: "스킬 쿨타임 -15%",
+  sage_necklace: "스킬 쿨타임 -15% · 마나 회복 +1/초",
 };
 
 // 제작 가능한 아이템은 레시피 note 를 설명으로 재활용한다 (중복 방지).
