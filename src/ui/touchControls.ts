@@ -78,8 +78,40 @@ export function showStationChoice(parent: HTMLElement, onUse: () => void, onPick
   parent.append(overlay);
 }
 
+// 디버그 HUD — URL 에 ?debug 있으면 FPS·프레임당 드로우콜 실시간 표시(WebGL draw 후킹). 모바일 실측용(콘솔 불필요).
+export function initDebugHud(): void {
+  if (document.getElementById("dbg-hud")) return;
+  let calls = 0;
+  const protos: any[] = [WebGLRenderingContext.prototype];
+  if (typeof WebGL2RenderingContext !== "undefined") protos.push(WebGL2RenderingContext.prototype);
+  for (const p of protos) {
+    for (const m of ["drawElements", "drawArrays", "drawElementsInstanced", "drawArraysInstanced"]) {
+      if (p[m] && !p[m].__dh) {
+        const o = p[m];
+        p[m] = function (this: unknown, ...args: unknown[]) { calls++; return (o as (...a: unknown[]) => unknown).apply(this, args); };
+        p[m].__dh = true;
+      }
+    }
+  }
+  const hud = document.createElement("div");
+  hud.id = "dbg-hud";
+  hud.style.cssText = "position:fixed;top:2px;left:2px;z-index:99;background:rgba(0,0,0,.72);color:#3f6;font:bold 12px monospace;padding:3px 7px;border-radius:5px;white-space:pre;pointer-events:none";
+  document.body.appendChild(hud);
+  let f = 0, last = performance.now(), mx = 0, sum = 0, n = 0;
+  (function tick() {
+    const c = calls; calls = 0; f++; if (c > mx) mx = c; sum += c; n++;
+    const t = performance.now();
+    if (t - last >= 500) {
+      hud.textContent = `FPS ${Math.round((f * 1000) / (t - last))}\ndraws ${Math.round(sum / n)} (max ${mx})`;
+      f = 0; last = t; mx = 0; sum = 0; n = 0;
+    }
+    requestAnimationFrame(tick);
+  })();
+}
+
 export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallbacks): TouchControlsHandle {
   document.body.classList.add("touch-mode");
+  if (new URLSearchParams(window.location.search).has("debug")) initDebugHud();
 
   // 시점 드래그 영역(우측 절반) — 버튼들 아래에 깔린다.
   const lookZone = document.createElement("div");
