@@ -1,6 +1,6 @@
 import type * as THREE from "three";
 import { GUNNER_SKILL_DAMAGE, HEALER_HEAL_AMOUNT, MAGE_TNT_DAMAGE, MAGE_TNT_RADIUS, WARRIOR_EXPLOSION_DAMAGE, WIND_CUTTER_DAMAGE } from "./constants";
-import { partyEmpowerNearby, partyHealNearby } from "./partyPresence";
+import { partyEmpowerNearby, partyHealNearby, partyRallyNearby } from "./partyPresence";
 import { partyGuestAttackIntercept } from "./partyWorldSync";
 import type { PlayerClassId, WorldObject } from "./types";
 
@@ -9,6 +9,9 @@ export const HEAL_PARTY_RADIUS = 12;
 export const EMPOWER_DURATION_MS = 300_000; // 심판의 빛 버프 지속 5분
 export const EMPOWER_MULT = 1.1; // 공격·방어 +10%
 export const EMPOWER_PARTY_RADIUS = 999; // 같은 맵 파티원 전원에 적용
+export const RALLY_DEF_MULT = 1.2; // 불굴의 함성 — 방어 +20%
+export const RALLY_DEF_SECONDS = 20; // 지속 20초
+export const RALLY_PARTY_RADIUS = 999; // 같은 맵 파티원 전원에 적용
 
 // ===== 스킬 데미지 스케일링 =====
 // 일반 공격은 레벨당 +1 강해지는데 스킬은 고정값이라 후반에 쓸모가 없어진다.
@@ -43,9 +46,9 @@ export const SECOND_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   warrior: { name: "불타는 공격", summary: "정면의 적에게 공격력 2배 피해 + 5초 동안 화상 피해.", manaCost: 40, cooldown: 30 },
   healer: { name: "치유의 비", summary: "10초 동안 매초 체력을 회복합니다.", manaCost: 45, cooldown: 60 },
   mage: { name: "파이어볼", summary: "강력한 화염구를 발사해 범위 피해를 줍니다.", manaCost: 25, cooldown: 20 },
-  summoner: { name: "바람 정령", summary: "빙의 없이 본체가 윈드커터를 발사합니다.", manaCost: 25, cooldown: 20 },
+  summoner: { name: "바람 정령", summary: "빙의 없이 본체가 윈드커터를 발사합니다.", manaCost: 25, cooldown: 16 },
   gunner: { name: "속사", summary: "10초 동안 원거리 무기 연사 속도가 2배가 됩니다.", manaCost: 30, cooldown: 40 },
-  tanker: { name: "불타는 방패", summary: "30초 동안 방어 +1, 가까이 붙은 적이 매초 화상 피해를 입습니다.", manaCost: 35, cooldown: 60 },
+  tanker: { name: "불타는 방패", summary: "20초 동안 방어 +1, 가까이 붙은 적이 매초 화상 피해를 입습니다.", manaCost: 40, cooldown: 50 },
 };
 
 // 2스킬 수치
@@ -66,11 +69,11 @@ export function healingRainTick(levelBonus: number) {
   return scaledSkillValue(2, levelBonus, 0.4);
 }
 export function windSpiritDamage(levelBonus: number) {
-  return scaledSkillValue(WIND_CUTTER_DAMAGE, levelBonus, 1.2);
+  return scaledSkillValue(WIND_CUTTER_DAMAGE, levelBonus, 1.4);
 }
 export const BURN_TICKS = 5;
 export const BURN_TICK_MS = 1000;
-export const BURNING_SHIELD_SECONDS = 30;
+export const BURNING_SHIELD_SECONDS = 20;
 export const BURNING_SHIELD_RADIUS = 3.2;
 export const HEALING_RAIN_SECONDS = 10;
 export const RAPID_FIRE_SECONDS = 10;
@@ -87,10 +90,11 @@ export interface SkillBuffs {
   empowerUntil: number; // 힐러 3스킬(심판의 빛) — 자신·파티 공격·방어 +10%
   nextSpiritStormTickAt: number; // 소환사 3스킬(정령 폭풍) — DoT 다음 틱 시각
   spiritStormTicksLeft: number; // 정령 폭풍 남은 틱(3초간 초당 1회 = 3)
+  rallyDefUntil: number; // 탱커 3스킬(불굴의 함성) — 자신·파티 방어 ×RALLY_DEF_MULT
 }
 
 export function createSkillBuffs(): SkillBuffs {
-  return { burningShieldUntil: 0, healingRainUntil: 0, rapidFireUntil: 0, nextAuraTickAt: 0, nextRainTickAt: 0, unbreakableUntil: 0, empowerUntil: 0, nextSpiritStormTickAt: 0, spiritStormTicksLeft: 0 };
+  return { burningShieldUntil: 0, healingRainUntil: 0, rapidFireUntil: 0, nextAuraTickAt: 0, nextRainTickAt: 0, unbreakableUntil: 0, empowerUntil: 0, nextSpiritStormTickAt: 0, spiritStormTicksLeft: 0, rallyDefUntil: 0 };
 }
 
 export function burningShieldArmorBonus(buffs: SkillBuffs, now: number) {
@@ -100,6 +104,11 @@ export function burningShieldArmorBonus(buffs: SkillBuffs, now: number) {
 // 힐러 3스킬(심판의 빛) — 활성 시 공격·방어 ×EMPOWER_MULT(1.1), 비활성 1.
 export function empowerMultiplier(buffs: SkillBuffs, now: number) {
   return buffs.empowerUntil > now ? EMPOWER_MULT : 1;
+}
+
+// 탱커 3스킬(불굴의 함성) — 활성 시 방어 ×RALLY_DEF_MULT(1.2), 비활성 1.
+export function rallyDefenseMultiplier(buffs: SkillBuffs, now: number) {
+  return buffs.rallyDefUntil > now ? RALLY_DEF_MULT : 1;
 }
 
 export function rapidFireCooldownScale(buffs: SkillBuffs, now: number) {
@@ -225,6 +234,7 @@ export function resetSecondSkillEffects(buffs: SkillBuffs) {
   buffs.unbreakableUntil = 0;
   buffs.empowerUntil = 0;
   buffs.spiritStormTicksLeft = 0;
+  buffs.rallyDefUntil = 0;
 }
 
 export function activeBurnCount() {
@@ -321,10 +331,10 @@ export const RALLY_BURST_RADIUS = 3.5;
 export const THIRD_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   warrior: { name: "대지가르기", summary: "주변 모든 적에게 공격력 2배의 광역 강타.", manaCost: 50, cooldown: 35 },
   healer: { name: "심판의 빛", summary: "5분간 자신과 파티원 전체의 공격력·방어력을 +10% 높입니다.", manaCost: 50, cooldown: 240 },
-  mage: { name: "메테오", summary: "거대한 운석을 떨어뜨려 넓은 범위에 큰 피해를 줍니다.", manaCost: 55, cooldown: 32 },
+  mage: { name: "메테오", summary: "거대한 운석을 떨어뜨려 넓은 범위에 큰 피해를 줍니다.", manaCost: 55, cooldown: 22 },
   summoner: { name: "정령 폭풍", summary: "주변에 바람 정령 폭풍을 일으켜 3초간 초당 광역 피해(총 3회)를 줍니다.", manaCost: 45, cooldown: 28 },
   gunner: { name: "관통 강탄", summary: "강력한 관통탄을 발사해 직선상의 적에게 큰 피해를 줍니다.", manaCost: 55, cooldown: 30 },
-  tanker: { name: "불굴의 함성", summary: `${UNBREAKABLE_SECONDS}초 동안 방어 +${UNBREAKABLE_ARMOR}, 주변 적에게 즉시 화상 피해.`, manaCost: 50, cooldown: 70 },
+  tanker: { name: "불굴의 함성", summary: "20초 동안 자신과 파티원 전체의 방어력을 +20% 높입니다.", manaCost: 50, cooldown: 60 },
 };
 
 // 3스킬 컨텍스트 — 2스킬 컨텍스트에 광역 대상/자가회복만 추가.
@@ -401,11 +411,10 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   // tanker — 불굴의 함성
   if (!context.trySpend(skill)) return;
   context.castImpact();
-  context.buffs.unbreakableUntil = context.now() + UNBREAKABLE_SECONDS * 1000;
-  const burst = thornsTickDamage(bonus) * 2;
-  for (const target of context.nearbyCombatTargets(RALLY_BURST_RADIUS)) context.applyDamage(target, burst);
+  context.buffs.rallyDefUntil = context.now() + RALLY_DEF_SECONDS * 1000; // 자신 방어 +20%
+  const buffed = partyRallyNearby(RALLY_DEF_SECONDS * 1000, RALLY_PARTY_RADIUS); // 같은 맵 파티원 전원
   context.playHandAction("melee");
   context.playTone(220, 0.2, "sawtooth", 0.035);
-  context.showMessage(`불굴의 함성! ${UNBREAKABLE_SECONDS}초 동안 방어 +${UNBREAKABLE_ARMOR}.`);
+  context.showMessage(buffed > 0 ? `불굴의 함성! 20초간 나와 파티원 ${buffed}명 방어 +20%.` : "불굴의 함성! 20초간 방어 +20%.");
   context.renderHud();
 }

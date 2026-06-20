@@ -1344,7 +1344,7 @@ try {
     assert(gunnerShotDamage(0) === 100 && gunnerShotDamage(50) === 200, "gunner shot should scale 2.0x level bonus");
     assert(healerHealAmount(0) === 15 && healerHealAmount(50) === 65, "healer heal should scale 1.0x level bonus");
     assert(fireballDamage(0) === 45 && fireballDamage(50) === 125, "fireball should scale 1.6x level bonus");
-    assert(windSpiritDamage(0) === 35 && windSpiritDamage(50) === 95, "wind spirit should scale 1.2x level bonus");
+    assert(windSpiritDamage(0) === 35 && windSpiritDamage(50) === 105, "wind spirit should scale 1.4x level bonus");
     assert(burnTickDamage(50) === 29 && thornsTickDamage(50) === 33 && healingRainTick(50) === 22, "dot/aura/rain ticks should scale");
     assert(burningStrikeDamage(40) === 80, "burning strike should double current attack damage");
   }
