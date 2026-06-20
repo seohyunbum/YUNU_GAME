@@ -4,7 +4,7 @@ import Peer, { type DataConnection } from "peerjs";
 // 호스트-게스트 WebRTC P2P. 시그널링은 PeerJS 퍼블릭 브로커(악수만 중개, 게임 데이터는 P2P).
 // 이 파일이 연결 기술을 전부 격리한다 — 시그널링을 갈아타도 UI/게임 코드는 그대로.
 
-export const PARTY_PROTOCOL_VERSION = 2; // v2: 호스트 권위 월드 공유 (mobs/attackRequest/partyKill/mobHit)
+export const PARTY_PROTOCOL_VERSION = 3; // v3: 아이템·설치물·집 공유 신규 메시지(pickupRequest/pickupGrant/dropRequest/placeRequest/storage*·supplyClaimReq) 추가. 구버전(v2)은 같은 버전이라 접속은 되지만 새 메시지를 무시→기능 조용히 실패했으므로 버전 분리: 이제 버전 불일치 시 접속 단계에서 명확히 거부("새로고침" 안내).
 export const PARTY_MAX_MEMBERS = 4; // 호스트 포함
 
 // 혼동 글자(0/O/1/I) 제외 32자 — 6자리 초대 코드
