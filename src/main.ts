@@ -2546,7 +2546,7 @@ class WildernessGame {
       updatePartyPresence(performance.now(), delta);
       this.updateTrains(delta);
       this.updateAnimals(delta);
-      this.updateVillagers(delta);
+      this.updateVillagers(delta); this.updateVisibilityCulling(delta); // 타이틀 배경(마을)도 컬링 — 미적용 시 전 객체 렌더(~3300)
       return;
     }
     if (this.currentPanel === null) this.playSeconds += delta; // 실시간 플레이타임 누적(패널 열림 제외)
@@ -2673,8 +2673,8 @@ class WildernessGame {
     if (this.visibilityCullTimer < interval) return;
     this.visibilityCullTimer = 0;
 
-    const playerX = this.playerPosition.x;
-    const playerZ = this.playerPosition.z;
+    const playerX = this.gameStarted ? this.playerPosition.x : this.frameScratch.titleFocus.x;
+    const playerZ = this.gameStarted ? this.playerPosition.z : this.frameScratch.titleFocus.z;
     const objects = Array.from(this.objects.values());
     if (objects.length === 0) {
       this.visibilityCullCursor = 0;
@@ -8487,7 +8487,7 @@ class WildernessGame {
     well.position.copy(position.clone().add(new THREE.Vector3(-1, 0, -9)));
     this.addWorldObject("villageHouse", "마을 우물", well, { collidable: true, collisionRadius: 1.55, collisionHeight: 1.0, villageId });
 
-    for (let i = 0; i < (special ? 12 : 7); i += 1) {
+    for (let i = 0; i < (isTouchDevice() ? (special ? 2 : 0) : (special ? 12 : 7)); i += 1) { // 모바일: 일반 주민 거의 제거(가드는 유지) — 가까운 마을 NPC 드로우콜 절감
       this.spawnVillager(position.clone().add(new THREE.Vector3(THREE.MathUtils.randFloat(-ringRadius, ringRadius), 0, THREE.MathUtils.randFloat(-ringRadius, ringRadius))), villageId, position.clone(), ringRadius);
     }
     const meleeCount = special ? 5 : 3;
