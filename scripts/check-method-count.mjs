@@ -14,7 +14,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 품질 선택 메서드 3개(loadQualityMode·fogFarForQuality·updateQualityButtons)로 473→476.
 // 2026-06-20: broadcastSharedStorage(공유 창고 동기화 전송) 1개 → 476→477.
 // 2026-06-20: appendPartyLedger(파티 거래 기록) 1개 → 477→478.
-const MAX_METHODS = 478;
+// 2026-06-20: bodyMeleeAttackPower(빙의 데미지=본체 능력치 추출) 1개 → 478→479.
+const MAX_METHODS = 479;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

@@ -128,10 +128,8 @@ import {
   CROUCH_HEIGHT,
   DAY_LENGTH_SECONDS,
   DRAGON_BOSS_BAR_DISTANCE,
-  EAGLE_ARMOR,
   GUNNER_SKILL_COST,
   GUNNER_SKILL_COOLDOWN,
-  EAGLE_MAX_HP,
   EAGLE_POSSESSION_DURATION_SECONDS,
   EAGLE_RAM_DAMAGE,
   EXPANDED_BAG_SLOT_COUNT,
@@ -341,7 +339,7 @@ import { initPartyFlow } from "./game/partyFlow";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
-import { eagleSkillStatus as formatEagleSkillStatus, possessedEagleDamage, tryEagleClaw, tryEagleWindCutter, type EagleActionContext } from "./game/eaglePossession";
+import { eagleSkillStatus as formatEagleSkillStatus, tryEagleClaw, tryEagleWindCutter, type EagleActionContext } from "./game/eaglePossession";
 import { applyOverworldTimeOfDay, gameClockText, timeOfDayName, moodForWorldMap } from "./game/timeOfDay";
 import "./style.css";
 
@@ -507,7 +505,7 @@ class WildernessGame {
   private craftStatPoints = 0; // 미사용 스탯 포인트
   private craftStatAlloc: CraftStatAlloc = createCraftStatAlloc(); // 제작 레벨업으로 찍은 분배 (hp/mana +2, attack/defense +1)
   private healItemCooldownUntil = 0;
-  private possessedEagleId: string | null = null; private eaglePossessionEndsAt = 0;
+  private possessedEagleId: string | null = null; private eaglePossessionEndsAt = 0; private eaglePossessionMaxHp = 0;
   private eagleClawCooldownUntil = 0; private windCutterCooldownUntil = 0;
   private readonly summonerCompanion = new SummonerCompanionController();
   private playerBodyPosition: THREE.Vector3 | null = null;
@@ -715,7 +713,7 @@ class WildernessGame {
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
   };
   private readonly eagleActionContext: EagleActionContext = {
-    possessedEagleId: () => this.possessedEagleId, selectedItem: () => this.hotbar[this.selectedHotbarIndex]?.item, levelBonus: () => this.levelStatBonus(),
+    possessedEagleId: () => this.possessedEagleId, selectedItem: () => this.hotbar[this.selectedHotbarIndex]?.item, bodyAttackPower: () => this.bodyMeleeAttackPower(), healEagle: (amount) => { const eagle = this.possessedEagleId ? this.objects.get(this.possessedEagleId) : null; if (eagle) { eagle.hp = Math.min(this.eaglePossessionMaxHp, (eagle.hp ?? 0) + Math.max(0, amount)); this.renderHud(); } },
     clawCooldownUntil: () => this.eagleClawCooldownUntil, windCutterCooldownUntil: () => this.windCutterCooldownUntil,
     setClawCooldownUntil: (value) => { this.eagleClawCooldownUntil = value; }, setWindCutterCooldownUntil: (value) => { this.windCutterCooldownUntil = value; },
     target: () => this.eagleCombatTarget(), scene: this.scene, camera: this.camera, projectiles: this.projectiles, combatEffectContext: this.combatEffectContext,
@@ -4856,12 +4854,14 @@ class WildernessGame {
     return "coal";
   }
 
-  private currentDamage() {
-    const bonus = this.levelStatBonus();
-    if (this.possessedEagleId) return possessedEagleDamage(EAGLE_RAM_DAMAGE, this.hotbar[this.selectedHotbarIndex]?.item, bonus);
+  private bodyMeleeAttackPower() { // 본체 근접 공격력(무기+레벨+훈련+제작+목걸이 ×심판의빛) — 빙의 공격도 이를 사용
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
-    const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한 → 약한 무기/맨손도 최고 근접 이상
-    return Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + bonus + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()));
+    const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한
+    return Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()));
+  }
+  private currentDamage() {
+    if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE; // 빙의 박치기 = 본체 공격력 + 5
+    return this.bodyMeleeAttackPower();
   }
 
   private currentRangedDamage(item: ItemId) {
@@ -4876,7 +4876,7 @@ class WildernessGame {
   }
 
   private displayedAttackPower() {
-    if (this.possessedEagleId) return possessedEagleDamage(EAGLE_RAM_DAMAGE, this.hotbar[this.selectedHotbarIndex]?.item, this.levelStatBonus());
+    if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE;
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     if (selectedItem && this.isRangedWeapon(selectedItem)) return this.currentRangedDamage(selectedItem);
     return this.currentDamage();
@@ -4942,9 +4942,10 @@ class WildernessGame {
   private spawnEagleSummon(position: THREE.Vector3) {
     const root = createEagleVisual();
     root.position.copy(position);
+    this.eaglePossessionMaxHp = this.maxHealth + Math.floor(this.level); // 독수리 HP = 본체 maxHealth + 레벨
     const eagle = this.addWorldObject("eagleSummon", "소환 독수리", root, {
-      hp: EAGLE_MAX_HP,
-      armor: EAGLE_ARMOR,
+      hp: this.eaglePossessionMaxHp,
+      armor: Math.floor(this.level / 5), // 표시용; 실제 피해계산은 본체방어 + 레벨/5(아래)
       collidable: false,
       collisionRadius: 0.75,
       collisionHeight: 1.4,
@@ -4991,7 +4992,7 @@ class WildernessGame {
       this.endEaglePossession(false);
       return false;
     }
-    const armor = ignoreArmor ? 0 : EAGLE_ARMOR;
+    const armor = ignoreArmor ? 0 : this.equippedArmorValue() + Math.floor(this.level / 5); // 본체 방어 + 레벨/5 (버프 포함)
     const damage = ignoreArmor ? Math.max(1, Math.floor(amount)) : this.calculateCombatDamage(amount, armor);
     this.lastDamageTaken = damage;
     this.lastDamageBlocked = damage <= 0;
@@ -4999,14 +5000,14 @@ class WildernessGame {
       this.showMessage(`독수리 방어력 ${armor}이 공격 ${amount}을 막았습니다.`);
       return false;
     }
-    eagle.hp = Math.max(0, (eagle.hp ?? EAGLE_MAX_HP) - damage);
+    eagle.hp = Math.max(0, (eagle.hp ?? this.eaglePossessionMaxHp) - damage);
     if (showParticles) spawnEnemyHitParticles(this.combatEffectContext, eagle);
     if (showParticles) this.playTone(130, 0.08, "sawtooth", 0.024);
     if (eagle.hp <= 0) {
       this.endEaglePossession(true);
       return false;
     }
-    this.showMessage(`독수리가 ${damage} 피해를 받았습니다. 남은 체력 ${Math.ceil(eagle.hp)}/${EAGLE_MAX_HP}.`);
+    this.showMessage(`독수리가 ${damage} 피해를 받았습니다. 남은 체력 ${Math.ceil(eagle.hp)}/${this.eaglePossessionMaxHp}.`);
     this.renderHud();
     return false;
   }
@@ -6472,8 +6473,8 @@ class WildernessGame {
         equipmentArmor,
         equippedGearLabel: [this.equippedArmor, this.equippedShield, this.equippedNecklace].filter((item): item is ItemId => Boolean(item)).map((item) => ITEM_NAMES[item] ?? item).join(" · ") || undefined,
         statBonus,
-        eagleHp: eagle ? eagle.hp ?? EAGLE_MAX_HP : undefined,
-        eagleMaxHp: EAGLE_MAX_HP,
+        eagleHp: eagle ? eagle.hp ?? this.eaglePossessionMaxHp : undefined,
+        eagleMaxHp: this.eaglePossessionMaxHp,
         eagleSkillStatus,
         timeLabel: `${timeOfDayName(hour)} ${gameClockText(hour)}`,
         locationLabel: this.locationMode === "cave" ? "동굴" : this.locationMode === "house" ? "집 안" : "야생",

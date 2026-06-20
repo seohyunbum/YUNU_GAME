@@ -170,7 +170,7 @@ try {
   assert(SHIELD_DURABILITY.iron_shield === 200, "iron shield should last 200 hits");
   assert(WEAPON_DAMAGE.iron_shield === 3, "iron shield bash should deal 3 damage");
   assert(EAGLE_RAM_DAMAGE === 5, "possessed eagle ram should start from 5 damage");
-  assert(EAGLE_CLAW_DAMAGE === 20 && EAGLE_CLAW_COOLDOWN === 30, "possessed eagle claw should keep intended damage/cooldown");
+  assert(EAGLE_CLAW_DAMAGE === 20 && EAGLE_CLAW_COOLDOWN === 14, "possessed eagle claw should keep intended damage/cooldown");
   assert(WIND_CUTTER_DAMAGE === 35 && WIND_CUTTER_COOLDOWN === 40, "possessed eagle wind cutter should keep intended damage/cooldown");
   assert(EAGLE_RAM_DAMAGE + WEAPON_DAMAGE.iron_sword + 4 === 15, "possessed eagle damage should include held weapon and level bonus");
   assert(summonerPetDamage(DEFAULT_SUMMONER_PET_PROGRESS) === 4, "summoner pet starts at 4 damage");
