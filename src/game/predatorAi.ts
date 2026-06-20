@@ -201,7 +201,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     if (!aggroed && distance > aggroRange * 1.8) predator.wanderAngle = (predator.wanderAngle ?? 0) + THREE.MathUtils.randFloatSpread(0.08);
     const angle = aggroed ? Math.atan2(dz, dx) : predator.wanderAngle ?? 0;
     const predatorStats = context.predatorStats(predator.predatorKind, predator.monsterId as MonsterId | undefined);
-    const speed = aggroed ? predatorStats.speed : predatorStats.speed * 0.28;
+    const speed = aggroed ? predatorStats.speed + (predator.speedBonus ?? 0) : predatorStats.speed * 0.28; // 보스별 추격 속도 가산(speedBonus)
     nextPosition.set(
       THREE.MathUtils.clamp(predator.root.position.x + Math.cos(angle) * speed * delta, -WORLD_SIZE / 2 + 6, WORLD_SIZE / 2 - 6),
       0,
