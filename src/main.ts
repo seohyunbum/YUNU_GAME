@@ -243,6 +243,7 @@ import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapByI
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
 import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
 import { updateVillageGuards, type GuardAiContext } from "./game/guardAi";
+import { spawnGuardRock, updateGuardRocks, type GuardRock, type GuardRockContext } from "./game/guardRocks";
 import { keepOutOfBuildings } from "./game/npcMovement";
 import { hitStopScale, triggerHitFeedback, updateHitFeedback, type HitFeedbackDeps } from "./game/hitFeedback";
 import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, createMonsterFortressInterior, createSiegeArenaInterior, type InteriorContext } from "./game/interiors";
@@ -766,7 +767,9 @@ class WildernessGame {
     renderHud: () => this.renderHud(),
   };
 
-  private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }), keepOutOfBuildings: (position) => keepOutOfBuildings(position, this.objectsNear(position, 7)) };
+  private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }), keepOutOfBuildings: (position) => keepOutOfBuildings(position, this.objectsNear(position, 7)), throwRock: (fx, fy, fz, tx, tz, dmg) => spawnGuardRock(this.guardRocks, this.guardRockContext, new THREE.Vector3(fx, fy, fz), new THREE.Vector3(tx, this.getGroundHeightAt(tx, tz), tz), dmg) };
+  private readonly guardRocks: GuardRock[] = [];
+  private readonly guardRockContext: GuardRockContext = { add: (m) => this.scene.add(m), remove: (m) => this.scene.remove(m), playerPosition: this.playerPosition, damagePlayer: (a, s, r) => this.damagePlayer(a, s, r), impact: (p) => spawnProjectileImpact(this.combatEffectContext, p, "arrow") };
 
   private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => predatorAggroRangeFor(kind), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => this.damagePlayer(amount, showParticles, reason), effects: () => this.combatEffectContext, showMessage: (text) => this.showMessage(text) };
   private readonly hotbarUseContext: HotbarUseContext = {
@@ -2586,6 +2589,7 @@ class WildernessGame {
     this.summonerCompanion.update(this.summonerPetContext, delta);
     this.updateEnvironmentHazards(delta);
     if (!partyWorldGuestActive()) updateVillageGuards(this.guardAiContext, delta); // 파티 게스트 — 경비는 호스트 권위 (스냅샷으로 보간)
+    updateGuardRocks(this.guardRocks, this.guardRockContext, delta); // 골렘 바위 투척 비행/착탄
     this.updateHand(delta);
     this.updateMirrorView(delta);
     this.updateHunger(delta);
@@ -9089,7 +9093,7 @@ class WildernessGame {
     group.position.copy(position);
     return this.addWorldObject("villageKnight", "마을기사", group, {
       hp: 90,
-      armor: 15,
+      armor: 18,
       collidable: true,
       collisionRadius: 0.78,
       collisionHeight: 2.42,
@@ -9153,7 +9157,7 @@ class WildernessGame {
     group.position.copy(position);
     return this.addWorldObject("villageGolem", "마을 수호신 골렘", group, {
       hp: 180,
-      armor: 25,
+      armor: 30,
       collidable: true,
       collisionRadius: 1.45,
       collisionHeight: 3.9,

@@ -145,6 +145,7 @@ export interface WorldObject {
   foodRemaining?: number;
   angryUntil?: number;
   attackCooldown?: number;
+  skillCooldown?: number; // 마을 골렘 바위 던지기 등 별도 스킬 쿨다운(초)
   digDepth?: number;
   maxDigDepth?: number;
   terrainKind?: TerrainKind;

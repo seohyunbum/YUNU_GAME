@@ -194,7 +194,7 @@ export function createRangedGuardVisual(type: Extract<ObjectType, "villageArcher
     group,
     name: isMage ? "마을 마법사" : "마을 궁수",
     hp: isMage ? 72 : 78,
-    armor: isMage ? 12 : 13,
+    armor: isMage ? 14 : 16,
     collisionRadius: isMage ? 0.68 : 0.64,
     collisionHeight: isMage ? 2.35 : 2.1,
     attackRange: isMage ? 22 : 18,
