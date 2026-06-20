@@ -39,6 +39,7 @@ import {
   shouldHideInvisibleMeshFromRender,
   shouldShowPerformanceHiddenVisual,
   updateDistanceCulledVisuals,
+  applyOutlineDistanceGate,
 } from "./game/renderPerformance";
 import {
   createChestVisual,
@@ -199,6 +200,7 @@ import {
   WARRIOR_SKILL_COST,
   WORKBENCH_SLOT_COUNT,
   WORLD_SIZE,
+  OUTLINE_VISIBILITY_DISTANCE,
 } from "./game/constants";
 import type {
   AnimalKind,
@@ -2704,6 +2706,7 @@ class WildernessGame {
         object.root.visible = visible;
         changes += 1;
       }
+      if (object.outlines) applyOutlineDistanceGate(object.outlines, this.qualityMode, this.sprintRenderOptimized, visible, dx * dx + dz * dz, OUTLINE_VISIBILITY_DISTANCE);
     }
     this.visibilityCullCursor = (this.visibilityCullCursor + scanned) % objects.length;
     if (changes >= maxChanges && scanned < objects.length) this.visibilityCullTimer = interval;
@@ -9383,10 +9386,11 @@ class WildernessGame {
     capCreatureRaycastMeshes(type, raycastMeshes); // 크리처는 큰 메시 몇 개만 raycast 대상으로 — 근처 look-raycast 비용·등록 수↓(타겟 몸통 유지)
     for (const mesh of raycastMeshes) this.raycastTargets.push(mesh);
     applyStylizedMeshDefaults(root, this.shadowOptionsForType(type));
-    this.addCartoonOutlines(root, type);
+    const outlines = this.addCartoonOutlines(root, type);
     this.addContactShadow(root, type, extra);
     this.scene.add(root);
     const object: WorldObject = { id, type, name, root, ...extra };
+    if (outlines.length) object.outlines = outlines;
     this.objects.set(id, object);
     let typeSet = this.objectIdsByType.get(type);
     if (!typeSet) {
@@ -9458,7 +9462,7 @@ class WildernessGame {
   }
 
   private addCartoonOutlines(root: THREE.Object3D, type: ObjectType) {
-    if (!this.shouldOutlineType(type)) return;
+    if (!this.shouldOutlineType(type)) return [];
     const targets: THREE.Mesh[] = [];
     root.traverse((child) => {
       if (!(child instanceof THREE.Mesh) || child instanceof THREE.InstancedMesh) return;
@@ -9468,6 +9472,7 @@ class WildernessGame {
     });
 
     const scale = this.outlineScaleForType(type);
+    const created: THREE.Object3D[] = [];
     for (const mesh of targets) {
       const outline = new THREE.Mesh(mesh.geometry, this.cartoonOutlineMaterial);
       outline.name = `${mesh.name || "mesh"}-outline`;
@@ -9482,8 +9487,9 @@ class WildernessGame {
       outline.visible = shouldShowPerformanceHiddenVisual(outline, this.qualityMode, false);
       mesh.parent?.add(outline);
       this.outlineVisuals.push(outline);
-      this.sprintHiddenVisuals.push(outline);
+      this.sprintHiddenVisuals.push(outline); created.push(outline);
     }
+    return created;
   }
 
   private isInvisibleMesh(mesh: THREE.Mesh) {
