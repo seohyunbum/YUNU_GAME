@@ -6674,7 +6674,8 @@ class WildernessGame {
           ingredients: ingredientCounts(option.ingredients, itemCounts),
           canBuild: this.hasIngredients(option.ingredients) && this.locationMode === "overworld",
         })),
-        recipeGuide: buildRecipeGuideEntriesForStations(itemCounts), // 전 스테이션(제작대·제련대·분쇄기 등) 모든 제작 가능 아이템 검색
+        recipeGuide: buildRecipeGuideEntriesForStations(itemCounts).filter((e) => !((e.id === "bag" && this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT) || (e.id === "big_bag" && this.bagSlots.length >= MEGA_BAG_SLOT_COUNT))), // 일회성 업그레이드 완료 시 검색목록에서도 숨김
+
       },
       {
         onClose: () => this.closePanel(),
@@ -6697,7 +6698,8 @@ class WildernessGame {
   private renderWorkbenchPanel() {
     const station = this.currentStationId ? this.objects.get(this.currentStationId) : null;
     const isExtended = station?.type === "extendedWorkbench";
-    const recipes = this.workbenchRecipesForStation(isExtended);
+    const bagDone = this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT, bigBagDone = this.bagSlots.length >= MEGA_BAG_SLOT_COUNT; // 일회성 업그레이드(가방·확장가방)는 완료 후 제작목록에서 숨김 — 다시 만들 필요 없음
+    const recipes = this.workbenchRecipesForStation(isExtended).filter((r) => !((r.output === "bag" && bagDone) || (r.output === "big_bag" && bigBagDone)));
     const currentRecipe = this.workbenchRecipeFromSlots(isExtended);
     const gridSize = isExtended ? "6x6" : "3x3";
     const resultLabel = currentRecipe ? `${currentRecipe.name} ${currentRecipe.count}` : "조합 대기";
