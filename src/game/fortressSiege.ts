@@ -17,9 +17,9 @@ export function levelForStage(baseLevel: number, stage: number): number {
 export function tomesForStage(stage: number): number {
   return 1 + Math.floor((stage - 1) / 3); // 1~3단계 1개, 4~6 2개, 7~9 3개 …
 }
-// 단계가 오를수록 정예(강화) 비율↑
+// 단계가 오를수록 정예(강화) 비율↑ — 3단계 급증 절벽 완화(0.08+0.04→0.05+0.025, 상한 0.5→0.4, #3)
 export function eliteChance(stage: number): number {
-  return Math.min(0.08 + stage * 0.04, 0.5);
+  return Math.min(0.05 + stage * 0.025, 0.4);
 }
 // 단계별 추가 아이템 보상(전직의서와 별개)
 export function itemsForStage(stage: number): Partial<Record<ItemId, number>> {
@@ -136,7 +136,7 @@ export function updateSiege(state: SiegeState, context: SiegeContext, delta: num
 function beginNextWave(state: SiegeState, context: SiegeContext) {
   state.toSpawn = monstersForWave(state.stage);
   state.spawnTimer = 0.3;
-  if (state.waveIndex === 0) context.showMessage(`🏰 ${state.stage}단계 도전 시작! (웨이브 ${state.wavesInStage}개) 중앙을 사수하세요.`); // 새 단계 첫 웨이브 진입 알림
+  if (state.waveIndex === 0) context.showMessage(`🏰 ${state.stage}단계 도전 시작! (웨이브 ${state.wavesInStage}개 · 정예 ${Math.round(eliteChance(state.stage) * 100)}%) 중앙을 사수하세요.`); // 새 단계 알림 + 정예 출현률 텔레그래프(#3)
   context.renderHud();
 }
 

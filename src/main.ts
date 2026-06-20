@@ -7662,8 +7662,8 @@ class WildernessGame {
     slot.durabilityUsed = (slot.durabilityUsed ?? 0) + 1;
     const remaining = maxUses - slot.durabilityUsed;
     if (remaining > 0) {
-      if (remaining <= Math.min(5, Math.ceil(maxUses * 0.2))) {
-        this.showMessage(`${reason} ${ITEM_NAMES[item]} 내구도 ${remaining}/${maxUses}.`);
+      if (remaining <= Math.min(8, Math.ceil(maxUses * 0.3))) {
+        this.showMessage(`⚒️ ${reason} ${ITEM_NAMES[item]} 내구도 ${remaining}/${maxUses} — 0이 되면 부서집니다. 제작대에서 수리하세요.`);
       }
       return;
     }
