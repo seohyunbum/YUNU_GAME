@@ -226,7 +226,7 @@ function awardSummonerExperience(reward: number, context: SummonerPetContext, ac
   const pet = CLASS_PASSIVES.summoner.pet;
   if (pet && activePet) {
     const petExperience = Math.max(1, Math.round(reward * pet.petXpShare));
-    context.gainPlayerExperience(reward); // 플레이어는 full XP(차감 없음) — 펫 몫은 추가 보너스
+    context.gainPlayerExperience(Math.round(reward * pet.playerXpShare)); // 플레이어 85%(15% 손해) — 펫 몫은 별도 추가 보너스
     gainSummonerPetExperience(context, petExperience);
     return;
   }
