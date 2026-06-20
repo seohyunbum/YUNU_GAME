@@ -150,3 +150,6 @@ export const SPRINT_VISIBILITY_CHANGES_PER_PASS = 70;
 export const SPRINT_SHADOW_REFRESH_INTERVAL = 1.4;
 export const MOVEMENT_COLLISION_STEP = 0.32;
 export const MOVEMENT_HUD_MIN_INTERVAL = 0.18;
+// 아웃라인 거리 게이트 — 이 거리 밖 객체는 본체는 보이되 아웃라인(외곽선)만 끔(PC=high 전용; 모바일은 아웃라인 자체 off).
+// 먼 외곽선은 서브픽셀이라 체감 품질 손실 ~0. 마을이 스폰서 ~95m → 85면 스폰뷰 마을 외곽선 off, 마을 진입 시 복귀. HUD 로 튜닝.
+export const OUTLINE_VISIBILITY_DISTANCE = 85;

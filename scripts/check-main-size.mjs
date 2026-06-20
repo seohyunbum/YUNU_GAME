@@ -23,7 +23,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 랭킹 공정성 — 기록 당시 baseLevel 저장/발행(난이도 맥락 'Lv N' 표기) → 9703→9711.
 // 2026-06-20: 적대적QA 클러스터A — 요새 보상 즉시저장(saveSiegeRewardSnapshot)+패널닫기 자동저장 → 9711→9725.
 // 2026-06-20: 적대적QA — 배고픔 경고 텔레그래프 + 동굴 출현 pity(caveMissStreak) → 9725→9730.
-const MAX_MAIN_LINES = 9730;
+// 2026-06-20: PC 아웃라인 거리 게이트(outline distance gating) — addCartoonOutlines 반환화+object.outlines+컬링 게이트 → 9730→9736.
+const MAX_MAIN_LINES = 9736;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

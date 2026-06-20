@@ -64,6 +64,20 @@ export function shouldShowPerformanceHiddenVisual(
   return true;
 }
 
+// 아웃라인 거리 게이트 — 본체보다 짧은 거리에서 외곽선만 끔. shouldShowPerformanceHiddenVisual(품질·스프린트)에 거리 항을 AND.
+// bodyVisible: 본체가 거리컬링으로 보이는 상태인지(본체 꺼지면 자식 미렌더지만 일관성 위해 false 로 정리).
+export function applyOutlineDistanceGate(
+  outlines: THREE.Object3D[],
+  qualityMode: QualityMode,
+  sprintRenderOptimized: boolean,
+  bodyVisible: boolean,
+  dist2: number,
+  maxDistance: number,
+) {
+  const want = bodyVisible && !sprintRenderOptimized && qualityMode === "high" && dist2 <= maxDistance * maxDistance;
+  for (const outline of outlines) if (outline.visible !== want) outline.visible = want;
+}
+
 export function refreshTrackedVisualVisibility(
   visuals: THREE.Object3D[],
   qualityMode: QualityMode,

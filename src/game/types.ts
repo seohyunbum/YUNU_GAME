@@ -128,6 +128,7 @@ export interface WorldObject {
   type: ObjectType;
   name: string;
   root: THREE.Object3D;
+  outlines?: THREE.Object3D[]; // 카툰 아웃라인 메시들 — 거리 게이트(updateVisibilityCulling)로 토글. PC(high) 전용, 없으면 undefined.
   hp?: number;
   armor?: number;
   ore?: ItemId;
