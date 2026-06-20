@@ -108,6 +108,8 @@ export type PartyMessage =
   | { type: "pickupRequest"; objectId: string }
   | { type: "pickupGrant"; nickname: string; items: { item: string; count: number }[] }
   | { type: "dropRequest"; item: string; count: number; x: number; z: number }
+  // 설치 = placeRequest → 호스트 월드에 설치물 생성(스냅샷 전파 → 전원이 봄). 게스트가 놓은 제작대·제련대 등을 공유.
+  | { type: "placeRequest"; item: string; x: number; z: number; yaw: number }
   // 파티 채팅 — to 없으면 전체, 있으면 귓속말(호스트가 대상에게만 중계)
   | { type: "chat"; from: string; text: string; to?: string };
 
@@ -266,7 +268,7 @@ export class PartySession {
         link.presenceAt = performance.now();
       }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
-      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest") && link.nickname) this.emitGame(message, link.nickname);
+      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest" || message.type === "placeRequest") && link.nickname) this.emitGame(message, link.nickname);
       // 5.1 — 게스트가 보낸 공격 연출·파티 힐: 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
       if (message.type === "playerAttack" || message.type === "partyHeal") {
         this.emitGame(message, link.nickname ?? undefined);

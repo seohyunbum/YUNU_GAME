@@ -34,7 +34,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 저사양 모드 선택 — 타이틀 품질 선택기(loadQualityMode·fogFarForQuality·updateQualityButtons)+applyQualityMode 확장 → 9785→9816.
 // 2026-06-20: 파티 아이템·설치물 공유(드롭/제련대/침대 sync + pickup/drop intercept·context 메서드) → 9816→9820.
 // 2026-06-20: 맵당 몬스터 ~2배(저사양 1.3배) — 초기 predatorCount + 리전 정상상태 캡 둘 다 품질연동 상향(ambientMul/capMul) → 9820→9822.
-const MAX_MAIN_LINES = 9822;
+// 2026-06-20: 게스트 설치물 공유(placeRequest→hostSpawnStation) — 게스트가 놓은 제작대/제련대 등도 파티 전원에 보이게. spawnPlaceableItem 게스트 라우팅 → 9822→9827.
+const MAX_MAIN_LINES = 9828;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
