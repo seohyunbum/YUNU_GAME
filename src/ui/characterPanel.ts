@@ -1,6 +1,7 @@
 // 캐릭터 정보 창 — 착용 장비 + 스탯 확인, 제작 레벨업으로 얻은 스탯 포인트 분배.
 // leaf: main.ts 를 import 하지 않는다 (view model + 콜백만 받는다).
 import { initItemTooltips } from "./itemTooltip";
+import type { LeaderboardResult } from "../game/progressSync";
 
 export interface CharacterPanelView {
   className: string;
@@ -25,6 +26,8 @@ export interface CharacterPanelView {
   alloc: { hp: number; mana: number; attack: number; defense: number };
   monstersKilled: number; // 누적 처치 몬스터 수(기록)
   bestFortressStage: number; // 몬스터 요새 최고 클리어 단계(0 = 아직 없음)
+  leaderboard: LeaderboardResult | null; // 전체 플레이어 랭킹(null = 불러오는 중)
+  myNickname: string; // 내 행 강조용
 }
 
 export interface CharacterPanelCallbacks {
@@ -40,6 +43,22 @@ function escapeHtml(value: string) {
 // 착용 아이템이 있을 때만 마우스오버 툴팁용 data-item 속성을 만든다.
 function gearInfoAttr(item: string | null) {
   return item ? ` data-item="${escapeHtml(item)}"` : "";
+}
+
+const RANK_MEDALS = ["🥇", "🥈", "🥉"];
+
+// 전체 플레이어 TOP N 렌더(요새 최고 단계 기준). 내 행은 (나) 강조, top 밖이면 내 순위 별도 표시.
+function renderLeaderboard(board: LeaderboardResult | null, myNickname: string): string {
+  if (board === null) return `<div class="character-necklace-empty">불러오는 중…</div>`;
+  if (board.top.length === 0) return `<div class="character-necklace-empty">아직 요새 기록이 없어요. 1등에 도전해 보세요! (오프라인이면 잠시 후 다시 열어보세요)</div>`;
+  const rows = board.top
+    .map((entry, i) => {
+      const self = entry.nickname === myNickname;
+      return `<div class="character-gear-row"><span>${RANK_MEDALS[i] ?? `${i + 1}.`} ${escapeHtml(entry.nickname)}${self ? " <b>(나)</b>" : ""}</span><strong>${entry.stage}단계 · ${entry.kills.toLocaleString("ko-KR")}마리</strong></div>`;
+    })
+    .join("");
+  const mine = board.myRank && board.myRank > board.top.length ? `<div class="character-necklace-empty">내 순위 ${board.myRank}위 / 총 ${board.total}명</div>` : "";
+  return rows + mine;
 }
 
 const STAT_ROWS: { kind: "hp" | "mana" | "attack" | "defense"; label: string; per: number }[] = [
@@ -98,6 +117,10 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
           <div class="inventory-label">📜 기록</div>
           <div class="character-gear-row"><span>🗡️ 잡은 몬스터</span><strong>${view.monstersKilled.toLocaleString("ko-KR")}마리</strong></div>
           <div class="character-gear-row"><span>🏰 요새 최고 단계</span><strong>${view.bestFortressStage > 0 ? `${view.bestFortressStage}단계` : "아직 없음"}</strong></div>
+        </div>
+        <div class="character-gear character-records">
+          <div class="inventory-label">🏆 전체 TOP 3 <span class="character-records-sub">(요새 최고 단계)</span></div>
+          ${renderLeaderboard(view.leaderboard, view.myNickname)}
         </div>
         <p class="character-note">제작 레벨이 오르면 포인트를 얻어 위 스탯을 올릴 수 있어요 (체력·마나 +2, 공격·방어 +1).</p>
       </section>
