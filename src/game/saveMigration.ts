@@ -294,6 +294,9 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       craftStatPoints: savedInteger(player.craftStatPoints, 0, 0, 9999),
       // 구세이브엔 없을 수 있다 — 있으면 보존, 없으면 키 자체를 빼서 restoreSaveData 가 현재 포인트를 유지(0 으로 덮어쓰지 않음).
       ...(typeof player.arcadePoints === "number" ? { arcadePoints: savedInteger(player.arcadePoints, 0, 0, Number.POSITIVE_INFINITY) } : {}),
+      // ★파티 거래 원장 키/epoch — 마이그레이션이 통째로 player 를 재구성하므로 여기서 보존하지 않으면 매 로드마다 stripped → epoch 0 으로 과다 재적용(아이템 소실)·characterId 유실. 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 legacy 로 백필.
+      ...(typeof player.characterId === "string" && player.characterId ? { characterId: player.characterId } : {}),
+      ...(typeof player.partyLedgerEpoch === "number" ? { partyLedgerEpoch: savedInteger(player.partyLedgerEpoch, 0, 0, Number.POSITIVE_INFINITY) } : {}),
       craftStatAlloc: normalizeCraftStatAlloc(player.craftStatAlloc),
       homeStorage: normalizeSavedSlots(player.homeStorage, HOME_STORAGE_SLOTS, [], player.toolUses),
       homeSupplyCooldowns: normalizeSupplyCooldowns(player.homeSupplyCooldowns),

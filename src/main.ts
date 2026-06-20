@@ -5723,7 +5723,7 @@ class WildernessGame {
     this.refreshHandColor();
     this.enterGameplayMode();
     this.resetGameState();
-    this.currentCharacterId = crypto.randomUUID(); this.currentPartyLedgerEpoch = 0; clearPartyLedger(localStorage, this.currentCharacterId); // 새 플레이스루 = 새(빈) 파티 거래 원장
+    this.currentCharacterId = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") ? crypto.randomUUID() : `c${Date.now().toString(36)}${Math.floor(Math.random() * 1e12).toString(36)}`; this.currentPartyLedgerEpoch = 0; clearPartyLedger(localStorage, this.currentCharacterId); // 새 플레이스루 = 새(빈) 파티 거래 원장. crypto.randomUUID 는 비보안 컨텍스트(http/file)서 undefined 라 폴백.
     this.seedOverworld();
     precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.showMessage("새 게임을 시작했습니다.");
