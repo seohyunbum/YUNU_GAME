@@ -8,7 +8,7 @@ export function showObjectiveGuide(
   const overlay = document.createElement("div");
   overlay.className = "objective-guide";
   overlay.style.cssText =
-    "position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:18px;";
+    "position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);padding:18px;pointer-events:auto;"; // 부모 .game-ui 가 pointer-events:none 라 명시 auto — 닫기 버튼·배경 클릭이 먹게(버그 수정)
   const box = document.createElement("div");
   box.style.cssText =
     "max-width:min(92vw,440px);max-height:80vh;overflow:auto;background:#16241c;border:2px solid #f4d488;border-radius:14px;padding:18px;color:#fdf6e3;font-size:14px;line-height:1.55;box-shadow:0 8px 30px rgba(0,0,0,.5);";
