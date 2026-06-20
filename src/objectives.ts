@@ -196,6 +196,11 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   // ── 1차 전직 — 전직의서 3개로 전직의 표식을 만들어 레벨 30+에서 사용 ──
   checkQuest("advance_job_tier1", (s) => s.jobTier >= 1, "1차 전직 달성", "전직의서 3개로 제작대에서 '전직의 표식'을 만들고, 레벨 30 이상에서 표식을 핫바에 넣어 숫자키로 사용하면 1차 전직합니다. 직업별 새 스킬(F)·스탯 상승·새 외형을 얻습니다!", { experience: 600, items: { advanced_medkit: 2, diamond: 3 }, label: "경험치 600 + 고급 구급상자 2개 + 다이아몬드 3개" }),
   checkQuest("advance_job_tier2", (s) => s.jobTier >= 2, "2차 전직 달성", "'전직의 각서'(흑요석 2 + 전직의 표식 1 + 전직의서 5)를 제작대에서 만들고, 레벨 50 이상에서 들고 사용하면 2차 전직합니다. 스탯이 더 오르고 모든 스킬 쿨다운이 짧아지며, 외형이 화려해집니다.", { experience: 1100, items: { advanced_medkit: 3, refined_diamond: 2 }, label: "경험치 1100 + 고급 구급상자 3개 + 제련된 다이아몬드 2개" }),
+  // ── 50~60 레벨대 보강 — 2차 전직(Lv50)과 최종 전직·용 보스(Lv70) 사이의 공백을 누적 사냥·최상급 무기·고레벨 진행으로 메움 ──
+  countQuest("hunt_200", 200, (s) => s.predatorKills, "누적 몬스터 200마리 처치", "100마리를 넘어 200마리까지! 50레벨대의 진정한 베테랑 사냥꾼이 되는 길입니다. 요새·동굴·들판 어디서 잡든 누적됩니다.", { experience: 1250, items: { refined_diamond: 2, advanced_medkit: 2 }, label: "경험치 1250 + 제련된 다이아몬드 2개 + 고급 구급상자 2개" }),
+  checkQuest("craft_ultimate_weapon", (s) => (["sharp_obsidian_staff", "sharp_obsidian_gun", "sharp_obsidian_shield", "obsidian_sword", "obsidian_dagger"] as ItemId[]).some((w) => s.countItem(w) > 0), "최상급 무기 갖추기", "직업별 최상급 무기를 만드세요 — 날카로운 흑요석 지팡이/총/방패(레전더리) 또는 흑요석 검/단검(에픽). 흑요석은 동굴 보스가 떨어뜨리며, 확장 제작대에서 제작합니다.", { experience: 1450, items: { sharp_obsidian: 3, advanced_medkit: 3 }, label: "경험치 1450 + 날카로운 흑요석 3개 + 고급 구급상자 3개" }),
+  countQuest("reach_level55", 55, (s) => s.level, "레벨 55 달성하기", "50레벨대는 2차 전직·원정 맵·용 보스에 도전하는 구간입니다. 꾸준히 사냥하고 퀘스트를 완료해 레벨 55를 찍어보세요.", { experience: 1650, items: { diamond: 4, advanced_medkit: 3 }, label: "경험치 1650 + 다이아몬드 4개 + 고급 구급상자 3개" }),
+  countQuest("hunt_fortress_boss_3", 3, (s) => s.fortressBossKills, "몬스터 동굴 보스 3회 처치", "동굴 보스는 흑요석과 전직의서를 떨굽니다. 3번 처치해 최상급 장비 재료와 전직 재료를 든든히 모으세요.", { experience: 1850, items: { advanced_medkit: 4, refined_diamond: 2 }, label: "경험치 1850 + 고급 구급상자 4개 + 제련된 다이아몬드 2개" }),
   checkQuest("advance_job_tier3", (s) => s.jobTier >= 3, "3차 전직 달성 (최종)", "'상급 전직의 각서'(전직의 표식 5 + 전직의 각서 1 + 용의 꼬리 1 + 흑요석 7)를 만들고, 레벨 70 이상에서 들고 사용하면 3차 전직합니다. 용의 꼬리는 용 보스가 떨어뜨립니다. 최고 칭호와 최강의 스탯·쿨다운, 가장 멋진 외형을 얻습니다!", { experience: 2000, items: { sharp_obsidian: 2, advanced_medkit: 5 }, label: "경험치 2000 + 날카로운 흑요석 2개 + 고급 구급상자 5개" }),
 ];
 
