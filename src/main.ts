@@ -238,7 +238,7 @@ import type {
   WorldObject,
 } from "./game/types";
 import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, monsterStatsFromLevel, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
-import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
+import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, nearestRegion, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
 import { updatePredatorAi, type PredatorAiContext } from "./game/predatorAi";
@@ -1938,10 +1938,10 @@ class WildernessGame {
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? JAMMINI_FIELD_COUNT : Math.ceil(JAMMINI_FIELD_COUNT * 0.4)); i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
-    for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? 36 : 48); i += 1) {
-      const region = this.activeRegions[Math.floor(Math.random() * this.activeRegions.length)];
-      const point = this.randomPredatorSpawnPoint(region);
-      if (!region || !point) continue;
+    const predatorCount = this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? 60 : 78; // 밀도 상향 + 리전 밖 평원까지 균등 분포(빈 지역 제거)
+    for (let i = 0; i < predatorCount; i += 1) {
+      const point = this.randomPredatorSpawnPoint(null); if (!point) continue; // 맵 전체 랜덤 좌표(리전 우선 아님)
+      const region = regionAtPosition(point, this.activeRegions) ?? nearestRegion(point, this.activeRegions); if (!region) continue; // 평원은 가장 가까운 리전의 종/레벨
       const monsterId = chooseRegionPredatorMonster(region);
       const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
       applyPredatorMonsterDefinition(predator, region, monsterId, this.level); // 로밍 스폰 레벨 캡(#2)
