@@ -74,6 +74,13 @@ export interface PartyWorldContext {
   hostSpawnStation(item: string, x: number, z: number, yaw: number): void; // 호스트: 게스트 placeRequest 로 설치물 생성(스냅샷 전파 → 전원 공유)
   canAddItem(item: ItemId, count: number): boolean; // 줍기 전 인벤토리 공간 확인(비파괴) — 없으면 요청 안 보냄(호스트가 객체 유지 → 유실 방지)
   receivePickupItems(items: { item: string; count: number }[]): { item: string; count: number }[]; // 받아 넣고, 못 넣은 것 반환(호스트 월드에 되돌려 떨어뜨리기용)
+  // 집 공유(중간) — 호스트 권위 공유 창고·보급함
+  homeStorageSlots(): { item: string | null; count: number; durabilityUsed?: number }[]; // 호스트: 공유 창고 전체(동기화용)
+  sharedSupplyCooldownValue(): number; // 호스트: 공유 보급 쿨타임(초)
+  hostStorageTake(index: number): { item: string; count: number }[] | null; // 호스트: 창고 슬롯 인출(제거 + 아이템 반환, 빈칸이면 null)
+  hostStorageStore(item: string, count: number, durabilityUsed?: number): boolean; // 호스트: 창고 입고(transferSlot, 가득이면 false)
+  hostClaimSharedSupply(): boolean; // 호스트: 보급 준비됐으면 공유 창고에 입고 + 쿨타임, 성공 여부
+  applySharedStorage(slots: { item: string | null; count: number; durabilityUsed?: number }[], supplyCooldown: number): void; // 게스트: 동기화 수신 → 캐시·패널 갱신
   getObject(id: string): WorldObject | undefined;
   removeObject(id: string): void; // 리스폰 큐 정상 등록 (호스트 처치)
   removeObjectSilent(id: string): void; // 리스폰 큐 미등록 (동기화 몬스터·합류 정리)
@@ -261,6 +268,16 @@ export function partyGuestPlaceIntercept(item: string, x: number, z: number, yaw
   return true;
 }
 
+// 집 공유(중간) — 게스트가 호스트의 공유 창고/보급을 메시지로 조작. 인테리어(inGame=false)에서도 동작하므로 세션·역할만 본다.
+export function partyGuestStorageActive(): boolean {
+  const session = init?.session() ?? null;
+  return !!init?.world && !!session && session.role === "guest";
+}
+export function requestSharedStorage(): void { init?.session()?.sendGame({ type: "storageOpenReq" }); }
+export function sendStorageTake(index: number): void { init?.session()?.sendGame({ type: "storageTake", index }); }
+export function sendStorageStore(item: string, count: number, durabilityUsed?: number): void { init?.session()?.sendGame({ type: "storageStore", item, count, durabilityUsed }); }
+export function sendSupplyClaim(): void { init?.session()?.sendGame({ type: "supplyClaimReq" }); }
+
 // 호스트 처치 알림 — combat.ts·summonerPet 의 처치 지점들이 호출한다 (호스트 역할일 때만 브로드캐스트).
 // 동기화 범위(wildPredator)와 XP 공유 범위를 일치시킨다 — 용·잼미니는 각자 로컬이므로 공유하면 이중 취득이 된다.
 export function partyHostNotifyKill(target: WorldObject) {
@@ -441,6 +458,21 @@ function handleGameMessage(message: PartyMessage, from?: string) {
     // 8차 — 게스트가 놓은 설치물을 호스트 월드에 생성(스냅샷으로 전원 공유·사용).
     if (!init.localPresence().inGame) return;
     init.world.hostSpawnStation(message.item, message.x, message.z, message.yaw);
+  } else if (message.type === "storageOpenReq" && hookedSession?.role === "host") {
+    // 집 공유 — 게스트가 창고 열 때 현재 상태 전송. (창고/보급은 인테리어라 inGame 게이트 없음)
+    hookedSession.sendGame({ type: "storageSync", slots: init.world.homeStorageSlots(), supplyCooldown: init.world.sharedSupplyCooldownValue() });
+  } else if (message.type === "storageTake" && hookedSession?.role === "host") {
+    const items = init.world.hostStorageTake(message.index);
+    if (items && items.length > 0) hookedSession.sendGame({ type: "pickupGrant", nickname: from ?? "파티원", items }); // 인출 아이템은 요청자에게(게스트가 인벤 공간 선검사 → 성공 보장)
+    hookedSession.sendGame({ type: "storageSync", slots: init.world.homeStorageSlots(), supplyCooldown: init.world.sharedSupplyCooldownValue() });
+  } else if (message.type === "storageStore" && hookedSession?.role === "host") {
+    if (!init.world.hostStorageStore(message.item, message.count, message.durabilityUsed)) hookedSession.sendGame({ type: "pickupGrant", nickname: from ?? "파티원", items: [{ item: message.item, count: message.count }] }); // 창고 가득(경쟁) → 요청자 인벤으로 되돌림(유실 방지)
+    hookedSession.sendGame({ type: "storageSync", slots: init.world.homeStorageSlots(), supplyCooldown: init.world.sharedSupplyCooldownValue() });
+  } else if (message.type === "supplyClaimReq" && hookedSession?.role === "host") {
+    init.world.hostClaimSharedSupply(); // 준비됐으면 공유 창고에 입고 + 쿨타임
+    hookedSession.sendGame({ type: "storageSync", slots: init.world.homeStorageSlots(), supplyCooldown: init.world.sharedSupplyCooldownValue() });
+  } else if (message.type === "storageSync") {
+    init.world.applySharedStorage(message.slots, message.supplyCooldown);
   } else if (message.type === "mobs") { if (message.hour != null) init!.world!.setSyncedHour?.(message.hour); applyMobsSnapshot(message.mapId, message.list); }
   else if (message.type === "partyKill") onPartyKill(message);
   else if (message.type === "mobHit") onMobHit(message.nickname, message.amount, message.name, message.mapId);
