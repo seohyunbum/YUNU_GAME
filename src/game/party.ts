@@ -333,7 +333,7 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
-        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "chestLoot" || message.type === "chat") {
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "chat") {
           this.emitGame(message);
           return;
         }

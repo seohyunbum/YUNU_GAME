@@ -232,6 +232,7 @@ export function partyGuestPickupIntercept(target: WorldObject): boolean {
   if (!init?.world || !session || session.role !== "guest") return false;
   const hostId = hostIdByLocalId.get(target.id);
   if (!hostId) return false; // 동기화 객체가 아니면 로컬 처리 유지(내 로컬 드롭/설치물)
+  if (target.lockedStation) return false; // 잠긴 설치물(대장간 등)은 회수 불가 → 가로채지 않고 로컬 USE 경로(openStation)로. pickupRequest 미전송.
   // ★유실 방지 — 인벤토리에 못 받으면 요청을 보내지 않는다(호스트가 객체를 제거하지 않음). false 반환 → 로컬 경로가 '공간 부족' 안내 후 객체 유지(솔로와 동일 동작).
   const wantItem = (target.droppedItem ?? STATION_PICKUP_ITEM[target.type]) as ItemId | undefined;
   if (wantItem && !init.world.canAddItem(wantItem, target.droppedItem ? (target.droppedCount ?? 1) : 1)) return false;
