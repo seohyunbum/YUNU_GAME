@@ -103,6 +103,7 @@ import {
 } from "./game/combatEffects";
 import { celebrateLevelUp, celebrateRareDrop } from "./game/juice";
 import { createBannerElement } from "./ui/banner";
+import { showChestContents } from "./ui/chestContents";
 import {
   ARCADE_POINTS_KEY,
   PREDATOR_KILLS_KEY,
@@ -4333,6 +4334,7 @@ class WildernessGame {
     const loot: string[] = [];
     for (const entry of rollChestLoot(target.chestTier ?? 0)) if (this.addItem(entry.item, entry.count)) loot.push(ITEM_NAMES[entry.item] ?? entry.item);
     this.showMessage(loot.length > 0 ? `상자에서 ${loot.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다.");
+    if (!isTouchDevice()) showChestContents(this.uiRoot, loot); // 데스크탑 상자 획득 카드(#14) — 모바일은 자체 UI라 제외
   }
 
   private enterCave(target: WorldObject) {

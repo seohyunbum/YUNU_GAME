@@ -28,7 +28,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 모바일 백로그2(퀘스트 클리어 가이드 팝업·독수리 T윈드커터/F해제) → 9749→9752.
 // 2026-06-20: 적대적QA #11 — hunt_predators 활성 시 첫 전투 교육 1회(field+renderHud 1줄) → 9752→9754.
 // 2026-06-20: 적대적QA #12 — 제련대·분쇄기 패널에 '쓰임' 표기(itemsUsing leaf, 패널당 2줄) → 9754→9758.
-const MAX_MAIN_LINES = 9758;
+// 2026-06-20: 적대적QA #14 — 데스크탑 상자 획득 카드(chestContents leaf, import+호출 2줄) → 9758→9760.
+const MAX_MAIN_LINES = 9760;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
