@@ -468,6 +468,7 @@ class WildernessGame {
   private playSeconds = 0; // 실시간 누적 플레이타임(초) — 타이틀·패널 제외
   private chestStepBank = 0;
   private caveStepBank = 0;
+  private caveMissStreak = 0; // 동굴 미출현 연속 횟수 — 일정 횟수 넘으면 다음 간격에 보장 출현(RNG 벽 방지, #7)
   private antStepBank = 0;
   private worldTimeSeconds = DAY_LENGTH_SECONDS * (8 / 24);
   private timeHudTimer = 0;
@@ -2773,7 +2774,7 @@ class WildernessGame {
       this.hungerTimer -= HUNGER_TICK_SECONDS;
       if (this.hunger > 0) {
         this.hunger -= 1;
-        this.showMessage(this.hunger > 0 ? `배고픔이 줄었습니다. ${this.hunger}/${HUNGER_MAX}` : "배고픔이 0입니다. 고기를 먹기 전까지 체력·마나가 회복되지 않습니다.");
+        this.showMessage(this.hunger <= 0 ? "배고픔이 0입니다. 고기를 먹기 전까지 체력·마나가 회복되지 않습니다." : this.hunger <= 2 ? `⚠️ 배고픔이 ${this.hunger}/${HUNGER_MAX}! 곧 체력 회복이 멈춥니다 — 고기를 드세요.` : `배고픔이 줄었습니다. ${this.hunger}/${HUNGER_MAX}`);
         this.renderHud();
       }
     }
@@ -3186,9 +3187,13 @@ class WildernessGame {
 
     while (this.caveStepBank >= CAVE_STEP_INTERVAL) {
       this.caveStepBank -= CAVE_STEP_INTERVAL;
-      if (Math.random() < 0.2 * (getWorldMapById(this.currentWorldMapId).caveScale ?? 1)) {
+      const pity = this.caveMissStreak >= 6; // 6회(≈3000걸음) 연속 미출현 시 보장 — 불운한 RNG 벽 방지(#7)
+      if (pity || Math.random() < 0.2 * (getWorldMapById(this.currentWorldMapId).caveScale ?? 1)) {
         this.spawnCave(this.pointNearPlayer(26, 44));
-        this.showMessage("멀리 동굴 입구가 보입니다. (500걸음 20%)");
+        this.caveMissStreak = 0;
+        this.showMessage("멀리 동굴 입구가 보입니다. 가서 철·석탄·보석을 캐세요.");
+      } else {
+        this.caveMissStreak += 1;
       }
     }
 

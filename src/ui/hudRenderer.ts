@@ -117,8 +117,8 @@ function renderStatsMarkup(view: HudViewModel) {
         </div>
         <div class="stats-sub-bars">
           <div class="stat-bar hunger-bar">
-            <span style="width: ${(hungerRatio * 100).toFixed(1)}%"></span>
-            <b>배고픔 ${Math.round(view.hunger)}/${view.maxHunger}</b>
+            <span style="width: ${(hungerRatio * 100).toFixed(1)}%${view.hunger <= 2 ? "; background:#e23b3b" : ""}"></span>
+            <b>${view.hunger <= 2 ? "⚠️ " : ""}배고픔 ${Math.round(view.hunger)}/${view.maxHunger}</b>
           </div>
           <div class="stat-bar exp-bar">
             <span style="width: ${xpPercent}%"></span>
