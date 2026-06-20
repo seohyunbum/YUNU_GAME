@@ -40,7 +40,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 집 공유(중간) — 호스트 권위 공유 창고(보기·입출고)+보급함, 캐시필드·컨텍스트·패널분기·보급분기 → 9832→9853.
 // 2026-06-20: 일회성 제작템(가방·확장가방) 완료 후 제작목록 숨김 — 워크벤치·검색 필터 2줄 → 9853→9855.
 // 2026-06-20: 침대 좌클릭 회수 회귀 수정(동기화 침대도 좌클릭=회수, pickUpBed 에 파티 intercept 1줄) → 9855→9856.
-const MAX_MAIN_LINES = 9856;
+// 2026-06-20: 파티 거래 비가역 원장(복제 차단) — characterId/epoch 필드·로그 3지점·로드 재조정·새게임 발급 배선 → 9856→9876.
+const MAX_MAIN_LINES = 9876;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

@@ -323,6 +323,8 @@ export interface SavedGame {
     craftExperience?: number;
     craftStatPoints?: number;
     arcadePoints?: number; // 미니게임/판매 포인트 — 세이브에 포함해 로드 시 롤백(판매→로드 복제 익스플로잇 차단). 구세이브엔 없을 수 있음(optional)
+    characterId?: string; // 플레이스루 식별 — 파티 거래 비가역 원장(partyLedger) 키. 새 게임마다 발급, 구세이브는 닉네임 기반 백필
+    partyLedgerEpoch?: number; // 저장 시점의 파티 거래 epoch — 불러오기 시 이 값 초과 거래만 인벤에 재적용(파티 양도 복제 차단)
     craftStatAlloc?: { hp: number; mana: number; attack: number; defense: number };
     caveReturnPosition: SavedVector | null;
     houseReturnPosition?: SavedVector | null;
