@@ -479,6 +479,7 @@ class WildernessGame {
   private antStepBank = 0;
   private worldTimeSeconds = DAY_LENGTH_SECONDS * (8 / 24);
   private syncedHour: number | null = null; // 파티 게스트: 호스트가 보낸 시각(시). null=로컬 적분(호스트/솔로).
+  private deathMarker: { x: number; z: number; mapId: string } | null = null; // 죽어서 떨군 유품 위치(지도 마커). 새 죽음에 갱신·유품 회수 시 제거. 세션 한정(세이브 미포함).
   private timeHudTimer = 0;
   private health = BASE_PLAYER_MAX_HEALTH;
   private maxHealth = BASE_PLAYER_MAX_HEALTH;
@@ -2536,6 +2537,7 @@ class WildernessGame {
     this.removeObject(target.id);
     this.playTone(520, 0.06, "triangle", 0.025);
     this.showMessage(`${ITEM_NAMES[item] ?? item}을 다시 주웠습니다.`);
+    if (this.deathMarker && this.deathMarker.mapId === this.currentWorldMapId) { const m = this.deathMarker; if (![...this.objectsOfType("droppedItem")].some((o) => { const dx = o.root.position.x - m.x, dz = o.root.position.z - m.z; return dx * dx + dz * dz < 25; })) this.deathMarker = null; } // 사망 지점 유품을 다 회수했으면 마커 제거
     this.renderHud();
   }
 
@@ -5274,6 +5276,7 @@ class WildernessGame {
 
   private dropInventoryOnDeath(position: THREE.Vector3) {
     position.y = this.getOverworldHeightAt(position.x, position.z) + 0.08;
+    this.deathMarker = { x: position.x, z: position.z, mapId: this.currentWorldMapId }; // 지도에 사망 지점 표시 — 유품 회수 안내(흩뿌림 중심점)
     const starterItem = PLAYER_CLASSES[this.playerClass]?.starterItem ?? "iron_sword";
     const protectedItems = new Set<ItemId>(["tutorial_book", "medkit", starterItem]);
     // 착용 중인 무기(손에 든 슬롯이 무기류)·방어구·방패는 떨구지 않는다 (deathDrop.ts 순수 판정).
@@ -6601,7 +6604,7 @@ class WildernessGame {
     const bosses = [...this.objectsOfType("dragon")].map((dragon) => ({ name: this.bossStats(dragon.bossKind).name, x: dragon.root.position.x, z: dragon.root.position.z, sealed: !isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter), next: (dragon.bossKind ?? "dragon") === nextBossKind }));
     for (const predator of this.objectsOfType("wildPredator")) if (predator.fieldBossId) bosses.push({ name: predator.name, x: predator.root.position.x, z: predator.root.position.z, sealed: false, next: false });
     const caves = [...this.objectsOfType("cave")].map((cave) => ({ x: cave.root.position.x, z: cave.root.position.z }));
-    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: !this.gameStarted || canTeleportToWorldMap(this.level, map, this.defeatedFieldBosses), lockReason: this.gameStarted ? worldMapLockReason(this.level, map, this.defeatedFieldBosses) : "" })), bosses, homes: this.playerHomeMarkers(), caves, fortresses: [...this.objectsOfType("fortressGate")].map((gate) => ({ x: gate.root.position.x, z: gate.root.position.z })), party: partyMapMarkers(this.currentWorldMapId) }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
+    renderRegionMapPanel(this.panelEl, { regions: this.activeRegions, currentRegionId: regionAtPosition(this.playerPosition, this.activeRegions)?.id ?? null, player: { x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, level: this.level }, worldSize: WORLD_SIZE, waterZones: this.activeWaterZones.map((zone) => ({ center: zone.center, radius: this.waterZoneRadius(zone), name: zone.name })), worldMaps: WORLD_MAPS.map((map) => ({ map, current: map.id === this.currentWorldMapId, canTeleport: !this.gameStarted || canTeleportToWorldMap(this.level, map, this.defeatedFieldBosses), lockReason: this.gameStarted ? worldMapLockReason(this.level, map, this.defeatedFieldBosses) : "" })), bosses, homes: this.playerHomeMarkers(), caves, fortresses: [...this.objectsOfType("fortressGate")].map((gate) => ({ x: gate.root.position.x, z: gate.root.position.z })), party: partyMapMarkers(this.currentWorldMapId), deathDrops: this.deathMarker && this.deathMarker.mapId === this.currentWorldMapId ? [{ x: this.deathMarker.x, z: this.deathMarker.z }] : [] }, { onClose: () => this.closePanel(), onTeleport: (mapId) => this.teleportToWorldMap(mapId) });
   }
 
   private teleportToWorldMap(mapId: string, force = false) {

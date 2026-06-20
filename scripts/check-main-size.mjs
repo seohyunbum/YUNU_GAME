@@ -36,7 +36,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 맵당 몬스터 ~2배(저사양 1.3배) — 초기 predatorCount + 리전 정상상태 캡 둘 다 품질연동 상향(ambientMul/capMul) → 9820→9822.
 // 2026-06-20: 게스트 설치물 공유(placeRequest→hostSpawnStation) — 게스트가 놓은 제작대/제련대 등도 파티 전원에 보이게. spawnPlaceableItem 게스트 라우팅 → 9822→9827.
 // 2026-06-20: 날카로운 흑요석 궁극 FX — OBSIDIAN_PROJECTILE import 1줄 → 9828→9829.
-const MAX_MAIN_LINES = 9829;
+// 2026-06-20: 사망 지점 지도 마커(deathMarker 필드+기록+회수시 제거+패널 배선) → 9829→9832.
+const MAX_MAIN_LINES = 9832;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

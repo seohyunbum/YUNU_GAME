@@ -50,6 +50,7 @@ export interface RegionMapPanelView {
   caves: MapCaveMarker[];
   fortresses: MapFortressMarker[];
   party: MapPartyMarker[];
+  deathDrops: { x: number; z: number }[]; // 내가 죽어 아이템을 떨군 자리 — 회수하면 사라짐
 }
 
 export interface RegionMapCallbacks {
@@ -192,6 +193,19 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
       </g>`;
     })
     .join("");
+  // 사망 지점 마커 — 죽어서 떨군 유품 위치(붉은 X). 다 주우면 사라짐.
+  const deaths = view.deathDrops
+    .map((drop) => {
+      const cx = Number(mapX(drop.x).toFixed(1));
+      const cy = Number(mapY(drop.z).toFixed(1));
+      const textHalo = 'paint-order="stroke" stroke="#15231d" stroke-width="3.5" stroke-linejoin="round"';
+      return `<g data-death-marker>
+        <circle cx="${cx}" cy="${cy}" r="8.5" fill="#dc2626" stroke="#7f1d1d" stroke-width="2.5" opacity="0.92" />
+        <path d="M ${cx - 3.6} ${cy - 3.6} L ${cx + 3.6} ${cy + 3.6} M ${cx + 3.6} ${cy - 3.6} L ${cx - 3.6} ${cy + 3.6}" stroke="#fff1f2" stroke-width="2.4" stroke-linecap="round" />
+        <text x="${cx}" y="${cy - 13}" text-anchor="middle" fill="#fca5a5" font-size="12" font-weight="800" ${textHalo}>내 유품</text>
+      </g>`;
+    })
+    .join("");
   const cards = view.regions
     .map((region) => {
       const selected = region.id === view.currentRegionId ? " current" : "";
@@ -240,6 +254,7 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
           ${caves}
           ${fortresses}
           ${homes}
+          ${deaths}
           ${party}
           ${bosses}
           <polygon points="${arrowTip} ${arrowL} ${arrowR}" fill="#ffe24a" stroke="#111827" stroke-width="3" stroke-linejoin="round"><title>내 위치 · 바라보는 방향</title></polygon>
