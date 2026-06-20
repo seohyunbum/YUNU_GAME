@@ -252,6 +252,10 @@ function receiveGame(message: PartyMessage) {
       debugHealReceived += message.amount;
     }
   }
+  if (message.type === "partyEmpower") {
+    const me = context.localPresence();
+    if (message.recipient === me.nickname && me.inGame && message.mapId === me.mapId) context.world?.empowerLocalPlayer?.(message.durationMs);
+  }
 }
 
 function spawnRemoteProjectile(message: Extract<PartyMessage, { type: "playerAttack" }>) {
@@ -457,6 +461,25 @@ export function partyHealNearby(amount: number, radius: number): number {
     healed += 1;
   }
   return healed;
+}
+
+// 힐러 3스킬(심판의 빛): 사정거리 내 파티원 전원에게 공격·방어 버프(partyEmpower) 송신.
+export function partyEmpowerNearby(durationMs: number, radius: number): number {
+  const session = context?.session();
+  if (!session || !context) return 0;
+  const me = context.localPresence();
+  if (!me.inGame) return 0;
+  const radiusSq = radius * radius;
+  let count = 0;
+  for (const remote of remotes.values()) {
+    if (!remote.onLocalMap) continue;
+    const dx = remote.root.position.x - me.x;
+    const dz = remote.root.position.z - me.z;
+    if (dx * dx + dz * dz > radiusSq) continue;
+    session.sendGame({ type: "partyEmpower", recipient: remote.data.nickname, durationMs, mapId: me.mapId });
+    count += 1;
+  }
+  return count;
 }
 
 // 지역 지도 마커 — 현재 맵에 있는 파티원만

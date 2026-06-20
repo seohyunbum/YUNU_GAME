@@ -1,11 +1,14 @@
 import type * as THREE from "three";
 import { GUNNER_SKILL_DAMAGE, HEALER_HEAL_AMOUNT, MAGE_TNT_DAMAGE, MAGE_TNT_RADIUS, WARRIOR_EXPLOSION_DAMAGE, WIND_CUTTER_DAMAGE } from "./constants";
-import { partyHealNearby } from "./partyPresence";
+import { partyEmpowerNearby, partyHealNearby } from "./partyPresence";
 import { partyGuestAttackIntercept } from "./partyWorldSync";
 import type { PlayerClassId, WorldObject } from "./types";
 
 // 힐러 파티 힐 사정거리 — 1스킬(천상치유)·2스킬(치유의 비) 공통 (5.1)
 export const HEAL_PARTY_RADIUS = 12;
+export const EMPOWER_DURATION_MS = 300_000; // 심판의 빛 버프 지속 5분
+export const EMPOWER_MULT = 1.1; // 공격·방어 +10%
+export const EMPOWER_PARTY_RADIUS = 999; // 같은 맵 파티원 전원에 적용
 
 // ===== 스킬 데미지 스케일링 =====
 // 일반 공격은 레벨당 +1 강해지는데 스킬은 고정값이라 후반에 쓸모가 없어진다.
@@ -81,14 +84,20 @@ export interface SkillBuffs {
   nextAuraTickAt: number;
   nextRainTickAt: number;
   unbreakableUntil: number; // 탱커 3스킬(불굴의 함성) — 방어 +UNBREAKABLE_ARMOR
+  empowerUntil: number; // 힐러 3스킬(심판의 빛) — 자신·파티 공격·방어 +10%
 }
 
 export function createSkillBuffs(): SkillBuffs {
-  return { burningShieldUntil: 0, healingRainUntil: 0, rapidFireUntil: 0, nextAuraTickAt: 0, nextRainTickAt: 0, unbreakableUntil: 0 };
+  return { burningShieldUntil: 0, healingRainUntil: 0, rapidFireUntil: 0, nextAuraTickAt: 0, nextRainTickAt: 0, unbreakableUntil: 0, empowerUntil: 0 };
 }
 
 export function burningShieldArmorBonus(buffs: SkillBuffs, now: number) {
   return buffs.burningShieldUntil > now ? 1 : 0;
+}
+
+// 힐러 3스킬(심판의 빛) — 활성 시 공격·방어 ×EMPOWER_MULT(1.1), 비활성 1.
+export function empowerMultiplier(buffs: SkillBuffs, now: number) {
+  return buffs.empowerUntil > now ? EMPOWER_MULT : 1;
 }
 
 export function rapidFireCooldownScale(buffs: SkillBuffs, now: number) {
@@ -209,6 +218,7 @@ export function resetSecondSkillEffects(buffs: SkillBuffs) {
   buffs.healingRainUntil = 0;
   buffs.rapidFireUntil = 0;
   buffs.unbreakableUntil = 0;
+  buffs.empowerUntil = 0;
 }
 
 export function activeBurnCount() {
@@ -296,7 +306,7 @@ export const RALLY_BURST_RADIUS = 3.5;
 
 export const THIRD_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   warrior: { name: "대지가르기", summary: "주변 모든 적에게 공격력 2배의 광역 강타.", manaCost: 50, cooldown: 35 },
-  healer: { name: "심판의 빛", summary: `전방에 신성한 빛을 쏘아 피해를 주고 자신을 ${JUDGMENT_SELF_HEAL} 회복합니다.`, manaCost: 50, cooldown: 28 },
+  healer: { name: "심판의 빛", summary: "5분간 자신과 파티원 전체의 공격력·방어력을 +10% 높입니다.", manaCost: 50, cooldown: 240 },
   mage: { name: "메테오", summary: "거대한 운석을 떨어뜨려 넓은 범위에 큰 피해를 줍니다.", manaCost: 55, cooldown: 32 },
   summoner: { name: "정령 폭풍", summary: "주변에 바람 정령 폭풍을 일으켜 광역 피해를 줍니다.", manaCost: 45, cooldown: 28 },
   gunner: { name: "관통 강탄", summary: "강력한 관통탄을 발사해 직선상의 적에게 큰 피해를 줍니다.", manaCost: 55, cooldown: 30 },
@@ -336,11 +346,12 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   if (playerClass === "healer") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    context.fireSkillProjectile("tnt", "magic", judgmentLightDamage(bonus), 30, 0.45);
-    context.heal(JUDGMENT_SELF_HEAL);
+    context.buffs.empowerUntil = context.now() + EMPOWER_DURATION_MS; // 자신 버프
+    const buffed = partyEmpowerNearby(EMPOWER_DURATION_MS, EMPOWER_PARTY_RADIUS); // 파티원 버프
     context.playHandAction("magic");
     context.playTone(900, 0.14, "sine", 0.028);
-    context.showMessage(`심판의 빛! ${judgmentLightDamage(bonus)} 피해 + 체력 ${JUDGMENT_SELF_HEAL} 회복.`);
+    context.showMessage(buffed > 0 ? `심판의 빛! 5분간 나와 파티원 ${buffed}명 공격·방어 +10%.` : "심판의 빛! 5분간 공격·방어 +10%.");
+    context.renderHud();
     return;
   }
   if (playerClass === "mage") {
