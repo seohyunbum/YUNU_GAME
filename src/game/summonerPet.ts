@@ -295,6 +295,8 @@ export class SummonerCompanionController {
     return this.progress;
   }
 
+  petActive(): boolean { return this.runtime.petId !== null; } // 패시브 펫 존재 여부(원격 표시용 프레즌스). 빙의 중엔 펫이 제거돼 false.
+
   restore(progress: CompanionProgress | undefined) {
     const summoner = progress?.summoner ?? DEFAULT_SUMMONER_PET_PROGRESS;
     this.progress.level = Math.max(1, Math.floor(summoner.level));
