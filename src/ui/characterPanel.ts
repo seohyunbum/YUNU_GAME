@@ -23,6 +23,8 @@ export interface CharacterPanelView {
   ownedNecklaces: { item: string; name: string; equipped: boolean }[];
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
+  monstersKilled: number; // 누적 처치 몬스터 수(기록)
+  bestFortressStage: number; // 몬스터 요새 최고 클리어 단계(0 = 아직 없음)
 }
 
 export interface CharacterPanelCallbacks {
@@ -91,6 +93,11 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
               </div>`,
             ).join("")}
           </div>
+        </div>
+        <div class="character-gear character-records">
+          <div class="inventory-label">📜 기록</div>
+          <div class="character-gear-row"><span>🗡️ 잡은 몬스터</span><strong>${view.monstersKilled.toLocaleString("ko-KR")}마리</strong></div>
+          <div class="character-gear-row"><span>🏰 요새 최고 단계</span><strong>${view.bestFortressStage > 0 ? `${view.bestFortressStage}단계` : "아직 없음"}</strong></div>
         </div>
         <p class="character-note">제작 레벨이 오르면 포인트를 얻어 위 스탯을 올릴 수 있어요 (체력·마나 +2, 공격·방어 +1).</p>
       </section>

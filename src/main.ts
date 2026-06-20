@@ -105,6 +105,7 @@ import { createBannerElement } from "./ui/banner";
 import {
   ARCADE_POINTS_KEY,
   PREDATOR_KILLS_KEY,
+  BEST_FORTRESS_STAGE_KEY,
   BASE_BAG_SLOT_COUNT,
   BASE_MAX_MANA,
   BASE_PLAYER_MAX_HEALTH,
@@ -606,6 +607,7 @@ class WildernessGame {
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
   private caveReturnPosition: THREE.Vector3 | null = null;
   private fortressSiege: SiegeState | null = null; // 몬스터 요새 디펜스 진행 상태(휘발 — 세이브 안 함)
+  private bestFortressStage = this.loadBestFortressStage(); // 몬스터 요새 최고 클리어 단계(기록용 — 전역 유지, 새 게임 시 리셋)
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
   private houseObjectIds: string[] = [];
@@ -743,9 +745,10 @@ class WildernessGame {
   private readonly siegeContext: SiegeContext = {
     spawnSiegeMonster: (x, z, level, elite) => this.spawnSiegeMonster(x, z, level, elite),
     isAlive: (id) => this.objects.has(id),
-    grantStageReward: (_stage, tomes, items) => {
+    grantStageReward: (stage, tomes, items) => {
       this.addItem("job_change_tome", tomes);
       for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
+      if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.saveBestFortressStage(); } // 최고 단계 갱신
       startMiniFanfare(this.finaleContext);
     },
     showMessage: (text) => this.showMessage(text),
@@ -922,6 +925,15 @@ class WildernessGame {
 
   private savePredatorKills() {
     localStorage.setItem(PREDATOR_KILLS_KEY, String(Math.max(0, Math.floor(this.tutorialSignals.predatorKills))));
+  }
+
+  private loadBestFortressStage() {
+    const raw = Number(localStorage.getItem(BEST_FORTRESS_STAGE_KEY) ?? 0);
+    return Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+  }
+
+  private saveBestFortressStage() {
+    localStorage.setItem(BEST_FORTRESS_STAGE_KEY, String(Math.max(0, Math.floor(this.bestFortressStage))));
   }
 
   private setupRenderer() {
@@ -4336,7 +4348,7 @@ class WildernessGame {
     this.fortressSiege = createSiegeState(baseLevel);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
-    this.showMessage("🏰 몬스터 요새에 입성했습니다! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/포기해도 받은 보상은 유지)");
+    this.showMessage("🏰 몬스터 요새 입성 — 1단계 도전 시작! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/포기해도 받은 보상은 유지)");
     this.renderHud();
   }
 
@@ -5963,6 +5975,7 @@ class WildernessGame {
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
     this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
+    this.bestFortressStage = 0; this.saveBestFortressStage(); // 새 게임 시 요새 기록도 초기화(잡은 몬스터 수와 일관)
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
@@ -6415,6 +6428,7 @@ class WildernessGame {
         armorItem: this.equippedArmor, shieldItem: this.equippedShield, necklaceItem: this.equippedNecklace,
         ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
+        monstersKilled: this.tutorialSignals.predatorKills, bestFortressStage: this.bestFortressStage,
       }, {
         onSpend: (kind) => {
           if (this.craftStatPoints <= 0) return;

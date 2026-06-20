@@ -119,7 +119,7 @@ export function updateSiege(state: SiegeState, context: SiegeContext, delta: num
       // 단계 클리어 → 보상 + 다음 단계
       const tomes = tomesForStage(state.stage);
       context.grantStageReward(state.stage, tomes, itemsForStage(state.stage));
-      context.showMessage(`🏰 ${state.stage}단계 클리어! 전직의서 ${tomes}개 + 보상 획득. 잠시 후 더 강한 ${state.stage + 1}단계가 시작됩니다…`);
+      context.showMessage(`🏰 ${state.stage}단계 클리어! 전직의서 ${tomes}개 + 보상 획득. 잠시 후 더 강한 다음 단계가 시작됩니다…`);
       state.stage += 1;
       state.waveIndex = 0;
       state.wavesInStage = wavesForStage(state.stage);
@@ -136,6 +136,7 @@ export function updateSiege(state: SiegeState, context: SiegeContext, delta: num
 function beginNextWave(state: SiegeState, context: SiegeContext) {
   state.toSpawn = monstersForWave(state.stage);
   state.spawnTimer = 0.3;
+  if (state.waveIndex === 0) context.showMessage(`🏰 ${state.stage}단계 도전 시작! (웨이브 ${state.wavesInStage}개) 중앙을 사수하세요.`); // 새 단계 첫 웨이브 진입 알림
   context.renderHud();
 }
 
