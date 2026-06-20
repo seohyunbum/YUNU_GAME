@@ -410,10 +410,10 @@ try {
     const viper = predatorStatsForMonster("viper");
     assert(viper.hp === 45 && viper.attackDamage === 8, `viper should keep designed stats (hp ${viper.hp}, atk ${viper.attackDamage})`);
     assert(hound.speed > 0 && hound.cooldown > 0 && viper.strikeRange > 0, "overridden monsters should inherit remaining kind stats");
-    // 추격 속도 레벨 스케일: 고레벨일수록 빠르고, 상한 6.2 는 걷기(7)보다 느려 도주 가능
+    // 추격 속도 레벨 스케일: 고레벨일수록 빠르고, 상한 7.2(전체 +1 상향) — 걷기(7)보다 약간 빨라 달리기로만 도주
     assert(predatorStatsForMonster("red_wolf").speed > predatorStatsForMonster("wolf").speed * 1.1, "higher-level variants should chase faster");
-    assert(predatorStatsForMonster("wraith").speed <= 6.2 && predatorStatsForMonster("ice_spider").speed <= 6.2, "chase speed must cap below player walk speed");
-    assert(predatorStatsForMonster("frost_wolf").speed === 6.2, "Lv100 monsters should hit the speed cap");
+    assert(predatorStatsForMonster("wraith").speed <= 7.2 && predatorStatsForMonster("ice_spider").speed <= 7.2, "chase speed must cap at 7.2");
+    assert(predatorStatsForMonster("frost_wolf").speed === 7.2, "Lv100 monsters should hit the speed cap");
   }
 
   {
