@@ -110,6 +110,12 @@ export type PartyMessage =
   | { type: "dropRequest"; item: string; count: number; x: number; z: number }
   // 설치 = placeRequest → 호스트 월드에 설치물 생성(스냅샷 전파 → 전원이 봄). 게스트가 놓은 제작대·제련대 등을 공유.
   | { type: "placeRequest"; item: string; x: number; z: number; yaw: number }
+  // 집 공유(중간) — 호스트 권위 공유 창고 + 보급함. 인테리어가 로컬이라 게스트는 메시지로 호스트의 창고/보급을 조작(유실 방지 선검사).
+  | { type: "storageSync"; slots: { item: string | null; count: number; durabilityUsed?: number }[]; supplyCooldown: number } // 호스트→게스트: 공유 창고 전체 + 보급 쿨타임
+  | { type: "storageOpenReq" } // 게스트→호스트: 창고 열 때 현재 상태 요청
+  | { type: "storageTake"; index: number } // 게스트→호스트: 창고 슬롯 인출(게스트가 인벤 공간 선검사 후)
+  | { type: "storageStore"; item: string; count: number; durabilityUsed?: number } // 게스트→호스트: 창고 입고(게스트가 창고 공간 선검사 후)
+  | { type: "supplyClaimReq" } // 게스트→호스트: 보급함 수령(호스트가 공유 창고에 입고 + 쿨타임)
   // 파티 채팅 — to 없으면 전체, 있으면 귓속말(호스트가 대상에게만 중계)
   | { type: "chat"; from: string; text: string; to?: string };
 
@@ -268,7 +274,7 @@ export class PartySession {
         link.presenceAt = performance.now();
       }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
-      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest" || message.type === "placeRequest") && link.nickname) this.emitGame(message, link.nickname);
+      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest" || message.type === "placeRequest" || message.type === "storageOpenReq" || message.type === "storageTake" || message.type === "storageStore" || message.type === "supplyClaimReq") && link.nickname) this.emitGame(message, link.nickname);
       // 5.1 — 게스트가 보낸 공격 연출·파티 힐: 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
       if (message.type === "playerAttack" || message.type === "partyHeal") {
         this.emitGame(message, link.nickname ?? undefined);
@@ -335,7 +341,7 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
-        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "chat") {
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "storageSync" || message.type === "chat") {
           this.emitGame(message);
           return;
         }
