@@ -3945,7 +3945,7 @@ class WildernessGame {
     if (target.type === "chest") return target.opened ? "이미 연 상자" : "E: 상자 열기";
     if (target.type === "droppedItem") return `좌클릭/E: ${target.name} 줍기`;
     if (target.type === "buildingBlock") return selectedItem === "building_block" ? "좌클릭/E: 쌓기블록 회수 | 우클릭: 바라보는 면에 이어 붙이기" : "좌클릭/E: 쌓기블록 회수";
-    if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에 누워 휴식 (체력 빠르게 회복)" : "좌클릭/E/우클릭: 침대에 누워 휴식";
+    if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에 누워 휴식 (체력 빠르게 회복)" : "좌클릭/E: 침대 회수 · 우클릭: 누워 휴식";
     if (target.type === "fortressGate") return "E: 몬스터 요새 입장 (디펜스)";
     if (target.type === "cave") return "E: 동굴 들어가기";
     if (target.type === "caveExit") return this.fortressSiege?.active ? "E: 요새에서 나가기 (보상 유지)" : "E: 동굴 나가기";
@@ -4028,7 +4028,7 @@ class WildernessGame {
       return;
     }
     if (target.type === "bed") {
-      if (target.homeBed || target.partyTransient) this.sleepInBed(target); // 파티: 호스트 침대도 눕기 가능(동기화 뷰)
+      if (target.homeBed) this.sleepInBed(target); // 집 침대=좌클릭도 휴식(회수 불가). 그 외(동기화 침대 포함)는 좌클릭=회수·우클릭=휴식
       else if (isTouchDevice()) showStationChoice(this.uiRoot, () => this.sleepInBed(target), () => this.pickUpBed(target), "😴 휴식");
       else this.pickUpBed(target);
       return;
@@ -4232,6 +4232,7 @@ class WildernessGame {
       this.showMessage("집 침대는 회수할 수 없습니다. E나 우클릭으로 푹 쉴 수 있습니다.");
       return;
     }
+    if (partyGuestPickupIntercept(target)) return; // 파티: 동기화 침대면 호스트에 회수 요청(침대 아이템은 pickupGrant 로 수령)
     if (!this.addItem("bed", 1)) return;
     this.removeObject(target.id);
     this.playHandAction();
