@@ -258,9 +258,9 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
   dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic",
   strength_necklace: "epic", guardian_necklace: "epic", swift_necklace: "epic", sage_necklace: "epic",
-  advanced_medkit: "epic", big_bag: "epic", job_change_tome: "epic", job_seal: "epic", job_decree: "epic",
-  // 레전더리(legendary) — 최종 흑요석 무기 3종 + 상급 전직의 각서 + 경험치병(매우 희귀)
-  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", job_decree_high: "legendary", xp_bottle: "legendary",
+  advanced_medkit: "epic", big_bag: "epic", job_change_tome: "epic", job_decree: "epic",
+  // 레전더리(legendary) — 최종 흑요석 무기 3종 + 전직의 표식·상급 전직의 각서 + 경험치병(매우 희귀)
+  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", job_seal: "legendary", job_decree_high: "legendary", xp_bottle: "legendary",
 };
 export function itemTier(item: ItemId): ItemTier {
   return ITEM_TIER[item] ?? "common";
