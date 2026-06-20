@@ -157,7 +157,7 @@ try {
   almostEqual(HUNGER_HP_REGEN[0], 0, "hunger 0 regen");
 
   almostEqual(CLASS_PASSIVES.warrior.armorBonus, 6, "warrior armor passive");
-  almostEqual(RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES.gunner.rangedCooldownScale, 0.252, "gunner ranged cooldown");
+  almostEqual(RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES.gunner.rangedCooldownScale, 0.28014, "gunner ranged cooldown (연사 90% 하향: 0.42×0.667)");
   almostEqual(MANA_REGEN_PER_SECOND * CLASS_PASSIVES.mage.manaRegenScale, 2, "mage mana regen");
   almostEqual(CLASS_PASSIVES.healer.healthRegenPerSec + HUNGER_HP_REGEN[5], 0.3, "healer full-hunger regen");
   almostEqual(CLASS_PASSIVES.healer.healthRegenPerSec + HUNGER_HP_REGEN[1], 0.25, "healer low-hunger passive-only regen");

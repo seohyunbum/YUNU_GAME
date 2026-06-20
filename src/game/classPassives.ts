@@ -74,7 +74,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     label: "빠른 사격",
     summary: "원거리 무기 연사 속도가 빨라집니다.",
     armorBonus: 0,
-    rangedCooldownScale: 0.6,
+    rangedCooldownScale: 0.667, // 연사속도 90% 로 하향(쿨다운 0.6→0.667, ×1.11)
     manaRegenScale: 1,
     healthRegenPerSec: 0,
   },
