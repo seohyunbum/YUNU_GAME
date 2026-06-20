@@ -2,7 +2,7 @@
 // 기존엔 목걸이/방어구/용 전리품/고급 구급상자/보석 원석이 모두 기본 돌덩이(Dodecahedron)로
 // 떨어져 등급·컨셉이 드러나지 않았다. 여기서 각 아이템에 맞는 모델을 만든다.
 import * as THREE from "three";
-import { makeGlowMaterial, makeMetalMaterial } from "../visuals";
+import { makeGlowMaterial, makeMetalMaterial, makeToonMaterial } from "../visuals";
 import { armorTierOf, TIER_VISUALS, tierBladeMaterial, tierEdgeMaterial, tierGemMaterial } from "./tierVisuals";
 
 // ── 목걸이 4종 — 금 체인 + 컨셉별 펜던트 보석 ────────────────────────────────
@@ -254,6 +254,105 @@ export function createGemClusterModel(item: string): THREE.Object3D {
     shard.rotation.set(0.5, x, z);
     if (!style.sharp) shard.scale.y = 1.3;
     group.add(shard);
+  }
+  return group;
+}
+
+// ── 튜토리얼 책 (스타터/일반) — 친근한 초록 표지 + 리본 ─────────────────────
+export function createTutorialBookModel(): THREE.Object3D {
+  const group = new THREE.Group();
+  const coverMat = makeToonMaterial(0x2f9e6e, { roughness: 0.6 });
+  const spineMat = makeToonMaterial(0x1f7a54, { roughness: 0.6 });
+  const pageMat = makeToonMaterial(0xf7f3e8, { roughness: 0.82 });
+  const ribbonMat = makeToonMaterial(0xf59e0b, { roughness: 0.7 });
+  const pages = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.38, 0.11), pageMat);
+  pages.position.set(0.02, 0.32, 0);
+  const cover = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.42, 0.09), coverMat);
+  cover.position.y = 0.32;
+  const spine = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.42, 0.105), spineMat);
+  spine.position.set(-0.16, 0.32, 0);
+  const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.01), ribbonMat);
+  ribbon.position.set(0.1, 0.18, 0.06);
+  const mark = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), pageMat); // 표지 마크
+  mark.position.set(0, 0.37, 0.05);
+  group.add(pages, cover, spine, ribbon, mark);
+  return group;
+}
+
+// ── 확장 가방 (에픽) — 큰 자루 + 보라 트림·보석 + 보조 주머니 ───────────────
+export function createBigBagModel(): THREE.Object3D {
+  const group = new THREE.Group();
+  const cloth = makeToonMaterial(0x8a6a3a, { roughness: 0.9 });
+  const trim = makeMetalMaterial(0x9b5cff, { metalness: 0.5, roughness: 0.35 });
+  const gemMat = makeGlowMaterial(0xc05cff, 0x9b5cff, { emissiveIntensity: 0.95, roughness: 0.2, metalness: 0.2 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.21, 18, 14), cloth);
+  body.position.y = 0.2;
+  body.scale.set(1.1, 1.12, 1);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.12, 14), cloth);
+  neck.position.y = 0.4;
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.022, 8, 16), trim);
+  band.position.y = 0.42;
+  band.rotation.x = Math.PI / 2;
+  for (const sx of [-1, 1]) {
+    const pouch = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), cloth);
+    pouch.position.set(sx * 0.2, 0.13, 0);
+    pouch.scale.set(0.9, 1.05, 0.8);
+    group.add(pouch);
+  }
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), gemMat);
+  gem.position.set(0, 0.22, 0.2);
+  group.add(body, neck, band, gem);
+  return group;
+}
+
+// ── 전직 표식/각서/상급각서 — 진행도(레어→에픽→레전더리) 인장·두루마리 ──────
+const JOB_ADVANCE_STYLE: Record<string, { metal: number; glow: number; emissive: number; rank: number; form: "seal" | "scroll" }> = {
+  job_seal: { metal: 0xc0c4cc, glow: 0x3b82f6, emissive: 0x1d4ed8, rank: 1, form: "seal" }, // 1차 — 은빛 표식 + 푸른 광채(레어)
+  job_decree: { metal: 0xe7c558, glow: 0xc05cff, emissive: 0x9b5cff, rank: 2, form: "scroll" }, // 2차 — 금 각서 + 보라(에픽)
+  job_decree_high: { metal: 0xf6d36b, glow: 0xff8a3c, emissive: 0xff5a1f, rank: 3, form: "scroll" }, // 3차 — 화려한 각서 + 주황(레전더리)
+};
+
+export function createJobAdvanceModel(item: string): THREE.Object3D {
+  const s = JOB_ADVANCE_STYLE[item] ?? JOB_ADVANCE_STYLE.job_seal;
+  const group = new THREE.Group();
+  const metalMat = makeMetalMaterial(s.metal, { metalness: 0.72, roughness: 0.3 });
+  const glowMat = makeGlowMaterial(s.glow, s.emissive, { emissiveIntensity: 0.6 + s.rank * 0.25, roughness: 0.2, metalness: 0.2 });
+  if (s.form === "seal") {
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.04, 24), metalMat);
+    disc.position.y = 0.3;
+    disc.rotation.x = Math.PI / 2;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.02, 10, 28), glowMat);
+    rim.position.y = 0.3;
+    const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.075), glowMat);
+    star.position.set(0, 0.3, 0.035);
+    star.scale.set(1, 1, 0.5);
+    for (const sx of [-1, 1]) {
+      const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.01), glowMat);
+      ribbon.position.set(sx * 0.05, 0.13, 0);
+      ribbon.rotation.z = sx * 0.22;
+      group.add(ribbon);
+    }
+    group.add(disc, rim, star);
+  } else {
+    const paperMat = makeToonMaterial(0xf3e6c4, { roughness: 0.8 });
+    const scroll = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.4, 18), paperMat);
+    scroll.position.y = 0.26;
+    scroll.rotation.z = Math.PI / 2;
+    for (const sx of [-1, 1]) {
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.46, 12), metalMat);
+      rod.position.set(sx * 0.22, 0.26, 0);
+      rod.rotation.z = Math.PI / 2;
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), glowMat);
+      cap.position.set(sx * 0.25, 0.26, 0);
+      group.add(rod, cap);
+    }
+    const seal = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.03, 16), glowMat);
+    seal.position.set(0, 0.26, 0.13);
+    seal.rotation.x = Math.PI / 2;
+    const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 0.01), glowMat);
+    ribbon.position.set(0, 0.16, 0.12);
+    group.add(scroll, seal, ribbon);
+    if (s.rank >= 3) for (let i = 0; i < 3; i += 1) { const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.03), glowMat); gem.position.set((i - 1) * 0.1, 0.41, 0.04); group.add(gem); } // 상급 — 추가 보석 광채
   }
   return group;
 }

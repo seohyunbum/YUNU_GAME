@@ -22,6 +22,7 @@ try {
   const objectives = await server.ssrLoadModule("/src/objectives.ts");
   const bossChapters = await server.ssrLoadModule("/src/game/bossChapters.ts");
   const fieldBosses = await server.ssrLoadModule("/src/game/fieldBosses.ts");
+  const heldVisuals = await server.ssrLoadModule("/src/game/heldItemVisuals.ts");
 
   const { DURABLE_TOOL_TABLES, HEAL_ITEMS, ITEM_NAMES, SHIELD_DEFENSE, SHIELD_DURABILITY, WEAPON_DAMAGE, repairMaterialFor, repairPerMaterial, toolMaxDurability } = items;
   const { MINI_RECIPES, WORKBENCH_RECIPES } = recipes;
@@ -49,6 +50,21 @@ try {
   // 2x2 미니 제작칸(인벤토리)은 재료 4종까지만 — 초과 시 조용히 제작 불가(미래 데이터 사고 방지)
   for (const r of MINI_RECIPES) {
     if (Object.keys(r.ingredients).length > 4) problems.push(`mini recipe '${r.id}': 2x2 미니칸 재료 4종 초과 (${Object.keys(r.ingredients).length}종)`);
+  }
+
+  // 아이템 외형 룰 — 모든 아이템은 특성/희귀도에 맞는 모델을 가져야 한다. 신규 아이템이 기본 돌덩이(Dodecahedron)
+  // 폴백으로 떨어지면 실패시켜, 외형 고도화 없이 추가되는 것을 차단한다. 의도적 일반 외형은 allowlist 에 등록.
+  const GENERIC_ITEM_VISUAL_ALLOWLIST = new Set([]);
+  for (const id of Object.keys(ITEM_NAMES)) {
+    let isPebble = false;
+    try {
+      const model = heldVisuals.createHeldItemModel(id);
+      model.traverse((o) => { if (o.geometry && o.geometry.type === "DodecahedronGeometry") isPebble = true; });
+    } catch (e) {
+      problems.push(`item visual '${id}': createHeldItemModel 실패 — ${e.message}`);
+      continue;
+    }
+    if (isPebble && !GENERIC_ITEM_VISUAL_ALLOWLIST.has(id)) problems.push(`item visual '${id}' (${ITEM_NAMES[id]}): 기본 돌덩이 폴백 — 특성/희귀도에 맞는 모델을 heldItemVisuals.ts(accessoryVisuals/materialVisuals)에 추가하세요`);
   }
 
   // 2. 클래스: 시작장비 실존 + 스킬 수치 유효 (새 직업 누락 방지)

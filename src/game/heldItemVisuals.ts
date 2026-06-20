@@ -3,7 +3,7 @@ import { createMirrorModel } from "../avatar";
 import { createBucketVisual } from "./bucketVisuals";
 import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel, createObsidianGunModel, createObsidianShieldModel, createObsidianStaffModel, createOrnateStaffModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
-import { createAdvancedMedkitModel, createArmorModel, createDragonTrophyModel, createGemClusterModel, createNecklaceModel, GEM_ITEMS } from "./accessoryVisuals";
+import { createAdvancedMedkitModel, createArmorModel, createBigBagModel, createDragonTrophyModel, createGemClusterModel, createJobAdvanceModel, createNecklaceModel, createTutorialBookModel, GEM_ITEMS } from "./accessoryVisuals";
 import { createMaterialModel } from "./materialVisuals";
 import { addLegendaryWeapon } from "./legendaryWeapon";
 import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
@@ -281,6 +281,12 @@ export function createHeldItemModel(item: ItemId) {
     group.add(createAdvancedMedkitModel());
   } else if (GEM_ITEMS.has(item)) {
     group.add(createGemClusterModel(item));
+  } else if (item === "tutorial_book") {
+    group.add(createTutorialBookModel());
+  } else if (item === "big_bag") {
+    group.add(createBigBagModel());
+  } else if (item === "job_seal" || item === "job_decree" || item === "job_decree_high") {
+    group.add(createJobAdvanceModel(item));
   } else if (PLACEABLE_TYPES[item]) {
     const block = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.28), headMaterial);
     block.position.y = 0.16;
