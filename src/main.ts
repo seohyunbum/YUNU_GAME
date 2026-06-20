@@ -753,6 +753,7 @@ class WildernessGame {
       for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
       if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.bestFortressBaseLevel = this.fortressSiege?.baseLevel ?? this.bestFortressBaseLevel; this.saveBestFortressStage(); void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, baseLevel: this.bestFortressBaseLevel, kills: this.tutorialSignals.predatorKills }); } // 최고 단계 갱신(당시 baseLevel 기록) → 랭킹 즉시 반영
       startMiniFanfare(this.finaleContext);
+      this.saveSiegeRewardSnapshot(); // 단계 보상을 즉시 디스크에 고정 — 크래시/탭닫힘 유실 방지(#1)
     },
     showMessage: (text) => this.showMessage(text),
     renderHud: () => this.renderHud(),
@@ -4371,6 +4372,18 @@ class WildernessGame {
     this.leaveCave();
   }
 
+  private saveSiegeRewardSnapshot() {
+    // 요새 보상(전직의서·아이템)은 인벤토리에 들어온 즉시 디스크에 고정 — 크래시·탭닫힘으로 유실 방지(#1).
+    // 시즈 상태는 직렬화하지 않으므로, 재접속 시 깨진 아레나 대신 안전하게 동굴 진입 지점(야외)으로 복귀하도록 위치/모드를 덮어쓴다.
+    if (!this.gameStarted) return;
+    const save = this.createSaveData();
+    const ret = this.caveReturnPosition ?? new THREE.Vector3(0, PLAYER_HEIGHT, 12);
+    save.player.position = { x: ret.x, y: ret.y, z: ret.z };
+    save.player.previousPosition = { x: ret.x, y: ret.y, z: ret.z };
+    save.player.locationMode = "overworld";
+    appendAutosaveSync(save, this.nickname);
+  }
+
   private spawnSiegeMonster(x: number, z: number, level: number, elite: boolean): string | null {
     const monster = spawnFortressMonster(this.fortressSpawnDeps, new THREE.Vector3(x, 0, z), false);
     if (!monster) return null;
@@ -5561,6 +5574,7 @@ class WildernessGame {
     this.pendingStorageMove = null;
     this.renderPanel();
     this.renderHud();
+    if (this.gameStarted && !this.fortressSiege && this.autosaveTimer >= 20) { this.autosaveTimer = 0; this.flushAutosave(); } // 패널에서 한 제작/정리가 닫은 직후 사망으로 유실되지 않게(#16)
     if (this.gameStarted) this.requestGamePointerLock(); // 창 닫으면 마우스 자동 재캡처 — 재획득용 클릭 불필요(그 클릭이 제작대 회수/훈련장 재오픈 유발하던 문제 차단)
   }
 
