@@ -202,7 +202,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     const angle = aggroed ? Math.atan2(dz, dx) : predator.wanderAngle ?? 0;
     const predatorStats = context.predatorStats(predator.predatorKind, predator.monsterId as MonsterId | undefined);
     // 근접 정지/공격 사거리 — 플레이어와 겹치지 않고 시야에 들어오게 일정 거리 밖에서 멈춰 공격(몸집 클수록 더 멀리).
-    const reach = context.predatorStrikeRange(predator.predatorKind) + 0.8 + (predator.collisionRadius ?? 0) * 0.5;
+    const reach = context.predatorStrikeRange(predator.predatorKind) + 2.5 + (predator.collisionRadius ?? 0) * 0.5; // 정지/공격 사거리 — 0.8→2.5 로 더 멀리 떨어져 멈춰 공격(겹침 방지·타게팅 쉽게). 데미지는 사거리 내면 적용.
     const speed = !aggroed ? predatorStats.speed * 0.28 : distance > reach ? predatorStats.speed + (predator.speedBonus ?? 0) : 0; // 사거리 안이면 더 다가가지 않고 정지(타게팅 가능)
     nextPosition.set(
       THREE.MathUtils.clamp(predator.root.position.x + Math.cos(angle) * speed * delta, -WORLD_SIZE / 2 + 6, WORLD_SIZE / 2 - 6),
