@@ -103,6 +103,7 @@ export type PartyMessage =
   | { type: "playerAttack"; nickname: string; mapId: string; kind: "melee" | "ranged" | "skill"; visual?: "arrow" | "magic" | "wind" | "tnt" | "fireball"; obsidian?: boolean; speed?: number; life?: number; ox?: number; oy?: number; oz?: number; dx?: number; dy?: number; dz?: number }
   | { type: "partyHeal"; recipient: string; amount: number; mapId: string }
   | { type: "partyEmpower"; recipient: string; durationMs: number; mapId: string }
+  | { type: "partyRally"; recipient: string; durationMs: number; mapId: string }
   // 7차 — 보물 상자 개봉 (호스트 권위)
   | { type: "openRequest"; objectId: string }
   | { type: "chestLoot"; opener: string; items: { item: string; count: number }[] }

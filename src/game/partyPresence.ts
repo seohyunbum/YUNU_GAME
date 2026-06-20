@@ -256,6 +256,10 @@ function receiveGame(message: PartyMessage) {
     const me = context.localPresence();
     if (message.recipient === me.nickname && me.inGame && message.mapId === me.mapId) context.world?.empowerLocalPlayer?.(message.durationMs);
   }
+  if (message.type === "partyRally") {
+    const me = context.localPresence();
+    if (message.recipient === me.nickname && me.inGame && message.mapId === me.mapId) context.world?.rallyLocalPlayer?.(message.durationMs);
+  }
 }
 
 function spawnRemoteProjectile(message: Extract<PartyMessage, { type: "playerAttack" }>) {
@@ -477,6 +481,25 @@ export function partyEmpowerNearby(durationMs: number, radius: number): number {
     const dz = remote.root.position.z - me.z;
     if (dx * dx + dz * dz > radiusSq) continue;
     session.sendGame({ type: "partyEmpower", recipient: remote.data.nickname, durationMs, mapId: me.mapId });
+    count += 1;
+  }
+  return count;
+}
+
+// 탱커 3스킬(불굴의 함성): 사정거리 내 파티원 전원에게 방어 버프(partyRally) 송신.
+export function partyRallyNearby(durationMs: number, radius: number): number {
+  const session = context?.session();
+  if (!session || !context) return 0;
+  const me = context.localPresence();
+  if (!me.inGame) return 0;
+  const radiusSq = radius * radius;
+  let count = 0;
+  for (const remote of remotes.values()) {
+    if (!remote.onLocalMap) continue;
+    const dx = remote.root.position.x - me.x;
+    const dz = remote.root.position.z - me.z;
+    if (dx * dx + dz * dz > radiusSq) continue;
+    session.sendGame({ type: "partyRally", recipient: remote.data.nickname, durationMs, mapId: me.mapId });
     count += 1;
   }
   return count;
