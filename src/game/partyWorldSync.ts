@@ -75,7 +75,8 @@ export interface PartyWorldContext {
   hitFeedback(target: WorldObject, damage: number, killed: boolean): void;
   showMessage(text: string): void;
   gainExperience(amount: number): void;
-  creditHostKill(target: WorldObject): void; // 호스트 처치 크레딧 (펫/플레이어 XP + 필드보스 기록)
+  creditHostKill(target: WorldObject, creditQuest: boolean): void; // 호스트 처치 크레딧 (펫/플레이어 XP + 필드보스 기록). creditQuest=호스트가 직접 막타 → 사냥 카운터 증가
+  creditQuestKill(): void; // 게스트: 내가 막타친 야생 처치 → 내 사냥 퀘스트 카운터(+1)
   rollLoot(item: ItemId, count: number, source: "guard" | "predator"): number; // 처치자 전리품 — 확률 롤 포함(보상 소스별 튜닝), 획득 수량 반환
   recordFieldBossDefeat(id: string): void;
   damageLocalPlayer(amount: number, sourceName: string): boolean; // true = 사망
@@ -451,7 +452,7 @@ function hostApplyGuestAttack(targetId: string, power: number, killer: string) {
     lootItem: guard ? "iron" : undefined, // 경비 처치자(게스트)에게 철 지급
     lootCount: guard ? 1 : undefined,
   };
-  world.creditHostKill(target); // 호스트도 같은 맵 100% 지급 규칙 — 펫/플레이어 XP + 필드보스 기록
+  world.creditHostKill(target, killer === init!.localPresence().nickname); // 펫/플레이어 XP + 필드보스 기록. 사냥 카운터는 호스트가 직접 막타쳤을 때만(게스트 막타는 게스트가 자기 카운터 증가)
   world.removeObject(target.id);
   world.showMessage(`${killer} 님이 ${kill.name}을(를) 쓰러뜨렸습니다!`);
   debugLastKill = { name: kill.name, killer, xp: kill.xp };
@@ -668,6 +669,8 @@ function onPartyKill(message: { name: string; xp: number; killer: string; mapId:
     // 필드보스 토벌 기록도 같은 맵에서 함께 싸운 경우에만 공유 — 다른 맵 게스트의 보스 콘텐츠를 지우지 않는다
     if (message.fieldBossId) world.recordFieldBossDefeat(message.fieldBossId);
   }
+  // 내가 막타친 야생동물이면 사냥 퀘스트 카운터(+1). 경비(kind 없음·lootItem='iron')는 사냥 카운터 대상 아님.
+  if (isKiller && message.kind) world.creditQuestKill();
   // 처치자 전리품 — 경비는 lootItem("iron"), 야생은 kind→predatorLootForKind
   let lootItem: ItemId | undefined;
   let lootCount = message.lootCount ?? 1;
