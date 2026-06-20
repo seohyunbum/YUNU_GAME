@@ -204,28 +204,40 @@ export function predatorStrikeRangeFor(kind: PredatorKind = "wolf") {
   return predatorBaseStats(kind).strikeRange;
 }
 
+// 야외 로밍 스폰 레벨 캡 — 저렙이 고렙 지역에 들어가 원킬당하는 것 방지(#2). 보스/요새/파티동기는 호출 시 playerLevel 미전달로 면제.
+export const ROAMING_LEVEL_CAP_OFFSET = 20; // 로밍 몬스터는 플레이어보다 최대 +20렙
+export const ROAMING_CAP_GAP_THRESHOLD = 25; // 몬스터가 플레이어보다 이만큼 이상 높을 때만 캡(의도된 난이도 지역은 보존)
+export function cappedRoamingLevel(defLevel: number, playerLevel: number): number {
+  return defLevel - playerLevel > ROAMING_CAP_GAP_THRESHOLD ? playerLevel + ROAMING_LEVEL_CAP_OFFSET : defLevel;
+}
+
 export function applyPredatorMonsterDefinition(
   object: WorldObject,
   region: { id: string; lootTier: number },
   monsterId: MonsterId,
+  playerLevel?: number, // 지정 시 야외 로밍 레벨 캡 적용(보스/요새/파티동기는 미전달=면제)
 ) {
   const def = MONSTER_DEFS[monsterId];
   if (!def.predatorKind) return object;
+  const level = playerLevel !== undefined ? cappedRoamingLevel(def.level, playerLevel) : def.level;
   const stats = predatorStatsForMonster(monsterId, def.predatorKind);
+  let hp = stats.hp;
+  let attackDamage = stats.attackDamage;
+  if (level < def.level) { const scaled = monsterStatsFromLevel(level); hp = Math.min(hp, scaled.hp); attackDamage = Math.min(attackDamage, scaled.attackDamage); } // 캡 시 hp/공격력만 레벨에 맞춰 하향(공유 stats 객체는 변형하지 않음)
   object.name = def.name;
-  object.hp = stats.hp;
+  object.hp = hp;
   object.armor = 0;
-  object.attackDamage = stats.attackDamage;
+  object.attackDamage = attackDamage;
   object.attackRange = stats.aggroRange;
   object.regionId = region.id;
   object.monsterId = monsterId;
-  object.monsterLevel = def.level;
+  object.monsterLevel = level;
   object.lootTier = region.lootTier;
-  // 고렙(50+)일수록 종족색 발광을 강하게 — 엘리트 오라처럼 한눈에 "센 놈"이 보이게.
-  const elite = def.level >= 50;
+  // 고렙(50+)일수록 종족색 발광을 강하게 — 엘리트 오라처럼 한눈에 "센 놈"이 보이게(캡 적용 후 레벨 기준).
+  const elite = level >= 50;
   const tintLerp = elite ? 0.5 : 0.35;
   const emissiveLerp = elite ? 0.34 : 0.08;
-  const emissiveIntensity = elite ? Math.min(1.0, 0.3 + (def.level - 50) / 150) : null; // 50렙 0.3 → 최고렙 ~1.0
+  const emissiveIntensity = elite ? Math.min(1.0, 0.3 + (level - 50) / 150) : null; // 50렙 0.3 → 최고렙 ~1.0
   object.root.traverse((child) => {
     if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
       child.material = child.material.clone();

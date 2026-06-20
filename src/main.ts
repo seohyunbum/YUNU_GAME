@@ -1939,7 +1939,7 @@ class WildernessGame {
       if (!region || !point) continue;
       const monsterId = chooseRegionPredatorMonster(region);
       const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
-      applyPredatorMonsterDefinition(predator, region, monsterId);
+      applyPredatorMonsterDefinition(predator, region, monsterId, this.level); // 로밍 스폰 레벨 캡(#2)
     }
     for (const v of VILLAGE_CENTERS) this.spawnVillage(new THREE.Vector3(v.x, 0, v.z), v.special ? (isTouchDevice() ? 10 : 16) : 5, v.special); // 안전구역(safeZones)과 단일 진실원천 · 모바일은 특별마을 집 16→10(드로우콜 절감)
   }
@@ -3691,7 +3691,7 @@ class WildernessGame {
     for (let index = this.respawnQueue.length - 1; index >= 0; index -= 1) {
       const entry = this.respawnQueue[index]; if (partyWorldGuestActive() && (entry.type === "wildPredator" || isGuardType(entry.type))) continue; if (entry.dueAt > now) continue; if (entry.position.distanceTo(this.playerPosition) < 10) { entry.dueAt = now + 5_000; continue; } // 근접 게이트 42→10u·연기 10→5s: 사냥하던 자리에 머물러도 몬스터가 훨씬 잘 리스폰되게
       this.respawnQueue.splice(index, 1); const position = entry.position.clone(); position.y = this.getGroundHeightAt(position.x, position.z); const villageId = entry.villageId ?? "respawn-village";
-      if (entry.type === "wildPredator") { const region = this.activeRegions.find((candidate) => candidate.id === entry.regionId) ?? regionAtPosition(position, this.activeRegions); const monsterId = (entry.monsterId as MonsterId | undefined) ?? chooseRegionPredatorMonster(region); const predator = spawnPredatorEntity(this.entitySpawnContext, this.randomPredatorSpawnPoint(region) ?? position, entry.predatorKind ?? predatorKindForMonster(monsterId)); applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(predator.root.position, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId); }
+      if (entry.type === "wildPredator") { const region = this.activeRegions.find((candidate) => candidate.id === entry.regionId) ?? regionAtPosition(position, this.activeRegions); const monsterId = (entry.monsterId as MonsterId | undefined) ?? chooseRegionPredatorMonster(region); const predator = spawnPredatorEntity(this.entitySpawnContext, this.randomPredatorSpawnPoint(region) ?? position, entry.predatorKind ?? predatorKindForMonster(monsterId)); applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(predator.root.position, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId, this.level); }
       else if (entry.type === "jammini") spawnJamminiEntity(this.entitySpawnContext, position);
       else if (entry.type === "villageKnight") this.spawnKnight(position, villageId); else if (entry.type === "villageGolem") this.spawnGolem(position, villageId); else if (entry.type === "villageArcher" || entry.type === "villageMage") this.spawnRangedGuard(position, villageId, entry.type);
     }
@@ -3709,7 +3709,7 @@ class WildernessGame {
     if (!point) return;
     const monsterId = chooseRegionPredatorMonster(region);
     const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
-    applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(point, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId);
+    applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(point, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId, this.level); // 로밍 스폰 레벨 캡(#2)
     this.showMessage(isNight ? "밤의 야생동물들이 멀리 숲과 들판에 퍼져 있습니다." : "이 지역의 몬스터들이 멀리 퍼져 있습니다.");
   }
 
