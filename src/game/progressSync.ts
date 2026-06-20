@@ -1,4 +1,5 @@
 import { FIREBASE_CONFIG } from "../onlineConfig";
+import type { TrainingKind } from "./types";
 
 // 저장 시 플레이어 진행도를 Firebase 중앙 디렉터리(users/{닉네임})에 발행한다.
 // 운영자 리포트(admin-report)가 원격 유저의 최고 레벨·플레이타임까지 한곳에서 집계할 수 있게 한다.
@@ -13,6 +14,20 @@ export interface ProgressUpdate {
   bestFortressStage: number; // 몬스터 요새 최고 클리어 단계(랭킹용)
   baseLevel: number; // 그 단계 기록 당시 baseLevel(난이도 맥락 표기용)
   kills: number; // 누적 처치 몬스터 수(랭킹 보조 지표)
+  training: Record<TrainingKind, { stage: number; tries: number }>; // 훈련 종목별 최고 단계 + 그 단계 달성 시도수
+}
+
+// 훈련 종목별 랭킹 한 줄 — 최고 단계 desc, 동률이면 시도수 asc.
+export interface TrainingRankEntry {
+  nickname: string;
+  stage: number; // 최고 클리어 단계(성공 횟수)
+  tries: number; // 그 단계 달성까지 시도 횟수(적을수록 효율적)
+}
+
+export interface TrainingLeaderboard {
+  top: TrainingRankEntry[];
+  myRank: number | null;
+  total: number;
 }
 
 // 전체 플레이어 랭킹 한 줄(요새 최고 단계 기준).
@@ -45,6 +60,9 @@ export async function publishProgress(
     fortressStage: Math.max(0, Math.floor(progress.bestFortressStage)),
     fortressBase: Math.max(0, Math.floor(progress.baseLevel)),
     kills: Math.max(0, Math.floor(progress.kills)),
+    training: Object.fromEntries(
+      (Object.entries(progress.training ?? {}) as [TrainingKind, { stage: number; tries: number }][]).map(([k, v]) => [k, { stage: Math.max(0, Math.floor(v.stage)), tries: Math.max(0, Math.floor(v.tries)) }]),
+    ),
     progressAt: Date.now(),
   });
   try {
@@ -80,5 +98,34 @@ export async function fetchLeaderboard(
     return { top: entries.slice(0, Math.max(1, limit)), myRank, total: entries.length };
   } catch {
     return empty; // 오프라인/네트워크 오류는 조용히 무시
+  }
+}
+
+// 훈련 종목(kind)별 상위 N명 — 최고 단계 desc, 동률이면 시도수 asc. 각 훈련 패널에 표기.
+export async function fetchTrainingLeaderboard(
+  myNickname: string,
+  kind: TrainingKind,
+  limit: number,
+  fetchImpl: typeof fetch = typeof fetch !== "undefined" ? fetch : (undefined as unknown as typeof fetch),
+): Promise<TrainingLeaderboard> {
+  const empty: TrainingLeaderboard = { top: [], myRank: null, total: 0 };
+  const dbUrl = FIREBASE_CONFIG?.databaseURL;
+  if (!dbUrl || typeof fetchImpl !== "function") return empty;
+  try {
+    const res = await fetchImpl(`${dbUrl.replace(/\/$/, "")}/users.json`);
+    if (!res?.ok) return empty;
+    const data = (await res.json()) as Record<string, { training?: Record<string, { stage?: number; tries?: number }> }> | null;
+    if (!data || typeof data !== "object") return empty;
+    const entries: TrainingRankEntry[] = Object.entries(data)
+      .map(([nickname, v]) => {
+        const t = v?.training?.[kind];
+        return { nickname, stage: Math.max(0, Math.floor(Number(t?.stage ?? 0))), tries: Math.max(0, Math.floor(Number(t?.tries ?? 0))) };
+      })
+      .filter((e) => e.stage > 0)
+      .sort((a, b) => b.stage - a.stage || a.tries - b.tries || a.nickname.localeCompare(b.nickname));
+    const myRank = myNickname ? (entries.findIndex((e) => e.nickname === myNickname) + 1) || null : null;
+    return { top: entries.slice(0, Math.max(1, limit)), myRank, total: entries.length };
+  } catch {
+    return empty;
   }
 }

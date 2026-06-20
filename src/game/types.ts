@@ -318,6 +318,7 @@ export interface SavedGame {
     homeSupplyCooldownSeconds?: number; // 레거시(단일 쿨타임) — 마이그레이션 입력용
     homeSupplyCooldowns?: Record<string, number>; // 집 종류별 보급 쿨타임
     trainingStats?: TrainingStats;
+    trainingTries?: TrainingStats; // 종목별 최고단계 달성 시도수(랭킹 타이브레이크). 레거시 세이브엔 없음
     craftLevel?: number;
     craftExperience?: number;
     craftStatPoints?: number;

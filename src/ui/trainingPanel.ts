@@ -12,6 +12,7 @@ import {
   TRAINING_REWARDS,
 } from "../game/training";
 import type { TrainingKind } from "../game/types";
+import type { TrainingLeaderboard } from "../game/progressSync";
 
 // 훈련장 미니게임 패널 — 자체 rAF 루프로 동작하고, 패널 DOM 이 사라지면 스스로 멈춘다.
 // 성공할 때마다 onSuccess 를 호출하고(스탯 반영은 main), 난이도는 getCount() 횟수로 다시 읽는다.
@@ -19,6 +20,7 @@ import type { TrainingKind } from "../game/types";
 export interface TrainingPanelCallbacks {
   getCount(kind: TrainingKind): number;
   onSuccess(kind: TrainingKind): void;
+  onFail(kind: TrainingKind): void; // 실패/리셋 1회 = 시도 1회(랭킹 시도수 집계)
   onClose(): void;
 }
 
@@ -43,6 +45,7 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
         </div>
         <div class="training-stage" data-stage></div>
         <p class="training-feedback" data-feedback>준비되면 시작!</p>
+        <div class="training-leaderboard" data-training-leaderboard style="margin-top:10px;padding:10px 12px;border:0.5px solid rgba(255,255,255,0.16);border-radius:8px"><div style="opacity:0.65;font-size:13px">🏆 TOP 5 불러오는 중…</div></div>
       </section>
     `;
 
@@ -124,6 +127,7 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
         phase = Math.random() * Math.PI * 2;
       } else {
         setFeedback(position > 0 ? "빗나감! 과녁이 오른쪽에 있었어요." : "빗나감! 과녁이 왼쪽에 있었어요.");
+        callbacks.onFail(kind);
       }
     };
     arena.addEventListener("mousedown", shoot);
@@ -188,6 +192,7 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
         blocked = 0;
         progress.textContent = "0 / 3";
         setFeedback(state === "fake" ? "가짜 신호에 속았어요! 처음부터." : "너무 빨랐어요! 처음부터.");
+        callbacks.onFail(kind);
         schedule();
       }
     });
@@ -213,6 +218,7 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
         blocked = 0;
         progress.textContent = "0 / 3";
         setFeedback("늦었어요! 처음부터.");
+        callbacks.onFail(kind);
         schedule();
       }
       requestAnimationFrame(tick);
@@ -251,6 +257,7 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
         gathered = 0;
         progress.textContent = "0 / 3";
         setFeedback("마음이 흔들렸어요! 처음부터.");
+        callbacks.onFail(kind);
       }
     });
     const tick = () => {
@@ -267,4 +274,22 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
     };
     requestAnimationFrame(tick);
   }
+}
+
+// 패널을 다시 그리지 않고(rAF 미니게임 유지) 종목 TOP5 영역만 채운다. main 이 fetch 후 호출.
+export function fillTrainingLeaderboard(panelEl: HTMLElement, kind: TrainingKind, board: TrainingLeaderboard | null, myNickname: string) {
+  const el = panelEl.querySelector<HTMLElement>("[data-training-leaderboard]");
+  if (!el) return;
+  const title = `<div style="font-weight:600;margin-bottom:6px">🏆 ${escapeHtml(TRAINING_GAMES[kind].name)} TOP 5 <span style="opacity:0.6;font-weight:400;font-size:12px">(단계 · 시도수)</span></div>`;
+  if (!board) { el.innerHTML = `${title}<div style="opacity:0.65;font-size:13px">불러오는 중…</div>`; return; }
+  if (board.top.length === 0) { el.innerHTML = `${title}<div style="opacity:0.65;font-size:13px">아직 기록이 없어요. 1등에 도전!</div>`; return; }
+  const medals = ["🥇", "🥈", "🥉", "4.", "5."];
+  const rows = board.top
+    .map((entry, i) => {
+      const self = entry.nickname === myNickname;
+      return `<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:13px${self ? ";font-weight:600" : ""}"><span>${medals[i] ?? `${i + 1}.`} ${escapeHtml(entry.nickname)}${self ? " (나)" : ""}</span><strong>${entry.stage}단계 · ${entry.tries}회</strong></div>`;
+    })
+    .join("");
+  const mine = board.myRank && board.myRank > board.top.length ? `<div style="opacity:0.65;font-size:12px;margin-top:4px">내 순위 ${board.myRank}위 / 총 ${board.total}명</div>` : "";
+  el.innerHTML = `${title}${rows}${mine}`;
 }
