@@ -311,7 +311,7 @@ import {
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
-import { publishProgress } from "./game/progressSync";
+import { publishProgress, fetchLeaderboard, type LeaderboardResult } from "./game/progressSync";
 import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
 import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
 import { updateDragons, DRAGON_AGGRO_MS, type DragonAiContext } from "./game/dragonAi";
@@ -608,6 +608,7 @@ class WildernessGame {
   private caveReturnPosition: THREE.Vector3 | null = null;
   private fortressSiege: SiegeState | null = null; // 몬스터 요새 디펜스 진행 상태(휘발 — 세이브 안 함)
   private bestFortressStage = this.loadBestFortressStage(); // 몬스터 요새 최고 클리어 단계(기록용 — 전역 유지, 새 게임 시 리셋)
+  private leaderboard: LeaderboardResult | null = null; // 캐릭터 창 전체 랭킹(null = 불러오는 중). 창 열 때마다 재조회
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
   private houseObjectIds: string[] = [];
@@ -748,7 +749,7 @@ class WildernessGame {
     grantStageReward: (stage, tomes, items) => {
       this.addItem("job_change_tome", tomes);
       for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
-      if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.saveBestFortressStage(); } // 최고 단계 갱신
+      if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.saveBestFortressStage(); void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, kills: this.tutorialSignals.predatorKills }); } // 최고 단계 갱신 → 랭킹 즉시 반영
       startMiniFanfare(this.finaleContext);
     },
     showMessage: (text) => this.showMessage(text),
@@ -934,6 +935,11 @@ class WildernessGame {
 
   private saveBestFortressStage() {
     localStorage.setItem(BEST_FORTRESS_STAGE_KEY, String(Math.max(0, Math.floor(this.bestFortressStage))));
+  }
+
+  private loadLeaderboard() {
+    this.leaderboard = null; // 열 때마다 최신 순위 재조회(불러오는 중 표시)
+    void fetchLeaderboard(this.nickname, 3).then((result) => { this.leaderboard = result; if (this.currentPanel === "character") this.renderPanel(); });
   }
 
   private setupRenderer() {
@@ -5523,6 +5529,7 @@ class WildernessGame {
   private togglePanel(panel: Exclude<PanelType, null>) {
     if (this.fortressSiege?.active && panel === "map") { this.showMessage("요새 진행 중에는 지도를 열 수 없습니다."); return; }
     this.currentPanel = this.currentPanel === panel ? null : panel;
+    if (this.currentPanel === "character") this.loadLeaderboard(); // 캐릭터 창 열 때 전체 랭킹 조회
     this.pendingStorageMove = null;
     if (this.currentPanel !== null && document.pointerLockElement) document.exitPointerLock();
     else if (this.currentPanel === null && this.gameStarted) this.requestGamePointerLock(); // 토글로 닫을 때도 마우스 자동 재캡처
@@ -5532,6 +5539,7 @@ class WildernessGame {
 
   private openPanel(panel: Exclude<PanelType, null>) {
     this.currentPanel = panel;
+    if (panel === "character") this.loadLeaderboard(); // 캐릭터 창 열 때 전체 랭킹 조회
     if (panel === "shop" || panel === "sellShop" || panel === "trade") this.tutorialSignals.shopOpened = true;
     this.pendingStorageMove = null;
     if (document.pointerLockElement) document.exitPointerLock();
@@ -5616,7 +5624,7 @@ class WildernessGame {
     this.saveInProgress = true;
     try {
       const save = this.createSaveData();
-      void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds }); // 운영 리포트용 진행도 발행(부가)
+      void publishProgress(this.nickname, { level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds, bestFortressStage: this.bestFortressStage, kills: this.tutorialSignals.predatorKills }); // 운영 리포트 + 랭킹용 진행도 발행(부가)
       const existingSaves = this.readStoredSlots().filter((slot) => slot.savedAt !== save.savedAt);
       if (existingSaves.length >= MAX_SAVE_SLOTS) {
         // 슬롯 가득 — 어떤 저장도 건드리기 전에 덮어쓸 슬롯을 직접 고르게 한다.
@@ -6429,6 +6437,7 @@ class WildernessGame {
         ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
         monstersKilled: this.tutorialSignals.predatorKills, bestFortressStage: this.bestFortressStage,
+        leaderboard: this.leaderboard, myNickname: this.nickname,
       }, {
         onSpend: (kind) => {
           if (this.craftStatPoints <= 0) return;
