@@ -17,6 +17,7 @@ export interface GuardAiContext {
   renderHud(): void;
   getLastDamage(): { blocked: boolean; taken: number };
   keepOutOfBuildings(position: THREE.Vector3): void;
+  throwRock(fromX: number, fromY: number, fromZ: number, targetX: number, targetZ: number, damage: number): void; // 골렘 바위 던지기
 }
 
 function lerpAngle(current: number, target: number, alpha: number) {
@@ -59,8 +60,8 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     let movementSpeed = 0;
     if (mode === "melee" && attackDistance > range) {
       if (centerDistance > 0.01) {
-        // 추격 속도 +30% (골렘 1.85→2.405, 그 외 2.4→3.12)
-        const chaseSpeed = guard.type === "villageGolem" ? 2.405 : 3.12;
+        // 추격 속도 — 저레벨 경험치 농사 방지로 추가 +50% (골렘 2.405→3.6, 그 외 3.12→4.68)
+        const chaseSpeed = guard.type === "villageGolem" ? 3.6 : 4.68;
         const step = Math.min(attackDistance - range, chaseSpeed * delta);
         guard.root.position.x += (dx / centerDistance) * step;
         guard.root.position.z += (dz / centerDistance) * step;
@@ -73,6 +74,16 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     // 추격·공격 중에는 플레이어를 정면으로 바라본다 (+Z 정면 모델 → atan2(dx, dz))
     if (centerDistance > 0.01) guard.root.rotation.y = lerpAngle(guard.root.rotation.y, Math.atan2(dx, dz), Math.min(1, delta * 10));
     context.runWalkCycle(guard, delta, movementSpeed);
+
+    // 골렘 — 5초마다 바위 던지기(원거리). 일반 공격은 근접 유지.
+    if (guard.type === "villageGolem") {
+      guard.skillCooldown = Math.max(0, (guard.skillCooldown ?? 0) - delta);
+      if (guard.skillCooldown <= 0 && centerDistance > 4 && centerDistance <= 22) {
+        context.throwRock(guard.root.position.x, guard.root.position.y + (guard.collisionHeight ?? 3.9) * 0.7, guard.root.position.z, targetX, targetZ, guard.attackDamage ?? 14);
+        guard.skillCooldown = 5;
+        context.playHandAction();
+      }
+    }
 
     guard.attackCooldown = Math.max(0, (guard.attackCooldown ?? 0) - delta);
     if (guard.attackCooldown > 0) continue;
