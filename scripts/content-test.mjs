@@ -90,16 +90,16 @@ try {
   if (!summonerPet) {
     problems.push("summoner: missing passive pet");
   } else {
-    const shareTotal = summonerPet.playerXpShare + summonerPet.petXpShare;
-    if (Math.abs(shareTotal - 1) > 0.0001) problems.push(`summoner pet: xp shares total ${shareTotal}, expected 1`);
-    if (summonerPet.baseDamage !== 2) problems.push(`summoner pet: baseDamage ${summonerPet.baseDamage}, expected 2`);
+    if (summonerPet.playerXpShare !== 1) problems.push(`summoner pet: playerXpShare ${summonerPet.playerXpShare}, expected 1 (플레이어 full, 차감 없음)`);
+    if (!(summonerPet.petXpShare > 0)) problems.push("summoner pet: petXpShare should be positive (추가 보너스 XP)");
+    if (summonerPet.baseDamage !== 4) problems.push(`summoner pet: baseDamage ${summonerPet.baseDamage}, expected 4`);
     if (summonerPet.attackInterval <= 0 || summonerPet.attackRange <= 0) problems.push("summoner pet: invalid attack timing/range");
     if (
       !(summonerPet.flightAhead > 0 && summonerPet.flightSide > 0 && Number.isFinite(summonerPet.flightRise))
     ) {
       problems.push("summoner pet: invalid flight screen placement");
     }
-    if (summonerPetDamage({ level: 1, experience: 0 }) !== 2) problems.push("summoner pet: level 1 damage should be 2");
+    if (summonerPetDamage({ level: 1, experience: 0 }) !== 4) problems.push("summoner pet: level 1 damage should be 4");
     if (experienceForNextPetLevel(1) <= 0) problems.push("summoner pet: next level xp should be positive");
   }
 
