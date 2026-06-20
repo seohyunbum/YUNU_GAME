@@ -46,6 +46,10 @@ try {
       if (!isItem(ing)) problems.push(`recipe '${r.id}': ingredient '${ing}' is not a known item`);
     }
   }
+  // 2x2 미니 제작칸(인벤토리)은 재료 4종까지만 — 초과 시 조용히 제작 불가(미래 데이터 사고 방지)
+  for (const r of MINI_RECIPES) {
+    if (Object.keys(r.ingredients).length > 4) problems.push(`mini recipe '${r.id}': 2x2 미니칸 재료 4종 초과 (${Object.keys(r.ingredients).length}종)`);
+  }
 
   // 2. 클래스: 시작장비 실존 + 스킬 수치 유효 (새 직업 누락 방지)
   for (const [id, c] of Object.entries(PLAYER_CLASSES)) {
