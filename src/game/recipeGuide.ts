@@ -43,6 +43,18 @@ function itemName(item: ItemId) {
   return ITEM_NAMES[item] ?? item;
 }
 
+// 이 아이템을 재료로 쓰는 제작물 이름 상위 N개 — 제련대·분쇄기 패널의 "다음 제작에 쓰임" 표기용(#12).
+export function itemsUsing(itemId: ItemId, max = 3): string[] {
+  const names: string[] = [];
+  for (const recipe of [...MINI_RECIPES, ...WORKBENCH_RECIPES]) {
+    if ((recipe.ingredients as Record<string, number>)[itemId] && !names.includes(itemName(recipe.output))) {
+      names.push(itemName(recipe.output));
+      if (names.length >= max) break;
+    }
+  }
+  return names;
+}
+
 function ingredientLabel(ingredients: Record<ItemId, number>) {
   return (Object.entries(ingredients) as [ItemId, number][])
     .map(([item, count]) => `${itemName(item)} ${count}`)

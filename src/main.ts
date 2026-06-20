@@ -282,7 +282,7 @@ import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
-import { buildRecipeGuideEntriesForStations, ingredientCounts } from "./game/recipeGuide";
+import { buildRecipeGuideEntriesForStations, ingredientCounts, itemsUsing } from "./game/recipeGuide";
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
 import { NECKLACE_IDS, necklaceAttackBonus, necklaceAttackSpeedMult, necklaceDefenseBonus, necklaceSkillCooldownMult } from "./game/necklace";
 import { experienceForLevelUps, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
@@ -6668,10 +6668,12 @@ class WildernessGame {
             .map((item) => {
               const output = this.smeltOutputFor(item);
               const disabled = this.countItem(item) <= 0 ? "disabled" : "";
+              const uses = itemsUsing(output);
               return `<article class="recipe-card">
                 <div>
                   <strong>${ITEM_NAMES[item]} 제련</strong>
                   <p>${ITEM_NAMES[item]} 1 -> ${ITEM_NAMES[output]} 1</p>
+                  ${uses.length ? `<p style="font-size:12px;opacity:0.65;margin:2px 0 0">→ 쓰임: ${uses.join(", ")}</p>` : ""}
                 </div>
                 <button data-smelt="${item}" ${disabled}>제련</button>
               </article>`;
@@ -6697,10 +6699,12 @@ class WildernessGame {
           ${GRINDABLE_MATERIALS.map((item) => {
             const output = POWDER_BY_MINERAL[item];
             const disabled = this.countItem(item) <= 0 ? "disabled" : "";
+            const uses = itemsUsing(output);
             return `<article class="recipe-card">
               <div>
                 <strong>${ITEM_NAMES[item]} 분쇄</strong>
                 <p>${ITEM_NAMES[item]} 1 -> ${ITEM_NAMES[output]} 2</p>
+                ${uses.length ? `<p style="font-size:12px;opacity:0.65;margin:2px 0 0">→ 쓰임: ${uses.join(", ")}</p>` : ""}
               </div>
               <button data-grind="${item}" ${disabled}>분쇄</button>
             </article>`;
