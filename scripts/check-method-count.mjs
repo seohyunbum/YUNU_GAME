@@ -13,7 +13,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 훈련 랭킹 — progressUpdate()+loadTrainingBoard() 메서드로 471→473.
 // 2026-06-20: 품질 선택 메서드 3개(loadQualityMode·fogFarForQuality·updateQualityButtons)로 473→476.
 // 2026-06-20: broadcastSharedStorage(공유 창고 동기화 전송) 1개 → 476→477.
-const MAX_METHODS = 477;
+// 2026-06-20: appendPartyLedger(파티 거래 기록) 1개 → 477→478.
+const MAX_METHODS = 478;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");
