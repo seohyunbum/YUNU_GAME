@@ -17,7 +17,7 @@ export interface GuardAiContext {
   renderHud(): void;
   getLastDamage(): { blocked: boolean; taken: number };
   keepOutOfBuildings(position: THREE.Vector3): void;
-  throwRock(fromX: number, fromY: number, fromZ: number, targetX: number, targetZ: number, damage: number): void; // 골렘 바위 던지기
+  fireProjectile(fromX: number, fromY: number, fromZ: number, targetX: number, targetZ: number, damage: number, kind: "rock" | "arrow" | "magic"): void; // 가드 투사체(바위·화살·마법탄)
 }
 
 function lerpAngle(current: number, target: number, alpha: number) {
@@ -79,7 +79,7 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     if (guard.type === "villageGolem") {
       guard.skillCooldown = Math.max(0, (guard.skillCooldown ?? 0) - delta);
       if (guard.skillCooldown <= 0 && centerDistance > 4 && centerDistance <= 22) {
-        context.throwRock(guard.root.position.x, guard.root.position.y + (guard.collisionHeight ?? 3.9) * 0.7, guard.root.position.z, targetX, targetZ, guard.attackDamage ?? 14);
+        context.fireProjectile(guard.root.position.x, guard.root.position.y + (guard.collisionHeight ?? 3.9) * 0.7, guard.root.position.z, targetX, targetZ, guard.attackDamage ?? 14, "rock");
         guard.skillCooldown = 5;
         context.playHandAction();
       }
@@ -100,19 +100,20 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
       context.playHandAction();
       continue;
     }
-    const died = context.damagePlayer(
-      damage,
-      true,
-      `${guard.name}의 ${mode === "ranged" ? "원거리 공격" : "근거리 공격"}을 받아 체력이 모두 떨어졌습니다.`,
-    );
+    if (mode === "ranged") {
+      // 원거리 가드 — 눈에 보이는 투사체 발사(즉시 피해 → 착탄 피해, 회피 가능). 어디서 쏘는지 보이게.
+      context.fireProjectile(guard.root.position.x, guard.root.position.y + (guard.collisionHeight ?? 2) * 0.82, guard.root.position.z, targetX, targetZ, damage, guard.type === "villageMage" ? "magic" : "arrow");
+      context.playHandAction();
+      continue; // 피해는 투사체 착탄 시 적용
+    }
+    // 여기부터는 근접 가드만 도달(원거리는 위에서 투사체 발사 후 continue)
+    const died = context.damagePlayer(damage, true, `${guard.name}의 근거리 공격을 받아 체력이 모두 떨어졌습니다.`);
     context.playHandAction();
     if (died) continue;
     const lastDamage = context.getLastDamage();
     const attackText = lastDamage.blocked
       ? `${guard.name}의 공격을 방어구가 완전히 막았습니다.`
-      : mode === "ranged"
-        ? `${guard.name}의 원거리 공격을 받았습니다. 피해 ${lastDamage.taken}.`
-        : `${guard.name}가 가까이 붙어 공격했습니다. 피해 ${lastDamage.taken}.`;
+      : `${guard.name}가 가까이 붙어 공격했습니다. 피해 ${lastDamage.taken}.`;
     context.showMessage(attackText);
     context.renderHud();
   }
