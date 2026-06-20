@@ -2740,7 +2740,7 @@ class WildernessGame {
       case "villageMage":
       case "villageKing":
       case "villageGolem":
-        return 275;
+        return isTouchDevice() && type !== "villageFence" && type !== "villageHouse" && type !== "foodStorage" && type !== "blacksmith" && type !== "villageShop" && type !== "villageSellShop" ? 80 : 275; // 모바일: 마을 NPC만 80m(먼 마을 미머지 NPC 드로우콜 절감, 가까이 가면 그대로)
       case "water":
       case "cave":
       case "workbench":
