@@ -26,7 +26,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: PC 아웃라인 거리 게이트(outline distance gating) — addCartoonOutlines 반환화+object.outlines+컬링 게이트 → 9730→9736.
 // 2026-06-20: 모바일 적대적 수정(파티초대 버튼·밤낮 동기·인벤 터치 버리기/설치·침대 휴식 선택창) → 9736→9749.
 // 2026-06-20: 모바일 백로그2(퀘스트 클리어 가이드 팝업·독수리 T윈드커터/F해제) → 9749→9752.
-const MAX_MAIN_LINES = 9752;
+// 2026-06-20: 적대적QA #11 — hunt_predators 활성 시 첫 전투 교육 1회(field+renderHud 1줄) → 9752→9754.
+const MAX_MAIN_LINES = 9754;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
