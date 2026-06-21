@@ -2,7 +2,7 @@
 // 특히 모바일: 카드 hover 툴팁이 없어 클리어 방법을 알기 어려운 문제 해소. 자체 인라인 스타일·textContent(XSS 안전).
 export function showObjectiveGuide(
   parent: HTMLElement,
-  q: { title: string; detail: string; progress: string; rewardLabel: string; touch: boolean },
+  q: { title: string; detail: string; progress: string; rewardLabel: string; touch: boolean; heading?: string },
 ): void {
   parent.querySelector(".objective-guide")?.remove();
   const overlay = document.createElement("div");
@@ -19,10 +19,10 @@ export function showObjectiveGuide(
     box.append(d);
   };
   add(`📜 ${q.title}`, "font-weight:800;font-size:16px;color:#ffe24a;margin-bottom:8px;");
-  add("📋 클리어 방법", "font-weight:700;color:#bfe3b0;margin-bottom:2px;");
+  add(q.heading ?? "📋 클리어 방법", "font-weight:700;color:#bfe3b0;margin-bottom:2px;");
   add(q.detail, "margin-bottom:10px;");
-  add(`진행도 — ${q.progress}`, "color:#cbd5e1;margin-bottom:4px;");
-  add(`🎁 보상 — ${q.rewardLabel}`, "color:#fbbf77;margin-bottom:10px;");
+  if (q.progress) add(`진행도 — ${q.progress}`, "color:#cbd5e1;margin-bottom:4px;");
+  if (q.rewardLabel) add(`🎁 보상 — ${q.rewardLabel}`, "color:#fbbf77;margin-bottom:10px;");
   if (q.touch)
     add(
       "📱 조이스틱=이동 · 화면 드래그=시점 · 👊버튼=채집/공격/상호작용 · 핫바·가방 아이템 탭=사용·설치",

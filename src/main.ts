@@ -825,7 +825,7 @@ class WildernessGame {
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
     showMessage: (text) => this.showMessage(text),
     renderHud: () => this.renderHud(),
-    placeSelected: () => { const s = this.hotbar[this.selectedHotbarIndex]; if (isTouchDevice() && s) this.placeItemFromSlot(s); else this.showMessage("설치 아이템은 인벤토리(I)에서 우클릭하면 바로 설치됩니다(또는 아래 드롭존으로 드래그)."); },
+    placeSelected: () => { const s = this.hotbar[this.selectedHotbarIndex]; if (s) this.placeItemFromSlot(s); }, // 핫바 숫자키/터치로 설치물(제작대·침대 등) 즉시 정면 설치 — 손에 드는 단계 없음
   };
   private readonly areaSkillEffects: AreaSkillEffect[] = [];
   private actionMode: HandActionMode = "use";
@@ -2356,7 +2356,7 @@ class WildernessGame {
     if (item === "bed") spawnBedObject(this.spawnContext, position, this.yaw);
     if (item === "building_block") spawnBuildingBlockObject(this.spawnContext, position);
     this.playHandAction();
-    this.showMessage(`${ITEM_NAMES[item] ?? item}를 설치했습니다. 좌클릭/E로 회수하고 우클릭으로 사용합니다.`);
+    this.showMessage(isTouchDevice() ? `${ITEM_NAMES[item] ?? item}를 설치했습니다. 탭하면 사용/회수를 고를 수 있습니다.` : `${ITEM_NAMES[item] ?? item}를 설치했습니다. 우클릭으로 사용(제작대는 열어 제작), 좌클릭/E로 가방에 다시 넣기.`);
     this.playTone(420, 0.09, "triangle", 0.035);
   }
 
@@ -4099,9 +4099,9 @@ class WildernessGame {
     if (target.type === "homeSupply") { const cd = partyGuestStorageActive() ? this.sharedSupplyCd : currentPartySession() !== null ? (this.homeSupplyCooldowns["__party__"] ?? 0) : (this.homeSupplyCooldowns[this.currentHouseBedTier] ?? 0); return cd <= 0 ? "E: 보급 상자 열기 (준비됨!)" : `보급 상자 — ${homeSupplyReadyLabel(cd)}`; }
     if (this.isVillageGuard(target)) return `E: ${target.name} 공격`;
     if (target.type === "foodStorage") return "E: 식량창고 열기";
-    if (target.type === "workbench" || target.type === "extendedWorkbench") return "좌클릭/E: 제작대 회수 | 우클릭: 제작대 사용";
-    if (target.type === "smelter" || target.type === "specialSmelter") return "좌클릭/E: 제련대 회수 | 우클릭: 제련대 사용";
-    if (target.type === "grinder") return "좌클릭/E: 분쇄기 회수 | 우클릭: 분쇄기 사용";
+    if (target.type === "workbench" || target.type === "extendedWorkbench") return "우클릭: 제작대 열기(제작) | 좌클릭/E: 가방에 회수";
+    if (target.type === "smelter" || target.type === "specialSmelter") return "우클릭: 제련대 열기 | 좌클릭/E: 가방에 회수";
+    if (target.type === "grinder") return "우클릭: 분쇄기 열기 | 좌클릭/E: 가방에 회수";
     if (target.type === "antHill") return target.antMeatRemaining === 0 ? "빈 개미굴" : "좌클릭/E: 개미굴에서 고기 얻기";
     if (target.type === "wildPredator") return `좌클릭/E: ${target.name} 공격`;
     if (target.type === "dragon") return `좌클릭/E: ${target.name} 공격(보스)`;
@@ -7533,7 +7533,7 @@ class WildernessGame {
   }
 
   private workbenchRecipesForStation(isExtended = false) {
-    return WORKBENCH_RECIPES.filter((recipe) => isExtended || !recipe.extendedOnly);
+    return [...MINI_RECIPES, ...WORKBENCH_RECIPES.filter((recipe) => isExtended || !recipe.extendedOnly)]; // 제작대(3x3)·확장(6x6)은 미니 제작대(2x2) 레시피도 모두 제작 가능(나무 막대기 등)
   }
 
   private activeWorkbenchSlots(isExtended = false) {
@@ -7609,7 +7609,7 @@ class WildernessGame {
       this.craftStatPoints += gain.levelsGained;
       this.showMessage(`🔨 제작 레벨업! Lv ${this.craftLevel} — 스탯 포인트 +${gain.levelsGained}! 능력치를 올리세요`);
       this.sample("item_gem_01", 0.5, () => this.kit((c, d) => kitChime(c, d, [659.25, 783.99, 987.77, 1318.51], 0.038, 0.07, 0.5))); // 레벨업 — CC0 젬 샘플, 폴백=벨 아르페지오
-      this.openPanel("character"); // 획득한 포인트를 바로 분배할 수 있게 캐릭터창 자동 오픈
+      this.openPanel("character"); if (!localStorage.getItem("ai-game-lab:craft-stat-hint")) { localStorage.setItem("ai-game-lab:craft-stat-hint", "1"); showObjectiveGuide(this.uiRoot, { title: "🔨 제작 레벨이 올랐어요!", heading: "💡 이 창이 왜 열렸나요?", detail: "아이템을 만들면 '제작 레벨'이 오르고, 오를 때마다 능력치 포인트를 받습니다. 지금 열린 캐릭터창에서 아래 [＋] 버튼으로 체력·마나·공격력·방어력 중 원하는 곳에 포인트를 올리세요. 이 창은 언제든 K 키(또는 좌상단 👤캐릭터 버튼)로 다시 열 수 있어요.", progress: "", rewardLabel: "", touch: isTouchDevice() }); } // 첫 제작 레벨업 1회 안내(초보) — 획득한 포인트를 바로 분배할 수 있게 캐릭터창 자동 오픈
     }
   }
 

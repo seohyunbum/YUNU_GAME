@@ -2747,8 +2747,32 @@ body {
 }
 
 .book-panel li {
-  margin-bottom: 9px;
-  line-height: 1.5;
+  margin-bottom: 6px;
+  line-height: 1.45;
+}
+.book-intro {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.3);
+  color: #fde68a;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.book-section {
+  margin-bottom: 14px;
+}
+.book-section h3 {
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 15px;
+  color: #ffe6a8;
+}
+.book-section ul {
+  margin: 0;
+  padding-left: 18px;
 }
 
 .cheat-panel {
