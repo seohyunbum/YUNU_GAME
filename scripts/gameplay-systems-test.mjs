@@ -1420,6 +1420,7 @@ try {
       meleeEffects: () => {},
       playHandAction: () => {},
       playTone: () => {},
+      skillSound: () => {},
       showMessage: (text) => calls.push(["message", text]),
       renderHud: () => {},
       castImpact: () => calls.push(["cast", playerClass]),

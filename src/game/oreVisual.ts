@@ -14,7 +14,7 @@ const colorByOre: Partial<Record<ItemId, number>> = {
   iron: 0xb8aca0,
   gold: 0xe3ba32,
   diamond: 0x66d9e8,
-  obsidian: 0x24152f,
+  obsidian: 0x3d1f66, // 귀한 재료 — 석탄(무광 검정)과 확실히 구분되는 선명한 보라(블룸 OFF라 머티리얼 자체를 밝게)
 };
 
 const ORE_TYPES: ItemId[] = ["stone", "coal", "copper", "iron", "gold", "diamond", "obsidian"];
@@ -34,16 +34,16 @@ function buildOreMaterials(ore: ItemId): OreMaterials {
   return {
     base: new THREE.MeshStandardMaterial({
       color,
-      emissive: ore === "diamond" ? 0x144d55 : 0x000000,
-      emissiveIntensity: ore === "diamond" ? 0.35 : 0,
+      emissive: ore === "diamond" ? 0x144d55 : ore === "obsidian" ? 0x4a1280 : 0x000000, // 흑요석: 본체도 보라 자가발광(블룸 없이도 눈에 띄게)
+      emissiveIntensity: ore === "diamond" ? 0.35 : ore === "obsidian" ? 0.5 : 0,
       roughness: 0.9,
     }),
     accent: new THREE.MeshStandardMaterial({
-      color,
-      emissive: ore === "diamond" ? 0x1f9fb0 : ore === "gold" ? 0x7c4a03 : ore === "obsidian" ? 0x35144f : 0x000000,
-      emissiveIntensity: ore === "diamond" ? 0.55 : ore === "gold" ? 0.16 : ore === "obsidian" ? 0.22 : 0,
-      roughness: 0.48,
-      metalness: ore === "gold" || ore === "iron" || ore === "copper" ? 0.24 : 0.04,
+      color: ore === "obsidian" ? 0x9b5cff : color, // 흑요석 파편/스파이크는 선명한 보라
+      emissive: ore === "diamond" ? 0x1f9fb0 : ore === "gold" ? 0x7c4a03 : ore === "obsidian" ? 0xa050ff : 0x000000,
+      emissiveIntensity: ore === "diamond" ? 0.55 : ore === "gold" ? 0.16 : ore === "obsidian" ? 0.95 : 0, // 흑요석 강한 보라(희귀 강조)
+      roughness: ore === "obsidian" ? 0.32 : 0.48,
+      metalness: ore === "gold" || ore === "iron" || ore === "copper" ? 0.24 : ore === "obsidian" ? 0.14 : 0.04,
     }),
   };
 }
@@ -65,6 +65,12 @@ export function buildOreMesh(ore: ItemId): THREE.Mesh {
     shard.position.set(THREE.MathUtils.randFloatSpread(0.48), 0.14 + i * 0.02, THREE.MathUtils.randFloatSpread(0.42));
     shard.rotation.set(THREE.MathUtils.randFloatSpread(0.7), THREE.MathUtils.randFloat(0, Math.PI), THREE.MathUtils.randFloatSpread(0.5));
     mesh.add(shard);
+  }
+  if (ore === "obsidian") { // 희귀 강조 — 빛나는 보라 결정 스파이크를 위로 크게 1개(공유 cone 재사용 → dispose-skip 동일)
+    const spike = new THREE.Mesh(shardGeometries[3], mats.accent);
+    spike.position.set(THREE.MathUtils.randFloatSpread(0.12), 0.34, THREE.MathUtils.randFloatSpread(0.12));
+    spike.scale.set(1.35, 2.5, 1.35);
+    mesh.add(spike);
   }
   return mesh;
 }
