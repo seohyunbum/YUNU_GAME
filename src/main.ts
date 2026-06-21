@@ -4,6 +4,7 @@ import { Water } from "three/examples/jsm/objects/Water.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CLASS_APPEARANCE, DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
@@ -651,8 +652,9 @@ class WildernessGame {
   private readonly sprintHiddenVisuals: THREE.Object3D[] = [];
   private readonly outlineVisuals: THREE.Object3D[] = [];
   private sprintRenderOptimized = false;
-  private composer: EffectComposer | null = null; // selective bloom — PC high 전용. lazy 생성(저사양/모바일은 아예 안 만듦 → 렌더타깃 0).
+  private composer: EffectComposer | null = null; // selective bloom + GTAO — PC high 전용. lazy 생성(저사양/모바일은 아예 안 만듦 → 렌더타깃 0).
   private bloomPass: UnrealBloomPass | null = null;
+  private gtaoPass: GTAOPass | null = null;
   private performanceSampleTimer = 0;
   private performanceSampleFrames = 0;
   private performanceSampleSum = 0;
@@ -2567,12 +2569,19 @@ class WildernessGame {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     const composer = new EffectComposer(this.renderer);
     composer.setPixelRatio(this.renderer.getPixelRatio());
-    composer.setSize(w, h);
     composer.addPass(new RenderPass(this.scene, this.camera));
+    // GTAO(접촉 그림자·입체감) — 블룸 앞. 고사양은 퀄리티 우선이라 OK. blendIntensity 로 은은하게.
+    const gtao = new GTAOPass(this.scene, this.camera, w, h);
+    gtao.updateGtaoMaterial({ radius: 0.5, distanceExponent: 1, thickness: 1, scale: 1.0 });
+    gtao.output = GTAOPass.OUTPUT.Default;
+    gtao.blendIntensity = 0.8;
+    composer.addPass(gtao);
     const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.42, 0.4, 0.85); // strength, radius, threshold(0.85=밝은 곳만 → 무광 toon 은 안 번짐)
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
+    composer.setSize(w, h); // 모든 패스 추가 후 — GTAO 투영 uniform 까지 갱신
     this.composer = composer;
+    this.gtaoPass = gtao;
     this.bloomPass = bloom;
   }
 
@@ -2583,7 +2592,7 @@ class WildernessGame {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(this.pixelRatioForQuality());
-    if (this.composer) { this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(width, height); this.bloomPass?.setSize(width, height); }
+    if (this.composer) { this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(width, height); this.bloomPass?.setSize(width, height); this.gtaoPass?.setSize(width, height); }
   }
 
   private animate = () => {
