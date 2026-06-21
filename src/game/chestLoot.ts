@@ -77,3 +77,21 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
   }
   return loot;
 }
+
+// 광산 상자 — 어렵게 찾은 광산인 만큼 풍족한 광물. 흑요석 30%(운 좋으면 2~3개), 다이아·금은 더 흔하게.
+export function rollMineChestLoot(rng: () => number = Math.random): ChestLootEntry[] {
+  const loot: ChestLootEntry[] = [];
+  const add = (item: ItemId, count: number) => { if (count > 0) loot.push({ item, count }); };
+  const chance = (p: number) => rng() < p;
+  add("iron", ri(2, 4, rng)); // 기본 광물 — 항상 든든하게
+  add("coal", ri(2, 4, rng));
+  if (chance(0.7)) add("copper", ri(2, 4, rng));
+  if (chance(0.65)) add("gold", ri(2, 4, rng)); // 금 — 흔하게
+  if (chance(0.22)) add("gold_powder", ri(1, 2, rng));
+  if (chance(0.5)) add("diamond", ri(1, 3, rng)); // 다이아 — 중상 확률
+  if (chance(0.22)) add("refined_diamond", 1);
+  if (chance(0.2)) add("diamond_powder", ri(1, 2, rng));
+  if (chance(0.3)) add("obsidian", chance(0.35) ? ri(2, 3, rng) : 1); // 흑요석 — 30%, 가끔 2~3개
+  if (chance(0.3)) add("medkit", 1); // 회복 보너스
+  return loot;
+}

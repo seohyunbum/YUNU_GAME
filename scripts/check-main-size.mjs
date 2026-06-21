@@ -57,7 +57,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 제작대 레시피북 수량 제작 — counts 호이스트+maxCraft 필드(뷰)+craftWorkbenchRecipe 수량 루프. 계산은 recipeGuide.maxCraftable 리프 → 10048→10051.
 // 2026-06-21: 제련대·분쇄기도 동일 컨셉(보유표기+수량 스테퍼) — 인라인 패널 HTML 을 ui/stationPanel 리프로 추출(순감). smelt/grindItem 수량 루프 → 10051→10015.
 // 2026-06-21: 좌측하단 버프바 — buffs 뷰 1줄+hudRefreshTick 필드+update 루프 ~4/s 렌더 1줄. 버프 목록·렌더는 classSkills.activeBuffs/hudRenderer 리프 → 10015→10018.
-const MAX_MAIN_LINES = 10018;
+// 2026-06-21: 광산 상자 전리품 상향(openMineChest 가 rollMineChestLoot 리프 사용)으로 인라인 루프 축소 → 10018→10014.
+const MAX_MAIN_LINES = 10014;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 광산 상자 전리품 상향 + 동굴 깜빡임(파티) + 누적 사냥 파티 합산
+
+- ① 광산 상자 전리품 빈약(구리/석탄 1개) → chestLoot.rollMineChestLoot 신설(흑요석 30%·가끔 2~3개, 다이아 50%, 금 65%, 항상 철·석탄 2~4, 다이아가루/제련다이아/구급상자 보너스). openMineChest 가 rollMineMineral 1롤 → rollMineChestLoot 사용(main 순감, rollMineMineral 은 동굴 광맥용으로 유지).
+- ② 파티에서 호스트가 동굴/집(실내)에 들어가면 스냅샷이 끊겨 게스트가 STALE_MS 후 clearSyncedMobs 로 동기화물 전부 제거 → 정적 동굴 입구·상자까지 사라졌다 호스트 복귀 시 재등장(깜빡임). 수정: 스테일 정리에서 정적(cave/chest/mineChest)은 보존(clearSyncedMobs(keepStatic=true)). 세션 종료/맵이동 등 진짜 정리는 기존대로 전체 제거. (저사양은 프레임 stutter 로 더 잘 보였을 뿐, 전 게스트 공통.)
+- ③ 누적 사냥(predatorKills)에 파티원 킬 합산: onPartyKill 에서 같은 맵 야생 처치(kind 有)면 막타/관전 무관 +1, 호스트는 게스트 막타를 hostApplyGuestAttack 에서 +1(자기 브로드캐스트 미수신이라 이중집계 없음). 호스트 자기 막타는 기존 로컬 grantExperienceForTarget(creditQuest=true) 그대로. 경비·다른맵 제외.
+- 검증: verify+build, 모듈 9종(광산 흑요석30%/다이아>흑요석/금>다이아/빈상자0 + 파티킬 같은맵+1/경비제외/다른맵제외/내막타+1). main 10014(순감, ratchet 하향). #2 는 party 통합테스트가 무거워 코드추론+verify(party-ledger/systems)로 검증.
+
 ## 2026-06-21 — 고기 스튜 희귀 등급 + 좌측하단 버프 아이콘바(만료 15초 깜빡)
 
 - ① 고기 스튜 등급을 희귀로: ITEM_RARITY·ITEM_TIER 에 meat_stew:"rare" 추가(이전 미등재=common).

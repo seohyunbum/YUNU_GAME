@@ -73,7 +73,7 @@ import {
   rollDragonLoot as rollDragonLootItem,
   type ProjectileDamageContext,
 } from "./game/combat";
-import { rollChestLoot, rollChestTier } from "./game/chestLoot";
+import { rollChestLoot, rollChestTier, rollMineChestLoot } from "./game/chestLoot";
 import { applyBossDefeat, bossLockMessage, DRAGON_RESPAWN_MS, ensureChapterBoss, FINAL_BOSS_CHAPTER, isBossUnlocked, nextBossTarget, normalizeBossChapter, type ChapterBossContext } from "./game/bossChapters";
 import { createGraveTrapState, updateGraveTrap, type GraveTrapContext } from "./game/graveTrap";
 import { createFinaleState, startFinale, startMiniFanfare, updateFinale, type FinaleContext } from "./game/finale";
@@ -4762,13 +4762,9 @@ class WildernessGame {
     target.opened = true; target.expiresAt = performance.now() + 8_000;
     this.tintObject(target.root, 0x4f4636);
 
-    const rolls = Math.random() < 0.05 ? THREE.MathUtils.randInt(2, 3) : 1;
     const loot: string[] = [];
-    for (let i = 0; i < rolls; i += 1) {
-      const item = this.rollMineMineral();
-      if (this.addItem(item, 1)) loot.push(ITEM_NAMES[item]);
-    }
-    this.showMessage(`광산 상자에서 ${loot.join(", ")}를 얻었습니다.`);
+    for (const entry of rollMineChestLoot()) if (this.addItem(entry.item, entry.count)) loot.push(`${ITEM_NAMES[entry.item] ?? entry.item}${entry.count > 1 ? ` x${entry.count}` : ""}`);
+    this.showMessage(loot.length > 0 ? `⛏️ 광산 상자에서 ${loot.join(", ")}를 얻었습니다!` : "광산 상자가 비어 있었습니다(가방이 가득 찼을 수 있어요).");
   }
 
   private grantAnimalLoot(target: WorldObject, actionLabel: string) {
