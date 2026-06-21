@@ -585,7 +585,7 @@ class WildernessGame {
   private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
-  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), fortressBossKills: 0, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false };
+  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), fortressBossKills: 0, fortressVisited: false, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false };
   private readonly chapterBossContext: ChapterBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
@@ -4473,6 +4473,7 @@ class WildernessGame {
     this.fortressSiege = createSiegeState(baseLevel);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
+    this.tutorialSignals.fortressVisited = true; // 요새 탐방 체험 퀘스트 신호(입장만으로 달성)
     this.showMessage("🏰 몬스터 요새 입성 — 1단계 도전 시작! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/중도 퇴장해도 받은 보상은 유지)");
     this.renderHud();
   }
@@ -4516,22 +4517,30 @@ class WildernessGame {
 
   private spawnFortressGate(position: THREE.Vector3) {
     const group = new THREE.Group();
-    const stone = makeToonMaterial(0x3a2326, { roughness: 0.95 });
+    const stone = makeToonMaterial(0x4a2e30, { roughness: 0.95 }); // 핏빛 돌 — 기존 0x3a2326 은 너무 어두워 해골기둥이 안 보였음. 밝혀서 시인성 확보.
     const iron = makeMetalMaterial(ASSET_PALETTE.steelDark, { metalness: 0.4, roughness: 0.5 });
     const glow = makeGlowMaterial(0xff3b3b, 0xff1f1f, { emissiveIntensity: 1.1, roughness: 0.4 });
-    const bone = makeToonMaterial(0xe7e5d8, { roughness: 0.8 });
-    for (const sx of [-1, 1]) {
-      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.2, 0.7), stone);
-      pillar.position.set(sx * 1.7, 2.1, 0);
-      const skull = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 0), bone);
-      skull.position.set(sx * 1.7, 4.5, 0);
-      group.add(pillar, skull);
+    const eyeGlow = makeGlowMaterial(0xff2a2a, 0xff0000, { emissiveIntensity: 1.6, roughness: 0.3 });
+    const bone = makeToonMaterial(0xe9e7da, { roughness: 0.75 });
+    const skullGeo = new THREE.IcosahedronGeometry(0.5, 0);
+    const eyeGeo = new THREE.SphereGeometry(0.09, 8, 6);
+    const hornGeo = new THREE.ConeGeometry(0.08, 0.45, 6);
+    const addSkull = (x: number, y: number, scale: number) => { // 해골 + 붉은 눈 2개 + 뿔 2개
+      const skull = new THREE.Mesh(skullGeo, bone); skull.position.set(x, y, 0); skull.scale.setScalar(scale); group.add(skull);
+      for (const ex of [-1, 1]) {
+        const eye = new THREE.Mesh(eyeGeo, eyeGlow); eye.position.set(x + ex * 0.18 * scale, y + 0.05 * scale, 0.42 * scale); group.add(eye);
+        const horn = new THREE.Mesh(hornGeo, bone); horn.position.set(x + ex * 0.34 * scale, y + 0.42 * scale, 0); horn.rotation.z = ex * -0.5; group.add(horn);
+      }
+    };
+    for (const sx of [-1, 1]) { // 좌·우 해골기둥
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.95, 4.8, 0.95), stone); pillar.position.set(sx * 1.9, 2.4, 0);
+      const band = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.18, 1.05), bone); band.position.set(sx * 1.9, 3.4, 0); // 뼈 띠
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 6), iron); spike.position.set(sx * 2.75, 0.9, 0); // 바깥쪽 철 가시
+      group.add(pillar, band, spike); addSkull(sx * 1.9, 5.35, 1); // 기둥 위 해골
     }
-    const lintel = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.7, 0.8), iron);
-    lintel.position.set(0, 4.2, 0);
-    const portal = new THREE.Mesh(new THREE.BoxGeometry(2.7, 3.5, 0.3), glow);
-    portal.position.set(0, 1.95, 0);
-    group.add(lintel, portal);
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(4.9, 0.8, 0.95), iron); lintel.position.set(0, 4.9, 0);
+    const portal = new THREE.Mesh(new THREE.BoxGeometry(2.7, 3.6, 0.3), glow); portal.position.set(0, 2.0, 0);
+    group.add(lintel, portal); addSkull(0, 5.95, 1.4); // 상단 중앙 크라운 해골(가장 큼)
     group.position.copy(position);
     return this.addWorldObject("fortressGate", "몬스터 요새 입구", group, { caveReturn: position.clone().add(new THREE.Vector3(0, PLAYER_HEIGHT, 5)) });
   }
@@ -5895,6 +5904,8 @@ class WildernessGame {
         arcadePoints: this.arcadePoints,
         characterId: this.currentCharacterId,
         partyLedgerEpoch: this.currentPartyLedgerEpoch,
+        predatorKills: this.tutorialSignals.predatorKills,
+        fortressBossKills: this.tutorialSignals.fortressBossKills,
         craftStatAlloc: { ...this.craftStatAlloc },
         classSkillCooldownUntil: this.classSkillCooldownUntil,
         secondSkillCooldownUntil: this.secondSkillCooldownUntil,
@@ -5962,6 +5973,7 @@ class WildernessGame {
       }
     }
     this.ensureVillageShops();
+    this.ensureFortressGate();
 
     restoreSlots(this.hotbar, save.player.hotbar);
     this.ensureHotbarSize();
@@ -6001,6 +6013,13 @@ class WildernessGame {
     this.summonerCompanion.restore(save.player.companionProgress);
     this.tutorialProgress.completedStepIds.splice(0, this.tutorialProgress.completedStepIds.length, ...(save.player.tutorial?.completedStepIds ?? []));
     this.tutorialProgress.achievedStepIds.splice(0, this.tutorialProgress.achievedStepIds.length, ...(save.player.tutorial?.achievedStepIds ?? save.player.tutorial?.completedStepIds ?? []));
+    // ★누적 처치 복원 — resetGameState 가 0으로 만든 걸 세이브값으로 덮어쓴다(전엔 로드마다 0 리셋 버그). 세이브값 우선, 구세이브(필드 없음)는 이미 "완료한" 누적킬 퀘스트의 임계로 백필(예: hunt_100 완료=최소 100마리는 잡았다는 뜻).
+    const doneIds = this.tutorialProgress.completedStepIds;
+    const killFloor = ([["hunt_200", 200], ["hunt_100", 100], ["hunt_30", 30], ["hunt_predators", 3]] as [string, number][]).reduce((m, [id, n]) => doneIds.includes(id) ? Math.max(m, n) : m, 0);
+    const fortFloor = ([["hunt_fortress_boss_3", 3], ["hunt_fortress_boss", 1]] as [string, number][]).reduce((m, [id, n]) => doneIds.includes(id) ? Math.max(m, n) : m, 0);
+    this.tutorialSignals.predatorKills = Math.max(save.player.predatorKills ?? 0, killFloor);
+    this.tutorialSignals.fortressBossKills = Math.max(save.player.fortressBossKills ?? 0, fortFloor);
+    this.savePredatorKills();
     this.playerBodyPosition = null;
     this.renderClassSelection();
     this.hunger = save.player.hunger ?? HUNGER_MAX;
@@ -6132,7 +6151,7 @@ class WildernessGame {
     this.summonerCompanion.reset();
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
-    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
+    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.fortressVisited = false; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
     this.bestFortressStage = 0; this.bestFortressBaseLevel = 0; this.saveBestFortressStage(); // 새 게임 시 요새 기록도 초기화(잡은 몬스터 수와 일관)
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
@@ -6260,6 +6279,13 @@ class WildernessGame {
 
   // 로드 시 마을 건물 보강 — 구세이브에 빠진 상점·판매대, 그리고 큰 마을(special) 대장간을 소급 스폰한다.
   // (메서드명은 호환 위해 유지. foodStorage 좌표를 VILLAGE_CENTERS 와 대조해 큰 마을을 식별, spawnVillage 와 동일 배치·idempotent.)
+  // 몬스터 요새 입구는 맵당 1개여야 한다. seedOverworld 는 새 맵에 1개를 심지만, 요새 기능(f972355) 이전에 시드·저장된 맵은 worldState 복원만 하면 게이트가 없다 → 복원 분기에서 보강해 모든 맵에 소급 적용한다.
+  private ensureFortressGate() {
+    if (this.locationMode !== "overworld") return;
+    if ([...this.objectsOfType("fortressGate")].length > 0) return;
+    this.spawnFortressGate(this.randomGroundPoint());
+  }
+
   private ensureVillageShops() {
     const villages = new Map<string, { center: THREE.Vector3; special: boolean; hasFoodStorage: boolean; hasShop: boolean; hasSellShop: boolean; hasBlacksmith: boolean }>();
     for (const object of this.objects.values()) {
@@ -6655,7 +6681,7 @@ class WildernessGame {
     rememberWorldState(this.worldStates, this.currentWorldMapId, this.createSaveData().worldStates?.[this.currentWorldMapId]);
     this.currentWorldMapId = map.id; this.activeRegions = regionsForWorldMap(map.id); this.activeBiomes = biomesForWorldMap(map.id); this.activeWaterZones = waterZonesForWorldMap(map.id); this.biomeDecorContext.biomes = this.activeBiomes; this.regionWarningState = { regionId: null, lastWarnAt: 0 };
     this.locationMode = "overworld"; this.clearWorld(); const worldState = this.worldStates[map.id];
-    if (worldState) { for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height); createBiomeDecor(this.biomeDecorContext); for (const savedObject of worldState.objects) this.restoreWorldObject(savedObject); this.ensureVillageShops(); } else this.seedOverworld();
+    if (worldState) { for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height); createBiomeDecor(this.biomeDecorContext); for (const savedObject of worldState.objects) this.restoreWorldObject(savedObject); this.ensureVillageShops(); this.ensureFortressGate(); } else this.seedOverworld();
     this.playerPosition.copy(map.spawn); this.playerPosition.y = this.getOverworldHeightAt(map.spawn.x, map.spawn.z) + PLAYER_HEIGHT;
     this.previousPosition.copy(this.playerPosition); this.setOverworldAtmosphere(); this.settlePlayerAfterTeleport(); this.closePanel();
     this.showMessage(`${map.name}으로 텔레포트했습니다. 이 맵의 권장 레벨은 Lv ${map.levelRange[0]}-${map.levelRange[1]}입니다.`);

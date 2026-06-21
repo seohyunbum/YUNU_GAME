@@ -75,11 +75,14 @@ try {
 
   // 12. ★마이그레이션 보존 — characterId/partyLedgerEpoch 가 살아남아야(stripped 되면 매 로드 epoch 0=과다재적용→소실). 구세이브는 생략(legacy 백필).
   { const { migrateSaveData } = await server.ssrLoadModule("/src/game/saveMigration.ts");
-    const kept = migrateSaveData({ player: { characterId: "uuid-xyz", partyLedgerEpoch: 7 } });
+    const kept = migrateSaveData({ player: { characterId: "uuid-xyz", partyLedgerEpoch: 7, predatorKills: 250, fortressBossKills: 4 } });
     assert(kept.player.characterId === "uuid-xyz", `마이그레이션이 characterId 보존, got ${kept.player.characterId}`);
     assert(kept.player.partyLedgerEpoch === 7, `마이그레이션이 partyLedgerEpoch 보존, got ${kept.player.partyLedgerEpoch}`);
+    assert(kept.player.predatorKills === 250, `마이그레이션이 predatorKills 보존(누적킬 로드복원), got ${kept.player.predatorKills}`);
+    assert(kept.player.fortressBossKills === 4, `마이그레이션이 fortressBossKills 보존, got ${kept.player.fortressBossKills}`);
     const legacy = migrateSaveData({ player: {} });
-    assert(legacy.player.characterId === undefined && legacy.player.partyLedgerEpoch === undefined, `구세이브는 필드 생략(legacy 백필용)`); }
+    assert(legacy.player.characterId === undefined && legacy.player.partyLedgerEpoch === undefined, `구세이브는 필드 생략(legacy 백필용)`);
+    assert(legacy.player.predatorKills === undefined && legacy.player.fortressBossKills === undefined, `구세이브는 누적킬 필드 생략(완료퀘스트 백필용)`); }
 
   // 13. ★설치(−1)+회수(+1) 대칭 — 설치 전 세이브 로드 시 net 0(유령 설치물 복제 차단). main.ts 설치 로그 누락이 회귀하면 이 대칭이 깨짐(통합지점이라 여기선 원장 로직 보장).
   { const s = makeStore(); appendPartyLedgerEvent(s, "A", "crafting_table", -1); appendPartyLedgerEvent(s, "A", "crafting_table", 1);

@@ -297,6 +297,9 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       // ★파티 거래 원장 키/epoch — 마이그레이션이 통째로 player 를 재구성하므로 여기서 보존하지 않으면 매 로드마다 stripped → epoch 0 으로 과다 재적용(아이템 소실)·characterId 유실. 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 legacy 로 백필.
       ...(typeof player.characterId === "string" && player.characterId ? { characterId: player.characterId } : {}),
       ...(typeof player.partyLedgerEpoch === "number" ? { partyLedgerEpoch: savedInteger(player.partyLedgerEpoch, 0, 0, Number.POSITIVE_INFINITY) } : {}),
+      // 누적 처치 — 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 완료 퀘스트 기반으로 백필
+      ...(typeof player.predatorKills === "number" ? { predatorKills: savedInteger(player.predatorKills, 0, 0, Number.POSITIVE_INFINITY) } : {}),
+      ...(typeof player.fortressBossKills === "number" ? { fortressBossKills: savedInteger(player.fortressBossKills, 0, 0, Number.POSITIVE_INFINITY) } : {}),
       craftStatAlloc: normalizeCraftStatAlloc(player.craftStatAlloc),
       homeStorage: normalizeSavedSlots(player.homeStorage, HOME_STORAGE_SLOTS, [], player.toolUses),
       homeSupplyCooldowns: normalizeSupplyCooldowns(player.homeSupplyCooldowns),
