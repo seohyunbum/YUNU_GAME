@@ -2460,14 +2460,14 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  max-height: 210px;
+  max-height: clamp(300px, 56vh, 640px);
   overflow: auto;
   padding-right: 2px;
 }
 
 .inventory-panel .recipe-guide-card {
-  min-height: 92px;
-  padding: 10px;
+  min-height: 0;
+  padding: 9px 10px;
 }
 
 .inventory-panel .recipe-guide-card p,
@@ -2624,15 +2624,42 @@ body {
 
 .inventory-panel-v2 .craft-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
 }
 
+/* 미니 제작대 칸 높이 절반 — 그 아래 제작 검색 영역에 공간을 더 준다 */
 .inventory-panel-v2 .craft-slot {
-  height: clamp(66px, 9vh, 82px);
+  height: clamp(30px, 4.2vh, 40px);
+}
+.inventory-panel-v2 .craft-board-mini .crafting-flow {
+  grid-template-columns: minmax(0, 1fr) 20px 60px;
+  gap: 6px;
+}
+.inventory-panel-v2 .craft-board-mini .craft-arrow,
+.inventory-panel-v2 .craft-board-mini .craft-result {
+  min-height: clamp(30px, 4.2vh, 40px);
+}
+.inventory-panel-v2 .craft-board-mini .panel-actions {
+  margin: 6px 0 0;
 }
 
-.inventory-panel-v2 .recipe-search-list,
-.inventory-panel-v2 .house-build-list {
+.inventory-panel-v2 .recipe-search-list {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* 집짓기 — 최하단 전체폭 한 줄(스크롤로 내려야 보임) */
+.inventory-panel-v2 .inv2-housing {
+  margin-top: 12px;
+}
+.inventory-panel-v2 .inv2-housing .house-build-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.inventory-panel-v2 .inv2-housing .house-build-card {
+  flex: 1 1 200px;
+  min-height: 0;
+  padding: 8px 10px;
 }
 
 .workbench-crafting-flow {

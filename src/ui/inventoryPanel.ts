@@ -109,7 +109,6 @@ function renderHouseBuildOption(option: HouseBuildOptionView) {
   return `<article class="recipe-card house-build-card">
         <div>
           <strong>${escapeHtml(option.name)}</strong>
-          <p>${escapeHtml(option.description)}</p>
           <small>${renderIngredientCounts(option.ingredients)}</small>
         </div>
         <button data-build-house="${escapeAttr(option.id)}" ${disabled}>집짓기</button>
@@ -124,7 +123,6 @@ function renderRecipeGuideCard(recipe: InventoryRecipeGuideView) {
           <strong>${escapeHtml(recipe.name)}</strong>
           <p>${escapeHtml(recipe.station)} · 결과: ${escapeHtml(recipe.outputLabel)}</p>
           <small>재료: ${renderIngredientCounts(recipe.ingredients)}</small>
-          <small>${escapeHtml(recipe.note)}</small>
         </div>
         <button class="recipe-guide-status" data-craft-guide="${escapeAttr(recipe.id)}" ${recipe.canMake ? "" : "disabled"}>${status}</button>
       </article>`;
@@ -141,9 +139,8 @@ export function renderInventoryPanel(
   const craftSlots = view.craftSlots.map(renderCraftSlot).join("");
   const recipeGuide = view.recipeGuide.map(renderRecipeGuideCard).join("");
 
-  // 인벤토리 패널은 항상 2x2 미니 제작 — 설치한 제작대의 3x3는 별도 패널(workbenchPanel). 초보가 "왜 또 만들지?"를 헷갈리지 않게 차이를 설명.
-  const craftLabel = "미니 제작대 2x2 — 어디서나";
-  const craftNote = "제작대·삽·막대기 등 기본 아이템을 어디서나 만들 수 있어요. 제작대를 만들어 바닥에 설치하면 더 큰 3x3 제작대가 열립니다.";
+  // 인벤토리 패널은 항상 2x2 미니 제작 — 설치한 제작대의 3x3는 별도 패널(workbenchPanel).
+  const craftLabel = "미니 제작대 2x2";
 
   // 가방 부족 경고 — 시작 8칸은 금방 차서 새 전리품을 못 줍는다 → 가방 제작으로 유도
   const bagCapacity = view.bagSlots.filter((s) => !s.locked).length;
@@ -157,10 +154,7 @@ export function renderInventoryPanel(
   panelEl.innerHTML = `
       <section class="panel inventory-panel inventory-panel-v2">
         <header>
-          <div>
-            <h2>인벤토리</h2>
-            <p class="inventory-subtitle">아이템을 클릭해 고른 뒤 제작칸을 누르거나, 칸으로 드래그해 넣으세요. 다른 칸을 누르면 위치가 바뀝니다. 우클릭 = 설치/버리기.</p>
-          </div>
+          <h2>인벤토리</h2>
           <button class="icon-button" data-close>닫기</button>
         </header>
         <div class="inv2-layout">
@@ -173,9 +167,8 @@ export function renderInventoryPanel(
           </section>
 
           <aside class="inv2-side">
-            <section class="craft-board">
+            <section class="craft-board craft-board-mini">
               <div class="inventory-label">${escapeHtml(craftLabel)}</div>
-              <p class="craft-note">${escapeHtml(craftNote)}</p>
               <div class="crafting-flow">
                 <div class="craft-grid inventory-craft-grid">${craftSlots}</div>
                 <div class="craft-arrow">→</div>
@@ -192,12 +185,12 @@ export function renderInventoryPanel(
               <div class="recipe-search-list" data-recipe-search-list>${recipeGuide}</div>
               <div class="recipe-search-empty hidden" data-recipe-search-empty>검색 결과가 없습니다.</div>
             </section>
-            <section class="craft-board house-build-panel">
-              <div class="inventory-label">집짓기</div>
-              <div class="recipes house-build-list">${buildOptions}</div>
-            </section>
           </aside>
         </div>
+        <section class="craft-board house-build-panel inv2-housing">
+          <div class="inventory-label">집짓기</div>
+          <div class="recipes house-build-list">${buildOptions}</div>
+        </section>
       </section>
     `;
 
