@@ -335,6 +335,7 @@ import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbench
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { tone as kitTone, noise as kitNoise, chime as kitChime, impact as kitImpact, whoosh as kitWhoosh } from "./game/audioKit";
 import { createMusicPlayer, type MusicPlayer } from "./game/musicPlayer";
+import { createSfxPlayer, type SfxPlayer } from "./game/sfxPlayer";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
 import { eagleSkillStatus as formatEagleSkillStatus, tryEagleClaw, tryEagleWindCutter, type EagleActionContext } from "./game/eaglePossession";
 import { applyOverworldTimeOfDay, gameClockText, timeOfDayName, moodForWorldMap } from "./game/timeOfDay";
@@ -819,6 +820,7 @@ class WildernessGame {
   private bgmMasterGain: GainNode | null = null;
   private sfxMasterGain: GainNode | null = null;
   private musicPlayer: MusicPlayer | null = null; // 실음원(CC0) BGM. 있으면 절차적 BGM 대신 사용, 로드 전/실패 시 폴백.
+  private sfxPlayer: SfxPlayer | null = null; // 실음원(CC0) 효과음 샘플. play 실패 시 절차적 합성 폴백.
   // 맵별 실음원 매핑. 시작초원=마을테마(타이틀과 동일), 나머지는 상황별로 고루 분배.
   private readonly mapMusic: Record<string, string> = { starter_valley: "town_theme.mp3", dragon_plains: "field.mp3", bamboo_frontier: "hills.mp3", mushroom_glen: "hills.mp3", toxic_swamp: "dungeon.ogg", mountain_ridge: "field.mp3", graveyard: "creepy.mp3", snowfield: "icy.ogg", dragon_lands: "battle.mp3" };
   private nextBgmNoteAt = 0;
@@ -2547,7 +2549,7 @@ class WildernessGame {
       return;
     }
     this.removeObject(target.id);
-    this.kit((c, d) => kitChime(c, d, [783.99, 1046.5], 0.022, 0.04, 0.3)); // 줍기 — 부드러운 2음 벨
+    this.sample(["item_coins_01", "item_coins_02"], 0.34, () => this.kit((c, d) => kitChime(c, d, [783.99, 1046.5], 0.022, 0.04, 0.3))); // 줍기 — CC0 코인 샘플, 폴백=2음 벨
     this.showMessage(`${ITEM_NAMES[item] ?? item}을 다시 주웠습니다.`);
     if (this.deathMarker && this.deathMarker.mapId === this.currentWorldMapId) { const m = this.deathMarker; if (![...this.objectsOfType("droppedItem")].some((o) => { const dx = o.root.position.x - m.x, dz = o.root.position.z - m.z; return dx * dx + dz * dz < 25; })) this.deathMarker = null; } // 사망 지점 유품을 다 회수했으면 마커 제거
     this.renderHud();
@@ -5135,12 +5137,11 @@ class WildernessGame {
   }
 
 
-  private playExplosionSound() { // 폭발 — 저음 쿵 + 필터드 노이즈 붐
-    this.kit((c, d) => {
+  private playExplosionSound() { // 폭발 — CC0 화염 샘플(낮은 rate로 묵직하게), 폴백=절차적 붐
+    this.sample(["spell_fire_04", "spell_fire_05"], 0.5, () => this.kit((c, d) => {
       kitTone(c, d, { freq: 140, freq2: 70, type: "sine", vol: 0.046, dur: 0.26 });
       kitNoise(c, d, { type: "lowpass", cutoff: 1900, cutoff2: 220, q: 0.6, vol: 0.044, dur: 0.3 });
-      kitTone(c, d, { freq: 160, freq2: 70, type: "triangle", vol: 0.02, dur: 0.18 });
-    });
+    }));
   }
 
   private updateProjectiles(delta: number) {
@@ -5220,7 +5221,7 @@ class WildernessGame {
     spawnMeleeSlashTrail(this.combatEffectContext, this.hotbar[this.selectedHotbarIndex]?.item === "sharp_obsidian_shield"); // 날카로운 흑요석 방패(궁극) = 붉고 넓은 휘두르기 궤적
     spawnEnemyHitParticles(this.combatEffectContext, target);
     this.playMeleeWhoosh();
-    this.kit((c, d) => kitImpact(c, d, 230, 0.032, 1.2)); // 근접 명중 타격감(중역 thunk — 저역 안 씀)
+    this.sample(["creature_hurt_01", "creature_hurt_02"], 0.34, () => this.kit((c, d) => kitImpact(c, d, 230, 0.032, 1.2))); // 명중 시 몬스터 반응(CC0), 폴백=thunk
     notifyPartyAttack("melee");
   }
 
@@ -5233,26 +5234,23 @@ class WildernessGame {
     this.kit((c, d) => { kitNoise(c, d, { type: "highpass", cutoff: 1900, vol: 0.02, dur: 0.045, attack: 0.001 }); kitTone(c, d, { freq: 330, freq2: 170, type: "triangle", vol: 0.018, dur: 0.09 }); });
   }
 
-  private playMagicShotSound() { // 마법 발사 — 풍부한 캐스트: 본체 상승 + 디튠 시머 + 고역 반짝임 + 기운 fwoosh
-    this.kit((c, d) => {
-      kitTone(c, d, { freq: 440, freq2: 680, type: "sine", vol: 0.026, dur: 0.2 }); // 본체(상승)
-      kitTone(c, d, { freq: 660, freq2: 990, type: "triangle", vol: 0.014, dur: 0.16, detune: 7 }); // 5도 디튠 시머
-      kitChime(c, d, [1318.51, 1760], 0.011, 0.035, 0.24); // 고역 반짝임(마법 광택)
-      kitNoise(c, d, { type: "bandpass", cutoff: 2600, cutoff2: 1100, q: 1.3, vol: 0.008, dur: 0.14 }); // 마법 기운 fwoosh
-    });
+  private playMagicShotSound() { // 마법 발사 — CC0 spell 샘플, 폴백=절차적 캐스트
+    this.sample(["spell_01", "spell_02"], 0.42, () => this.kit((c, d) => {
+      kitTone(c, d, { freq: 440, freq2: 680, type: "sine", vol: 0.026, dur: 0.2 });
+      kitTone(c, d, { freq: 660, freq2: 990, type: "triangle", vol: 0.014, dur: 0.16, detune: 7 });
+      kitChime(c, d, [1318.51, 1760], 0.011, 0.035, 0.24);
+    }));
   }
 
-  private playMeleeWhoosh() { // 근접 휘두르기 — 공기 가르는 휘익
-    this.kit((c, d) => kitWhoosh(c, d, 0.026, 1700));
+  private playMeleeWhoosh() { // 근접 휘두르기 — CC0 blade 샘플(랜덤 변주), 폴백=절차적 휘익
+    this.sample(["blade_01", "blade_02", "blade_03"], 0.45, () => this.kit((c, d) => kitWhoosh(c, d, 0.026, 1700)));
   }
 
   private playImpactSound(kind: CombatProjectile["kind"]) {
     if (kind === "tnt") { this.playExplosionSound(); return; }
-    this.kit((c, d) => {
-      if (kind === "magic") { kitTone(c, d, { freq: 700, freq2: 300, type: "sine", vol: 0.026, dur: 0.12 }); kitNoise(c, d, { type: "bandpass", cutoff: 1500, q: 2.2, vol: 0.013, dur: 0.07 }); return; }
-      if (kind === "wind") { kitNoise(c, d, { type: "bandpass", cutoff: 1100, cutoff2: 480, q: 1.4, vol: 0.02, dur: 0.1 }); return; }
-      kitImpact(c, d, 200, 0.03, 1.3); // 화살 명중 thunk
-    });
+    if (kind === "magic") { this.sample(["spell_fire_01", "spell_fire_02", "spell_fire_03"], 0.4, () => this.kit((c, d) => { kitTone(c, d, { freq: 700, freq2: 300, type: "sine", vol: 0.026, dur: 0.12 }); kitNoise(c, d, { type: "bandpass", cutoff: 1500, q: 2.2, vol: 0.013, dur: 0.07 }); })); return; }
+    if (kind === "wind") { this.kit((c, d) => kitNoise(c, d, { type: "bandpass", cutoff: 1100, cutoff2: 480, q: 1.4, vol: 0.02, dur: 0.1 })); return; }
+    this.sample(["metal_01", "metal_02", "metal_03"], 0.4, () => this.kit((c, d) => kitImpact(c, d, 200, 0.03, 1.3))); // 화살 명중
   }
 
   private consumeShieldDurability() {
@@ -5450,6 +5448,13 @@ class WildernessGame {
     if (this.audioContext && this.sfxMasterGain) play(this.audioContext, this.sfxMasterGain);
   }
 
+  // 실음원 효과음(CC0 샘플) 우선 재생, 미로드/실패 시 절차적 합성 폴백. 배열이면 랜덤 변주.
+  private sample(name: string | readonly string[], volume: number, fallback: () => void) {
+    this.ensureAudio();
+    const n = Array.isArray(name) ? name[Math.floor(Math.random() * name.length)] : (name as string);
+    if (!this.sfxPlayer?.play(n, { volume })) fallback();
+  }
+
   private scheduleBgmStep(profile: AudioProfile, startTime: number) {
     const step = this.bgmStep % 16;
     const note = profile.melody[step % profile.melody.length];
@@ -5527,6 +5532,8 @@ class WildernessGame {
     this.bgmMasterGain.connect(this.audioContext.destination);
     this.sfxMasterGain.connect(this.audioContext.destination);
     this.musicPlayer = createMusicPlayer(this.audioContext, this.audioContext.destination); // 실음원(CC0) BGM
+    this.sfxPlayer = createSfxPlayer(this.audioContext, this.sfxMasterGain, import.meta.env.BASE_URL); // 실음원(CC0) 효과음
+    this.sfxPlayer.preload(["blade_01", "blade_02", "blade_03", "spell_01", "spell_02", "spell_fire_01", "spell_fire_02", "spell_fire_05", "metal_01", "metal_02", "metal_03", "creature_hurt_01", "creature_hurt_02", "item_coins_01", "item_coins_02", "item_gem_01", "item_misc_01", "wood_01", "wood_02", "wood_03", "wood_04", "stones_01", "stones_02", "stones_03", "item_stone_01", "item_stone_02", "lock_01"]);
     this.nextBgmNoteAt = this.audioContext.currentTime + 0.08;
     this.nextAmbientCueAt = this.audioContext.currentTime + 2.2;
   }
@@ -5552,27 +5559,25 @@ class WildernessGame {
     oscillator.stop(startTime + duration + 0.04);
   }
 
-  private playCraftSound() { // 제작 완료 — 따뜻한 상승 벨 3음
-    this.kit((c, d) => kitChime(c, d, [523.25, 659.25, 783.99], 0.03, 0.05, 0.42));
+  private playCraftSound() { // 제작 완료 — CC0 아이템 샘플, 폴백=상승 벨
+    this.sample(["item_misc_01", "item_gem_01"], 0.4, () => this.kit((c, d) => kitChime(c, d, [523.25, 659.25, 783.99], 0.03, 0.05, 0.42)));
   }
 
-  private playChestSound() { // 상자 — 삐걱(밴드패스 노이즈) + 보물 반짝임 벨
-    this.kit((c, d) => { kitNoise(c, d, { type: "bandpass", cutoff: 600, cutoff2: 1100, q: 3, vol: 0.012, dur: 0.18 }); kitChime(c, d, [659.25, 987.77, 1318.51], 0.02, 0.06, 0.5); });
+  private playChestSound() { // 상자 — CC0 lock 샘플, 폴백=삐걱+벨
+    this.sample("lock_01", 0.42, () => this.kit((c, d) => { kitNoise(c, d, { type: "bandpass", cutoff: 600, cutoff2: 1100, q: 3, vol: 0.012, dur: 0.18 }); kitChime(c, d, [659.25, 987.77, 1318.51], 0.02, 0.06, 0.5); }));
   }
 
-  private playWoodHitSound(done = false) { // 나무 타격 — 둔탁한 톡 + 미세 노이즈 클릭
-    this.kit((c, d) => { kitTone(c, d, { freq: done ? 220 : 168, freq2: done ? 150 : 116, type: "triangle", vol: 0.026, dur: 0.06 }); kitNoise(c, d, { type: "bandpass", cutoff: 1200, q: 1.6, vol: 0.011, dur: 0.04 }); });
+  private playWoodHitSound(done = false) { // 나무 타격 — CC0 wood 샘플(랜덤), 폴백=톡
+    this.sample(["wood_01", "wood_02", "wood_03", "wood_04"], 0.4, () => this.kit((c, d) => { kitTone(c, d, { freq: done ? 220 : 168, freq2: done ? 150 : 116, type: "triangle", vol: 0.026, dur: 0.06 }); kitNoise(c, d, { type: "bandpass", cutoff: 1200, q: 1.6, vol: 0.011, dur: 0.04 }); }));
   }
 
-  private playDigSound(surface: "dirt" | "stone" = "dirt") { // 파기 — 흙=부드러운 저역 노이즈, 돌=밝은 노이즈 + 깡 톤
-    this.kit((c, d) => {
-      if (surface === "stone") { kitNoise(c, d, { type: "bandpass", cutoff: 1500, q: 1.2, vol: 0.02, dur: 0.07 }); kitTone(c, d, { freq: 250, freq2: 150, type: "triangle", vol: 0.012, dur: 0.05 }); return; }
-      kitNoise(c, d, { type: "lowpass", cutoff: 380, cutoff2: 150, q: 0.7, vol: 0.022, dur: 0.08 });
-    });
+  private playDigSound(surface: "dirt" | "stone" = "dirt") { // 파기 — 돌=CC0 stones 샘플, 흙=부드러운 절차 노이즈
+    if (surface === "stone") { this.sample(["stones_01", "stones_02", "stones_03"], 0.36, () => this.kit((c, d) => { kitNoise(c, d, { type: "bandpass", cutoff: 1500, q: 1.2, vol: 0.02, dur: 0.07 }); kitTone(c, d, { freq: 250, freq2: 150, type: "triangle", vol: 0.012, dur: 0.05 }); })); return; }
+    this.kit((c, d) => kitNoise(c, d, { type: "lowpass", cutoff: 380, cutoff2: 150, q: 0.7, vol: 0.022, dur: 0.08 }));
   }
 
-  private playOreBreakSound(done = false) { // 광물 — 결정질 크랙(고역 노이즈 + 맑은 핑)
-    this.kit((c, d) => { kitNoise(c, d, { type: "highpass", cutoff: 2200, vol: 0.017, dur: 0.06 }); kitTone(c, d, { freq: done ? 660 : 440, freq2: done ? 990 : 560, type: "sine", vol: done ? 0.02 : 0.012, dur: done ? 0.13 : 0.06 }); });
+  private playOreBreakSound(done = false) { // 광물 — CC0 stone 샘플, 폴백=결정질 크랙
+    this.sample(["item_stone_01", "item_stone_02"], 0.4, () => this.kit((c, d) => { kitNoise(c, d, { type: "highpass", cutoff: 2200, vol: 0.017, dur: 0.06 }); kitTone(c, d, { freq: done ? 660 : 440, freq2: done ? 990 : 560, type: "sine", vol: done ? 0.02 : 0.012, dur: done ? 0.13 : 0.06 }); }));
   }
 
   private playSmeltSound() { // 제련 — 따뜻한 가열 노이즈 + 톤 상승
@@ -7517,7 +7522,7 @@ class WildernessGame {
     if (gain.levelsGained > 0) {
       this.craftStatPoints += gain.levelsGained;
       this.showMessage(`🔨 제작 레벨업! Lv ${this.craftLevel} — 스탯 포인트 +${gain.levelsGained}! 능력치를 올리세요`);
-      this.kit((c, d) => kitChime(c, d, [659.25, 783.99, 987.77, 1318.51], 0.038, 0.07, 0.5)); // 레벨업 — 밝은 상승 벨 아르페지오
+      this.sample("item_gem_01", 0.5, () => this.kit((c, d) => kitChime(c, d, [659.25, 783.99, 987.77, 1318.51], 0.038, 0.07, 0.5))); // 레벨업 — CC0 젬 샘플, 폴백=벨 아르페지오
       this.openPanel("character"); // 획득한 포인트를 바로 분배할 수 있게 캐릭터창 자동 오픈
     }
   }
