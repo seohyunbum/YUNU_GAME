@@ -6864,7 +6864,7 @@ class WildernessGame {
           ingredients: ingredientCounts(option.ingredients, itemCounts),
           canBuild: this.hasIngredients(option.ingredients) && this.locationMode === "overworld",
         })),
-        recipeGuide: buildRecipeGuideEntriesForStations(itemCounts).filter((e) => !((e.id === "bag" && this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT) || (e.id === "big_bag" && this.bagSlots.length >= MEGA_BAG_SLOT_COUNT))), // 일회성 업그레이드 완료 시 검색목록에서도 숨김
+        recipeGuide: buildRecipeGuideEntriesForStations(itemCounts).filter((e) => !((e.id === "bag" && this.bagSlots.length >= EXPANDED_BAG_SLOT_COUNT) || (e.id === "big_bag" && this.bagSlots.length >= MEGA_BAG_SLOT_COUNT))).sort((a, b) => (a.stationKey === "mini" && a.canMake ? 0 : 1) - (b.stationKey === "mini" && b.canMake ? 0 : 1)), // 일회성 업그레이드 완료 시 검색목록에서도 숨김 / 지금 미니제작대(2x2)로 만들 수 있는 것 먼저(안정정렬로 기존 순서 유지)
 
       },
       {
