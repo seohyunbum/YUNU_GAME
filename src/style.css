@@ -3841,25 +3841,27 @@ body.touch-mode .stats {
   left: max(10px, env(safe-area-inset-left));
 }
 
-/* 세로(portrait) 모드 안내 — 가로 권장(1인칭 시야·양손 조작 유리). 가로 모드에선 자동 숨김. */
+/* 인게임 세로(portrait) — 화면을 가리는 가로 전환 오버레이. 가로 모드에선 자동 숨김.
+   강제 회전 불가 기기(iOS Safari 등)의 폴백이자, 강제 회전이 적용되기 전 순간의 안내. 타이틀/미니게임(.in-game 아님)에선 표시 안 함. */
 @media (orientation: portrait) {
-  body.touch-mode::after {
-    content: "📱 가로로 돌리면 더 편하게 플레이할 수 있어요";
+  body.touch-mode.in-game::after {
+    content: "📱  화면을 가로로 돌려주세요\A\A 1인칭 시야와 양손 조작은 가로 모드에 맞춰져 있어요";
+    white-space: pre-line;
     position: fixed;
-    top: max(8px, env(safe-area-inset-top));
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 26; /* 캔버스 위 · 패널(z30)·컨트롤 아래 */
-    max-width: calc(100vw - 24px);
-    padding: 6px 14px;
-    background: rgba(15, 23, 42, 0.85);
-    border: 1px solid rgba(148, 163, 184, 0.5);
-    border-radius: 999px;
-    color: #e2e8f0;
-    font-size: 13px;
-    font-weight: 700;
+    inset: 0;
+    z-index: 60; /* 모든 게임 UI(패널 z30·컨트롤) 위 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    background: rgba(8, 12, 22, 0.97);
+    color: #f1f5f9;
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.55;
     text-align: center;
-    pointer-events: none;
+    pointer-events: auto; /* 아래 캔버스/컨트롤 입력 차단(세로 중 오조작 방지) */
   }
 }
 
