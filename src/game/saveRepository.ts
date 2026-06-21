@@ -207,7 +207,9 @@ export function readStoredSlotList({ migrateSaveData, formatSaveDate, storage = 
   } catch {
     // no usable list
   }
-  return slots;
+  // 같은 초(초 단위 savedAt) 중복 슬롯 제거 — 최신(앞) 1개만 유지. 과거 '저장 1회 → 동일슬롯 3개' 버그분 청소.
+  const seen = new Set<string>();
+  return slots.filter((slot) => { const key = typeof slot.savedAt === "string" ? slot.savedAt.slice(0, 19) : String(slot.savedAt); if (seen.has(key)) return false; seen.add(key); return true; });
 }
 
 // 로드한 세이브가 명명 슬롯(SAVE_LIST)에 없으면 승급해 둔다 — latest/backup 유령이나 백업/자동저장 복구본을
