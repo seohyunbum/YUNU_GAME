@@ -683,6 +683,35 @@ body {
   pointer-events: none;
 }
 
+/* 좌상단 퀵 액션 버튼(가방·캐릭터·파티) — .controls-guide 가 pointer-events:none 라 버튼만 auto 로 켠다 */
+.controls-guide-actions {
+  flex: 0 0 100%;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 7px;
+  pointer-events: auto;
+}
+.quick-action-btn {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 4px;
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  border-radius: 9px;
+  background: rgba(250, 204, 21, 0.12);
+  color: #fde68a;
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.12s, transform 0.08s;
+}
+.quick-action-btn:hover { background: rgba(250, 204, 21, 0.26); }
+.quick-action-btn:active { transform: translateY(1px); }
+.quick-action-btn .qa-icon { font-size: 18px; line-height: 1; }
+.quick-action-btn .qa-label { font-size: 11px; }
+
 .controls-guide-title {
   flex: 0 0 100%;
   margin-bottom: 3px;

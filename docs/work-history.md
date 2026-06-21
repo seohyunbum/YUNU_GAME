@@ -14,6 +14,12 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 데스크톱 좌상단 퀵버튼(가방·캐릭터·파티) + 조작법 슬림화
+
+- 시도: 데스크톱도 모바일 touch-menu 처럼 좌상단에서 가방·캐릭터창·파티를 아이콘 버튼으로 열게 하고, 조작법 설명에서는 나머지만 남기자는 사용자 피드백.
+- 결과: controlsGuide 상단에 퀵버튼 3종(🎒가방=inventory, 👤캐릭터=character, 🎉파티=party) 추가. data-quick-action 을 setupUi 가 위임 클릭 처리(.controls-guide 는 pointer-events:none 라 버튼만 auto). main 은 onQuickAction 콜백 1개로 togglePanel/​togglePartyLobby 라우팅(onNewGame 라인 병합=배선 0줄). 조작법 텍스트에서 'I 가방'·'O 파티 초대' 제거(도감 B·지도 M·퀘스트 Q·ESC·Enter 파티 채팅 유지). 모바일은 기존 touch-menu 사용 + controls-guide 가 touch-mode 에서 숨김이라 중복 없음.
+- 검증: verify+build, E2E 9종(퀵버튼 3개·아이콘·가방행/파티초대 제거·나머지 유지·각 버튼 클릭→인벤/캐릭터 열림·파티 무예외) + 스크린샷.
+
 ## 2026-06-21 — 인벤토리창 정리: 보조설명 제거·미니제작 축소·제작검색 확대·집짓기 하단·정렬
 
 - 시도: 인벤토리창의 보조 설명 텍스트가 공간을 많이 먹고 제작 검색 영역이 좁다는 사용자 피드백.
