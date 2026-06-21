@@ -65,11 +65,11 @@ export function chime(ctx: AudioContext, dest: AudioNode, freqs: readonly number
   });
 }
 
-// 타격 임팩트 — 톤 thunk(몸통) + 노이즈 transient(타격감). 적 피격/근접 명중.
+// 타격 임팩트 — 톤 thunk(몸통) + 노이즈 transient(타격감). 적 피격/근접 명중. 저역은 안 깐다(오류음 방지) — 중역 thunk + 밝은 노이즈.
 export function impact(ctx: AudioContext, dest: AudioNode, body: number, vol = 0.04, bright = 1) {
-  tone(ctx, dest, { freq: body, freq2: body * 0.55, type: "triangle", vol, dur: 0.11, attack: 0.002 });
-  tone(ctx, dest, { freq: body * 0.5, type: "sine", vol: vol * 0.8, dur: 0.13, attack: 0.002 });
-  noise(ctx, dest, { type: "lowpass", cutoff: 2600 * bright, cutoff2: 500, q: 0.7, vol: vol * 0.6, dur: 0.08 });
+  tone(ctx, dest, { freq: body, freq2: body * 0.78, type: "triangle", vol, dur: 0.1, attack: 0.002 });
+  tone(ctx, dest, { freq: body * 0.78, type: "sine", vol: vol * 0.7, dur: 0.11, attack: 0.002 });
+  noise(ctx, dest, { type: "bandpass", cutoff: 2600 * bright, cutoff2: 900, q: 0.7, vol: vol * 0.6, dur: 0.07 });
 }
 
 // 공격 휘두르기 — 짧은 휘익(밴드패스 노이즈 하강 스윕) + 미세 저음.

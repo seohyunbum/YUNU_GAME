@@ -43,16 +43,17 @@ function tenseFrom(base: AudioProfile): AudioProfile {
   };
 }
 
+// 루트를 한 단계 높이고(밝게) 템포를 빠르게(경쾌). 저역 무게(bass)는 줄였다 — '쳐짐'/오류음 느낌 제거. (베이스/패드 옥타브-다운은 scheduler 에서 제거.)
 function baseProfile(hour: number, locationMode: LocationMode, nearLava: boolean, spookyMap: boolean): AudioProfile {
-  if (nearLava) return { root: 110, melody: [...MELODY.lava], chord: [0, 5, 10], beat: 0.56, master: 0.6, lead: 0.055, bass: 0.09, pad: 0.042, ambient: "lava" };
-  if (locationMode === "cave") return { root: 146.83, melody: [...MELODY.cave], chord: [0, 3, 7], beat: 0.74, master: 0.55, lead: 0.05, bass: 0.085, pad: 0.046, ambient: "cave" };
-  if (locationMode === "house") return { root: 220, melody: [...MELODY.house], chord: [0, 4, 7], beat: 0.68, master: 0.5, lead: 0.052, bass: 0.056, pad: 0.04, ambient: "house" };
-  if (spookyMap) return { root: 138.59, melody: [...MELODY.spooky], chord: [0, 3, 6], beat: 0.88, master: 0.55, lead: 0.044, bass: 0.082, pad: 0.05, ambient: "night" };
+  if (nearLava) return { root: 146.83, melody: [...MELODY.lava], chord: [0, 5, 10], beat: 0.48, master: 0.6, lead: 0.058, bass: 0.05, pad: 0.04, ambient: "lava" };
+  if (locationMode === "cave") return { root: 174.61, melody: [...MELODY.cave], chord: [0, 3, 7], beat: 0.58, master: 0.55, lead: 0.052, bass: 0.05, pad: 0.044, ambient: "cave" };
+  if (locationMode === "house") return { root: 261.63, melody: [...MELODY.house], chord: [0, 4, 7], beat: 0.52, master: 0.5, lead: 0.055, bass: 0.042, pad: 0.038, ambient: "house" };
+  if (spookyMap) return { root: 155.56, melody: [...MELODY.spooky], chord: [0, 3, 6], beat: 0.72, master: 0.55, lead: 0.046, bass: 0.05, pad: 0.048, ambient: "night" };
   const night = hour >= 20 || hour < 5;
   const dawnOrEvening = (hour >= 5 && hour < 8) || (hour >= 17 && hour < 20);
-  if (night) return { root: 174.61, melody: [...MELODY.night], chord: [0, 3, 7], beat: 0.78, master: 0.58, lead: 0.05, bass: 0.072, pad: 0.046, ambient: "night" };
-  if (dawnOrEvening) return { root: 196, melody: [...MELODY.dawn], chord: [0, 5, 9], beat: 0.7, master: 0.6, lead: 0.054, bass: 0.062, pad: 0.042, ambient: "day" };
-  return { root: 261.63, melody: [...MELODY.day], chord: [0, 4, 7], beat: 0.6, master: 0.62, lead: 0.062, bass: 0.062, pad: 0.042, ambient: "day" };
+  if (night) return { root: 207.65, melody: [...MELODY.night], chord: [0, 3, 7], beat: 0.6, master: 0.58, lead: 0.052, bass: 0.046, pad: 0.044, ambient: "night" };
+  if (dawnOrEvening) return { root: 233.08, melody: [...MELODY.dawn], chord: [0, 5, 9], beat: 0.54, master: 0.6, lead: 0.057, bass: 0.044, pad: 0.04, ambient: "day" };
+  return { root: 293.66, melody: [...MELODY.day], chord: [0, 4, 7], beat: 0.46, master: 0.62, lead: 0.064, bass: 0.046, pad: 0.04, ambient: "day" };
 }
 
 export function currentAudioProfile(hour: number, locationMode: LocationMode, nearLava: boolean, spookyMap = false, combat = false): AudioProfile {
