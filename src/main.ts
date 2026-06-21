@@ -658,6 +658,7 @@ class WildernessGame {
   private gtaoPass: GTAOPass | null = null;
   private envMap: THREE.Texture | null = null; // HDRI 환경맵(금속 반사). PC(비저사양)에서만 로드·적용. 모바일은 다운로드조차 안 함.
   private envLoadStarted = false;
+  private postProcessingEnabled = false; // bloom+GTAO composer — Sky 과노출 회귀로 일시 OFF. emissive-only 셀렉티브 블룸 재작업 후 재활성 예정.
   private performanceSampleTimer = 0;
   private performanceSampleFrames = 0;
   private performanceSampleSum = 0;
@@ -2620,8 +2621,8 @@ class WildernessGame {
     this.update(delta);
     const preferFastRender = this.gameStarted && this.isSprinting();
     this.setSprintRenderOptimizations(preferFastRender);
-    // ★Selective bloom — PC high + 비스프린트 + 비터치에서만. 그 외(모바일·저사양·스프린트, 적응형 강등 포함)는 기존 직접 렌더 = 비용 0.
-    if (this.qualityMode === "high" && !preferFastRender && !isTouchDevice()) {
+    // ★post-processing(bloom+GTAO) 일시 비활성: threshold bloom 이 절차적 Sky 의 HDR 픽셀을 통째로 번지게 해 과노출(화면 하얗게)되는 회귀. emissive-only 셀렉티브 블룸으로 재작업 전까지 직접 렌더만.
+    if (this.postProcessingEnabled && this.qualityMode === "high" && !preferFastRender && !isTouchDevice()) {
       this.ensureBloom();
       this.composer!.render();
     } else {
