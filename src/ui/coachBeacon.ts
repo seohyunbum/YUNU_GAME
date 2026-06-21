@@ -35,6 +35,14 @@ export function createOnboardingState(): OnboardingCoachState {
   return { shownGuides: new Set(), lastCoachKey: "", coachDismissed: false, hintedFull: false };
 }
 
+// 새 게임/로드 시 호출 — "playthrough 마다 새 상태" 보장(같은 세션 재시작에서도 안내가 다시 작동). 필드는 readonly 라 제자리 초기화.
+export function resetOnboardingState(state: OnboardingCoachState): void {
+  state.shownGuides.clear();
+  state.lastCoachKey = "";
+  state.coachDismissed = false;
+  state.hintedFull = false;
+}
+
 function renderCoachBeacon(el: HTMLElement, hint: CoachHint | null, onDismiss: () => void): void {
   el.innerHTML = "";
   if (!hint) {

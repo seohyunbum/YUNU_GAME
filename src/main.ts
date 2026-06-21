@@ -336,7 +336,7 @@ import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { enterLandscapeFullscreen, isTouchDevice } from "./game/platform";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
 import { showObjectiveGuide } from "./ui/objectiveGuide";
-import { createOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
+import { createOnboardingState, resetOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby, togglePartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackIntercept, partyGuestOpenIntercept, partyGuestPickupIntercept, partyGuestDropIntercept, partyGuestPlaceIntercept, partyGuestStorageActive, requestSharedStorage, sendStorageTake, sendStorageStore, sendSupplyClaim, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
@@ -6224,7 +6224,7 @@ class WildernessGame {
 
   private resetGameState(options: { reseed?: boolean } = {}) {
     const reseed = options.reseed ?? true;
-    this.closePanel();
+    this.closePanel(); resetOnboardingState(this.onboarding); // playthrough 마다 온보딩 안내 새로 시작(같은 세션 재시작 포함). 고급 세이브는 스텝 게이트가 오발화 차단.
     this.setSprintRenderOptimizations(false);
     this.clearWorld();
     this.keys.clear();
