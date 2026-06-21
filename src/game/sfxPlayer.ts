@@ -13,7 +13,8 @@ export function createSfxPlayer(ctx: AudioContext, dest: AudioNode, baseUrl: str
   const load = (name: string) => {
     if (buffers.has(name) || loading.has(name)) return;
     loading.add(name);
-    fetch(`${baseUrl}sfx/${name}.ogg`)
+    const file = name.includes(".") ? name : `${name}.ogg`; // 확장자 있으면 그대로(victory.mp3·levelup.wav), 없으면 .ogg
+    fetch(`${baseUrl}sfx/${file}`)
       .then((r) => r.arrayBuffer())
       .then((ab) => ctx.decodeAudioData(ab))
       .then((buf) => { loading.delete(name); buffers.set(name, buf); })
