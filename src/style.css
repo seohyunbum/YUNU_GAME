@@ -2505,6 +2505,36 @@ body {
   grid-column: 1 / -1;
 }
 
+/* 제작대 레시피북 검색 — 헤더(레시피북 라벨 좌 / 검색창 우) */
+.recipe-book-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.recipe-book-head .inventory-label {
+  margin: 0;
+}
+.workbench-panel .recipe-search-input {
+  flex: 1 1 150px;
+  min-width: 0;
+  max-width: 260px;
+  margin-left: auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(252, 211, 77, 0.34);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.84);
+  color: #fff7ed;
+  font-weight: 800;
+  outline: none;
+}
+.workbench-panel .recipe-search-input:focus {
+  border-color: rgba(250, 204, 21, 0.86);
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.16);
+}
+
 .inventory-panel .recipe-search-input {
   width: 100%;
   min-height: 38px;
