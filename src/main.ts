@@ -336,6 +336,7 @@ import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { enterLandscapeFullscreen, isTouchDevice } from "./game/platform";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
 import { showObjectiveGuide } from "./ui/objectiveGuide";
+import { createOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby, togglePartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackIntercept, partyGuestOpenIntercept, partyGuestPickupIntercept, partyGuestDropIntercept, partyGuestPlaceIntercept, partyGuestStorageActive, requestSharedStorage, sendStorageTake, sendStorageStore, sendSupplyClaim, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
@@ -440,6 +441,8 @@ class WildernessGame {
   private readonly partyChat!: PartyChatHandle; // setupGameUi 가 uiRoot.innerHTML 을 비우므로 생성자에서 그 이후에 배치
   private readonly statsEl = document.createElement("div");
   private readonly objectiveEl = document.createElement("div");
+  private readonly coachEl = document.createElement("div");
+  private readonly onboarding = createOnboardingState();
   private readonly promptEl = document.createElement("div");
   private readonly hotbarEl = document.createElement("div");
   private readonly messageEl = document.createElement("div");
@@ -861,6 +864,7 @@ class WildernessGame {
         uiRoot: this.uiRoot,
         statsEl: this.statsEl,
         objectiveEl: this.objectiveEl,
+        coachEl: this.coachEl,
         promptEl: this.promptEl,
         hotbarEl: this.hotbarEl,
         messageEl: this.messageEl,
@@ -6593,6 +6597,7 @@ class WildernessGame {
     const objectiveView = this.currentObjectiveView(); // 보상 대기 전환 감지용 스냅샷
     if (objectiveView.completed && !this.lastObjectiveReady) { this.playTone(988, 0.1, "triangle", 0.032); this.playTone(1319, 0.16, "triangle", 0.028); } this.lastObjectiveReady = objectiveView.completed;
     if (objectiveView.id === "hunt_predators" && !this.firstCombatHintShown) { this.firstCombatHintShown = true; localStorage.setItem("ai-game-lab:first-combat-hint", "1"); this.showMessage("⚔️ 이제 전투예요! 몬스터가 부르르 떨면 공격 신호 — 양옆으로 빠르게 피했다가 좌클릭으로 반격하세요. 가죽 갑옷을 입으면 훨씬 잘 버팁니다.", { durationSeconds: 7, danger: true }); } // 첫 전투 교육(#11)
+    updateOnboardingCoach(objectiveView, this.onboarding, this.coachEl, (q) => { document.exitPointerLock?.(); showObjectiveGuide(this.uiRoot, q); }, isTouchDevice()); // 초보 온보딩: 핵심 스텝 가이드 1회 자동 + HUD 코치 비콘
     const manaValue = Math.floor(this.mana);
     const hour = this.gameHour();
     const playerClass = PLAYER_CLASSES[this.playerClass];
@@ -7812,6 +7817,7 @@ class WildernessGame {
     }
 
     this.showMessage(`⚠️ 가방이 가득 찼습니다! ${ITEM_NAMES[item] ?? item}을(를) 주울 수 없어요. I로 인벤토리를 비우거나 확장 가방을 만드세요.`, { durationSeconds: 4.5, danger: true });
+    if (!this.onboarding.hintedFull && this.bagSlots.length < EXPANDED_BAG_SLOT_COUNT) { this.onboarding.hintedFull = true; document.exitPointerLock?.(); showObjectiveGuide(this.uiRoot, { title: "가방이 가득 찼어요 — 가방을 만드세요", detail: "시작 가방은 8칸이라 금방 차서 새 전리품을 못 줍습니다. ① 동물을 사냥해 가죽 7개를 모으세요. ② 제작대(가방 I → 2x2에 나무3+망치1로 제작 → 우클릭 설치)를 열어 가죽 7개로 '가방'을 만들면 8 → 40칸으로 늘어납니다.", progress: "가방 미보유", rewardLabel: "가방 8칸 → 40칸", touch: isTouchDevice() }); } // 초보: 첫 인벤-풀 시 가방 제작 가이드 1회
     return false;
   }
 

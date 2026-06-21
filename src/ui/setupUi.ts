@@ -8,6 +8,7 @@ export interface GameUiElements {
   uiRoot: HTMLElement;
   statsEl: HTMLElement;
   objectiveEl: HTMLElement;
+  coachEl: HTMLElement;
   promptEl: HTMLElement;
   hotbarEl: HTMLElement;
   messageEl: HTMLElement;
@@ -56,6 +57,7 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
     uiRoot,
     statsEl,
     objectiveEl,
+    coachEl,
     promptEl,
     hotbarEl,
     messageEl,
@@ -68,6 +70,7 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   uiRoot.className = "game-ui";
   statsEl.className = "stats";
   objectiveEl.className = "objective";
+  coachEl.className = "coach-beacon hidden";
   promptEl.className = "prompt";
   hotbarEl.className = "hotbar";
   messageEl.className = "message";
@@ -82,7 +85,7 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   renderTitleScreen(titleScreenEl, options);
   uiRoot.innerHTML = '<div class="crosshair"></div>';
   uiRoot.classList.add("title-active");
-  uiRoot.append(bossBarEl, objectiveEl, statsEl, saveControlsEl, controlsGuideEl, promptEl, hotbarEl, messageEl, panelEl, titleScreenEl);
+  uiRoot.append(bossBarEl, objectiveEl, coachEl, statsEl, saveControlsEl, controlsGuideEl, promptEl, hotbarEl, messageEl, panelEl, titleScreenEl);
   container.appendChild(uiRoot);
 
   const bindButton = (root: HTMLElement, selector: string, callback: (event: MouseEvent) => void) => {

@@ -1,4 +1,4 @@
-import { itemTier } from "../game/items";
+import { itemTier, PLACEABLE_TYPES } from "../game/items";
 import { initItemTooltips } from "./itemTooltip";
 
 export interface InventorySlotView {
@@ -79,10 +79,12 @@ function renderInventorySlot(slot: InventorySlotView) {
   const moveSelected = slot.moveSelected ? " move-selected" : "";
   const tier = slot.item ? ` tier-${itemTier(slot.item)}` : "";
   const infoAttr = slot.item ? ` data-item="${escapeAttr(slot.item)}"` : "";
+  const placeable = slot.item && PLACEABLE_TYPES[slot.item as keyof typeof PLACEABLE_TYPES] ? " placeable-slot" : "";
+  const badge = placeable ? `<span class="placeable-badge" title="우클릭하면 바닥에 설치됩니다">설치</span>` : "";
   const content = slot.item
-    ? `<span class="slot-name">${escapeHtml(slot.label)}</span><span class="slot-count">${slot.count}</span>`
+    ? `<span class="slot-name">${escapeHtml(slot.label)}</span><span class="slot-count">${slot.count}</span>${badge}`
     : "";
-  return `<div class="mini-slot inventory-cell${slot.extraClass ?? ""}${moveSelected}${tier}"${sourceAttrs}${dragAttrs}${infoAttr}>${content}</div>`;
+  return `<div class="mini-slot inventory-cell${slot.extraClass ?? ""}${moveSelected}${tier}${placeable}"${sourceAttrs}${dragAttrs}${infoAttr}>${content}</div>`;
 }
 
 function renderCraftSlot(slot: InventorySlotView, index: number) {
@@ -139,6 +141,22 @@ export function renderInventoryPanel(
   const craftSlots = view.craftSlots.map(renderCraftSlot).join("");
   const recipeGuide = view.recipeGuide.map(renderRecipeGuideCard).join("");
 
+  // 2x2(어디서나) vs 3x3(설치한 제작대) 구분 — 초보가 "왜 또 만들지?"를 헷갈리지 않게
+  const isTable = view.craftSlots.length >= 9;
+  const craftLabel = isTable ? "제작대 3x3 — 설치한 제작대" : "미니 제작대 2x2 — 어디서나";
+  const craftNote = isTable
+    ? "가방·도구·무기·갑옷 등 대부분을 여기서 만듭니다."
+    : "제작대·삽·막대기 등 기본 아이템을 어디서나 만들 수 있어요. 제작대를 만들어 바닥에 설치하면 더 큰 3x3가 열립니다.";
+
+  // 가방 부족 경고 — 시작 8칸은 금방 차서 새 전리품을 못 줍는다 → 가방 제작으로 유도
+  const bagCapacity = view.bagSlots.filter((s) => !s.locked).length;
+  const bagFilled = view.bagSlots.filter((s) => s.item).length;
+  const smallBag = bagCapacity > 0 && bagCapacity <= 8;
+  const bagUrgent = smallBag && bagFilled >= bagCapacity - 1;
+  const bagHint = smallBag
+    ? `<div class="bag-hint-bar${bagUrgent ? " urgent" : ""}">${bagUrgent ? "⚠️ 가방이 거의 찼어요" : "🎒 가방이 작아요"} (${bagFilled}/${bagCapacity}칸) — 가죽 7개로 가방을 만들면 <b>8 → 40칸</b>으로 늘어납니다. 가득 차면 새 전리품을 못 줍습니다.</div>`
+    : "";
+
   panelEl.innerHTML = `
       <section class="panel inventory-panel inventory-panel-v2">
         <header>
@@ -153,12 +171,14 @@ export function renderInventoryPanel(
             <div class="inventory-label">핫바 ${view.hotbarCount}칸</div>
             <div class="inventory-hotbar inventory-grid">${hotbar}</div>
             <div class="inventory-label">가방 ${escapeHtml(view.bagLabel)}<button class="bag-sort-btn" data-sort-bag title="무기·도구/설치물·소비·재료별로 묶고 등급 오름차순 정렬 (제련대·제작대·침대 등 사용가능 도구는 한 묶음, 가방만)">↕ 자동정렬</button></div>
+            ${bagHint}
             <div class="bag-grid inventory-grid">${bagGrid}</div>
           </section>
 
           <aside class="inv2-side">
             <section class="craft-board">
-              <div class="inventory-label">미니 제작대 2x2</div>
+              <div class="inventory-label">${escapeHtml(craftLabel)}</div>
+              <p class="craft-note">${escapeHtml(craftNote)}</p>
               <div class="crafting-flow">
                 <div class="craft-grid inventory-craft-grid">${craftSlots}</div>
                 <div class="craft-arrow">→</div>
