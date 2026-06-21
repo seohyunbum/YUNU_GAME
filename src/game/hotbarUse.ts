@@ -31,6 +31,7 @@ export interface HotbarUseContext {
   equipArmor(item: ItemId): void;
   equipShield(item: ItemId): void;
   equipNecklace(item: ItemId): void;
+  consumeStew(): void;
   playHandAction(): void;
   spawnHealEffect(): void;
   playTone(frequency: number, duration: number, type: OscillatorType, volume: number): void;
@@ -77,6 +78,14 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
   }
   if (item === "mirror") {
     context.showMirrorView();
+    return;
+  }
+  if (item === "meat_stew") {
+    // 고기 스튜 — 즉시 회복 + 5분 전투 버프(consumeStew 가 처리). 배고픔/HEAL 게이트 없이 항상 사용 가능.
+    if (!context.removeItem(item, 1)) return;
+    context.playHandAction();
+    context.spawnHealEffect();
+    context.consumeStew();
     return;
   }
   if (item === "xp_bottle") {

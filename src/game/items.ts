@@ -20,6 +20,8 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   meat: "고기",
   medkit: "구급상자",
   advanced_medkit: "고급 구급상자",
+  leather_bandage: "가죽 붕대",
+  meat_stew: "고기 스튜",
   bed: "침대",
   building_block: "쌓기블록",
   bow: "활",
@@ -205,6 +207,7 @@ export function isMeleeWeapon(item: ItemId | null | undefined): boolean {
 export const HEAL_ITEMS: Record<ItemId, number> = {
   medkit: 15,
   advanced_medkit: 25,
+  leather_bandage: 12, // 가죽 6 으로 양산하는 저효율 회복식(잉여 가죽 소진). medkit(15) 아래로 유지.
 };
 
 // 희귀 등급 — 주스(큰 순간 연출)용. 등재 안 된 아이템은 common.
@@ -395,7 +398,7 @@ export const PLACEABLE_TYPES: Record<ItemId, ObjectType> = {
 // 자동정렬용 카테고리 — 작을수록 앞. 무기 < 방어구 < 도구·설비(한 묶음) < 소비 < 재료 < 기타.
 // 사용가능한 도구는 손도구(도끼·곡괭이·삽·망치·양동이)와 설치물(제련대·확장제작대·침대·제작대·연마기 등)을 한 그룹으로 묶는다(그 안은 등급 오름차순).
 // (방패는 WEAPON_DAMAGE 의 강타값도 있지만 방어구로, 도끼/곡괭이는 WEAPON_DAMAGE 여도 도구로 분류한다.)
-const SORT_CONSUMABLES = new Set<ItemId>(["meat", "medkit", "advanced_medkit", "xp_bottle", "dragon_spawn"]);
+const SORT_CONSUMABLES = new Set<ItemId>(["meat", "medkit", "advanced_medkit", "leather_bandage", "meat_stew", "xp_bottle", "dragon_spawn"]);
 const SORT_TOOLS = new Set<ItemId>(["hammer", "bucket", "water_bucket", "lava_bucket"]);
 const SORT_MISC = new Set<ItemId>(["tutorial_book", "bag", "big_bag", "mirror"]);
 const NECKLACE_SORT_SET = new Set<ItemId>(NECKLACE_IDS);

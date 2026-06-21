@@ -187,6 +187,9 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   },
   // ── 고급 회복 ──
   checkQuest("craft_advanced_medkit", (s) => s.craftedAdvancedMedkit, "고급 구급상자 만들기", "확장 제작대에서 고급 구급상자(에픽)를 만드세요. 재료는 구급상자 2 + 제련된 다이아몬드 1 + 가죽 3 + 고기 2입니다. 사용하면 체력을 25 회복합니다. (상자·사냥 드랍은 인정되지 않습니다)", { experience: 505, items: { advanced_medkit: 1, refined_diamond: 1 }, label: "경험치 505 + 고급 구급상자 1개 + 제련된 다이아몬드 1개" }),
+  // ── 요리·생활(잉여 자원 소진) ──
+  checkQuest("craft_bandage", (s) => s.countItem("leather_bandage") > 0, "가죽 붕대 만들기", "남는 가죽이 쌓이면 제작대에서 가죽 6으로 '가죽 붕대'를 만드세요. 사용 시 체력 12를 회복하는 값싼 회복식입니다 — 잉여 가죽을 꾸준히 소진할 수 있어요.", { experience: 506, items: { medkit: 2 }, label: "경험치 506 + 구급상자 2개" }),
+  checkQuest("craft_stew", (s) => s.countItem("meat_stew") > 0, "고기 스튜 만들기", "남는 고기가 쌓이면 제작대에서 고기 16 + 석탄 2 + 철 1로 '고기 스튜'를 만드세요. 사용하면 체력을 회복하고 5분간 공격·방어 +5 — 보스전 직전에 먹으면 좋습니다.", { experience: 507, items: { refined_diamond: 1, coal: 4 }, label: "경험치 507 + 제련된 다이아몬드 1개 + 석탄 4개" }),
   // ── 최상급 재료 ──
   countQuest("gather_obsidian", 2, (s) => s.countItem("obsidian"), "흑요석 2개 모으기", "흑요석은 흑요석 무기·갑옷·에픽 목걸이 등 최상급 장비의 재료입니다. ① 다이아몬드 곡괭이를 만들어 동굴 깊은 곳에서 '보랏빛으로 은은히 빛나는' 흑요석 광맥을 캐세요(다이아 곡괭이부터 채굴 가능). ② 몬스터 요새를 클리어하거나 흑요석(검은) 상자를 열어도 얻고, 늪·무덤 등 고레벨 필드 보스도 흑요석을 떨굽니다.", { experience: 505, items: { special_smelter: 1, diamond_powder: 2 }, label: "경험치 505 + 특수 제련대 1개 + 다이아몬드 가루 2개" }),
   // ── 장신구 ──
