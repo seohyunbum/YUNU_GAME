@@ -43,7 +43,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 파티 거래 비가역 원장(복제 차단) — characterId/epoch 필드·로그 3지점·로드 재조정·새게임 발급 배선 → 9856→9876.
 // 2026-06-20: 독수리 빙의 강화(bodyMeleeAttackPower 추출·eaglePossessionMaxHp 필드·HP/방어 레벨비례·흡혈 배선) → 9876→9877.
 // 2026-06-21: 파티 설치(−1) 대칭 기록 1줄 → 9877→9878.
-const MAX_MAIN_LINES = 9878;
+// 2026-06-21: 요새 게이트 ensure(소급)·해골기둥 비주얼·누적킬 세이브복원·요새탐방 퀘스트 → 9878→9900.
+const MAX_MAIN_LINES = 9900;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

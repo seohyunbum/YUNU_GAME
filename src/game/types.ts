@@ -325,6 +325,8 @@ export interface SavedGame {
     arcadePoints?: number; // 미니게임/판매 포인트 — 세이브에 포함해 로드 시 롤백(판매→로드 복제 익스플로잇 차단). 구세이브엔 없을 수 있음(optional)
     characterId?: string; // 플레이스루 식별 — 파티 거래 비가역 원장(partyLedger) 키. 새 게임마다 발급, 구세이브는 닉네임 기반 백필
     partyLedgerEpoch?: number; // 저장 시점의 파티 거래 epoch — 불러오기 시 이 값 초과 거래만 인벤에 재적용(파티 양도 복제 차단)
+    predatorKills?: number; // 캐릭터 생성부터 누적 몬스터 처치 수 — 세이브에 포함해 로드 시 복원(전엔 localStorage 전역값이 로드마다 0 리셋됐음). 구세이브는 완료 퀘스트로 백필
+    fortressBossKills?: number; // 누적 요새 보스 처치 수 — 동일하게 세이브 복원(로드 리셋 방지)
     craftStatAlloc?: { hp: number; mana: number; attack: number; defense: number };
     caveReturnPosition: SavedVector | null;
     houseReturnPosition?: SavedVector | null;

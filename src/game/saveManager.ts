@@ -45,6 +45,8 @@ export interface SaveDataSnapshot {
     arcadePoints: number;
     characterId: string;
     partyLedgerEpoch: number;
+    predatorKills: number;
+    fortressBossKills: number;
     craftStatAlloc: { hp: number; mana: number; attack: number; defense: number };
     classSkillCooldownUntil: number;
     secondSkillCooldownUntil: number;
@@ -221,6 +223,8 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       arcadePoints: snapshot.player.arcadePoints,
       characterId: snapshot.player.characterId,
       partyLedgerEpoch: snapshot.player.partyLedgerEpoch,
+      predatorKills: snapshot.player.predatorKills,
+      fortressBossKills: snapshot.player.fortressBossKills,
       craftStatAlloc: { ...snapshot.player.craftStatAlloc },
       classSkillCooldownRemainingMs: Math.max(0, snapshot.player.classSkillCooldownUntil - snapshot.nowMs),
       secondSkillCooldownRemainingMs: Math.max(0, snapshot.player.secondSkillCooldownUntil - snapshot.nowMs),
