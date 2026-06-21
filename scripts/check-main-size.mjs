@@ -55,7 +55,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 저장 중복슬롯 크리티컬 수정 — 디바운스(lastSaveCompletedAt 필드·SAVE_DEBOUNCE_MS 가드·import)+초단위 dedup → 10028→10031.
 // 2026-06-21: 초보 온보딩 배선 — 코치 비콘 필드(coachEl·onboarding)+setupUi 전달+renderHud 1줄(updateOnboardingCoach)+addItem 첫인벤풀 가이드 1줄+import. 로직은 전부 ui/coachBeacon 리프 → 10042→10048.
 // 2026-06-21: 제작대 레시피북 수량 제작 — counts 호이스트+maxCraft 필드(뷰)+craftWorkbenchRecipe 수량 루프. 계산은 recipeGuide.maxCraftable 리프 → 10048→10051.
-const MAX_MAIN_LINES = 10051;
+// 2026-06-21: 제련대·분쇄기도 동일 컨셉(보유표기+수량 스테퍼) — 인라인 패널 HTML 을 ui/stationPanel 리프로 추출(순감). smelt/grindItem 수량 루프 → 10051→10015.
+const MAX_MAIN_LINES = 10015;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
