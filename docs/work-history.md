@@ -14,6 +14,12 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 제련대·분쇄기도 동일 컨셉(보유 재료 표기 + 수량 스테퍼)
+
+- 사용자 피드백: "제련대 등등 제작도구를 위와 유사한 컨셉으로 다 변경". 제련대·특수제련대·분쇄기에 보유 재료 표기 + 수량 스테퍼 적용.
+- 결과: 인라인이던 renderSmelterPanel·renderGrinderPanel HTML 을 공용 리프 `ui/stationPanel.ts`(renderStationPanel: 보유/필요 라인 + −[1]+ 스테퍼 + 액션)로 추출 → main.ts 순감(10051→10015, ratchet 하향). smeltItem/grindItem 을 (id, quantity) 수량 루프로(재료 소진·인벤 공간 부족 시 만든 만큼만 + 입력 롤백 + 정확한 개수 메시지). 스테퍼 상한 = 보유 재료(min 99). 변환은 1→1(제련)/1→2(분쇄)라 max=보유수.
+- 검증: verify+build, E2E 9종(제련대 5/1 표기·상한5·5개 제련 wood5→0/refined5·분쇄기 4/1·상한4·4개 분쇄 stone 소진·무예외). CSS 는 직전 .craft-qty-row/.qty-stepper 재사용.
+
 ## 2026-06-21 — 제작대 레시피북: 보유 재료 표기 + 수량 스테퍼(한 번에 N개 제작)
 
 - 사용자 피드백. ① 레시피북 재료를 항상 "보유/필요"로 표기 — ingredientCounts 에 alwaysCount 옵션 추가(워크벤치 뷰만 true; 인벤 검색은 기존대로). ② '바로 제작' 옆에 −[1]+ 수량 스테퍼 — 보유 재료 기준 상한(maxCraftable 리프: min floor(보유/필요), 일회성 가방류는 1, UI상 99 캡)에서 + 가 멈춤. craftWorkbenchRecipe(id, quantity) 루프로 N개 제작(재료 소진·인벤 공간 부족 시 만든 만큼만 + 정확한 개수 메시지).

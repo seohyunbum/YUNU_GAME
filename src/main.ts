@@ -337,6 +337,7 @@ import { enterLandscapeFullscreen, isTouchDevice } from "./game/platform";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
 import { showObjectiveGuide } from "./ui/objectiveGuide";
 import { createOnboardingState, resetOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
+import { renderStationPanel } from "./ui/stationPanel";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby, togglePartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackIntercept, partyGuestOpenIntercept, partyGuestPickupIntercept, partyGuestDropIntercept, partyGuestPlaceIntercept, partyGuestStorageActive, requestSharedStorage, sendStorageTake, sendStorageStore, sendSupplyClaim, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
@@ -6945,66 +6946,31 @@ class WildernessGame {
   private renderSmelterPanel() {
     const station = this.currentStationId ? this.objects.get(this.currentStationId) : null;
     const isSpecial = station?.type === "specialSmelter";
-    const rawItems = this.smelterMaterials(isSpecial);
-    this.panelEl.innerHTML = `
-      <section class="panel smelter-panel">
-        <header>
-          <h2>${isSpecial ? "특수 제련대" : "제련대"}</h2>
-          <button class="icon-button" data-close>닫기</button>
-        </header>
-        <div class="recipes">
-          ${rawItems
-            .map((item) => {
-              const output = this.smeltOutputFor(item);
-              const disabled = this.countItem(item) <= 0 ? "disabled" : "";
-              const uses = itemsUsing(output);
-              return `<article class="recipe-card">
-                <div>
-                  <strong>${ITEM_NAMES[item]} 제련</strong>
-                  <p>${ITEM_NAMES[item]} 1 -> ${ITEM_NAMES[output]} 1</p>
-                  ${uses.length ? `<p style="font-size:12px;opacity:0.65;margin:2px 0 0">→ 쓰임: ${uses.join(", ")}</p>` : ""}
-                </div>
-                <button data-smelt="${item}" ${disabled}>제련</button>
-              </article>`;
-            })
-            .join("")}
-        </div>
-      </section>
-    `;
+    renderStationPanel(this.panelEl, {
+      title: isSpecial ? "특수 제련대" : "제련대",
+      actionLabel: "제련",
+      recipes: this.smelterMaterials(isSpecial).map((item) => {
+        const output = this.smeltOutputFor(item);
+        const have = this.countItem(item);
+        const uses = itemsUsing(output);
+        return { id: item, title: `${ITEM_NAMES[item]} 제련`, line: `${ITEM_NAMES[item]} ${have}/1 -> ${ITEM_NAMES[output]} 1`, uses: uses.length ? `→ 쓰임: ${uses.join(", ")}` : "", max: Math.max(1, Math.min(99, have)), canDo: have > 0 };
+      }),
+    }, { onAction: (item, qty) => this.smeltItem(item as ItemId, qty) });
     this.bindPanelBasics();
-    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-smelt]").forEach((button) => {
-      button.addEventListener("click", () => this.smeltItem(button.dataset.smelt ?? ""));
-    });
   }
 
   private renderGrinderPanel() {
-    this.panelEl.innerHTML = `
-      <section class="panel smelter-panel">
-        <header>
-          <h2>분쇄기</h2>
-          <button class="icon-button" data-close>닫기</button>
-        </header>
-        <div class="recipes">
-          ${GRINDABLE_MATERIALS.map((item) => {
-            const output = POWDER_BY_MINERAL[item];
-            const disabled = this.countItem(item) <= 0 ? "disabled" : "";
-            const uses = itemsUsing(output);
-            return `<article class="recipe-card">
-              <div>
-                <strong>${ITEM_NAMES[item]} 분쇄</strong>
-                <p>${ITEM_NAMES[item]} 1 -> ${ITEM_NAMES[output]} 2</p>
-                ${uses.length ? `<p style="font-size:12px;opacity:0.65;margin:2px 0 0">→ 쓰임: ${uses.join(", ")}</p>` : ""}
-              </div>
-              <button data-grind="${item}" ${disabled}>분쇄</button>
-            </article>`;
-          }).join("")}
-        </div>
-      </section>
-    `;
+    renderStationPanel(this.panelEl, {
+      title: "분쇄기",
+      actionLabel: "분쇄",
+      recipes: GRINDABLE_MATERIALS.map((item) => {
+        const output = POWDER_BY_MINERAL[item];
+        const have = this.countItem(item);
+        const uses = itemsUsing(output);
+        return { id: item, title: `${ITEM_NAMES[item]} 분쇄`, line: `${ITEM_NAMES[item]} ${have}/1 -> ${ITEM_NAMES[output]} 2`, uses: uses.length ? `→ 쓰임: ${uses.join(", ")}` : "", max: Math.max(1, Math.min(99, have)), canDo: have > 0 };
+      }),
+    }, { onAction: (item, qty) => this.grindItem(item as ItemId, qty) });
     this.bindPanelBasics();
-    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-grind]").forEach((button) => {
-      button.addEventListener("click", () => this.grindItem(button.dataset.grind ?? ""));
-    });
   }
 
   private renderTradePanel() {
@@ -7616,38 +7582,36 @@ class WildernessGame {
     }
   }
 
-  private smeltItem(item: ItemId) {
+  private smeltItem(item: ItemId, quantity = 1) {
     const station = this.currentStationId ? this.objects.get(this.currentStationId) : null;
     const isSpecial = station?.type === "specialSmelter";
-    if (!this.smelterMaterials(isSpecial).includes(item)) {
-      this.showMessage("이 재료는 현재 제련대에서 제련할 수 없습니다.");
-      return;
-    }
     const output = this.smeltOutputFor(item);
-    if (!output || !this.removeItem(item, 1)) {
-      this.showMessage("제련할 재료가 없습니다.");
-      return;
+    if (!this.smelterMaterials(isSpecial).includes(item) || !output) { this.showMessage("이 재료는 현재 제련대에서 제련할 수 없습니다."); return; }
+    let done = 0;
+    for (let i = 0; i < Math.max(1, quantity) && this.countItem(item) > 0; i += 1) { // 재료 소진/공간 부족 시 만든 만큼만
+      this.removeItem(item, 1);
+      if (!this.addItem(output, 1)) { this.addItem(item, 1); break; } // 공간 부족 → 입력 롤백
+      done += 1;
     }
-    this.addItem(output, 1);
+    if (done === 0) { this.showMessage("제련할 재료가 없습니다."); return; }
     this.playSmeltSound();
-    this.showMessage(`${ITEM_NAMES[item]}을 ${ITEM_NAMES[output]}으로 제련했습니다.`);
+    this.showMessage(done > 1 ? `${ITEM_NAMES[item]} ${done}개를 ${ITEM_NAMES[output]}으로 제련했습니다.` : `${ITEM_NAMES[item]}을 ${ITEM_NAMES[output]}으로 제련했습니다.`);
     this.renderPanel();
     this.renderHud();
   }
 
-  private grindItem(item: ItemId) {
-    if (!GRINDABLE_MATERIALS.includes(item)) {
-      this.showMessage("이 재료는 분쇄할 수 없습니다.");
-      return;
-    }
+  private grindItem(item: ItemId, quantity = 1) {
     const output = POWDER_BY_MINERAL[item];
-    if (!output || !this.removeItem(item, 1)) {
-      this.showMessage("분쇄할 재료가 없습니다.");
-      return;
+    if (!GRINDABLE_MATERIALS.includes(item) || !output) { this.showMessage("이 재료는 분쇄할 수 없습니다."); return; }
+    let done = 0;
+    for (let i = 0; i < Math.max(1, quantity) && this.countItem(item) > 0; i += 1) {
+      this.removeItem(item, 1);
+      if (!this.addItem(output, 2)) { this.addItem(item, 1); break; } // 공간 부족 → 입력 롤백
+      done += 1;
     }
-    this.addItem(output, 2);
+    if (done === 0) { this.showMessage("분쇄할 재료가 없습니다."); return; }
     this.playGrindSound();
-    this.showMessage(`${ITEM_NAMES[item]}을 ${ITEM_NAMES[output]} 2개로 분쇄했습니다.`);
+    this.showMessage(done > 1 ? `${ITEM_NAMES[item]} ${done}개를 ${ITEM_NAMES[output]} ${done * 2}개로 분쇄했습니다.` : `${ITEM_NAMES[item]}을 ${ITEM_NAMES[output]} 2개로 분쇄했습니다.`);
     this.renderPanel();
     this.renderHud();
   }
