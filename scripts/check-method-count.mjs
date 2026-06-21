@@ -22,7 +22,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: sample() 1개 → 484→485.
 // 2026-06-21: enterCombatMood 1개 → 485→486.
 // 2026-06-21: ensureBloom 1개 → 486→487.
-const MAX_METHODS = 487;
+// 2026-06-21: applyEnvForQuality 1개 → 487→488.
+const MAX_METHODS = 488;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

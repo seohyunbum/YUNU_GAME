@@ -1,0 +1,5 @@
+YUNU_GAME — 환경맵(HDRI) 출처
+
+sky_1k.hdr — "Kloofendal 48d Partly Cloudy (Pure Sky)" by Greg Zaal / Poly Haven — CC0 (Public Domain)
+출처: https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky  (1K HDR, ~1.4MB)
+용도: 금속/발광 머티리얼의 은은한 하늘 반사(scene.environment). PC(비저사양)에서만 로드·적용.

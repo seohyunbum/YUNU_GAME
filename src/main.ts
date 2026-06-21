@@ -6,6 +6,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { GTAOPass } from "three/examples/jsm/postprocessing/GTAOPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CLASS_APPEARANCE, DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
 import { getRewardTuning, type RewardSource } from "./operatorConfig";
@@ -655,6 +656,8 @@ class WildernessGame {
   private composer: EffectComposer | null = null; // selective bloom + GTAO — PC high 전용. lazy 생성(저사양/모바일은 아예 안 만듦 → 렌더타깃 0).
   private bloomPass: UnrealBloomPass | null = null;
   private gtaoPass: GTAOPass | null = null;
+  private envMap: THREE.Texture | null = null; // HDRI 환경맵(금속 반사). PC(비저사양)에서만 로드·적용. 모바일은 다운로드조차 안 함.
+  private envLoadStarted = false;
   private performanceSampleTimer = 0;
   private performanceSampleFrames = 0;
   private performanceSampleSum = 0;
@@ -2564,6 +2567,20 @@ class WildernessGame {
   }
 
   // bloom 컴포저 lazy 생성 — PC high 첫 프레임에만. 밝은 픽셀(emissive 글로우·태양)만 번지도록 threshold 높게. OutputPass 가 ACESFilmic+sRGB 처리(직접렌더와 색 일치).
+  // HDRI 환경맵(금속 반사) — PC(비저사양)에서만 로드+적용. scene.environment 가 metal 머티리얼에 은은한 하늘 반사를 준다(무광 toon 은 거의 영향 없음). 모바일=null 유지(IBL 샘플링·다운로드 0).
+  private applyEnvForQuality() {
+    if (this.qualityMode === "performance") { this.scene.environment = null; return; } // 저사양/모바일: 끔
+    if (this.envMap) { this.scene.environment = this.envMap; this.scene.environmentIntensity = 0.32; return; } // 은은하게(낮은 강도)
+    if (this.envLoadStarted) return;
+    this.envLoadStarted = true;
+    new RGBELoader().load(`${import.meta.env.BASE_URL}env/sky_1k.hdr`, (hdr) => {
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      this.envMap = pmrem.fromEquirectangular(hdr).texture;
+      hdr.dispose(); pmrem.dispose();
+      if (this.qualityMode !== "performance") { this.scene.environment = this.envMap; this.scene.environmentIntensity = 0.32; }
+    }, undefined, () => { this.envLoadStarted = false; }); // 실패 → env 없음 폴백
+  }
+
   private ensureBloom() {
     if (this.composer) return;
     const w = this.container.clientWidth, h = this.container.clientHeight;
@@ -2749,6 +2766,7 @@ class WildernessGame {
       this.renderer.shadowMap.needsUpdate = true;
     }
     if (manual) { this.qualityLocked = true; localStorage.setItem(QUALITY_MODE_KEY, mode); this.updateQualityButtons(); } // 직접 선택 = 유지 + 자동 다운그레이드 잠금
+    this.applyEnvForQuality(); // HDRI 금속 반사 — 모드에 맞춰 on/off (PC만 로드)
   }
 
   private updateVisualEffects(delta: number) {
