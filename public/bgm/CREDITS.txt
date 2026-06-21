@@ -14,4 +14,9 @@ swamp.ogg       — "A Wonderful Nightmare" by SpiderDave (으스스 멜로디) 
 cave.ogg        — "Dark Shrine Loop" by qubodup (orig. yd, 던전 루프)          — OpenGameArt, CC0  — 동굴
 fortress.ogg    — "Ancient Power Of Serpents" by Kevin MacLeod (어둡고 웅장)    — OpenGameArt, CC0  — 몬스터 요새
 
+[전투 BGM 풀 (2026-06-21)] — 전투 진입마다 랜덤(battle.mp3 포함 4종)
+battle_epic.ogg — "War Theme (ver 2)" by Spring Spring (웅장·영웅 오케스트라)   — OpenGameArt, CC0  — 전투
+battle_fast.ogg — "Prepare your Swords" by bojidar-bg (긴박·고속)             — OpenGameArt, CC0  — 전투
+battle_dark.mp3 — "Battle Theme" by Wolfgang_ (어둡·위협)                      — OpenGameArt, CC0  — 전투
+
 출처: https://opengameart.org/content/cc0-music-0 외. 라이선스: CC0 1.0 Universal (Public Domain Dedication).
