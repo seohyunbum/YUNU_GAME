@@ -14,6 +14,42 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — ⚠️ 비주얼 post-processing 반영 후 OFF (과노출 회귀) [동시 세션]
+
+- 시도: selective bloom(발광체 글로우) + GTAO(앰비언트 오클루전) + 금속 HDRI 반사를 PC high 전용으로 추가(커밋 12a9c77 → 6cfde7a → 54bbb89).
+- 결과/원복: 직후 "화면이 하얗게(과노출)" 회귀 발생 → **post-processing 컴포저를 일시 OFF**(6452b0c). bloom/GTAO/HDRI 코드는 남아 있으나 컴포저가 꺼져 효과 비활성.
+- 이유: 톤매핑/노출이 겹치며 과노출. 노출·톤매핑 기준을 먼저 잡지 않은 채 후처리를 합성한 게 원인으로 추정.
+- 다음 판단(★재발 방지): **post-processing/bloom 을 다시 켜려면 노출·톤매핑 보정이 선행돼야 함.** 모르고 재활성하면 같은 과노출이 재발하므로 재시도 전 반드시 이 항목 확인. git revert 가 아니라 fix 커밋으로 껐기 때문에 `git log --grep revert` 로는 안 잡힘.
+- 관련 파일/검증: git 6452b0c ← 54bbb89 ← 6cfde7a ← 12a9c77, 렌더 비주얼 컴포저.
+
+## 2026-06-21 — 모바일 진입 자동 가로+전체화면 + 세로 차단 회전 오버레이 (de096d2)
+
+- 시도: 직업 선택 후 진입 클릭(사용자 제스처)에서 전체화면 요청 → (실모바일) `screen.orientation.lock('landscape')`. 세로일 때 화면을 가리는 회전 오버레이(`body.touch-mode.in-game::after`).
+- 결과/결정: ① 오버레이는 차단형 ② 새 게임+불러오기 진입 모두 적용 ③ 데스크톱 `?touch=1` 강제모드는 전체화면만(lock 생략) ④ orientationchange→resize 추가.
+- 이유/한계(★재시도 방지): **iOS Safari(iPhone)는 Fullscreen/Orientation Lock API 자체가 없어 강제 불가** — 코드로 우회 불가, 오버레이 안내가 최선. **Android 만 완전 강제.** iPadOS 13+ 는 desktop UA 로 위장해 lock 생략됨. 모든 호출은 feature-detect + catch 라 미지원 기기서도 예외 0.
+- 다음 판단/검증: 실제 API 무스텁 E2E(미처리 rejection·콘솔에러 0) + **6관점 적대적 감사 확정 버그 0건** → 재감사 불필요.
+- 관련 파일/검증: `src/game/platform.ts`(enterLandscapeFullscreen)·`main.ts`(진입 훅·in-game 클래스)·`style.css`. 설계 `docs/mobile-landscape-fullscreen.md`.
+
+## 2026-06-21 — 직업별 패시브 개편 (a1c5b40)
+
+- 시도: 무기조건 데미지(전사 근접 +10% / 힐러 지팡이 +10%(힐량 포함) / 마법사 +15% / 소환사 +10%), 방어 레벨스케일(전사 base 4 +0.2/lv·탱커 base 8 +0.4/lv), 힐러 마나 +0.25/s, 탱커 방패 장착 시 체력 +(0.25+레벨/50)/s, 거너 쿨감 총기 전용화 + 이동속도 +10%.
+- 결과/결정/함정(★): ① 데미지 배수는 기존 `empowerMultiplier` 와 동일 패턴으로 **1회만** 적용 — currentDamage 파생 스킬(불타는공격·대지가르기 = currentDamage×2)은 자동 포함이라 **이중적용 금지**, 플랫 즉발 스킬(무거운공격·TNT·파이어볼·메테오·바람정령)만 명시 곱. ② **DoT/HoT(정령폭풍·화상·불타는방패·치유의비)·펫·빙의는 배수 제외(결정)** — 틱 시점 무기정보 없음. ③ 방어/회복 레벨스케일은 `levelStatBonus`(전직 보너스 포함) 아닌 **순수 캐릭터 레벨**. ④ 목걸이 제작 퀘스트는 상자드랍 소유가 아니라 `craftedNecklace` 신호로만 완료.
+- 이유: 무기 선택·직업 정체성을 살리되 기존 데미지 파이프라인(empowerMultiplier)을 그대로 재사용해 회귀 위험 최소화.
+- 관련 파일/검증: `classPassives.ts`(classWeaponDamageMult)·`items.ts`·`classSkills.ts`·`main.ts`. 골든(매트릭스·방어/회복)+E2E 9종+핀 SHA 적대적 검수 0건. 설계 `docs/class-passive-rework.md`.
+
+## 2026-06-21 — 재료판매 70%↓ + 상점 2배 + 에픽 목걸이 4종 + 퀘스트 삽입(소급) (e7adf78)
+
+- 시도: SELL_SHOP_RATE 0.85→0.595(판매 포인트 ~70%), 상점 9→18종(일반·고급·희귀), 에픽 목걸이 4종(힘/수호/쾌속/현자) + K 캐릭터창 목걸이 슬롯·착용 UI, 신규 퀘스트(재료팔기·물건사기·목걸이 제작/착용).
+- 결과/핵심(★재사용 패턴): **튜토리얼 퀘스트 삽입은 진행도가 id-set(`completedStepIds`)이라, `RAW_TUTORIAL_STEPS` 원하는 위치에 끼워넣기만 하면 이미 그 지점을 지난 세이브도 자동 소급 노출 — 마이그레이션 코드 불필요.** (memory `yunu-game-quest-insertion-pattern` 에도 기록.) 목걸이 효과는 `necklace.ts` 헬퍼로 분리.
+- 다음 판단: 목걸이 수치는 이후 밸런스 상향됨(공격/방어 +5→+7, 쾌속 ×0.9→×0.75, 현자 ×0.9 + 마나 회복 +1/s).
+- 관련 파일/검증: `trading.ts`·`items.ts`·`necklace.ts`·`objectives.ts`·`ui/characterPanel.ts`·`saveManager/saveMigration/types`·`chestLoot.ts`·`recipes.ts`.
+
+## 2026-06-20 — 이층집 전용 외관 + 보급상자 집 종류별 쿨타임 (2c17116)
+
+- 시도: deluxe(플레이어) 집도 variant 3 이면 2층 외관(deluxeTwoStoryStyle, 단층 코티지보다 크고 높게). 보급상자 쿨타임을 단일값 → 집 종류(`currentHouseBedTier`)별 Record 로 분리(통나무/돌/이층 각자, 같은 종류끼리만 공유).
+- 결과/함정(★): **새 player 세이브 필드는 `saveMigration` 의 필드별 재구성에도 반드시 추가**해야 로드 시 안 날아감(과거 `currentHouseBedTier` 누락으로 매 로드 초기화되던 버그와 동일 교훈).
+- 관련 파일/검증: `structureVisuals.ts`·`main.ts`·`saveManager/saveMigration/types`. 테스트 save-migration/roundtrip·gameplay-systems.
+
 ## 2026-06-19 — 몬스터 요새 적대적 검증 + 확정 버그 6건 수정
 
 - 시도: 배포된 요새 디펜스에 6차원 적대적 코드 리뷰(워크플로) + 발견별 독립 반증 검증. 16건 발견→10 확정→오수정 방지 위해 raw 코드 재검증 후 6건 수정.
