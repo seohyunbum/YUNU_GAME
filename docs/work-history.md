@@ -14,6 +14,14 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 퀘스트 흐름 3건: 훈련장 먼저·동굴 지도안내·제작대 회수 퀘스트
+
+- 사용자 피드백 3건.
+- ① 용용 평원(=dragon_plains 맵, 새끼용 여왕) 등 필드보스가 훈련장 퀘스트보다 먼저 떠서, 필드보스 끼워넣기 게이트를 hunt_predators → hunt_predators && train_all_kinds 로 강화. 훈련장 1종(train_once)·4종(train_all_kinds) 퀘스트 완료 전엔 어떤 필드보스도 목표로 끼워넣지 않음(보스는 차단이 아니라 '제안 지연' — 튜토리얼 완료 후 bossLine 으로 항상 노출). 멧돼지 대왕(starter)·용용 평원 모두 훈련 뒤로.
+- ② visit_cave 퀘스트 안내에 "발견한 동굴 입구는 지도(M)·미니맵에 동굴 아이콘으로 표시" 추가(이미 mapPanel data-cave-marker·minimap caves 존재).
+- ③ '제작대 회수' 퀘스트 신설(recover_workbench, craft_pickaxe 직후). 좌클릭/E=가방 회수, 우클릭=제작 안내. 신호 tutorialSignals.recoveredWorkbench(휘발, achievedStepIds 래치로 영속)·ObjectiveSnapshot 필드 추가·pickUpWorkbench 에서 set(스냅샷은 ...tutorialSignals 스프레드라 자동 반영).
+- 검증: vite ssrLoadModule 모듈테스트 6종(보스게이트 A/B·동굴 지도문구·회수퀘 존재/순서/시그널) + 브라우저 6종(설치→회수→시그널 true·제작대 복귀·월드 제거). main 예산 10015 유지(회수 신호 라인 병합).
+
 ## 2026-06-21 — 제련대·분쇄기도 동일 컨셉(보유 재료 표기 + 수량 스테퍼)
 
 - 사용자 피드백: "제련대 등등 제작도구를 위와 유사한 컨셉으로 다 변경". 제련대·특수제련대·분쇄기에 보유 재료 표기 + 수량 스테퍼 적용.
