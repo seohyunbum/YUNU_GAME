@@ -6823,6 +6823,7 @@ class WildernessGame {
     if (worldState) { for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height); createBiomeDecor(this.biomeDecorContext); for (const savedObject of worldState.objects) this.restoreWorldObject(savedObject); this.ensureVillageShops(); this.ensureFortressGate(); this.ensureWildlifeDensity(); } else this.seedOverworld(); // 방문했던 맵은 저장분포 복원 후 현재 밀도까지 보충(소급)
     this.playerPosition.copy(map.spawn); this.playerPosition.y = this.getOverworldHeightAt(map.spawn.x, map.spawn.z) + PLAYER_HEIGHT;
     this.previousPosition.copy(this.playerPosition); this.setOverworldAtmosphere(); this.settlePlayerAfterTeleport(); this.closePanel();
+    for (const pred of [...this.objectsOfType("wildPredator")]) { if (Math.hypot(pred.root.position.x - map.spawn.x, pred.root.position.z - map.spawn.z) < 15) { const dest = this.randomPredatorSpawnPoint(regionAtPosition(pred.root.position, this.activeRegions)); if (dest) { pred.root.position.copy(dest); this.refreshSpatialObject(pred); } } } // 도착 15칸 안 몬스터(복원·배회 개체)는 멀리 재배치 — 텔레포트 직후 피격 방지
     this.showMessage(`${map.name}으로 텔레포트했습니다. 이 맵의 권장 레벨은 Lv ${map.levelRange[0]}-${map.levelRange[1]}입니다.`);
   }
 
@@ -9928,6 +9929,7 @@ class WildernessGame {
   }
 
   private randomPredatorSpawnPoint(region: ReturnType<typeof regionAtPosition> = regionAtPosition(this.playerPosition, this.activeRegions)) {
+    const mapSpawn = getWorldMapById(this.currentWorldMapId).spawn; // 맵 도착(텔레포트) 지점 — 그 주변 15칸은 영구 미스폰(도착 직후 피격 방지)
     for (let attempt = 0; attempt < 80; attempt += 1) {
       const point = region
         ? randomPointInRegion(region)
@@ -9936,6 +9938,7 @@ class WildernessGame {
       const minDistance = region ? Math.min(NIGHT_PREDATOR_MIN_PLAYER_DISTANCE, Math.max(28, region.radius * 0.52)) : NIGHT_PREDATOR_MIN_PLAYER_DISTANCE;
       if (point.distanceTo(this.playerPosition) < minDistance) continue;
       if ((region ? this.isNearWater(point, 8) || this.isPointInLava(point, 2) : this.isNaturalSpawnBlocked(point, 8)) || isInSafeZone(point.x, point.z, 8)) continue; // 마을·훈련장 제외
+      if (Math.hypot(point.x - mapSpawn.x, point.z - mapSpawn.z) < 15) continue; // 맵 도착 지점 15칸 안 — 텔레포트 직후 옆에서 쳐맞는 현상 방지(초기 시딩·리스폰 공통)
       let blocked = false;
       for (const object of this.objectsNear(point, 12)) {
         if (object.type === "wildPredator" || object.type === "animal") continue;
