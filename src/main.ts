@@ -5228,8 +5228,13 @@ class WildernessGame {
     this.kit((c, d) => { kitNoise(c, d, { type: "highpass", cutoff: 1900, vol: 0.02, dur: 0.045, attack: 0.001 }); kitTone(c, d, { freq: 330, freq2: 170, type: "triangle", vol: 0.018, dur: 0.09 }); });
   }
 
-  private playMagicShotSound() { // 마법 발사 — 상승 시머
-    this.kit((c, d) => { kitTone(c, d, { freq: 520, freq2: 900, type: "sine", vol: 0.024, dur: 0.16 }); kitTone(c, d, { freq: 1040, type: "sine", vol: 0.011, dur: 0.12, delay: 0.025 }); });
+  private playMagicShotSound() { // 마법 발사 — 풍부한 캐스트: 본체 상승 + 디튠 시머 + 고역 반짝임 + 기운 fwoosh
+    this.kit((c, d) => {
+      kitTone(c, d, { freq: 440, freq2: 680, type: "sine", vol: 0.026, dur: 0.2 }); // 본체(상승)
+      kitTone(c, d, { freq: 660, freq2: 990, type: "triangle", vol: 0.014, dur: 0.16, detune: 7 }); // 5도 디튠 시머
+      kitChime(c, d, [1318.51, 1760], 0.011, 0.035, 0.24); // 고역 반짝임(마법 광택)
+      kitNoise(c, d, { type: "bandpass", cutoff: 2600, cutoff2: 1100, q: 1.3, vol: 0.008, dur: 0.14 }); // 마법 기운 fwoosh
+    });
   }
 
   private playMeleeWhoosh() { // 근접 휘두르기 — 공기 가르는 휘익
@@ -5428,20 +5433,29 @@ class WildernessGame {
     const step = this.bgmStep % 16;
     const note = profile.melody[step % profile.melody.length];
     const tense = profile.ambient === "tense";
+    const G = this.bgmMasterGain;
+    // 리드 선율 — 2스텝마다. 밝은 트라이앵글 + 본음 사인(따뜻하게).
     if (step % 2 === 0) {
-      this.playToneAt(this.noteFrequency(profile.root, note + 12), startTime, profile.beat * 0.72, "triangle", profile.lead, this.bgmMasterGain); // 리드(밝은 선율)
-      this.playToneAt(this.noteFrequency(profile.root, note), startTime, profile.beat * 0.95, "sine", profile.lead * 0.6, this.bgmMasterGain); // 본음 사인 레이어 — 둥글고 따뜻하게(삑 완화)
+      this.playToneAt(this.noteFrequency(profile.root, note + 12), startTime, profile.beat * 0.7, "triangle", profile.lead, G);
+      this.playToneAt(this.noteFrequency(profile.root, note), startTime, profile.beat * 0.95, "sine", profile.lead * 0.55, G);
     }
+    // ★아르페지오 — 매 스텝 화음 톤을 가볍게 굴려 훨씬 풍부하게(잔잔하지만 음이 많이 흐른다).
+    const arp = profile.chord[step % profile.chord.length];
+    this.playToneAt(this.noteFrequency(profile.root, arp + 12), startTime, profile.beat * 0.46, "sine", profile.lead * (tense ? 0.55 : 0.4), G);
+    if (step % 2 === 1) this.playToneAt(this.noteFrequency(profile.root, arp + 24), startTime, profile.beat * 0.34, "sine", profile.lead * 0.22, G); // 옥타브 위 반짝 아르페지오
+    // 베이스 — 4스텝마다. 전투면 구동 베이스 추가.
     if (step % 4 === 0) {
-      this.playToneAt(this.noteFrequency(profile.root, profile.chord[(step / 4) % profile.chord.length] - 12), startTime, profile.beat * 1.8, "sine", profile.bass, this.bgmMasterGain);
+      this.playToneAt(this.noteFrequency(profile.root, profile.chord[(step / 4) % profile.chord.length] - 12), startTime, profile.beat * 1.9, "sine", profile.bass, G);
+      if (tense) this.playToneAt(this.noteFrequency(profile.root, -12), startTime, profile.beat * 0.85, "triangle", profile.bass * 0.7, G);
     }
+    // 패드 — 지속 화음 베드(길게 겹쳐 잔잔). 루트 옥타브 아래로 깊이 추가.
     if (step % 8 === 0) {
-      for (const semitone of profile.chord) {
-        this.playToneAt(this.noteFrequency(profile.root, semitone), startTime + 0.02, profile.beat * 5.2, "sine", profile.pad, this.bgmMasterGain); // 패드(지속 화음 베드) — 길게 겹쳐 잔잔하게
-      }
+      for (const semitone of profile.chord) this.playToneAt(this.noteFrequency(profile.root, semitone), startTime + 0.02, profile.beat * 5.6, "sine", profile.pad, G);
+      this.playToneAt(this.noteFrequency(profile.root, profile.chord[0] - 12), startTime + 0.02, profile.beat * 5.6, "sine", profile.pad * 0.85, G);
     }
-    if (!tense && step === 6) { // 잔잔한 맵: 프레이즈 중간에 옥타브 위 가벼운 종소리 — 아름다움 한 스푼
-      this.playToneAt(this.noteFrequency(profile.root, note + 24), startTime, profile.beat * 0.9, "sine", profile.lead * 0.4, this.bgmMasterGain);
+    // 잔잔한 맵: 프레이즈 중간 옥타브 위 가벼운 종소리 — 아름다움 한 스푼.
+    if (!tense && (step === 6 || step === 14)) {
+      this.playToneAt(this.noteFrequency(profile.root, note + 24), startTime, profile.beat * 0.85, "sine", profile.lead * 0.32, G);
     }
   }
 
@@ -5566,14 +5580,13 @@ class WildernessGame {
     }
   }
 
-  private playFootstepSound(sprinting: boolean) { // 발소리 — 매우 작게, 표면별 필터드 노이즈(반복돼도 안 거슬리게)
+  private playFootstepSound(sprinting: boolean) { // 발소리 — 부드러운 저음 '톡'(예전 노이즈는 두르르 지직거려서 사인 톤으로 교체). 아주 작게.
     const surface = this.currentFootstepSurface();
-    const v = (sprinting ? 1.12 : 1) * 0.011;
+    const v = (sprinting ? 1.1 : 1) * 0.013;
+    const f = surface === "water" ? 200 : surface === "wood" ? 160 : surface === "stone" ? 132 : 108; // 풀/흙 = 가장 낮고 둔함
     this.kit((c, d) => {
-      if (surface === "water") { kitNoise(c, d, { type: "bandpass", cutoff: 850 + Math.random() * 300, q: 1.4, vol: v, dur: 0.06 }); return; }
-      if (surface === "stone") { kitNoise(c, d, { type: "bandpass", cutoff: 560 + Math.random() * 200, q: 1.2, vol: v * 0.9, dur: 0.045 }); return; }
-      if (surface === "wood") { kitNoise(c, d, { type: "lowpass", cutoff: 520, q: 1, vol: v, dur: 0.05 }); kitTone(c, d, { freq: 150, type: "sine", vol: v * 0.5, dur: 0.04 }); return; }
-      kitNoise(c, d, { type: "lowpass", cutoff: 320 + Math.random() * 120, q: 0.8, vol: v, dur: 0.05 }); // 흙/풀
+      kitTone(c, d, { freq: f + Math.random() * 12, freq2: f * 0.6, type: "sine", vol: v, dur: 0.055, attack: 0.004 });
+      if (surface === "water") kitNoise(c, d, { type: "lowpass", cutoff: 700, cutoff2: 300, vol: v * 0.45, dur: 0.05 }); // 물만 살짝 첨벙
     });
   }
 
