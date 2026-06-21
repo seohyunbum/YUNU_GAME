@@ -8,4 +8,10 @@ creepy.mp3      — "Creepy" by TokyoGeisha 				               — OpenGameArt, 
 icy.ogg         — "Icy Heights (theme-loop)" 				               — OpenGameArt, CC0
 battle.mp3      — "Battle Theme A" by cynicmusic 			               — OpenGameArt, CC0
 
+[맵별 추가 (2026-06-21)]
+bamboo.mp3      — "Hot Springs Town" by Kistol (코토 일본풍)                    — OpenGameArt, CC0  — 대나무 개척지
+swamp.ogg       — "A Wonderful Nightmare" by SpiderDave (으스스 멜로디)         — OpenGameArt, CC0  — 독늪 원정지
+cave.ogg        — "Dark Shrine Loop" by qubodup (orig. yd, 던전 루프)          — OpenGameArt, CC0  — 동굴
+fortress.ogg    — "Ancient Power Of Serpents" by Kevin MacLeod (어둡고 웅장)    — OpenGameArt, CC0  — 몬스터 요새
+
 출처: https://opengameart.org/content/cc0-music-0 외. 라이선스: CC0 1.0 Universal (Public Domain Dedication).

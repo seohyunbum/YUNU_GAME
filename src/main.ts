@@ -835,7 +835,7 @@ class WildernessGame {
   private musicPlayer: MusicPlayer | null = null; // 실음원(CC0) BGM. 있으면 절차적 BGM 대신 사용, 로드 전/실패 시 폴백.
   private sfxPlayer: SfxPlayer | null = null; // 실음원(CC0) 효과음 샘플. play 실패 시 절차적 합성 폴백.
   // 맵별 실음원 매핑. 시작초원=마을테마(타이틀과 동일), 나머지는 상황별로 고루 분배.
-  private readonly mapMusic: Record<string, string> = { starter_valley: "town_theme.mp3", dragon_plains: "field.mp3", bamboo_frontier: "hills.mp3", mushroom_glen: "hills.mp3", toxic_swamp: "dungeon.ogg", mountain_ridge: "field.mp3", graveyard: "creepy.mp3", snowfield: "icy.ogg", dragon_lands: "battle.mp3" };
+  private readonly mapMusic: Record<string, string> = { starter_valley: "town_theme.mp3", dragon_plains: "field.mp3", bamboo_frontier: "bamboo.mp3", mushroom_glen: "hills.mp3", toxic_swamp: "swamp.ogg", mountain_ridge: "field.mp3", graveyard: "creepy.mp3", snowfield: "icy.ogg", dragon_lands: "battle.mp3" };
   private nextBgmNoteAt = 0;
   private bgmStep = 0;
   private nextAmbientCueAt = 0;
@@ -5476,8 +5476,9 @@ class WildernessGame {
     if (!this.musicPlayer) return;
     const T = (name: string) => `${import.meta.env.BASE_URL}bgm/${name}`;
     if (!this.gameStarted) { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.21, fadeMs: 1500 }); return; } // 타이틀 (+30%)
+    if (this.fortressSiege?.active) { this.musicPlayer.setTrack(T("fortress.ogg"), { volume: 0.22, fadeMs: 800 }); return; } // 몬스터 요새 — 전투 오버라이드보다 먼저 체크: 요새 고유 테마(일반 배틀 아님)
     if (this.combatMoodActive()) { this.musicPlayer.setTrack(T("battle.mp3"), { volume: 0.23, fadeMs: 450 }); return; } // 전투 — 빠른 페이드(타격 즉시)
-    if (this.locationMode === "cave" || this.fortressSiege?.active) { this.musicPlayer.setTrack(T("dungeon.ogg"), { volume: 0.2, fadeMs: 1200 }); return; }
+    if (this.locationMode === "cave") { this.musicPlayer.setTrack(T("cave.ogg"), { volume: 0.22, fadeMs: 1200 }); return; } // 동굴 — 던전 루프(기존 dungeon.ogg 앰비언스는 너무 작아 무음처럼 느껴짐)
     if (this.locationMode === "house") { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.14, fadeMs: 1500 }); return; }
     this.musicPlayer.setTrack(T(this.mapMusic[this.currentWorldMapId] ?? "field.mp3"), { volume: 0.2, fadeMs: 1800 });
   }
