@@ -20,7 +20,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 사운드 개편 — kit·combatMoodActive 2개 → 481→483.
 // 2026-06-21: updateMusic 1개 → 483→484.
 // 2026-06-21: sample() 1개 → 484→485.
-const MAX_METHODS = 485;
+// 2026-06-21: enterCombatMood 1개 → 485→486.
+const MAX_METHODS = 486;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");
