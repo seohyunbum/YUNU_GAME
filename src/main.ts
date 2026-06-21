@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { Water } from "three/examples/jsm/objects/Water.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { CLASS_APPEARANCE, DEFAULT_AVATAR_APPEARANCE, createAvatarModel, createEagleAvatarModel, createMirrorModel } from "./avatar";
 import { getRewardTuning, type RewardSource } from "./operatorConfig";
@@ -647,6 +651,8 @@ class WildernessGame {
   private readonly sprintHiddenVisuals: THREE.Object3D[] = [];
   private readonly outlineVisuals: THREE.Object3D[] = [];
   private sprintRenderOptimized = false;
+  private composer: EffectComposer | null = null; // selective bloom — PC high 전용. lazy 생성(저사양/모바일은 아예 안 만듦 → 렌더타깃 0).
+  private bloomPass: UnrealBloomPass | null = null;
   private performanceSampleTimer = 0;
   private performanceSampleFrames = 0;
   private performanceSampleSum = 0;
@@ -2555,6 +2561,21 @@ class WildernessGame {
     this.renderHud();
   }
 
+  // bloom 컴포저 lazy 생성 — PC high 첫 프레임에만. 밝은 픽셀(emissive 글로우·태양)만 번지도록 threshold 높게. OutputPass 가 ACESFilmic+sRGB 처리(직접렌더와 색 일치).
+  private ensureBloom() {
+    if (this.composer) return;
+    const w = this.container.clientWidth, h = this.container.clientHeight;
+    const composer = new EffectComposer(this.renderer);
+    composer.setPixelRatio(this.renderer.getPixelRatio());
+    composer.setSize(w, h);
+    composer.addPass(new RenderPass(this.scene, this.camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.42, 0.4, 0.85); // strength, radius, threshold(0.85=밝은 곳만 → 무광 toon 은 안 번짐)
+    composer.addPass(bloom);
+    composer.addPass(new OutputPass());
+    this.composer = composer;
+    this.bloomPass = bloom;
+  }
+
   private resize() {
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
@@ -2562,6 +2583,7 @@ class WildernessGame {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(this.pixelRatioForQuality());
+    if (this.composer) { this.composer.setPixelRatio(this.renderer.getPixelRatio()); this.composer.setSize(width, height); this.bloomPass?.setSize(width, height); }
   }
 
   private animate = () => {
@@ -2572,7 +2594,13 @@ class WildernessGame {
     this.update(delta);
     const preferFastRender = this.gameStarted && this.isSprinting();
     this.setSprintRenderOptimizations(preferFastRender);
-    this.renderer.render(this.scene, this.camera);
+    // ★Selective bloom — PC high + 비스프린트 + 비터치에서만. 그 외(모바일·저사양·스프린트, 적응형 강등 포함)는 기존 직접 렌더 = 비용 0.
+    if (this.qualityMode === "high" && !preferFastRender && !isTouchDevice()) {
+      this.ensureBloom();
+      this.composer!.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   };
 
   private setSprintRenderOptimizations(active: boolean) {
