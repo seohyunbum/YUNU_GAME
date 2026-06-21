@@ -8,11 +8,19 @@ export interface IngredientCountView {
   short: boolean;
 }
 
-export function ingredientCounts(ingredients: Record<ItemId, number>, itemCounts: Record<ItemId, number>): IngredientCountView[] {
+export function ingredientCounts(ingredients: Record<ItemId, number>, itemCounts: Record<ItemId, number>, alwaysCount = false): IngredientCountView[] {
   return (Object.entries(ingredients) as [ItemId, number][]).map(([item, need]) => {
     const have = itemCounts[item] ?? 0;
-    return have >= need ? { label: `${itemName(item)} ${need}`, short: false } : { label: `${itemName(item)} ${have}/${need}`, short: true };
+    // alwaysCount=true 면 충분해도 "보유/필요"로 항상 보유 수량 노출(제작대 레시피북). short=재료 부족 표시(빨강).
+    return have >= need && !alwaysCount ? { label: `${itemName(item)} ${need}`, short: false } : { label: `${itemName(item)} ${have}/${need}`, short: have < need };
   });
+}
+
+// 보유 재료로 이 레시피를 최대 몇 개 만들 수 있는지(재료 기준 상한). 재료가 부족하면 0.
+export function maxCraftable(ingredients: Record<ItemId, number>, itemCounts: Record<ItemId, number>): number {
+  const entries = Object.entries(ingredients) as [ItemId, number][];
+  if (entries.length === 0) return 0;
+  return Math.min(...entries.map(([item, need]) => Math.floor((itemCounts[item] ?? 0) / need)));
 }
 
 export interface RecipeGuideEntry {
