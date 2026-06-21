@@ -6867,7 +6867,7 @@ class WildernessGame {
         onMiniCraft: () => this.craftMiniRecipe(),
         onClearCraft: () => this.clearCraftSlots(),
         onBuildHouse: (id) => this.buildPlayerHouse(id),
-        onSortBag: () => { this.bagSlots.splice(0, this.bagSlots.length, ...sortInventory(this.bagSlots)); this.renderInventoryPanel(); this.renderHud(); this.showMessage("가방을 자동정렬했습니다 (재료·무기·도구별 + 등급순)."); },
+        onSortBag: () => { this.bagSlots.splice(0, this.bagSlots.length, ...sortInventory(this.bagSlots)); this.renderInventoryPanel(); this.renderHud(); this.showMessage("가방을 자동정렬했습니다 (무기·도구/설치물·소비·재료별 + 등급순)."); },
         onCraftGuide: (guideId) => { const recipe = MINI_RECIPES.find((candidate) => guideId === `mini:${candidate.id}`); if (!recipe || !this.canCraft(recipe)) return; if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, isDurableTool, recipe.ingredients)) { this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요."); return; } for (const [item, count] of Object.entries(recipe.ingredients)) this.removeItem(item, count); this.addCraftedOutput(recipe); this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`); this.renderPanel(); this.renderHud(); },
         bindDragDrop: () => this.bindInventoryDragDrop(),
       },
