@@ -46,7 +46,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 요새 게이트 ensure(소급)·해골기둥 비주얼·누적킬 세이브복원·요새탐방 퀘스트 → 9878→9900.
 // 2026-06-21: 전직 차수별 화려 연출(playJobAdvanceFx) + FX import → 9900→9930.
 // 2026-06-21: BGM 볼륨 정상화·아르페지오 풍부화·발소리/마법봉 음색 개선 → 9930→9934.
-const MAX_MAIN_LINES = 9934;
+// 2026-06-21: 실음원(CC0) BGM 시스템 — musicPlayer 배선·맵별 트랙·updateMusic → 9934→9954.
+const MAX_MAIN_LINES = 9954;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
