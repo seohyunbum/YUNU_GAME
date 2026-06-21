@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 야생 몹 밀도 상향(2.4/1.5) + 로드 시 탑업(옛 세이브 소급)
+
+- 시도: ① 밀도 배수 고품질 2.0→2.4·저사양 1.3→1.5 ② 로드/맵이동 직후 포식자가 목표보다 적으면 즉시 보충(옛 세이브 소급). 진단: `restoreSaveData` 가 `resetGameState({reseed:false})` 후 저장된 몹을 복원만 하고 재시딩 안 함 + 야생몹이 세이브에 저장됨(shouldPersistObject) → 밀도 상향 이전 세이브는 듬성한 분포 그대로였음.
+- 결과/결정: 밀도 공식·배수를 `constants.ts`(WILDLIFE_DENSITY_MUL_*·wildlifePredatorTarget)로 **단일 소스화** — 시딩(seedOverworld)·런타임 야간 캡(capMul)·로드 탑업이 모두 같은 값을 써 드리프트 차단(따로 두면 시딩 2.4·캡 2.0 으로 인구 감쇠함). seedOverworld 포식자 루프를 `seedPredators(count)` 로 추출해 탑업과 공유. `ensureWildlifeDensity()`(목표-현재 차액만 스폰, 멱등, 게스트/비오버월드 skip)를 `restoreSaveData` 오버월드 분기 + `teleportToWorldMap` 복원 분기에 훅(결정: 다른맵 방문 보강 O / 동굴복귀 X / 포식자만).
+- 다음 판단(★perf watch): 상시 밀도 +20%(저사양 +15%) + 옛 세이브 로드 시 최대 ~144마리 일괄 스폰. **perf-check(모바일 실측) 권장**, 과하면 2.2/1.4 로 소폭 하향(배수는 constants 한 곳만 고치면 전부 반영). 시간대×지역 게이트(낮·리전 밖 신규스폰 0)는 별개 설계로 미변경.
+- 관련 파일/검증: `constants.ts`·`main.ts`(seedPredators·ensureWildlifeDensity·capMul·restore/teleport 훅), ratchet 2종(line 10014→10028·method 488→490, 사유 주석). E2E: 신규 시딩 145≈목표144·탑업 회복144·멱등·저사양 90 검증. 설계 `docs/wildlife-density-and-load-topup.md`.
+
 ## 2026-06-21 — ⚠️ 비주얼 post-processing 반영 후 OFF (과노출 회귀) [동시 세션]
 
 - 시도: selective bloom(발광체 글로우) + GTAO(앰비언트 오클루전) + 금속 HDRI 반사를 PC high 전용으로 추가(커밋 12a9c77 → 6cfde7a → 54bbb89).

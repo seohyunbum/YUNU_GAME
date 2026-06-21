@@ -173,6 +173,7 @@ import {
   NIGHT_PREDATOR_MAX_COUNT,
   NIGHT_PREDATOR_MIN_PLAYER_DISTANCE,
   NIGHT_PREDATOR_SPAWN_SECONDS,
+  WILDLIFE_DENSITY_MUL_HIGH, WILDLIFE_DENSITY_MUL_PERF, wildlifePredatorTarget,
   PLAYER_HEIGHT,
   PLAYER_RADIUS,
   PRONE_HEIGHT,
@@ -1974,16 +1975,27 @@ class WildernessGame {
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? JAMMINI_FIELD_COUNT : Math.ceil(JAMMINI_FIELD_COUNT * 0.4)); i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
-    const ambientMul = this.qualityMode === "performance" ? 1.3 : 2.0; // 몬스터 밀도 ~2배(저사양은 1.3배 — 짧은 fog가 화면당 밀도를 더 높여 렉 위험↑이라 보수적)
-    const predatorCount = Math.round((this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? 60 : 78) * ambientMul); // 밀도 상향 + 리전 밖 평원까지 균등 분포(빈 지역 제거)
-    for (let i = 0; i < predatorCount; i += 1) {
-      const point = this.randomPredatorSpawnPoint(null); if (!point) continue; // 맵 전체 랜덤 좌표(리전 우선 아님)
-      const region = regionAtPosition(point, this.activeRegions) ?? nearestRegion(point, this.activeRegions); if (!region) continue; // 평원은 가장 가까운 리전의 종/레벨
+    this.seedPredators(wildlifePredatorTarget(this.currentWorldMapId === DEFAULT_WORLD_MAP_ID, this.qualityMode === "performance")); // 밀도 상향 + 리전 밖 평원까지 균등 분포(빈 지역 제거)
+    for (const v of VILLAGE_CENTERS) this.spawnVillage(new THREE.Vector3(v.x, 0, v.z), v.special ? (isTouchDevice() ? 10 : 16) : 5, v.special); // 안전구역(safeZones)과 단일 진실원천 · 모바일은 특별마을 집 16→10(드로우콜 절감)
+  }
+
+  // count 마리를 맵 전역 균등 분포로 스폰(리전 밖 평원은 최근접 리전 종/레벨). seedOverworld 초기 시딩 + 로드 탑업 공용.
+  private seedPredators(count: number) {
+    for (let i = 0; i < count; i += 1) {
+      const point = this.randomPredatorSpawnPoint(null); if (!point) continue;
+      const region = regionAtPosition(point, this.activeRegions) ?? nearestRegion(point, this.activeRegions); if (!region) continue;
       const monsterId = chooseRegionPredatorMonster(region);
       const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
-      applyPredatorMonsterDefinition(predator, region, monsterId, this.level); // 로밍 스폰 레벨 캡(#2)
+      applyPredatorMonsterDefinition(predator, region, monsterId, this.level);
     }
-    for (const v of VILLAGE_CENTERS) this.spawnVillage(new THREE.Vector3(v.x, 0, v.z), v.special ? (isTouchDevice() ? 10 : 16) : 5, v.special); // 안전구역(safeZones)과 단일 진실원천 · 모바일은 특별마을 집 16→10(드로우콜 절감)
+  }
+
+  // 로드/맵이동 직후 오버월드 포식자가 목표 밀도보다 적으면 차액만큼 즉시 보충(옛 세이브 소급). 멱등. 게스트/비오버월드 skip.
+  private ensureWildlifeDensity() {
+    if (this.locationMode !== "overworld" || partyWorldGuestActive()) return;
+    let have = 0; for (const _p of this.objectsOfType("wildPredator")) have += 1;
+    const deficit = wildlifePredatorTarget(this.currentWorldMapId === DEFAULT_WORLD_MAP_ID, this.qualityMode === "performance") - have;
+    if (deficit > 0) this.seedPredators(deficit);
   }
 
   private spawnStarterAnimalHerds() {
@@ -3854,7 +3866,7 @@ class WildernessGame {
     const region = regionAtPosition(this.playerPosition, this.activeRegions);
     if (!isNight && (!region || region.levelRange[1] < 10)) return;
     let predatorCount = 0; for (const predator of this.objectsOfType("wildPredator")) if (!region || predator.regionId === region.id) predatorCount += 1;
-    const capMul = this.qualityMode === "performance" ? 1.3 : 2.0; // 초기 2배 인구가 감쇠로 다시 ~12로 줄지 않도록 리전 정상상태 캡도 동일 비율 상향(저사양 1.3배)
+    const capMul = this.qualityMode === "performance" ? WILDLIFE_DENSITY_MUL_PERF : WILDLIFE_DENSITY_MUL_HIGH; // 시딩/탑업과 동일 배수(constants) — 초기 인구가 감쇠로 줄지 않도록 리전 캡도 동일 비율
     const maxPredators = Math.round((isNight ? NIGHT_PREDATOR_MAX_COUNT : NIGHT_PREDATOR_MAX_COUNT + 4) * capMul);
     if (predatorCount >= maxPredators || Math.random() > (isNight ? 0.36 : 0.3)) return;
     const point = this.randomPredatorSpawnPoint(region);
@@ -6187,6 +6199,7 @@ class WildernessGame {
       createHouseInterior(this.interiorContext, false, this.currentHouseKind, this.currentHouseOwned, this.currentHouseBedTier);
     } else {
       this.setOverworldAtmosphere();
+      this.ensureWildlifeDensity(); // 로드 시 현재 목표 밀도까지 보충(옛 세이브 소급)
     }
 
     this.renderPanel();
@@ -6796,7 +6809,7 @@ class WildernessGame {
     rememberWorldState(this.worldStates, this.currentWorldMapId, this.createSaveData().worldStates?.[this.currentWorldMapId]);
     this.currentWorldMapId = map.id; this.activeRegions = regionsForWorldMap(map.id); this.activeBiomes = biomesForWorldMap(map.id); this.activeWaterZones = waterZonesForWorldMap(map.id); this.biomeDecorContext.biomes = this.activeBiomes; this.regionWarningState = { regionId: null, lastWarnAt: 0 };
     this.locationMode = "overworld"; this.clearWorld(); const worldState = this.worldStates[map.id];
-    if (worldState) { for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height); createBiomeDecor(this.biomeDecorContext); for (const savedObject of worldState.objects) this.restoreWorldObject(savedObject); this.ensureVillageShops(); this.ensureFortressGate(); } else this.seedOverworld();
+    if (worldState) { for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height); createBiomeDecor(this.biomeDecorContext); for (const savedObject of worldState.objects) this.restoreWorldObject(savedObject); this.ensureVillageShops(); this.ensureFortressGate(); this.ensureWildlifeDensity(); } else this.seedOverworld(); // 방문했던 맵은 저장분포 복원 후 현재 밀도까지 보충(소급)
     this.playerPosition.copy(map.spawn); this.playerPosition.y = this.getOverworldHeightAt(map.spawn.x, map.spawn.z) + PLAYER_HEIGHT;
     this.previousPosition.copy(this.playerPosition); this.setOverworldAtmosphere(); this.settlePlayerAfterTeleport(); this.closePanel();
     this.showMessage(`${map.name}으로 텔레포트했습니다. 이 맵의 권장 레벨은 Lv ${map.levelRange[0]}-${map.levelRange[1]}입니다.`);

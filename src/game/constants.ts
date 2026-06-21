@@ -78,6 +78,13 @@ export const NIGHT_PREDATOR_SPAWN_SECONDS = 16;
 export const NIGHT_PREDATOR_MAX_COUNT = 8;
 export const NIGHT_PREDATOR_MIN_PLAYER_DISTANCE = 70;
 export const PREDATOR_RETALIATE_MS = 30_000;
+// 야생 몹 밀도 배수 — 초기 시딩·로드 탑업·런타임 야간 캡이 공유(드리프트 방지).
+export const WILDLIFE_DENSITY_MUL_HIGH = 2.4; // 고품질/보통 (구 2.0)
+export const WILDLIFE_DENSITY_MUL_PERF = 1.5; // 저사양 (구 1.3)
+// 맵별 목표 포식자 수(시딩=로드 탑업 공통 기준). 시작맵 60 / 그 외 78 에 밀도 배수.
+export function wildlifePredatorTarget(isDefaultMap: boolean, performanceMode: boolean): number {
+  return Math.round((isDefaultMap ? 60 : 78) * (performanceMode ? WILDLIFE_DENSITY_MUL_PERF : WILDLIFE_DENSITY_MUL_HIGH));
+}
 export const FIELD_ANIMAL_COUNT = 40;
 export const JAMMINI_FIELD_COUNT = 4;
 export const LAVA_DRAGON_SPAWN_CHANCE = 0.005;
