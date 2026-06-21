@@ -45,7 +45,7 @@ export function renderControlsGuide(el: HTMLElement) {
     `<div class="controls-guide-actions">` +
     QUICK_ACTIONS.map(
       (a) =>
-        `<button type="button" class="quick-action-btn" data-quick-action="${a.action}" title="${escapeHtml(a.label)} 열기 (${escapeHtml(a.key)})"><span class="qa-icon">${a.icon}</span><span class="qa-label">${escapeHtml(a.label)}</span></button>`,
+        `<button type="button" class="quick-action-btn" data-quick-action="${a.action}" title="${escapeHtml(a.label)} 열기 (${escapeHtml(a.key)})"><span class="qa-key">${escapeHtml(a.key)}</span><span class="qa-icon">${a.icon}</span><span class="qa-label">${escapeHtml(a.label)}</span></button>`,
     ).join("") +
     `</div>` +
     `<div class="controls-guide-title">🎮 조작법</div>` +
