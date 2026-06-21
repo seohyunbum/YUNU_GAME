@@ -20,6 +20,7 @@ export interface WorkbenchRecipeView {
   outputLabel: string;
   note: string;
   canCraft: boolean;
+  maxCraft: number; // 보유 재료 기준 한 번에 제작 가능한 최대 수량(수량 스테퍼 상한)
 }
 
 export interface WorkbenchRepairSlotView {
@@ -45,7 +46,7 @@ export interface WorkbenchPanelCallbacks {
   onCraft: () => void;
   onClear: () => void;
   onFillRecipe: (recipeId: string) => void;
-  onCraftRecipe: (recipeId: string) => void;
+  onCraftRecipe: (recipeId: string, quantity: number) => void;
   onRepair: (index: number) => void;
   bindDragDrop: () => void;
 }
@@ -96,7 +97,14 @@ function renderRecipeCard(recipe: WorkbenchRecipeView, index: number) {
                     </div>
                     <div class="recipe-actions">
                       <button data-fill-recipe-index="${index}" ${disabled}>재료 넣기</button>
-                      <button data-craft-recipe-index="${index}" ${disabled}>바로 제작</button>
+                      <div class="craft-qty-row">
+                        <div class="qty-stepper" data-qty-max="${recipe.maxCraft}">
+                          <button type="button" class="qty-btn" data-qty-dec ${recipe.canCraft && recipe.maxCraft > 1 ? "" : "disabled"}>−</button>
+                          <span class="qty-val" data-qty-val>1</span>
+                          <button type="button" class="qty-btn" data-qty-inc ${recipe.canCraft && recipe.maxCraft > 1 ? "" : "disabled"}>＋</button>
+                        </div>
+                        <button data-craft-recipe-index="${index}" ${disabled}>바로 제작</button>
+                      </div>
                     </div>
                   </article>`;
 }
@@ -182,10 +190,19 @@ export function renderWorkbenchPanel(
       if (recipe) callbacks.onFillRecipe(recipe.id);
     });
   });
+  panelEl.querySelectorAll<HTMLElement>(".qty-stepper").forEach((stepper) => {
+    const max = Math.max(1, Number(stepper.dataset.qtyMax) || 1);
+    const valEl = stepper.querySelector<HTMLElement>("[data-qty-val]");
+    const setVal = (n: number) => { if (valEl) valEl.textContent = String(Math.max(1, Math.min(max, n))); };
+    stepper.querySelector<HTMLButtonElement>("[data-qty-dec]")?.addEventListener("click", () => setVal(Number(valEl?.textContent) - 1));
+    stepper.querySelector<HTMLButtonElement>("[data-qty-inc]")?.addEventListener("click", () => setVal(Number(valEl?.textContent) + 1));
+  });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-craft-recipe-index]").forEach((button) => {
     button.addEventListener("click", () => {
       const recipe = sortedRecipes[Number(button.dataset.craftRecipeIndex)];
-      if (recipe) callbacks.onCraftRecipe(recipe.id);
+      if (!recipe) return;
+      const qty = Math.max(1, Number(button.closest(".recipe-card")?.querySelector("[data-qty-val]")?.textContent) || 1);
+      callbacks.onCraftRecipe(recipe.id, qty);
     });
   });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-repair-slot-index]").forEach((button) => {

@@ -289,7 +289,7 @@ import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
-import { buildRecipeGuideEntriesForStations, ingredientCounts, itemsUsing } from "./game/recipeGuide";
+import { buildRecipeGuideEntriesForStations, ingredientCounts, itemsUsing, maxCraftable } from "./game/recipeGuide";
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
 import { NECKLACE_IDS, necklaceAttackBonus, necklaceAttackSpeedMult, necklaceDefenseBonus, necklaceManaRegenBonus, necklaceSkillCooldownMult } from "./game/necklace";
 import { experienceForLevelUps, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
@@ -6893,6 +6893,7 @@ class WildernessGame {
     const currentRecipe = this.workbenchRecipeFromSlots(isExtended);
     const gridSize = isExtended ? "6x6" : "3x3";
     const resultLabel = currentRecipe ? `${currentRecipe.name} ${currentRecipe.count}` : "조합 대기";
+    const counts = this.itemCounts();
     renderWorkbenchPanelView(
       this.panelEl,
       {
@@ -6905,7 +6906,7 @@ class WildernessGame {
           label: slot.item ? shortName(slot.item) : "",
           count: slot.count,
         })),
-        materials: Object.entries(this.itemCounts())
+        materials: Object.entries(counts)
           .filter(([item]) => item !== "tutorial_book")
           .map(([item, count]) => ({
             item,
@@ -6916,10 +6917,11 @@ class WildernessGame {
         recipes: recipes.map((recipe) => ({
           id: recipe.id,
           name: recipe.name,
-          ingredients: ingredientCounts(recipe.ingredients, this.itemCounts()),
+          ingredients: ingredientCounts(recipe.ingredients, counts, true), // 항상 "보유/필요" 표기
           outputLabel: `${ITEM_NAMES[recipe.output] ?? recipe.output} ${recipe.count}`,
           note: recipe.note,
           canCraft: this.canCraft(recipe),
+          maxCraft: recipe.output === "bag" || recipe.output === "big_bag" ? 1 : Math.max(1, Math.min(99, maxCraftable(recipe.ingredients, counts))), // 보유 재료 기준 한 번에 제작 가능 최대(일회성 가방류는 1)
         })),
         repairSlots: this.wornToolSlots().map((slot) => ({ item: slot.item!, durabilityUsed: slot.durabilityUsed ?? 0 })),
       },
@@ -6933,7 +6935,7 @@ class WildernessGame {
         onCraft: () => this.craftWorkbenchSlots(),
         onClear: () => this.clearWorkbenchSlots(),
         onFillRecipe: (recipeId) => this.fillWorkbenchRecipe(recipeId),
-        onCraftRecipe: (recipeId) => this.craftWorkbenchRecipe(recipeId),
+        onCraftRecipe: (recipeId, quantity) => this.craftWorkbenchRecipe(recipeId, quantity),
         onRepair: (index) => this.repairToolSlot(index),
         bindDragDrop: () => this.bindInventoryDragDrop(),
       },
@@ -7565,19 +7567,20 @@ class WildernessGame {
     this.renderHud();
   }
 
-  private craftWorkbenchRecipe(recipeId: string) {
+  private craftWorkbenchRecipe(recipeId: string, quantity = 1) {
     const station = this.currentStationId ? this.objects.get(this.currentStationId) : null;
     const isExtended = station?.type === "extendedWorkbench";
     const recipe = this.workbenchRecipesForStation(isExtended).find((item) => item.id === recipeId);
     if (!recipe || !this.canCraft(recipe)) return;
-    if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, isDurableTool, recipe.ingredients)) {
-      this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요.");
-      return;
+    let made = 0;
+    for (let i = 0; i < Math.max(1, quantity) && this.canCraft(recipe); i += 1) { // 재료가 떨어지거나 공간이 차면 만든 만큼만
+      if (!canReceiveRecipeOutput(this.allStorageSlots(), recipe, isDurableTool, recipe.ingredients)) break;
+      for (const [item, count] of Object.entries(recipe.ingredients)) this.removeItem(item, count);
+      this.addCraftedOutput(recipe);
+      made += 1;
     }
-
-    for (const [item, count] of Object.entries(recipe.ingredients)) this.removeItem(item, count);
-    this.addCraftedOutput(recipe);
-    this.showMessage(`제작 완료! ${recipe.name}을 만들었습니다.`);
+    if (made === 0) { this.showMessage("인벤토리에 제작 결과물을 넣을 공간이 없습니다. 빈 칸을 만든 뒤 제작하세요."); return; }
+    this.showMessage(made > 1 ? `제작 완료! ${recipe.name} ${made}개를 만들었습니다.` : `제작 완료! ${recipe.name}을 만들었습니다.`);
     this.renderPanel();
     this.renderHud();
   }

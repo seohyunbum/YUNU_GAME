@@ -14,6 +14,12 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 제작대 레시피북: 보유 재료 표기 + 수량 스테퍼(한 번에 N개 제작)
+
+- 사용자 피드백. ① 레시피북 재료를 항상 "보유/필요"로 표기 — ingredientCounts 에 alwaysCount 옵션 추가(워크벤치 뷰만 true; 인벤 검색은 기존대로). ② '바로 제작' 옆에 −[1]+ 수량 스테퍼 — 보유 재료 기준 상한(maxCraftable 리프: min floor(보유/필요), 일회성 가방류는 1, UI상 99 캡)에서 + 가 멈춤. craftWorkbenchRecipe(id, quantity) 루프로 N개 제작(재료 소진·인벤 공간 부족 시 만든 만큼만 + 정확한 개수 메시지).
+- 곁들여 수정(직전 커밋 적대적 검수 confirmed 2건=동일 근본): special_smelter 가 MINI_RECIPES·WORKBENCH_RECIPES 양쪽 중복 정의 → workbenchRecipesForStation union 후 레시피북에 카드 2개 중복 노출(기능 영향 X, 인덱스 기반이라 제작은 동일). WORKBENCH 쪽 중복 제거하고 MINER 노트에 용도 병합. 인벤 검색 목록 중복도 함께 해소.
+- 검증: verify+build, E2E 8종(보유/필요 18/6 표기·스테퍼 상한 3·중복 카드 1개·막대기 목록·+ 상한 정지·3개 제작 가죽18 소모·붕대 3획득·무예외) + 스크린샷. main +3줄 → ratchet 10048→10051(계산은 recipeGuide.maxCraftable 리프).
+
 ## 2026-06-21 — 초보 UX 5종: 핫바 즉시설치·튜토리얼책 재구성·제작대 클릭안내·캐릭터창 자동열림 안내·막대기 제작대 허용
 
 - 사용자 피드백 묶음. ① 핫바 설치물(제작대·침대 등)은 숫자키/터치로 즉시 정면 설치 — placeSelected 가 데스크톱서도 placeItemFromSlot 호출(이전엔 "인벤서 우클릭" 메시지만). 손에 드는 단계 제거. ② 튜토리얼 책 전면 재구성 — tutorial.ts 를 평면 문자열→섹션 구조(TutorialSection[])로, bookPanel.ts 헤더+불릿 렌더, KEY_RECIPES 분리. 처음 흐름 순서·핵심만. ③ 제작대 우클릭=제작/좌클릭=가방 회수 명확화 — 설치 메시지(데스크톱/모바일 분기)·상호작용 프롬프트(제작대·제련대·분쇄기 "우클릭 열기 | 좌클릭/E 회수"). ④ 제작 레벨업 시 캐릭터창 자동열림이 초보에 불친절 → 첫 1회 objectiveGuide 안내 팝업(localStorage 'craft-stat-hint', 익숙한 유저 방해 X)+배너 문구에 "제작을 하면 능력치 포인트" 추가. objectiveGuide 에 heading 옵션·빈 progress/reward 생략 추가(재사용). ⑤ 나무 막대기 등 미니 레시피를 제작대(3x3)·확장(6x6)에서도 제작 — workbenchRecipesForStation 가 [...MINI_RECIPES, ...WORKBENCH_RECIPES] 반환.

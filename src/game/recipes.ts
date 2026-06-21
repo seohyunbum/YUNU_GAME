@@ -25,7 +25,7 @@ export const MINI_RECIPES: Recipe[] = [
     output: "special_smelter",
     count: 1,
     ingredients: { smelter: 1, hammer: 1 },
-    note: "제련대와 망치를 조합합니다.",
+    note: "제련대와 망치로 만듭니다 — 흑요석을 날카로운 흑요석으로 제련할 수 있습니다.",
   },
 ];
 
@@ -233,14 +233,6 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     count: 1,
     ingredients: { refined_wood: 3, stick: 2 },
     note: "제련된 나무로 만든 더 좋은 도끼입니다.",
-  },
-  {
-    id: "special_smelter",
-    name: "특수 제련대",
-    output: "special_smelter",
-    count: 1,
-    ingredients: { smelter: 1, hammer: 1 },
-    note: "흑요석을 제련할 수 있습니다.",
   },
   {
     id: "obsidian_dagger",

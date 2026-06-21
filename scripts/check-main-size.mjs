@@ -54,7 +54,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 야생 밀도 로드 탑업 — seedPredators(seedOverworld 추출)·ensureWildlifeDensity(소급 보충) + 로드/텔레포트 훅 → 10014→10028. 밀도 공식·목표는 constants(wildlifePredatorTarget)로 단일화, 분포/스폰은 main 인스턴스 상태 의존이라 잔류.
 // 2026-06-21: 저장 중복슬롯 크리티컬 수정 — 디바운스(lastSaveCompletedAt 필드·SAVE_DEBOUNCE_MS 가드·import)+초단위 dedup → 10028→10031.
 // 2026-06-21: 초보 온보딩 배선 — 코치 비콘 필드(coachEl·onboarding)+setupUi 전달+renderHud 1줄(updateOnboardingCoach)+addItem 첫인벤풀 가이드 1줄+import. 로직은 전부 ui/coachBeacon 리프 → 10042→10048.
-const MAX_MAIN_LINES = 10048;
+// 2026-06-21: 제작대 레시피북 수량 제작 — counts 호이스트+maxCraft 필드(뷰)+craftWorkbenchRecipe 수량 루프. 계산은 recipeGuide.maxCraftable 리프 → 10048→10051.
+const MAX_MAIN_LINES = 10051;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
