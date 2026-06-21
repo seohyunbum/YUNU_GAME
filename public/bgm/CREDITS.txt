@@ -1,0 +1,11 @@
+YUNU_GAME — BGM 출처 (모두 CC0 / Public Domain, 출처표기 의무 없음. 예의상 명기)
+
+town_theme.mp3  — "Town Theme (RPG)" by cynicmusic (cynicmusic.com / pixelsphere.org)  — OpenGameArt, CC0
+field.mp3       — "The Field of Dreams" by pauliuw                                       — OpenGameArt, CC0
+hills.mp3       — "Green Hills" 			                                       — OpenGameArt, CC0
+dungeon.ogg     — "Dungeon Ambience (dungeon002)" 			               — OpenGameArt, CC0
+creepy.mp3      — "Creepy" by TokyoGeisha 				               — OpenGameArt, CC0
+icy.ogg         — "Icy Heights (theme-loop)" 				               — OpenGameArt, CC0
+battle.mp3      — "Battle Theme A" by cynicmusic 			               — OpenGameArt, CC0
+
+출처: https://opengameart.org/content/cc0-music-0 외. 라이선스: CC0 1.0 Universal (Public Domain Dedication).

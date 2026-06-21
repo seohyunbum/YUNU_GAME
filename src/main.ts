@@ -334,6 +334,7 @@ import { initPartyFlow } from "./game/partyFlow";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
 import { tone as kitTone, noise as kitNoise, chime as kitChime, impact as kitImpact, whoosh as kitWhoosh } from "./game/audioKit";
+import { createMusicPlayer, type MusicPlayer } from "./game/musicPlayer";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
 import { eagleSkillStatus as formatEagleSkillStatus, tryEagleClaw, tryEagleWindCutter, type EagleActionContext } from "./game/eaglePossession";
 import { applyOverworldTimeOfDay, gameClockText, timeOfDayName, moodForWorldMap } from "./game/timeOfDay";
@@ -817,6 +818,9 @@ class WildernessGame {
   private audioContext: AudioContext | null = null;
   private bgmMasterGain: GainNode | null = null;
   private sfxMasterGain: GainNode | null = null;
+  private musicPlayer: MusicPlayer | null = null; // 실음원(CC0) BGM. 있으면 절차적 BGM 대신 사용, 로드 전/실패 시 폴백.
+  // 맵별 실음원 매핑. 시작초원=마을테마(타이틀과 동일), 나머지는 상황별로 고루 분배.
+  private readonly mapMusic: Record<string, string> = { starter_valley: "town_theme.mp3", dragon_plains: "field.mp3", bamboo_frontier: "hills.mp3", mushroom_glen: "hills.mp3", toxic_swamp: "dungeon.ogg", mountain_ridge: "field.mp3", graveyard: "creepy.mp3", snowfield: "icy.ogg", dragon_lands: "battle.mp3" };
   private nextBgmNoteAt = 0;
   private bgmStep = 0;
   private nextAmbientCueAt = 0;
@@ -927,6 +931,7 @@ class WildernessGame {
     this.seedOverworld();
     precompileSceneShaders(this.renderer, this.scene, this.camera);
     this.renderHud();
+    for (const ev of ["pointerdown", "keydown"]) window.addEventListener(ev, () => this.ensureAudio(), { once: true }); // 첫 상호작용에 오디오 언락 → 타이틀 BGM 시작(브라우저 자동재생 정책)
     ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });    initPartyLobby(() => this.nickname);
     initPartyFlow({ isInGame: () => this.gameStarted, startNewGame: () => { if (!this.pendingPlayerClass) this.pendingPlayerClass = this.playerClass ?? "warrior"; this.startGame("new"); }, summonTo: (mapId, x, z) => { if (this.locationMode === "cave") this.leaveCave(); else if (this.locationMode === "house") this.leaveHouse(); if (this.currentWorldMapId !== mapId) this.teleportToWorldMap(mapId, true); this.playerPosition.set(x + 2.5, this.playerPosition.y, z + 2.5); this.settlePlayerAfterTeleport(); this.camera.position.copy(this.playerPosition); }, showMessage: (text) => this.showMessage(text) });
     initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined, hasPet: this.summonerCompanion.petActive() }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, hostGameHour: () => this.gameHour(), setSyncedHour: (hour) => { this.syncedHour = hour; }, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? this.spawnGolem(pos, villageId) : type === "villageKnight" ? this.spawnKnight(pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened, chestTier) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich, chestTier ?? 0); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => this.spawnCave(new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return chest.chestTier ?? 0; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed), showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target, creditQuest) => this.grantExperienceForTarget(target, creditQuest), creditQuestKill: () => { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.renderHud(); }, rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, empowerLocalPlayer: (durationMs) => { this.skillBuffs.empowerUntil = performance.now() + durationMs; this.showMessage("아군의 심판의 빛! 5분간 공격·방어 +10%."); this.renderHud(); }, rallyLocalPlayer: (durationMs) => { this.skillBuffs.rallyDefUntil = performance.now() + durationMs; this.showMessage("아군의 불굴의 함성! 20초간 방어 +20%."); this.renderHud(); }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object), sharedGroundObjects: () => [...this.objectsOfTypes(["droppedItem", "smelter", "specialSmelter", "workbench", "extendedWorkbench", "grinder", "bed"])].filter((o) => !o.partyTransient), spawnDroppedItemView: (item, count, x, z) => this.spawnDroppedItem(item as ItemId, count, new THREE.Vector3(x, 0, z)), spawnStationView: (objType, x, z, bedTier) => { const pos = new THREE.Vector3(x, 0, z); const obj = objType === "smelter" ? spawnSmelterObject(this.spawnContext, pos, false) : objType === "specialSmelter" ? spawnSmelterObject(this.spawnContext, pos, true) : objType === "workbench" ? spawnWorkbenchObject(this.spawnContext, pos, false) : objType === "extendedWorkbench" ? spawnWorkbenchObject(this.spawnContext, pos, true) : objType === "grinder" ? spawnGrinderObject(this.spawnContext, pos) : spawnBedObject(this.spawnContext, pos, 0); if (objType === "bed" && bedTier) obj.bedTier = bedTier as typeof obj.bedTier; return obj; }, pickupSharedObject: (id) => { const obj = this.objects.get(id); if (!obj || obj.lockedStation) return null; const stationItem: Record<string, ItemId> = { smelter: "smelter", specialSmelter: "special_smelter", workbench: "crafting_table", extendedWorkbench: "extended_workbench", grinder: "grinder", bed: "bed" }; const items = obj.type === "droppedItem" && obj.droppedItem ? [{ item: obj.droppedItem, count: obj.droppedCount ?? 1 }] : stationItem[obj.type] ? [{ item: stationItem[obj.type], count: 1 }] : null; if (!items) return null; this.removeObject(id); return items; }, hostSpawnDroppedGround: (item, count, x, z) => { this.spawnDroppedItem(item as ItemId, count, new THREE.Vector3(x, 0, z)); }, hostSpawnStation: (item, x, z, yaw) => { const pos = new THREE.Vector3(x, 0, z); if (item === "crafting_table") spawnWorkbenchObject(this.spawnContext, pos, false); else if (item === "extended_workbench") spawnWorkbenchObject(this.spawnContext, pos, true); else if (item === "smelter") spawnSmelterObject(this.spawnContext, pos, false); else if (item === "special_smelter") spawnSmelterObject(this.spawnContext, pos, true); else if (item === "grinder") spawnGrinderObject(this.spawnContext, pos); else if (item === "bed") spawnBedObject(this.spawnContext, pos, yaw); }, canAddItem: (item, _count) => item === "bag" || item === "big_bag" || (isDurableTool(item) ? this.allStorageSlots().some((s) => !s.item) : this.allStorageSlots().some((s) => s.item === item || !s.item)), receivePickupItems: (items) => items.filter((it) => { const ok = this.addItem(it.item as ItemId, it.count); if (ok) this.appendPartyLedger(it.item as ItemId, it.count); return !ok; }), homeStorageSlots: () => this.homeStorage.map((s) => ({ item: s.item, count: s.count, durabilityUsed: s.durabilityUsed })), sharedSupplyCooldownValue: () => this.homeSupplyCooldowns["__party__"] ?? 0, hostStorageTake: (index) => { const slot = this.homeStorage[index]; if (!slot?.item || slot.count <= 0) return null; const items = [{ item: slot.item, count: slot.count }]; slot.item = null; slot.count = 0; slot.durabilityUsed = undefined; return items; }, hostStorageStore: (item, count, durabilityUsed) => transferSlot({ item: item as ItemId, count, durabilityUsed }, this.homeStorage), hostClaimSharedSupply: () => { if ((this.homeSupplyCooldowns["__party__"] ?? 0) > 0) return false; for (const r of rollHomeSupply(this.level)) transferSlot({ item: r.item, count: r.count }, this.homeStorage); this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; return true; }, applySharedStorage: (slots, supplyCooldown) => { this.sharedStorage = slots.map((s) => ({ item: s.item as ItemId | null, count: s.count, durabilityUsed: s.durabilityUsed })); this.sharedSupplyCd = supplyCooldown; if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel(); this.renderHud(); } } });
@@ -5388,7 +5393,12 @@ class WildernessGame {
     if (!this.audioContext || !this.bgmMasterGain) return;
     const context = this.audioContext;
     if (context.state === "suspended") return;
-    const profile = this.currentAudioProfile();
+    this.updateMusic(); // 실음원(CC0) BGM 우선
+    if (this.musicPlayer?.isPlaying()) { // 실음원 재생 중 → 절차적 BGM 음소거 + 스케줄 생략(CPU 절약)
+      this.bgmMasterGain.gain.setTargetAtTime(0.0001, context.currentTime, 1.0);
+      return;
+    }
+    const profile = this.currentAudioProfile(); // 폴백: 절차적 BGM(로드 전·실패·미배정 맵)
     this.bgmMasterGain.gain.setTargetAtTime(profile.master, context.currentTime, 1.2);
 
     if (this.nextBgmNoteAt <= 0 || this.nextBgmNoteAt < context.currentTime - 0.5) this.nextBgmNoteAt = context.currentTime + 0.05;
@@ -5403,6 +5413,17 @@ class WildernessGame {
       this.scheduleAmbientCue(profile);
       this.nextAmbientCueAt = context.currentTime + THREE.MathUtils.randFloat(profile.ambient === "day" ? 3.6 : 4.8, profile.ambient === "cave" ? 8.5 : 7.2);
     }
+  }
+
+  // 상황별 실음원 BGM 선택 — 타이틀/시작초원=마을테마, 전투=전투곡, 동굴·요새=던전, 집=마을테마(작게), 그 외 맵별. setTrack 이 같은 트랙은 무시하고 바뀔 때만 크로스페이드.
+  private updateMusic() {
+    if (!this.musicPlayer) return;
+    const T = (name: string) => `${import.meta.env.BASE_URL}bgm/${name}`;
+    if (!this.gameStarted) { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.16, fadeMs: 1500 }); return; } // 타이틀
+    if (this.combatMoodActive()) { this.musicPlayer.setTrack(T("battle.mp3"), { volume: 0.18, fadeMs: 700 }); return; } // 전투
+    if (this.locationMode === "cave" || this.fortressSiege?.active) { this.musicPlayer.setTrack(T("dungeon.ogg"), { volume: 0.15, fadeMs: 1200 }); return; }
+    if (this.locationMode === "house") { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.11, fadeMs: 1500 }); return; }
+    this.musicPlayer.setTrack(T(this.mapMusic[this.currentWorldMapId] ?? "field.mp3"), { volume: 0.15, fadeMs: 1800 });
   }
 
   private currentAudioProfile() {
@@ -5505,6 +5526,7 @@ class WildernessGame {
     this.sfxMasterGain.gain.value = 0.78;
     this.bgmMasterGain.connect(this.audioContext.destination);
     this.sfxMasterGain.connect(this.audioContext.destination);
+    this.musicPlayer = createMusicPlayer(this.audioContext, this.audioContext.destination); // 실음원(CC0) BGM
     this.nextBgmNoteAt = this.audioContext.currentTime + 0.08;
     this.nextAmbientCueAt = this.audioContext.currentTime + 2.2;
   }

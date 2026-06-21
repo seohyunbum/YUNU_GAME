@@ -18,7 +18,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: ensureFortressGate 1개 → 479→480.
 // 2026-06-21: playJobAdvanceFx 1개 → 480→481.
 // 2026-06-21: 사운드 개편 — kit·combatMoodActive 2개 → 481→483.
-const MAX_METHODS = 483;
+// 2026-06-21: updateMusic 1개 → 483→484.
+const MAX_METHODS = 484;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");
