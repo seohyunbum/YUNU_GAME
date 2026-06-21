@@ -89,7 +89,8 @@ function renderIngredientCounts(ingredients: { label: string; short: boolean }[]
 function renderRecipeCard(recipe: WorkbenchRecipeView, index: number) {
   const disabled = recipe.canCraft ? "" : "disabled";
   const readyClass = recipe.canCraft ? " ready" : "";
-  return `<article class="recipe-card${readyClass}">
+  const searchText = escapeAttr(`${recipe.name} ${recipe.outputLabel} ${recipe.note} ${recipe.ingredients.map((i) => i.label).join(" ")}`.toLowerCase());
+  return `<article class="recipe-card${readyClass}" data-recipe-search-text="${searchText}">
                     <div>
                       <strong>${escapeHtml(recipe.name)}</strong>
                       <p>${renderIngredientCounts(recipe.ingredients)} -> ${escapeHtml(recipe.outputLabel)}</p>
@@ -164,8 +165,12 @@ export function renderWorkbenchPanel(
           </section>
 
           <section class="recipe-book-board">
-            <div class="inventory-label">제작대 레시피북</div>
+            <div class="recipe-book-head">
+              <div class="inventory-label">제작대 레시피북</div>
+              <input class="recipe-search-input" data-wb-recipe-search type="search" placeholder="아이템·재료 검색" autocomplete="off" />
+            </div>
             <div class="recipes">${recipeCards}</div>
+            <div class="recipe-search-empty" data-wb-recipe-empty style="display:none">검색 결과가 없습니다.</div>
             ${repairCards ? `<div class="inventory-label">도구 수리</div><div class="recipes" data-repair-section>${repairCards}</div>` : ""}
           </section>
         </div>
@@ -208,5 +213,20 @@ export function renderWorkbenchPanel(
   panelEl.querySelectorAll<HTMLButtonElement>("[data-repair-slot-index]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onRepair(Number(button.dataset.repairSlotIndex)));
   });
+  const wbSearch = panelEl.querySelector<HTMLInputElement>("[data-wb-recipe-search]");
+  const wbCards = [...panelEl.querySelectorAll<HTMLElement>(".recipes [data-recipe-search-text]")];
+  const wbEmpty = panelEl.querySelector<HTMLElement>("[data-wb-recipe-empty]");
+  const applyWbFilter = () => {
+    const query = (wbSearch?.value ?? "").trim().toLowerCase();
+    let visible = 0;
+    for (const card of wbCards) {
+      const matched = query.length === 0 || (card.dataset.recipeSearchText ?? "").includes(query);
+      card.style.display = matched ? "" : "none";
+      if (matched) visible += 1;
+    }
+    if (wbEmpty) wbEmpty.style.display = visible > 0 ? "none" : "";
+  };
+  wbSearch?.addEventListener("input", applyWbFilter);
+  applyWbFilter();
   callbacks.bindDragDrop();
 }
