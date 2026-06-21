@@ -261,7 +261,7 @@ import { createTrainingStats, ensureTrainingGround, normalizeTrainingStats, TRAI
 import { applyCraftXp, craftXpForNextLevel, craftXpForRecipe, createCraftStatAlloc, normalizeCraftStatAlloc, type CraftStatAlloc } from "./game/craftLevel";
 import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard } from "./ui/trainingPanel";
-import { burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, stewAttackBonus, stewDefenseBonus, STEW_BUFF_SECONDS, STEW_HEAL, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
+import { activeBuffs, burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, stewAttackBonus, stewDefenseBonus, STEW_BUFF_SECONDS, STEW_HEAL, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { SKILL_SOUND, SKILL_SOUND_PRELOAD, type SkillElement } from "./game/skillSounds";
 import { CLASS_PASSIVES, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
@@ -522,6 +522,7 @@ class WildernessGame {
   private playerBodyPosition: THREE.Vector3 | null = null;
   private hunger = HUNGER_MAX;
   private hungerTimer = 0;
+  private hudRefreshTick = 0; // 버프 타이머 등 시간 변화 표시용 ~4/s HUD 갱신 누적
   private starvationNoticeTimer = 0;
   private isResting = false; // 침대 휴식 중 — 회복 가속, 풀피/이동(0.6 이탈)/피격 시 해제. 휴식 중인 침대는 충돌 면제(밀려나 깨지 않게)
   private restingBedTier: keyof typeof BED_REST_PROFILE = "crafted"; // 침대 등급 — 이층집=직접제작 > 돌집 > 통나무집
@@ -2714,6 +2715,7 @@ class WildernessGame {
     this.updateMessages(delta);
     this.updatePrompt(delta);
     this.updateBossBar();
+    this.hudRefreshTick += delta; if (this.hudRefreshTick >= 0.25) { this.hudRefreshTick = 0; this.renderHud(); } // ~4/s HUD 갱신 — 버프바 남은시간·만료 깜빡 반영
   }
 
   private updateTitleCamera() {
@@ -6654,6 +6656,7 @@ class WildernessGame {
           label: slot.item ? `${shortName(slot.item)} ${slot.count}` : "",
           item: slot.item,
         })),
+        buffs: activeBuffs(this.skillBuffs, performance.now()).map((b) => ({ icon: b.icon, name: b.name, secs: Math.ceil(b.remainingMs / 1000), expiring: b.remainingMs < 15_000 })), // 좌측하단 상태창 버프 아이콘(만료 15초 전 깜빡)
       },
       (index) => {
         this.selectedHotbarIndex = index;
