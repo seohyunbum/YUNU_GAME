@@ -603,7 +603,7 @@ class WildernessGame {
   private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
-  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), fortressBossKills: 0, fortressVisited: false, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false, recoveredWorkbench: false };
+  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), fortressBossKills: 0, fortressVisited: false, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false, recoveredWorkbench: false, ateMeat: false };
   private readonly chapterBossContext: ChapterBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
@@ -807,7 +807,7 @@ class WildernessGame {
     hunger: () => this.hunger,
     healItemCooldownUntil: () => this.healItemCooldownUntil,
     now: () => performance.now(),
-    setHealth: (value) => { this.health = value; }, setHunger: (value) => { this.hunger = value; },
+    setHealth: (value) => { this.health = value; }, setHunger: (value) => { if (value > this.hunger) this.tutorialSignals.ateMeat = true; this.hunger = value; }, // 고기 섭취(배고픔 증가)=='고기 먹기' 퀘스트 신호
     setHealItemCooldownUntil: (value) => { this.healItemCooldownUntil = value; },
     resetStarvationTimer: () => { this.starvationNoticeTimer = 0; },
     openPanel: (panel) => this.openPanel(panel),

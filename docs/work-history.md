@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 첫 배고픔 감소 시 '고기 먹기' 컨텍스트 퀘스트
+
+- 사용자 요청: 시작 후 배고픔이 처음 한 칸 줄 때 고기 먹기 퀘스트(사냥으로 획득·퀵슬롯 넣고 사용 안내).
+- 결과: currentObjective 에 시퀀스 밖 컨텍스트 퀘스트 추가(claimableBoss 다음, nextStep 앞). 조건=snapshot.hunger < HUNGER_MAX && !completed("eat_meat") → 배고픔이 세이브되므로 신호 없이 hunger 값에서 직접 파생(리로드 견고). 완료=snapshot.ateMeat, kind:tutorial 이라 Q로 보상 수령(meat 3)·completedStepIds 래치로 1회성. HUNGER_MAX=5, 첫 감소=10분(HUNGER_TICK 600s).
+- 신호: tutorialSignals.ateMeat — setHunger 콜백에서 value>현재(=고기 섭취로 배고픔 증가) 시 set(setHunger 는 hotbarUse 고기분기에서만 호출돼 오발화 없음). ObjectiveSnapshot 에 ateMeat 추가(스냅샷은 ...tutorialSignals 스프레드라 자동).
+- 검증: verify+build, ssrLoadModule 모듈 6종(가득→무·첫감소→등장·안내문구·먹음→완료·수령후 무·kind) + 브라우저 4종(고기 먹기→ateMeat·배고픔 3→4·무예외). main 예산 10015 유지(두 줄 다 기존 라인 수정).
+
 ## 2026-06-21 — 퀘스트 흐름 3건: 훈련장 먼저·동굴 지도안내·제작대 회수 퀘스트
 
 - 사용자 피드백 3건.
