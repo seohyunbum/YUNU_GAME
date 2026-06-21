@@ -4590,7 +4590,7 @@ class WildernessGame {
     this.playerPosition.set(0, PLAYER_HEIGHT, ARENA_CENTER_Z);
     this.settlePlayerAfterTeleport();
     createSiegeArenaInterior(this.interiorContext);
-    const baseLevel = Math.max(this.level, ...this.activeRegions.map((region) => region.level), 1);
+    const range = getWorldMapById(this.currentWorldMapId).levelRange; const baseLevel = Math.max(1, Math.round((range[0] + range[1]) / 2)); // 요새 난이도=그 맵 권장 레벨대(중앙값) 기준. 플레이어 레벨 무관 — 고렙이 저레벨 맵(용용평원 등) 요새를 과도하게 어렵게 만들던 버그 수정
     this.fortressSiege = createSiegeState(baseLevel);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");

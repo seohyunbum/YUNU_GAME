@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 몬스터 요새 난이도를 맵 레벨대 기준으로 (플레이어 레벨 의존 제거)
+
+- 증상: 저레벨 맵(용용평원 [10,25])에 뜬 요새가 70레벨로 1단계조차 어려움.
+- 원인: enterFortressSiege 의 baseLevel = Math.max(this.level, ...activeRegions.level, 1) — 플레이어 레벨이 섞여 고렙이 저레벨 맵 요새를 과도하게 어렵게 만듦. 퀘스트 안내문("요새 난이도=그 맵 권장 레벨")과 불일치.
+- 수정: baseLevel = round((map.levelRange[0]+[1])/2) (그 맵 권장 레벨대 중앙값, 플레이어 레벨·activeRegions 무관). levelForStage=baseLevel+stage*3 라 1단계≈맵중앙+3, 단계마다 +3 램프.
+- 검증: verify+build, E2E(용용평원→18(70 아님)·시작초원→10·독늪→53·플레이어70 무관). main 순감 유지(1줄 교체).
+
 ## 2026-06-21 — 광산 상자 전리품 상향 + 동굴 깜빡임(파티) + 누적 사냥 파티 합산
 
 - ① 광산 상자 전리품 빈약(구리/석탄 1개) → chestLoot.rollMineChestLoot 신설(흑요석 30%·가끔 2~3개, 다이아 50%, 금 65%, 항상 철·석탄 2~4, 다이아가루/제련다이아/구급상자 보너스). openMineChest 가 rollMineMineral 1롤 → rollMineChestLoot 사용(main 순감, rollMineMineral 은 동굴 광맥용으로 유지).
