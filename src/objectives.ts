@@ -129,12 +129,12 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   {
     id: "craft_workbench_item",
     title: (snapshot) => `인벤토리 2x2에서 제작대 만들기 (${snapshot.countItem("crafting_table") > 0 || snapshot.hasWorkbench ? 1 : 0}/1)`,
-    detail: "I 키로 인벤토리를 열고 미니 제작대 2x2에 나무 3개와 망치 1개를 넣으세요. 재료 위치는 상관없습니다.",
+    detail: "제작대는 거의 모든 제작의 시작입니다. ① I 키를 눌러 가방(인벤토리)을 엽니다. ② 오른쪽 '미니 제작대 2x2'에 나무 3개와 망치 1개를 넣습니다(위치는 상관없음 — 칸을 클릭해 고른 뒤 제작칸을 누르거나 드래그). ③ '제작' 버튼을 누르면 제작대가 만들어집니다.",
     progress: (snapshot) => `${snapshot.countItem("crafting_table") > 0 || snapshot.hasWorkbench ? 1 : 0}/1`,
     completed: (snapshot) => snapshot.countItem("crafting_table") > 0 || snapshot.hasWorkbench,
     reward: { experience: 36, items: { wood: 6 }, label: "경험치 36 + 나무 6개" },
   },
-  checkQuest("place_workbench", (s) => s.hasWorkbench, "제작대를 설치하고 사용하기", "인벤토리에서 제작대를 우클릭하면 바로 설치됩니다. 설치된 제작대는 좌클릭 또는 E로 3x3 제작창을 열 수 있습니다.", { experience: 44, items: { leather: 3 }, label: "경험치 44 + 가죽 3개" }),
+  checkQuest("place_workbench", (s) => s.hasWorkbench, "제작대를 설치하고 사용하기", "만든 제작대는 들고 다니지 말고 바닥에 '설치'해야 씁니다. ① I로 가방을 엽니다. ② 제작대를 우클릭하면 바닥에 바로 설치됩니다(또는 아래 드롭존으로 드래그). ③ 설치된 제작대를 좌클릭 또는 E로 열면 더 큰 3x3 제작창이 나옵니다 — 가방·도구·무기 등 대부분은 여기서 만듭니다.", { experience: 44, items: { leather: 3 }, label: "경험치 44 + 가죽 3개" }),
   // ── 2장. 생존 기초 ──
   countQuest("stock_meat", 5, (s) => s.countItem("meat"), "고기 5개 비축하기", "동물을 사냥하면 고기가 나옵니다. 배고픔이 낮아지면 고기를 핫바에서 선택해 먹으세요. 배고픔이 0이 되면 체력이 줄어듭니다.", { experience: 52, items: { medkit: 1 }, label: "경험치 52 + 구급상자 1개" }),
   {
@@ -145,7 +145,7 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
     completed: (snapshot) => snapshot.countItem("leather") >= 7 || snapshot.hasBag,
     reward: { experience: 80, items: { medkit: 3 }, label: "경험치 80 + 구급상자 3개" },
   },
-  checkQuest("craft_bag", (s) => s.hasBag, "제작대에서 가방 만들기", "제작대에서 가죽 7개로 가방을 만들면 인벤토리 가방 칸이 40칸으로 확장됩니다.", { experience: 96, items: { stone: 12, stick: 6 }, label: "경험치 96 + 돌 12개 + 막대기 6개" }),
+  checkQuest("craft_bag", (s) => s.hasBag, "제작대에서 가방 만들기", "시작 가방은 8칸이라 금방 가득 차 새 전리품을 못 줍습니다. 가방을 만들면 40칸으로 늘어납니다. ① 동물을 사냥해 가죽 7개를 모읍니다. ② 설치한 제작대(3x3)를 열어 가죽 7개로 '가방'을 만듭니다. ③ 완성하면 인벤토리 가방 칸이 8 → 40칸으로 확장됩니다.", { experience: 96, items: { stone: 12, stick: 6 }, label: "경험치 96 + 돌 12개 + 막대기 6개" }),
   countQuest("craft_shovel", 1, (s) => SHOVEL_ITEMS.reduce((sum, item) => sum + s.countItem(item), 0), "나무 삽 만들기", "제작대에서 나무 1개 + 막대기 2개로 나무 삽을 만드세요. 삽이 있으면 흙을 훨씬 빠르게 팔 수 있습니다.", { experience: 110, items: { wood: 4 }, label: "경험치 110 + 나무 4개" }),
   // ── 3장. 도구와 광물 ──
   countQuest("craft_stick", 4, (s) => s.countItem("stick"), "나무 막대기 만들기", "인벤토리(I)의 2x2 미니 제작칸에 나무 1개를 넣으면 막대기 2개가 만들어집니다. 막대기 4개를 모아 보세요 — 곡괭이·삽·검 등 대부분 도구의 손잡이입니다.", { experience: 115, items: { wood: 3 }, label: "경험치 115 + 나무 3개" }),

@@ -53,7 +53,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: HDRI 금속반사(applyEnvForQuality) PC 전용 배선 → 9993→10011.
 // 2026-06-21: 야생 밀도 로드 탑업 — seedPredators(seedOverworld 추출)·ensureWildlifeDensity(소급 보충) + 로드/텔레포트 훅 → 10014→10028. 밀도 공식·목표는 constants(wildlifePredatorTarget)로 단일화, 분포/스폰은 main 인스턴스 상태 의존이라 잔류.
 // 2026-06-21: 저장 중복슬롯 크리티컬 수정 — 디바운스(lastSaveCompletedAt 필드·SAVE_DEBOUNCE_MS 가드·import)+초단위 dedup → 10028→10031.
-const MAX_MAIN_LINES = 10042;
+// 2026-06-21: 초보 온보딩 배선 — 코치 비콘 필드(coachEl·onboarding)+setupUi 전달+renderHud 1줄(updateOnboardingCoach)+addItem 첫인벤풀 가이드 1줄+import. 로직은 전부 ui/coachBeacon 리프 → 10042→10048.
+const MAX_MAIN_LINES = 10048;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
