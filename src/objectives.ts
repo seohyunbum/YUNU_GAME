@@ -121,7 +121,7 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   {
     id: "find_hammer",
     title: (snapshot) => `상자를 열어 망치 구하기 (${snapshot.countItem("hammer") > 0 ? 1 : 0}/1)`,
-    detail: "100걸음마다 상자가 나타날 수 있습니다. 상자를 바라보고 E 또는 좌클릭으로 열면 망치가 나올 수 있습니다.",
+    detail: "걷다 보면 100걸음마다 상자가 나타날 수 있습니다. 상자를 바라보고 E 또는 좌클릭으로 여세요. 망치는 제작대를 만드는 데 꼭 필요한 도구라, 처음 여는 상자에는 반드시 들어 있습니다.",
     progress: (snapshot) => `${snapshot.countItem("hammer") > 0 ? 1 : 0}/1`,
     completed: (snapshot) => snapshot.countItem("hammer") > 0 || snapshot.countItem("crafting_table") > 0 || snapshot.hasWorkbench,
     reward: { experience: 28, items: { meat: 3 }, label: "경험치 28 + 고기 3개" },

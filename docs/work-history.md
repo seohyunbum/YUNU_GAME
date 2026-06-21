@@ -21,6 +21,7 @@
 - 설계 판단: 푸시>풀(결정적 순간 먼저 안내, 1회·해제). 자동팝업은 exitPointerLock으로 커서 확보. 코치 비콘은 COACH_HINTS 키(챕터1)만 표시→자동 은퇴.
 - 검증: verify+build, E2E 11종(시작 비콘·핵심스텝 자동팝업·1회성·설치뱃지·가방경고바·2x2라벨·✕닫기·무예외) + 스크린샷. main 배선 6줄(전부 wiring)로 ratchet 10042→10048(사유 기재). 설계 docs/beginner-onboarding-design.md.
 - 적대적 검수 후속(2 LOW 수정): ① 온보딩 상태가 resetGameState 에서 미리셋 → 같은 세션 재시작 시 안내 억제. resetOnboardingState(leaf) 추가·resetGameState 에서 호출(closePanel 라인 병합=배선 0줄). ② inventoryPanel 의 isTable(3x3) 분기는 항상 false(인벤은 항상 2x2, 3x3는 별도 workbenchPanel)였음 → dead code 제거하고 workbenchPanel 부제에 "설치한 제작대 …" 보강. E2E 5종(게임1 팝업→새게임 리셋→게임2 재노출·라벨 유지) PASS.
+- 사용자 피드백 후속: ① 가방 제작에 제작대가 필요함을 명시 — 가방 경고바·인벤풀 토스트 문구에 "제작대에서 가죽 7개로" 추가. ② find_hammer 막힘 방지 — openChest 에서 망치·제작대·워크벤치가 모두 없으면 상자에서 망치 보장(loot 선두 1개; crafting_table 보유 시 게이트 OFF=과발동 없음). find_hammer 퀘스트 문구도 "첫 상자에 반드시" 로 갱신. E2E 5종(시작 망치0→첫상자 망치≥1→제작대 보유 게이트OFF·가방바 제작대 명시) PASS. main 배선 0줄(loot 선언 라인 병합).
 
 ## 2026-06-21 — 잉여 고기·가죽 소모처: 가죽 붕대 + 고기 스튜(전투 버프식) + 퀘스트
 
