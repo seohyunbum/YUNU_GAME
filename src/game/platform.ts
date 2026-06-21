@@ -34,3 +34,32 @@ export function isTouchDevice(): boolean {
   // (터치포인트 보유 && (coarse 또는 모바일 UA)) 도 인정 — 마우스 데스크톱은 둘 다 거짓이라 제외된다.
   return (coarse && noHover) || (touchPoints && (coarse || uaMobile));
 }
+
+// 진짜 폰/태블릿인가 — orientation lock 은 실제 모바일에서만 시도(데스크톱 ?touch=1 강제 모드는 전체화면만).
+function isRealMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return (navigator.maxTouchPoints ?? 0) > 0 && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent ?? "");
+}
+
+// 모바일 게임 진입 시: 전체화면 요청 → (실제 모바일이면) 가로 잠금. 전부 feature-detect + catch 라 미지원/거부 시 조용히 무시(예외 없음).
+// ※ 반드시 사용자 제스처(클릭) 안에서 동기 호출해야 브라우저 정책을 충족한다. iOS Safari 는 두 API 모두 미제공 → no-op(가로 안내 오버레이로 폴백).
+export function enterLandscapeFullscreen(): void {
+  if (typeof document === "undefined" || !isTouchDevice()) return;
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+  const lockLandscape = () => {
+    if (!isRealMobileDevice()) return; // 데스크톱 터치모드: 전체화면만, lock 생략
+    try {
+      const orientation = (screen as unknown as { orientation?: { lock?: (o: string) => Promise<unknown> } }).orientation;
+      const p = orientation?.lock?.("landscape");
+      if (p && typeof (p as Promise<unknown>).catch === "function") (p as Promise<unknown>).catch(() => {});
+    } catch {
+      /* iOS NotSupportedError / 데스크톱 거부 등 무시 */
+    }
+  };
+  const req = el.requestFullscreen ?? el.webkitRequestFullscreen;
+  if (typeof req !== "function") { lockLandscape(); return; } // 전체화면 미지원(iPhone 등) — 단독 lock 시도 후 종료
+  let result: Promise<void> | void;
+  try { result = req.call(el); } catch { lockLandscape(); return; }
+  if (result && typeof (result as Promise<void>).then === "function") (result as Promise<void>).then(lockLandscape, lockLandscape);
+  else lockLandscape();
+}

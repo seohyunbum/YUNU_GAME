@@ -324,7 +324,7 @@ import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } fr
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
-import { isTouchDevice } from "./game/platform";
+import { enterLandscapeFullscreen, isTouchDevice } from "./game/platform";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
 import { showObjectiveGuide } from "./ui/objectiveGuide";
 import { ensureNickname } from "./ui/nicknamePanel";
@@ -865,7 +865,7 @@ class WildernessGame {
         onNewGame: () => this.newGame(),
         onSaveGame: () => this.saveGame(),
         onLoadGame: () => this.loadGame(),
-        onTitleNew: () => runWithLoading(this.uiRoot, () => this.startGame("new")),
+        onTitleNew: () => { enterLandscapeFullscreen(); runWithLoading(this.uiRoot, () => this.startGame("new")); }, // 모바일: 진입 클릭(제스처)에서 가로+전체화면
         onClassChoice: (choice) => {
           if (!this.isPlayerClassId(choice)) return;
           this.pendingPlayerClass = choice;
@@ -876,7 +876,7 @@ class WildernessGame {
         onQualityChoice: (mode) => {
           if (mode === "high" || mode === "balanced" || mode === "performance") { this.applyQualityMode(mode, true); this.showMessage(`그래픽 품질: ${mode === "high" ? "고품질" : mode === "balanced" ? "보통" : "저사양 ⚡ (렉 완화)"}`); this.playTone(520, 0.06, "triangle", 0.018); }
         },
-        onTitleLoad: () => this.startGame("load"),
+        onTitleLoad: () => { enterLandscapeFullscreen(); this.startGame("load"); }, // 로드 진입에도 동일 적용
         onShowMiniGame: () => this.showMiniGame(),
         onShowLavaMiniGame: () => this.showLavaMiniGame(),
         onShowSmithingMiniGame: () => this.showSmithingMiniGame(),
@@ -1865,7 +1865,7 @@ class WildernessGame {
   }
 
   private setupEvents() {
-    window.addEventListener("resize", () => this.resize());
+    window.addEventListener("resize", () => this.resize()); window.addEventListener("orientationchange", () => this.resize()); // 방향 전환 시 카메라/렌더러 재계산
     this.objectiveEl.addEventListener("click", (event) => {
       if (!(event.target as HTMLElement).closest(".objective-card")) return;
       const view = this.currentObjectiveView();
@@ -5803,7 +5803,7 @@ class WildernessGame {
     this.hideLavaMiniGame(false);
     this.hideSmithingMiniGame(false);
     this.titleScreenEl.classList.add("hidden");
-    this.uiRoot.classList.remove("title-active");
+    this.uiRoot.classList.remove("title-active"); document.body.classList.add("in-game"); // in-game: 세로 회전 오버레이를 인게임에서만 표시(타이틀/미니게임 제외)
     this.handGroup.visible = true;
     this.ensureAudio();
     this.autosaveTimer = 0; this.navGuard?.arm(); // 게임 진입 — 자동저장 타이머 리셋 + 뒤로가기 트랩 재무장
@@ -5817,7 +5817,7 @@ class WildernessGame {
 
   // 인게임 → 타이틀 복귀 (새로시작 / 첫 로드 실패 복구 공용)
   private showTitleScreen() {
-    this.gameStarted = false; this.navGuard?.disarm(); this.currentPanel = null; this.renderPanel();
+    this.gameStarted = false; this.navGuard?.disarm(); this.currentPanel = null; this.renderPanel(); document.body.classList.remove("in-game");
     document.exitPointerLock?.(); this.handGroup.visible = false;
     this.renderClassSelection(); this.renderTitlePoints();
     this.titleScreenEl.classList.remove("hidden"); this.uiRoot.classList.add("title-active");
