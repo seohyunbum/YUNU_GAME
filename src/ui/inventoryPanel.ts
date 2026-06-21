@@ -151,7 +151,7 @@ export function renderInventoryPanel(
   const smallBag = bagCapacity > 0 && bagCapacity <= 8;
   const bagUrgent = smallBag && bagFilled >= bagCapacity - 1;
   const bagHint = smallBag
-    ? `<div class="bag-hint-bar${bagUrgent ? " urgent" : ""}">${bagUrgent ? "⚠️ 가방이 거의 찼어요" : "🎒 가방이 작아요"} (${bagFilled}/${bagCapacity}칸) — 가죽 7개로 가방을 만들면 <b>8 → 40칸</b>으로 늘어납니다. 가득 차면 새 전리품을 못 줍습니다.</div>`
+    ? `<div class="bag-hint-bar${bagUrgent ? " urgent" : ""}">${bagUrgent ? "⚠️ 가방이 거의 찼어요" : "🎒 가방이 작아요"} (${bagFilled}/${bagCapacity}칸) — <b>제작대</b>에서 가죽 7개로 가방을 만들면 <b>8 → 40칸</b>. 제작대가 없으면 먼저 제작대를 만들어 바닥에 설치하세요. 가득 차면 새 전리품을 못 줍습니다.</div>`
     : "";
 
   panelEl.innerHTML = `

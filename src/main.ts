@@ -4541,7 +4541,7 @@ class WildernessGame {
     target.opened = true; target.expiresAt = performance.now() + 8_000;
     this.tintObject(target.root, 0x6a5940);
     this.playChestSound();
-    const loot: string[] = [];
+    const loot: string[] = []; if (this.countItem("hammer") === 0 && this.countItem("crafting_table") === 0 && !this.hasWorldObjectType("workbench", "extendedWorkbench") && this.addItem("hammer", 1)) loot.push(ITEM_NAMES["hammer"] ?? "망치"); // 초보 보장: 망치·제작대가 없으면 상자에서 무조건 망치(find_hammer 막힘 방지)
     for (const entry of rollChestLoot(target.chestTier ?? 0)) if (this.addItem(entry.item, entry.count)) loot.push(ITEM_NAMES[entry.item] ?? entry.item);
     this.showMessage(loot.length > 0 ? `상자에서 ${loot.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다.");
     if (!isTouchDevice()) showChestContents(this.uiRoot, loot); // 데스크탑 상자 획득 카드(#14) — 모바일은 자체 UI라 제외
@@ -7784,7 +7784,7 @@ class WildernessGame {
       for (let index = 0; index < count; index += 1) {
         const emptySlot = this.allStorageSlots().find((slot) => !slot.item);
         if (!emptySlot) {
-          this.showMessage(`⚠️ 가방이 가득 찼습니다! ${ITEM_NAMES[item] ?? item}을(를) 넣을 빈 칸이 없어요. I로 인벤토리를 비우거나 확장 가방을 만드세요.`, { durationSeconds: 4.5, danger: true });
+          this.showMessage(`⚠️ 가방이 가득 찼습니다! ${ITEM_NAMES[item] ?? item}을(를) 넣을 빈 칸이 없어요. I로 인벤토리를 비우거나, 제작대에서 가죽 7개로 가방을 만들어 칸을 늘리세요.`, { durationSeconds: 4.5, danger: true });
           return index > 0;
         }
         emptySlot.item = item;
@@ -7816,7 +7816,7 @@ class WildernessGame {
       }
     }
 
-    this.showMessage(`⚠️ 가방이 가득 찼습니다! ${ITEM_NAMES[item] ?? item}을(를) 주울 수 없어요. I로 인벤토리를 비우거나 확장 가방을 만드세요.`, { durationSeconds: 4.5, danger: true });
+    this.showMessage(`⚠️ 가방이 가득 찼습니다! ${ITEM_NAMES[item] ?? item}을(를) 주울 수 없어요. I로 인벤토리를 비우거나, 제작대에서 가죽 7개로 가방을 만들어 칸을 늘리세요.`, { durationSeconds: 4.5, danger: true });
     if (!this.onboarding.hintedFull && this.bagSlots.length < EXPANDED_BAG_SLOT_COUNT) { this.onboarding.hintedFull = true; document.exitPointerLock?.(); showObjectiveGuide(this.uiRoot, { title: "가방이 가득 찼어요 — 가방을 만드세요", detail: "시작 가방은 8칸이라 금방 차서 새 전리품을 못 줍습니다. ① 동물을 사냥해 가죽 7개를 모으세요. ② 제작대(가방 I → 2x2에 나무3+망치1로 제작 → 우클릭 설치)를 열어 가죽 7개로 '가방'을 만들면 8 → 40칸으로 늘어납니다.", progress: "가방 미보유", rewardLabel: "가방 8칸 → 40칸", touch: isTouchDevice() }); } // 초보: 첫 인벤-풀 시 가방 제작 가이드 1회
     return false;
   }
