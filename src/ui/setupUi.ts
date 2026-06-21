@@ -25,6 +25,7 @@ export interface GameUiSetupOptions {
 
 export interface GameUiCallbacks {
   onNewGame(): void;
+  onQuickAction(action: string): void; // 좌상단 퀵버튼(가방/캐릭터/파티)
   onSaveGame(): void;
   onLoadGame(): void;
   onTitleNew(): void;
@@ -81,6 +82,10 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   const controlsGuideEl = document.createElement("div"); // 좌측 상단 조작법 가이드 (인게임 전용 — .title-active 시 CSS 로 숨김)
   controlsGuideEl.className = "controls-guide";
   renderControlsGuide(controlsGuideEl);
+  controlsGuideEl.addEventListener("click", (event) => { // 퀵버튼(가방/캐릭터/파티) 위임 처리
+    const btn = (event.target as HTMLElement).closest<HTMLElement>("[data-quick-action]");
+    if (btn?.dataset.quickAction) callbacks.onQuickAction(btn.dataset.quickAction);
+  });
   titleScreenEl.className = "title-screen";
   renderTitleScreen(titleScreenEl, options);
   uiRoot.innerHTML = '<div class="crosshair"></div>';

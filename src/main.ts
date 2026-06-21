@@ -885,7 +885,7 @@ class WildernessGame {
         })),
       },
       {
-        onNewGame: () => this.newGame(),
+        onNewGame: () => this.newGame(), onQuickAction: (a) => { if (a === "inventory") this.togglePanel("inventory"); else if (a === "character") this.togglePanel("character"); else togglePartyLobby(); },
         onSaveGame: () => this.saveGame(),
         onLoadGame: () => this.loadGame(),
         onTitleNew: () => { enterLandscapeFullscreen(); runWithLoading(this.uiRoot, () => this.startGame("new")); }, // 모바일: 진입 클릭(제스처)에서 가로+전체화면
