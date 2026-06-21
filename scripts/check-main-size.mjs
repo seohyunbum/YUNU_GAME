@@ -49,7 +49,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 실음원(CC0) BGM 시스템 — musicPlayer 배선·맵별 트랙·updateMusic → 9934→9954.
 // 2026-06-21: CC0 효과음 샘플(sfxPlayer) 배선·라우팅 → 9954→9959.
 // 2026-06-21: selective bloom(EffectComposer) PC high 전용 배선 → 9959→9984.
-const MAX_MAIN_LINES = 9984;
+// 2026-06-21: GTAO(앰비언트 오클루전) PC high composer 에 추가 → 9984→9993.
+const MAX_MAIN_LINES = 9993;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
