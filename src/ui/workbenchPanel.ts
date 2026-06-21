@@ -135,7 +135,7 @@ export function renderWorkbenchPanel(
         <header>
           <div>
             <h2>${view.isExtended ? "확장 제작대" : "제작대"}</h2>
-            <p class="inventory-subtitle">${view.gridSize} 제작 공간입니다. 재료 위치는 상관없고 조합만 맞으면 제작됩니다.</p>
+            <p class="inventory-subtitle">설치한 제작대의 ${view.gridSize} 제작 공간입니다. 가방·도구·무기·갑옷 등 대부분을 여기서 만듭니다. 재료 위치는 상관없고 조합만 맞으면 제작됩니다.</p>
           </div>
           <button class="icon-button" data-close>닫기</button>
         </header>

@@ -141,12 +141,9 @@ export function renderInventoryPanel(
   const craftSlots = view.craftSlots.map(renderCraftSlot).join("");
   const recipeGuide = view.recipeGuide.map(renderRecipeGuideCard).join("");
 
-  // 2x2(어디서나) vs 3x3(설치한 제작대) 구분 — 초보가 "왜 또 만들지?"를 헷갈리지 않게
-  const isTable = view.craftSlots.length >= 9;
-  const craftLabel = isTable ? "제작대 3x3 — 설치한 제작대" : "미니 제작대 2x2 — 어디서나";
-  const craftNote = isTable
-    ? "가방·도구·무기·갑옷 등 대부분을 여기서 만듭니다."
-    : "제작대·삽·막대기 등 기본 아이템을 어디서나 만들 수 있어요. 제작대를 만들어 바닥에 설치하면 더 큰 3x3가 열립니다.";
+  // 인벤토리 패널은 항상 2x2 미니 제작 — 설치한 제작대의 3x3는 별도 패널(workbenchPanel). 초보가 "왜 또 만들지?"를 헷갈리지 않게 차이를 설명.
+  const craftLabel = "미니 제작대 2x2 — 어디서나";
+  const craftNote = "제작대·삽·막대기 등 기본 아이템을 어디서나 만들 수 있어요. 제작대를 만들어 바닥에 설치하면 더 큰 3x3 제작대가 열립니다.";
 
   // 가방 부족 경고 — 시작 8칸은 금방 차서 새 전리품을 못 줍는다 → 가방 제작으로 유도
   const bagCapacity = view.bagSlots.filter((s) => !s.locked).length;
