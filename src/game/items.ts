@@ -212,6 +212,7 @@ export const HEAL_ITEMS: Record<ItemId, number> = {
 
 // 희귀 등급 — 주스(큰 순간 연출)용. 등재 안 된 아이템은 common.
 export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
+  meat_stew: "rare", // 고기 스튜 — 5분 전투 버프식(희귀)
   diamond: "rare",
   diamond_powder: "rare",
   refined_diamond: "rare",
@@ -264,7 +265,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   gold: "rare", gold_powder: "rare", refined_gold: "rare", diamond: "rare", diamond_powder: "rare", refined_diamond: "rare",
   gold_axe: "rare", gold_shovel: "rare", gold_pickaxe: "rare", gold_dagger: "rare", gold_sword: "rare", gold_armor: "rare",
   diamond_axe: "rare", diamond_shovel: "rare", diamond_pickaxe: "rare", diamond_dagger: "rare", diamond_sword: "rare",
-  diamond_armor: "rare", diamond_bow: "rare", rifle: "rare", crystal_staff: "rare", dragon_scale: "rare",
+  diamond_armor: "rare", diamond_bow: "rare", rifle: "rare", crystal_staff: "rare", dragon_scale: "rare", meat_stew: "rare",
   // 에픽(epic) — 흑요석·용 소재·최상급 장비
   obsidian: "epic", obsidian_powder: "epic", sharp_obsidian: "epic",
   obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",

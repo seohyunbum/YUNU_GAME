@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 고기 스튜 희귀 등급 + 좌측하단 버프 아이콘바(만료 15초 깜빡)
+
+- ① 고기 스튜 등급을 희귀로: ITEM_RARITY·ITEM_TIER 에 meat_stew:"rare" 추가(이전 미등재=common).
+- ② 현재 버프 아이콘바: classSkills.activeBuffs(SkillBuffs *Until 7종 → {icon,name,remainingMs}) + hudRenderer renderStatsMarkup 상단에 .buff-bar(grid-column 1/-1) 칩(아이콘+남은시간). 남은 15초 미만이면 .buff-expiring 으로 깜빡(CSS @keyframes). 위치=좌측하단 상태창 '내부 상단'이라 모바일 재배치/스케일도 자동 추종(별도 위치 CSS 불필요).
+- 갱신 cadence: renderHud 는 체력/마나 변화 시에만 호출 → 버프 타이머가 안 흐름. update 루프에 hudRefreshTick(~4/s) 추가해 주기 렌더(문자열 캐시라 DOM 변화 없으면 갱신 안 함). 버프 만료 시 칩 자동 제거.
+- 검증: verify+build, 모듈 5종(스튜 rarity/tier=rare·activeBuffs 2개/5분/빈배열) + 브라우저 6종(칩 2개·아이콘 🍲✨·'분' 표기·만료임박 깜빡 1개·버프해제 시 바 제거·무예외) + 스크린샷. main +3 → ratchet 10015→10018(목록·렌더는 리프).
+
 ## 2026-06-21 — 첫 배고픔 감소 시 '고기 먹기' 컨텍스트 퀘스트
 
 - 사용자 요청: 시작 후 배고픔이 처음 한 칸 줄 때 고기 먹기 퀘스트(사냥으로 획득·퀵슬롯 넣고 사용 안내).

@@ -130,6 +130,25 @@ export function rapidFireCooldownScale(buffs: SkillBuffs, now: number) {
   return buffs.rapidFireUntil > now ? RAPID_FIRE_SCALE : 1;
 }
 
+// 현재 걸려 있는 버프(만료시각 *Until 필드) — HUD 버프바 표시용. 아이콘 + 이름 + 남은 ms.
+const BUFF_DESCRIPTORS: { field: keyof SkillBuffs; icon: string; name: string }[] = [
+  { field: "empowerUntil", icon: "✨", name: "심판의 빛 — 공·방 +10%" },
+  { field: "stewBuffUntil", icon: "🍲", name: "고기 스튜 — 공·방 +5" },
+  { field: "rallyDefUntil", icon: "💪", name: "불굴의 함성 — 방어 +20%" },
+  { field: "unbreakableUntil", icon: "🛡️", name: "불굴 — 방어 강화" },
+  { field: "burningShieldUntil", icon: "🔥", name: "불타는 방패 — 방어 +1" },
+  { field: "healingRainUntil", icon: "🌧️", name: "치유의 비 — 지속 회복" },
+  { field: "rapidFireUntil", icon: "💨", name: "속사 — 공격속도 상승" },
+];
+export function activeBuffs(buffs: SkillBuffs, now: number): { icon: string; name: string; remainingMs: number }[] {
+  const out: { icon: string; name: string; remainingMs: number }[] = [];
+  for (const d of BUFF_DESCRIPTORS) {
+    const until = buffs[d.field];
+    if (typeof until === "number" && until > now) out.push({ icon: d.icon, name: d.name, remainingMs: until - now });
+  }
+  return out;
+}
+
 // ===== 2스킬 실행 =====
 export interface SecondSkillContext {
   playerClass(): PlayerClassId;

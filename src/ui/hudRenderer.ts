@@ -59,6 +59,7 @@ export interface HudViewModel {
   };
   selectedHotbarIndex: number;
   hotbar: HudHotbarSlotView[];
+  buffs: { icon: string; name: string; secs: number; expiring: boolean }[];
 }
 
 export function createHudRenderCache(): HudRenderCache {
@@ -95,7 +96,14 @@ function renderStatsMarkup(view: HudViewModel) {
       ? ""
       : `<span>독수리 ${Math.ceil(view.eagleHp)}/${view.eagleMaxHp}</span>`;
 
+  const buffMarkup = view.buffs.length === 0
+    ? ""
+    : `<div class="buff-bar">${view.buffs
+        .map((b) => `<div class="buff-chip${b.expiring ? " buff-expiring" : ""}" title="${escapeHtml(b.name)}"><span class="buff-icon">${b.icon}</span><span class="buff-time">${b.secs >= 60 ? `${Math.ceil(b.secs / 60)}분` : `${b.secs}초`}</span></div>`)
+        .join("")}</div>`;
+
   return `
+      ${buffMarkup}
       <div class="stats-level-card" title="경험치 ${view.experience}/${view.requiredExperience}">
         <span>Lv</span>
         <strong class="${view.level >= 1000 ? "lv-digits-4" : view.level >= 100 ? "lv-digits-3" : ""}">${view.level}</strong>
