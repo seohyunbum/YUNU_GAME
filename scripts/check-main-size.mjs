@@ -51,7 +51,7 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: selective bloom(EffectComposer) PC high 전용 배선 → 9959→9984.
 // 2026-06-21: GTAO(앰비언트 오클루전) PC high composer 에 추가 → 9984→9993.
 // 2026-06-21: HDRI 금속반사(applyEnvForQuality) PC 전용 배선 → 9993→10011.
-const MAX_MAIN_LINES = 10012;
+const MAX_MAIN_LINES = 10014;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

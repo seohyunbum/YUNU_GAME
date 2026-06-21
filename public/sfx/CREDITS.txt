@@ -1,0 +1,14 @@
+YUNU_GAME — 효과음(SFX) 출처 (모두 CC0 / Public Domain, 출처표기 의무 없음. 예의상 명기)
+
+[기본 RPG 효과음 80종]
+"80 CC0 RPG SFX" — OpenGameArt.org — CC0
+출처: https://opengameart.org/content/80-cc0-rpg-sfx
+blade_* 검 휘두름/베기 · spell_*/spell_fire_* 마법/화염 · creature_hurt/die/roar 몬스터 반응 ·
+item_coins/gem/misc 줍기 · wood_* 나무 · stones_*/item_stone_* 돌·광물 · metal_* 금속 · lock_* 상자.
+
+[축하/달성음]
+victory.mp3 — "Victory" by celestialghost8 (8-bit 승리 팡파레) — OpenGameArt, CC0
+   출처: https://opengameart.org/content/victory  — 용도: 보스 처치
+levelup.wav — "Rise03" (SoundPack01 by WobbleBoxx Workshop, 상승 파워업) — OpenGameArt, CC0 (AIFF→16bit WAV 변환)
+   출처: https://opengameart.org/content/level-up-power-up-coin-get-13-sounds  — 용도: 전직
+(퀘스트 보상음은 기존 item_gem 재사용)
