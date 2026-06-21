@@ -603,7 +603,7 @@ class WildernessGame {
   private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
   private pendingOverwriteSave: SavedGame | null = null;
   // 튜토리얼 신호 — 휘발이지만 라치(achievedStepIds)가 영구 기록을 맡는다
-  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), fortressBossKills: 0, fortressVisited: false, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false };
+  private readonly tutorialSignals = { predatorKills: this.loadPredatorKills(), fortressBossKills: 0, fortressVisited: false, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false, recoveredWorkbench: false };
   private readonly chapterBossContext: ChapterBossContext = {
     locationMode: () => this.locationMode, worldMapId: () => this.currentWorldMapId,
     hasDragonKind: (kind) => { for (const dragon of this.objectsOfType("dragon")) if ((dragon.bossKind ?? "dragon") === kind) return true; return false; },
@@ -4384,7 +4384,7 @@ class WildernessGame {
     const item: ItemId = target.type === "extendedWorkbench" ? "extended_workbench" : "crafting_table";
     this.clearWorkbenchSlots(true, false);
     if (!this.addItem(item, 1)) return;
-    this.removeObject(target.id);
+    this.removeObject(target.id); this.tutorialSignals.recoveredWorkbench = true; // '제작대 회수' 퀘스트 신호
     this.playHandAction();
     this.showMessage(`${ITEM_NAMES[item] ?? item}를 회수해서 인벤토리에 넣었습니다.`);
     this.renderPanel();

@@ -31,6 +31,7 @@ export interface ObjectiveSnapshot {
   shopPurchases: number;
   craftedNecklace: boolean;
   craftedAdvancedMedkit: boolean;
+  recoveredWorkbench: boolean;
   hasNecklaceEquipped: boolean;
   hasWorkbench: boolean;
   hasPickaxe: boolean;
@@ -150,9 +151,10 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   // ── 3장. 도구와 광물 ──
   countQuest("craft_stick", 4, (s) => s.countItem("stick"), "나무 막대기 만들기", "인벤토리(I)의 2x2 미니 제작칸에 나무 1개를 넣으면 막대기 2개가 만들어집니다. 막대기 4개를 모아 보세요 — 곡괭이·삽·검 등 대부분 도구의 손잡이입니다.", { experience: 115, items: { wood: 3 }, label: "경험치 115 + 나무 3개" }),
   checkQuest("craft_pickaxe", (s) => s.hasPickaxe, "돌 곡괭이 만들기", "제작대 3x3에서 막대기 2개와 돌 4개를 조합하면 돌 곡괭이를 만들 수 있습니다. 광물 채집의 시작입니다. ⚒️ 도구는 쓸수록 내구도가 닳고 0이 되면 사라지니, 제작대에서 같은 재료로 미리 수리하세요.", { experience: 120, items: { coal: 4 }, label: "경험치 120 + 석탄 4개" }),
+  checkQuest("recover_workbench", (s) => s.recoveredWorkbench, "제작대를 회수해 옮겨보기", "여기까지 제작대로 여러 가지를 만들어 봤죠? 설치한 제작대는 고정된 게 아니에요. 제작대를 바라보고 좌클릭(또는 E)하면 가방으로 회수됩니다(우클릭은 제작창 열기). 회수한 제작대는 숫자키나 우클릭으로 원하는 곳에 다시 설치할 수 있어요 — 채굴할 동굴 근처나 사냥터로 옮기면 훨씬 편합니다.", { experience: 122, items: { wood: 4 }, label: "경험치 122 + 나무 4개" }),
   countQuest("mine_stone", 6, (s) => s.countItem("stone"), "곡괭이로 돌 6개 캐기", "산 지형의 회색 돌 바닥을 곡괭이로 캐면 돌이 나옵니다. 돌은 도구와 건축의 기본 재료입니다.", { experience: 140, items: { stone: 4 }, label: "경험치 140 + 돌 4개" }),
   countQuest("mine_coal", 4, (s) => s.countItem("coal"), "석탄 4개 캐기", "검은 점이 박힌 석탄 광맥을 곡괭이로 캐세요. 석탄은 제련의 연료입니다.", { experience: 160, items: { iron: 2 }, label: "경험치 160 + 철 2개" }),
-  checkQuest("visit_cave", (s) => s.inCave, "동굴에 들어가보기", "500걸음마다 낮은 확률로 동굴 입구가 나타납니다. 동굴 안에는 돌·석탄·철은 물론 금과 다이아몬드도 있습니다.", { experience: 180, items: { medkit: 2 }, label: "경험치 180 + 구급상자 2개" }),
+  checkQuest("visit_cave", (s) => s.inCave, "동굴에 들어가보기", "500걸음마다 낮은 확률로 동굴 입구가 나타납니다. 발견한 동굴 입구는 지도(M)와 미니맵에 동굴 아이콘으로 표시되니 길을 잃어도 다시 찾아갈 수 있어요. 동굴 안에는 돌·석탄·철은 물론 금과 다이아몬드도 있습니다.", { experience: 180, items: { medkit: 2 }, label: "경험치 180 + 구급상자 2개" }),
   countQuest("mine_iron", 6, (s) => s.countItem("iron"), "철 6개 캐기", "동굴 깊은 곳일수록 철이 많이 나옵니다. 철은 분쇄기·제련대 제작과 철 도구·무기·갑옷에 두루 쓰이니 넉넉히 캐두세요.", { experience: 185, items: { coal: 3 }, label: "경험치 185 + 석탄 3개" }),
   checkQuest("get_grinder", (s) => s.countItem("grinder") > 0, "분쇄기 구하기", "제작대 3×3에서 망치 2개 + 철 6개로 분쇄기를 만드세요. 분쇄기에 광물을 넣으면 가루 2개로 쪼개집니다(광물 1개 → 가루 2개). 가루는 고급 제작 재료이고, 모아서 대장장이와 도구를 교환할 수도 있습니다(선택). 분쇄기는 마을 상점 4200P로도 살 수 있습니다.", { experience: 190, items: { coal: 4, iron: 2 }, label: "경험치 190 + 석탄 4개 + 철 2개" }),
   checkQuest("get_smelter", (s) => s.hasSmelter || s.countItem("smelter") > 0, "제련대 구하기", "제작대에서 돌 8 + 철 4 + 석탄 3으로 제련대를 직접 만드세요(가장 빠릅니다). 마을 상점(2600P)·흑요석 상자·대장장이 가루 교환으로도 얻을 수 있습니다. 제련대를 설치하면 어디서든 철을 제련해 철 장비를 만들 수 있습니다. (당장 제련만 하고 싶으면 시작 근처 큰 마을의 대장간 안 제련대를 무료로 써도 됩니다.)", { experience: 200, items: { coal: 6 }, label: "경험치 200 + 석탄 6개" }),
@@ -271,9 +273,9 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
 
   const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id));
   if (nextStep) {
-    // 기초 전투 튜토리얼(야생 몬스터 3마리 처치)까지 마친 뒤부터, 레벨대(격차 20 미만) 미처치 맵 보스를
-    // 목표로 끼워넣는다. 그 전까지는 기초 채집·제작 튜토리얼이 보스에 가려지지 않도록 순서대로 진행한다.
-    const foundationDone = completed(snapshot, "hunt_predators");
+    // 기초 전투(야생 몬스터 3마리) + 훈련장 4종까지 마친 뒤부터, 레벨대(격차 20 미만) 미처치 맵 보스를
+    // 목표로 끼워넣는다. 그 전까지는 기초 채집·제작·훈련 튜토리얼(용용 평원 등 보스보다 먼저)이 가려지지 않도록 순서대로 진행한다.
+    const foundationDone = completed(snapshot, "hunt_predators") && completed(snapshot, "train_all_kinds");
     const eligibleBoss = foundationDone
       ? FIELD_BOSSES.filter((def) => !completed(snapshot, def.id) && def.level - snapshot.level < 20).sort((a, b) => a.level - b.level)[0]
       : undefined;
