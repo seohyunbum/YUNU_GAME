@@ -333,6 +333,7 @@ import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackInte
 import { initPartyFlow } from "./game/partyFlow";
 import { renderWorkbenchPanel as renderWorkbenchPanelView } from "./ui/workbenchPanel";
 import { currentAudioProfile as resolveAudioProfile, type AudioProfile } from "./game/audioProfile";
+import { tone as kitTone, noise as kitNoise, chime as kitChime, impact as kitImpact, whoosh as kitWhoosh } from "./game/audioKit";
 import { shouldFireRangedDuringInteract } from "./game/interactionPriority";
 import { eagleSkillStatus as formatEagleSkillStatus, tryEagleClaw, tryEagleWindCutter, type EagleActionContext } from "./game/eaglePossession";
 import { applyOverworldTimeOfDay, gameClockText, timeOfDayName, moodForWorldMap } from "./game/timeOfDay";
@@ -819,6 +820,7 @@ class WildernessGame {
   private nextBgmNoteAt = 0;
   private bgmStep = 0;
   private nextAmbientCueAt = 0;
+  private combatMoodUntil = 0; // 근처 적대 몬스터 감지 시각 갱신 → 이후 잠깐 더 전투 BGM 유지(잦은 전환 깜빡임 방지)
   private footstepDistance = 0;
 
   constructor(container: HTMLDivElement) {
@@ -2540,7 +2542,7 @@ class WildernessGame {
       return;
     }
     this.removeObject(target.id);
-    this.playTone(520, 0.06, "triangle", 0.025);
+    this.kit((c, d) => kitChime(c, d, [783.99, 1046.5], 0.022, 0.04, 0.3)); // 줍기 — 부드러운 2음 벨
     this.showMessage(`${ITEM_NAMES[item] ?? item}을 다시 주웠습니다.`);
     if (this.deathMarker && this.deathMarker.mapId === this.currentWorldMapId) { const m = this.deathMarker; if (![...this.objectsOfType("droppedItem")].some((o) => { const dx = o.root.position.x - m.x, dz = o.root.position.z - m.z; return dx * dx + dz * dz < 25; })) this.deathMarker = null; } // 사망 지점 유품을 다 회수했으면 마커 제거
     this.renderHud();
@@ -5128,10 +5130,12 @@ class WildernessGame {
   }
 
 
-  private playExplosionSound() {
-    this.playTone(82, 0.18, "sawtooth", 0.045);
-    this.playTone(164, 0.11, "square", 0.025);
-    this.playTone(520, 0.05, "triangle", 0.015);
+  private playExplosionSound() { // 폭발 — 저음 쿵 + 필터드 노이즈 붐
+    this.kit((c, d) => {
+      kitTone(c, d, { freq: 90, freq2: 40, type: "sine", vol: 0.05, dur: 0.3 });
+      kitNoise(c, d, { type: "lowpass", cutoff: 1700, cutoff2: 110, q: 0.6, vol: 0.045, dur: 0.34 });
+      kitTone(c, d, { freq: 160, freq2: 70, type: "triangle", vol: 0.02, dur: 0.18 });
+    });
   }
 
   private updateProjectiles(delta: number) {
@@ -5210,7 +5214,9 @@ class WildernessGame {
     this.playHandAction("melee");
     spawnMeleeSlashTrail(this.combatEffectContext, this.hotbar[this.selectedHotbarIndex]?.item === "sharp_obsidian_shield"); // 날카로운 흑요석 방패(궁극) = 붉고 넓은 휘두르기 궤적
     spawnEnemyHitParticles(this.combatEffectContext, target);
-    this.playMeleeWhoosh(); notifyPartyAttack("melee");
+    this.playMeleeWhoosh();
+    this.kit((c, d) => kitImpact(c, d, 168, 0.034, 1.1)); // 근접 명중 타격감(thunk)
+    notifyPartyAttack("melee");
   }
 
 
@@ -5218,37 +5224,25 @@ class WildernessGame {
 
 
 
-  private playBowShotSound() {
-    this.playTone(190, 0.045, "triangle", 0.03);
-    this.playTone(520, 0.055, "square", 0.012);
+  private playBowShotSound() { // 활시위 튕김 — 노이즈 스냅 + 하강 톤(틱→슉)
+    this.kit((c, d) => { kitNoise(c, d, { type: "highpass", cutoff: 1900, vol: 0.02, dur: 0.045, attack: 0.001 }); kitTone(c, d, { freq: 330, freq2: 170, type: "triangle", vol: 0.018, dur: 0.09 }); });
   }
 
-  private playMagicShotSound() {
-    this.playTone(760, 0.1, "triangle", 0.032);
-    this.playTone(410, 0.16, "sine", 0.018);
+  private playMagicShotSound() { // 마법 발사 — 상승 시머
+    this.kit((c, d) => { kitTone(c, d, { freq: 520, freq2: 900, type: "sine", vol: 0.024, dur: 0.16 }); kitTone(c, d, { freq: 1040, type: "sine", vol: 0.011, dur: 0.12, delay: 0.025 }); });
   }
 
-  private playMeleeWhoosh() {
-    this.playTone(440, 0.045, "sawtooth", 0.018);
-    this.playTone(230, 0.075, "triangle", 0.014);
+  private playMeleeWhoosh() { // 근접 휘두르기 — 공기 가르는 휘익
+    this.kit((c, d) => kitWhoosh(c, d, 0.026, 1700));
   }
 
   private playImpactSound(kind: CombatProjectile["kind"]) {
-    if (kind === "tnt") {
-      this.playExplosionSound();
-      return;
-    }
-    if (kind === "magic") {
-      this.playTone(620, 0.06, "triangle", 0.028);
-      this.playTone(160, 0.05, "sawtooth", 0.018);
-      return;
-    }
-    if (kind === "wind") {
-      this.playTone(780, 0.055, "triangle", 0.024);
-      this.playTone(260, 0.065, "sine", 0.014);
-      return;
-    }
-    this.playTone(140, 0.055, "square", 0.024);
+    if (kind === "tnt") { this.playExplosionSound(); return; }
+    this.kit((c, d) => {
+      if (kind === "magic") { kitTone(c, d, { freq: 700, freq2: 300, type: "sine", vol: 0.026, dur: 0.12 }); kitNoise(c, d, { type: "bandpass", cutoff: 1500, q: 2.2, vol: 0.013, dur: 0.07 }); return; }
+      if (kind === "wind") { kitNoise(c, d, { type: "bandpass", cutoff: 1100, cutoff2: 480, q: 1.4, vol: 0.02, dur: 0.1 }); return; }
+      kitImpact(c, d, 200, 0.03, 1.3); // 화살 명중 thunk
+    });
   }
 
   private consumeShieldDurability() {
@@ -5409,22 +5403,45 @@ class WildernessGame {
   private currentAudioProfile() {
     const hour = this.gameHour();
     const nearLava = this.locationMode === "overworld" && this.isPointInLava(this.playerPosition, 9);
-    return resolveAudioProfile(hour, this.locationMode, nearLava, this.currentWorldMapId === "graveyard");
+    return resolveAudioProfile(hour, this.locationMode, nearLava, this.currentWorldMapId === "graveyard", this.combatMoodActive());
+  }
+
+  // 전투 분위기 — 근처(16칸) 적대 몬스터나 요새 디펜스 진행 시 true. 4.5초 히스테리시스로 잡자마자 BGM 깜빡이지 않게.
+  private combatMoodActive() {
+    if (!this.gameStarted || this.locationMode === "house") return false;
+    const now = performance.now();
+    if (this.fortressSiege?.active) { this.combatMoodUntil = now + 3000; return true; }
+    for (const m of this.objectsOfType("wildPredator")) {
+      const dx = m.root.position.x - this.playerPosition.x, dz = m.root.position.z - this.playerPosition.z;
+      if (dx * dx + dz * dz < 256) { this.combatMoodUntil = now + 4500; break; } // 16칸 = 256
+    }
+    return now < this.combatMoodUntil;
+  }
+
+  // Web Audio 합성 SFX 실행 헬퍼 — audioKit 함수에 ctx/sfx버스 주입. 컨텍스트 없으면 무음(렉/에러 없음).
+  private kit(play: (ctx: AudioContext, dest: AudioNode) => void) {
+    this.ensureAudio();
+    if (this.audioContext && this.sfxMasterGain) play(this.audioContext, this.sfxMasterGain);
   }
 
   private scheduleBgmStep(profile: AudioProfile, startTime: number) {
     const step = this.bgmStep % 16;
     const note = profile.melody[step % profile.melody.length];
+    const tense = profile.ambient === "tense";
     if (step % 2 === 0) {
-      this.playToneAt(this.noteFrequency(profile.root, note + 12), startTime, profile.beat * 0.72, "triangle", profile.lead, this.bgmMasterGain);
+      this.playToneAt(this.noteFrequency(profile.root, note + 12), startTime, profile.beat * 0.72, "triangle", profile.lead, this.bgmMasterGain); // 리드(밝은 선율)
+      this.playToneAt(this.noteFrequency(profile.root, note), startTime, profile.beat * 0.95, "sine", profile.lead * 0.6, this.bgmMasterGain); // 본음 사인 레이어 — 둥글고 따뜻하게(삑 완화)
     }
     if (step % 4 === 0) {
       this.playToneAt(this.noteFrequency(profile.root, profile.chord[(step / 4) % profile.chord.length] - 12), startTime, profile.beat * 1.8, "sine", profile.bass, this.bgmMasterGain);
     }
     if (step % 8 === 0) {
       for (const semitone of profile.chord) {
-        this.playToneAt(this.noteFrequency(profile.root, semitone), startTime + 0.02, profile.beat * 4.6, "sine", profile.pad, this.bgmMasterGain);
+        this.playToneAt(this.noteFrequency(profile.root, semitone), startTime + 0.02, profile.beat * 5.2, "sine", profile.pad, this.bgmMasterGain); // 패드(지속 화음 베드) — 길게 겹쳐 잔잔하게
       }
+    }
+    if (!tense && step === 6) { // 잔잔한 맵: 프레이즈 중간에 옥타브 위 가벼운 종소리 — 아름다움 한 스푼
+      this.playToneAt(this.noteFrequency(profile.root, note + 24), startTime, profile.beat * 0.9, "sine", profile.lead * 0.4, this.bgmMasterGain);
     }
   }
 
@@ -5500,58 +5517,44 @@ class WildernessGame {
     oscillator.stop(startTime + duration + 0.04);
   }
 
-  private playCraftSound() {
-    this.playTone(520, 0.065, "triangle", 0.042);
-    this.playTone(720, 0.09, "sine", 0.032);
-    this.playTone(960, 0.085, "triangle", 0.026);
+  private playCraftSound() { // 제작 완료 — 따뜻한 상승 벨 3음
+    this.kit((c, d) => kitChime(c, d, [523.25, 659.25, 783.99], 0.03, 0.05, 0.42));
   }
 
-  private playChestSound() {
-    this.playTone(210, 0.045, "triangle", 0.026);
-    this.playTone(360, 0.06, "square", 0.012);
-    this.playTone(620, 0.07, "triangle", 0.014);
+  private playChestSound() { // 상자 — 삐걱(밴드패스 노이즈) + 보물 반짝임 벨
+    this.kit((c, d) => { kitNoise(c, d, { type: "bandpass", cutoff: 600, cutoff2: 1100, q: 3, vol: 0.012, dur: 0.18 }); kitChime(c, d, [659.25, 987.77, 1318.51], 0.02, 0.06, 0.5); });
   }
 
-  private playWoodHitSound(done = false) {
-    this.playTone(done ? 170 : 140, 0.045, "triangle", 0.026);
-    this.playTone(done ? 310 : 230, 0.035, "square", 0.01);
+  private playWoodHitSound(done = false) { // 나무 타격 — 둔탁한 톡 + 미세 노이즈 클릭
+    this.kit((c, d) => { kitTone(c, d, { freq: done ? 220 : 168, freq2: done ? 150 : 116, type: "triangle", vol: 0.026, dur: 0.06 }); kitNoise(c, d, { type: "bandpass", cutoff: 1200, q: 1.6, vol: 0.011, dur: 0.04 }); });
   }
 
-  private playDigSound(surface: "dirt" | "stone" = "dirt") {
-    if (surface === "stone") {
-      this.playTone(118, 0.05, "square", 0.025);
-      this.playTone(260, 0.035, "triangle", 0.012);
-      return;
-    }
-    this.playTone(96, 0.045, "triangle", 0.02);
-    this.playTone(150, 0.03, "sine", 0.01);
+  private playDigSound(surface: "dirt" | "stone" = "dirt") { // 파기 — 흙=부드러운 저역 노이즈, 돌=밝은 노이즈 + 깡 톤
+    this.kit((c, d) => {
+      if (surface === "stone") { kitNoise(c, d, { type: "bandpass", cutoff: 1500, q: 1.2, vol: 0.02, dur: 0.07 }); kitTone(c, d, { freq: 250, freq2: 150, type: "triangle", vol: 0.012, dur: 0.05 }); return; }
+      kitNoise(c, d, { type: "lowpass", cutoff: 380, cutoff2: 150, q: 0.7, vol: 0.022, dur: 0.08 });
+    });
   }
 
-  private playOreBreakSound(done = false) {
-    this.playTone(done ? 180 : 145, 0.055, "square", 0.026);
-    this.playTone(done ? 540 : 360, done ? 0.09 : 0.045, "triangle", done ? 0.018 : 0.011);
+  private playOreBreakSound(done = false) { // 광물 — 결정질 크랙(고역 노이즈 + 맑은 핑)
+    this.kit((c, d) => { kitNoise(c, d, { type: "highpass", cutoff: 2200, vol: 0.017, dur: 0.06 }); kitTone(c, d, { freq: done ? 660 : 440, freq2: done ? 990 : 560, type: "sine", vol: done ? 0.02 : 0.012, dur: done ? 0.13 : 0.06 }); });
   }
 
-  private playSmeltSound() {
-    this.playTone(180, 0.12, "sawtooth", 0.022);
-    this.playTone(420, 0.08, "triangle", 0.016);
-    this.playTone(760, 0.09, "sine", 0.012);
+  private playSmeltSound() { // 제련 — 따뜻한 가열 노이즈 + 톤 상승
+    this.kit((c, d) => { kitNoise(c, d, { type: "lowpass", cutoff: 700, cutoff2: 1400, q: 0.6, vol: 0.016, dur: 0.18 }); kitTone(c, d, { freq: 320, freq2: 480, type: "sine", vol: 0.014, dur: 0.16 }); });
   }
 
-  private playGrindSound() {
-    this.playTone(120, 0.055, "sawtooth", 0.035);
-    this.playTone(95, 0.07, "square", 0.018);
-    this.playTone(300, 0.035, "triangle", 0.012);
+  private playGrindSound() { // 분쇄 — 거친 갈림(좁은 밴드패스 노이즈 + 저음)
+    this.kit((c, d) => { kitNoise(c, d, { type: "bandpass", cutoff: 280, q: 2.5, vol: 0.03, dur: 0.12 }); kitTone(c, d, { freq: 110, type: "sawtooth", vol: 0.013, dur: 0.1 }); });
   }
 
-  private playTransitionSound(kind: "enter" | "exit" | "train" = "enter") {
-    if (kind === "train") {
-      this.playTone(150, 0.08, "triangle", 0.024);
-      this.playTone(240, 0.12, "square", 0.012);
-      return;
-    }
-    this.playTone(kind === "enter" ? 360 : 520, 0.08, "triangle", 0.02);
-    this.playTone(kind === "enter" ? 220 : 660, 0.1, "sine", 0.012);
+  private playTransitionSound(kind: "enter" | "exit" | "train" = "enter") { // 장면 전환 — 부드러운 글라이드 2음
+    this.kit((c, d) => {
+      if (kind === "train") { kitTone(c, d, { freq: 160, freq2: 240, type: "triangle", vol: 0.02, dur: 0.18 }); return; }
+      const up = kind === "enter";
+      kitTone(c, d, { freq: up ? 330 : 520, freq2: up ? 523 : 330, type: "sine", vol: 0.02, dur: 0.18 });
+      kitTone(c, d, { freq: up ? 495 : 392, type: "sine", vol: 0.012, dur: 0.16, delay: 0.05 });
+    });
   }
 
   private updateFootsteps(distance: number, sprinting: boolean) {
@@ -5563,36 +5566,24 @@ class WildernessGame {
     }
   }
 
-  private playFootstepSound(sprinting: boolean) {
+  private playFootstepSound(sprinting: boolean) { // 발소리 — 매우 작게, 표면별 필터드 노이즈(반복돼도 안 거슬리게)
     const surface = this.currentFootstepSurface();
-    const boost = sprinting ? 1.15 : 1;
-    if (surface === "water") {
-      this.playTone(170 + Math.random() * 30, 0.045, "sine", 0.026 * boost);
-      this.playTone(310 + Math.random() * 80, 0.025, "triangle", 0.012 * boost);
-      return;
-    }
-    if (surface === "stone") {
-      this.playTone(130 + Math.random() * 35, 0.035, "square", 0.02 * boost);
-      this.playTone(240 + Math.random() * 70, 0.025, "triangle", 0.008 * boost);
-      return;
-    }
-    if (surface === "wood") {
-      this.playTone(190 + Math.random() * 45, 0.04, "triangle", 0.022 * boost);
-      this.playTone(95, 0.035, "sine", 0.008 * boost);
-      return;
-    }
-    this.playTone(115 + Math.random() * 35, 0.035, "triangle", 0.017 * boost);
-    this.playTone(72, 0.026, "sine", 0.006 * boost);
+    const v = (sprinting ? 1.12 : 1) * 0.011;
+    this.kit((c, d) => {
+      if (surface === "water") { kitNoise(c, d, { type: "bandpass", cutoff: 850 + Math.random() * 300, q: 1.4, vol: v, dur: 0.06 }); return; }
+      if (surface === "stone") { kitNoise(c, d, { type: "bandpass", cutoff: 560 + Math.random() * 200, q: 1.2, vol: v * 0.9, dur: 0.045 }); return; }
+      if (surface === "wood") { kitNoise(c, d, { type: "lowpass", cutoff: 520, q: 1, vol: v, dur: 0.05 }); kitTone(c, d, { freq: 150, type: "sine", vol: v * 0.5, dur: 0.04 }); return; }
+      kitNoise(c, d, { type: "lowpass", cutoff: 320 + Math.random() * 120, q: 0.8, vol: v, dur: 0.05 }); // 흙/풀
+    });
   }
 
-  private playLandingSound() {
+  private playLandingSound() { // 착지 — 부드러운 쿵
     const surface = this.currentFootstepSurface();
-    if (surface === "water") {
-      this.playTone(145, 0.08, "sine", 0.035);
-      this.playTone(340, 0.04, "triangle", 0.016);
-      return;
-    }
-    this.playTone(surface === "stone" ? 95 : 82, 0.08, surface === "stone" ? "square" : "sine", 0.028);
+    this.kit((c, d) => {
+      if (surface === "water") { kitNoise(c, d, { type: "lowpass", cutoff: 800, cutoff2: 300, vol: 0.03, dur: 0.12 }); return; }
+      kitTone(c, d, { freq: surface === "stone" ? 110 : 88, freq2: 52, type: "sine", vol: 0.026, dur: 0.12 });
+      kitNoise(c, d, { type: "lowpass", cutoff: 400, cutoff2: 140, vol: 0.015, dur: 0.09 });
+    });
   }
 
   private currentFootstepSurface() {
@@ -7493,7 +7484,7 @@ class WildernessGame {
     if (gain.levelsGained > 0) {
       this.craftStatPoints += gain.levelsGained;
       this.showMessage(`🔨 제작 레벨업! Lv ${this.craftLevel} — 스탯 포인트 +${gain.levelsGained}! 능력치를 올리세요`);
-      this.playTone(784, 0.12, "triangle", 0.05); this.playTone(1175, 0.18, "triangle", 0.045); // 레벨업 팡파레
+      this.kit((c, d) => kitChime(c, d, [659.25, 783.99, 987.77, 1318.51], 0.038, 0.07, 0.5)); // 레벨업 — 밝은 상승 벨 아르페지오
       this.openPanel("character"); // 획득한 포인트를 바로 분배할 수 있게 캐릭터창 자동 오픈
     }
   }
