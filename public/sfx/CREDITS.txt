@@ -12,3 +12,10 @@ victory.mp3 — "Victory" by celestialghost8 (8-bit 승리 팡파레) — OpenGa
 levelup.wav — "Rise03" (SoundPack01 by WobbleBoxx Workshop, 상승 파워업) — OpenGameArt, CC0 (AIFF→16bit WAV 변환)
    출처: https://opengameart.org/content/level-up-power-up-coin-get-13-sounds  — 용도: 전직
 (퀘스트 보상음은 기존 item_gem 재사용)
+
+[스킬 시전음 (2026-06-21)] — 모두 OpenGameArt, CC0 (cast 용으로 1~2초 트림)
+heal_cast.wav — "Magic Words + Healing"(health_restore) by Spring Spring — 힐러 스킬(치유/신성)
+wind_cast.wav — "Air whoosh" by pyranostudios — 소환사 바람 스킬
+gun_shot.wav  — "Gunshots"(22 Magnum) — 거너 강탄/관통강탄
+buff_cast.wav — "Magic Words"(magic_words) by Spring Spring — 탱커 함성/거너 속사 등 버프
+(불=기존 spell_fire, 근접=blade, 대지=stones, 소환=spell 재사용)

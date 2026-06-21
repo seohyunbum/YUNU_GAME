@@ -2,6 +2,7 @@ import type * as THREE from "three";
 import { GUNNER_SKILL_DAMAGE, HEALER_HEAL_AMOUNT, MAGE_TNT_DAMAGE, MAGE_TNT_RADIUS, WARRIOR_EXPLOSION_DAMAGE, WIND_CUTTER_DAMAGE } from "./constants";
 import { partyEmpowerNearby, partyHealNearby, partyRallyNearby } from "./partyPresence";
 import { partyGuestAttackIntercept } from "./partyWorldSync";
+import type { SkillElement } from "./skillSounds";
 import type { PlayerClassId, WorldObject } from "./types";
 
 // 힐러 파티 힐 사정거리 — 1스킬(천상치유)·2스킬(치유의 비) 공통 (5.1)
@@ -130,6 +131,7 @@ export interface SecondSkillContext {
   meleeEffects(target: WorldObject): void;
   playHandAction(kind: "melee" | "magic"): void;
   playTone(frequency: number, duration?: number, type?: OscillatorType, volume?: number): void;
+  skillSound(element: SkillElement): void; // 스킬 시전음 — 원소별 CC0 샘플(SKILL_SOUND)
   showMessage(text: string): void;
   renderHud(): void;
   castImpact(): void;
@@ -151,7 +153,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
     context.meleeEffects(target);
     context.applyDamage(target, strike);
     registerBurn(target.id, burnTickDamage(bonus), context.now());
-    context.playTone(180, 0.12, "sawtooth", 0.035);
+    context.skillSound("fire");
     context.showMessage(`불타는 공격! ${strike} 피해 + ${BURN_TICKS}초 동안 매초 ${burnTickDamage(bonus)} 화상 피해.`);
     return;
   }
@@ -161,7 +163,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
     const fbDmg = Math.round(fireballDamage(bonus) * context.damageMult());
     context.fireSkillProjectile("tnt", "fireball", fbDmg, 30, 0.4, FIREBALL_RADIUS);
     context.playHandAction("magic");
-    context.playTone(300, 0.1, "sawtooth", 0.03);
+    context.skillSound("fire");
     context.showMessage(`파이어볼! ${fbDmg} 범위 피해의 화염구를 발사했습니다.`);
     return;
   }
@@ -171,7 +173,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
     const windDmg = Math.round(windSpiritDamage(bonus) * context.damageMult());
     context.fireSkillProjectile("wind", "wind", windDmg, 34, 0.5);
     context.playHandAction("magic");
-    context.playTone(780, 0.08, "triangle", 0.026);
+    context.skillSound("wind");
     context.showMessage(`바람 정령! ${windDmg} 피해의 윈드커터를 발사했습니다.`);
     return;
   }
@@ -179,7 +181,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
     if (!context.trySpend(skill)) return;
     context.castImpact();
     context.buffs.rapidFireUntil = context.now() + RAPID_FIRE_SECONDS * 1000;
-    context.playTone(520, 0.07, "square", 0.028);
+    context.skillSound("buff");
     context.showMessage(`속사! ${RAPID_FIRE_SECONDS}초 동안 연사 속도가 2배가 됩니다.`);
     context.renderHud();
     return;
@@ -190,7 +192,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
     context.buffs.burningShieldUntil = context.now() + BURNING_SHIELD_SECONDS * 1000;
     context.buffs.nextAuraTickAt = context.now() + BURN_TICK_MS;
     context.playHandAction("melee");
-    context.playTone(240, 0.16, "sawtooth", 0.03);
+    context.skillSound("fire");
     context.showMessage(`불타는 방패! ${BURNING_SHIELD_SECONDS}초 동안 방어 +1, 가까운 적이 매초 ${thornsTickDamage(bonus)} 화상 피해를 입습니다.`);
     context.renderHud();
     return;
@@ -201,7 +203,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   context.buffs.healingRainUntil = context.now() + HEALING_RAIN_SECONDS * 1000;
   context.buffs.nextRainTickAt = context.now() + BURN_TICK_MS;
   context.playHandAction("magic");
-  context.playTone(840, 0.14, "sine", 0.024);
+  context.skillSound("heal");
   context.showMessage(`치유의 비! ${HEALING_RAIN_SECONDS}초 동안 매초 체력 ${healingRainTick(bonus)}을 회복합니다.`);
   context.renderHud();
 }
@@ -363,7 +365,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
       context.applyDamage(target, dmg);
     }
     context.playHandAction("melee");
-    context.playTone(140, 0.18, "sawtooth", 0.04);
+    context.skillSound("earth");
     context.showMessage(`대지가르기! 주변 ${targets.length}명에게 ${dmg} 광역 피해.`);
     return;
   }
@@ -373,7 +375,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
     context.buffs.empowerUntil = context.now() + EMPOWER_DURATION_MS; // 자신 버프
     const buffed = partyEmpowerNearby(EMPOWER_DURATION_MS, EMPOWER_PARTY_RADIUS); // 파티원 버프
     context.playHandAction("magic");
-    context.playTone(900, 0.14, "sine", 0.028);
+    context.skillSound("heal");
     context.showMessage(buffed > 0 ? `심판의 빛! 5분간 나와 파티원 ${buffed}명 공격·방어 +10%.` : "심판의 빛! 5분간 공격·방어 +10%.");
     context.renderHud();
     return;
@@ -384,7 +386,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
     const meteorDmg = Math.round(meteorDamage(bonus) * context.damageMult());
     context.fireMeteor(meteorDmg, METEOR_RADIUS); // 하늘에서 운석 낙하 → 지면 폭발(전방 파이어볼과 다른 연출)
     context.playHandAction("magic");
-    context.playTone(200, 0.18, "sawtooth", 0.035);
+    context.skillSound("fire");
     context.showMessage(`메테오! ${meteorDmg} 광역 피해의 운석을 떨어뜨렸습니다.`);
     return;
   }
@@ -395,7 +397,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
     context.buffs.nextSpiritStormTickAt = context.now(); // 즉시 첫 틱부터
     context.buffs.spiritStormTicksLeft = 3; // 3초간 초당 1회(총 3회) — updateSecondSkillEffects 가 매 틱 주변 적 재탐색·피해
     context.playHandAction("magic");
-    context.playTone(720, 0.12, "triangle", 0.03);
+    context.skillSound("wind");
     context.showMessage(`정령 폭풍! 3초간 주변 적에게 초당 ${spiritStormDamage(bonus)} 피해(총 3회).`);
     return;
   }
@@ -404,7 +406,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
     context.castImpact();
     context.fireSkillProjectile("arrow", "arrow", piercingShotDamage(bonus), 64, 0.26);
     context.playHandAction("magic");
-    context.playTone(480, 0.08, "square", 0.03);
+    context.skillSound("gun");
     context.showMessage(`관통 강탄! ${piercingShotDamage(bonus)} 피해의 관통탄을 발사했습니다.`);
     return;
   }
@@ -414,7 +416,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   context.buffs.rallyDefUntil = context.now() + RALLY_DEF_SECONDS * 1000; // 자신 방어 +20%
   const buffed = partyRallyNearby(RALLY_DEF_SECONDS * 1000, RALLY_PARTY_RADIUS); // 같은 맵 파티원 전원
   context.playHandAction("melee");
-  context.playTone(220, 0.2, "sawtooth", 0.035);
+  context.skillSound("buff");
   context.showMessage(buffed > 0 ? `불굴의 함성! 20초간 나와 파티원 ${buffed}명 방어 +20%.` : "불굴의 함성! 20초간 방어 +20%.");
   context.renderHud();
 }

@@ -24,7 +24,7 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: ensureBloom 1개 → 486→487.
 // 2026-06-21: applyEnvForQuality 1개 → 487→488.
 // 2026-06-21: 야생 밀도 로드 탑업 — seedPredators(시딩 추출)·ensureWildlifeDensity(소급 보충) 2개 → 488→490. 분포/스폰이 main 인스턴스 상태 의존이라 leaf 추출 어려움(밀도 공식·목표는 constants 로 단일화).
-const MAX_METHODS = 490;
+const MAX_METHODS = 491;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

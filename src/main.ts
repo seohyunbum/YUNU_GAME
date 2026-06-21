@@ -262,6 +262,7 @@ import { applyCraftXp, craftXpForNextLevel, craftXpForRecipe, createCraftStatAll
 import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard } from "./ui/trainingPanel";
 import { burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
+import { SKILL_SOUND, SKILL_SOUND_PRELOAD, type SkillElement } from "./game/skillSounds";
 import { CLASS_PASSIVES, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
@@ -3014,7 +3015,7 @@ class WildernessGame {
     useSecondClassSkill(this.secondSkillContext);
   }
 
-  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
+  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
 
   // 3번째 스킬(F) — 1차 전직 시 해금. 2스킬 컨텍스트를 재사용하되 쿨다운 슬롯/광역·자가회복만 보강.
   private useThirdSkill() {
@@ -3104,7 +3105,7 @@ class WildernessGame {
     const friends = partyHealNearby(amount, HEAL_PARTY_RADIUS);
     spawnHealEffect(this.combatEffectContext, this.playerPosition);
     this.playHandAction("magic");
-    this.playTone(720, 0.14, "triangle", 0.03); this.playTone(960, 0.18, "sine", 0.018);
+    this.playSkillSound("heal");
     this.showMessage(friends > 0 ? `천상치유! 체력 ${Math.ceil(this.health - previous)} 회복, 친구 ${friends}명도 치유.` : `천상치유! 체력 ${Math.ceil(this.health - previous)} 회복.`);
     this.renderHud();
   }
@@ -3126,7 +3127,7 @@ class WildernessGame {
     this.camera.position.copy(this.playerPosition);
     this.syncPossessedEagle();
     this.playHandAction("magic");
-    this.playTone(860, 0.18, "triangle", 0.032);
+    this.playSkillSound("summon");
     this.showMessage("\uBE59\uC758 \uC870\uC791: \uC88C\uD074\uB9AD/E \uBC15\uCE58\uAE30, R \uD560\uD034\uAE30, \uC6B0\uD074\uB9AD \uC708\uB4DC\uCEE4\uD130, X \uBE59\uC758 \uD574\uC81C.");
     this.showMessage("독수리소환술! 독수리에 빙의했습니다. 독수리가 쓰러지면 본체로 돌아갑니다.");
     this.renderHud();
@@ -3151,7 +3152,7 @@ class WildernessGame {
     const tntDmg = Math.round(mageTntDamage(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 마나순환: 지팡이 장착 시 +15%
     this.fireSkillProjectile("tnt", "tnt", tntDmg, 24, 0.42, MAGE_TNT_RADIUS);
     this.playHandAction("magic");
-    this.playTone(220, 0.08, "square", 0.024);
+    this.playSkillSound("fire");
     this.showMessage(`TNT발사! ${tntDmg} 범위 피해.`);
   }
 
@@ -3160,7 +3161,7 @@ class WildernessGame {
     spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     this.fireSkillProjectile("arrow", "arrow", gunnerShotDamage(this.levelStatBonus()), 58, 0.22);
     this.playHandAction("bow");
-    this.playBowShotSound();
+    this.playSkillSound("gun");
     this.showMessage(`강탄! ${gunnerShotDamage(this.levelStatBonus())} 피해의 강한 탄환을 발사했습니다.`);
   }
 
@@ -3168,7 +3169,7 @@ class WildernessGame {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, TANKER_SKILL_COST, TANKER_SKILL_COOLDOWN, "primary")) return;
     spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     this.ironGuardUntil = activateIronGuardUntil(performance.now());
-    this.playHandAction("melee"); this.playTone(220, 0.16, "triangle", 0.03); this.showMessage(ironGuardMessage()); this.renderHud();
+    this.playHandAction("melee"); this.playSkillSound("buff"); this.showMessage(ironGuardMessage()); this.renderHud();
   }
 
   // 스킬 투사체 공용 발사기 — TNT/강탄/파이어볼/바람정령이 공유한다
@@ -5525,6 +5526,8 @@ class WildernessGame {
     if (!this.sfxPlayer?.play(n, { volume })) fallback();
   }
 
+  private playSkillSound(element: SkillElement) { const s = SKILL_SOUND[element]; this.sample(s.names, s.volume, () => {}); } // 스킬 시전음 — 원소→CC0 샘플
+
   private scheduleBgmStep(profile: AudioProfile, startTime: number) {
     const step = this.bgmStep % 16;
     const note = profile.melody[step % profile.melody.length];
@@ -5603,7 +5606,7 @@ class WildernessGame {
     this.sfxMasterGain.connect(this.audioContext.destination);
     this.musicPlayer = createMusicPlayer(this.audioContext, this.audioContext.destination); // 실음원(CC0) BGM
     this.sfxPlayer = createSfxPlayer(this.audioContext, this.sfxMasterGain, import.meta.env.BASE_URL); // 실음원(CC0) 효과음
-    this.sfxPlayer.preload(["blade_01", "blade_02", "blade_03", "spell_01", "spell_02", "spell_fire_01", "spell_fire_02", "spell_fire_05", "metal_01", "metal_02", "metal_03", "creature_hurt_01", "creature_hurt_02", "item_coins_01", "item_coins_02", "item_gem_01", "item_misc_01", "wood_01", "wood_02", "wood_03", "wood_04", "stones_01", "stones_02", "stones_03", "item_stone_01", "item_stone_02", "lock_01", "victory.mp3", "levelup.wav"]);
+    this.sfxPlayer.preload(["blade_01", "blade_02", "blade_03", "spell_01", "spell_02", "spell_fire_01", "spell_fire_02", "spell_fire_05", "metal_01", "metal_02", "metal_03", "creature_hurt_01", "creature_hurt_02", "item_coins_01", "item_coins_02", "item_gem_01", "item_misc_01", "wood_01", "wood_02", "wood_03", "wood_04", "stones_01", "stones_02", "stones_03", "item_stone_01", "item_stone_02", "lock_01", "victory.mp3", "levelup.wav", ...SKILL_SOUND_PRELOAD]);
     this.nextBgmNoteAt = this.audioContext.currentTime + 0.08;
     this.nextAmbientCueAt = this.audioContext.currentTime + 2.2;
   }
