@@ -161,3 +161,5 @@ export const MOVEMENT_HUD_MIN_INTERVAL = 0.18;
 // 아웃라인 거리 게이트 — 이 거리 밖 객체는 본체는 보이되 아웃라인(외곽선)만 끔(PC=high 전용; 모바일은 아웃라인 자체 off).
 // 먼 외곽선은 서브픽셀이라 체감 품질 손실 ~0. 마을이 스폰서 ~95m → 85면 스폰뷰 마을 외곽선 off, 마을 진입 시 복귀. HUD 로 튜닝.
 export const OUTLINE_VISIBILITY_DISTANCE = 85;
+// 수동 저장 디바운스 — 직전 저장 완료 후 이 시간(ms) 내 재요청은 무시(버튼 연타·이중발화로 같은-초 중복 슬롯이 생겨 다른 캐릭터 슬롯이 trim 유실되던 크리티컬 버그 방지).
+export const SAVE_DEBOUNCE_MS = 1500;

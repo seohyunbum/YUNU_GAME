@@ -181,6 +181,7 @@ import {
   RANGED_ATTACK_COOLDOWN, GUN_FIRE_RATE_SCALE, MAGIC_AOE_RADIUS,
   RUN_MULTIPLIER,
   MAX_SAVE_SLOTS,
+  SAVE_DEBOUNCE_MS,
   AUTOSAVE_INTERVAL_SECONDS, BED_REST_PROFILE,
   SMITHING_HITS_REQUIRED,
   SMITHING_ROUND_SECONDS, SMITHING_SUCCESS_POINTS,
@@ -636,6 +637,7 @@ class WildernessGame {
   private currentHouseOwned = false;
   private saveLoadInProgress = false;
   private saveInProgress = false; // 수동 저장(SAVE_LIST 기록) 직렬화 — 동시 saveGame/덮어쓰기의 read-modify-write 경쟁(저장 유실) 방지
+  private lastSaveCompletedAt = 0; // 마지막 저장 완료 시각(ms) — SAVE_DEBOUNCE_MS 내 재요청 무시(같은-초 중복 슬롯 방지)
   private homeStorage = normalizeHomeStorage();
   private sharedStorage: Slot[] | null = null; // 게스트: 호스트 공유 창고 캐시(storageSync 수신). 솔로/호스트는 자기 homeStorage 직접 사용.
   private sharedSupplyCd = 0; // 게스트: 동기화된 공유 보급 쿨타임(초)
@@ -5894,11 +5896,12 @@ class WildernessGame {
   private async saveGame() {
     if (this.fortressSiege?.active) { this.showMessage("요새 진행 중에는 저장할 수 없습니다. 나가거나 끝낸 뒤 저장하세요."); return; }
     if (this.saveInProgress) { this.showMessage("저장을 진행하고 있습니다…"); return; } // 동시 저장 차단 — 직전 저장이 덮어써져 사라지던 경쟁 방지
+    if (Date.now() - this.lastSaveCompletedAt < SAVE_DEBOUNCE_MS) { this.showMessage("방금 저장했습니다."); return; } // 연타·이중발화로 같은-초 중복 슬롯이 생겨 다른 슬롯이 trim 되던 크리티컬 버그 방지
     this.saveInProgress = true;
     try {
       const save = this.createSaveData();
       void publishProgress(this.nickname, this.progressUpdate()); // 운영 리포트 + 랭킹(요새·훈련)용 진행도 발행(부가)
-      const existingSaves = this.readStoredSlots().filter((slot) => slot.savedAt !== save.savedAt);
+      const existingSaves = this.readStoredSlots().filter((slot) => slot.savedAt.slice(0, 19) !== save.savedAt.slice(0, 19)); // 초 단위 비교 — 같은 초의 ms-다른 저장도 교체(중복 슬롯 방지)
       if (existingSaves.length >= MAX_SAVE_SLOTS) {
         // 슬롯 가득 — 어떤 저장도 건드리기 전에 덮어쓸 슬롯을 직접 고르게 한다.
         // (예전엔 여기서 최근 저장(SAVE_KEY)을 먼저 덮어써 다른 캐릭터 저장이 묻지도 않고 사라졌다)
@@ -5914,7 +5917,7 @@ class WildernessGame {
       try { await appendSaveToHistoryInRepository(save, this.nickname); } catch (e) { console.warn("백업 링 기록 실패(본 저장은 완료)", e); }
       // 용량 부족으로 떨궈진 슬롯은 어느 것인지 이름으로 알린다(과거엔 '최근 N개만 보관'이라 무엇이 사라졌는지 알 수 없었다).
       const droppedText = requestedSaves.length > storedCount ? ` ⚠️ 공간 부족으로 '${requestedSaves.slice(storedCount).map((s) => s.label).join("', '")}' 저장은 보관되지 못했습니다.` : "";
-      this.tutorialSignals.saved = true;
+      this.tutorialSignals.saved = true; this.lastSaveCompletedAt = Date.now();
       this.showMessage(`저장 완료: ${formatSaveDate(save.savedAt)}.${droppedText}`);
     } catch (error) {
       console.error(error);
