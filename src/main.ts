@@ -840,6 +840,8 @@ class WildernessGame {
   private sfxPlayer: SfxPlayer | null = null; // 실음원(CC0) 효과음 샘플. play 실패 시 절차적 합성 폴백.
   // 맵별 실음원 매핑. 시작초원=마을테마(타이틀과 동일), 나머지는 상황별로 고루 분배.
   private readonly mapMusic: Record<string, string> = { starter_valley: "town_theme.mp3", dragon_plains: "field.mp3", bamboo_frontier: "bamboo.mp3", mushroom_glen: "hills.mp3", toxic_swamp: "swamp.ogg", mountain_ridge: "field.mp3", graveyard: "creepy.mp3", snowfield: "icy.ogg", dragon_lands: "battle.mp3" };
+  private readonly battleTracks = ["battle.mp3", "battle_epic.ogg", "battle_fast.ogg", "battle_dark.mp3"]; // 전투 BGM 풀(CC0) — 전투 진입마다 랜덤
+  private combatTrack = "battle.mp3"; // 현재 전투 세션의 배틀곡(enterCombatMood 가 진입 시 갱신)
   private nextBgmNoteAt = 0;
   private bgmStep = 0;
   private nextAmbientCueAt = 0;
@@ -5492,7 +5494,7 @@ class WildernessGame {
     const T = (name: string) => `${import.meta.env.BASE_URL}bgm/${name}`;
     if (!this.gameStarted) { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.21, fadeMs: 1500 }); return; } // 타이틀 (+30%)
     if (this.fortressSiege?.active) { this.musicPlayer.setTrack(T("fortress.ogg"), { volume: 0.22, fadeMs: 800 }); return; } // 몬스터 요새 — 전투 오버라이드보다 먼저 체크: 요새 고유 테마(일반 배틀 아님)
-    if (this.combatMoodActive()) { this.musicPlayer.setTrack(T("battle.mp3"), { volume: 0.23, fadeMs: 450 }); return; } // 전투 — 빠른 페이드(타격 즉시)
+    if (this.combatMoodActive()) { this.musicPlayer.setTrack(T(this.combatTrack), { volume: 0.23, fadeMs: 450 }); return; } // 전투 — 빠른 페이드(타격 즉시). 곡은 enterCombatMood 가 전투 진입 시 풀에서 랜덤 선택
     if (this.locationMode === "cave") { this.musicPlayer.setTrack(T("cave.ogg"), { volume: 0.22, fadeMs: 1200 }); return; } // 동굴 — 던전 루프(기존 dungeon.ogg 앰비언스는 너무 작아 무음처럼 느껴짐)
     if (this.locationMode === "house") { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.14, fadeMs: 1500 }); return; }
     this.musicPlayer.setTrack(T(this.mapMusic[this.currentWorldMapId] ?? "field.mp3"), { volume: 0.2, fadeMs: 1800 });
@@ -5505,7 +5507,10 @@ class WildernessGame {
   }
 
   // ★전투 진입 — 실제 타격(내가 적대 몬스터를 때리거나 몬스터가 나를 때림) 시점에 호출. 거리감지 대신 즉시 전환.
-  private enterCombatMood() { this.combatMoodUntil = performance.now() + 6000; } // 마지막 타격 후 6초 유지(타격 사이 깜빡임 방지)
+  private enterCombatMood() {
+    if (!this.combatMoodActive()) { const pool = this.battleTracks.filter((t) => t !== this.combatTrack); this.combatTrack = pool[Math.floor(Math.random() * pool.length)] ?? this.battleTracks[0]; } // 새 전투 진입 시에만 배틀곡 교체(직전과 다르게) — 전투 중 갑작 전환 방지
+    this.combatMoodUntil = performance.now() + 9000; // 마지막 타격/피격 후 9초 유지(6→9, +3s: sparse 사냥 시 배틀↔평상 BGM 반복 깜빡임 방지)
+  }
   // 전투 분위기 — 타격 직후 6초 윈도우 또는 요새 디펜스 중. (가축류 사냥은 enterCombatMood 미호출이라 제외됨)
   private combatMoodActive() {
     if (!this.gameStarted || this.locationMode === "house") return false;
