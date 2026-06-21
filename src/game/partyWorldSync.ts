@@ -322,9 +322,10 @@ export function partyWorldSyncTick(nowMs: number, delta: number) {
       session.sendGame(collectMobs(), MOB_SEND_MAX_BUFFERED);
     }
   } else {
-    // 스냅샷이 끊기면(호스트 실내/백그라운드/이탈) 동기화 몬스터를 치우고 로컬 시뮬로 복귀 준비
+    // 스냅샷이 끊기면(호스트 실내/백그라운드/이탈) 동기화 몬스터를 치우고 로컬 시뮬로 복귀 준비.
+    // 단 정적 공유물(동굴 입구·상자)은 보존 — 호스트가 동굴/집에 들어가도 게스트 화면에서 깜빡이며 사라지지 않게.
     if (clearedForMapId !== null && nowMs - lastMobsAt > MOB_SYNC_STALE_MS) {
-      clearSyncedMobs();
+      clearSyncedMobs(true);
       clearedForMapId = null;
     }
     if (init.localPresence().inGame) guestLerpTick(delta); // 실내(동굴/집)에서는 보간·재접지 정지
@@ -510,7 +511,8 @@ function hostApplyGuestAttack(targetId: string, power: number, killer: string) {
     lootItem: guard ? "iron" : undefined, // 경비 처치자(게스트)에게 철 지급
     lootCount: guard ? 1 : undefined,
   };
-  world.creditHostKill(target, killer === init!.localPresence().nickname); // 펫/플레이어 XP + 필드보스 기록. 사냥 카운터는 호스트가 직접 막타쳤을 때만(게스트 막타는 게스트가 자기 카운터 증가)
+  world.creditHostKill(target, killer === init!.localPresence().nickname); // 펫/플레이어 XP + 필드보스 기록. 사냥 카운터는 호스트가 직접 막타쳤을 때만 여기서 처리
+  if (target.predatorKind) world.creditQuestKill(); // 파티 누적 사냥 — 게스트가 잡은 야생도 호스트 카운터에 +1(호스트는 자기 브로드캐스트를 받지 않으므로 onPartyKill 로는 합산 안 됨)
   world.removeObject(target.id);
   world.showMessage(`${killer} 님이 ${kill.name}을(를) 쓰러뜨렸습니다!`);
   debugLastKill = { name: kill.name, killer, xp: kill.xp };
@@ -690,8 +692,11 @@ function removeSyncedMob(hostId: string) {
   init?.world?.removeObjectSilent(object.id);
 }
 
-function clearSyncedMobs() {
-  for (const hostId of [...syncedByHostId.keys()]) removeSyncedMob(hostId);
+function clearSyncedMobs(keepStatic = false) {
+  for (const hostId of [...syncedByHostId.keys()]) {
+    if (keepStatic) { const obj = syncedByHostId.get(hostId); if (obj && isStaticShareType(obj.type)) continue; } // 정적(동굴 입구·상자)은 보존 — 호스트가 실내(동굴/집)로 들어가 스냅샷이 끊겨도 게스트 화면에서 사라지지 않게(깜빡임 방지)
+    removeSyncedMob(hostId);
+  }
 }
 
 function guestLerpTick(delta: number) {
@@ -726,9 +731,10 @@ function onPartyKill(message: { name: string; xp: number; killer: string; mapId:
     debugXpGained += message.xp;
     // 필드보스 토벌 기록도 같은 맵에서 함께 싸운 경우에만 공유 — 다른 맵 게스트의 보스 콘텐츠를 지우지 않는다
     if (message.fieldBossId) world.recordFieldBossDefeat(message.fieldBossId);
+    // 파티 누적 사냥 — 같은 맵 파티원이 잡은 야생 처치도 내 카운터에 합산(경비=kind 없음 제외). 막타자/관전자 모두 +1.
+    // 호스트는 자기 막타를 로컬에서, 게스트 막타를 hostApplyGuestAttack 에서 +1 하고 자기 브로드캐스트는 안 받으므로 이중집계 없음.
+    if (message.kind) world.creditQuestKill();
   }
-  // 내가 막타친 야생동물이면 사냥 퀘스트 카운터(+1). 경비(kind 없음·lootItem='iron')는 사냥 카운터 대상 아님.
-  if (isKiller && message.kind) world.creditQuestKill();
   // 처치자 전리품 — 경비는 lootItem("iron"), 야생은 kind→predatorLootForKind
   let lootItem: ItemId | undefined;
   let lootCount = message.lootCount ?? 1;
