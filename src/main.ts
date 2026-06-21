@@ -261,7 +261,7 @@ import { createTrainingStats, ensureTrainingGround, normalizeTrainingStats, TRAI
 import { applyCraftXp, craftXpForNextLevel, craftXpForRecipe, createCraftStatAlloc, normalizeCraftStatAlloc, type CraftStatAlloc } from "./game/craftLevel";
 import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard } from "./ui/trainingPanel";
-import { burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
+import { burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, stewAttackBonus, stewDefenseBonus, STEW_BUFF_SECONDS, STEW_HEAL, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { SKILL_SOUND, SKILL_SOUND_PRELOAD, type SkillElement } from "./game/skillSounds";
 import { CLASS_PASSIVES, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
@@ -816,7 +816,7 @@ class WildernessGame {
     grantLevels: (count, fraction = 1) => this.gainExperience(Math.round(experienceForLevelUps(this.level, this.experience, count) * fraction)),
     equipArmor: (item) => { this.equippedArmor = item; },
     equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
-    equipNecklace: (item) => { this.equippedNecklace = item; },
+    equipNecklace: (item) => { this.equippedNecklace = item; }, consumeStew: () => { const healed = Math.min(STEW_HEAL, this.maxHealth - this.health); this.health += healed; this.skillBuffs.stewBuffUntil = performance.now() + STEW_BUFF_SECONDS * 1000; this.playTone(523, 0.14, "triangle", 0.04); this.showMessage(`고기 스튜를 먹었습니다! 5분간 공격·방어 +5${healed > 0 ? `, 체력 ${healed} 회복` : ""}.`); this.renderHud(); },
     playHandAction: () => this.playHandAction(),
     spawnHealEffect: () => spawnHealEffect(this.combatEffectContext, this.playerPosition),
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
@@ -4977,7 +4977,7 @@ class WildernessGame {
   private bodyMeleeAttackPower() { // 본체 근접 공격력(무기+레벨+훈련+제작+목걸이 ×심판의빛) — 빙의 공격도 이를 사용
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한
-    return Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null));
+    return Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null));
   }
   private currentDamage() {
     if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE; // 빙의 박치기 = 본체 공격력 + 5
@@ -4986,7 +4986,7 @@ class WildernessGame {
 
   private currentRangedDamage(item: ItemId) {
     const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
-    return Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item));
+    return Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item));
   }
 
   private eagleCombatTarget() {
@@ -5020,7 +5020,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace)) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()));
+    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()));
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {

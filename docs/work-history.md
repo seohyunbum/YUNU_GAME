@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-21 — 잉여 고기·가죽 소모처: 가죽 붕대 + 고기 스튜(전투 버프식) + 퀘스트
+
+- 시도: 후반에 고기·가죽이 적체(요리 시스템 없음·크래프팅 소모 거의 없음) → 반복 소모 회복/버프식 추가.
+- 결과: ① 가죽 붕대(가죽 6 → 회복 12) = HEAL_ITEMS 재사용(메인/세이브 변경 0). ② 고기 스튜(고기 16+석탄 2+철 1) = 즉시 회복 20 + 5분 공격·방어 +5 버프. 버프는 `skillBuffs.stewBuffUntil`(휘발, empower/rally 패턴) + `stewAttackBonus`/`stewDefenseBonus`(classSkills leaf)를 bodyMeleeAttackPower·currentRangedDamage·equippedArmorValue 합산에 추가. 사용은 useHotbarItem meat_stew 분기→context.consumeStew(메인 컨텍스트 프로퍼티, 클래스 메서드 아님=메서드예산 무영향). ③ 퀘스트 craft_bandage·craft_stew(countItem 기반, id-set 소급). 비주얼 전용 모델 2종(content-test 돌덩이 폴백 방지).
+- 다음 판단: 회복 수치 medkit(15)·고급(25) 아래로 유지(붕대 12). 스튜 버프는 empower/necklace 와 곱·합 스택(의도). 적체 더 빼야 하면 무두질 가죽→고렙 가죽장비(설계서 §3-B) 후속.
+- 관련 파일/검증: `items.ts`·`classSkills.ts`·`main.ts`·`hotbarUse.ts`·`heldItemVisuals.ts`·`recipes.ts`·`objectives.ts`. verify+build, E2E 9종(스튜 버프 +5/원복·붕대 회복 12·소비), 퀘스트 module 검증. 설계 `docs/meat-leather-sinks-design.md`. ratchet line 10042 유지(컨텍스트 1줄 병합).
+
 ## 2026-06-21 — 흑요석 광맥 시각 강화 + 흑요석 획득 퀘스트
 
 - 시도: 동굴 흑요석 타일이 석탄(무광 검정)과 헷갈린다는 피드백 → 귀한 재료답게 눈에 띄게 강화 + 획득 가이드 퀘스트 추가.

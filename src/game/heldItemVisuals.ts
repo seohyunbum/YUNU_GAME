@@ -255,6 +255,24 @@ export function createHeldItemModel(item: ItemId) {
     const crossHorizontal = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.055, 0.02), redMaterial);
     crossHorizontal.position.copy(crossVertical.position);
     group.add(box, latch, crossVertical, crossHorizontal);
+  } else if (item === "leather_bandage") {
+    const cloth = new THREE.MeshStandardMaterial({ color: 0xe7ddc4, roughness: 0.85 });
+    const tan = new THREE.MeshStandardMaterial({ color: 0xb98a4e, roughness: 0.8 });
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.24, 16), cloth);
+    roll.rotation.z = Math.PI / 2; roll.position.y = 0.28;
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.135, 0.07, 16), tan);
+    band.rotation.z = Math.PI / 2; band.position.y = 0.28;
+    group.add(roll, band);
+  } else if (item === "meat_stew") {
+    const bowlMat = new THREE.MeshStandardMaterial({ color: 0x5b3a22, roughness: 0.8 });
+    const brothMat = new THREE.MeshStandardMaterial({ color: 0x9c4a1e, roughness: 0.5, emissive: 0x3a1404, emissiveIntensity: 0.18 });
+    const chunkMat = new THREE.MeshStandardMaterial({ color: 0xc06a3a, roughness: 0.7 });
+    const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.13, 0.16, 18), bowlMat);
+    bowl.position.y = 0.22;
+    const broth = new THREE.Mesh(new THREE.CylinderGeometry(0.195, 0.195, 0.05, 18), brothMat);
+    broth.position.y = 0.31;
+    for (let i = 0; i < 3; i += 1) { const chunk = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.06), chunkMat); chunk.position.set(-0.08 + i * 0.08, 0.34, (i % 2) * 0.06 - 0.03); group.add(chunk); }
+    group.add(bowl, broth);
   } else if (item === "smelter" || item === "special_smelter") {
     const smelter = createSmelterVisual(item === "special_smelter", 0.22);
     smelter.position.y = 0.08;

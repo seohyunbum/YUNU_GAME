@@ -89,6 +89,22 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     extendedOnly: true,
   },
   {
+    id: "leather_bandage",
+    name: "가죽 붕대",
+    output: "leather_bandage",
+    count: 1,
+    ingredients: { leather: 6 },
+    note: "가죽 6으로 만드는 회복식 — 사용 시 체력 12 회복. 잉여 가죽을 소진하는 값싼 회복템입니다.",
+  },
+  {
+    id: "meat_stew",
+    name: "고기 스튜",
+    output: "meat_stew",
+    count: 1,
+    ingredients: { meat: 16, coal: 2, iron: 1 },
+    note: "전투 준비식 — 사용 시 체력 20 회복 + 5분간 공격·방어 +5. 잉여 고기를 대량 소진합니다.",
+  },
+  {
     id: "iron_shield",
     name: "철 방패",
     output: "iron_shield",
