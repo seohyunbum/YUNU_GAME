@@ -152,7 +152,7 @@ export function renderInventoryPanel(
           <section class="inventory-board inv2-bag">
             <div class="inventory-label">핫바 ${view.hotbarCount}칸</div>
             <div class="inventory-hotbar inventory-grid">${hotbar}</div>
-            <div class="inventory-label">가방 ${escapeHtml(view.bagLabel)}<button class="bag-sort-btn" data-sort-bag title="재료·무기·도구별로 묶고 등급 오름차순 정렬 (가방만)">↕ 자동정렬</button></div>
+            <div class="inventory-label">가방 ${escapeHtml(view.bagLabel)}<button class="bag-sort-btn" data-sort-bag title="무기·도구/설치물·소비·재료별로 묶고 등급 오름차순 정렬 (제련대·제작대·침대 등 사용가능 도구는 한 묶음, 가방만)">↕ 자동정렬</button></div>
             <div class="bag-grid inventory-grid">${bagGrid}</div>
           </section>
 
