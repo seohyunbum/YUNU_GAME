@@ -990,7 +990,7 @@ class WildernessGame {
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.98;
+    this.renderer.toneMappingExposure = 1.02; // 0.98→1.02 살짝 밝고 화사하게(juice)
     this.renderer.shadowMap.enabled = false;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
@@ -1046,10 +1046,10 @@ class WildernessGame {
   private setupSkyDome() {
     this.sky.scale.setScalar(WORLD_SIZE * 2.2);
     const uniforms = this.sky.material.uniforms;
-    uniforms.turbidity.value = 7.2;
-    uniforms.rayleigh.value = 2.85;
-    uniforms.mieCoefficient.value = 0.0045;
-    uniforms.mieDirectionalG.value = 0.72;
+    uniforms.turbidity.value = 6.6; // 살짝 맑게
+    uniforms.rayleigh.value = 3.1; // 푸른 산란 ↑ — 더 깊고 화사한 하늘
+    uniforms.mieCoefficient.value = 0.005; // 태양 주변 글로우 ↑
+    uniforms.mieDirectionalG.value = 0.8; // 더 또렷한 태양 빛무리
     this.scene.add(this.sky);
   }
 
@@ -7962,10 +7962,10 @@ class WildernessGame {
       textureHeight: 512,
       waterNormals: this.getWaterNormalTexture(),
       sunDirection: this.sunPosition.clone().normalize(),
-      sunColor: 0xffffff,
+      sunColor: 0xfff0d4, // 따뜻한 햇빛 반사
       waterColor: VISUAL_THEME.waterDeep,
-      distortionScale: 2.8,
-      alpha: 0.76,
+      distortionScale: 3.4, // 잔물결 ↑ — 더 생동감
+      alpha: 0.82, // 살짝 더 깊고 풍부하게
       fog: true,
     });
     water.rotation.x = -Math.PI / 2;

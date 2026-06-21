@@ -35,7 +35,17 @@ body {
   display: block;
   width: 100%;
   height: 100%;
-  filter: saturate(1.18) contrast(1.05);
+  filter: saturate(1.24) contrast(1.07) brightness(1.02); /* 컬러 그레이딩 — 채도·대비 살짝 올려 toon 색이 더 또렷하게(pop) */
+}
+
+/* 시네마틱 비네팅 — 가장자리만 은은히 어둡게(정적 그라데이션이라 프레임 비용 0). 3D 위·HUD(z-index 16+) 아래. */
+#game::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse 122% 128% at 50% 45%, transparent 54%, rgba(10, 8, 20, 0.15) 80%, rgba(6, 5, 14, 0.4) 100%);
 }
 
 .game-ui {
