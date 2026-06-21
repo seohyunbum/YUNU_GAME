@@ -82,7 +82,7 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
           </div>
           <button class="icon-button" data-close>닫기</button>
         </header>
-        ${points > 0 ? `<div class="character-points-banner" role="status">🎉 분배할 스탯 포인트 <b>${points}</b>개! 아래 <span class="character-points-plus">＋</span> 버튼으로 능력치를 올리세요</div>` : ""}
+        ${points > 0 ? `<div class="character-points-banner" role="status">🔨 제작을 하면 능력치 포인트를 받아요 — 분배할 포인트 <b>${points}</b>개! 아래 <span class="character-points-plus">＋</span> 버튼으로 체력·공격력 등을 올리세요</div>` : ""}
         <div class="character-body">
           <div class="character-gear">
             <div class="inventory-label">착용 장비</div>
