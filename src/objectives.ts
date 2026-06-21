@@ -1,4 +1,5 @@
 import { BOSS_PROGRESSION, FINAL_BOSS_CHAPTER } from "./game/bossChapters";
+import { HUNGER_MAX } from "./game/constants";
 import { getWorldMapById } from "./game/worldMaps";
 import { FIELD_BOSSES, type FieldBossDef } from "./game/fieldBosses";
 import { BOSS_STATS } from "./game/monsters";
@@ -32,6 +33,7 @@ export interface ObjectiveSnapshot {
   craftedNecklace: boolean;
   craftedAdvancedMedkit: boolean;
   recoveredWorkbench: boolean;
+  ateMeat: boolean;
   hasNecklaceEquipped: boolean;
   hasWorkbench: boolean;
   hasPickaxe: boolean;
@@ -270,6 +272,19 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
   // 처치했는데 보상 미수령인 맵 보스는 튜토리얼 단계와 무관하게 항상 즉시 수령 (보상 유실 방지)
   const claimableBoss = FIELD_BOSSES.find((def) => !completed(snapshot, def.id) && defeatedFieldBosses.includes(def.id));
   if (claimableBoss) return fieldBossObjective(claimableBoss, true);
+
+  // 첫 배고픔 감소(한 칸) 순간 '고기 먹기' 교육 — 시퀀스 밖 컨텍스트 퀘스트. 먹으면 완료·보상, 한 번 받으면 다시 안 뜸.
+  if (snapshot.hunger < HUNGER_MAX && !completed(snapshot, "eat_meat")) {
+    return {
+      id: "eat_meat",
+      title: `고기를 먹어 배고픔 채우기 (${snapshot.ateMeat ? 1 : 0}/1)`,
+      detail: "배고픔이 한 칸 줄었어요! 고기를 먹어 채우세요. 고기는 말·소·돼지 같은 동물을 사냥하면 얻습니다(좌클릭으로 공격). 먹는 법: 고기를 핫바(화면 아래 퀵슬롯)에 넣고 숫자키로 그 칸을 고른 뒤 우클릭으로 사용하세요(모바일은 핫바의 고기 아이콘을 탭). 배고픔이 0이 되면 체력·마나 회복이 멈춥니다.",
+      progress: snapshot.ateMeat ? "1/1 — Q로 보상 받기" : "0/1",
+      reward: { experience: 80, items: { meat: 3 }, label: "경험치 80 + 고기 3개" },
+      completed: snapshot.ateMeat,
+      kind: "tutorial",
+    };
+  }
 
   const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id));
   if (nextStep) {
