@@ -16,7 +16,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: appendPartyLedger(파티 거래 기록) 1개 → 477→478.
 // 2026-06-20: bodyMeleeAttackPower(빙의 데미지=본체 능력치 추출) 1개 → 478→479.
 // 2026-06-21: ensureFortressGate 1개 → 479→480.
-const MAX_METHODS = 480;
+// 2026-06-21: playJobAdvanceFx 1개 → 480→481.
+const MAX_METHODS = 481;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

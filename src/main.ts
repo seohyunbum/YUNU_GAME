@@ -87,6 +87,7 @@ import {
   bossBreathColors,
   spawnEnemyHitParticles,
   spawnExplosionVisual,
+  spawnMagicCircle, spawnFireworkBurst, spawnBossRoar, celebrationBurst, sparkleBurst,
   spawnMagicTrail,
   spawnMeleeSlashTrail,
   OBSIDIAN_PROJECTILE,
@@ -2962,6 +2963,35 @@ class WildernessGame {
     this.projectiles.push({ kind: "tnt", mesh, velocity: dir.clone().multiplyScalar(speed), damage, radius: 0.95, life: dist / speed, explosionRadius });
   }
 
+  // 전직 연출 — 차수가 오를수록(특히 2·3차) 더 화려하게. 발밑 마법진 + 충격파 + 폭죽 + 반짝임 + 상승 팡파레음. 색: 1차 금, 2차 주황, 3차 보라.
+  private playJobAdvanceFx(tier: number) {
+    const fx = this.combatEffectContext;
+    const feet = this.playerPosition.clone(); feet.y = 0.06;
+    const head = this.playerPosition.clone(); head.y += 2.4;
+    const ring = tier >= 3 ? 0xb061ff : tier === 2 ? 0xff7a2a : 0xffd54a;
+    const pals: number[][] = [[0xffe08a, 0xffd24a, 0xfff7d6], [0xff8a3a, 0xff4d4d, 0xffd24a], [0xb061ff, 0x6fa8ff, 0xff5ad0]];
+    const pal = pals[Math.min(2, Math.max(0, tier - 1))];
+    startMiniFanfare(this.finaleContext); // 11초 폭죽 + 멜로디(공통 베이스)
+    spawnMagicCircle(fx, feet, ring, 0xfff3c0, 1.8 + tier * 0.7);
+    spawnGroundShockwave(fx, feet, ring);
+    celebrationBurst(fx);
+    sparkleBurst(fx, tier >= 2);
+    spawnFireworkBurst(fx, head, pal);
+    const extraBursts = tier >= 3 ? 5 : tier === 2 ? 3 : 1;
+    for (let i = 1; i < extraBursts; i += 1) {
+      const p = head.clone(); p.x += (Math.random() - 0.5) * 4.5; p.z += (Math.random() - 0.5) * 4.5; p.y += Math.random() * 1.6;
+      setTimeout(() => spawnFireworkBurst(fx, p, pal), i * 230);
+    }
+    const notes = tier >= 3 ? [392, 523, 659, 784, 1047, 1319] : tier === 2 ? [392, 523, 659, 784, 1047] : [392, 523, 659, 784];
+    notes.forEach((f, i) => setTimeout(() => this.playTone(f, 0.2, "triangle", 0.05), i * 130));
+    if (tier >= 2) { spawnExplosionVisual(fx, head, 2.6 + tier * 0.7); setTimeout(() => spawnGroundShockwave(fx, feet, ring), 280); }
+    if (tier >= 3) { // 최종 전직 — 가장 화려하게(포효 + 큰 마법진 + 2차 폭발/충격파)
+      spawnBossRoar(fx, this.playerPosition.clone(), ring);
+      setTimeout(() => spawnMagicCircle(fx, feet, ring, 0xfff3c0, 3.6), 240);
+      setTimeout(() => { spawnGroundShockwave(fx, feet, ring); sparkleBurst(fx, true); spawnExplosionVisual(fx, head, 3.8); }, 560);
+    }
+  }
+
   // 전직 시도 — 전직 아이템(표식/각서/상급 각서) 사용 시 호출. 레벨·아이템 일치 확인 → 1개 소비 → 스탯·외형·스킬 적용.
   private tryAdvanceJob(usedItem: ItemId) {
     const check = canAdvanceJob(this.playerClass, this.jobTier, this.level);
@@ -2975,7 +3005,7 @@ class WildernessGame {
     this.refreshMirrorAvatar();
     const title = jobTierTitle(this.playerClass, this.jobTier) ?? "전직";
     const perk = check.next.unlockThirdSkill ? "새 스킬(F)·스탯 상승·새 외형" : "스탯 상승·스킬 쿨다운 단축·더 멋진 외형";
-    startMiniFanfare(this.finaleContext);
+    this.playJobAdvanceFx(this.jobTier);
     this.showMessage(`✦ ${check.next.tier}차 전직! 이제 '${title}'(이)가 되었습니다. ${perk}을 얻었습니다!`);
     this.renderHud();
   }
@@ -4093,7 +4123,7 @@ class WildernessGame {
     if (target.type === "terrainPatch") this.digTerrain(target);
     if (target.type === "ore") this.mineOre(target);
     if (target.type === "mineChest") this.openMineChest(target);
-    if (target.type === "miner") this.showMessage("광부: 이 동굴 어딘가에 광산이 있을지도 몰라. 아주 드물지만!");
+    if (target.type === "miner") this.showMessage("광부: 이 동굴 어딘가에 광산이 있을지도 몰라. 가끔 나온다던데!");
     if (target.type === "animal") this.attackAnimal(target);
     if (target.type === "villager") this.attackVillager(target);
     if (target.type === "blacksmithNpc") {

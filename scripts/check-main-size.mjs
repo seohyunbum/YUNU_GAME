@@ -44,7 +44,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-20: 독수리 빙의 강화(bodyMeleeAttackPower 추출·eaglePossessionMaxHp 필드·HP/방어 레벨비례·흡혈 배선) → 9876→9877.
 // 2026-06-21: 파티 설치(−1) 대칭 기록 1줄 → 9877→9878.
 // 2026-06-21: 요새 게이트 ensure(소급)·해골기둥 비주얼·누적킬 세이브복원·요새탐방 퀘스트 → 9878→9900.
-const MAX_MAIN_LINES = 9900;
+// 2026-06-21: 전직 차수별 화려 연출(playJobAdvanceFx) + FX import → 9900→9930.
+const MAX_MAIN_LINES = 9930;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

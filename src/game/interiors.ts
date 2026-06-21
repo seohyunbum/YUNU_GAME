@@ -216,14 +216,14 @@ export function createCaveInterior(context: InteriorContext) {
   for (let i = 0; i < 2; i += 1) if (Math.random() < 0.2) context.spawnOre("obsidian", context.randomCavePoint());
   if (Math.random() < 0.1) context.spawnMiner(context.randomCavePoint());
 
-  if (Math.random() < 0.001) {
+  if (Math.random() < 0.05) { // 광산 발견 확률 0.1%→5% 상향
     for (let i = 0; i < 8; i += 1) {
       const chest = context.spawnChest(context.randomCavePoint(), true);
       context.trackCaveObjects(chest.id);
     }
     for (let i = 0; i < 30; i += 1) context.spawnOre(context.rollMineMineral(), context.randomCavePoint());
     for (let i = 0; i < 3; i += 1) if (Math.random() < 0.35) context.spawnOre("obsidian", context.randomCavePoint());
-    context.showMessage("엄청 드문 광산을 발견했습니다. 광산 상자가 많습니다!");
+    context.showMessage("광산을 발견했습니다! 광산 상자가 많습니다!");
   }
 }
 
