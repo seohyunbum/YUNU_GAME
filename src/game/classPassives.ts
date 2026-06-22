@@ -30,6 +30,7 @@ export interface ClassPassive {
   moveSpeedMult: number; // 이동속도 배수
   weaponDamage?: { group: "melee" | "staff"; pct: number; affectsHeal?: boolean }; // 무기조건 데미지(힐량) 배수
   basicAttackMult: number; // 기본 공격(근접·원거리) 데미지 배수 — 직업 밸런스
+  rangedRangeScale: number; // 원거리 투사체 사거리(수명) 배수 — 직업 밸런스
   pet?: SummonerPetPassive;
 }
 
@@ -57,6 +58,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     moveSpeedMult: 1,
     weaponDamage: { group: "melee", pct: 0.1 },
     basicAttackMult: 0.95,
+    rangedRangeScale: 1,
   },
   healer: {
     label: "재생",
@@ -73,6 +75,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     moveSpeedMult: 1,
     weaponDamage: { group: "staff", pct: 0.1, affectsHeal: true },
     basicAttackMult: 1,
+    rangedRangeScale: 1,
   },
   mage: {
     label: "마나 순환",
@@ -89,6 +92,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     moveSpeedMult: 1,
     weaponDamage: { group: "staff", pct: 0.15 },
     basicAttackMult: 1.1,
+    rangedRangeScale: 1,
   },
   summoner: {
     label: "정령 동료",
@@ -105,6 +109,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     moveSpeedMult: 1,
     weaponDamage: { group: "staff", pct: 0.1 },
     basicAttackMult: 1,
+    rangedRangeScale: 1,
     pet: {
       label: "독수리 정령",
       baseDamage: 4,
@@ -133,6 +138,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     shieldHealthRegenPerLevel: 0,
     moveSpeedMult: 1.1,
     basicAttackMult: 0.9,
+    rangedRangeScale: 0.95, // 거너 사거리 95% 로 하향
   },
   tanker: {
     label: "철벽",
@@ -148,6 +154,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     shieldHealthRegenPerLevel: 0.02, // 1/50
     moveSpeedMult: 1,
     basicAttackMult: 0.9,
+    rangedRangeScale: 1,
   },
 };
 
