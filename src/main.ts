@@ -5049,12 +5049,12 @@ class WildernessGame {
       velocity: direction.multiplyScalar(speed),
       damage: this.currentRangedDamage(item),
       radius: kind === "magic" ? 0.36 : 0.16,
-      life: PROJECTILE_MAX_LIFE,
+      life: PROJECTILE_MAX_LIFE * CLASS_PASSIVES[this.playerClass].rangedRangeScale, // 직업별 사거리 배수(거너 0.95)
     };
     projectile.mesh.position.copy(origin);
     this.scene.add(projectile.mesh);
     this.projectiles.push(projectile);
-    this.playHandAction(kind === "magic" ? "magic" : "bow"); notifyPartyAttack("ranged", origin, direction, kind === "magic" ? "magic" : "arrow", speed, PROJECTILE_MAX_LIFE, item === "sharp_obsidian_staff" || item === "sharp_obsidian_gun"); // 흑요석 궁극은 파티원에게도 붉게
+    this.playHandAction(kind === "magic" ? "magic" : "bow"); notifyPartyAttack("ranged", origin, direction, kind === "magic" ? "magic" : "arrow", speed, PROJECTILE_MAX_LIFE * CLASS_PASSIVES[this.playerClass].rangedRangeScale, item === "sharp_obsidian_staff" || item === "sharp_obsidian_gun"); // 흑요석 궁극은 파티원에게도 붉게
     if (kind === "magic") this.playMagicShotSound();
     else this.playBowShotSound();
   }
