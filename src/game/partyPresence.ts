@@ -142,7 +142,7 @@ function createRemotePet(): THREE.Group {
 function spawnRemote(data: PresenceData, nowMs: number): RemoteMember {
   const classId = (data.playerClass in CLASS_APPEARANCE ? data.playerClass : "warrior") as PlayerClassId;
   const root = new THREE.Group();
-  const body = createAvatarModel(undefined, classId, data.armorTier); // 친구 갑옷 티어 반영 (스폰 시점)
+  const body = createAvatarModel(undefined, classId, data.armorTier, data.jobTier ?? 0, data.dragonGear); // 친구 갑옷 티어·전직·용 장비 반영 (스폰 시점)
   root.add(body);
   let hpFill: THREE.Sprite | null = null;
   if (typeof document !== "undefined") {

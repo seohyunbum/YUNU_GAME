@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createIronShieldModel } from "./game/weaponVisuals";
 import { addLegendaryArmor } from "./game/legendaryArmor";
 import { createJobTierCosmetic } from "./game/jobTierVisuals";
+import { createDragonGearModel } from "./game/accessoryVisuals";
 import { TIER_VISUALS, tierBladeMaterial, tierGemMaterial, type TierId } from "./game/tierVisuals";
 import { ASSET_PALETTE, makeGlowMaterial, makeMetalMaterial, makeToonMaterial } from "./visuals";
 
@@ -35,7 +36,7 @@ export const CLASS_APPEARANCE: Record<AvatarClassId, AvatarAppearance> = {
   tanker: { skinColor: ASSET_PALETTE.skin, hairColor: 0x29313a, shirtColor: 0x596473, pantsColor: 0x25313d, bootColor: 0x151a20, accentColor: 0xa8b3c7 },
 };
 
-export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE, classId?: AvatarClassId, armorTier?: string | null, jobTier = 0) {
+export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_APPEARANCE, classId?: AvatarClassId, armorTier?: string | null, jobTier = 0, dragonGear?: { boots?: boolean; cloak?: boolean; crown?: boolean }) {
   const pal = classId ? CLASS_APPEARANCE[classId] : appearance;
   const group = new THREE.Group();
   const skin = makeToonMaterial(pal.skinColor, { roughness: 0.72 });
@@ -123,6 +124,11 @@ export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_
   if (classId && jobTier >= 1) {
     const cosmetic = createJobTierCosmetic(classId, jobTier);
     if (cosmetic) group.add(cosmetic);
+  }
+  if (dragonGear) {
+    if (dragonGear.boots) for (const side of [-1, 1]) { const b = createDragonGearModel("dragon_boots"); b.scale.setScalar(0.62); b.position.set(side * 0.22, 0.06, 0.04); group.add(b); }
+    if (dragonGear.cloak) { const c = createDragonGearModel("dragon_cloak"); c.scale.setScalar(0.92); c.position.set(0, 1.12, -0.3); group.add(c); }
+    if (dragonGear.crown) { const cr = createDragonGearModel("dragon_crown"); cr.scale.setScalar(0.78); cr.position.set(0, 2.12, 0); group.add(cr); }
   }
   return group;
 }

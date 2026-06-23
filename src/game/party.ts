@@ -49,6 +49,8 @@ export interface PresenceData {
   maxHealth?: number;
   armorTier?: string; // 장착 방어구 티어 — 원격 아바타 갑옷 오버레이용 (없으면 갑옷 미표시)
   hasPet?: boolean; // 소환사 패시브 펫(독수리) 활성 — 파티원 화면에 원격 펫 렌더용
+  jobTier?: number; // 전직 차수 — 원격 아바타 전직 코스튬용
+  dragonGear?: { boots?: boolean; cloak?: boolean; crown?: boolean }; // 용 장비(부츠·망토·왕관) — 원격 아바타 표시용(장갑은 1인칭 전용이라 제외)
 }
 
 // 프레즌스가 이 시간 이상 끊긴 게스트(백그라운드 탭 등)는 명단에서 제외 — 몬스터 타게팅·아바타에서 빠진다

@@ -3,7 +3,9 @@ import { createMirrorModel } from "../avatar";
 import { createBucketVisual } from "./bucketVisuals";
 import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel, createObsidianGunModel, createObsidianShieldModel, createObsidianStaffModel, createOrnateStaffModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
-import { createAdvancedMedkitModel, createArmorModel, createBigBagModel, createDragonTrophyModel, createGemClusterModel, createJobAdvanceModel, createNecklaceModel, createTutorialBookModel, GEM_ITEMS } from "./accessoryVisuals";
+import { createAdvancedMedkitModel, createArmorModel, createBigBagModel, createDragonGearModel, createDragonTrophyModel, createGemClusterModel, createJobAdvanceModel, createNecklaceModel, createTutorialBookModel, GEM_ITEMS } from "./accessoryVisuals";
+import { DRAGON_GEAR_IDS } from "./dragonGear";
+const DRAGON_GEAR_ID_SET = new Set<string>(DRAGON_GEAR_IDS);
 import { createMaterialModel } from "./materialVisuals";
 import { addLegendaryWeapon } from "./legendaryWeapon";
 import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
@@ -293,6 +295,8 @@ export function createHeldItemModel(item: ItemId) {
     group.add(createNecklaceModel(item));
   } else if (item.endsWith("_armor")) {
     group.add(createArmorModel(item));
+  } else if (DRAGON_GEAR_ID_SET.has(item)) {
+    group.add(createDragonGearModel(item));
   } else if (item.startsWith("dragon_")) {
     group.add(createDragonTrophyModel(item));
   } else if (item === "advanced_medkit") {

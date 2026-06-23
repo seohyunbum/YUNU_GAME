@@ -291,7 +291,9 @@ import { isStorageSlotSource } from "./game/inventoryCapacity";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
 import { buildRecipeGuideEntriesForStations, ingredientCounts, itemsUsing, maxCraftable } from "./game/recipeGuide";
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
-import { NECKLACE_IDS, necklaceAttackBonus, necklaceAttackSpeedMult, necklaceDefenseBonus, necklaceManaRegenBonus, necklaceSkillCooldownMult } from "./game/necklace";
+import { NECKLACE_IDS, necklaceAttackBonus, necklaceDefenseBonus, necklaceManaRegenBonus } from "./game/necklace";
+import { DRAGON_GEAR_IDS, NO_DRAGON_GEAR, resolveDragonGear, accessoryAttackSpeedMult, accessorySkillCooldownMult, additiveMoveSpeedMult, dragonGearAttackBonus, dragonGearDefenseBonus, dragonGearMaxHpBonus, dragonGearMaxManaBonus, dragonGearHealthRegenBonus, dragonGearManaRegenBonus, type DragonGearWorn } from "./game/dragonGear";
+import { createDragonGauntletFirstPerson } from "./game/accessoryVisuals";
 import { experienceForLevelUps, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
 import {
@@ -453,6 +455,7 @@ class WildernessGame {
   private readonly titleScreenEl = document.createElement("div");
   private readonly mirrorView = new THREE.Group();
   private readonly handGroup = new THREE.Group();
+  private dragonGloveMesh: THREE.Object3D | null = null; // 1인칭 용 건틀릿(착용 시에만 visible)
   private readonly handClothMaterials: THREE.MeshStandardMaterial[] = [];
   private readonly heldItemGroup = new THREE.Group();
   private heldItemKey: ItemId | null = null;
@@ -629,6 +632,7 @@ class WildernessGame {
   };
   private equippedArmor: ItemId | null = null;
   private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0; private equippedNecklace: ItemId | null = null;
+  private dragonGear: DragonGearWorn = NO_DRAGON_GEAR; // 용 장비 4종 착용 상태(보유=착용). refreshDragonGear() 로 인벤토리에서 동기화.
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
   private caveReturnPosition: THREE.Vector3 | null = null;
@@ -961,7 +965,7 @@ class WildernessGame {
     for (const ev of ["pointerdown", "keydown"]) window.addEventListener(ev, () => this.ensureAudio(), { once: true }); // 첫 상호작용에 오디오 언락 → 타이틀 BGM 시작(브라우저 자동재생 정책)
     ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });    initPartyLobby(() => this.nickname);
     initPartyFlow({ isInGame: () => this.gameStarted, startNewGame: () => { if (!this.pendingPlayerClass) this.pendingPlayerClass = this.playerClass ?? "warrior"; this.startGame("new"); }, summonTo: (mapId, x, z) => { if (this.locationMode === "cave") this.leaveCave(); else if (this.locationMode === "house") this.leaveHouse(); if (this.currentWorldMapId !== mapId) this.teleportToWorldMap(mapId, true); this.playerPosition.set(x + 2.5, this.playerPosition.y, z + 2.5); this.settlePlayerAfterTeleport(); this.camera.position.copy(this.playerPosition); }, showMessage: (text) => this.showMessage(text) });
-    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined, hasPet: this.summonerCompanion.petActive() }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, hostGameHour: () => this.gameHour(), setSyncedHour: (hour) => { this.syncedHour = hour; }, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? this.spawnGolem(pos, villageId) : type === "villageKnight" ? this.spawnKnight(pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened, chestTier) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich, chestTier ?? 0); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => this.spawnCave(new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return chest.chestTier ?? 0; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => { if (target.type === "wildPredator" || target.type === "dragon" || target.type === "jammini") this.enterCombatMood(); triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed); }, showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target, creditQuest) => this.grantExperienceForTarget(target, creditQuest), creditQuestKill: () => { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.renderHud(); }, rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.sample("victory.mp3", 0.45, () => {}); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, empowerLocalPlayer: (durationMs) => { this.skillBuffs.empowerUntil = performance.now() + durationMs; this.showMessage("아군의 심판의 빛! 5분간 공격·방어 +10%."); this.renderHud(); }, rallyLocalPlayer: (durationMs) => { this.skillBuffs.rallyDefUntil = performance.now() + durationMs; this.showMessage("아군의 불굴의 함성! 20초간 방어 +20%."); this.renderHud(); }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object), sharedGroundObjects: () => [...this.objectsOfTypes(["droppedItem", "smelter", "specialSmelter", "workbench", "extendedWorkbench", "grinder", "bed"])].filter((o) => !o.partyTransient), spawnDroppedItemView: (item, count, x, z) => this.spawnDroppedItem(item as ItemId, count, new THREE.Vector3(x, 0, z)), spawnStationView: (objType, x, z, bedTier) => { const pos = new THREE.Vector3(x, 0, z); const obj = objType === "smelter" ? spawnSmelterObject(this.spawnContext, pos, false) : objType === "specialSmelter" ? spawnSmelterObject(this.spawnContext, pos, true) : objType === "workbench" ? spawnWorkbenchObject(this.spawnContext, pos, false) : objType === "extendedWorkbench" ? spawnWorkbenchObject(this.spawnContext, pos, true) : objType === "grinder" ? spawnGrinderObject(this.spawnContext, pos) : spawnBedObject(this.spawnContext, pos, 0); if (objType === "bed" && bedTier) obj.bedTier = bedTier as typeof obj.bedTier; return obj; }, pickupSharedObject: (id) => { const obj = this.objects.get(id); if (!obj || obj.lockedStation) return null; const stationItem: Record<string, ItemId> = { smelter: "smelter", specialSmelter: "special_smelter", workbench: "crafting_table", extendedWorkbench: "extended_workbench", grinder: "grinder", bed: "bed" }; const items = obj.type === "droppedItem" && obj.droppedItem ? [{ item: obj.droppedItem, count: obj.droppedCount ?? 1 }] : stationItem[obj.type] ? [{ item: stationItem[obj.type], count: 1 }] : null; if (!items) return null; this.removeObject(id); return items; }, hostSpawnDroppedGround: (item, count, x, z) => { this.spawnDroppedItem(item as ItemId, count, new THREE.Vector3(x, 0, z)); }, hostSpawnStation: (item, x, z, yaw) => { const pos = new THREE.Vector3(x, 0, z); if (item === "crafting_table") spawnWorkbenchObject(this.spawnContext, pos, false); else if (item === "extended_workbench") spawnWorkbenchObject(this.spawnContext, pos, true); else if (item === "smelter") spawnSmelterObject(this.spawnContext, pos, false); else if (item === "special_smelter") spawnSmelterObject(this.spawnContext, pos, true); else if (item === "grinder") spawnGrinderObject(this.spawnContext, pos); else if (item === "bed") spawnBedObject(this.spawnContext, pos, yaw); }, canAddItem: (item, _count) => item === "bag" || item === "big_bag" || (isDurableTool(item) ? this.allStorageSlots().some((s) => !s.item) : this.allStorageSlots().some((s) => s.item === item || !s.item)), receivePickupItems: (items) => items.filter((it) => { const ok = this.addItem(it.item as ItemId, it.count); if (ok) this.appendPartyLedger(it.item as ItemId, it.count); return !ok; }), homeStorageSlots: () => this.homeStorage.map((s) => ({ item: s.item, count: s.count, durabilityUsed: s.durabilityUsed })), sharedSupplyCooldownValue: () => this.homeSupplyCooldowns["__party__"] ?? 0, hostStorageTake: (index) => { const slot = this.homeStorage[index]; if (!slot?.item || slot.count <= 0) return null; const items = [{ item: slot.item, count: slot.count }]; slot.item = null; slot.count = 0; slot.durabilityUsed = undefined; return items; }, hostStorageStore: (item, count, durabilityUsed) => transferSlot({ item: item as ItemId, count, durabilityUsed }, this.homeStorage), hostClaimSharedSupply: () => { if ((this.homeSupplyCooldowns["__party__"] ?? 0) > 0) return false; for (const r of rollHomeSupply(this.level)) transferSlot({ item: r.item, count: r.count }, this.homeStorage); this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; return true; }, applySharedStorage: (slots, supplyCooldown) => { this.sharedStorage = slots.map((s) => ({ item: s.item as ItemId | null, count: s.count, durabilityUsed: s.durabilityUsed })); this.sharedSupplyCd = supplyCooldown; if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel(); this.renderHud(); } } });
+    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined, hasPet: this.summonerCompanion.petActive(), jobTier: this.jobTier, dragonGear: { boots: this.dragonGear.boots, cloak: this.dragonGear.cloak, crown: this.dragonGear.crown } }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, hostGameHour: () => this.gameHour(), setSyncedHour: (hour) => { this.syncedHour = hour; }, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? this.spawnGolem(pos, villageId) : type === "villageKnight" ? this.spawnKnight(pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened, chestTier) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich, chestTier ?? 0); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => this.spawnCave(new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return chest.chestTier ?? 0; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => { if (target.type === "wildPredator" || target.type === "dragon" || target.type === "jammini") this.enterCombatMood(); triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed); }, showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target, creditQuest) => this.grantExperienceForTarget(target, creditQuest), creditQuestKill: () => { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.renderHud(); }, rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.sample("victory.mp3", 0.45, () => {}); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, empowerLocalPlayer: (durationMs) => { this.skillBuffs.empowerUntil = performance.now() + durationMs; this.showMessage("아군의 심판의 빛! 5분간 공격·방어 +10%."); this.renderHud(); }, rallyLocalPlayer: (durationMs) => { this.skillBuffs.rallyDefUntil = performance.now() + durationMs; this.showMessage("아군의 불굴의 함성! 20초간 방어 +20%."); this.renderHud(); }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object), sharedGroundObjects: () => [...this.objectsOfTypes(["droppedItem", "smelter", "specialSmelter", "workbench", "extendedWorkbench", "grinder", "bed"])].filter((o) => !o.partyTransient), spawnDroppedItemView: (item, count, x, z) => this.spawnDroppedItem(item as ItemId, count, new THREE.Vector3(x, 0, z)), spawnStationView: (objType, x, z, bedTier) => { const pos = new THREE.Vector3(x, 0, z); const obj = objType === "smelter" ? spawnSmelterObject(this.spawnContext, pos, false) : objType === "specialSmelter" ? spawnSmelterObject(this.spawnContext, pos, true) : objType === "workbench" ? spawnWorkbenchObject(this.spawnContext, pos, false) : objType === "extendedWorkbench" ? spawnWorkbenchObject(this.spawnContext, pos, true) : objType === "grinder" ? spawnGrinderObject(this.spawnContext, pos) : spawnBedObject(this.spawnContext, pos, 0); if (objType === "bed" && bedTier) obj.bedTier = bedTier as typeof obj.bedTier; return obj; }, pickupSharedObject: (id) => { const obj = this.objects.get(id); if (!obj || obj.lockedStation) return null; const stationItem: Record<string, ItemId> = { smelter: "smelter", specialSmelter: "special_smelter", workbench: "crafting_table", extendedWorkbench: "extended_workbench", grinder: "grinder", bed: "bed" }; const items = obj.type === "droppedItem" && obj.droppedItem ? [{ item: obj.droppedItem, count: obj.droppedCount ?? 1 }] : stationItem[obj.type] ? [{ item: stationItem[obj.type], count: 1 }] : null; if (!items) return null; this.removeObject(id); return items; }, hostSpawnDroppedGround: (item, count, x, z) => { this.spawnDroppedItem(item as ItemId, count, new THREE.Vector3(x, 0, z)); }, hostSpawnStation: (item, x, z, yaw) => { const pos = new THREE.Vector3(x, 0, z); if (item === "crafting_table") spawnWorkbenchObject(this.spawnContext, pos, false); else if (item === "extended_workbench") spawnWorkbenchObject(this.spawnContext, pos, true); else if (item === "smelter") spawnSmelterObject(this.spawnContext, pos, false); else if (item === "special_smelter") spawnSmelterObject(this.spawnContext, pos, true); else if (item === "grinder") spawnGrinderObject(this.spawnContext, pos); else if (item === "bed") spawnBedObject(this.spawnContext, pos, yaw); }, canAddItem: (item, _count) => item === "bag" || item === "big_bag" || (isDurableTool(item) ? this.allStorageSlots().some((s) => !s.item) : this.allStorageSlots().some((s) => s.item === item || !s.item)), receivePickupItems: (items) => items.filter((it) => { const ok = this.addItem(it.item as ItemId, it.count); if (ok) this.appendPartyLedger(it.item as ItemId, it.count); return !ok; }), homeStorageSlots: () => this.homeStorage.map((s) => ({ item: s.item, count: s.count, durabilityUsed: s.durabilityUsed })), sharedSupplyCooldownValue: () => this.homeSupplyCooldowns["__party__"] ?? 0, hostStorageTake: (index) => { const slot = this.homeStorage[index]; if (!slot?.item || slot.count <= 0) return null; const items = [{ item: slot.item, count: slot.count }]; slot.item = null; slot.count = 0; slot.durabilityUsed = undefined; return items; }, hostStorageStore: (item, count, durabilityUsed) => transferSlot({ item: item as ItemId, count, durabilityUsed }, this.homeStorage), hostClaimSharedSupply: () => { if ((this.homeSupplyCooldowns["__party__"] ?? 0) > 0) return false; for (const r of rollHomeSupply(this.level)) transferSlot({ item: r.item, count: r.count }, this.homeStorage); this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; return true; }, applySharedStorage: (slots, supplyCooldown) => { this.sharedStorage = slots.map((s) => ({ item: s.item as ItemId | null, count: s.count, durabilityUsed: s.durabilityUsed })); this.sharedSupplyCd = supplyCooldown; if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel(); this.renderHud(); } } });
     this.animate();
   }
 
@@ -1103,7 +1107,7 @@ class WildernessGame {
     }
     const model = this.possessedEagleId
       ? createEagleAvatarModel()
-      : createAvatarModel(DEFAULT_AVATAR_APPEARANCE, this.playerClass, armorTierOf(this.equippedArmor), this.jobTier);
+      : createAvatarModel(DEFAULT_AVATAR_APPEARANCE, this.playerClass, armorTierOf(this.equippedArmor), this.jobTier, { boots: this.dragonGear.boots, cloak: this.dragonGear.cloak, crown: this.dragonGear.crown });
     model.position.set(0, -0.48, 0.22);
     model.rotation.y = 0;
     model.scale.setScalar(this.possessedEagleId ? 0.5 : 0.64);
@@ -1169,9 +1173,15 @@ class WildernessGame {
     hand.position.set(0.22, -0.48, -1.48);
     hand.rotation.set(-0.28, -0.18, 0.1);
 
+    const glove = createDragonGauntletFirstPerson(); // 용의 장갑 — 손/팔뚝 위에 덧씌움(착용 시 visible)
+    glove.position.set(0.22, -0.47, -1.46);
+    glove.rotation.set(-0.28, -0.18, 0.1);
+    glove.visible = false;
+    this.dragonGloveMesh = glove;
+
     this.heldItemGroup.position.set(0.18, -0.5, -1.52);
     this.heldItemGroup.rotation.set(-0.34, -0.22, -0.12);
-    this.handGroup.add(upperArm, forearm, sleeve, hand, this.heldItemGroup);
+    this.handGroup.add(upperArm, forearm, sleeve, hand, glove, this.heldItemGroup);
     this.handGroup.position.set(0, 0, 0);
     this.camera.add(this.handGroup);
   }
@@ -2962,7 +2972,7 @@ class WildernessGame {
     const restMul = this.isResting ? BED_REST_PROFILE[this.restingBedTier].mult : 1; // 침대 등급별 회복 배수
     const hungerLevel = Math.min(HUNGER_HP_REGEN.length - 1, Math.max(0, Math.floor(this.hunger)));
     const cp = CLASS_PASSIVES[this.playerClass];
-    let healthRegen = (cp.healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel]) * restMul + (this.equippedShield ? cp.shieldHealthRegenBase + cp.shieldHealthRegenPerLevel * Math.floor(this.level) : 0); // 탱커 철벽: 방패 장착 시 체력 +(0.25+레벨/50)/s
+    let healthRegen = (cp.healthRegenPerSec + HUNGER_HP_REGEN[hungerLevel]) * restMul + (this.equippedShield ? cp.shieldHealthRegenBase + cp.shieldHealthRegenPerLevel * Math.floor(this.level) : 0) + dragonGearHealthRegenBonus(this.dragonGear); // 탱커 철벽 + 용의 망토(+2/s 평탄)
     if (this.isResting) healthRegen = Math.max(healthRegen, this.maxHealth * BED_REST_PROFILE[this.restingBedTier].floorPerSec); // 등급별 레벨무관 풀피 보장(통나무 ~12.5s ~ 이층/직접제작 ~8.3s)
     if (this.hunger <= 0) healthRegen = 0; // 배고픔 0 — 체력 회복 없음(데미지도 없음)
     if (healthRegen > 0 && this.health < this.maxHealth) {
@@ -2973,10 +2983,10 @@ class WildernessGame {
     if (this.isResting && this.health >= this.maxHealth) {
       this.isResting = false; this.showMessage("체력이 가득 회복되어 침대에서 일어났습니다."); this.renderHud();
     }
-    if (this.mana >= this.maxMana || this.hunger <= 0) return; // 배고픔 0 이면 마나도 회복 안 됨
+    if (this.mana >= this.manaCap() || this.hunger <= 0) return; // 배고픔 0 이면 마나도 회복 안 됨
     const previous = Math.floor(this.mana);
     const manaRegenScale = cp.manaRegenScale * restMul;
-    this.mana = Math.min(this.maxMana, this.mana + (MANA_REGEN_PER_SECOND * manaRegenScale + cp.manaRegenFlat + necklaceManaRegenBonus(this.equippedNecklace)) * delta); // 힐러 +0.25/s + 현자의 목걸이(평탄, 휴식배수 비적용)
+    this.mana = Math.min(this.manaCap(), this.mana + (MANA_REGEN_PER_SECOND * manaRegenScale + cp.manaRegenFlat + necklaceManaRegenBonus(this.equippedNecklace) + dragonGearManaRegenBonus(this.dragonGear)) * delta); // 힐러 +0.25/s + 현자의 목걸이 + 용의 왕관(+2/s, 평탄)
     if (Math.floor(this.mana) !== previous) this.renderHud();
   }
 
@@ -2993,7 +3003,7 @@ class WildernessGame {
       return false;
     }
     this.mana = Math.max(0, this.mana - cost);
-    const cdMs = cooldownSeconds * 1000 * necklaceSkillCooldownMult(this.equippedNecklace) * jobTierCooldownMult(this.playerClass, this.jobTier); // 목걸이 -15% + 2·3차 전직 쿨다운 단축
+    const cdMs = cooldownSeconds * 1000 * accessorySkillCooldownMult(this.equippedNecklace, this.dragonGear) * jobTierCooldownMult(this.playerClass, this.jobTier); // 장신구(목걸이 -15% + 용왕관 -10%, 합연산) + 2·3차 전직 쿨다운 단축
     if (slot === "primary") this.classSkillCooldownUntil = performance.now() + cdMs;
     else if (slot === "second") this.secondSkillCooldownUntil = performance.now() + cdMs;
     else this.thirdSkillCooldownUntil = performance.now() + cdMs;
@@ -3221,7 +3231,7 @@ class WildernessGame {
     if (movingHorizontally) {
       direction.normalize();
       sprinting = this.isSprinting();
-      let speed = WALK_SPEED * (sprinting ? RUN_MULTIPLIER : 1) * CLASS_PASSIVES[this.playerClass].moveSpeedMult; // 거너 +10%
+      let speed = WALK_SPEED * (sprinting ? RUN_MULTIPLIER : 1) * additiveMoveSpeedMult(CLASS_PASSIVES[this.playerClass].moveSpeedMult, this.dragonGear); // 거너 +10% + 용의 부츠 +15%(합연산)
       if (this.keys.has("KeyC")) speed *= 0.38;
       else if (this.isShiftDown() && !sprinting) speed *= 0.62;
       const horizontalDistance = speed * delta;
@@ -3930,7 +3940,7 @@ class WildernessGame {
     this.actionTimer = Math.max(0, this.actionTimer - delta);
     this.rangedCooldown = Math.max(0, this.rangedCooldown - delta);
 
-    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : necklaceAttackSpeedMult(this.equippedNecklace)); // 쾌속: 공격 모션(근접/활/마법)에 동일 적용
+    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear)); // 쾌속 목걸이 + 용장갑(공속 합연산) — 공격 모션(근접/활/마법)에 동일 적용
     const progress = this.actionTimer > 0 ? THREE.MathUtils.clamp(1 - this.actionTimer / duration, 0, 1) : 1;
     const swing = this.actionTimer > 0 ? Math.sin(progress * Math.PI) : 0;
 
@@ -3956,7 +3966,7 @@ class WildernessGame {
 
   private playHandAction(mode: HandActionMode = "use") {
     this.actionMode = mode;
-    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : necklaceAttackSpeedMult(this.equippedNecklace));
+    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear));
   }
 
   private updateHeldItem() {
@@ -4335,7 +4345,7 @@ class WildernessGame {
     // 침대에 누워 휴식 — 침대 정중심으로 snap, 등급별 회복 가속, 풀피/이동 시 자동 기상.
     this.playerPosition.x = target.root.position.x; this.playerPosition.z = target.root.position.z;
     this.restAnchor.copy(this.playerPosition); this.isResting = true; this.restingBedTier = target.bedTier ?? "crafted";
-    if (target.homeBed) { this.mana = this.maxMana; this.hunger = Math.min(HUNGER_MAX, this.hunger + 1); }
+    if (target.homeBed) { this.mana = this.manaCap(); this.hunger = Math.min(HUNGER_MAX, this.hunger + 1); }
     this.playHandAction(); this.playTone(660, 0.12, "triangle", 0.028);
     this.showMessage("침대에 누웠습니다. 체력이 빠르게 회복됩니다 (움직이면 일어납니다).");
     this.renderHud();
@@ -4970,7 +4980,7 @@ class WildernessGame {
   private bodyMeleeAttackPower() { // 본체 근접 공격력(무기+레벨+훈련+제작+목걸이 ×심판의빛) — 빙의 공격도 이를 사용
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한
-    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult)); // ×직업별 기본공격 배수
+    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult)); // +용장갑 공격력 ×직업별 기본공격 배수
   }
   private currentDamage() {
     if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE; // 빙의 박치기 = 본체 공격력 + 5
@@ -4979,7 +4989,7 @@ class WildernessGame {
 
   private currentRangedDamage(item: ItemId) {
     const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
-    return Math.max(1, Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult)); // ×직업별 기본공격 배수
+    return Math.max(1, Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult)); // +용장갑 공격력 ×직업별 기본공격 배수
   }
 
   private eagleCombatTarget() {
@@ -5001,7 +5011,29 @@ class WildernessGame {
   }
 
   private maxHealthForLevel(level = this.level) {
-    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * 2 + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2;
+    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * 2 + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2 + dragonGearMaxHpBonus(this.dragonGear); // +용의 부츠 최대 체력
+  }
+
+  // 유효 최대 마나 = 기본(훈련 누적 포함) + 용의 부츠(+10). 저장값은 base 유지, 표시·회복 상한에만 가산.
+  private manaCap() {
+    return this.maxMana + dragonGearMaxManaBonus(this.dragonGear);
+  }
+
+  // 인벤토리 변동/로드 시 용 장비 착용 상태 동기화 + 최대 체력 재계산 + (변경 시에만) 외관 갱신.
+  private refreshDragonGear() {
+    const next = resolveDragonGear((id) => this.countItem(id) > 0);
+    const changed = next.gloves !== this.dragonGear.gloves || next.boots !== this.dragonGear.boots || next.cloak !== this.dragonGear.cloak || next.crown !== this.dragonGear.crown;
+    this.dragonGear = next;
+    this.maxHealth = this.maxHealthForLevel(); // 부츠 +10 반영(부츠 없으면 base)
+    this.health = Math.min(this.health, this.maxHealth);
+    this.mana = Math.min(this.mana, this.manaCap());
+    if (changed) this.refreshDragonGearVisuals();
+  }
+
+  // 1인칭 건틀릿 토글 + 거울(3인칭) 아바타에 부츠·망토·왕관 반영. 착용 집합이 바뀔 때만 호출.
+  private refreshDragonGearVisuals() {
+    if (this.dragonGloveMesh) this.dragonGloveMesh.visible = this.dragonGear.gloves;
+    if (this.mirrorAvatar) this.refreshMirrorAvatar();
   }
 
   private experienceForNextLevel(level = this.level) {
@@ -5013,7 +5045,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()));
+    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + dragonGearDefenseBonus(this.dragonGear) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()));
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -5022,7 +5054,7 @@ class WildernessGame {
 
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
-    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * (CLASS_PASSIVES[this.playerClass].gunOnlyRangedCooldown && !GUN_WEAPONS.has(item) ? 1 : CLASS_PASSIVES[this.playerClass].rangedCooldownScale) * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * necklaceAttackSpeedMult(this.equippedNecklace); // 거너: 총기 장착 시에만 쿨감
+    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * (CLASS_PASSIVES[this.playerClass].gunOnlyRangedCooldown && !GUN_WEAPONS.has(item) ? 1 : CLASS_PASSIVES[this.playerClass].rangedCooldownScale) * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear); // 거너 총기 쿨감 + 장신구 공속(목걸이+용장갑 합연산)
     const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
@@ -6136,6 +6168,7 @@ class WildernessGame {
     this.refreshHandColor();
     this.maxMana = save.player.maxMana ?? BASE_MAX_MANA;
     this.mana = Math.min(save.player.mana ?? this.maxMana, this.maxMana);
+    this.refreshDragonGear(); // 인벤토리 복원 후 용 장비 착용 동기화(maxHealth·manaCap 반영)
     this.classSkillCooldownUntil = performance.now() + (save.player.classSkillCooldownRemainingMs ?? 0);
     this.secondSkillCooldownUntil = performance.now() + (save.player.secondSkillCooldownRemainingMs ?? 0); resetSecondSkillEffects(this.skillBuffs);
     this.thirdSkillCooldownUntil = performance.now() + (save.player.thirdSkillCooldownRemainingMs ?? 0);
@@ -6271,6 +6304,7 @@ class WildernessGame {
     this.maxHealth = BASE_PLAYER_MAX_HEALTH;
     this.maxMana = BASE_MAX_MANA;
     this.mana = this.maxMana;
+    this.dragonGear = NO_DRAGON_GEAR; this.refreshDragonGearVisuals(); // 신규 게임: 용 장비 미보유 — 1인칭 건틀릿 숨김(이전 세션 잔상 방지)
     this.jobTier = 0;
     this.classSkillCooldownUntil = 0;
     this.secondSkillCooldownUntil = 0; this.thirdSkillCooldownUntil = 0; resetSecondSkillEffects(this.skillBuffs);
@@ -6614,7 +6648,7 @@ class WildernessGame {
         health: healthValue,
         maxHealth: this.maxHealth,
         mana: manaValue,
-        maxMana: this.maxMana,
+        maxMana: this.manaCap(),
         hunger: this.hunger,
         maxHunger: HUNGER_MAX,
         experience: this.experience,
@@ -6740,7 +6774,7 @@ class WildernessGame {
       const weapon = selected && WEAPON_DAMAGE[selected] !== undefined ? (ITEM_NAMES[selected] ?? selected) : "맨손";
       renderCharacterPanelView(this.panelEl, {
         className: PLAYER_CLASSES[this.playerClass].name, level: this.level, craftLevel: this.craftLevel,
-        health: this.health, maxHealth: this.maxHealth, mana: this.mana, maxMana: this.maxMana,
+        health: this.health, maxHealth: this.maxHealth, mana: this.mana, maxMana: this.manaCap(),
         attack: this.displayedAttackPower(), defense: this.equippedArmorValue(), weapon,
         armor: this.equippedArmor ? (ITEM_NAMES[this.equippedArmor] ?? this.equippedArmor) : "없음",
         shield: this.equippedShield ? (ITEM_NAMES[this.equippedShield] ?? this.equippedShield) : "없음",
@@ -6748,6 +6782,7 @@ class WildernessGame {
         weaponItem: selected && WEAPON_DAMAGE[selected] !== undefined ? selected : null,
         armorItem: this.equippedArmor, shieldItem: this.equippedShield, necklaceItem: this.equippedNecklace,
         ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
+        dragonGear: DRAGON_GEAR_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
         monstersKilled: this.tutorialSignals.predatorKills, bestFortressStage: this.bestFortressStage,
         leaderboard: this.leaderboard, myNickname: this.nickname,
@@ -7869,9 +7904,11 @@ class WildernessGame {
       if (ARMOR_VALUE[item] > current) this.equippedArmor = item;
     }
     if (shouldAutoEquipShield(item, this.equippedShield)) { this.equippedShield = item; this.shieldDurabilityUsed = 0; }
+    this.refreshDragonGear(); // 용 장비: 보유=자동 착용 동기화
   }
 
   private syncEquippedArmor(removedItem: ItemId) {
+    this.refreshDragonGear(); // 용 장비: 소진/드롭 시 착용 해제 동기화(방어구 조기 return 전에 실행)
     if (this.equippedNecklace === removedItem && this.countItem(removedItem) <= 0) this.equippedNecklace = null; // 목걸이도 소진 시 자동 해제
     if (this.equippedArmor !== removedItem || this.countItem(removedItem) > 0) return;
     this.equippedArmor = Object.keys(this.itemCounts()).reduce<ItemId | null>((best, item) => {

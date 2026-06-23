@@ -59,7 +59,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 좌측하단 버프바 — buffs 뷰 1줄+hudRefreshTick 필드+update 루프 ~4/s 렌더 1줄. 버프 목록·렌더는 classSkills.activeBuffs/hudRenderer 리프 → 10015→10018.
 // 2026-06-21: 광산 상자 전리품 상향(openMineChest 가 rollMineChestLoot 리프 사용)으로 인라인 루프 축소 → 10018→10014.
 // 2026-06-23: 메테오 스킬을 전방 파이어볼로 변경하며 dead fireMeteor 메서드+import 제거 → 10014→10004.
-const MAX_MAIN_LINES = 10004;
+// 2026-06-23: 용 장비 4종(자동착용·스탯·1인칭 건틀릿·3인칭 아바타·합연산) 배선 — 신규 기능으로 +37 → 10041.
+const MAX_MAIN_LINES = 10041;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
