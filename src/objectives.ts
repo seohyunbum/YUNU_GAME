@@ -228,8 +228,8 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
 // 단계 인덱스로 선형 보간(2.0 → 5.0). label 의 "경험치 N" 표기도 함께 갱신해 동기 유지.
 const QUEST_XP_MULT_START = 2;
 const QUEST_XP_MULT_END = 5;
-// 직업무기 졸업 퀘스트(craft_basic_weapon) 이전 단계들은 경험치 보상을 60%로 하향 (초반 과보상 완화).
-const PRE_GRADUATION_XP_FACTOR = 0.6;
+// 직업무기 졸업 퀘스트(craft_basic_weapon) 이전 단계들은 경험치 보상을 40%로 하향 (초반 과보상 더욱 경계).
+const PRE_GRADUATION_XP_FACTOR = 0.4;
 function scaleQuestRewards(steps: readonly TutorialStep[]): readonly TutorialStep[] {
   const last = Math.max(1, steps.length - 1);
   const graduationIndex = steps.findIndex((step) => step.id === "craft_basic_weapon");
