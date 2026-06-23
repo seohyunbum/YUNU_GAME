@@ -159,7 +159,7 @@ export interface SecondSkillContext {
   buffs: SkillBuffs;
   trySpend(skill: SecondSkillDef): boolean;
   lookCombatTarget(): WorldObject | null;
-  fireSkillProjectile(kind: "tnt" | "wind" | "arrow", visual: "magic" | "wind" | "fireball" | "arrow", damage: number, speed: number, radius: number, explosionRadius?: number): void;
+  fireSkillProjectile(kind: "tnt" | "wind" | "arrow", visual: "magic" | "wind" | "fireball" | "arrow", damage: number, speed: number, radius: number, explosionRadius?: number, dirYaw?: number): void;
   applyDamage(target: WorldObject, damage: number): void;
   meleeEffects(target: WorldObject): void;
   playHandAction(kind: "melee" | "magic"): void;
@@ -353,7 +353,8 @@ export const JUDGMENT_SELF_HEAL = 30;
 export function meteorDamage(levelBonus: number) {
   return scaledSkillValue(70, levelBonus, 1.8);
 }
-export const METEOR_RADIUS = MAGE_TNT_RADIUS * 1.1;
+export const METEOR_RADIUS = MAGE_TNT_RADIUS * 1.35; // 3발 부채꼴 발사에 맞춰 발당 폭발 범위 확대
+export const METEOR_SPREAD = 0.18; // 메테오 3발 좌/우 분산 각(rad, ≈10°)
 export function spiritStormDamage(levelBonus: number) {
   return scaledSkillValue(33, levelBonus, 1.32); // 소환사 T스킬 — base·scale 을 기존 대비 +10% (30→33, 1.2→1.32)
 }
@@ -417,10 +418,10 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
     if (!context.trySpend(skill)) return;
     context.castImpact();
     const meteorDmg = Math.round(meteorDamage(bonus) * context.damageMult());
-    context.fireSkillProjectile("tnt", "fireball", meteorDmg, 32, 0.5, METEOR_RADIUS); // 전방으로 불덩이 운석 발사 → 명중 시 광역 폭발(파이어볼과 동일 발사 방식, 더 큰 AoE)
+    for (let i = -1; i <= 1; i += 1) context.fireSkillProjectile("tnt", "fireball", meteorDmg, 32, 0.6, METEOR_RADIUS, i * METEOR_SPREAD); // 전방으로 불덩이 운석 3발 부채꼴 발사 → 각각 광역 폭발(넓은 타격 범위)
     context.playHandAction("magic");
     context.skillSound("fire");
-    context.showMessage(`메테오! ${meteorDmg} 광역 피해의 불덩이 운석을 발사했습니다.`);
+    context.showMessage(`메테오! ${meteorDmg} 광역 피해의 불덩이 운석 3발을 발사했습니다.`);
     return;
   }
   if (playerClass === "summoner") {
