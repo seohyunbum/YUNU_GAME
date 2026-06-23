@@ -45,7 +45,8 @@ export const OPERATOR_REWARD_CONFIG = {
   chance: {
     chanceMultiplier: 1,
   },
-  sourceOverrides: {} as Partial<Record<RewardSource, RewardTuning>>,
+  // boss(용 전리품): 수량을 combat.rollDragonLootCount 가 직접 정하므로 여기선 배수 1로 고정(기본 maxRandom 3 재굴림 차단).
+  sourceOverrides: { boss: { quantityMultiplier: 1, minRandomMultiplier: 1, maxRandomMultiplier: 1 } } as Partial<Record<RewardSource, RewardTuning>>,
   itemOverrides: {} as Record<string, RewardTuning>,
   activeEvents: [
     /*

@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-23 — 용 전리품 수량 하향(저레벨 용은 거의 1개)
+
+- 요청: 용 재료(비늘·꼬리·뿔)를 더 모으기 어렵게 — 대량 드랍 확률 낮추고, 저레벨 용(기본 용·파이어 드래곤)은 거의 1개만.
+- 원인: 모든 용이 grantRewardItem(loot, 1, "boss") → rewardQuantity 기본 튜닝(maxRandom 3)으로 randInt(1,3) 균등(평균 2). 레벨 무관.
+- 수정: combat.rollDragonLootCount(bossKind) 신설 — 저레벨(dragon Lv60·fire_dragon Lv130)=88% 1개/12% 2개(평균 1.12), 고레벨(red/laser/dark/immortal)=60/28/12% 1/2/3(평균 1.52). 멜리·레인지 두 드랍 사이트(applyMeleeDragonAttack·applyProjectileDamage) 모두 적용. operatorConfig sourceOverrides.boss=(1,1,1) 로 고정해 수량 재굴림 차단(boss 소스는 용 전리품 전용이라 타 드랍 무영향, predator 등은 1,1,3 유지).
+- 검증: typecheck+build, 모듈 테스트(분포: 기본용/파이어 88% 1개·3개 0%, 레드 평균1.52 + boss 튜닝 정확수량·predator 미영향). main 변경 없음(combat·operatorConfig 리프).
+
 ## 2026-06-23 — 파티 버프(심판의 빛·불굴) 미전파 수정 + 몬스터 요새 맵별 이어하기
 
 - ① 힐러 '심판의 빛'(empower)·탱커 '불굴의 함성'(rally) 버프가 파티원에게 안 걸림(시전자 본인만). 원인: party.ts 메시지 라우팅 2곳(호스트 중계 ~284, 게스트 수신 ~349)에 partyHeal 만 있고 partyEmpower/partyRally 누락 → 메시지가 핸들러까지 도달 못 함. 스킬 추가 커밋(1dcbefc) 때부터의 버그(전파 배선 누락). 수정: 두 라우팅 리스트에 partyEmpower·partyRally 추가(partyHeal 와 동일 경로). partyEmpowerNearby/수신 핸들러(empowerLocalPlayer)는 원래 정상.

@@ -47,6 +47,16 @@ export function rollDragonLoot(): ItemId {
   return "dragon_horn";
 }
 
+// 용 전리품 수량 — 용 재료를 더 모으기 어렵게. 저레벨 용(기본 용 Lv60·파이어 드래곤 Lv130)은 거의 1개만,
+// 그 이상(레드/레이저/다크/불멸)도 1 위주로 가끔만 2~3 (종전 randInt(1,3) 균등 대비 대량 드랍 확률 하향).
+export function rollDragonLootCount(bossKind: BossKind | undefined, rng: () => number = Math.random): number {
+  if (bossKind === "dragon" || bossKind === "fire_dragon") return rng() < 0.12 ? 2 : 1;
+  const r = rng();
+  if (r < 0.6) return 1;
+  if (r < 0.88) return 2;
+  return 3;
+}
+
 export function calculateCombatDamage(attackPower: number, defense: number) {
   const attack = Math.max(0, Math.floor(attackPower));
   const armor = Math.max(0, Math.floor(defense));
@@ -134,7 +144,7 @@ export function applyProjectileDamage(
       return;
     }
     const loot = context.rollDragonLoot();
-    const lootCount = context.grantRewardItem(loot, 1, "boss");
+    const lootCount = context.grantRewardItem(loot, rollDragonLootCount(target.bossKind), "boss");
     context.removeObject(target.id);
     context.playTone(760, 0.24, "triangle", 0.045);
     context.showMessage(`용을 쓰러뜨렸습니다. ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
@@ -266,7 +276,7 @@ export function applyMeleeDragonAttack(context: ProjectileDamageContext, target:
     return;
   }
   const loot = context.rollDragonLoot();
-  const lootCount = context.grantRewardItem(loot, 1, "boss");
+  const lootCount = context.grantRewardItem(loot, rollDragonLootCount(target.bossKind), "boss");
   context.removeObject(target.id);
   context.playTone(760, 0.24, "triangle", 0.045);
   context.showMessage(`용을 쓰러뜨렸습니다! ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
