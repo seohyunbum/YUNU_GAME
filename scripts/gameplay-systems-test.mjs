@@ -159,7 +159,7 @@ try {
   almostEqual(CLASS_PASSIVES.warrior.armorBonus, 4, "warrior armor passive base (개편: 6→4 + 레벨당)");
   almostEqual(CLASS_PASSIVES.warrior.armorPerLevel, 0.2, "warrior armor per level");
   almostEqual(CLASS_PASSIVES.tanker.armorPerLevel, 0.4, "tanker armor per level");
-  almostEqual(CLASS_PASSIVES.healer.manaRegenFlat, 0.25, "healer flat mana regen");
+  almostEqual(CLASS_PASSIVES.healer.manaRegenFlat, 0.75, "healer flat mana regen (전 직업 +0.5 상향)");
   almostEqual(CLASS_PASSIVES.tanker.shieldHealthRegenBase + CLASS_PASSIVES.tanker.shieldHealthRegenPerLevel * 50, 1.25, "tanker shield regen at Lv50 = 0.25+50/50");
   almostEqual(CLASS_PASSIVES.gunner.moveSpeedMult, 1.1, "gunner move speed +10%");
   assert(CLASS_PASSIVES.gunner.gunOnlyRangedCooldown === true, "gunner cooldown is gun-only");
@@ -173,8 +173,8 @@ try {
   almostEqual(classWeaponDamageMult("gunner", "rifle"), 1, "gunner has no weapon damage bonus");
   almostEqual(RANGED_ATTACK_COOLDOWN * CLASS_PASSIVES.gunner.rangedCooldownScale, 0.28014, "gunner ranged cooldown (연사 90% 하향: 0.42×0.667)");
   almostEqual(MANA_REGEN_PER_SECOND * CLASS_PASSIVES.mage.manaRegenScale, 2, "mage mana regen");
-  almostEqual(CLASS_PASSIVES.healer.healthRegenPerSec + HUNGER_HP_REGEN[5], 0.3, "healer full-hunger regen");
-  almostEqual(CLASS_PASSIVES.healer.healthRegenPerSec + HUNGER_HP_REGEN[1], 0.25, "healer low-hunger passive-only regen");
+  almostEqual(CLASS_PASSIVES.healer.healthRegenPerSec + HUNGER_HP_REGEN[5], 0.8, "healer full-hunger regen (전 직업 +0.5 상향)");
+  almostEqual(CLASS_PASSIVES.healer.healthRegenPerSec + HUNGER_HP_REGEN[1], 0.75, "healer low-hunger passive-only regen (전 직업 +0.5 상향)");
   assert(PLAYER_CLASSES.tanker.starterItem === "iron_shield", "tanker should start with iron shield");
   assert(PLAYER_CLASSES.tanker.manaCost === TANKER_SKILL_COST, "tanker skill mana cost should match constant");
   assert(PLAYER_CLASSES.tanker.cooldown === TANKER_SKILL_COOLDOWN, "tanker skill cooldown should match constant");
