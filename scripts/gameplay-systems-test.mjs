@@ -394,8 +394,8 @@ try {
     assert(calculateIncomingPlayerDamage(14, 24) === 7, "fire dragon vs iron armor unchanged");
     assert(calculateIncomingPlayerDamage(0, 10) === 0, "zero attack stays zero");
     // 보스 공격 상향 골든
-    assert(BOSS_STATS.dragon.fireDamage === 10 && BOSS_STATS.dragon.clawDamage === 11, "dragon attacks should be 10/11");
-    assert(BOSS_STATS.immortal.fireDamage === 56 && BOSS_STATS.immortal.clawDamage === 46, "immortal attacks should be 56/46");
+    assert(BOSS_STATS.dragon.fireDamage === 12 && BOSS_STATS.dragon.clawDamage === 13, "dragon attacks should be 12/13 (boss +20%)");
+    assert(BOSS_STATS.immortal.fireDamage === 67 && BOSS_STATS.immortal.clawDamage === 55, "immortal attacks should be 67/55 (boss +20%)");
     // 변종 몬스터 공격 계수 0.65 (+ 30+ 보정: red_wolf Lv35 → 2+35*0.65+(35-30)*0.2 = 25.75 → 25)
     assert(predatorStatsForMonster("red_wolf").attackDamage === 25, `red wolf attack should scale at 0.65/level + 30+ ramp (got ${predatorStatsForMonster("red_wolf").attackDamage})`);
     // 30+ 보정: 정확히 30에서 0(절벽 없음), 30 미만 무영향, 30 초과만 완만히 증가
@@ -559,7 +559,7 @@ try {
     };
     updateFieldBosses(context);
     assert(spawned !== null && spawned.fieldBossId === "boss_starter_valley", "starter valley should spawn its field boss");
-    assert(spawned.hp === 304 && spawned.armor === 26 && spawned.attackDamage === 18, `field boss should use boss-formula stats for Lv 26 (mapMax 18 + 8) (hp ${spawned.hp}, armor ${spawned.armor}, atk ${spawned.attackDamage})`);
+    assert(spawned.hp === 590 && spawned.armor === 34 && spawned.attackDamage === 21, `field boss should use boss-formula stats for Lv 26 (보스 대폭 상향: HP +100%/방어 +30%/공격 +20%) (hp ${spawned.hp}, armor ${spawned.armor}, atk ${spawned.attackDamage})`);
     const firstBoss = spawned;
     updateFieldBosses(context);
     assert(spawned === firstBoss, "live field boss should not be duplicated");

@@ -42,7 +42,7 @@ const ATTACK_DURATION = 900; // ms — rear-up(예열) → 내리꽂기(강타).
 const WINDUP = 0.4;
 const BREATH_DELAY_MS = 620; // 예열 후 브레스 착탄까지(텔레그래프로 회피 가능)
 const BREATH_RADIUS = 3.7;
-const DRAGON_CHASE_SPEED = 9.5; // 걷기(7) < 추격 < 달리기(14): 걸으면 따라잡히고 달려야 도망칠 수 있다
+const DRAGON_CHASE_SPEED = 10.9; // 보스 추격 +15% (9.5→10.9). 걷기(7) < 추격 < 달리기(14): 걸으면 따라잡히고 달려야 도망칠 수 있다
 const DRAGON_CHASE_STOP = 7; // 덩치가 커서 더 멀리서 멈춰야 시야에 들어오고 타게팅 가능(4.6→7). 발톱은 ≤8 이라 여전히 닿음
 export const DRAGON_AGGRO_MS = 9000; // 피격/사거리 진입 시 추격 유지 시간 — 사거리 안이면 매 프레임 갱신(끈질긴 추격)
 

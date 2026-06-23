@@ -83,7 +83,7 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
     // 근접 정지/공격 사거리 — 겹치지 않고 시야에 들어오게 일정 거리 밖에서 멈춰 공격(몸집 클수록 더 멀리)
     const reach = context.predatorStrikeRange(monster.predatorKind) + 2.5 + (monster.collisionRadius ?? 0) * 0.5; // 정지/공격 사거리 — 0.8→2.5 로 더 멀리 떨어져 멈춰 공격(겹침 방지·타게팅 쉽게).
     const moving = aggroed ? distance > reach : true;
-    const speed = (aggroed ? (moving ? stats.speed : 0) : stats.speed * 0.3) * (monster.fortressBoss ? 0.82 : 1);
+    const speed = (aggroed ? (moving ? stats.speed : 0) : stats.speed * 0.3) * (monster.fortressBoss ? 0.94 : 1); // 요새 보스 추격 +15% (0.82→0.94)
     next.set(
       THREE.MathUtils.clamp(monster.root.position.x + Math.cos(angle) * speed * delta, minX, maxX),
       0,
