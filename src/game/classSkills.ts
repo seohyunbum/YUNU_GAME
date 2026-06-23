@@ -355,7 +355,7 @@ export function meteorDamage(levelBonus: number) {
 }
 export const METEOR_RADIUS = MAGE_TNT_RADIUS * 1.1;
 export function spiritStormDamage(levelBonus: number) {
-  return Math.round(scaledSkillValue(30, levelBonus, 1.2) * 1.1); // 소환사 T스킬 +10%
+  return scaledSkillValue(33, levelBonus, 1.32); // 소환사 T스킬 — base·scale 을 기존 대비 +10% (30→33, 1.2→1.32)
 }
 export function piercingShotDamage(levelBonus: number) {
   return scaledSkillValue(120, levelBonus, 2.2);
