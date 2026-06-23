@@ -3024,7 +3024,7 @@ class WildernessGame {
     useSecondClassSkill(this.secondSkillContext);
   }
 
-  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
+  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius, dirYaw) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius, dirYaw), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
 
   // 3번째 스킬(F) — 1차 전직 시 해금. 2스킬 컨텍스트를 재사용하되 쿨다운 슬롯/광역·자가회복만 보강.
   private useThirdSkill() {
@@ -3172,10 +3172,10 @@ class WildernessGame {
   }
 
   // 스킬 투사체 공용 발사기 — TNT/강탄/파이어볼/바람정령이 공유한다
-  private fireSkillProjectile(kind: CombatProjectile["kind"], visual: "magic" | "wind" | "tnt" | "arrow" | "fireball", damage: number, speed: number, radius: number, explosionRadius?: number) {
-    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
+  private fireSkillProjectile(kind: CombatProjectile["kind"], visual: "magic" | "wind" | "tnt" | "arrow" | "fireball", damage: number, speed: number, radius: number, explosionRadius?: number, dirYaw = 0) {
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion).normalize();
+    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).applyAxisAngle(up, dirYaw).normalize(); // dirYaw: 부채꼴 분산(메테오 3발)
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
     const origin = this.camera.position.clone().addScaledVector(direction, 0.9).addScaledVector(right, 0.18).addScaledVector(up, -0.14);
     const mesh = visual === "tnt" ? createTntProjectile(direction) : visual === "arrow" ? createArrowProjectile(direction) : visual === "wind" ? createWindCutterProjectile(direction) : visual === "fireball" ? createFireballProjectile(direction) : createMagicProjectile(direction);
     const projectile: CombatProjectile = { kind, mesh, velocity: direction.multiplyScalar(speed), damage, radius, life: kind === "tnt" ? 2.1 : PROJECTILE_MAX_LIFE, explosionRadius };
