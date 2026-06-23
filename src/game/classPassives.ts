@@ -137,7 +137,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     shieldHealthRegenBase: 0,
     shieldHealthRegenPerLevel: 0,
     moveSpeedMult: 1.1,
-    basicAttackMult: 0.9,
+    basicAttackMult: 0.7,
     rangedRangeScale: 0.9, // 거너 사거리 90% 로 하향
   },
   tanker: {
