@@ -5035,7 +5035,7 @@ class WildernessGame {
     const next = resolveDragonGear((id) => this.countItem(id) > 0);
     const changed = next.gloves !== this.dragonGear.gloves || next.boots !== this.dragonGear.boots || next.cloak !== this.dragonGear.cloak || next.crown !== this.dragonGear.crown;
     this.dragonGear = next;
-    this.maxHealth = this.maxHealthForLevel(); // 부츠 +10 반영(부츠 없으면 base)
+    this.maxHealth = Math.max(this.maxHealth, this.maxHealthForLevel()); // 부츠 +10 반영. max 로 합산 — 저장된 더 높은 maxHealth(로드 복원값)를 덮어쓰지 않음(세이브 라운드트립 보존)
     this.health = Math.min(this.health, this.maxHealth);
     this.mana = Math.min(this.mana, this.manaCap());
     if (changed) this.refreshDragonGearVisuals();
