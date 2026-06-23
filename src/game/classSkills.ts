@@ -351,12 +351,12 @@ export function judgmentLightDamage(levelBonus: number) {
 }
 export const JUDGMENT_SELF_HEAL = 30;
 export function meteorDamage(levelBonus: number) {
-  return scaledSkillValue(70, levelBonus, 1.8);
+  return scaledSkillValue(49, levelBonus, 1.26); // 발당 데미지 ×0.7 (3발 발사 밸런스 — base 70→49, scale 1.8→1.26)
 }
 export const METEOR_RADIUS = MAGE_TNT_RADIUS * 1.35; // 3발 부채꼴 발사에 맞춰 발당 폭발 범위 확대
 export const METEOR_SPREAD = 0.18; // 메테오 3발 좌/우 분산 각(rad, ≈10°)
 export function spiritStormDamage(levelBonus: number) {
-  return scaledSkillValue(33, levelBonus, 1.32); // 소환사 T스킬 — base·scale 을 기존 대비 +10% (30→33, 1.2→1.32)
+  return scaledSkillValue(36, levelBonus, 1.44); // 소환사 F스킬 — base·scale 을 기본 대비 +20% (30→36, 1.2→1.44)
 }
 export function piercingShotDamage(levelBonus: number) {
   return scaledSkillValue(120, levelBonus, 2.2);
@@ -368,7 +368,7 @@ export const RALLY_BURST_RADIUS = 3.5;
 export const THIRD_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   warrior: { name: "대지가르기", summary: "주변 모든 적에게 공격력 2배의 광역 강타.", manaCost: 50, cooldown: 35 },
   healer: { name: "심판의 빛", summary: "5분간 자신과 파티원 전체의 공격력·방어력을 +10% 높입니다.", manaCost: 50, cooldown: 240 },
-  mage: { name: "메테오", summary: "거대한 운석을 떨어뜨려 넓은 범위에 큰 피해를 줍니다.", manaCost: 55, cooldown: 22 },
+  mage: { name: "메테오", summary: "불덩이 운석 3발을 부채꼴로 발사해 넓은 범위에 큰 피해를 줍니다.", manaCost: 62, cooldown: 22 },
   summoner: { name: "정령 폭풍", summary: "주변에 바람 정령 폭풍을 일으켜 3초간 초당 광역 피해(총 3회)를 줍니다.", manaCost: 45, cooldown: 28 },
   gunner: { name: "관통 강탄", summary: "강력한 관통탄을 발사해 직선상의 적에게 큰 피해를 줍니다.", manaCost: 55, cooldown: 30 },
   tanker: { name: "불굴의 함성", summary: "20초 동안 자신과 파티원 전체의 방어력을 +20% 높입니다.", manaCost: 50, cooldown: 60 },
