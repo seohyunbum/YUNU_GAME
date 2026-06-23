@@ -81,7 +81,7 @@ import { fieldBossDefeatMessage, updateFieldBosses, type FieldBossContext } from
 import { showEndingScreen } from "./ui/endingScreen";
 import {
   createArrowProjectile,
-  createMagicProjectile, createFireballProjectile, createMeteorProjectile,
+  createMagicProjectile, createFireballProjectile,
   spawnHealEffect, spawnHealingRain, spawnSpiritStorm,
   createTntProjectile,
   createWindCutterProjectile,
@@ -3039,20 +3039,10 @@ class WildernessGame {
     trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "third"),
     nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; },
     heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } },
-    fireMeteor: (damage, explosionRadius) => this.fireMeteor(damage, explosionRadius),
     spiritStorm: (radius) => spawnSpiritStorm(this.combatEffectContext, this.playerPosition, radius),
   };
 
   // 전방 지면 위 하늘에서 불운석을 떨어뜨려 충돌 지점에서 폭발(tnt 폭발 경로 재사용 — 메테오 전용 비주얼·낙하궤적).
-  private fireMeteor(damage: number, explosionRadius: number) {
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion); forward.y = 0; forward.normalize();
-    const impact = this.playerPosition.clone().addScaledVector(forward, 9); impact.y = this.getGroundHeightAt(impact.x, impact.z);
-    const origin = impact.clone().add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(2), 21, THREE.MathUtils.randFloatSpread(2)));
-    const dir = impact.clone().sub(origin); const dist = dir.length(); dir.normalize(); const speed = 32;
-    const mesh = createMeteorProjectile(dir); mesh.position.copy(origin); this.scene.add(mesh);
-    this.projectiles.push({ kind: "tnt", mesh, velocity: dir.clone().multiplyScalar(speed), damage, radius: 0.95, life: dist / speed, explosionRadius });
-  }
-
   // 전직 연출 — 차수가 오를수록(특히 2·3차) 더 화려하게. 발밑 마법진 + 충격파 + 폭죽 + 반짝임 + 상승 팡파레음. 색: 1차 금, 2차 주황, 3차 보라.
   private playJobAdvanceFx(tier: number) {
     this.sample("levelup.wav", 0.55, () => {}); // 전직 — CC0 상승 파워업

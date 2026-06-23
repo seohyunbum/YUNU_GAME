@@ -781,28 +781,6 @@ export function spawnHealEffect(context: CombatEffectContext, position: THREE.Ve
   }
 }
 
-// 메테오 운석 — 용암 균열이 빛나는 검은 암석 + 2겹 화염 글로우 + 진행 반대로 늘어지는 불꼬리.
-// 파이어볼(구체)과 확실히 달라 보이게 불규칙 암석 + 큰 화염 꼬리. main.fireMeteor 가 하늘에서 떨어뜨린다.
-export function createMeteorProjectile(direction: THREE.Vector3) {
-  const group = new THREE.Group();
-  const rock = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.52, 0),
-    new THREE.MeshStandardMaterial({ color: 0x2a1206, emissive: 0xff4d12, emissiveIntensity: 0.95, roughness: 1, metalness: 0.1, flatShading: true }),
-  );
-  rock.scale.set(1, 0.92, 1.08);
-  const innerFlame = new THREE.Mesh(new THREE.SphereGeometry(0.68, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff7a18, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending, depthWrite: false }));
-  const outerFlame = new THREE.Mesh(new THREE.SphereGeometry(0.95, 14, 10), new THREE.MeshBasicMaterial({ color: 0xff2a08, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false }));
-  group.add(outerFlame, innerFlame, rock);
-  const tail = new THREE.Mesh(
-    new THREE.ConeGeometry(0.52, 2.8, 16, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xffb43a, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
-  );
-  tail.rotation.x = Math.PI / 2; tail.position.z = 1.4; // 로컬 +z = 진행 반대(꼬리)
-  group.add(tail);
-  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction.clone().normalize());
-  return group;
-}
-
 // 치유의 비 지속 연출 — 회복 틱마다 호출. 반경에 떨어지는 청록 빗방울 + 발밑 회복 물결 링.
 export function spawnHealingRain(context: CombatEffectContext, position: THREE.Vector3) {
   const groundY = position.y - 1.7; // playerPosition.y 는 눈높이 → 발밑 기준

@@ -58,7 +58,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 제련대·분쇄기도 동일 컨셉(보유표기+수량 스테퍼) — 인라인 패널 HTML 을 ui/stationPanel 리프로 추출(순감). smelt/grindItem 수량 루프 → 10051→10015.
 // 2026-06-21: 좌측하단 버프바 — buffs 뷰 1줄+hudRefreshTick 필드+update 루프 ~4/s 렌더 1줄. 버프 목록·렌더는 classSkills.activeBuffs/hudRenderer 리프 → 10015→10018.
 // 2026-06-21: 광산 상자 전리품 상향(openMineChest 가 rollMineChestLoot 리프 사용)으로 인라인 루프 축소 → 10018→10014.
-const MAX_MAIN_LINES = 10014;
+// 2026-06-23: 메테오 스킬을 전방 파이어볼로 변경하며 dead fireMeteor 메서드+import 제거 → 10014→10004.
+const MAX_MAIN_LINES = 10004;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
