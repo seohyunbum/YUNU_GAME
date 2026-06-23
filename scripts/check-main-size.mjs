@@ -60,7 +60,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 광산 상자 전리품 상향(openMineChest 가 rollMineChestLoot 리프 사용)으로 인라인 루프 축소 → 10018→10014.
 // 2026-06-23: 메테오 스킬을 전방 파이어볼로 변경하며 dead fireMeteor 메서드+import 제거 → 10014→10004.
 // 2026-06-23: 용 장비 4종(자동착용·스탯·1인칭 건틀릿·3인칭 아바타·합연산) 배선 — 신규 기능으로 +37 → 10041.
-const MAX_MAIN_LINES = 10041;
+// 2026-06-23: 달리기 퀘스트용 sprintSteps 누적/스냅샷 — +5 → 10046.
+const MAX_MAIN_LINES = 10046;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

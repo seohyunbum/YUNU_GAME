@@ -485,6 +485,7 @@ class WildernessGame {
   private fallDamageArmed = false;
   private jumpWasDown = false;
   private totalSteps = 0;
+  private sprintSteps = 0; // 달리기(Shift+W)로 이동한 누적 거리 — 초반 달리기 퀘스트용(달성 시 achievedStepIds 로 영구 기록되므로 세이브 불필요)
   private playSeconds = 0; // 실시간 누적 플레이타임(초) — 타이틀·패널 제외
   private chestStepBank = 0;
   private caveStepBank = 0;
@@ -3283,6 +3284,8 @@ class WildernessGame {
     if (moved > 0) {
       const previousStepCount = Math.floor(this.totalSteps);
       this.totalSteps += moved;
+      if (sprinting) this.sprintSteps += moved; // 달리기 퀘스트 누적
+
       if (this.locationMode === "overworld") this.checkStepEvents(moved);
       this.previousPosition.copy(this.playerPosition);
       const currentStepCount = Math.floor(this.totalSteps);
@@ -6292,6 +6295,7 @@ class WildernessGame {
     this.isGrounded = true;
     this.jumpWasDown = false;
     this.totalSteps = 0;
+    this.sprintSteps = 0;
     this.playSeconds = 0;
     this.chestStepBank = 0;
     this.caveStepBank = 0;
@@ -6722,6 +6726,7 @@ class WildernessGame {
       hunger: this.hunger,
       countItem: (item: ItemId) => this.countItem(item),
       totalSteps: this.totalSteps,
+      sprintSteps: this.sprintSteps,
       level: this.level,
       inCave: this.locationMode === "cave",
       ...this.tutorialSignals,
