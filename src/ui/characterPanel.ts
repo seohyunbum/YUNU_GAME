@@ -22,6 +22,7 @@ export interface CharacterPanelView {
   shieldItem: string | null;
   necklaceItem: string | null;
   ownedNecklaces: { item: string; name: string; equipped: boolean }[];
+  dragonGear: { item: string; name: string }[]; // 보유=자동 착용 중인 용 장비(최고등급)
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
   monstersKilled: number; // 누적 처치 몬스터 수(기록)
@@ -46,6 +47,7 @@ function gearInfoAttr(item: string | null) {
 }
 
 const RANK_MEDALS = ["🥇", "🥈", "🥉"];
+const DRAGON_GEAR_ICONS: Record<string, string> = { dragon_gloves: "🧤", dragon_boots: "🥾", dragon_cloak: "🧥", dragon_crown: "👑" };
 
 // 전체 플레이어 TOP N 렌더(요새 최고 단계 기준). 내 행은 (나) 강조, top 밖이면 내 순위 별도 표시.
 function renderLeaderboard(board: LeaderboardResult | null, myNickname: string): string {
@@ -99,6 +101,14 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
                     )
                     .join("")}${view.ownedNecklaces.some((n) => n.equipped) ? `<button class="character-necklace-choice" data-equip-necklace="">해제</button>` : ""}</div>`
                 : `<div class="character-necklace-empty">보유한 목걸이가 없습니다. 확장 제작대에서 만들거나 흑요석 상자에서 얻으세요.</div>`
+            }
+            <div class="character-gear-row"><span>🐉 용 장비</span><strong>${view.dragonGear.length > 0 ? `${view.dragonGear.length}/4 착용 중` : "없음"}</strong></div>
+            ${
+              view.dragonGear.length > 0
+                ? `<div class="character-necklace-choices">${view.dragonGear
+                    .map((g) => `<button class="character-necklace-choice equipped" data-item="${escapeHtml(g.item)}">${escapeHtml(DRAGON_GEAR_ICONS[g.item] ?? "🐉")} ${escapeHtml(g.name)} ✓</button>`)
+                    .join("")}</div>`
+                : `<div class="character-necklace-empty">용 장비(장갑·부츠·망토·왕관)는 확장 제작대에서 용 재료로 제작하면 가방에 있는 것만으로 자동 착용됩니다.</div>`
             }
           </div>
           <div class="character-stats">

@@ -356,3 +356,59 @@ export function createJobAdvanceModel(item: string): THREE.Object3D {
   }
   return group;
 }
+
+// ── 용 장비 4종(레전더리/빨강) — 흑요석 광택 + 붉은 용암 글로우 + 금 테두리 ──
+const DRAGON_OBSIDIAN = 0x191017;
+const DRAGON_LAVA = 0xff3b1f;
+const DRAGON_GOLD = 0xf3c24a;
+function dragonMats() {
+  return {
+    obs: makeMetalMaterial(DRAGON_OBSIDIAN, { roughness: 0.3, metalness: 0.55, flatShading: true }),
+    lava: makeGlowMaterial(DRAGON_LAVA, 0xff5a18, { emissiveIntensity: 0.95 }),
+    gold: makeMetalMaterial(DRAGON_GOLD, { roughness: 0.32, metalness: 0.7 }),
+  };
+}
+
+// 표준 모델(드롭/들기/아바타 공용) — 부위별 고퀄 형상.
+export function createDragonGearModel(item: string): THREE.Object3D {
+  const g = new THREE.Group();
+  const m = dragonMats();
+  if (item === "dragon_gloves") {
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.34), m.obs); hand.scale.set(1, 0.9, 1); g.add(hand);
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.18, 8), m.gold); cuff.position.set(0, 0, -0.22); cuff.rotation.x = Math.PI / 2; g.add(cuff);
+    const crack = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.19, 0.3), m.lava); g.add(crack);
+    for (let i = 0; i < 4; i += 1) { const claw = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.2, 6), m.obs); claw.position.set((i - 1.5) * 0.075, 0.02, 0.26); claw.rotation.x = -1.15; g.add(claw); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.07, 5), m.lava); tip.position.set((i - 1.5) * 0.075, 0.05, 0.36); tip.rotation.x = -1.15; g.add(tip); }
+  } else if (item === "dragon_boots") {
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.34, 8), m.obs); shaft.position.y = 0.2; g.add(shaft);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.16, 0.42), m.obs); foot.position.set(0, 0.05, 0.07); g.add(foot);
+    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.05, 0.46), m.gold); sole.position.set(0, -0.04, 0.08); g.add(sole);
+    const crack = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.04, 0.04), m.lava); crack.position.set(0, 0.1, 0.27); g.add(crack);
+    const wing = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 4), m.lava); wing.position.set(0, 0.22, -0.18); wing.rotation.x = 1.6; g.add(wing);
+  } else if (item === "dragon_cloak") {
+    const cape = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.0, 0.06), m.obs); g.add(cape);
+    const taper = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.5, 4), m.obs); taper.position.y = -0.66; taper.rotation.y = Math.PI / 4; g.add(taper);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.06, 8, 16, Math.PI), m.gold); collar.position.y = 0.5; collar.rotation.x = Math.PI / 2; g.add(collar);
+    for (let i = 0; i < 3; i += 1) { const vein = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.8, 0.02), m.lava); vein.position.set((i - 1) * 0.2, -0.05, 0.04); g.add(vein); }
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), m.lava); gem.position.set(0, 0.46, 0.06); g.add(gem);
+  } else { // dragon_crown
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.32, 0.16, 16, 1, true), m.gold); g.add(band);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.03, 8, 20), m.lava); ring.position.y = -0.07; ring.rotation.x = Math.PI / 2; g.add(ring);
+    for (let i = 0; i < 6; i += 1) { const a = (i / 6) * Math.PI * 2; const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, i % 2 === 0 ? 0.26 : 0.16, 5), m.obs); spike.position.set(Math.cos(a) * 0.3, 0.16, Math.sin(a) * 0.3); g.add(spike); if (i % 2 === 0) { const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.04), m.lava); tip.position.set(Math.cos(a) * 0.3, 0.3, Math.sin(a) * 0.3); g.add(tip); } }
+    const center = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), m.lava); center.position.set(0, 0.1, 0.31); g.add(center);
+  }
+  return g;
+}
+
+// 1인칭 손에 덧씌우는 용 건틀릿 — 손/팔뚝을 덮는 고퀄 메시(날카로운 발톱 + 용암 균열).
+export function createDragonGauntletFirstPerson(): THREE.Object3D {
+  const g = new THREE.Group();
+  const m = dragonMats();
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.11, 0.16), m.obs); g.add(back);
+  const knuckles = new THREE.Mesh(new THREE.BoxGeometry(0.155, 0.05, 0.06), m.gold); knuckles.position.set(0, 0.03, 0.09); g.add(knuckles);
+  const forearmPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.1, 0.26, 8), m.obs); forearmPlate.position.set(0, -0.01, -0.18); forearmPlate.rotation.x = Math.PI / 2; g.add(forearmPlate);
+  const cuffRing = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.022, 8, 14), m.gold); cuffRing.position.set(0, -0.01, -0.05); g.add(cuffRing);
+  const crack = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.24), m.lava); crack.position.set(0, 0.055, -0.16); g.add(crack);
+  for (let i = 0; i < 4; i += 1) { const claw = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.12, 6), m.obs); claw.position.set((i - 1.5) * 0.04, -0.02, 0.16); claw.rotation.x = -1.4; g.add(claw); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.045, 5), m.lava); tip.position.set((i - 1.5) * 0.04, -0.04, 0.23); tip.rotation.x = -1.4; g.add(tip); }
+  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 5), m.obs); spike.position.set(0, 0.06, -0.26); spike.rotation.x = -0.5; g.add(spike);
+  return g;
+}
