@@ -250,7 +250,7 @@ import { spawnGuardProjectile, updateGuardProjectiles, type GuardProjectile, typ
 import { keepOutOfBuildings } from "./game/npcMovement";
 import { hitStopScale, triggerHitFeedback, updateHitFeedback, type HitFeedbackDeps } from "./game/hitFeedback";
 import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, createMonsterFortressInterior, createSiegeArenaInterior, type InteriorContext } from "./game/interiors";
-import { createSiegeState, siegeStatus, updateSiege, type SiegeContext, type SiegeState } from "./game/fortressSiege";
+import { createSiegeState, loadFortressStageByMap, saveFortressStageByMap, siegeStatus, updateSiege, type SiegeContext, type SiegeState } from "./game/fortressSiege";
 import { spawnFortressMonster, updateCaveMonsters, type CaveMonsterContext, type FortressSpawnDeps } from "./game/caveMonsters";
 import { buildOreMesh, oreSharedGeometries, oreSharedMaterials } from "./game/oreVisual";
 import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
@@ -642,6 +642,7 @@ class WildernessGame {
   private caveReturnPosition: THREE.Vector3 | null = null;
   private fortressSiege: SiegeState | null = null; // 몬스터 요새 디펜스 진행 상태(휘발 — 세이브 안 함)
   private bestFortressStage = this.loadBestFortressStage(); // 몬스터 요새 최고 클리어 단계(기록용 — 전역 유지, 새 게임 시 리셋)
+  private fortressStageByMap = loadFortressStageByMap(); // 맵별 요새 최고 클리어 단계 — 재입장 시 이어서 시작
   private bestFortressBaseLevel = this.loadBestFortressBaseLevel(); // 그 최고 단계 기록 당시 baseLevel(난이도 맥락)
   private leaderboard: LeaderboardResult | null = null; // 캐릭터 창 전체 랭킹(null = 불러오는 중). 창 열 때마다 재조회
   private houseReturnPosition: THREE.Vector3 | null = null;
@@ -797,6 +798,7 @@ class WildernessGame {
       this.addItem("job_change_tome", tomes);
       for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
       if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.bestFortressBaseLevel = this.fortressSiege?.baseLevel ?? this.bestFortressBaseLevel; this.saveBestFortressStage(); void publishProgress(this.nickname, this.progressUpdate()); } // 최고 단계 갱신(당시 baseLevel 기록) → 랭킹 즉시 반영
+      if ((this.fortressStageByMap[this.currentWorldMapId] ?? 0) < stage) { this.fortressStageByMap[this.currentWorldMapId] = stage; saveFortressStageByMap(this.fortressStageByMap); } // 맵별 최고 클리어 단계 → 재입장 시 이어서 시작
       startMiniFanfare(this.finaleContext);
       this.saveSiegeRewardSnapshot(); // 단계 보상을 즉시 디스크에 고정 — 크래시/탭닫힘 유실 방지(#1)
     },
@@ -4597,11 +4599,14 @@ class WildernessGame {
     this.settlePlayerAfterTeleport();
     createSiegeArenaInterior(this.interiorContext);
     const range = getWorldMapById(this.currentWorldMapId).levelRange; const baseLevel = Math.max(1, Math.round((range[0] + range[1]) / 2)); // 요새 난이도=그 맵 권장 레벨대(중앙값) 기준. 플레이어 레벨 무관 — 고렙이 저레벨 맵(용용평원 등) 요새를 과도하게 어렵게 만들던 버그 수정
-    this.fortressSiege = createSiegeState(baseLevel);
+    const startStage = Math.max(1, this.fortressStageByMap[this.currentWorldMapId] ?? 1); // 이 맵 요새에서 클리어했던 최고 단계부터 이어서 시작
+    this.fortressSiege = createSiegeState(baseLevel, startStage);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
     this.tutorialSignals.fortressVisited = true; // 요새 탐방 체험 퀘스트 신호(입장만으로 달성)
-    this.showMessage("🏰 몬스터 요새 입성 — 1단계 도전 시작! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/중도 퇴장해도 받은 보상은 유지)");
+    this.showMessage(startStage > 1
+      ? `🏰 몬스터 요새 재입성 — ${startStage}단계부터 이어서 시작! (이 맵 최고 클리어 단계) 중앙을 사수하세요. (사망/중도 퇴장해도 받은 보상은 유지)`
+      : "🏰 몬스터 요새 입성 — 1단계 도전 시작! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/중도 퇴장해도 받은 보상은 유지)");
     this.renderHud();
   }
 
@@ -6325,7 +6330,7 @@ class WildernessGame {
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
     this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.fortressVisited = false; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
-    this.bestFortressStage = 0; this.bestFortressBaseLevel = 0; this.saveBestFortressStage(); // 새 게임 시 요새 기록도 초기화(잡은 몬스터 수와 일관)
+    this.bestFortressStage = 0; this.bestFortressBaseLevel = 0; this.saveBestFortressStage(); this.fortressStageByMap = {}; saveFortressStageByMap(this.fortressStageByMap); // 새 게임 시 요새 기록(전역·맵별)도 초기화(잡은 몬스터 수와 일관)
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;

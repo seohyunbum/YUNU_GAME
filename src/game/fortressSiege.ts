@@ -44,8 +44,17 @@ export interface SiegeState {
   spawnCursor: number; // 통로 라운드로빈 — 진입마다 리셋(모듈 전역 누적 방지)
 }
 
-export function createSiegeState(baseLevel: number): SiegeState {
-  const stage = 1;
+// 맵별 몬스터 요새 최고 클리어 단계 — 재입장 시 이어서 시작하기 위해 localStorage 에 보존(세이브 스키마 무관, bestFortressStage 와 동일 방식).
+const FORTRESS_STAGE_BY_MAP_KEY = "ai-game-lab:fortress-stage-by-map-v1";
+export function loadFortressStageByMap(): Record<string, number> {
+  try { const raw = localStorage.getItem(FORTRESS_STAGE_BY_MAP_KEY); const obj = raw ? JSON.parse(raw) : {}; return obj && typeof obj === "object" ? (obj as Record<string, number>) : {}; } catch { return {}; }
+}
+export function saveFortressStageByMap(map: Record<string, number>): void {
+  try { localStorage.setItem(FORTRESS_STAGE_BY_MAP_KEY, JSON.stringify(map)); } catch { /* 저장 차단 환경 무시 */ }
+}
+
+export function createSiegeState(baseLevel: number, startStage = 1): SiegeState {
+  const stage = Math.max(1, Math.floor(startStage));
   return {
     active: true,
     stage,
