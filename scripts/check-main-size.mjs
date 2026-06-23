@@ -61,7 +61,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-23: 메테오 스킬을 전방 파이어볼로 변경하며 dead fireMeteor 메서드+import 제거 → 10014→10004.
 // 2026-06-23: 용 장비 4종(자동착용·스탯·1인칭 건틀릿·3인칭 아바타·합연산) 배선 — 신규 기능으로 +37 → 10041.
 // 2026-06-23: 달리기 퀘스트용 sprintSteps 누적/스냅샷 — +5 → 10046.
-const MAX_MAIN_LINES = 10046;
+// 2026-06-23: 집터 판정 버그 수정 — 이동 생물(동물·몬스터·NPC·펫) 제외 BUILD_SITE_IGNORE_TYPES 셋+주석. 밀집된 야생 때문에 어디서도 집을 못 짓던 회귀 → 10046→10049.
+const MAX_MAIN_LINES = 10049;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

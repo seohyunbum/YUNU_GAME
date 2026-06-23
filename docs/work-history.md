@@ -14,6 +14,14 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-23 — 집짓기 회귀 수정: 집터 판정이 이동 생물을 장애물로 오인
+
+- 증상: 어느 지형에서든 "이 위치에는 집을 지을 수 없습니다" 메시지로 집짓기 불가.
+- 원인: isBuildSiteClear 의 인근 오브젝트 루프가 droppedItem 만 제외하고, collisionRadius 가진 모든 오브젝트를 장애물로 판정 → 동물·야생몬스터(이동 생물)도 집터를 막음. 야생 밀도 상향(2.4/1.5) 이후 집터 7~8칸 안에 거의 항상 생물이 있어 어디서도 못 지음. 진단 E2E 로 blockers=animal/wildPredator 확인(inBiome/nearWater=false).
+- 수정: 모듈 const BUILD_SITE_IGNORE_TYPES(동물·몬스터·경비·NPC·펫·드래곤·jammini·미너·떨군아이템) 추가, 루프에서 이 타입은 skip. 정적 구조물·지형·물만 집터를 막는다.
+- 검증: typecheck+build, 진단 E2E(정면에 생물 있어도 clear=true·여러 지점 집터 열림, 물/구조물만 막음). main +3 → ratchet 10046→10049.
+- ⚠️ verify 중 test:save-roundtrip 1건 실패는 본 수정과 무관 — 동시(Codex) 세션의 직업 밸런스 변경으로 tanker Lv5 maxHealth 28(기대 40) 불일치. tanker HP 하락이 의도인지 회귀인지 Codex 확인 필요(테스트는 내 변경 대상 아니라 미수정). build/typecheck/배포는 정상.
+
 ## 2026-06-21 — 몬스터 요새 난이도를 맵 레벨대 기준으로 (플레이어 레벨 의존 제거)
 
 - 증상: 저레벨 맵(용용평원 [10,25])에 뜬 요새가 70레벨로 1단계조차 어려움.
