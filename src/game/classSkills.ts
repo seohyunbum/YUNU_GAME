@@ -377,7 +377,6 @@ export const THIRD_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
 export interface ThirdSkillContext extends SecondSkillContext {
   nearbyCombatTargets(radius: number): WorldObject[];
   heal(amount: number): void;
-  fireMeteor(damage: number, explosionRadius: number): void; // 메테오 — 하늘에서 운석 낙하 + 지면 폭발(파이어볼 전방 발사와 구분)
   spiritStorm(radius: number): void; // 정령 폭풍 — 주변 회오리 광역 연출
 }
 
@@ -418,10 +417,10 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
     if (!context.trySpend(skill)) return;
     context.castImpact();
     const meteorDmg = Math.round(meteorDamage(bonus) * context.damageMult());
-    context.fireMeteor(meteorDmg, METEOR_RADIUS); // 하늘에서 운석 낙하 → 지면 폭발(전방 파이어볼과 다른 연출)
+    context.fireSkillProjectile("tnt", "fireball", meteorDmg, 32, 0.5, METEOR_RADIUS); // 전방으로 불덩이 운석 발사 → 명중 시 광역 폭발(파이어볼과 동일 발사 방식, 더 큰 AoE)
     context.playHandAction("magic");
     context.skillSound("fire");
-    context.showMessage(`메테오! ${meteorDmg} 광역 피해의 운석을 떨어뜨렸습니다.`);
+    context.showMessage(`메테오! ${meteorDmg} 광역 피해의 불덩이 운석을 발사했습니다.`);
     return;
   }
   if (playerClass === "summoner") {
