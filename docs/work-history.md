@@ -14,6 +14,12 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-23 — 파티 버프(심판의 빛·불굴) 미전파 수정 + 몬스터 요새 맵별 이어하기
+
+- ① 힐러 '심판의 빛'(empower)·탱커 '불굴의 함성'(rally) 버프가 파티원에게 안 걸림(시전자 본인만). 원인: party.ts 메시지 라우팅 2곳(호스트 중계 ~284, 게스트 수신 ~349)에 partyHeal 만 있고 partyEmpower/partyRally 누락 → 메시지가 핸들러까지 도달 못 함. 스킬 추가 커밋(1dcbefc) 때부터의 버그(전파 배선 누락). 수정: 두 라우팅 리스트에 partyEmpower·partyRally 추가(partyHeal 와 동일 경로). partyEmpowerNearby/수신 핸들러(empowerLocalPlayer)는 원래 정상.
+- ② 몬스터 요새가 재입장 시 1단계부터 시작 → 맵별 최고 클리어 단계부터 이어서 시작. fortressSiege.ts: createSiegeState(baseLevel, startStage) 파라미터화 + loadFortressStageByMap/saveFortressStageByMap(localStorage, 세이브 스키마 무관). main: fortressStageByMap 필드, enter 시 그 맵 기록부터 시작·재입성 메시지, grantStageReward 에서 맵별 갱신, 새 게임 리셋. main +5 → ratchet 10049→10054.
+- 검증: typecheck+build, 요새 E2E(dragon_plains 6단계 재개·기록없는맵 1단계·7클리어→기록7·localStorage 저장). empower 는 partyHeal 미러라 코드추론+build. ⚠️ verify 의 save-roundtrip(tanker maxHealth 28≠40)·content(dragon gear 퀘XP·레전더리셋)은 동시 Codex 세션의 미완 작업 — 내 변경 무관(touch 안 함), Codex 확인 필요.
+
 ## 2026-06-23 — 집짓기 회귀 수정: 집터 판정이 이동 생물을 장애물로 오인
 
 - 증상: 어느 지형에서든 "이 위치에는 집을 지을 수 없습니다" 메시지로 집짓기 불가.

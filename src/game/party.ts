@@ -280,8 +280,8 @@ export class PartySession {
       }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
       if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest" || message.type === "placeRequest" || message.type === "storageOpenReq" || message.type === "storageTake" || message.type === "storageStore" || message.type === "supplyClaimReq") && link.nickname) this.emitGame(message, link.nickname);
-      // 5.1 — 게스트가 보낸 공격 연출·파티 힐: 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
-      if (message.type === "playerAttack" || message.type === "partyHeal") {
+      // 5.1 — 게스트가 보낸 공격 연출·파티 힐·파티 버프(심판의 빛·불굴의 함성): 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
+      if (message.type === "playerAttack" || message.type === "partyHeal" || message.type === "partyEmpower" || message.type === "partyRally") {
         this.emitGame(message, link.nickname ?? undefined);
         for (const other of this.guests) if (other !== link && other.connection.open) other.connection.send(encodePartyMessage(message));
       }
@@ -346,7 +346,7 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
-        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "storageSync" || message.type === "chat") {
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "partyEmpower" || message.type === "partyRally" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "storageSync" || message.type === "chat") {
           this.emitGame(message);
           return;
         }
