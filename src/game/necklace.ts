@@ -34,3 +34,13 @@ export function necklaceSkillCooldownMult(necklace: ItemId | null): number {
 export function necklaceManaRegenBonus(necklace: ItemId | null): number {
   return necklace === "sage_necklace" ? 1 : 0;
 }
+
+// ── 장신구 계층 합연산용 분수 표현 (용 장비와 합산해 과증폭 방지) ──
+// 공속 haste: 쿨타임 배수 = 1/(1+haste). swift 0.75 = 1/(1+1/3) 와 동일하도록 1/3.
+export function necklaceAttackSpeedHaste(necklace: ItemId | null): number {
+  return necklace === "swift_necklace" ? 1 / 3 : 0;
+}
+// 스킬 쿨타임 감소율(합산용). sage -15%.
+export function necklaceSkillCooldownReduction(necklace: ItemId | null): number {
+  return necklace === "sage_necklace" ? 0.15 : 0;
+}
