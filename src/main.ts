@@ -354,6 +354,9 @@ import { eagleSkillStatus as formatEagleSkillStatus, tryEagleClaw, tryEagleWindC
 import { applyOverworldTimeOfDay, gameClockText, timeOfDayName, moodForWorldMap } from "./game/timeOfDay";
 import "./style.css";
 
+// 집터 판정에서 무시할 '이동하는' 오브젝트 — 동물·몬스터·경비·NPC·펫·드래곤·떨군아이템. 이들은 곧 자리를 옮기므로 집터 장애물이 아니다(정적 구조물·지형만 막음).
+const BUILD_SITE_IGNORE_TYPES: ReadonlySet<ObjectType> = new Set<ObjectType>(["droppedItem", "wildPredator", "eagleSummon", "summonerPet", "dragon", "jammini", "miner", "animal", "villager", "villageKing", "blacksmithNpc", "villageKnight", "villageArcher", "villageMage", "villageGolem"]);
+
 class WildernessGame {
   private readonly container: HTMLDivElement;
   private readonly scene = new THREE.Scene();
@@ -7359,7 +7362,7 @@ class WildernessGame {
     if (Math.abs(position.x) > WORLD_SIZE / 2 - radius - 4 || Math.abs(position.z) > WORLD_SIZE / 2 - radius - 4) return false;
     if (this.isNaturalSpawnBlocked(position, radius + 1.5)) return false;
     for (const object of this.objectsNear(position, radius + 12)) {
-      if (object.type === "droppedItem") continue;
+      if (BUILD_SITE_IGNORE_TYPES.has(object.type)) continue; // 이동하는 생물(동물·몬스터·경비·NPC·펫·드래곤)은 집터 장애물 아님 — 정적 구조물·지형만 막는다
       const objectRadius = Math.max(object.collisionRadius ?? 0, object.terrainRadius ?? 0.75);
       if (objectRadius <= 0) continue;
       const distance = Math.hypot(position.x - object.root.position.x, position.z - object.root.position.z);
