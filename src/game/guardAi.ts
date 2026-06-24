@@ -15,7 +15,7 @@ export interface GuardAiContext {
   playHandAction(): void;
   showMessage(text: string): void;
   renderHud(): void;
-  getLastDamage(): { blocked: boolean; taken: number };
+  getLastDamage(): { blocked: boolean; taken: number; countered?: boolean };
   keepOutOfBuildings(position: THREE.Vector3): void;
   fireProjectile(fromX: number, fromY: number, fromZ: number, targetX: number, targetZ: number, damage: number, kind: "rock" | "arrow" | "magic"): void; // 가드 투사체(바위·화살·마법탄)
 }
@@ -111,6 +111,7 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     context.playHandAction();
     if (died) continue;
     const lastDamage = context.getLastDamage();
+    if (lastDamage.countered) { context.renderHud(); continue; } // 4차 반격으로 무효화 — '반격!' 메시지는 이미 출력됨, 잔여 데미지 메시지 중복 방지
     const attackText = lastDamage.blocked
       ? `${guard.name}의 공격을 방어구가 완전히 막았습니다.`
       : `${guard.name}가 가까이 붙어 공격했습니다. 피해 ${lastDamage.taken}.`;
