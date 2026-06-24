@@ -1,5 +1,6 @@
 export interface LoadGameSlotView {
   id: string;
+  savedAt: string;
   label: string;
   summary: string;
   // 요약이 없는 구버전 압축 슬롯 — 렌더 후 비동기로 요약을 채워 넣는다
@@ -60,6 +61,9 @@ export function renderLoadGamePanel(
   saves: LoadGameSlotView[],
   callbacks: LoadGamePanelCallbacks,
 ) {
+  // 슬롯 번호는 위치 고정(저장 N)이고 '최근 저장' 표식만 실제 최신본(=max savedAt) 슬롯에 붙는다 — 덮어쓰기 패널과 동일 규칙.
+  let recentSlotIndex = -1;
+  for (let i = 0; i < saves.length; i += 1) if (recentSlotIndex < 0 || saves[i].savedAt > saves[recentSlotIndex].savedAt) recentSlotIndex = i;
   panelEl.innerHTML = `
       <section class="panel load-panel">
         <header>
@@ -86,7 +90,7 @@ export function renderLoadGamePanel(
                   .map(
                     (slot, index) => `<article class="save-card">
                       <div>
-                        <strong>${index === 0 ? "최근 저장" : `저장 ${index + 1}`} · ${escapeHtml(slot.label)}</strong>
+                        <strong>저장 ${index + 1}${index === recentSlotIndex ? " · 최근 저장" : ""} · ${escapeHtml(slot.label)}</strong>
                         <p data-slot-summary="${index}">${escapeHtml(slot.needsSummary ? "요약 불러오는 중…" : slot.summary)}</p>
                         ${slot.objectCount !== undefined ? `<small>저장된 오브젝트 ${slot.objectCount}개 · 지형 ${slot.mountainCount ?? 0}개</small>` : ""}
                       </div>
