@@ -6859,7 +6859,7 @@ class WildernessGame {
     }
     if (this.currentPanel === "saveOverwrite") {
       // 명명 슬롯만 보여주고 그 집합에 그대로 쓴다 — 화면/기록 집합을 일치시켜 비선택 저장 유실을 막는다.
-      renderSaveOverwritePanelView(this.panelEl, this.readStoredSlots().map((slot) => ({ id: slot.id, label: slot.label, summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label })), {
+      renderSaveOverwritePanelView(this.panelEl, this.readStoredSlots().map((slot) => ({ id: slot.id, savedAt: slot.savedAt, label: slot.label, summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label })), {
         onClose: () => { this.pendingOverwriteSave = null; this.closePanel(); },
         onOverwrite: async (slotId) => {
           const save = this.pendingOverwriteSave;
@@ -7194,6 +7194,7 @@ class WildernessGame {
       this.panelEl,
       saves.map((slot) => ({
         id: slot.id,
+        savedAt: slot.savedAt,
         label: slot.label,
         summary: slot.save ? saveSummary(slot.save) : slot.description ?? slot.label,
         needsSummary: !slot.save && !slot.description,

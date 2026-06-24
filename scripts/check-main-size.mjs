@@ -68,7 +68,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-24: 4차 전직 3탄 — 4번째 스킬(G) useFourthSkill 메서드·fourthSkillContext·스킬 +10% 배선(primary/skill 컨텍스트 skillDamageMult) +20 → 10088.
 // 2026-06-24: 4차 전직 5탄 — 초월 전직 FX 고도화(playJobAdvanceFx tier4 푸른 다이아몬드 승천 finale) +8 → 10096.
 // 2026-06-24: 감사 후속 — 근접 가드 반격 시 잔여 데미지 메시지 중복 방지(lastDamageCountered 필드) +1 → 10097.
-const MAX_MAIN_LINES = 10097;
+// 2026-06-24: 세이브 슬롯 번호 표기 — 로드 패널 슬롯뷰에 savedAt 전달(최근 저장 위치 표식용) +1 → 10098.
+const MAX_MAIN_LINES = 10098;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
