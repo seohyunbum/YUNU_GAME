@@ -63,7 +63,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-23: 달리기 퀘스트용 sprintSteps 누적/스냅샷 — +5 → 10046.
 // 2026-06-23: 집터 판정 버그 수정 — 이동 생물(동물·몬스터·NPC·펫) 제외 BUILD_SITE_IGNORE_TYPES 셋+주석. 밀집된 야생 때문에 어디서도 집을 못 짓던 회귀 → 10046→10049.
 // 2026-06-23: 요새 단계 맵별 이어하기 — fortressStageByMap 필드·enter startStage·grant 갱신·새게임 리셋·재입성 메시지. load/save 는 fortressSiege 리프 → 10049→10054.
-const MAX_MAIN_LINES = 10054;
+// 2026-06-23: 4차 전직 배선 1탄(permanentNecklace 필드·tryAdvanceJob tier4·전능력치 ×1.1·영구목걸이 합산) +4 → 10058.
+const MAX_MAIN_LINES = 10058;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

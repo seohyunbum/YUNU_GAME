@@ -308,6 +308,7 @@ export interface SavedGame {
     equippedArmor: ItemId | null;
     equippedShield?: ItemId | null;
     equippedNecklace?: ItemId | null;
+    permanentNecklace?: ItemId | null; // 4차 전직 시 소비한 목걸이(효과 영구 부여). 구세이브엔 없음 → null.
     shieldDurabilityUsed?: number;
     ironGuardRemainingMs?: number;
     locationMode: LocationMode;

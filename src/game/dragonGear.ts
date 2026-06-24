@@ -43,14 +43,14 @@ export function dragonGearSkillCooldownReduction(w: DragonGearWorn): number { re
 
 // 장신구 계층 공속 → 쿨타임/시전시간에 곱하는 단일 배수(작을수록 빠름).
 // 목걸이 haste + 용장갑 haste 를 합연산(합산) 후 1/(1+합) — 곱연산 과증폭 방지.
-export function accessoryAttackSpeedMult(necklace: ItemId | null, w: DragonGearWorn): number {
-  const haste = necklaceAttackSpeedHaste(necklace) + dragonGearAttackSpeedHaste(w);
+export function accessoryAttackSpeedMult(necklace: ItemId | null, w: DragonGearWorn, permanent: ItemId | null = null): number {
+  const haste = necklaceAttackSpeedHaste(necklace) + necklaceAttackSpeedHaste(permanent) + dragonGearAttackSpeedHaste(w);
   return 1 / (1 + haste);
 }
 
 // 장신구 계층 스킬 쿨타임 → 쿨타임에 곱하는 단일 배수. 목걸이 + 용왕관 감소율 합연산.
-export function accessorySkillCooldownMult(necklace: ItemId | null, w: DragonGearWorn): number {
-  const reduction = necklaceSkillCooldownReduction(necklace) + dragonGearSkillCooldownReduction(w);
+export function accessorySkillCooldownMult(necklace: ItemId | null, w: DragonGearWorn, permanent: ItemId | null = null): number {
+  const reduction = necklaceSkillCooldownReduction(necklace) + necklaceSkillCooldownReduction(permanent) + dragonGearSkillCooldownReduction(w);
   return Math.max(0.1, 1 - reduction);
 }
 
