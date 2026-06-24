@@ -307,7 +307,7 @@ export function createHeldItemModel(item: ItemId) {
     group.add(createTutorialBookModel());
   } else if (item === "big_bag") {
     group.add(createBigBagModel());
-  } else if (item === "job_seal" || item === "job_decree" || item === "job_decree_high") {
+  } else if (item === "job_seal" || item === "job_decree" || item === "job_decree_high" || item.startsWith("job_decree_ultimate_")) {
     group.add(createJobAdvanceModel(item));
   } else if (PLACEABLE_TYPES[item]) {
     const block = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.28), headMaterial);
