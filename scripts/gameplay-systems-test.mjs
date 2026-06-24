@@ -1367,8 +1367,8 @@ try {
     // 전직 차수: 3차 정의 + 스탯 누적 + 쿨다운 단축 + 레벨 게이트 + 차수별 전용 전직 아이템
     const { JOB_TIERS, MAX_JOB_TIER, jobTierStatBonus, jobTierCooldownMult, canAdvanceJob, normalizeJobTier, jobTierTitle, isJobAdvanceItem } = jobAdvancement;
     const classIds = Object.keys(classes.PLAYER_CLASSES);
-    assert(MAX_JOB_TIER === 3, "max job tier should be 3");
-    assert(classIds.every((id) => JOB_TIERS[id] && JOB_TIERS[id].length === 3), "every class must define 3 advancement tiers");
+    assert(MAX_JOB_TIER === 4, "max job tier should be 4");
+    assert(classIds.every((id) => JOB_TIERS[id] && JOB_TIERS[id].length === 4), "every class must define 4 advancement tiers");
     assert(classIds.every((id) => JOB_TIERS[id].every((t, i) => t.tier === i + 1 && t.requiredLevel > 0 && t.statLevelBonus > 0 && typeof t.advanceItem === "string" && t.advanceItem.length > 0 && t.title.length > 0)), "every tier needs ascending tier#, level, stat bonus, advance item, title");
     // 차수별 전용 전직 아이템: 1차 표식 / 2차 각서 / 3차 상급 각서 (모두 isJobAdvanceItem 으로 인식)
     assert(classIds.every((id) => JOB_TIERS[id][0].advanceItem === "job_seal" && JOB_TIERS[id][1].advanceItem === "job_decree" && JOB_TIERS[id][2].advanceItem === "job_decree_high"), "tiers 1/2/3 must use job_seal/job_decree/job_decree_high");
@@ -1390,10 +1390,12 @@ try {
     assert(canAdvanceJob("warrior", 0, 30).ok === true, "level 30 can reach tier 1");
     assert(canAdvanceJob("warrior", 1, 49).ok === false, "level 49 cannot reach tier 2 (needs 50)");
     assert(canAdvanceJob("warrior", 2, 70).ok === true, "level 70 can reach tier 3");
-    assert(canAdvanceJob("warrior", 3, 999).ok === false, "no tier beyond 3");
+    assert(canAdvanceJob("warrior", 3, 99).ok === false, "level 99 cannot reach tier 4 (needs 100)");
+    assert(canAdvanceJob("warrior", 3, 100).ok === true, "level 100 can reach tier 4");
+    assert(canAdvanceJob("warrior", 4, 999).ok === false, "no tier beyond 4");
     assert(canAdvanceJob("warrior", 2, 70).next.advanceItem === "job_decree_high", "tier 3 should require 상급 전직의 각서 (job_decree_high)");
     // 정규화 + 칭호
-    assert(normalizeJobTier(99, "mage") === 3, "jobTier clamps to defined tiers");
+    assert(normalizeJobTier(99, "mage") === 4, "jobTier clamps to defined tiers");
     assert(normalizeJobTier(-5, "mage") === 0, "negative jobTier clamps to 0");
     assert(jobTierTitle("warrior", 3) === "워로드" && jobTierTitle("mage", 1) === "원소술사" && jobTierTitle("warrior", 0) === null, "titles resolve per tier");
   }

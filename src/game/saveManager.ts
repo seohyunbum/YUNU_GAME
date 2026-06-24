@@ -66,6 +66,7 @@ export interface SaveDataSnapshot {
     equippedArmor: ItemId | null;
     equippedShield: ItemId | null;
     equippedNecklace: ItemId | null;
+    permanentNecklace: ItemId | null;
     shieldDurabilityUsed: number;
     ironGuardUntil: number;
     locationMode: LocationMode;
@@ -246,6 +247,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       equippedArmor: snapshot.player.equippedArmor,
       equippedShield: snapshot.player.equippedShield,
       equippedNecklace: snapshot.player.equippedNecklace,
+      permanentNecklace: snapshot.player.permanentNecklace,
       shieldDurabilityUsed: snapshot.player.shieldDurabilityUsed,
       ironGuardRemainingMs: Math.max(0, snapshot.player.ironGuardUntil - snapshot.nowMs),
       locationMode: snapshot.player.locationMode,

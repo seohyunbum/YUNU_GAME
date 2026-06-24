@@ -264,7 +264,7 @@ import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard
 import { activeBuffs, burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, stewAttackBonus, stewDefenseBonus, STEW_BUFF_SECONDS, STEW_HEAL, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { SKILL_SOUND, SKILL_SOUND_PRELOAD, type SkillElement } from "./game/skillSounds";
 import { CLASS_PASSIVES, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
-import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle } from "./game/jobAdvancement";
+import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle, jobTierAllStatMult, isUltimateDecree, JOB_DECREE_ULTIMATE_NECKLACE } from "./game/jobAdvancement";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
@@ -636,6 +636,7 @@ class WildernessGame {
   };
   private equippedArmor: ItemId | null = null;
   private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0; private equippedNecklace: ItemId | null = null;
+  private permanentNecklace: ItemId | null = null; // 4차 전직 시 소비한 목걸이 — 그 효과를 영구 부여(착용 목걸이와 별개로 합산)
   private dragonGear: DragonGearWorn = NO_DRAGON_GEAR; // 용 장비 4종 착용 상태(보유=착용). refreshDragonGear() 로 인벤토리에서 동기화.
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
@@ -2992,7 +2993,7 @@ class WildernessGame {
     if (this.mana >= this.manaCap() || this.hunger <= 0) return; // 배고픔 0 이면 마나도 회복 안 됨
     const previous = Math.floor(this.mana);
     const manaRegenScale = cp.manaRegenScale * restMul;
-    this.mana = Math.min(this.manaCap(), this.mana + (MANA_REGEN_PER_SECOND * manaRegenScale + cp.manaRegenFlat + necklaceManaRegenBonus(this.equippedNecklace) + dragonGearManaRegenBonus(this.dragonGear)) * delta); // 힐러 +0.25/s + 현자의 목걸이 + 용의 왕관(+2/s, 평탄)
+    this.mana = Math.min(this.manaCap(), this.mana + (MANA_REGEN_PER_SECOND * manaRegenScale + cp.manaRegenFlat + necklaceManaRegenBonus(this.equippedNecklace) + necklaceManaRegenBonus(this.permanentNecklace) + dragonGearManaRegenBonus(this.dragonGear)) * delta); // 힐러 + 현자목걸이(착용/영구) + 용왕관(+2/s, 평탄)
     if (Math.floor(this.mana) !== previous) this.renderHud();
   }
 
@@ -3009,7 +3010,7 @@ class WildernessGame {
       return false;
     }
     this.mana = Math.max(0, this.mana - cost);
-    const cdMs = cooldownSeconds * 1000 * accessorySkillCooldownMult(this.equippedNecklace, this.dragonGear) * jobTierCooldownMult(this.playerClass, this.jobTier); // 장신구(목걸이 -15% + 용왕관 -10%, 합연산) + 2·3차 전직 쿨다운 단축
+    const cdMs = cooldownSeconds * 1000 * accessorySkillCooldownMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * jobTierCooldownMult(this.playerClass, this.jobTier); // 장신구(목걸이 착용/영구 + 용왕관, 합연산) + 2·3차 전직 쿨다운 단축
     if (slot === "primary") this.classSkillCooldownUntil = performance.now() + cdMs;
     else if (slot === "second") this.secondSkillCooldownUntil = performance.now() + cdMs;
     else this.thirdSkillCooldownUntil = performance.now() + cdMs;
@@ -3093,15 +3094,17 @@ class WildernessGame {
   private tryAdvanceJob(usedItem: ItemId) {
     const check = canAdvanceJob(this.playerClass, this.jobTier, this.level);
     if (!check.ok || !check.next) { this.showMessage(check.reason ?? "지금은 전직할 수 없습니다."); return; }
-    const required = check.next.advanceItem;
-    if (usedItem !== required || !this.removeItem(required, 1)) { this.showMessage(usedItem !== required ? `${check.next.tier}차 전직에는 '${ITEM_NAMES[required] ?? required}'이(가) 필요합니다. 제작대에서 만들어 사용하세요.` : `'${ITEM_NAMES[required] ?? required}'이(가) 필요합니다. (현재 ${this.countItem(required)}개)`); return; }
+    const isTier4 = check.next.tier === 4;
+    const itemOk = isTier4 ? isUltimateDecree(usedItem) : usedItem === check.next.advanceItem;
+    if (!itemOk || !this.removeItem(usedItem, 1)) { this.showMessage(isTier4 ? "4차(초월) 전직에는 '최상급 전직의 각서'(신화 등급)가 필요합니다. 확장 제작대에서 목걸이를 넣어 만들어 사용하세요." : `${check.next.tier}차 전직에는 '${ITEM_NAMES[check.next.advanceItem] ?? check.next.advanceItem}'이(가) 필요합니다. 제작대에서 만들어 사용하세요.`); return; }
+    if (isTier4) this.permanentNecklace = JOB_DECREE_ULTIMATE_NECKLACE[usedItem] ?? this.permanentNecklace; // 소비한 목걸이 효과 영구 부여
     this.jobTier = check.next.tier;
     const previousMaxHealth = this.maxHealth; // 전직 보너스가 levelStatBonus 에 반영 → 최대 체력 즉시 상향
     this.maxHealth = Math.max(this.maxHealth, this.maxHealthForLevel());
     this.health = Math.min(this.maxHealth, this.health + Math.max(0, this.maxHealth - previousMaxHealth));
     this.refreshMirrorAvatar();
     const title = jobTierTitle(this.playerClass, this.jobTier) ?? "전직";
-    const perk = check.next.unlockThirdSkill ? "새 스킬(F)·스탯 상승·새 외형" : "스탯 상승·스킬 쿨다운 단축·더 멋진 외형";
+    const perk = check.next.unlockFourthSkill ? `새 궁극 스킬(G)·상시 반격·전 능력치/스킬 +10%·'${ITEM_NAMES[this.permanentNecklace ?? "" as ItemId] ?? "목걸이"}' 효과 영구 부여` : check.next.unlockThirdSkill ? "새 스킬(F)·스탯 상승·새 외형" : "스탯 상승·스킬 쿨다운 단축·더 멋진 외형";
     this.playJobAdvanceFx(this.jobTier);
     this.showMessage(`✦ ${check.next.tier}차 전직! 이제 '${title}'(이)가 되었습니다. ${perk}을 얻었습니다!`);
     this.renderHud();
@@ -3948,7 +3951,7 @@ class WildernessGame {
     this.actionTimer = Math.max(0, this.actionTimer - delta);
     this.rangedCooldown = Math.max(0, this.rangedCooldown - delta);
 
-    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear)); // 쾌속 목걸이 + 용장갑(공속 합연산) — 공격 모션(근접/활/마법)에 동일 적용
+    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace)); // 쾌속 목걸이(착용/영구) + 용장갑(공속 합연산)
     const progress = this.actionTimer > 0 ? THREE.MathUtils.clamp(1 - this.actionTimer / duration, 0, 1) : 1;
     const swing = this.actionTimer > 0 ? Math.sin(progress * Math.PI) : 0;
 
@@ -3974,7 +3977,7 @@ class WildernessGame {
 
   private playHandAction(mode: HandActionMode = "use") {
     this.actionMode = mode;
-    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear));
+    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace));
   }
 
   private updateHeldItem() {
@@ -4991,7 +4994,7 @@ class WildernessGame {
   private bodyMeleeAttackPower() { // 본체 근접 공격력(무기+레벨+훈련+제작+목걸이 ×심판의빛) — 빙의 공격도 이를 사용
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한
-    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult)); // +용장갑 공격력 ×직업별 기본공격 배수
+    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
   }
   private currentDamage() {
     if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE; // 빙의 박치기 = 본체 공격력 + 5
@@ -5000,7 +5003,7 @@ class WildernessGame {
 
   private currentRangedDamage(item: ItemId) {
     const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
-    return Math.max(1, Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult)); // +용장갑 공격력 ×직업별 기본공격 배수
+    return Math.max(1, Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
   }
 
   private eagleCombatTarget() {
@@ -5022,7 +5025,7 @@ class WildernessGame {
   }
 
   private maxHealthForLevel(level = this.level) {
-    return BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * 2 + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2 + dragonGearMaxHpBonus(this.dragonGear); // +용의 부츠 최대 체력
+    return Math.round((BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * 2 + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2 + dragonGearMaxHpBonus(this.dragonGear)) * jobTierAllStatMult(this.playerClass, this.jobTier)); // +용의 부츠 최대 체력 ×4차 전능력치
   }
 
   // 유효 최대 마나 = 기본(훈련 누적 포함) + 용의 부츠(+10). 저장값은 base 유지, 표시·회복 상한에만 가산.
@@ -5056,7 +5059,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + dragonGearDefenseBonus(this.dragonGear) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()));
+    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + necklaceDefenseBonus(this.permanentNecklace) + dragonGearDefenseBonus(this.dragonGear) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()) * jobTierAllStatMult(this.playerClass, this.jobTier));
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -5065,7 +5068,7 @@ class WildernessGame {
 
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
-    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * (CLASS_PASSIVES[this.playerClass].gunOnlyRangedCooldown && !GUN_WEAPONS.has(item) ? 1 : CLASS_PASSIVES[this.playerClass].rangedCooldownScale) * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear); // 거너 총기 쿨감 + 장신구 공속(목걸이+용장갑 합연산)
+    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * (CLASS_PASSIVES[this.playerClass].gunOnlyRangedCooldown && !GUN_WEAPONS.has(item) ? 1 : CLASS_PASSIVES[this.playerClass].rangedCooldownScale) * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace); // 거너 총기 쿨감 + 장신구 공속(목걸이 착용/영구+용장갑 합연산)
     const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
@@ -6099,6 +6102,7 @@ class WildernessGame {
         equippedArmor: this.equippedArmor,
         equippedShield: this.equippedShield,
         equippedNecklace: this.equippedNecklace,
+        permanentNecklace: this.permanentNecklace,
         shieldDurabilityUsed: this.shieldDurabilityUsed,
         ironGuardUntil: this.ironGuardUntil,
         locationMode: this.locationMode,
@@ -6210,7 +6214,7 @@ class WildernessGame {
     this.chestStepBank = save.player.chestStepBank;
     this.caveStepBank = save.player.caveStepBank;
     this.equippedArmor = save.player.equippedArmor;
-    this.equippedShield = save.player.equippedShield ?? null; this.equippedNecklace = save.player.equippedNecklace ?? null;
+    this.equippedShield = save.player.equippedShield ?? null; this.equippedNecklace = save.player.equippedNecklace ?? null; this.permanentNecklace = save.player.permanentNecklace ?? null;
     this.shieldDurabilityUsed = save.player.shieldDurabilityUsed ?? 0;
     this.ironGuardUntil = performance.now() + (save.player.ironGuardRemainingMs ?? 0);
     this.locationMode = save.player.locationMode;
@@ -6338,7 +6342,7 @@ class WildernessGame {
     this.timeHudTimer = 0;
     this.starvationNoticeTimer = 0;
     this.equippedArmor = null;
-    this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0; this.equippedNecklace = null;
+    this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0; this.equippedNecklace = null; this.permanentNecklace = null;
     this.locationMode = "overworld";
     this.currentHouseKind = "home";
     this.caveReturnPosition = null;
