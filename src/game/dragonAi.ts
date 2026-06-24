@@ -23,7 +23,7 @@ export interface DragonAiContext {
   effects(): CombatEffectContext;
   bossStats(kind?: BossKind): DragonStats;
   isBossUnlocked(kind: BossKind): boolean;
-  damagePlayer(amount: number, showParticles: boolean, deathReason: string): boolean;
+  damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   showMessage(text: string): void;
   playTone(frequency: number, duration?: number, type?: OscillatorType, volume?: number): void;
 }
@@ -74,7 +74,7 @@ function resolveDragonBreath(context: DragonAiContext, dragon: WorldObject, now:
   spawnGroundShockwave(context.effects(), impact, color);
   spawnDragonFireBurst(context.effects(), impact);
   if (Math.hypot(context.playerPosition.x - tx, context.playerPosition.z - tz) <= BREATH_RADIUS) {
-    context.damagePlayer(Number(dragon.root.userData.breathDmg ?? 12), true, `${String(dragon.root.userData.breathName ?? "용")}의 브레스에 휩싸여 체력이 모두 떨어졌습니다.`);
+    context.damagePlayer(Number(dragon.root.userData.breathDmg ?? 12), true, `${String(dragon.root.userData.breathName ?? "용")}의 브레스에 휩싸여 체력이 모두 떨어졌습니다.`, dragon);
   }
 }
 
@@ -87,7 +87,7 @@ function castDragonAttack(context: DragonAiContext, dragon: WorldObject, kind: B
     dragon.attackCooldown = 1.8;
     spawnDragonClawBurst(context.effects(), dragon.root.position);
     context.playTone(150, 0.16, "sawtooth", 0.03);
-    context.damagePlayer(stats.clawDamage, true, `${stats.name}의 발톱에 당해 체력이 모두 떨어졌습니다.`);
+    context.damagePlayer(stats.clawDamage, true, `${stats.name}의 발톱에 당해 체력이 모두 떨어졌습니다.`, dragon);
     return;
   }
   dragon.attackCooldown = profile.cooldown;

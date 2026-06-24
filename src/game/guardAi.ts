@@ -11,7 +11,7 @@ export interface GuardAiContext {
   getGroundHeightAt(x: number, z: number): number;
   refreshSpatialObject(object: WorldObject): void;
   runWalkCycle(object: WorldObject, delta: number, speed: number): void;
-  damagePlayer(amount: number, showParticles: boolean, deathReason: string): boolean;
+  damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   playHandAction(): void;
   showMessage(text: string): void;
   renderHud(): void;
@@ -107,7 +107,7 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
       continue; // 피해는 투사체 착탄 시 적용
     }
     // 여기부터는 근접 가드만 도달(원거리는 위에서 투사체 발사 후 continue)
-    const died = context.damagePlayer(damage, true, `${guard.name}의 근거리 공격을 받아 체력이 모두 떨어졌습니다.`);
+    const died = context.damagePlayer(damage, true, `${guard.name}의 근거리 공격을 받아 체력이 모두 떨어졌습니다.`, guard);
     context.playHandAction();
     if (died) continue;
     const lastDamage = context.getLastDamage();

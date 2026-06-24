@@ -26,7 +26,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-21: 야생 밀도 로드 탑업 — seedPredators(시딩 추출)·ensureWildlifeDensity(소급 보충) 2개 → 488→490. 분포/스폰이 main 인스턴스 상태 의존이라 leaf 추출 어려움(밀도 공식·목표는 constants 로 단일화).
 // 2026-06-23: 메테오를 전방 파이어볼로 변경 → dead fireMeteor 메서드 제거 → 490.
 // 2026-06-23: 용 장비 — manaCap·refreshDragonGear·refreshDragonGearVisuals 3개 추가(신규 기능) → 493.
-const MAX_METHODS = 493;
+// 2026-06-23: 4차 전직 반격 tryCounterReflect 1개 → 494.
+const MAX_METHODS = 494;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

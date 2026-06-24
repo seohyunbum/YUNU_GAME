@@ -51,7 +51,7 @@ export interface CaveMonsterContext {
   getGroundHeightAt(x: number, z: number): number;
   refreshSpatialObject(object: WorldObject): void;
   animateWalkCycle(object: WorldObject, delta: number, movementSpeed: number): void;
-  damagePlayer(amount: number, showParticles: boolean, deathReason: string): boolean;
+  damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   effects(): CombatEffectContext;
   arenaBounds?(): { minX: number; maxX: number; minZ: number; maxZ: number } | null; // siege 아레나면 그 경계로 클램프(없으면 동굴 복도)
 }
@@ -102,7 +102,7 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
       monster.attackCooldown = stats.cooldown;
       triggerPredatorAttackMotion(monster, now, dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
       if (monster.fortressBoss) spawnGroundShockwave(context.effects(), monster.root.position, 0xff3b3b);
-      context.damagePlayer(monster.attackDamage ?? stats.attackDamage, true, `${monster.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
+      context.damagePlayer(monster.attackDamage ?? stats.attackDamage, true, `${monster.name}에게 공격받아 체력이 모두 떨어졌습니다.`, monster);
     }
   }
 }
