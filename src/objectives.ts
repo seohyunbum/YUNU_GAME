@@ -219,9 +219,11 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   countQuest("hunt_fortress_boss_3", 3, (s) => s.fortressBossKills, "몬스터 동굴 보스 3회 처치", "동굴 보스는 흑요석과 전직의서를 떨굽니다. 3번 처치해 최상급 장비 재료와 전직 재료를 든든히 모으세요.", { experience: 1850, items: { advanced_medkit: 4, refined_diamond: 2 }, label: "경험치 1850 + 고급 구급상자 4개 + 제련된 다이아몬드 2개" }),
   // ── 65 레벨대 — 용 장비 입문(용 보스 사냥으로 용 재료 확보) ──
   checkQuest("craft_dragon_gear_one", (s) => DRAGON_GEAR_ITEMS.some((i) => s.countItem(i) > 0), "용 장비 하나 만들기 (권장 Lv 65)", "용 장비(용의 장갑·부츠·망토·왕관, 최고등급)는 각각 용 뿔 1 + 용의 꼬리 3 + 용의 비늘 6으로 확장 제작대에서만 만듭니다. 용 재료는 용 보스를 잡아 모으세요. 먼저 한 부위를 완성해 보세요 — 가방에 있으면 자동으로 착용됩니다.", { experience: 1950, items: { advanced_medkit: 3, refined_diamond: 2 }, label: "경험치 1950 + 고급 구급상자 3개 + 제련된 다이아몬드 2개" }),
-  checkQuest("advance_job_tier3", (s) => s.jobTier >= 3, "3차 전직 달성 (최종)", "'상급 전직의 각서'(전직의 표식 5 + 전직의 각서 1 + 용의 꼬리 1 + 흑요석 7)를 만들고, 레벨 70 이상에서 들고 사용하면 3차 전직합니다. 용의 꼬리는 용 보스가 떨어뜨립니다. 최고 칭호와 최강의 스탯·쿨다운, 가장 멋진 외형을 얻습니다!", { experience: 2000, items: { sharp_obsidian: 2, advanced_medkit: 5 }, label: "경험치 2000 + 날카로운 흑요석 2개 + 고급 구급상자 5개" }),
+  checkQuest("advance_job_tier3", (s) => s.jobTier >= 3, "3차 전직 달성", "'상급 전직의 각서'(전직의 표식 5 + 전직의 각서 1 + 용의 꼬리 1 + 흑요석 7)를 만들고, 레벨 70 이상에서 들고 사용하면 3차 전직합니다. 용의 꼬리는 용 보스가 떨어뜨립니다. 최고 칭호와 최강의 스탯·쿨다운, 가장 멋진 외형을 얻습니다!", { experience: 2000, items: { sharp_obsidian: 2, advanced_medkit: 5 }, label: "경험치 2000 + 날카로운 흑요석 2개 + 고급 구급상자 5개" }),
   // ── 75 레벨대 — 용 장비 풀세트(최종 졸업 과제) ──
   countQuest("craft_dragon_gear_all", 4, (s) => DRAGON_GEAR_ITEMS.filter((i) => s.countItem(i) > 0).length, "용 장비 4종 모두 만들기 (권장 Lv 75)", "용의 장갑·부츠·망토·왕관 4종을 모두 제작하세요(각 용 뿔 1 + 꼬리 3 + 비늘 6). 4부위를 전부 갖추면 공격·공속·이동·방어·체력/마나·회복·쿨다운까지 모든 면에서 최강이 됩니다. 진정한 용살자의 증표입니다!", { experience: 2400, items: { sharp_obsidian: 4, advanced_medkit: 6 }, label: "경험치 2400 + 날카로운 흑요석 4개 + 고급 구급상자 6개" }),
+  // ── 100 레벨 — 4차(초월) 전직: 진정한 정점 ──
+  checkQuest("advance_job_tier4", (s) => s.jobTier >= 4, "4차(초월) 전직 달성 (최종)", "'최상급 전직의 각서'(상급 각서 1 + 전직 각서 3 + 전직의 표식 7 + 전직의서 15 + 용의 꼬리 5 + 용의 비늘 15 + 용의 뿔 2 + 목걸이 1)를 확장 제작대에서 만들고, 레벨 100 이상에서 들고 사용하면 초월 전직합니다. 목걸이는 4종(힘·수호·신속·현자) 중 원하는 효과를 골라 넣으세요 — 그 효과가 영구히 추가됩니다. 4번째 궁극 스킬(G)·상시 반격(5% 완전 반사)·모든 능력치 +10%·기존 스킬 +10%, 그리고 압도적인 푸른 다이아몬드 외형을 얻습니다!", { experience: 3200, items: { sharp_obsidian: 6, refined_diamond: 3, advanced_medkit: 8 }, label: "경험치 3200 + 날카로운 흑요석 6개 + 제련된 다이아몬드 3개 + 고급 구급상자 8개" }),
 ];
 
 // 퀘스트 보상 경험치 상향 — 초반 퀘스트는 2배에서 시작해 뒤로 갈수록 배율이 증가, 최종 퀘스트는 5배.
