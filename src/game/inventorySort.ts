@@ -5,7 +5,7 @@ import type { ItemId, Slot } from "./types";
 // 각 묶음 내 희귀등급 오름차순(일반→레전더리) → 이름 순. 내구도 있는 도구는 합치지 않고 개별 유지.
 // 순수 함수(부수효과 없음) — 입력과 같은 길이의 새 슬롯 배열을 돌려준다. 핫바는 호출자가 제외한다.
 
-const TIER_RANK: Record<ItemTier, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 };
+const TIER_RANK: Record<ItemTier, number> = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 };
 
 function compare(a: Slot, b: Slot): number {
   const itemA = a.item as ItemId, itemB = b.item as ItemId;

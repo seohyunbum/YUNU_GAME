@@ -35,6 +35,7 @@ const TIER_LABELS: Record<ItemTier, string> = {
   rare: "희귀",
   epic: "에픽",
   legendary: "레전더리",
+  mythic: "신화",
 };
 
 // 목걸이 효과 문구 — necklace.ts 의 배수/보너스와 같은 의미를 사람이 읽는 형태로.

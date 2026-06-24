@@ -310,6 +310,11 @@ const JOB_ADVANCE_STYLE: Record<string, { metal: number; glow: number; emissive:
   job_seal: { metal: 0xc0c4cc, glow: 0x3b82f6, emissive: 0x1d4ed8, rank: 1, form: "seal" }, // 1차 — 은빛 표식 + 푸른 광채(레어)
   job_decree: { metal: 0xe7c558, glow: 0xc05cff, emissive: 0x9b5cff, rank: 2, form: "scroll" }, // 2차 — 금 각서 + 보라(에픽)
   job_decree_high: { metal: 0xf6d36b, glow: 0xff8a3c, emissive: 0xff5a1f, rank: 3, form: "scroll" }, // 3차 — 화려한 각서 + 주황(레전더리)
+  // 4차(초월) — 신화 등급. 다이아몬드 광택 메탈 + 은은한 푸른빛 아우라. 목걸이 4종 공통 외형.
+  job_decree_ultimate_strength: { metal: 0xbfeaff, glow: 0x7dd3fc, emissive: 0x38bdf8, rank: 4, form: "scroll" },
+  job_decree_ultimate_guardian: { metal: 0xbfeaff, glow: 0x7dd3fc, emissive: 0x38bdf8, rank: 4, form: "scroll" },
+  job_decree_ultimate_swift: { metal: 0xbfeaff, glow: 0x7dd3fc, emissive: 0x38bdf8, rank: 4, form: "scroll" },
+  job_decree_ultimate_sage: { metal: 0xbfeaff, glow: 0x7dd3fc, emissive: 0x38bdf8, rank: 4, form: "scroll" },
 };
 
 export function createJobAdvanceModel(item: string): THREE.Object3D {

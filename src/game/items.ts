@@ -72,6 +72,10 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   job_seal: "전직의 표식",
   job_decree: "전직의 각서",
   job_decree_high: "상급 전직의 각서",
+  job_decree_ultimate_strength: "최상급 전직의 각서 (힘)",
+  job_decree_ultimate_guardian: "최상급 전직의 각서 (수호)",
+  job_decree_ultimate_swift: "최상급 전직의 각서 (쾌속)",
+  job_decree_ultimate_sage: "최상급 전직의 각서 (현자)",
   weak_wood_axe: "약한 나무 도끼",
   sharp_wood_axe: "날카로운 나무 도끼",
   stone_axe: "돌 도끼",
@@ -253,6 +257,10 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   job_seal: "epic",
   job_decree: "epic",
   job_decree_high: "epic",
+  job_decree_ultimate_strength: "epic",
+  job_decree_ultimate_guardian: "epic",
+  job_decree_ultimate_swift: "epic",
+  job_decree_ultimate_sage: "epic",
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
@@ -261,7 +269,7 @@ export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
 // 5단계 아이템 등급(시각 표시용) — 일반 < 고급 < 희귀 < 에픽 < 레전더리.
 // 제작 경험치 가중치(itemRarity)와는 분리: 이 등급은 핫바/인벤토리 슬롯 배경색에만 쓰여 기존 밸런스에 영향 없음.
 // 미등재 = common(일반). 색: 일반=무색 / 고급=옅은초록 / 희귀=옅은파랑 / 에픽=옅은보라 / 레전더리=옅은붉은.
-export type ItemTier = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export type ItemTier = "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic";
 export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   // 고급(uncommon) — 중급 금속·실용 제작품
   extended_workbench: "uncommon", special_smelter: "uncommon", grinder: "uncommon", mirror: "uncommon",
@@ -284,6 +292,8 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   // 레전더리(legendary) — 최종 흑요석 무기 3종 + 전직의 표식·상급 전직의 각서 + 경험치병(매우 희귀) + 용 장비 4종
   sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", job_seal: "legendary", job_decree_high: "legendary", xp_bottle: "legendary",
   dragon_gloves: "legendary", dragon_boots: "legendary", dragon_cloak: "legendary", dragon_crown: "legendary",
+  // 신화(mythic) — 레전더리 위 최상위 등급(은은한 푸른빛 다이아몬드 아우라). 4차 전직 각서 4종.
+  job_decree_ultimate_strength: "mythic", job_decree_ultimate_guardian: "mythic", job_decree_ultimate_swift: "mythic", job_decree_ultimate_sage: "mythic",
 };
 export function itemTier(item: ItemId): ItemTier {
   return ITEM_TIER[item] ?? "common";

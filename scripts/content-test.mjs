@@ -261,7 +261,7 @@ try {
   // 아이템 5단계 등급(itemTier): 모든 아이템이 유효 등급으로 분류되고, 앵커 아이템 등급이 기준과 일치
   {
     const { itemTier, ITEM_TIER } = items;
-    const TIERS = ["common", "uncommon", "rare", "epic", "legendary"];
+    const TIERS = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
     for (const id of Object.keys(ITEM_NAMES)) {
       if (!TIERS.includes(itemTier(id))) problems.push(`itemTier('${id}') = ${itemTier(id)} is not a valid tier`);
     }
@@ -361,7 +361,7 @@ try {
   // 5. 아이템 디스크라이버(마우스오버 툴팁): 모든 아이템에 이름·등급, 능력치/설명이 누락 없이 나오는가
   {
     const { describeItem } = itemInfo;
-    const tierLabels = new Set(["일반", "고급", "희귀", "에픽", "레전더리"]);
+    const tierLabels = new Set(["일반", "고급", "희귀", "에픽", "레전더리", "신화"]);
     for (const id of Object.keys(ITEM_NAMES)) {
       const info = describeItem(id);
       if (!info || typeof info.name !== "string" || info.name.length === 0) problems.push(`itemInfo '${id}': missing name`);
