@@ -293,6 +293,7 @@ export interface SavedGame {
     classSkillCooldownRemainingMs?: number;
     secondSkillCooldownRemainingMs?: number;
     thirdSkillCooldownRemainingMs?: number;
+    fourthSkillCooldownRemainingMs?: number;
     companionProgress?: CompanionProgress;
     tutorial?: TutorialProgress;
     hunger?: number;

@@ -65,7 +65,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-23: 요새 단계 맵별 이어하기 — fortressStageByMap 필드·enter startStage·grant 갱신·새게임 리셋·재입성 메시지. load/save 는 fortressSiege 리프 → 10049→10054.
 // 2026-06-23: 4차 전직 배선 1탄(permanentNecklace 필드·tryAdvanceJob tier4·전능력치 ×1.1·영구목걸이 합산) +4 → 10058.
 // 2026-06-23: 4차 전직 2탄 — 상시 반격(tryCounterReflect 메서드 + 4개 피격 경로에 attacker 주입) +10 → 10068.
-const MAX_MAIN_LINES = 10068;
+// 2026-06-24: 4차 전직 3탄 — 4번째 스킬(G) useFourthSkill 메서드·fourthSkillContext·스킬 +10% 배선(primary/skill 컨텍스트 skillDamageMult) +20 → 10088.
+const MAX_MAIN_LINES = 10088;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

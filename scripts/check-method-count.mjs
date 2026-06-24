@@ -27,7 +27,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-23: 메테오를 전방 파이어볼로 변경 → dead fireMeteor 메서드 제거 → 490.
 // 2026-06-23: 용 장비 — manaCap·refreshDragonGear·refreshDragonGearVisuals 3개 추가(신규 기능) → 493.
 // 2026-06-23: 4차 전직 반격 tryCounterReflect 1개 → 494.
-const MAX_METHODS = 494;
+// 2026-06-24: 4차 전직 4번째 스킬 입력 배선 useFourthSkill 1개 → 495.
+const MAX_METHODS = 495;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

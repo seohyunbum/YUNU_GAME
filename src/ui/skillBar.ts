@@ -1,15 +1,15 @@
 import { PLAYER_CLASSES } from "../game/classes";
-import { SECOND_SKILLS, THIRD_SKILLS } from "../game/classSkills";
+import { SECOND_SKILLS, THIRD_SKILLS, FOURTH_SKILLS } from "../game/classSkills";
 import type { PlayerClassId } from "../game/types";
 
-// 직업별 세 스킬(R 1차 / T 2차 / F 3차=전직 해금)에 어울리는 아이콘. 스킬 동작 기준으로 선정.
-const SKILL_ICONS: Record<PlayerClassId, { primary: string; second: string; third: string }> = {
-  warrior: { primary: "⚔️", second: "🔥", third: "🌋" }, // 무거운공격 / 불타는 공격 / 대지가르기
-  healer: { primary: "💚", second: "🌧️", third: "✨" }, // 천상치유 / 치유의 비 / 심판의 빛
-  mage: { primary: "💣", second: "☄️", third: "🌠" }, // TNT발사 / 파이어볼 / 메테오
-  summoner: { primary: "🦅", second: "🌪️", third: "🍃" }, // 독수리소환술 / 바람 정령 / 정령 폭풍
-  gunner: { primary: "🔫", second: "💨", third: "🎯" }, // 강탄 / 속사 / 관통 강탄
-  tanker: { primary: "🛡️", second: "♨️", third: "📣" }, // 철벽방어 / 불타는 방패 / 불굴의 함성
+// 직업별 네 스킬(R 1차 / T 2차 / F 3차=1차전직 해금 / G 4차=초월전직 해금)에 어울리는 아이콘. 스킬 동작 기준으로 선정.
+const SKILL_ICONS: Record<PlayerClassId, { primary: string; second: string; third: string; fourth: string }> = {
+  warrior: { primary: "⚔️", second: "🔥", third: "🌋", fourth: "🌌" }, // 무거운공격 / 불타는 공격 / 대지가르기 / 천검난무
+  healer: { primary: "💚", second: "🌧️", third: "✨", fourth: "🕊️" }, // 천상치유 / 치유의 비 / 심판의 빛 / 신의 강림
+  mage: { primary: "💣", second: "☄️", third: "🌠", fourth: "🌟" }, // TNT발사 / 파이어볼 / 메테오 / 천공의 운석우
+  summoner: { primary: "🦅", second: "🌪️", third: "🍃", fourth: "🐉" }, // 독수리소환술 / 바람 정령 / 정령 폭풍 / 용 정령 강림
+  gunner: { primary: "🔫", second: "💨", third: "🎯", fourth: "💥" }, // 강탄 / 속사 / 관통 강탄 / 초토화 난사
+  tanker: { primary: "🛡️", second: "♨️", third: "📣", fourth: "🏰" }, // 철벽방어 / 불타는 방패 / 불굴의 함성 / 불멸의 요새
 };
 
 export interface SkillSlotView {
@@ -22,10 +22,10 @@ export interface SkillSlotView {
 
 /**
  * 현재 직업의 클래스 스킬을 스킬바 슬롯으로 변환.
- * 기본 2슬롯(R 1차, T 2차). jobTier>=1(1차 전직)이면 3슬롯(F 3차)이 추가된다.
+ * 기본 2슬롯(R 1차, T 2차). jobTier>=1(1차 전직)이면 3슬롯(F 3차), jobTier>=4(초월 전직)이면 4슬롯(G 4차)이 추가된다.
  * 각 슬롯의 until 은 서로 다른 필드에서 오므로 쿨타임이 독립적으로 표시된다.
  */
-export function buildSkillSlots(playerClass: PlayerClassId, classUntil: number, secondUntil: number, thirdUntil: number, jobTier: number): SkillSlotView[] {
+export function buildSkillSlots(playerClass: PlayerClassId, classUntil: number, secondUntil: number, thirdUntil: number, fourthUntil: number, jobTier: number): SkillSlotView[] {
   const icons = SKILL_ICONS[playerClass];
   const primary = PLAYER_CLASSES[playerClass];
   const second = SECOND_SKILLS[playerClass];
@@ -36,6 +36,10 @@ export function buildSkillSlots(playerClass: PlayerClassId, classUntil: number, 
   if (jobTier >= 1) {
     const third = THIRD_SKILLS[playerClass];
     slots.push({ icon: icons.third, name: third.name, hotkey: "F", total: third.cooldown, until: thirdUntil });
+  }
+  if (jobTier >= 4) {
+    const fourth = FOURTH_SKILLS[playerClass];
+    slots.push({ icon: icons.fourth, name: fourth.name, hotkey: "G", total: fourth.cooldown, until: fourthUntil });
   }
   return slots;
 }
@@ -78,8 +82,8 @@ function startCooldownTicker(barEl: HTMLElement): void {
 export function ensureSkillBar(parent: HTMLElement): HTMLElement {
   const bar = document.createElement("div");
   bar.className = "skill-bar";
-  const SKILL_CODES = ["KeyR", "KeyT", "KeyF"];
-  for (let i = 0; i < 3; i += 1) {
+  const SKILL_CODES = ["KeyR", "KeyT", "KeyF", "KeyG"];
+  for (let i = 0; i < 4; i += 1) {
     const tile = document.createElement("div");
     tile.className = "skill-tile";
     tile.innerHTML =

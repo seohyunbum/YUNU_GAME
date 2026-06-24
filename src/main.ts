@@ -261,10 +261,10 @@ import { createTrainingStats, ensureTrainingGround, normalizeTrainingStats, TRAI
 import { applyCraftXp, craftXpForNextLevel, craftXpForRecipe, createCraftStatAlloc, normalizeCraftStatAlloc, type CraftStatAlloc } from "./game/craftLevel";
 import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard } from "./ui/trainingPanel";
-import { activeBuffs, burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, stewAttackBonus, stewDefenseBonus, STEW_BUFF_SECONDS, STEW_HEAL, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
+import { activeBuffs, burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, stewAttackBonus, stewDefenseBonus, STEW_BUFF_SECONDS, STEW_HEAL, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, useFourthClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { SKILL_SOUND, SKILL_SOUND_PRELOAD, type SkillElement } from "./game/skillSounds";
 import { CLASS_PASSIVES, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
-import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle, jobTierAllStatMult, jobTierCounterChance, isUltimateDecree, JOB_DECREE_ULTIMATE_NECKLACE } from "./game/jobAdvancement";
+import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle, jobTierAllStatMult, jobTierSkillDamageMult, jobTierCounterChance, isUltimateDecree, JOB_DECREE_ULTIMATE_NECKLACE } from "./game/jobAdvancement";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
@@ -510,6 +510,7 @@ class WildernessGame {
   private classSkillCooldownUntil = 0;
   private secondSkillCooldownUntil = 0;
   private thirdSkillCooldownUntil = 0;
+  private fourthSkillCooldownUntil = 0;
   private readonly skillBuffs = createSkillBuffs();
   private nickname = "";
   private currentTrainingKind: TrainingKind = "hp";
@@ -2140,6 +2141,7 @@ class WildernessGame {
     if (event.code === "KeyR" && !event.repeat) this.useClassSkill();
     if (event.code === "KeyT" && !event.repeat) this.useSecondSkill();
     if (event.code === "KeyF" && !event.repeat) this.useThirdSkill();
+    if (event.code === "KeyG" && !event.repeat) this.useFourthSkill();
     if (event.code === "KeyX" && !event.repeat && this.possessedEagleId) { this.endEaglePossession(false); this.showMessage("독수리 빙의를 해제했습니다."); }
     if (event.code === "KeyP") this.showMessage("설치는 인벤토리(I)에서 아이템을 우클릭하세요(또는 아래 드롭존으로 드래그).");
     if (event.code.startsWith("Digit") && !event.repeat) this.selectHotbarByKey(event.code);
@@ -2997,9 +2999,9 @@ class WildernessGame {
     if (Math.floor(this.mana) !== previous) this.renderHud();
   }
 
-  private trySpendSkill(name: string, cost: number, cooldownSeconds: number, slot: "primary" | "second" | "third") {
+  private trySpendSkill(name: string, cost: number, cooldownSeconds: number, slot: "primary" | "second" | "third" | "fourth") {
     if (this.currentPanel !== null) return false;
-    const until = slot === "primary" ? this.classSkillCooldownUntil : slot === "second" ? this.secondSkillCooldownUntil : this.thirdSkillCooldownUntil;
+    const until = slot === "primary" ? this.classSkillCooldownUntil : slot === "second" ? this.secondSkillCooldownUntil : slot === "third" ? this.thirdSkillCooldownUntil : this.fourthSkillCooldownUntil;
     const remaining = Math.max(0, (until - performance.now()) / 1000);
     if (remaining > 0) {
       this.showMessage(`${name} 쿨타임 ${Math.ceil(remaining)}초 남았습니다.`);
@@ -3013,7 +3015,8 @@ class WildernessGame {
     const cdMs = cooldownSeconds * 1000 * accessorySkillCooldownMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * jobTierCooldownMult(this.playerClass, this.jobTier); // 장신구(목걸이 착용/영구 + 용왕관, 합연산) + 2·3차 전직 쿨다운 단축
     if (slot === "primary") this.classSkillCooldownUntil = performance.now() + cdMs;
     else if (slot === "second") this.secondSkillCooldownUntil = performance.now() + cdMs;
-    else this.thirdSkillCooldownUntil = performance.now() + cdMs;
+    else if (slot === "third") this.thirdSkillCooldownUntil = performance.now() + cdMs;
+    else this.fourthSkillCooldownUntil = performance.now() + cdMs;
     this.renderHud();
     return true;
   }
@@ -3041,7 +3044,7 @@ class WildernessGame {
     useSecondClassSkill(this.secondSkillContext);
   }
 
-  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius, dirYaw) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius, dirYaw), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
+  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), skillDamageMult: () => jobTierSkillDamageMult(this.playerClass, this.jobTier), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius, dirYaw) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius, dirYaw), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass) };
 
   // 3번째 스킬(F) — 1차 전직 시 해금. 2스킬 컨텍스트를 재사용하되 쿨다운 슬롯/광역·자가회복만 보강.
   private useThirdSkill() {
@@ -3050,6 +3053,20 @@ class WildernessGame {
     if (this.jobTier < 1) { this.showMessage("3번째 스킬은 1차 전직 후 사용할 수 있습니다. (F)"); return; }
     useThirdClassSkill(this.thirdSkillContext);
   }
+
+  private useFourthSkill() {
+    if (!this.gameStarted || this.currentPanel !== null || this.possessedEagleId) return;
+    if (this.jobTier < 4) { this.showMessage("궁극 스킬은 4차(초월) 전직 후 사용할 수 있습니다. (G)"); return; }
+    useFourthClassSkill(this.fourthSkillContext);
+  }
+
+  private readonly fourthSkillContext: ThirdSkillContext = {
+    ...this.secondSkillContext,
+    trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "fourth"),
+    nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; },
+    heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } },
+    spiritStorm: (radius) => spawnSpiritStorm(this.combatEffectContext, this.playerPosition, radius),
+  };
 
   private readonly thirdSkillContext: ThirdSkillContext = {
     ...this.secondSkillContext,
@@ -3110,7 +3127,7 @@ class WildernessGame {
     this.renderHud();
   }
 
-  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, healingRain: () => spawnHealingRain(this.combatEffectContext, this.playerPosition), playerPosition: this.playerPosition };
+  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), skillDamageMult: () => jobTierSkillDamageMult(this.playerClass, this.jobTier), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, healingRain: () => spawnHealingRain(this.combatEffectContext, this.playerPosition), playerPosition: this.playerPosition };
 
   private useHealerSkill() {
     const helpsParty = partyHasNearbyMember(this.playerPosition.x, this.playerPosition.z, HEAL_PARTY_RADIUS);
@@ -3118,7 +3135,7 @@ class WildernessGame {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, HEALER_SKILL_COST, HEALER_SKILL_COOLDOWN, "primary")) return;
     spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
     const previous = this.health;
-    const amount = Math.round(healerHealAmount(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 재생: 지팡이 장착 시 힐량 +10%
+    const amount = Math.round(healerHealAmount(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null) * jobTierSkillDamageMult(this.playerClass, this.jobTier)); // 재생: 지팡이 장착 시 힐량 +10% · 4차 전직 시 추가 +10%
     this.health = Math.min(this.maxHealth, this.health + amount);
     const friends = partyHealNearby(amount, HEAL_PARTY_RADIUS);
     spawnHealEffect(this.combatEffectContext, this.playerPosition);
@@ -3167,7 +3184,7 @@ class WildernessGame {
   private useMageSkill() {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, MAGE_TNT_COST, MAGE_TNT_COOLDOWN, "primary")) return;
     spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
-    const tntDmg = Math.round(mageTntDamage(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 마나순환: 지팡이 장착 시 +15%
+    const tntDmg = Math.round(mageTntDamage(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null) * jobTierSkillDamageMult(this.playerClass, this.jobTier)); // 마나순환: 지팡이 장착 시 +15% · 4차 전직 시 추가 +10%
     this.fireSkillProjectile("tnt", "tnt", tntDmg, 24, 0.42, MAGE_TNT_RADIUS);
     this.playHandAction("magic");
     this.playSkillSound("fire");
@@ -3177,10 +3194,11 @@ class WildernessGame {
   private useGunnerSkill() {
     if (!this.trySpendSkill(PLAYER_CLASSES[this.playerClass].skillName, GUNNER_SKILL_COST, GUNNER_SKILL_COOLDOWN, "primary")) return;
     spawnSkillCastImpact(this.combatEffectContext, this.playerClass);
-    this.fireSkillProjectile("arrow", "arrow", gunnerShotDamage(this.levelStatBonus()), 58, 0.22);
+    const shotDmg = Math.round(gunnerShotDamage(this.levelStatBonus()) * jobTierSkillDamageMult(this.playerClass, this.jobTier));
+    this.fireSkillProjectile("arrow", "arrow", shotDmg, 58, 0.22);
     this.playHandAction("bow");
     this.playSkillSound("gun");
-    this.showMessage(`강탄! ${gunnerShotDamage(this.levelStatBonus())} 피해의 강한 탄환을 발사했습니다.`);
+    this.showMessage(`강탄! ${shotDmg} 피해의 강한 탄환을 발사했습니다.`);
   }
 
   private useTankerSkill() {
@@ -5192,7 +5210,7 @@ class WildernessGame {
       expiresAt: performance.now() + WARRIOR_EXPLOSION_SECONDS * 1000,
       nextTickAt: 0,
       radius: WARRIOR_EXPLOSION_RADIUS,
-      damage: Math.round(warriorExplosionDamage(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)), // 근접무기 장착 시 +10%
+      damage: Math.round(warriorExplosionDamage(this.levelStatBonus()) * classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null) * jobTierSkillDamageMult(this.playerClass, this.jobTier)), // 근접무기 장착 시 +10% · 4차 전직 시 추가 +10%
       damagedThisTick: new Set<string>(),
     });
     spawnExplosionVisual(this.combatEffectContext, position, WARRIOR_EXPLOSION_RADIUS * 0.55);
@@ -6097,6 +6115,7 @@ class WildernessGame {
         classSkillCooldownUntil: this.classSkillCooldownUntil,
         secondSkillCooldownUntil: this.secondSkillCooldownUntil,
         thirdSkillCooldownUntil: this.thirdSkillCooldownUntil,
+        fourthSkillCooldownUntil: this.fourthSkillCooldownUntil,
         companionProgress: this.summonerCompanion.companionProgress(),
         tutorial: this.tutorialProgress,
         hunger: this.hunger,
@@ -6197,6 +6216,7 @@ class WildernessGame {
     this.classSkillCooldownUntil = performance.now() + (save.player.classSkillCooldownRemainingMs ?? 0);
     this.secondSkillCooldownUntil = performance.now() + (save.player.secondSkillCooldownRemainingMs ?? 0); resetSecondSkillEffects(this.skillBuffs);
     this.thirdSkillCooldownUntil = performance.now() + (save.player.thirdSkillCooldownRemainingMs ?? 0);
+    this.fourthSkillCooldownUntil = performance.now() + (save.player.fourthSkillCooldownRemainingMs ?? 0);
     this.possessedEagleId = null; this.eaglePossessionEndsAt = 0;
     this.eagleClawCooldownUntil = 0; this.windCutterCooldownUntil = 0;
     this.summonerCompanion.restore(save.player.companionProgress);
@@ -6333,7 +6353,7 @@ class WildernessGame {
     this.dragonGear = NO_DRAGON_GEAR; this.refreshDragonGearVisuals(); // 신규 게임: 용 장비 미보유 — 1인칭 건틀릿 숨김(이전 세션 잔상 방지)
     this.jobTier = 0;
     this.classSkillCooldownUntil = 0;
-    this.secondSkillCooldownUntil = 0; this.thirdSkillCooldownUntil = 0; resetSecondSkillEffects(this.skillBuffs);
+    this.secondSkillCooldownUntil = 0; this.thirdSkillCooldownUntil = 0; this.fourthSkillCooldownUntil = 0; resetSecondSkillEffects(this.skillBuffs);
     this.trainingStats = createTrainingStats();
     this.trainingTries = createTrainingStats(); this.triesSinceBest = createTrainingStats();
     this.craftLevel = 1; this.craftXp = 0; this.craftStatPoints = 0; this.craftStatAlloc = createCraftStatAlloc();
@@ -6683,7 +6703,7 @@ class WildernessGame {
         craftXp: this.craftXp,
         craftRequiredXp: craftXpForNextLevel(this.craftLevel),
         craftStatPoints: this.craftStatPoints,
-        skills: buildSkillSlots(this.playerClass, this.classSkillCooldownUntil, this.secondSkillCooldownUntil, this.thirdSkillCooldownUntil, this.jobTier),
+        skills: buildSkillSlots(this.playerClass, this.classSkillCooldownUntil, this.secondSkillCooldownUntil, this.thirdSkillCooldownUntil, this.fourthSkillCooldownUntil, this.jobTier),
         passiveStatus: passive.label,
         petStatus: this.playerClass === "tanker" ? tankerStatus : petStatus,
         equipmentArmor,
