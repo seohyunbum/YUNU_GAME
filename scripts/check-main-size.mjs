@@ -66,7 +66,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-23: 4차 전직 배선 1탄(permanentNecklace 필드·tryAdvanceJob tier4·전능력치 ×1.1·영구목걸이 합산) +4 → 10058.
 // 2026-06-23: 4차 전직 2탄 — 상시 반격(tryCounterReflect 메서드 + 4개 피격 경로에 attacker 주입) +10 → 10068.
 // 2026-06-24: 4차 전직 3탄 — 4번째 스킬(G) useFourthSkill 메서드·fourthSkillContext·스킬 +10% 배선(primary/skill 컨텍스트 skillDamageMult) +20 → 10088.
-const MAX_MAIN_LINES = 10088;
+// 2026-06-24: 4차 전직 5탄 — 초월 전직 FX 고도화(playJobAdvanceFx tier4 푸른 다이아몬드 승천 finale) +8 → 10096.
+const MAX_MAIN_LINES = 10096;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

@@ -731,7 +731,7 @@ function spawnIronBarrier(context: CombatEffectContext, color: number) {
 }
 
 // 직업별 캐스팅 임팩트 디스패치 — 1차/2차 스킬 시전 시 호출.
-export function spawnSkillCastImpact(context: CombatEffectContext, classId: PlayerClassId) {
+export function spawnSkillCastImpact(context: CombatEffectContext, classId: PlayerClassId, transcended = false) {
   switch (classId) {
     case "mage":
       spawnMagicCircle(context, groundPointInFront(context, 2.6), 0x7c5bff, 0x5eead4, 1.65);
@@ -755,6 +755,13 @@ export function spawnSkillCastImpact(context: CombatEffectContext, classId: Play
     case "tanker":
       spawnIronBarrier(context, 0x9fb4c9);
       break;
+  }
+  // 4차(초월) 전직자 — 모든 스킬 시전에 압도적 푸른빛 다이아몬드 아우라를 덧입힌다.
+  if (transcended) {
+    const feet = context.playerPosition.clone();
+    feet.y = context.getGroundHeightAt(feet.x, feet.z) + 0.06;
+    spawnMagicCircle(context, feet, 0x38bdf8, 0xe0f2ff, 2.4); // 발밑 다이아몬드 마법진
+    spawnGroundShockwave(context, feet, 0x7dd3fc); // 푸른 충격파
   }
 }
 
