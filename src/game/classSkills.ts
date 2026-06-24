@@ -155,6 +155,7 @@ export interface SecondSkillContext {
   levelBonus(): number;
   currentDamage(): number;
   damageMult(): number; // 무기조건 데미지 배수(직업 패시브). 플랫 스킬에만 곱함 — currentDamage 파생 스킬은 이미 포함.
+  skillDamageMult(): number; // 4차(초월) 전직 시 스킬 데미지 +10% (jobTierSkillDamageMult). 미전직 시 1.0. 모든 스킬 직접 피해에 곱한다.
   now(): number;
   buffs: SkillBuffs;
   trySpend(skill: SecondSkillDef): boolean;
@@ -182,18 +183,19 @@ export function useSecondClassSkill(context: SecondSkillContext) {
     }
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    const strike = burningStrikeDamage(context.currentDamage());
+    const strike = Math.round(burningStrikeDamage(context.currentDamage()) * context.skillDamageMult());
     context.meleeEffects(target);
     context.applyDamage(target, strike);
-    registerBurn(target.id, burnTickDamage(bonus), context.now());
+    const burnDmg = Math.round(burnTickDamage(bonus) * context.skillDamageMult());
+    registerBurn(target.id, burnDmg, context.now());
     context.skillSound("fire");
-    context.showMessage(`불타는 공격! ${strike} 피해 + ${BURN_TICKS}초 동안 매초 ${burnTickDamage(bonus)} 화상 피해.`);
+    context.showMessage(`불타는 공격! ${strike} 피해 + ${BURN_TICKS}초 동안 매초 ${burnDmg} 화상 피해.`);
     return;
   }
   if (playerClass === "mage") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    const fbDmg = Math.round(fireballDamage(bonus) * context.damageMult());
+    const fbDmg = Math.round(fireballDamage(bonus) * context.damageMult() * context.skillDamageMult());
     context.fireSkillProjectile("tnt", "fireball", fbDmg, 30, 0.4, FIREBALL_RADIUS);
     context.playHandAction("magic");
     context.skillSound("fire");
@@ -203,7 +205,7 @@ export function useSecondClassSkill(context: SecondSkillContext) {
   if (playerClass === "summoner") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    const windDmg = Math.round(windSpiritDamage(bonus) * context.damageMult());
+    const windDmg = Math.round(windSpiritDamage(bonus) * context.damageMult() * context.skillDamageMult());
     context.fireSkillProjectile("wind", "wind", windDmg, 34, 0.5);
     context.playHandAction("magic");
     context.skillSound("wind");
@@ -281,6 +283,7 @@ export interface SkillEffectsContext {
   now(): number;
   buffs: SkillBuffs;
   levelBonus(): number;
+  skillDamageMult(): number; // 4차 전직 스킬 +10% — 지속 피해(불타는 방패·정령 폭풍)에도 적용. 미전직 1.0.
   getObject(id: string): WorldObject | undefined;
   nearbyCombatTargets(radius: number): WorldObject[];
   applyDamage(target: WorldObject, damage: number): void;
@@ -310,7 +313,7 @@ export function updateSecondSkillEffects(context: SkillEffectsContext) {
   // 불타는 방패 — 1초 간격 근접 오라
   if (context.buffs.burningShieldUntil > now && now >= context.buffs.nextAuraTickAt) {
     context.buffs.nextAuraTickAt = now + BURN_TICK_MS;
-    const damage = thornsTickDamage(context.levelBonus());
+    const damage = Math.round(thornsTickDamage(context.levelBonus()) * context.skillDamageMult());
     for (const target of context.nearbyCombatTargets(BURNING_SHIELD_RADIUS)) if (!partyGuestAttackIntercept(target, damage, "dot")) context.applyDamage(target, damage);
   }
 
@@ -318,7 +321,7 @@ export function updateSecondSkillEffects(context: SkillEffectsContext) {
   if (context.buffs.spiritStormTicksLeft > 0 && now >= context.buffs.nextSpiritStormTickAt) {
     context.buffs.nextSpiritStormTickAt = now + BURN_TICK_MS;
     context.buffs.spiritStormTicksLeft -= 1;
-    const damage = spiritStormDamage(context.levelBonus());
+    const damage = Math.round(spiritStormDamage(context.levelBonus()) * context.skillDamageMult());
     for (const target of context.nearbyCombatTargets(SPIRIT_STORM_RADIUS)) if (!partyGuestAttackIntercept(target, damage, "dot")) context.applyDamage(target, damage);
   }
 
@@ -393,7 +396,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
     }
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    const dmg = earthCleaveDamage(context.currentDamage());
+    const dmg = Math.round(earthCleaveDamage(context.currentDamage()) * context.skillDamageMult());
     for (const target of targets) {
       context.meleeEffects(target);
       context.applyDamage(target, dmg);
@@ -417,7 +420,7 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   if (playerClass === "mage") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    const meteorDmg = Math.round(meteorDamage(bonus) * context.damageMult());
+    const meteorDmg = Math.round(meteorDamage(bonus) * context.damageMult() * context.skillDamageMult());
     for (let i = -1; i <= 1; i += 1) context.fireSkillProjectile("tnt", "fireball", meteorDmg, 32, 0.6, METEOR_RADIUS, i * METEOR_SPREAD); // 전방으로 불덩이 운석 3발 부채꼴 발사 → 각각 광역 폭발(넓은 타격 범위)
     context.playHandAction("magic");
     context.skillSound("fire");
@@ -438,10 +441,11 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   if (playerClass === "gunner") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
-    context.fireSkillProjectile("arrow", "arrow", piercingShotDamage(bonus), 64, 0.26);
+    const pierceDmg = Math.round(piercingShotDamage(bonus) * context.skillDamageMult());
+    context.fireSkillProjectile("arrow", "arrow", pierceDmg, 64, 0.26);
     context.playHandAction("magic");
     context.skillSound("gun");
-    context.showMessage(`관통 강탄! ${piercingShotDamage(bonus)} 피해의 관통탄을 발사했습니다.`);
+    context.showMessage(`관통 강탄! ${pierceDmg} 피해의 관통탄을 발사했습니다.`);
     return;
   }
   // tanker — 불굴의 함성
@@ -453,4 +457,76 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
   context.skillSound("buff");
   context.showMessage(buffed > 0 ? `불굴의 함성! 20초간 나와 파티원 ${buffed}명 방어 +20%.` : "불굴의 함성! 20초간 방어 +20%.");
   context.renderHud();
+}
+
+// ===== 4스킬 (G 키) — 4차(초월) 전직 궁극기. 최상위 위상의 압도적 효과. =====
+export const FOURTH_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
+  warrior: { name: "천검난무", summary: "주변을 검기 폭풍으로 2연격해 막대한 광역 피해를 줍니다.", manaCost: 80, cooldown: 45 },
+  healer: { name: "신의 강림", summary: "자신·파티 전체를 완전 회복하고 5분 강화하며, 주변 적에게 성스러운 폭발 피해를 줍니다.", manaCost: 90, cooldown: 90 },
+  mage: { name: "천공의 운석우", summary: "운석 5발을 부채꼴로 쏟아부어 초광역에 큰 피해를 줍니다.", manaCost: 95, cooldown: 50 },
+  summoner: { name: "용 정령 강림", summary: "거대 용 정령의 폭풍이 6초간 주변을 휩쓸어 초당 큰 피해를 줍니다.", manaCost: 90, cooldown: 55 },
+  gunner: { name: "초토화 난사", summary: "관통탄 7발을 부채꼴로 퍼부어 직선상의 적을 초토화합니다.", manaCost: 85, cooldown: 45 },
+  tanker: { name: "불멸의 요새", summary: "20초간 방어를 대폭 강화하고 주변에 도발 폭발, 파티 전체를 보호합니다.", manaCost: 80, cooldown: 70 },
+};
+
+export function useFourthClassSkill(context: ThirdSkillContext) {
+  const playerClass = context.playerClass();
+  const skill = FOURTH_SKILLS[playerClass];
+  const bonus = context.levelBonus();
+  if (playerClass === "warrior") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    const targets = context.nearbyCombatTargets(EARTH_CLEAVE_RADIUS * 1.7);
+    const dmg = Math.round(context.currentDamage() * 3.5 * context.skillDamageMult());
+    for (let wave = 0; wave < 2; wave += 1) for (const t of targets) { context.meleeEffects(t); context.applyDamage(t, dmg); }
+    context.playHandAction("melee"); context.skillSound("earth");
+    context.showMessage(`천검난무! 주변 ${targets.length}명에게 ${dmg} 피해를 2연격했습니다.`);
+    return;
+  }
+  if (playerClass === "healer") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    context.heal(99999); partyHealNearby(99999, HEAL_PARTY_RADIUS);
+    context.buffs.empowerUntil = context.now() + EMPOWER_DURATION_MS; partyEmpowerNearby(EMPOWER_DURATION_MS, EMPOWER_PARTY_RADIUS);
+    const nova = Math.round(scaledSkillValue(120, bonus, 2.0) * context.skillDamageMult());
+    for (const t of context.nearbyCombatTargets(EARTH_CLEAVE_RADIUS * 1.5)) context.applyDamage(t, nova);
+    context.playHandAction("magic"); context.skillSound("heal"); context.renderHud();
+    context.showMessage(`신의 강림! 나와 파티를 완전 회복·강화하고 주변에 ${nova} 신성 폭발.`);
+    return;
+  }
+  if (playerClass === "mage") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    const dmg = Math.round(scaledSkillValue(70, bonus, 1.5) * context.damageMult() * context.skillDamageMult());
+    for (let i = -2; i <= 2; i += 1) context.fireSkillProjectile("tnt", "fireball", dmg, 34, 0.6, METEOR_RADIUS, i * METEOR_SPREAD);
+    context.playHandAction("magic"); context.skillSound("fire");
+    context.showMessage(`천공의 운석우! ${dmg} 광역 운석 5발을 쏟아부었습니다.`);
+    return;
+  }
+  if (playerClass === "summoner") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    context.spiritStorm(SPIRIT_STORM_RADIUS * 1.4);
+    context.buffs.nextSpiritStormTickAt = context.now(); context.buffs.spiritStormTicksLeft = 6;
+    context.playHandAction("magic"); context.skillSound("wind");
+    context.showMessage(`용 정령 강림! 6초간 주변 적에게 초당 ${spiritStormDamage(bonus)} 피해.`);
+    return;
+  }
+  if (playerClass === "gunner") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    const dmg = Math.round(piercingShotDamage(bonus) * context.skillDamageMult());
+    for (let i = -3; i <= 3; i += 1) context.fireSkillProjectile("arrow", "arrow", dmg, 64, 0.24, undefined, i * 0.12);
+    context.playHandAction("magic"); context.skillSound("gun");
+    context.showMessage(`초토화 난사! ${dmg} 관통탄 7발을 퍼부었습니다.`);
+    return;
+  }
+  // tanker — 불멸의 요새
+  if (!context.trySpend(skill)) return;
+  context.castImpact();
+  context.buffs.rallyDefUntil = context.now() + RALLY_DEF_SECONDS * 2 * 1000; partyRallyNearby(RALLY_DEF_SECONDS * 2 * 1000, RALLY_PARTY_RADIUS);
+  const taunt = Math.round(scaledSkillValue(90, bonus, 1.4) * context.skillDamageMult());
+  for (const t of context.nearbyCombatTargets(EARTH_CLEAVE_RADIUS * 1.5)) { context.meleeEffects(t); context.applyDamage(t, taunt); }
+  context.playHandAction("melee"); context.skillSound("buff"); context.renderHud();
+  context.showMessage(`불멸의 요새! 방어 대폭 강화 + 주변에 ${taunt} 도발 폭발.`);
 }

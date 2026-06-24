@@ -1361,6 +1361,11 @@ try {
     assert(classIds.every((id) => THIRD_SKILLS[id]), "every class must define a third (advancement) skill");
     assert(THIRD_SKILLS.warrior.name === "대지가르기" && THIRD_SKILLS.mage.name === "메테오" && THIRD_SKILLS.tanker.name === "불굴의 함성", "designed third-skill names must match the spec");
     assert(classIds.every((id) => THIRD_SKILLS[id].manaCost > 0 && THIRD_SKILLS[id].cooldown > 0 && THIRD_SKILLS[id].summary.length > 0), "third skills need cost, cooldown, and summary");
+
+    const { FOURTH_SKILLS } = classSkills;
+    assert(classIds.every((id) => FOURTH_SKILLS[id]), "every class must define a fourth (transcendence) skill");
+    assert(FOURTH_SKILLS.warrior.name === "천검난무" && FOURTH_SKILLS.mage.name === "천공의 운석우" && FOURTH_SKILLS.tanker.name === "불멸의 요새", "designed fourth-skill names must match the spec");
+    assert(classIds.every((id) => FOURTH_SKILLS[id].manaCost > 0 && FOURTH_SKILLS[id].cooldown > 0 && FOURTH_SKILLS[id].summary.length > 0), "fourth skills need cost, cooldown, and summary");
   }
 
   {
@@ -1413,6 +1418,7 @@ try {
       levelBonus: () => 10,
       currentDamage: () => 30,
       damageMult: () => 1,
+      skillDamageMult: () => 1,
       now: () => nowMs,
       buffs,
       trySpend: () => { calls.push(["spend", playerClass]); return true; },
@@ -1443,6 +1449,7 @@ try {
       now: () => nowMs,
       buffs,
       levelBonus: () => 10,
+      skillDamageMult: () => 1,
       getObject: (id) => effectTargets.find((candidate) => candidate.id === id && candidate.hp > 0),
       nearbyCombatTargets: () => effectTargets,
       applyDamage: (object, damage) => calls.push(["tick", object.id, damage]),
@@ -1669,7 +1676,7 @@ try {
     // 스킬바 골든: 직업별 두 슬롯(R 1차 / T 2차)의 이름·단축키·쿨타임·아이콘 + 쿨타임 독립성
     const { buildSkillSlots } = skillBar;
     const { PLAYER_CLASSES } = classes;
-    const { SECOND_SKILLS, THIRD_SKILLS } = classSkills;
+    const { SECOND_SKILLS, THIRD_SKILLS, FOURTH_SKILLS } = classSkills;
     const CLASS_IDS = ["warrior", "healer", "mage", "summoner", "gunner", "tanker"];
     for (const id of CLASS_IDS) {
       const slots = buildSkillSlots(id, 0, 0, 0, 0);
@@ -1692,14 +1699,21 @@ try {
     // 아이콘이 직업/슬롯별로 구분되는지(전부 동일 문자열이 아님)
     const allIcons = CLASS_IDS.flatMap((id) => { const s = buildSkillSlots(id, 0, 0, 0, 0); return [s[0].icon, s[1].icon]; });
     assert(new Set(allIcons).size >= 6, "skill icons should be reasonably varied across classes/slots");
-    // 1차 전직(jobTier>=1) 시 3번째 슬롯(F) 해금 — 미전직이면 2슬롯 유지
+    // 1차 전직(jobTier>=1) 시 3번째 슬롯(F), 4차(초월) 전직(jobTier>=4) 시 4번째 슬롯(G) 해금 — 미전직이면 2슬롯 유지
     for (const id of CLASS_IDS) {
-      assert(buildSkillSlots(id, 0, 0, 0, 0).length === 2, `${id}: jobTier 0 should keep 2 slots`);
-      const advanced = buildSkillSlots(id, 0, 0, 3_333, 1);
+      assert(buildSkillSlots(id, 0, 0, 0, 0, 0).length === 2, `${id}: jobTier 0 should keep 2 slots`);
+      const advanced = buildSkillSlots(id, 0, 0, 3_333, 0, 1);
       assert(advanced.length === 3, `${id}: jobTier 1 should unlock a 3rd (F) slot`);
       assert(advanced[2].hotkey === "F", `${id}: 3rd slot hotkey should be F`);
       assert(advanced[2].name === THIRD_SKILLS[id].name, `${id}: 3rd slot name should match THIRD_SKILLS.name`);
       assert(advanced[2].until === 3_333, `${id}: 3rd slot should carry its own thirdUntil`);
+      // jobTier 1~3 은 4번째 슬롯이 없다
+      assert(buildSkillSlots(id, 0, 0, 0, 0, 3).length === 3, `${id}: jobTier 3 should still keep 3 slots`);
+      const transcended = buildSkillSlots(id, 0, 0, 0, 4_444, 4);
+      assert(transcended.length === 4, `${id}: jobTier 4 should unlock a 4th (G) slot`);
+      assert(transcended[3].hotkey === "G", `${id}: 4th slot hotkey should be G`);
+      assert(transcended[3].name === FOURTH_SKILLS[id].name, `${id}: 4th slot name should match FOURTH_SKILLS.name`);
+      assert(transcended[3].until === 4_444, `${id}: 4th slot should carry its own fourthUntil`);
     }
   }
 
