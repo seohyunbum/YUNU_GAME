@@ -226,6 +226,64 @@ function buildTier3(classId: PlayerClassId, group: THREE.Group) {
   group.add(banner);
 }
 
+// 4차(초월) 전직 외형 — 3차 위에 누적. 최상급 전직의 각서와 같은 "은은한 푸른빛 다이아몬드" 위상.
+// 직업 무관 공통 푸른빛(diamond blue) — 모든 초월자가 압도적 아우라를 두른다. 직업별 시그니처는 accent 1~2개만.
+function buildTier4(classId: PlayerClassId, group: THREE.Group) {
+  const diamondGlow = makeGlowMaterial(0x7dd3fc, 0x38bdf8, { emissiveIntensity: 1.7 }); // 다이아몬드 블루 발광
+  const diamondMetal = makeMetalMaterial(0xbfeaff, { metalness: 0.72, roughness: 0.18 }); // 얼음빛 메탈
+  const auraGlow = makeGlowMaterial(0x60a5fa, 0x38bdf8, { emissiveIntensity: 0.7 }); // 반투명 후광용
+
+  // 초월의 왕관 — 머리 위를 도는 다이아몬드(팔면체) 6개
+  for (let i = 0; i < 6; i += 1) {
+    const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.075), diamondGlow);
+    const angle = (i / 6) * Math.PI * 2;
+    shard.position.set(Math.cos(angle) * 0.34, 2.66, Math.sin(angle) * 0.34);
+    shard.rotation.y = angle;
+    group.add(shard);
+  }
+  // 머리 위 떠 있는 대형 다이아몬드(핵)
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), diamondMetal);
+  core.position.set(0, 2.92, 0);
+  group.add(core);
+
+  // 발밑 승천 오라 — 넓고 은은한 푸른 고리
+  const ascendRing = new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.05, 10, 40), diamondGlow);
+  ascendRing.position.y = 0.06;
+  ascendRing.rotation.x = Math.PI / 2;
+  group.add(ascendRing);
+
+  // 거대한 빛의 다이아몬드 날개 — 모든 초월자 공통(압도적 실루엣)
+  for (const side of [-1, 1]) {
+    const wing = box(0.07, 1.36, 0.78, auraGlow);
+    wing.position.set(side * 0.6, 1.42, -0.34);
+    wing.rotation.y = side * 0.62;
+    wing.rotation.z = side * 0.26;
+    group.add(wing);
+    const wingTip = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), diamondGlow);
+    wingTip.position.set(side * 0.92, 2.0, -0.5);
+    group.add(wingTip);
+  }
+
+  // 직업별 시그니처 accent 1~2개 — 같은 다이아몬드 블루 위상으로 통일
+  if (classId === "warrior" || classId === "tanker") {
+    const blade = box(0.16, 1.1, 0.06, diamondMetal); // 등 뒤 떠 있는 거대 다이아몬드 검/방패
+    blade.position.set(0, 1.6, -0.42);
+    group.add(blade);
+  } else if (classId === "mage" || classId === "summoner") {
+    for (let i = 0; i < 3; i += 1) {
+      const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), diamondGlow); // 어깨 위 도는 룬 다이아 3개
+      const angle = (i / 3) * Math.PI * 2;
+      orb.position.set(Math.cos(angle) * 0.5, 1.95, Math.sin(angle) * 0.18);
+      group.add(orb);
+    }
+  } else {
+    // healer · gunner — 가슴 중앙 큰 다이아몬드 엠블럼
+    const emblem = new THREE.Mesh(new THREE.OctahedronGeometry(0.14), diamondGlow);
+    emblem.position.set(0, 1.3, 0.26);
+    group.add(emblem);
+  }
+}
+
 // 전직 외형 그룹을 만든다. 미전직(jobTier<1)이면 null. 차수가 오를수록 레이어가 누적된다.
 export function createJobTierCosmetic(classId: PlayerClassId, jobTier: number): THREE.Group | null {
   if (!jobTier || jobTier < 1) return null;
@@ -233,5 +291,6 @@ export function createJobTierCosmetic(classId: PlayerClassId, jobTier: number): 
   buildTier1(classId, group);
   if (jobTier >= 2) buildTier2(classId, group);
   if (jobTier >= 3) buildTier3(classId, group);
+  if (jobTier >= 4) buildTier4(classId, group);
   return group;
 }
