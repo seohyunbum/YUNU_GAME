@@ -19,7 +19,7 @@ export interface PredatorAiContext {
   getGroundHeightAt(x: number, z: number): number;
   refreshSpatialObject(object: WorldObject): void;
   animateWalkCycle(object: WorldObject, delta: number, movementSpeed: number): void;
-  damagePlayer(amount: number, showParticles: boolean, deathReason: string): boolean;
+  damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   effects(): CombatEffectContext; // 보스 강타/충격파 VFX
   showMessage(text: string): void; // 보스 궁극기 텔레그래프 안내
 }
@@ -45,7 +45,7 @@ function resolveBossSlam(context: PredatorAiContext, predator: WorldObject, now:
   spawnGroundShockwave(context.effects(), predator.root.position, BOSS_SLAM_COLOR);
   const dmg = Math.round((predator.attackDamage ?? 8) * 1.8);
   if (Math.hypot(context.playerPosition.x - predator.root.position.x, context.playerPosition.z - predator.root.position.z) <= BOSS_SLAM_RADIUS) {
-    context.damagePlayer(dmg, true, `${predator.name ?? "보스"}의 내려찍기에 맞아 체력이 모두 떨어졌습니다.`);
+    context.damagePlayer(dmg, true, `${predator.name ?? "보스"}의 내려찍기에 맞아 체력이 모두 떨어졌습니다.`, predator);
   }
 }
 
@@ -234,7 +234,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
       if (predator.fieldBossId) spawnGroundShockwave(context.effects(), predator.root.position, BOSS_SLAM_COLOR); // 보스 강타 = 지면 충격파
       const attackDamage = predator.attackDamage ?? predatorStats.attackDamage;
       if (remoteTarget !== null) partyDamageRemotePlayer(remoteTarget, attackDamage, predator.name ?? "몬스터");
-      else context.damagePlayer(attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`);
+      else context.damagePlayer(attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`, predator);
     }
   }
 }

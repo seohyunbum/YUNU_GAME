@@ -264,7 +264,7 @@ import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard
 import { activeBuffs, burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, stewAttackBonus, stewDefenseBonus, STEW_BUFF_SECONDS, STEW_HEAL, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { SKILL_SOUND, SKILL_SOUND_PRELOAD, type SkillElement } from "./game/skillSounds";
 import { CLASS_PASSIVES, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
-import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle, jobTierAllStatMult, isUltimateDecree, JOB_DECREE_ULTIMATE_NECKLACE } from "./game/jobAdvancement";
+import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle, jobTierAllStatMult, jobTierCounterChance, isUltimateDecree, JOB_DECREE_ULTIMATE_NECKLACE } from "./game/jobAdvancement";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
 import {
@@ -624,7 +624,7 @@ class WildernessGame {
     dragons: () => this.objectsOfType("dragon"), elapsed: () => this.clock.elapsedTime, now: () => performance.now(),
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (o) => this.refreshSpatialObject(o),
     effects: () => this.combatEffectContext, bossStats: (kind) => this.bossStats(kind), isBossUnlocked: (kind) => isBossUnlocked(kind, this.bossChapter),
-    damagePlayer: (a, s, r) => this.damagePlayer(a, s, r), showMessage: (t) => this.showMessage(t), playTone: (f, d, ty, v) => this.playTone(f, d, ty, v),
+    damagePlayer: (a, s, r, attacker) => { if (this.tryCounterReflect(attacker, a)) return false; return this.damagePlayer(a, s, r); }, showMessage: (t) => this.showMessage(t), playTone: (f, d, ty, v) => this.playTone(f, d, ty, v),
   };
   private readonly minimapContext: MinimapContext = { active: () => this.gameStarted && this.locationMode === "overworld" && this.currentPanel === null, playerX: () => this.playerPosition.x, playerZ: () => this.playerPosition.z, yaw: () => this.yaw, homes: () => this.playerHomeMarkers(), dragons: () => this.objectsOfType("dragon"), fieldBosses: () => this.objectsOfType("wildPredator"), caves: () => this.objectsOfType("cave"), fortresses: () => this.objectsOfType("fortressGate"), onTap: () => this.togglePanel("map") };
   private readonly fieldBossContext: FieldBossContext = {
@@ -790,7 +790,7 @@ class WildernessGame {
 
   private readonly trainingGroundContext: TrainingGroundContext = { defaultMapId: DEFAULT_WORLD_MAP_ID, worldMapId: () => this.currentWorldMapId, locationMode: () => this.locationMode, hasTrainingGround: () => { for (const object of this.objectsOfType("trainingGround")) return Boolean(object); return false; }, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
 
-  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => { this.enterCombatMood(); return this.damagePlayer(amount, showParticles, reason); }, effects: () => this.combatEffectContext, arenaBounds: () => this.fortressSiege?.active ? { minX: -ARENA_HALF + 1, maxX: ARENA_HALF - 1, minZ: ARENA_CENTER_Z - ARENA_HALF + 1, maxZ: ARENA_CENTER_Z + ARENA_HALF - 1 } : null };
+  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) return false; return this.damagePlayer(amount, showParticles, reason); }, effects: () => this.combatEffectContext, arenaBounds: () => this.fortressSiege?.active ? { minX: -ARENA_HALF + 1, maxX: ARENA_HALF - 1, minZ: ARENA_CENTER_Z - ARENA_HALF + 1, maxZ: ARENA_CENTER_Z + ARENA_HALF - 1 } : null };
 
   private readonly siegeContext: SiegeContext = {
     spawnSiegeMonster: (x, z, level, elite) => this.spawnSiegeMonster(x, z, level, elite),
@@ -807,11 +807,11 @@ class WildernessGame {
     renderHud: () => this.renderHud(),
   };
 
-  private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => { this.enterCombatMood(); return this.damagePlayer(amount, showParticles, reason); }, playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }), keepOutOfBuildings: (position) => keepOutOfBuildings(position, this.objectsNear(position, 7)), fireProjectile: (fx, fy, fz, tx, tz, dmg, kind) => spawnGuardProjectile(this.guardProjectiles, this.guardProjectileContext, new THREE.Vector3(fx, fy, fz), new THREE.Vector3(tx, this.getGroundHeightAt(tx, tz), tz), dmg, kind) };
+  private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) return false; return this.damagePlayer(amount, showParticles, reason); }, playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken }), keepOutOfBuildings: (position) => keepOutOfBuildings(position, this.objectsNear(position, 7)), fireProjectile: (fx, fy, fz, tx, tz, dmg, kind) => spawnGuardProjectile(this.guardProjectiles, this.guardProjectileContext, new THREE.Vector3(fx, fy, fz), new THREE.Vector3(tx, this.getGroundHeightAt(tx, tz), tz), dmg, kind) };
   private readonly guardProjectiles: GuardProjectile[] = [];
   private readonly guardProjectileContext: GuardProjectileContext = { add: (m) => this.scene.add(m), remove: (m) => this.scene.remove(m), playerPosition: this.playerPosition, damagePlayer: (a, s, r) => this.damagePlayer(a, s, r), impact: (p, kind) => spawnProjectileImpact(this.combatEffectContext, p, kind === "rock" ? "arrow" : kind) };
 
-  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => predatorAggroRangeFor(kind), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason) => { this.enterCombatMood(); return this.damagePlayer(amount, showParticles, reason); }, effects: () => this.combatEffectContext, showMessage: (text) => this.showMessage(text) };
+  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => predatorAggroRangeFor(kind), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) return false; return this.damagePlayer(amount, showParticles, reason); }, effects: () => this.combatEffectContext, showMessage: (text) => this.showMessage(text) };
   private readonly hotbarUseContext: HotbarUseContext = {
     currentPanel: () => this.currentPanel,
     health: () => this.health,
@@ -5312,6 +5312,16 @@ class WildernessGame {
       if (center.distanceTo(point) <= targetRadius + projectile.radius + 0.35) return target;
     }
     return null;
+  }
+
+  // 4차 전직 상시 반격 — 피격 시 확률(5%)로 완전 반사: 플레이어 무피해 + 공격자가 그 데미지를 입음.
+  private tryCounterReflect(attacker: WorldObject | undefined, amount: number): boolean {
+    if (!attacker || Math.random() >= jobTierCounterChance(this.playerClass, this.jobTier)) return false;
+    const reflected = Math.max(1, Math.floor(amount));
+    this.applyProjectileDamage(attacker, reflected, "magic");
+    spawnGroundShockwave(this.combatEffectContext, attacker.root.position.clone(), 0x7dd3fc);
+    this.showMessage(`⟲ 반격! ${attacker.name ?? "적"}의 공격을 ${reflected} 피해로 되돌려줬습니다.`);
+    return true;
   }
 
   private applyProjectileDamage(target: WorldObject, attackPower: number, kind: CombatProjectile["kind"]) {
