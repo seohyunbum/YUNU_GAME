@@ -1,7 +1,7 @@
 // 캐릭터 정보 창 — 착용 장비 + 스탯 확인, 제작 레벨업으로 얻은 스탯 포인트 분배.
 // leaf: main.ts 를 import 하지 않는다 (view model + 콜백만 받는다).
 import { initItemTooltips } from "./itemTooltip";
-import type { LeaderboardResult } from "../game/progressSync";
+import type { FortressLeaderboards, LeaderboardResult } from "../game/progressSync";
 
 export interface CharacterPanelView {
   className: string;
@@ -26,8 +26,9 @@ export interface CharacterPanelView {
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
   monstersKilled: number; // 누적 처치 몬스터 수(기록)
-  bestFortressStage: number; // 몬스터 요새 최고 클리어 단계(0 = 아직 없음)
-  leaderboard: LeaderboardResult | null; // 전체 플레이어 랭킹(null = 불러오는 중)
+  bestFortressStageEasy: number; // 내 요새 최고 단계(쉬움, 0 = 아직 없음)
+  bestFortressStageHard: number; // 내 요새 최고 단계(어려움)
+  leaderboards: FortressLeaderboards | null; // 난이도별 전체 랭킹(null = 불러오는 중)
   myNickname: string; // 내 행 강조용
 }
 
@@ -127,11 +128,15 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
         <div class="character-gear character-records">
           <div class="inventory-label">📜 기록</div>
           <div class="character-gear-row"><span>🗡️ 잡은 몬스터</span><strong>${view.monstersKilled.toLocaleString("ko-KR")}마리</strong></div>
-          <div class="character-gear-row"><span>🏰 요새 최고 단계</span><strong>${view.bestFortressStage > 0 ? `${view.bestFortressStage}단계` : "아직 없음"}</strong></div>
+          <div class="character-gear-row"><span>🏰 요새 최고 (😊쉬움)</span><strong>${view.bestFortressStageEasy > 0 ? `${view.bestFortressStageEasy}단계` : "아직 없음"}</strong></div>
+          <div class="character-gear-row"><span>🏰 요새 최고 (🔥어려움)</span><strong>${view.bestFortressStageHard > 0 ? `${view.bestFortressStageHard}단계` : "아직 없음"}</strong></div>
         </div>
         <div class="character-gear character-records">
-          <div class="inventory-label">🏆 전체 TOP 3 <span class="character-records-sub">(단계 · 도전 레벨)</span></div>
-          ${renderLeaderboard(view.leaderboard, view.myNickname)}
+          <div class="inventory-label">🏆 요새 랭킹 TOP 3 <span class="character-records-sub">(단계 · 도전 레벨)</span></div>
+          <div class="character-records-sub" style="margin:4px 0 2px;">😊 쉬움</div>
+          ${renderLeaderboard(view.leaderboards?.easy ?? null, view.myNickname)}
+          <div class="character-records-sub" style="margin:8px 0 2px;">🔥 어려움</div>
+          ${renderLeaderboard(view.leaderboards?.hard ?? null, view.myNickname)}
         </div>
         <p class="character-note">제작 레벨이 오르면 포인트를 얻어 위 스탯을 올릴 수 있어요 (체력·마나 +2, 공격·방어 +1).</p>
       </section>
