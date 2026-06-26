@@ -59,7 +59,7 @@ export interface HudViewModel {
   };
   selectedHotbarIndex: number;
   hotbar: HudHotbarSlotView[];
-  buffs: { icon: string; name: string; secs: number; expiring: boolean }[];
+  buffs: { icon: string; name: string; secs: number; expiring: boolean; value?: string }[]; // value 있으면 시간 대신 그 문자열 표시(정령 등 상시 버프)
 }
 
 export function createHudRenderCache(): HudRenderCache {
@@ -99,7 +99,7 @@ function renderStatsMarkup(view: HudViewModel) {
   const buffMarkup = view.buffs.length === 0
     ? ""
     : `<div class="buff-bar">${view.buffs
-        .map((b) => `<div class="buff-chip${b.expiring ? " buff-expiring" : ""}" title="${escapeHtml(b.name)}"><span class="buff-icon">${b.icon}</span><span class="buff-time">${b.secs >= 60 ? `${Math.ceil(b.secs / 60)}분` : `${b.secs}초`}</span></div>`)
+        .map((b) => `<div class="buff-chip${b.expiring ? " buff-expiring" : ""}" title="${escapeHtml(b.name)}"><span class="buff-icon">${b.icon}</span><span class="buff-time">${b.value !== undefined ? escapeHtml(b.value) : b.secs >= 60 ? `${Math.ceil(b.secs / 60)}분` : `${b.secs}초`}</span></div>`)
         .join("")}</div>`;
 
   return `

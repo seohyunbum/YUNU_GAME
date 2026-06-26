@@ -4726,3 +4726,26 @@ body.touch-mode .skill-bar {
   font-weight: 900;
   cursor: pointer;
 }
+
+/* ===== 장착 정령 미니 뱃지 (좌측 상단, spiritBadge.ts) ===== */
+.spirit-badge {
+  position: fixed;
+  top: calc(max(10px, env(safe-area-inset-top)) + 92px);
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 38;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 46px;
+  padding: 4px 2px;
+  border-radius: 12px;
+  border: 1px solid #fff;
+  background: rgba(10, 14, 24, 0.62);
+  pointer-events: none;
+}
+.spirit-badge.hidden { display: none; }
+.spirit-badge-emoji { font-size: 22px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)); }
+.spirit-badge-lv { font-size: 10px; font-weight: 900; }
+.spirit-badge-shiny .spirit-badge-emoji { animation: spirit-float 1.8s ease-in-out infinite; }
+@keyframes spirit-float { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1.08); } }
