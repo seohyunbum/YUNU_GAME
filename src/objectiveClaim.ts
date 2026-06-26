@@ -8,6 +8,7 @@ export interface ObjectiveClaimDeps {
   dropItem(item: ItemId, count: number): void;
   showMessage(text: string): void;
   renderHud(): void;
+  questExpMultiplier?(): number; // 난이도 퀘스트 경험치 배율(쉬움=1, 어려움=0.6). 미지정 시 1.
 }
 
 // 완료된 튜토리얼 목표면 보상 지급(XP + 아이템, 가방 가득이면 바닥 드롭) 후 true. 아니면 안내 후 false.
@@ -17,7 +18,8 @@ export function claimObjective(progress: TutorialProgress, objective: TutorialOb
     deps.showMessage("아직 완료되지 않은 목표입니다. 마우스를 올리면 상세 설명을 볼 수 있습니다.");
     return false;
   }
-  if (claimed.reward.experience > 0) deps.gainExperience(claimed.reward.experience);
+  const expReward = Math.round(claimed.reward.experience * (deps.questExpMultiplier?.() ?? 1));
+  if (expReward > 0) deps.gainExperience(expReward);
   for (const [item, count] of Object.entries(claimed.reward.items ?? {})) if (!deps.addItem(item as ItemId, count ?? 0)) deps.dropItem(item as ItemId, count ?? 0);
   deps.showMessage(`튜토리얼 완료: ${claimed.title}. 보상: ${claimed.reward.label}`);
   deps.renderHud();

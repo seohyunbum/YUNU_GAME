@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { JAMMINI_MAX_HP } from "./constants";
+import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
 import { createDragonVisual, type DragonVisualStats } from "./bossVisuals";
 import { createAnimalVisual, createJamminiVisual, createPredatorVisual } from "./creatureVisuals";
 import type {
@@ -34,6 +35,7 @@ export interface EntitySpawnContext {
   predatorStats(kind?: PredatorKind): EntityPredatorStats;
   predatorAggroRange(kind?: PredatorKind): number;
   bossStats(kind?: BossKind): EntityBossStats;
+  monsterDifficulty(): DifficultyModifiers; // 난이도 능치 배율(스폰 시점 값을 읽음 — 게임 중 불변)
 }
 
 export function spawnAnimal(context: EntitySpawnContext, position: THREE.Vector3, preferredType?: AnimalKind) {
@@ -55,7 +57,7 @@ export function spawnPredator(context: EntitySpawnContext, position: THREE.Vecto
   const visual = createPredatorVisual(preferredType);
   visual.group.position.copy(position);
   const stats = context.predatorStats(visual.predatorKind);
-  return context.addWorldObject("wildPredator", visual.name, visual.group, {
+  const predator = context.addWorldObject("wildPredator", visual.name, visual.group, {
     hp: stats.hp,
     predatorKind: visual.predatorKind,
     collidable: true,
@@ -66,6 +68,8 @@ export function spawnPredator(context: EntitySpawnContext, position: THREE.Vecto
     attackDamage: stats.attackDamage,
     walkCycle: context.createWalkCycle(visual.walkParts, visual.walk.amplitude, visual.walk.speed, visual.walk.lift),
   });
+  applyMonsterDifficulty(predator, context.monsterDifficulty());
+  return predator;
 }
 
 export function spawnDragon(context: EntitySpawnContext, position: THREE.Vector3, bossKind: BossKind = "dragon") {
@@ -73,7 +77,7 @@ export function spawnDragon(context: EntitySpawnContext, position: THREE.Vector3
   const stats = context.bossStats(bossKind);
   const group = createDragonVisual(bossKind, stats);
   group.position.copy(position);
-  return context.addWorldObject("dragon", stats.name, group, {
+  const dragon = context.addWorldObject("dragon", stats.name, group, {
     hp: stats.maxHp,
     armor: stats.armor,
     collidable: true,
@@ -83,13 +87,15 @@ export function spawnDragon(context: EntitySpawnContext, position: THREE.Vector3
     attackDamage: stats.fireDamage,
     bossKind,
   });
+  applyMonsterDifficulty(dragon, context.monsterDifficulty()); // 보스 hp 보정 — 체력바 분모는 main 의 보스바에서 동일 배율로 맞춘다
+  return dragon;
 }
 
 export function spawnJammini(context: EntitySpawnContext, position: THREE.Vector3) {
   position.y = context.getGroundHeightAt(position.x, position.z);
   const visual = createJamminiVisual();
   visual.group.position.copy(position);
-  return context.addWorldObject("jammini", "잼미니", visual.group, {
+  const jammini = context.addWorldObject("jammini", "잼미니", visual.group, {
     hp: JAMMINI_MAX_HP,
     armor: 0,
     collidable: true,
@@ -101,4 +107,6 @@ export function spawnJammini(context: EntitySpawnContext, position: THREE.Vector
     attackCooldown: THREE.MathUtils.randFloat(0.4, 1.7),
     walkCycle: context.createWalkCycle(visual.walkParts, visual.walk.amplitude, visual.walk.speed, visual.walk.lift),
   });
+  applyMonsterDifficulty(jammini, context.monsterDifficulty());
+  return jammini;
 }

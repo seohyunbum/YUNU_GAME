@@ -251,6 +251,8 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
     buildId: SAVE_BUILD_ID,
     migratedFromVersion: incomingVersion === SAVE_VERSION ? undefined : incomingVersion,
     savedAt: typeof save.savedAt === "string" ? save.savedAt : new Date().toISOString(),
+    difficulty: save.difficulty === "hard" ? "hard" : "easy", // 구세이브(필드 없음)·잘못된 값은 쉬움으로
+
     player: {
       position: playerPosition,
       previousPosition: savedVector(player.previousPosition, playerPosition),

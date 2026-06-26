@@ -2,6 +2,7 @@ import { SAVE_BUILD_ID, SAVE_VERSION } from "./constants";
 import type { BedTier } from "./constants";
 import { normalizeBossChapter } from "./bossChapters";
 import type {
+  DifficultyMode,
   HouseKind,
   ItemId,
   LocationMode,
@@ -25,6 +26,7 @@ interface VectorLike {
 export interface SaveDataSnapshot {
   nowMs: number;
   savedAt?: string;
+  difficulty: DifficultyMode;
   player: {
     position: VectorLike;
     previousPosition: VectorLike;
@@ -206,6 +208,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
     version: SAVE_VERSION,
     buildId: SAVE_BUILD_ID,
     savedAt: snapshot.savedAt ?? new Date().toISOString(),
+    difficulty: snapshot.difficulty,
     player: {
       position: toSavedVector(savedPlayerPosition),
       previousPosition: toSavedVector(previousPosition),

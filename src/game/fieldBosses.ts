@@ -4,6 +4,7 @@
 // 자체를 저장하지 않고(체력 리셋 허용) "처치 기록"만 저장한다 — 스폰은 매 프레임 ensure.
 import * as THREE from "three";
 import { MONSTER_DEFS, monsterStatsFromLevel, type MonsterId } from "./monsters";
+import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
 import { addBossRegalia, bossRegaliaPalette } from "./bossArmorVisuals";
 import { getWorldMapById } from "./worldMaps";
 import type { ItemId, LocationMode, PredatorKind, WorldMapId, WorldObject } from "./types";
@@ -80,7 +81,7 @@ export function fieldBossQuestFor(mapId: WorldMapId, defeatedFieldBosses: readon
 }
 
 // 외형·스탯 적용 — 스폰 직후 1회
-export function applyFieldBossDefinition(object: WorldObject, def: FieldBossDef) {
+export function applyFieldBossDefinition(object: WorldObject, def: FieldBossDef, mods?: DifficultyModifiers) {
   const stats = monsterStatsFromLevel(def.level, true);
   object.name = def.name;
   object.hp = stats.hp;
@@ -105,6 +106,7 @@ export function applyFieldBossDefinition(object: WorldObject, def: FieldBossDef)
   });
   addBossRegalia(object.root, bossRegaliaPalette(def.tint)); // 측정→배치 후, 아래 scale 로 보스와 함께 비례 확대
   object.root.scale.multiplyScalar(def.scale);
+  if (mods) applyMonsterDifficulty(object, mods); // raw 보스 스탯 위에 난이도 1회 보정(추격속도는 predatorAi 가 처리)
   return object;
 }
 
@@ -114,6 +116,7 @@ export interface FieldBossContext {
   defeatedFieldBosses(): readonly string[];
   liveFieldBoss(): WorldObject | null;
   spawnPredator(kind: PredatorKind, position: THREE.Vector3): WorldObject;
+  monsterDifficulty(): DifficultyModifiers; // 난이도 능치 배율
   getGroundHeightAt(x: number, z: number): number;
 }
 
@@ -127,5 +130,5 @@ export function updateFieldBosses(context: FieldBossContext) {
   spawnPoint.set(def.position[0], 0, def.position[1]);
   spawnPoint.y = context.getGroundHeightAt(spawnPoint.x, spawnPoint.z);
   const kind = MONSTER_DEFS[def.monsterId].predatorKind ?? "wolf";
-  applyFieldBossDefinition(context.spawnPredator(kind, spawnPoint), def);
+  applyFieldBossDefinition(context.spawnPredator(kind, spawnPoint), def, context.monsterDifficulty());
 }

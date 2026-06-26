@@ -171,6 +171,14 @@ export function renderTitleScreen(titleScreenEl: HTMLElement, view: TitleScreenV
             .join("")}
         </div>
       </div>
+      <div class="difficulty-select" data-difficulty-select>
+        <strong>난이도 선택 (게임 중 변경 불가)</strong>
+        <div class="difficulty-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;">
+          <button class="difficulty-btn" data-difficulty="easy" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#f3ead6;cursor:pointer;font-size:14px;">😊 쉬움</button>
+          <button class="difficulty-btn" data-difficulty="hard" type="button" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#f3ead6;cursor:pointer;font-size:14px;">🔥 어려움</button>
+        </div>
+        <small style="opacity:.7;">어려움: 몬스터 더 강하고 빠름 · 드랍·경험치 ↓ · 상점 비쌈. 기본은 쉬움.</small>
+      </div>
       <div class="quality-select" data-quality-select>
         <strong>그래픽 품질 (렉 줄이기)</strong>
         <div class="quality-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;">

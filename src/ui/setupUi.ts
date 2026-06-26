@@ -31,6 +31,7 @@ export interface GameUiCallbacks {
   onTitleNew(): void;
   onClassChoice(choice: string | undefined): void;
   onQualityChoice(mode: string | undefined): void;
+  onDifficultyChoice(mode: string | undefined): void;
   onTitleLoad(): void;
   onShowMiniGame(): void;
   onShowLavaMiniGame(): void;
@@ -114,6 +115,12 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       callbacks.onQualityChoice(button.dataset.quality);
+    });
+  });
+  titleScreenEl.querySelectorAll<HTMLButtonElement>("[data-difficulty]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      callbacks.onDifficultyChoice(button.dataset.difficulty);
     });
   });
   bindButton(titleScreenEl, "[data-title-load]", callbacks.onTitleLoad);

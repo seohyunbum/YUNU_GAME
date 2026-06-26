@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { DRAGON_MAX_HP, DRAGON_ARMOR } from "./constants";
+import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
 import type { PredatorKind, BossKind, WorldObject } from "./types";
 
 export const PREDATOR_STATS: Record<PredatorKind, { hp: number; attackDamage: number; aggroRange: number; strikeRange: number; speed: number; cooldown: number }> = {
@@ -217,6 +218,7 @@ export function applyPredatorMonsterDefinition(
   region: { id: string; lootTier: number },
   monsterId: MonsterId,
   playerLevel?: number, // 지정 시 야외 로밍 레벨 캡 적용(보스/요새/파티동기는 미전달=면제)
+  mods?: DifficultyModifiers, // 난이도 능치 배율(미전달 시 보정 없음)
 ) {
   const def = MONSTER_DEFS[monsterId];
   if (!def.predatorKind) return object;
@@ -247,6 +249,7 @@ export function applyPredatorMonsterDefinition(
       if (emissiveIntensity !== null) child.material.emissiveIntensity = emissiveIntensity;
     }
   });
+  if (mods) applyMonsterDifficulty(object, mods); // hp/공격 보정(armor 는 포식자 0 이라 무효)
   return object;
 }
 
