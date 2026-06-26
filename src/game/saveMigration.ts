@@ -23,6 +23,7 @@ import { DEFAULT_WORLD_MAP_ID, isWorldMapId } from "./worldMaps";
 import { normalizeBossChapter } from "./bossChapters";
 import { HOME_STORAGE_SLOTS, HOME_SUPPLY_COOLDOWN_SECONDS } from "./homeBase";
 import { normalizeTrainingStats } from "./training";
+import { normalizeSpiritCollection } from "./spirits";
 import { normalizeCraftStatAlloc } from "./craftLevel";
 import { normalizeDefeatedFieldBosses } from "./fieldBosses";
 import type { BedTier } from "./constants";
@@ -284,6 +285,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       equippedArmor: player.equippedArmor ?? null,
       equippedShield: migratedShield,
       equippedNecklace: migratedNecklace,
+      spirits: normalizeSpiritCollection(player.spirits),
       shieldDurabilityUsed: migratedShieldDurability,
       ironGuardRemainingMs: savedNumber(player.ironGuardRemainingMs, 0, 0, IRON_GUARD_DURATION_SECONDS * 1000),
       locationMode: savedLocationMode(player.locationMode),

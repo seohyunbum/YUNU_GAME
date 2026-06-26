@@ -3,6 +3,7 @@ import type { BedTier } from "./constants";
 import { normalizeBossChapter } from "./bossChapters";
 import type {
   DifficultyMode,
+  SpiritCollection,
   HouseKind,
   ItemId,
   LocationMode,
@@ -70,6 +71,7 @@ export interface SaveDataSnapshot {
     equippedShield: ItemId | null;
     equippedNecklace: ItemId | null;
     permanentNecklace: ItemId | null;
+    spirits: SpiritCollection;
     shieldDurabilityUsed: number;
     ironGuardUntil: number;
     locationMode: LocationMode;
@@ -253,6 +255,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       equippedShield: snapshot.player.equippedShield,
       equippedNecklace: snapshot.player.equippedNecklace,
       permanentNecklace: snapshot.player.permanentNecklace,
+      spirits: { owned: snapshot.player.spirits.owned.map((s) => ({ ...s })), equippedId: snapshot.player.spirits.equippedId },
       shieldDurabilityUsed: snapshot.player.shieldDurabilityUsed,
       ironGuardRemainingMs: Math.max(0, snapshot.player.ironGuardUntil - snapshot.nowMs),
       locationMode: snapshot.player.locationMode,

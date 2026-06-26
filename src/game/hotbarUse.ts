@@ -31,6 +31,7 @@ export interface HotbarUseContext {
   equipArmor(item: ItemId): void;
   equipShield(item: ItemId): void;
   equipNecklace(item: ItemId): void;
+  openSpiritGacha(): void; // 정령 소환권 사용 — 토큰 소비 + 가챠 연출(main 이 처리)
   consumeStew(): void;
   playHandAction(): void;
   spawnHealEffect(): void;
@@ -48,6 +49,13 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
   if (!item) return;
   if (item === "tutorial_book") {
     context.openPanel("book");
+    return;
+  }
+  if (item === "spirit_gacha_token") {
+    // 인벤 더블클릭(패널 열림) + 핫바 사용 모두 지원 — 패널 가드 앞에서 처리. 토큰 소비 후 가챠 연출.
+    if (!context.removeItem(item, 1)) return;
+    context.playHandAction();
+    context.openSpiritGacha();
     return;
   }
   if (context.currentPanel() !== null) return;
