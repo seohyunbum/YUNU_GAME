@@ -54,6 +54,7 @@ export const BEST_FORTRESS_STAGE_KEY = "ai-game-lab:best-fortress-stage-v1"; // 
 export const BEST_FORTRESS_BASELEVEL_KEY = "ai-game-lab:best-fortress-baselevel-v1"; // 최고 단계 기록 당시의 baseLevel(쉬움 — 랭킹 행에 'Lv N' 표기용)
 export const BEST_FORTRESS_STAGE_HARD_KEY = "ai-game-lab:best-fortress-stage-hard-v1"; // 몬스터 요새 최고 클리어 단계(어려움) — 난이도별 랭킹 분리
 export const BEST_FORTRESS_BASELEVEL_HARD_KEY = "ai-game-lab:best-fortress-baselevel-hard-v1"; // 최고 단계 기록 당시 baseLevel(어려움)
+export const BEST_TRAINING_KEY = "ai-game-lab:best-training-v1"; // 훈련 종목별 계정 최고기록(랭킹용 best-ever) — 활성 훈련치(캐릭터별)와 분리, 닉네임당 영구 유지
 export const QUALITY_MODE_KEY = "ai-game-lab:quality-mode-v1"; // 사용자가 고른 그래픽 품질(high/balanced/performance) — 유지 + 자동 다운그레이드보다 우선
 export const SAVE_VERSION = 13;
 export const SAVE_BUILD_ID = "2026-06-26-difficulty-mode";

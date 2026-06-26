@@ -71,7 +71,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-24: 세이브 슬롯 번호 표기 — 로드 패널 슬롯뷰에 savedAt 전달(최근 저장 위치 표식용) +1 → 10098.
 // 2026-06-26: 난이도(쉬움/어려움) 모드 배선 — 필드 3 + 컨텍스트 배율 주입 + 스폰 보정 + 상점/세이브/타이틀 배선 +34 → 10132. 메서드 수는 불변(신규 메서드 0, 로직은 game/difficulty.ts).
 // 2026-06-26: 요새 랭킹 난이도별 분리 + 리셋버그 수정 — bestFortress 난이도별 record 화 + 발행/패널 배선 +1 → 10133.
-const MAX_MAIN_LINES = 10133;
+// 2026-06-26: 훈련 랭킹 계정 best-ever 화 — bestTraining 필드 + 성공 시 갱신 + 로드 시드 배선(로직은 game/training.ts) +3 → 10136.
+const MAX_MAIN_LINES = 10136;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
