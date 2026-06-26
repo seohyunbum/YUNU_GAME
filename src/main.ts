@@ -3484,7 +3484,9 @@ class WildernessGame {
 
         const obstacleTop = object.root.position.y + (object.collisionHeight ?? 1);
         const feetY = position.y - playerHeight;
-        if (object.type === "buildingBlock" && feetY >= obstacleTop - 0.08) continue;
+        if (object.type === "buildingBlock" && feetY >= obstacleTop - 0.08) continue; // 블록 위에 서 있음 → 밀려나지 않음(올라타기)
+        // 블록 바닥이 머리(눈높이 position.y) 위면 그 아래로 통과 — 천장·다리 밑을 지나간다. 앉기(1.15)·기어가기(0.68) 시 머리가 낮아져 더 낮은 층도 통과.
+        if (object.type === "buildingBlock" && object.root.position.y >= position.y - 0.05) continue;
         if (feetY > obstacleTop + 0.12) continue;
 
         const distance = Math.sqrt(distanceSq);
