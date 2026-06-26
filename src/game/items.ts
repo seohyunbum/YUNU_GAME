@@ -118,6 +118,7 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   strength_necklace: "힘의 목걸이",
   guardian_necklace: "수호의 목걸이",
   swift_necklace: "쾌속의 목걸이",
+  spirit_gacha_token: "정령 소환권",
   sage_necklace: "현자의 목걸이",
   dragon_gloves: "용의 장갑",
   dragon_boots: "용의 부츠",
@@ -261,6 +262,7 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   job_decree_ultimate_guardian: "epic",
   job_decree_ultimate_swift: "epic",
   job_decree_ultimate_sage: "epic",
+  spirit_gacha_token: "epic", // 제작 경험치 가중치용(획득 시 무관) — 시각 등급은 ITEM_TIER 에서 legendary
 };
 export function itemRarity(item: ItemId): "common" | "rare" | "epic" {
   return ITEM_RARITY[item] ?? "common";
@@ -290,7 +292,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   strength_necklace: "epic", guardian_necklace: "epic", swift_necklace: "epic", sage_necklace: "epic",
   advanced_medkit: "epic", big_bag: "epic", job_change_tome: "epic", job_decree: "epic",
   // 레전더리(legendary) — 최종 흑요석 무기 3종 + 전직의 표식·상급 전직의 각서 + 경험치병(매우 희귀) + 용 장비 4종
-  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", job_seal: "legendary", job_decree_high: "legendary", xp_bottle: "legendary",
+  sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", job_seal: "legendary", job_decree_high: "legendary", xp_bottle: "legendary", spirit_gacha_token: "legendary",
   dragon_gloves: "legendary", dragon_boots: "legendary", dragon_cloak: "legendary", dragon_crown: "legendary",
   // 신화(mythic) — 레전더리 위 최상위 등급(은은한 푸른빛 다이아몬드 아우라). 4차 전직 각서 4종.
   job_decree_ultimate_strength: "mythic", job_decree_ultimate_guardian: "mythic", job_decree_ultimate_swift: "mythic", job_decree_ultimate_sage: "mythic",

@@ -309,6 +309,16 @@ export function createHeldItemModel(item: ItemId) {
     group.add(createBigBagModel());
   } else if (item === "job_seal" || item === "job_decree" || item === "job_decree_high" || item.startsWith("job_decree_ultimate_")) {
     group.add(createJobAdvanceModel(item));
+  } else if (item === "spirit_gacha_token") {
+    // 정령 소환권 — 가챠 테마(이집트의 눈) 황금 명판
+    const tablet = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.32, 0.05), new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.6, roughness: 0.3, emissive: 0x3a2a00, emissiveIntensity: 0.4 }));
+    tablet.position.y = 0.2;
+    const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.07, 14, 10), new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0x88ccff, emissiveIntensity: 0.6 }));
+    eyeWhite.scale.set(1.5, 0.85, 0.4);
+    eyeWhite.position.set(0, 0.22, 0.035);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), new THREE.MeshStandardMaterial({ color: 0x0b1020, emissive: 0x1e3a8a, emissiveIntensity: 0.5 }));
+    pupil.position.set(0, 0.22, 0.062);
+    group.add(tablet, eyeWhite, pupil);
   } else if (PLACEABLE_TYPES[item]) {
     const block = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.28), headMaterial);
     block.position.y = 0.16;
