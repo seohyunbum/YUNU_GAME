@@ -11,6 +11,7 @@ export interface GuardAiContext {
   getGroundHeightAt(x: number, z: number): number;
   refreshSpatialObject(object: WorldObject): void;
   runWalkCycle(object: WorldObject, delta: number, speed: number): void;
+  monsterChaseSpeedMul(): number; // 난이도 추격속도 배율(쉬움=1)
   damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   playHandAction(): void;
   showMessage(text: string): void;
@@ -61,7 +62,7 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     if (mode === "melee" && attackDistance > range) {
       if (centerDistance > 0.01) {
         // 추격 속도 — 전체 +1 상향(골렘 3.6→4.6, 그 외 4.68→5.68)
-        const chaseSpeed = guard.type === "villageGolem" ? 4.6 : 5.68;
+        const chaseSpeed = (guard.type === "villageGolem" ? 4.6 : 5.68) * context.monsterChaseSpeedMul();
         const step = Math.min(attackDistance - range, chaseSpeed * delta);
         guard.root.position.x += (dx / centerDistance) * step;
         guard.root.position.z += (dz / centerDistance) * step;

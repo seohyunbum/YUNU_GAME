@@ -555,6 +555,7 @@ try {
         spawned = { type: "wildPredator", name: "", root: new THREE.Group() };
         return spawned;
       },
+      monsterDifficulty: () => ({ monsterHp: 1, monsterAttack: 1, monsterDefense: 1, monsterChaseSpeed: 1, questExp: 1, dropChance: 1, xpPotion: 1, shopPrice: 1 }),
       getGroundHeightAt: () => 0,
     };
     updateFieldBosses(context);
@@ -887,6 +888,7 @@ try {
         predatorStats: () => ({ hp: 30, attackDamage: 3 }),
         predatorAggroRange: () => 10,
         bossStats: () => ({ name: "용", maxHp: 100, armor: 0, fireDamage: 5, attackRange: 10, collisionRadius: 1, collisionHeight: 2, scale: 1, body: 0, belly: 0, wing: 0, glow: 0 }),
+        monsterDifficulty: () => ({ monsterHp: 1, monsterAttack: 1, monsterDefense: 1, monsterChaseSpeed: 1, questExp: 1, dropChance: 1, xpPotion: 1, shopPrice: 1 }),
       };
       const state = { nextPlayerHitKills: false };
       const world = {
@@ -1053,7 +1055,7 @@ try {
       const me = { nickname: role === "host" ? "방장" : "친구", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true, panelOpen: false };
       const session = { role, sendGame: (m) => sent.push(m), onGame: (cb) => { gameCb = cb; }, onPresences: () => {} };
       const world = {
-        entityContext: { addWorldObject: (type, name, root, extra) => { const o = { id: `${role}-${nextId++}`, type, name, root, ...extra }; objects.set(o.id, o); return o; }, getGroundHeightAt: () => 0, createWalkCycle: () => ({}), predatorStats: () => ({ hp: 30, attackDamage: 3 }), predatorAggroRange: () => 10, bossStats: () => ({}) },
+        entityContext: { addWorldObject: (type, name, root, extra) => { const o = { id: `${role}-${nextId++}`, type, name, root, ...extra }; objects.set(o.id, o); return o; }, getGroundHeightAt: () => 0, createWalkCycle: () => ({}), predatorStats: () => ({ hp: 30, attackDamage: 3 }), predatorAggroRange: () => 10, bossStats: () => ({}), monsterDifficulty: () => ({ monsterHp: 1, monsterAttack: 1, monsterDefense: 1, monsterChaseSpeed: 1, questExp: 1, dropChance: 1, xpPotion: 1, shopPrice: 1 }) },
         activeRegions: () => [{ id: "r1", lootTier: 1, center: { x: 0, y: 0, z: 0 }, radius: 500 }],
         mapXpScale: () => 1,
         predators: () => [...objects.values()].filter((o) => o.type === "wildPredator"),
@@ -1141,7 +1143,7 @@ try {
       const me = { nickname: role === "host" ? "방장" : "친구", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true, panelOpen: false };
       const session = { role, sendGame: (m) => sent.push(m), onGame: (cb) => { gameCb = cb; }, onPresences: () => {} };
       const world = {
-        entityContext: { addWorldObject: (type, name, root, extra) => { const o = { id: `${role}-${nextId++}`, type, name, root, ...extra }; objects.set(o.id, o); return o; }, getGroundHeightAt: () => 0, createWalkCycle: () => ({}), predatorStats: () => ({ hp: 30, attackDamage: 3 }), predatorAggroRange: () => 10, bossStats: () => ({}) },
+        entityContext: { addWorldObject: (type, name, root, extra) => { const o = { id: `${role}-${nextId++}`, type, name, root, ...extra }; objects.set(o.id, o); return o; }, getGroundHeightAt: () => 0, createWalkCycle: () => ({}), predatorStats: () => ({ hp: 30, attackDamage: 3 }), predatorAggroRange: () => 10, bossStats: () => ({}), monsterDifficulty: () => ({ monsterHp: 1, monsterAttack: 1, monsterDefense: 1, monsterChaseSpeed: 1, questExp: 1, dropChance: 1, xpPotion: 1, shopPrice: 1 }) },
         activeRegions: () => [{ id: "r1", lootTier: 1, center: { x: 0, y: 0, z: 0 }, radius: 500 }],
         mapXpScale: () => 1,
         predators: () => [...objects.values()].filter((o) => o.type === "wildPredator"),
@@ -1503,6 +1505,7 @@ try {
       predatorAggroRange: () => 100,
       predatorStrikeRange: () => 0.1,
       predatorStats: () => ({ speed: 0, attackDamage: 1, cooldown: 1, aggroRange: 100, strikeRange: 0.1, hp: 10 }),
+      monsterChaseSpeedMul: () => 1,
       getGroundHeightAt: () => 0,
       refreshSpatialObject: () => {},
       animateWalkCycle: () => {},

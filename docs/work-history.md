@@ -372,3 +372,13 @@
   2. 실기기, 특히 **모바일 가로모드**에서 FPS 체감(개방 필드 ~30fps 기준 유지되는지).
   3. 렉 발생 시 `src/main.ts` 의 `predatorCount`(60/78) 를 낮춰 재조정. 컬링은 이미 적용됨.
 - **상태**: 기능은 마스터 배포 완료, 성능만 미검증.
+
+## 2026-06-26 — 난이도 모드(쉬움/어려움) 추가
+
+- 무엇: 타이틀 신규게임 시 난이도 선택(기본 쉬움, 게임 중 변경 불가, 세이브에 고정). 어려움 = 쉬움(현재 세팅) 대비 몬스터 공·방·추격 ×1.3·체력 ×1.5, 퀘스트 경험치 ×0.6, 드랍률 ×0.5, 경험치병 ×0.5, 상점 가격 ×3. 몬스터 처치 경험치는 불변.
+- 설계: 로직은 `src/game/difficulty.ts`(순수 모듈, 배율표 + `applyMonsterDifficulty`/`difficultyShopCost`). main.ts 는 필드 3개 + 컨텍스트에 배율 주입만(신규 메서드 0 — check:methods 495 불변). 몬스터 능치는 "스폰 시 1회 보정" 모델: 각 스폰 경로의 최종 stat-set 직후 `applyMonsterDifficulty` 1회. override 분기(시즈/요새보스/필드보스)는 raw 재설정 후 1회 보정이라 이중적용 없음.
+- 추격속도는 hot-path(predatorAi/caveMonsters/guardAi/dragonAi 매 프레임)라 **할당 없이 숫자 배율만** 주입(`monsterChaseSpeedMul()`)해 chase 항에 곱함.
+- 세이브: `SavedGame.difficulty`(optional) + `SAVE_VERSION` 12→13 + 마이그레이션 통과(구세이브·잘못된 값 → easy). 보스 체력바 분모도 ×체력배율로 맞춰 비율 정확.
+- 테스트: `scripts/difficulty-test.mjs` 신규(배율·보정·상점가격·항등) + save-migration 에 난이도 보존/폴백 assert 추가. typecheck·combat·save-migration·save-repository·content·gameplay-systems·balance·mobile·party-ledger·difficulty 전부 녹색.
+- ⚠ 미검증(환경 제약): 이 원격 컨테이너엔 브라우저가 없어 `save-roundtrip`(Windows Chrome 경로 한정 finder)·`visual-check`·`perf-check` 미실행. 타이틀 UI(난이도 버튼)는 기존 그래픽품질 셀렉터를 그대로 미러링했고, 엔티티 수 증가는 없음(능치만 보정)이라 성능 영향 낮음. 사용자 PC 에서 visual-check 권장.
+- 관련 파일: src/game/difficulty.ts(신규), entitySpawns·monsters·caveMonsters·fieldBosses·predatorAi·dragonAi·guardAi·saveManager·saveMigration·types·constants, src/objectiveClaim.ts, src/ui/titleScreen.ts·setupUi.ts, src/main.ts.

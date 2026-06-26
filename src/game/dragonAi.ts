@@ -23,6 +23,7 @@ export interface DragonAiContext {
   effects(): CombatEffectContext;
   bossStats(kind?: BossKind): DragonStats;
   isBossUnlocked(kind: BossKind): boolean;
+  monsterChaseSpeedMul(): number; // 난이도 추격속도 배율(쉬움=1)
   damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   showMessage(text: string): void;
   playTone(frequency: number, duration?: number, type?: OscillatorType, volume?: number): void;
@@ -122,7 +123,7 @@ export function updateDragons(context: DragonAiContext, delta: number) {
     if (unlocked && !panelOpen && ((dragon.angryUntil ?? 0) > now || distance <= attackRange)) {
       dragon.angryUntil = now + DRAGON_AGGRO_MS; // 사거리 안이면 매 프레임 갱신 → 멀어져도 일정 시간 추격
       if (distance > DRAGON_CHASE_STOP) {
-        const step = (DRAGON_CHASE_SPEED * delta) / Math.max(distance, 0.001);
+        const step = (DRAGON_CHASE_SPEED * context.monsterChaseSpeedMul() * delta) / Math.max(distance, 0.001);
         dragon.root.position.x = Math.max(-WORLD_SIZE / 2 + 6, Math.min(WORLD_SIZE / 2 - 6, dragon.root.position.x + dxp * step));
         dragon.root.position.z = Math.max(-WORLD_SIZE / 2 + 6, Math.min(WORLD_SIZE / 2 - 6, dragon.root.position.z + dzp * step));
         clampOutOfSafeZones(dragon.root.position); // 마을·훈련장 안엔 못 들어옴 (다른 몬스터와 동일 — 마을은 안전지대 유지)

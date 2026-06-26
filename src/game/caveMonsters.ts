@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CAVE_END_Z, CAVE_START_Z, CAVE_WIDTH } from "./constants";
 import { spawnGroundShockwave, type CombatEffectContext } from "./combatEffects";
 import { animatePredatorAttackMotion, triggerPredatorAttackMotion } from "./predatorAi";
+import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
 import { monsterStatsFromLevel, type MonsterId } from "./monsters";
 import type { Region } from "./regions";
 import type { PredatorKind, WorldObject } from "./types";
@@ -14,6 +15,7 @@ export interface FortressSpawnDeps {
   chooseMonster(region: Region): MonsterId;
   kindForMonster(id: MonsterId): PredatorKind;
   refreshSpatialObject(object: WorldObject): void;
+  monsterDifficulty(): DifficultyModifiers; // 난이도 능치 배율 — 보스 분기 raw 오버라이드 뒤 1회 보정
 }
 
 export function spawnFortressMonster(deps: FortressSpawnDeps, position: THREE.Vector3, boss: boolean): WorldObject | null {
@@ -34,6 +36,7 @@ export function spawnFortressMonster(deps: FortressSpawnDeps, position: THREE.Ve
     monster.attackRange = 30; monster.monsterLevel = level; monster.fortressBoss = true; monster.fortressLevel = level;
     monster.collisionRadius = (monster.collisionRadius ?? 1) * 2; monster.collisionHeight = (monster.collisionHeight ?? 1.5) * 2;
     monster.root.scale.multiplyScalar(2);
+    applyMonsterDifficulty(monster, deps.monsterDifficulty()); // 보스 raw 오버라이드 위에 난이도 1회 적용(비보스는 applyMonsterDef 가 이미 보정)
   }
   deps.refreshSpatialObject(monster);
   return monster;
@@ -48,6 +51,7 @@ export interface CaveMonsterContext {
   predators(): Iterable<WorldObject>;
   predatorStats(kind?: PredatorKind, monsterId?: MonsterId): { speed: number; cooldown: number; attackDamage: number };
   predatorStrikeRange(kind?: PredatorKind): number;
+  monsterChaseSpeedMul(): number; // 난이도 추격속도 배율(쉬움=1) — 매 프레임 호출이라 숫자만 반환
   getGroundHeightAt(x: number, z: number): number;
   refreshSpatialObject(object: WorldObject): void;
   animateWalkCycle(object: WorldObject, delta: number, movementSpeed: number): void;
@@ -83,7 +87,7 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
     // 근접 정지/공격 사거리 — 겹치지 않고 시야에 들어오게 일정 거리 밖에서 멈춰 공격(몸집 클수록 더 멀리)
     const reach = context.predatorStrikeRange(monster.predatorKind) + 2.5 + (monster.collisionRadius ?? 0) * 0.5; // 정지/공격 사거리 — 0.8→2.5 로 더 멀리 떨어져 멈춰 공격(겹침 방지·타게팅 쉽게).
     const moving = aggroed ? distance > reach : true;
-    const speed = (aggroed ? (moving ? stats.speed : 0) : stats.speed * 0.3) * (monster.fortressBoss ? 0.94 : 1); // 요새 보스 추격 +15% (0.82→0.94)
+    const speed = (aggroed ? (moving ? stats.speed * context.monsterChaseSpeedMul() : 0) : stats.speed * 0.3) * (monster.fortressBoss ? 0.94 : 1); // 요새 보스 추격 +15% (0.82→0.94). 추격 시 난이도 배율 적용.
     next.set(
       THREE.MathUtils.clamp(monster.root.position.x + Math.cos(angle) * speed * delta, minX, maxX),
       0,

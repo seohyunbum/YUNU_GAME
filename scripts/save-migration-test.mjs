@@ -70,6 +70,9 @@ try {
   assert.equal(legacy.version, SAVE_VERSION);
   assert.equal(legacy.buildId, SAVE_BUILD_ID);
   assert.equal(legacy.migratedFromVersion, 1);
+  assert.equal(legacy.difficulty, "easy", "구세이브(난이도 필드 없음)는 쉬움으로 마이그레이션");
+  assert.equal(migrateSaveData({ version: SAVE_VERSION, difficulty: "hard", player: { level: 1, experience: 0, position: { x: 0, y: 0, z: 0 } } }).difficulty, "hard", "어려움 난이도는 마이그레이션에서 보존");
+  assert.equal(migrateSaveData({ version: SAVE_VERSION, difficulty: "bogus", player: { level: 1, experience: 0, position: { x: 0, y: 0, z: 0 } } }).difficulty, "easy", "잘못된 난이도 값은 쉬움으로");
   assert.equal(legacy.player.playerClass, "warrior");
   assert.equal(legacy.player.jobTier, 0); // 구세이브엔 전직 차수가 없음 → 0
   assert.equal(legacy.player.thirdSkillCooldownRemainingMs, 0);

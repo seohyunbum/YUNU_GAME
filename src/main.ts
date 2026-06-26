@@ -241,6 +241,7 @@ import type {
   WorldObject,
 } from "./game/types";
 import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, monsterStatsFromLevel, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
+import { DEFAULT_DIFFICULTY, applyMonsterDifficulty, difficultyModifiers, difficultyShopCost, isDifficultyMode, type DifficultyMode, type DifficultyModifiers } from "./game/difficulty";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, nearestRegion, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -377,6 +378,7 @@ class WildernessGame {
     predatorStats: (kind) => predatorBaseStats(kind),
     predatorAggroRange: (kind) => predatorAggroRangeFor(kind),
     bossStats: (kind) => this.bossStats(kind),
+    monsterDifficulty: () => this.difficultyMods,
   };
   private readonly raycastTargets: THREE.Object3D[] = [];
   private readonly raycastTargetsByObject = new Map<string, THREE.Object3D[]>();
@@ -474,7 +476,7 @@ class WildernessGame {
   private activeWaterZones = waterZonesForWorldMap(DEFAULT_WORLD_MAP_ID);
   private readonly worldStates: WorldStateStore = {};
   private readonly tutorialProgress = { completedStepIds: [...DEFAULT_TUTORIAL_PROGRESS.completedStepIds], achievedStepIds: [...DEFAULT_TUTORIAL_PROGRESS.achievedStepIds] };
-  private readonly objectiveClaimDeps: ObjectiveClaimDeps = { gainExperience: (n) => this.gainExperience(n), addItem: (i, c) => this.addItem(i, c), dropItem: (i, c) => this.spawnDroppedItem(i, c, this.playerPosition.clone()), showMessage: (t) => this.showMessage(t), renderHud: () => this.renderHud() };
+  private readonly objectiveClaimDeps: ObjectiveClaimDeps = { gainExperience: (n) => this.gainExperience(n), addItem: (i, c) => this.addItem(i, c), dropItem: (i, c) => this.spawnDroppedItem(i, c, this.playerPosition.clone()), showMessage: (t) => this.showMessage(t), renderHud: () => this.renderHud(), questExpMultiplier: () => this.difficultyMods.questExp };
   private regionWarningState: RegionWarningState = { regionId: null, lastWarnAt: 0 };
   private yaw = 0;
   private pitch = 0;
@@ -505,6 +507,9 @@ class WildernessGame {
   private playerClass: PlayerClassId = "warrior";
   private jobTier = 0; // 전직 차수 (0=미전직, 1=1차). 스탯·스킬·외형 게이트.
   private pendingPlayerClass: PlayerClassId | null = null;
+  private difficulty: DifficultyMode = DEFAULT_DIFFICULTY; // 현재 플레이스루 난이도(게임 중 불변, 세이브에 고정)
+  private pendingDifficulty: DifficultyMode = DEFAULT_DIFFICULTY; // 타이틀에서 선택 중인 난이도(신규게임 시작 시 적용)
+  private difficultyMods: DifficultyModifiers = difficultyModifiers(DEFAULT_DIFFICULTY); // difficulty 의 파생 배율(매 프레임 읽힘)
   private mana = BASE_MAX_MANA;
   private maxMana = BASE_MAX_MANA;
   private classSkillCooldownUntil = 0;
@@ -626,6 +631,7 @@ class WildernessGame {
     dragons: () => this.objectsOfType("dragon"), elapsed: () => this.clock.elapsedTime, now: () => performance.now(),
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (o) => this.refreshSpatialObject(o),
     effects: () => this.combatEffectContext, bossStats: (kind) => this.bossStats(kind), isBossUnlocked: (kind) => isBossUnlocked(kind, this.bossChapter),
+    monsterChaseSpeedMul: () => this.difficultyMods.monsterChaseSpeed,
     damagePlayer: (a, s, r, attacker) => { if (this.tryCounterReflect(attacker, a)) return false; return this.damagePlayer(a, s, r); }, showMessage: (t) => this.showMessage(t), playTone: (f, d, ty, v) => this.playTone(f, d, ty, v),
   };
   private readonly minimapContext: MinimapContext = { active: () => this.gameStarted && this.locationMode === "overworld" && this.currentPanel === null, playerX: () => this.playerPosition.x, playerZ: () => this.playerPosition.z, yaw: () => this.yaw, homes: () => this.playerHomeMarkers(), dragons: () => this.objectsOfType("dragon"), fieldBosses: () => this.objectsOfType("wildPredator"), caves: () => this.objectsOfType("cave"), fortresses: () => this.objectsOfType("fortressGate"), onTap: () => this.togglePanel("map") };
@@ -634,6 +640,7 @@ class WildernessGame {
     defeatedFieldBosses: () => this.defeatedFieldBosses,
     liveFieldBoss: () => { for (const object of this.objectsOfType("wildPredator")) if (object.fieldBossId) return object; return null; },
     spawnPredator: (kind, position) => spawnPredatorEntity(this.entitySpawnContext, position, kind),
+    monsterDifficulty: () => this.difficultyMods,
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
   };
   private equippedArmor: ItemId | null = null;
@@ -786,13 +793,13 @@ class WildernessGame {
   };
   private readonly interiorContext: InteriorContext = { scene: this.scene, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), spawnChest: (position, mineRich) => this.spawnChest(position, mineRich), spawnOre: (ore, position) => this.spawnOre(ore, position), spawnMiner: (position) => this.spawnMiner(position), spawnBlacksmithNpc: (position) => this.spawnBlacksmithNpc(position), randomCavePoint: () => this.randomCavePoint(), rollMineMineral: () => this.rollMineMineral(), spawnFortressMonster: (position, boss) => spawnFortressMonster(this.fortressSpawnDeps, position, boss), trackCaveObjects: (...ids) => this.caveObjectIds.push(...ids), trackHouseObjects: (...ids) => this.houseObjectIds.push(...ids), showMessage: (text) => this.showMessage(text) };
 
-  private readonly fortressSpawnDeps: FortressSpawnDeps = { activeRegions: () => this.activeRegions, spawnPredator: (kind, position) => spawnPredatorEntity(this.entitySpawnContext, position, kind), applyMonsterDef: (monster, region, monsterId) => applyPredatorMonsterDefinition(monster, region, monsterId), chooseMonster: (region) => chooseRegionPredatorMonster(region), kindForMonster: (id) => predatorKindForMonster(id), refreshSpatialObject: (object) => this.refreshSpatialObject(object) };
+  private readonly fortressSpawnDeps: FortressSpawnDeps = { activeRegions: () => this.activeRegions, spawnPredator: (kind, position) => spawnPredatorEntity(this.entitySpawnContext, position, kind), applyMonsterDef: (monster, region, monsterId) => applyPredatorMonsterDefinition(monster, region, monsterId, undefined, this.difficultyMods), chooseMonster: (region) => chooseRegionPredatorMonster(region), kindForMonster: (id) => predatorKindForMonster(id), refreshSpatialObject: (object) => this.refreshSpatialObject(object), monsterDifficulty: () => this.difficultyMods };
 
   private readonly hitFeedbackDeps: HitFeedbackDeps = { camera: this.camera, playerPosition: this.playerPosition, playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), refreshSpatialObject: (object) => this.refreshSpatialObject(object), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
 
   private readonly trainingGroundContext: TrainingGroundContext = { defaultMapId: DEFAULT_WORLD_MAP_ID, worldMapId: () => this.currentWorldMapId, locationMode: () => this.locationMode, hasTrainingGround: () => { for (const object of this.objectsOfType("trainingGround")) return Boolean(object); return false; }, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
 
-  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) return false; return this.damagePlayer(amount, showParticles, reason); }, effects: () => this.combatEffectContext, arenaBounds: () => this.fortressSiege?.active ? { minX: -ARENA_HALF + 1, maxX: ARENA_HALF - 1, minZ: ARENA_CENTER_Z - ARENA_HALF + 1, maxZ: ARENA_CENTER_Z + ARENA_HALF - 1 } : null };
+  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), monsterChaseSpeedMul: () => this.difficultyMods.monsterChaseSpeed, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) return false; return this.damagePlayer(amount, showParticles, reason); }, effects: () => this.combatEffectContext, arenaBounds: () => this.fortressSiege?.active ? { minX: -ARENA_HALF + 1, maxX: ARENA_HALF - 1, minZ: ARENA_CENTER_Z - ARENA_HALF + 1, maxZ: ARENA_CENTER_Z + ARENA_HALF - 1 } : null };
 
   private readonly siegeContext: SiegeContext = {
     spawnSiegeMonster: (x, z, level, elite) => this.spawnSiegeMonster(x, z, level, elite),
@@ -809,11 +816,11 @@ class WildernessGame {
     renderHud: () => this.renderHud(),
   };
 
-  private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) { this.lastDamageCountered = true; return false; } this.lastDamageCountered = false; return this.damagePlayer(amount, showParticles, reason); }, playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken, countered: this.lastDamageCountered }), keepOutOfBuildings: (position) => keepOutOfBuildings(position, this.objectsNear(position, 7)), fireProjectile: (fx, fy, fz, tx, tz, dmg, kind) => spawnGuardProjectile(this.guardProjectiles, this.guardProjectileContext, new THREE.Vector3(fx, fy, fz), new THREE.Vector3(tx, this.getGroundHeightAt(tx, tz), tz), dmg, kind) };
+  private readonly guardAiContext: GuardAiContext = { guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), playerPosition: this.playerPosition, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), runWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), monsterChaseSpeedMul: () => this.difficultyMods.monsterChaseSpeed, damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) { this.lastDamageCountered = true; return false; } this.lastDamageCountered = false; return this.damagePlayer(amount, showParticles, reason); }, playHandAction: () => this.playHandAction(), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), getLastDamage: () => ({ blocked: this.lastDamageBlocked, taken: this.lastDamageTaken, countered: this.lastDamageCountered }), keepOutOfBuildings: (position) => keepOutOfBuildings(position, this.objectsNear(position, 7)), fireProjectile: (fx, fy, fz, tx, tz, dmg, kind) => spawnGuardProjectile(this.guardProjectiles, this.guardProjectileContext, new THREE.Vector3(fx, fy, fz), new THREE.Vector3(tx, this.getGroundHeightAt(tx, tz), tz), dmg, kind) };
   private readonly guardProjectiles: GuardProjectile[] = [];
   private readonly guardProjectileContext: GuardProjectileContext = { add: (m) => this.scene.add(m), remove: (m) => this.scene.remove(m), playerPosition: this.playerPosition, damagePlayer: (a, s, r) => this.damagePlayer(a, s, r), impact: (p, kind) => spawnProjectileImpact(this.combatEffectContext, p, kind === "rock" ? "arrow" : kind) };
 
-  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => predatorAggroRangeFor(kind), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) return false; return this.damagePlayer(amount, showParticles, reason); }, effects: () => this.combatEffectContext, showMessage: (text) => this.showMessage(text) };
+  private readonly predatorAiContext: PredatorAiContext = { locationMode: () => this.locationMode, isPanelOpen: () => this.currentPanel !== null, playerPosition: this.playerPosition, activeRegions: () => this.activeRegions, predators: () => this.objectsOfType("wildPredator"), predatorAggroRange: (kind) => predatorAggroRangeFor(kind), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), monsterChaseSpeedMul: () => this.difficultyMods.monsterChaseSpeed, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); if (this.tryCounterReflect(attacker, amount)) return false; return this.damagePlayer(amount, showParticles, reason); }, effects: () => this.combatEffectContext, showMessage: (text) => this.showMessage(text) };
   private readonly hotbarUseContext: HotbarUseContext = {
     currentPanel: () => this.currentPanel,
     health: () => this.health,
@@ -831,7 +838,7 @@ class WildernessGame {
     tryAdvanceJob: (item) => this.tryAdvanceJob(item),
     showMirrorView: () => this.showMirrorView(),
     removeItem: (item, count) => this.removeItem(item, count),
-    grantLevels: (count, fraction = 1) => this.gainExperience(Math.round(experienceForLevelUps(this.level, this.experience, count) * fraction)),
+    grantLevels: (count, fraction = 1) => this.gainExperience(Math.round(experienceForLevelUps(this.level, this.experience, count) * fraction * this.difficultyMods.xpPotion)), // 경험치병 — 난이도 배율 적용
     equipArmor: (item) => { this.equippedArmor = item; },
     equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
     equipNecklace: (item) => { this.equippedNecklace = item; }, consumeStew: () => { const healed = Math.min(STEW_HEAL, this.maxHealth - this.health); this.health += healed; this.skillBuffs.stewBuffUntil = performance.now() + STEW_BUFF_SECONDS * 1000; this.playTone(523, 0.14, "triangle", 0.04); this.showMessage(`고기 스튜를 먹었습니다! 5분간 공격·방어 +5${healed > 0 ? `, 체력 ${healed} 회복` : ""}.`); this.renderHud(); },
@@ -913,6 +920,13 @@ class WildernessGame {
         },
         onQualityChoice: (mode) => {
           if (mode === "high" || mode === "balanced" || mode === "performance") { this.applyQualityMode(mode, true); this.showMessage(`그래픽 품질: ${mode === "high" ? "고품질" : mode === "balanced" ? "보통" : "저사양 ⚡ (렉 완화)"}`); this.playTone(520, 0.06, "triangle", 0.018); }
+        },
+        onDifficultyChoice: (mode) => {
+          if (!isDifficultyMode(mode)) return;
+          this.pendingDifficulty = mode; // 신규게임 시작(startGame)에서 확정. 게임 중에는 변경 불가.
+          this.renderClassSelection();
+          this.showMessage(mode === "hard" ? "난이도: 🔥 어려움 (몬스터 강화 · 보상 감소)" : "난이도: 😊 쉬움 (기본)");
+          this.playTone(520, 0.06, "triangle", 0.018);
         },
         onTitleLoad: () => { enterLandscapeFullscreen(); this.startGame("load"); }, // 로드 진입에도 동일 적용
         onShowMiniGame: () => this.showMiniGame(),
@@ -1252,6 +1266,13 @@ class WildernessGame {
     this.titleScreenEl.querySelectorAll<HTMLButtonElement>("[data-class-choice]").forEach((button) => {
       const selected = button.dataset.classChoice === this.pendingPlayerClass;
       button.classList.toggle("selected", selected);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+    // 난이도 버튼도 같은 패스에서 선택 표시(별도 메서드 추가 회피)
+    this.titleScreenEl.querySelectorAll<HTMLButtonElement>("[data-difficulty]").forEach((button) => {
+      const selected = button.dataset.difficulty === this.pendingDifficulty;
+      button.classList.toggle("selected", selected);
+      button.style.outline = selected ? "2px solid #ffd479" : "none";
       button.setAttribute("aria-pressed", selected ? "true" : "false");
     });
   }
@@ -2016,7 +2037,7 @@ class WildernessGame {
       const region = regionAtPosition(point, this.activeRegions) ?? nearestRegion(point, this.activeRegions); if (!region) continue;
       const monsterId = chooseRegionPredatorMonster(region);
       const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
-      applyPredatorMonsterDefinition(predator, region, monsterId, this.level);
+      applyPredatorMonsterDefinition(predator, region, monsterId, this.level, this.difficultyMods);
     }
   }
 
@@ -3904,7 +3925,7 @@ class WildernessGame {
     for (let index = this.respawnQueue.length - 1; index >= 0; index -= 1) {
       const entry = this.respawnQueue[index]; if (partyWorldGuestActive() && (entry.type === "wildPredator" || isGuardType(entry.type))) continue; if (entry.dueAt > now) continue; if (entry.position.distanceTo(this.playerPosition) < 10) { entry.dueAt = now + 5_000; continue; } // 근접 게이트 42→10u·연기 10→5s: 사냥하던 자리에 머물러도 몬스터가 훨씬 잘 리스폰되게
       this.respawnQueue.splice(index, 1); const position = entry.position.clone(); position.y = this.getGroundHeightAt(position.x, position.z); const villageId = entry.villageId ?? "respawn-village";
-      if (entry.type === "wildPredator") { const region = this.activeRegions.find((candidate) => candidate.id === entry.regionId) ?? regionAtPosition(position, this.activeRegions); const monsterId = (entry.monsterId as MonsterId | undefined) ?? chooseRegionPredatorMonster(region); const predator = spawnPredatorEntity(this.entitySpawnContext, this.randomPredatorSpawnPoint(region) ?? position, entry.predatorKind ?? predatorKindForMonster(monsterId)); applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(predator.root.position, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId, this.level); }
+      if (entry.type === "wildPredator") { const region = this.activeRegions.find((candidate) => candidate.id === entry.regionId) ?? regionAtPosition(position, this.activeRegions); const monsterId = (entry.monsterId as MonsterId | undefined) ?? chooseRegionPredatorMonster(region); const predator = spawnPredatorEntity(this.entitySpawnContext, this.randomPredatorSpawnPoint(region) ?? position, entry.predatorKind ?? predatorKindForMonster(monsterId)); applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(predator.root.position, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId, this.level, this.difficultyMods); }
       else if (entry.type === "jammini") spawnJamminiEntity(this.entitySpawnContext, position);
       else if (entry.type === "villageKnight") this.spawnKnight(position, villageId); else if (entry.type === "villageGolem") this.spawnGolem(position, villageId); else if (entry.type === "villageArcher" || entry.type === "villageMage") this.spawnRangedGuard(position, villageId, entry.type);
     }
@@ -3923,7 +3944,7 @@ class WildernessGame {
     if (!point) return;
     const monsterId = chooseRegionPredatorMonster(region);
     const predator = spawnPredatorEntity(this.entitySpawnContext, point, predatorKindForMonster(monsterId));
-    applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(point, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId, this.level); // 로밍 스폰 레벨 캡(#2)
+    applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(point, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId, this.level, this.difficultyMods); // 로밍 스폰 레벨 캡(#2)
     this.showMessage(isNight ? "밤의 야생동물들이 멀리 숲과 들판에 퍼져 있습니다." : "이 지역의 몬스터들이 멀리 퍼져 있습니다.");
   }
 
@@ -4672,6 +4693,7 @@ class WildernessGame {
       monster.attackDamage = Math.round((monster.attackDamage ?? stats.attackDamage) * 1.4); // HP·크기와 함께 위협도 비례
       monster.name = `정예 ${monster.name ?? "몬스터"}`;
     }
+    applyMonsterDifficulty(monster, this.difficultyMods); // 시즈 몬스터는 위에서 raw 스탯을 재설정하므로 마지막에 1회 보정
     this.refreshSpatialObject(monster);
     this.caveObjectIds.push(monster.id);
     return monster.id;
@@ -5939,6 +5961,7 @@ class WildernessGame {
       return;
     }
     this.playerClass = this.pendingPlayerClass;
+    this.difficulty = this.pendingDifficulty; this.difficultyMods = difficultyModifiers(this.difficulty); // 신규게임 = 선택한 난이도로 고정(이후 게임 중 불변)
     this.refreshHandColor();
     this.enterGameplayMode();
     this.resetGameState();
@@ -6098,6 +6121,7 @@ class WildernessGame {
     const now = performance.now();
     return createSaveDataFromSnapshot({
       nowMs: now,
+      difficulty: this.difficulty,
       player: {
         position: this.playerPosition,
         previousPosition: this.previousPosition,
@@ -6205,6 +6229,7 @@ class WildernessGame {
     this.previousPosition.copy(this.fromSavedVector(save.player.previousPosition));
     this.yaw = save.player.yaw;
     this.pitch = save.player.pitch;
+    this.difficulty = isDifficultyMode(save.difficulty) ? save.difficulty : DEFAULT_DIFFICULTY; this.difficultyMods = difficultyModifiers(this.difficulty); this.pendingDifficulty = this.difficulty; // 로드한 난이도로 고정(구세이브=쉬움)
     this.level = Math.max(1, Math.floor(save.player.level));
     this.experience = Math.max(0, Math.floor(save.player.experience));
     this.craftStatAlloc = normalizeCraftStatAlloc(save.player.craftStatAlloc); // maxHealthForLevel 이 craft hp 를 읽으므로 maxHealth 복원 전에 설정
@@ -6760,13 +6785,14 @@ class WildernessGame {
       return;
     }
     const stats = this.bossStats(dragon.bossKind);
-    const hp = Math.max(0, Math.ceil(dragon.hp ?? stats.maxHp));
-    const ratio = THREE.MathUtils.clamp(hp / stats.maxHp, 0, 1);
+    const maxHp = Math.round(stats.maxHp * this.difficultyMods.monsterHp); // 보스 hp 도 난이도로 스폰 시 ×배율 → 체력바 분모도 동일 배율
+    const hp = Math.max(0, Math.ceil(dragon.hp ?? maxHp));
+    const ratio = THREE.MathUtils.clamp(hp / maxHp, 0, 1);
     this.bossBarEl.classList.remove("hidden");
     const html = `
       <div class="boss-title">${stats.name}${isBossUnlocked(dragon.bossKind ?? "dragon", this.bossChapter) ? "" : " · 봉인됨"}</div>
       <div class="boss-meter"><span style="width:${(ratio * 100).toFixed(1)}%"></span></div>
-      <div class="boss-hp">${hp}/${stats.maxHp}</div>
+      <div class="boss-hp">${hp}/${maxHp}</div>
     `;
     if (this.bossBarEl.innerHTML !== html) this.bossBarEl.innerHTML = html;
   }
@@ -7118,11 +7144,12 @@ class WildernessGame {
           ${POINT_SHOP_OFFERS.map((offer) => {
             const receive = this.formatItemBundle(offer.receive);
             const owned = (Object.entries(offer.receive) as [ItemId, number][]).map(([item]) => `보유 ${this.countItem(item)}개`).join(" · ");
-            const disabled = this.arcadePoints >= offer.cost ? "" : "disabled";
+            const cost = difficultyShopCost(offer.cost, this.difficultyMods); // 난이도 가격 배율(어려움 ×3)
+            const disabled = this.arcadePoints >= cost ? "" : "disabled";
             return `<article class="recipe-card shop-card">
               <div>
                 <strong>${offer.name}</strong>
-                <p>${offer.cost}P -> ${receive}</p>
+                <p>${cost}P -> ${receive}</p>
                 <small>${offer.note}</small>
                 <small>${owned}</small>
               </div>
@@ -7715,8 +7742,9 @@ class WildernessGame {
   private buyFromPointShop(offerId: string) {
     const offer = POINT_SHOP_OFFERS.find((candidate) => candidate.id === offerId);
     if (!offer) return;
-    if (this.arcadePoints < offer.cost) {
-      this.showMessage(`포인트가 부족합니다. 필요 ${offer.cost}P, 보유 ${this.arcadePoints}P.`);
+    const cost = difficultyShopCost(offer.cost, this.difficultyMods); // 난이도 가격 배율(어려움 ×3)
+    if (this.arcadePoints < cost) {
+      this.showMessage(`포인트가 부족합니다. 필요 ${cost}P, 보유 ${this.arcadePoints}P.`);
       return;
     }
 
@@ -7732,7 +7760,7 @@ class WildernessGame {
       return;
     }
 
-    this.arcadePoints -= offer.cost; this.tutorialSignals.shopPurchases += 1;
+    this.arcadePoints -= cost; this.tutorialSignals.shopPurchases += 1;
     this.saveArcadePoints();
     this.playTone(720, 0.12, "triangle", 0.035);
     this.showMessage(`상점 구매 완료: ${this.formatItemBundle(offer.receive)} 획득. 남은 포인트 ${this.arcadePoints}P.`);
@@ -7889,7 +7917,7 @@ class WildernessGame {
   private rollRewardChance(baseChance: number, source: RewardSource, item: ItemId) {
     const tuning = getRewardTuning(source, item);
     const combatRegionScale = source === "predator" || source === "jammini" || source === "boss" || source === "guard" ? regionLootChanceScale(regionAtPosition(this.playerPosition, this.activeRegions)) : 1;
-    const chance = THREE.MathUtils.clamp(baseChance * tuning.chanceMultiplier * combatRegionScale, 0, 1);
+    const chance = THREE.MathUtils.clamp(baseChance * tuning.chanceMultiplier * combatRegionScale * this.difficultyMods.dropChance, 0, 1); // 난이도 드랍률 배율
     return Math.random() < chance;
   }
 
@@ -9423,7 +9451,7 @@ class WildernessGame {
     swordGrip.rotation.z = -0.22;
     group.add(shield, shieldBoss, swordBlade, swordGuard, swordGrip);
     group.position.copy(position);
-    return this.addWorldObject("villageKnight", "마을기사", group, {
+    const knight = this.addWorldObject("villageKnight", "마을기사", group, {
       hp: 90,
       armor: 18,
       collidable: true,
@@ -9435,6 +9463,8 @@ class WildernessGame {
       attackDamage: 8,
       walkCycle: this.createWalkCycle(walkParts, 0.38, 8, 0.025),
     });
+    applyMonsterDifficulty(knight, this.difficultyMods);
+    return knight;
   }
 
   private spawnGolem(position: THREE.Vector3, villageId: string) {
@@ -9487,7 +9517,7 @@ class WildernessGame {
     addBlock(new THREE.ConeGeometry(0.1, 0.38, 4), darkStone, -0.42, 3.82, 0.02, 0, 0.2, 0);
     addBlock(new THREE.ConeGeometry(0.1, 0.38, 4), darkStone, 0.42, 3.82, 0.02, 0, -0.2, 0);
     group.position.copy(position);
-    return this.addWorldObject("villageGolem", "마을 수호신 골렘", group, {
+    const golem = this.addWorldObject("villageGolem", "마을 수호신 골렘", group, {
       hp: 180,
       armor: 30,
       collidable: true,
@@ -9499,13 +9529,15 @@ class WildernessGame {
       attackDamage: 14,
       attackInterval: 5,
     });
+    applyMonsterDifficulty(golem, this.difficultyMods);
+    return golem;
   }
 
   private spawnRangedGuard(position: THREE.Vector3, villageId: string, type: "villageArcher" | "villageMage") {
     position.y = this.getGroundHeightAt(position.x, position.z);
     const visual = createRangedGuardVisual(type);
     visual.group.position.copy(position);
-    return spawnObject(this.spawnContext, {
+    const rangedGuard = spawnObject(this.spawnContext, {
       type,
       name: visual.name,
       root: visual.group,
@@ -9522,6 +9554,8 @@ class WildernessGame {
         walkCycle: this.createWalkCycle(visual.walkParts, visual.walk.amplitude, visual.walk.speed, visual.walk.lift),
       },
     });
+    applyMonsterDifficulty(rangedGuard, this.difficultyMods);
+    return rangedGuard;
   }
 
   private *objectsOfType(type: ObjectType) {
