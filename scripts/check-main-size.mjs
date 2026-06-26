@@ -73,7 +73,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-26: 요새 랭킹 난이도별 분리 + 리셋버그 수정 — bestFortress 난이도별 record 화 + 발행/패널 배선 +1 → 10133.
 // 2026-06-26: 훈련 랭킹 계정 best-ever 화 — bestTraining 필드 + 성공 시 갱신 + 로드 시드 배선(로직은 game/training.ts) +3 → 10136.
 // 2026-06-26: 정령 시스템 배선 — spirits 필드/세이브/드랍/가챠 사용 배선(로직은 game/spirits.ts·ui/gachaScreen.ts) +14 → 10150.
-const MAX_MAIN_LINES = 10150;
+// 2026-06-26: 정령 장착·능치 적용·버프칩·좌상단 뱃지 배선(로직은 spirits.ts·ui/spiritBadge.ts) +8 → 10158.
+const MAX_MAIN_LINES = 10158;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

@@ -244,8 +244,9 @@ import type {
 } from "./game/types";
 import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, monsterStatsFromLevel, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
 import { DEFAULT_DIFFICULTY, applyMonsterDifficulty, difficultyModifiers, difficultyShopCost, isDifficultyMode, type DifficultyMode, type DifficultyModifiers } from "./game/difficulty";
-import { createSpirit, createSpiritCollection, normalizeSpiritCollection } from "./game/spirits";
+import { createSpirit, createSpiritCollection, equippedSpirit, normalizeSpiritCollection, spiritAttackBonus, spiritDefenseBonus, spiritGradeDef, spiritGradeIndex } from "./game/spirits";
 import { runSpiritGacha } from "./ui/gachaScreen";
+import { updateSpiritBadge } from "./ui/spiritBadge";
 import type { SpiritCollection } from "./game/types";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, nearestRegion, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
@@ -5057,7 +5058,7 @@ class WildernessGame {
   private bodyMeleeAttackPower() { // 본체 근접 공격력(무기+레벨+훈련+제작+목걸이 ×심판의빛) — 빙의 공격도 이를 사용
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한
-    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
+    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
   }
   private currentDamage() {
     if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE; // 빙의 박치기 = 본체 공격력 + 5
@@ -5066,7 +5067,7 @@ class WildernessGame {
 
   private currentRangedDamage(item: ItemId) {
     const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
-    return Math.max(1, Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
+    return Math.max(1, Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
   }
 
   private eagleCombatTarget() {
@@ -5122,7 +5123,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + necklaceDefenseBonus(this.permanentNecklace) + dragonGearDefenseBonus(this.dragonGear) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()) * jobTierAllStatMult(this.playerClass, this.jobTier));
+    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + necklaceDefenseBonus(this.permanentNecklace) + spiritDefenseBonus(equippedSpirit(this.spirits)) + dragonGearDefenseBonus(this.dragonGear) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()) * jobTierAllStatMult(this.playerClass, this.jobTier));
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -6700,6 +6701,7 @@ class WildernessGame {
   }
 
   private renderHud() {
+    { const e = this.gameStarted ? equippedSpirit(this.spirits) : null; const d = e ? spiritGradeDef(e.grade) : null; updateSpiritBadge(e && d ? { emoji: d.emoji, color: d.color, glow: d.glow, label: d.label, level: e.level, gradeIndex: spiritGradeIndex(e.grade) } : null); } // 좌상단 정령 미니 뱃지(변경 시에만 갱신)
     if (this.fortressSiege?.active) {
       const status = siegeStatus(this.fortressSiege);
       this.siegeHudEl.textContent = status.intermission
@@ -6773,7 +6775,10 @@ class WildernessGame {
           label: slot.item ? `${shortName(slot.item)} ${slot.count}` : "",
           item: slot.item,
         })),
-        buffs: activeBuffs(this.skillBuffs, performance.now()).map((b) => ({ icon: b.icon, name: b.name, secs: Math.ceil(b.remainingMs / 1000), expiring: b.remainingMs < 15_000 })), // 좌측하단 상태창 버프 아이콘(만료 15초 전 깜빡)
+        buffs: [
+          ...(equippedSpirit(this.spirits) ? [(() => { const e = equippedSpirit(this.spirits)!; const d = spiritGradeDef(e.grade); return { icon: d.emoji, name: `${d.label} 정령 Lv${e.level} — 공격 +${spiritAttackBonus(e)} · 방어 +${spiritDefenseBonus(e)}`, secs: 0, expiring: false, value: `+${spiritAttackBonus(e)}/+${spiritDefenseBonus(e)}` }; })()] : []),
+          ...activeBuffs(this.skillBuffs, performance.now()).map((b) => ({ icon: b.icon, name: b.name, secs: Math.ceil(b.remainingMs / 1000), expiring: b.remainingMs < 15_000 })),
+        ], // 좌측하단 상태창 — 장착 정령(상시) + 스킬 버프(만료 15초 전 깜빡)
       },
       (index) => {
         this.selectedHotbarIndex = index;
@@ -6881,6 +6886,8 @@ class WildernessGame {
         weaponItem: selected && WEAPON_DAMAGE[selected] !== undefined ? selected : null,
         armorItem: this.equippedArmor, shieldItem: this.equippedShield, necklaceItem: this.equippedNecklace,
         ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
+        equippedSpiritLabel: (() => { const e = equippedSpirit(this.spirits); return e ? `${spiritGradeDef(e.grade).emoji} ${spiritGradeDef(e.grade).label} Lv${e.level} (공+${spiritAttackBonus(e)}/방+${spiritDefenseBonus(e)})` : "없음"; })(),
+        spirits: this.spirits.owned.map((s) => ({ id: s.id, label: spiritGradeDef(s.grade).label, emoji: spiritGradeDef(s.grade).emoji, attack: spiritAttackBonus(s), defense: spiritDefenseBonus(s), level: s.level, equipped: this.spirits.equippedId === s.id })),
         dragonGear: DRAGON_GEAR_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
         monstersKilled: this.tutorialSignals.predatorKills, bestFortressStageEasy: this.bestFortress.easy.stage, bestFortressStageHard: this.bestFortress.hard.stage,
@@ -6897,6 +6904,7 @@ class WildernessGame {
           this.renderPanel();
         },
         onEquipNecklace: (item) => { this.equippedNecklace = (item as ItemId | null) ?? null; this.playTone(880, 0.1, "triangle", 0.03); this.renderHud(); this.renderPanel(); },
+        onEquipSpirit: (id) => { this.spirits.equippedId = id && this.spirits.owned.some((s) => s.id === id) ? id : null; this.playTone(740, 0.12, "triangle", 0.035); this.renderHud(); this.renderPanel(); },
         onClose: () => this.closePanel(),
       });
     }

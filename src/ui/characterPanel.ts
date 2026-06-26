@@ -22,6 +22,8 @@ export interface CharacterPanelView {
   shieldItem: string | null;
   necklaceItem: string | null;
   ownedNecklaces: { item: string; name: string; equipped: boolean }[];
+  equippedSpiritLabel: string; // 장착 정령 표시명("없음" 가능)
+  spirits: { id: string; label: string; emoji: string; attack: number; defense: number; level: number; equipped: boolean }[]; // 보유 정령(장착 선택용)
   dragonGear: { item: string; name: string }[]; // 보유=자동 착용 중인 용 장비(최고등급)
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
@@ -35,6 +37,7 @@ export interface CharacterPanelView {
 export interface CharacterPanelCallbacks {
   onSpend(kind: "hp" | "mana" | "attack" | "defense"): void;
   onEquipNecklace(item: string | null): void;
+  onEquipSpirit(id: string | null): void;
   onClose(): void;
 }
 
@@ -111,6 +114,17 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
                     .join("")}</div>`
                 : `<div class="character-necklace-empty">용 장비(장갑·부츠·망토·왕관)는 확장 제작대에서 용 재료로 제작하면 가방에 있는 것만으로 자동 착용됩니다.</div>`
             }
+            <div class="character-gear-row"><span>✨ 정령</span><strong>${escapeHtml(view.equippedSpiritLabel)}</strong></div>
+            ${
+              view.spirits.length > 0
+                ? `<div class="character-necklace-choices">${view.spirits
+                    .map(
+                      (s) =>
+                        `<button class="character-necklace-choice${s.equipped ? " equipped" : ""}" data-equip-spirit="${escapeHtml(s.id)}" title="공격 +${s.attack} · 방어 +${s.defense}">${s.emoji} ${escapeHtml(s.label)} Lv${s.level} (+${s.attack}/+${s.defense})${s.equipped ? " ✓" : ""}</button>`,
+                    )
+                    .join("")}${view.spirits.some((s) => s.equipped) ? `<button class="character-necklace-choice" data-equip-spirit="">해제</button>` : ""}</div>`
+                : `<div class="character-necklace-empty">보유한 정령이 없습니다. '정령 소환권'(전설)을 사냥·상자에서 얻어 사용하세요.</div>`
+            }
           </div>
           <div class="character-stats">
             <div class="inventory-label">스탯 ${points > 0 ? `· 남은 포인트 <b class="character-points">${points}</b>` : ""}</div>
@@ -144,6 +158,9 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
   panelEl.querySelector<HTMLButtonElement>("[data-close]")?.addEventListener("click", callbacks.onClose);
   panelEl.querySelectorAll<HTMLButtonElement>("[data-spend]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onSpend(button.dataset.spend as "hp" | "mana" | "attack" | "defense"));
+  });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-spirit]").forEach((button) => {
+    button.addEventListener("click", () => callbacks.onEquipSpirit(button.dataset.equipSpirit ? button.dataset.equipSpirit : null));
   });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-necklace]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onEquipNecklace(button.dataset.equipNecklace ? button.dataset.equipNecklace : null));
