@@ -244,6 +244,9 @@ import type {
 } from "./game/types";
 import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, monsterStatsFromLevel, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
 import { DEFAULT_DIFFICULTY, applyMonsterDifficulty, difficultyModifiers, difficultyShopCost, isDifficultyMode, type DifficultyMode, type DifficultyModifiers } from "./game/difficulty";
+import { createSpirit, createSpiritCollection, normalizeSpiritCollection } from "./game/spirits";
+import { runSpiritGacha } from "./ui/gachaScreen";
+import type { SpiritCollection } from "./game/types";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, nearestRegion, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -649,6 +652,7 @@ class WildernessGame {
   private equippedArmor: ItemId | null = null;
   private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0; private equippedNecklace: ItemId | null = null;
   private permanentNecklace: ItemId | null = null; // 4차 전직 시 소비한 목걸이 — 그 효과를 영구 부여(착용 목걸이와 별개로 합산)
+  private spirits: SpiritCollection = createSpiritCollection(); // 정령 보유/장착 — 목걸이처럼 1개 장착해 공·방 보너스, 소환수식 레벨업
   private dragonGear: DragonGearWorn = NO_DRAGON_GEAR; // 용 장비 4종 착용 상태(보유=착용). refreshDragonGear() 로 인벤토리에서 동기화.
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
@@ -843,7 +847,13 @@ class WildernessGame {
     grantLevels: (count, fraction = 1) => this.gainExperience(Math.round(experienceForLevelUps(this.level, this.experience, count) * fraction * this.difficultyMods.xpPotion)), // 경험치병 — 난이도 배율 적용
     equipArmor: (item) => { this.equippedArmor = item; },
     equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
-    equipNecklace: (item) => { this.equippedNecklace = item; }, consumeStew: () => { const healed = Math.min(STEW_HEAL, this.maxHealth - this.health); this.health += healed; this.skillBuffs.stewBuffUntil = performance.now() + STEW_BUFF_SECONDS * 1000; this.playTone(523, 0.14, "triangle", 0.04); this.showMessage(`고기 스튜를 먹었습니다! 5분간 공격·방어 +5${healed > 0 ? `, 체력 ${healed} 회복` : ""}.`); this.renderHud(); },
+    equipNecklace: (item) => { this.equippedNecklace = item; }, openSpiritGacha: () => {
+      const id = `sp${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+      const spirit = createSpirit(id, { grade: Math.random(), attack: Math.random(), defense: Math.random() });
+      this.spirits.owned.push(spirit); // 즉시 보유 추가(연출은 공개일 뿐) → 닫아도 유지. 다음 저장에 반영.
+      if (this.currentPanel !== null) this.closePanel(); // 인벤 더블클릭 진입이면 패널 닫고 전체화면 연출
+      runSpiritGacha(spirit, { playTone: (f, d, t, v) => this.playTone(f, d, t, v), onFinish: () => { this.renderHud(); this.renderPanel(); } });
+    }, consumeStew: () => { const healed = Math.min(STEW_HEAL, this.maxHealth - this.health); this.health += healed; this.skillBuffs.stewBuffUntil = performance.now() + STEW_BUFF_SECONDS * 1000; this.playTone(523, 0.14, "triangle", 0.04); this.showMessage(`고기 스튜를 먹었습니다! 5분간 공격·방어 +5${healed > 0 ? `, 체력 ${healed} 회복` : ""}.`); this.renderHud(); },
     playHandAction: () => this.playHandAction(),
     spawnHealEffect: () => spawnHealEffect(this.combatEffectContext, this.playerPosition),
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
@@ -4900,6 +4910,7 @@ class WildernessGame {
   private grantExperienceForTarget(target: WorldObject, creditQuest = true) {
     this.summonerCompanion.awardExperience(Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
     if (target.type === "wildPredator" && creditQuest) { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); } // creditQuest=false → 파티에서 게스트가 막타친 경우: 호스트는 사냥 카운터 증가 안 함(게스트가 자기 카운터 증가)
+    if ((target.type === "wildPredator" || target.type === "dragon") && Math.random() < 0.012 * this.difficultyMods.dropChance && this.addItem("spirit_gacha_token", 1)) this.showMessage("✨ 정령 소환권을 발견했습니다! (전설 — 인벤에서 더블클릭 또는 핫바로 사용)"); // 사냥 시 낮은 확률 드랍(난이도 드랍률 반영)
     if (target.fortressBoss) {
       this.tutorialSignals.fortressBossKills += 1; // 요새 보스 처치 퀘스트 신호
       const level = target.fortressLevel ?? 20; // 흑요석+전직의서 확정 드랍 — 고레벨 맵일수록 더 많이
@@ -6167,6 +6178,7 @@ class WildernessGame {
         equippedArmor: this.equippedArmor,
         equippedShield: this.equippedShield,
         equippedNecklace: this.equippedNecklace,
+        spirits: this.spirits,
         permanentNecklace: this.permanentNecklace,
         shieldDurabilityUsed: this.shieldDurabilityUsed,
         ironGuardUntil: this.ironGuardUntil,
@@ -6282,6 +6294,7 @@ class WildernessGame {
     this.caveStepBank = save.player.caveStepBank;
     this.equippedArmor = save.player.equippedArmor;
     this.equippedShield = save.player.equippedShield ?? null; this.equippedNecklace = save.player.equippedNecklace ?? null; this.permanentNecklace = save.player.permanentNecklace ?? null;
+    this.spirits = normalizeSpiritCollection(save.player.spirits);
     this.shieldDurabilityUsed = save.player.shieldDurabilityUsed ?? 0;
     this.ironGuardUntil = performance.now() + (save.player.ironGuardRemainingMs ?? 0);
     this.locationMode = save.player.locationMode;
@@ -6410,7 +6423,7 @@ class WildernessGame {
     this.timeHudTimer = 0;
     this.starvationNoticeTimer = 0;
     this.equippedArmor = null;
-    this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0; this.equippedNecklace = null; this.permanentNecklace = null;
+    this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0; this.equippedNecklace = null; this.permanentNecklace = null; this.spirits = createSpiritCollection();
     this.locationMode = "overworld";
     this.currentHouseKind = "home";
     this.caveReturnPosition = null;
@@ -7306,6 +7319,7 @@ class WildernessGame {
         }
       });
       element.addEventListener("click", () => this.handleStorageSlotClick(targetSource, targetIndex));
+      element.addEventListener("dblclick", () => { if (element.dataset.dropItem === "spirit_gacha_token") useHotbarItem("spirit_gacha_token", this.hotbarUseContext); }); // 인벤 더블클릭으로 정령 소환권 사용
       element.addEventListener("contextmenu", (event) => {
         // 우클릭 = 설치 아이템은 즉시 설치, 일반 아이템은 바닥에 버리기 (드래그 불필요)
         event.preventDefault();

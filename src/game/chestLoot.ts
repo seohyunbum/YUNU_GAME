@@ -43,6 +43,7 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.25)) add("xp_bottle", 1); // 레전더리 — 희귀하게(종전 60%·1~2개)
     if (chance(0.18)) add(pick(["strength_necklace", "guardian_necklace", "swift_necklace", "sage_necklace"] as const, rng), 1); // 에픽 목걸이 4종 중 하나
     if (chance(0.2)) add("advanced_medkit", 1); // 에픽 소모품 — 드물게
+    if (chance(0.12)) add("spirit_gacha_token", 1); // 정령 소환권(전설) — 잭팟 상자에서 드물게
     add("medkit", ri(2, 3, rng));
   } else if (tier === 2) {
     // 다이아몬드 — 희귀 재료 + 다이아 장비
@@ -55,6 +56,7 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.1)) add("xp_bottle", 1); // 레전더리 — 희귀하게(종전 20%)
     if (chance(0.06)) add(pick(["strength_necklace", "guardian_necklace", "swift_necklace", "sage_necklace"] as const, rng), 1); // 에픽 목걸이(드물게)
     if (chance(0.08)) add("advanced_medkit", 1); // 에픽 소모품(드물게)
+    if (chance(0.04)) add("spirit_gacha_token", 1); // 정령 소환권(전설) — 다이아 상자에서 매우 드물게
     add("medkit", ri(1, 2, rng));
   } else if (tier === 1) {
     // 황금 — 좋은 재료 + 철/금 장비·제작템 가능
