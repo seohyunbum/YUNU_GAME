@@ -137,6 +137,18 @@ try {
     let prev = -1;
     for (const g of GRADES) { const e = S.spiritFeedExperience({ grade: g.grade, level: 1 }); assert.ok(e > prev, "등급↑ 먹이 경험치↑"); prev = e; }
     assert.ok(S.spiritFeedExperience({ grade: "common", level: 5 }) > S.spiritFeedExperience({ grade: "common", level: 1 }), "레벨↑ 먹이 경험치↑");
+    // 누적 경험치 = 현재 레벨까지 든 합 + 잔여
+    const matLv1 = { grade: "common", level: 1, experience: 0 };
+    assert.equal(S.spiritTotalExperience(matLv1), 0, "Lv1·0잔여 = 누적 0");
+    const need = S.experienceForNextSpiritLevel(1) + S.experienceForNextSpiritLevel(2);
+    const matLv3 = { grade: "rare", level: 3, experience: 7 };
+    assert.equal(S.spiritTotalExperience(matLv3), need + 7, "Lv3 누적 = L1+L2 요구 + 잔여7");
+    // 먹이 경험치는 누적의 80% 를 이어받는다(+ 등급 기본값). 키운 정령일수록 큰 보탬.
+    const expected = (S.spiritGradeIndex("rare") + 1) * 20 + Math.round((need + 7) * 0.8);
+    assert.equal(S.spiritFeedExperience(matLv3), expected, "먹이 = 등급기본 + 누적×0.8");
+    // 손상 입력 방어(필드 누락)
+    assert.equal(S.spiritTotalExperience({ grade: "common" }), 0, "필드 누락 안전");
+    assert.ok(S.spiritFeedExperience({ grade: "common" }) > 0, "필드 누락에도 양수");
   }
 
   // ── normalizeSpiritCollection: 악의적/손상 입력 방어 ──
