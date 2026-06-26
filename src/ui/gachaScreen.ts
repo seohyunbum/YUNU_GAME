@@ -1,6 +1,6 @@
 // 정령 가챠 전체화면 연출 — 이집트의 눈이 서서히 떠지며 공개되는 색이 등급을 결정.
 // leaf(ui): main.ts 를 import 하지 않는다. 오디오·완료 콜백은 deps 로 주입. CSS 클래스 토글 + 타이머로 연출.
-import { spiritGradeDef } from "../game/spirits";
+import { spiritGradeDef, spiritGradeIndex } from "../game/spirits";
 import type { SpiritData } from "../game/types";
 
 export interface GachaDeps {
@@ -67,7 +67,7 @@ function reveal(spirit: SpiritData, deps: GachaDeps) {
   }
   actions?.classList.remove("hidden");
   // 공개 효과음 — 등급이 높을수록 화려한 상승 화음
-  const idx = ["common", "uncommon", "rare", "epic", "legendary"].indexOf(spirit.grade);
+  const idx = spiritGradeIndex(spirit.grade);
   deps.playTone(523, 0.18, "triangle", 0.05);
   later(() => deps.playTone(659 + idx * 40, 0.22, "triangle", 0.05), 120);
   if (idx >= 3) later(() => deps.playTone(880 + idx * 60, 0.4, "sawtooth", 0.05), 260);

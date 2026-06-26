@@ -380,7 +380,7 @@ export interface CompanionProgress {
 }
 
 // 정령(Spirit) — 가챠로 획득, 목걸이처럼 1개 장착해 공격·방어 보너스. 소환수식 레벨업.
-export type SpiritGrade = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export type SpiritGrade = "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic" | "transcendent";
 export interface SpiritData {
   id: string; // 인스턴스 고유 id
   grade: SpiritGrade;

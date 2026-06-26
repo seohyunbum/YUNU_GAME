@@ -18,13 +18,15 @@ export interface SpiritGradeDef {
   glow: string; // 발광/광휘(고등급일수록 화려)
 }
 
-// 등급 순서 = 낮음→높음. weight 합 = 100(확률 %). 범위는 +3 계단.
+// 등급 순서 = 낮음→높음. weight 합 = 100(확률 %). 범위는 +3 계단. 7등급.
 export const SPIRIT_GRADES: readonly SpiritGradeDef[] = [
-  { grade: "common", label: "일반", min: 0, max: 5, weight: 48, emoji: "🟢", color: "#e8eef2", glow: "rgba(226,232,240,0.55)" },
-  { grade: "uncommon", label: "고급", min: 3, max: 8, weight: 30, emoji: "💚", color: "#4ade80", glow: "rgba(74,222,128,0.7)" },
-  { grade: "rare", label: "희귀", min: 6, max: 11, weight: 15, emoji: "💙", color: "#38bdf8", glow: "rgba(56,189,248,0.8)" },
-  { grade: "epic", label: "영웅", min: 9, max: 14, weight: 5.5, emoji: "💜", color: "#a855f7", glow: "rgba(168,85,247,0.9)" },
-  { grade: "legendary", label: "전설", min: 12, max: 17, weight: 1.5, emoji: "💛", color: "#fbbf24", glow: "rgba(251,191,36,1)" },
+  { grade: "common", label: "일반", min: 0, max: 5, weight: 42, emoji: "⚪", color: "#e8eef2", glow: "rgba(226,232,240,0.5)" },
+  { grade: "uncommon", label: "고급", min: 3, max: 8, weight: 27, emoji: "🟢", color: "#4ade80", glow: "rgba(74,222,128,0.7)" },
+  { grade: "rare", label: "희귀", min: 6, max: 11, weight: 16, emoji: "🔵", color: "#38bdf8", glow: "rgba(56,189,248,0.8)" },
+  { grade: "epic", label: "영웅", min: 9, max: 14, weight: 8, emoji: "🟣", color: "#a855f7", glow: "rgba(168,85,247,0.9)" },
+  { grade: "legendary", label: "전설", min: 12, max: 17, weight: 4, emoji: "🟡", color: "#fbbf24", glow: "rgba(251,191,36,1)" },
+  { grade: "mythic", label: "신화", min: 15, max: 20, weight: 2, emoji: "🔴", color: "#f43f5e", glow: "rgba(244,63,94,1)" },
+  { grade: "transcendent", label: "초월", min: 18, max: 23, weight: 1, emoji: "🌈", color: "#f0abfc", glow: "rgba(240,171,252,1)" },
 ];
 
 const GRADE_BY_KEY: Record<SpiritGrade, SpiritGradeDef> = Object.fromEntries(SPIRIT_GRADES.map((g) => [g.grade, g])) as Record<SpiritGrade, SpiritGradeDef>;
