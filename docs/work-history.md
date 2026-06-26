@@ -393,3 +393,15 @@
 - ⚠ 한계: 이미 옛 버그로 0 으로 덮어써진 과거 기록(local·Firebase 모두)은 **복구 불가** — 이번 수정은 이후 리셋만 막는다. 사용자에게 고지.
 - 테스트: `scripts/leaderboard-test.mjs` 신규(발행 필드·난이도 분리·레거시→쉬움·myRank). typecheck·전체 단위테스트 녹색. (브라우저 부재로 visual-check 미실행 — 패널 마크업만 추가.)
 - 관련: src/game/progressSync.ts, src/game/constants.ts, src/ui/characterPanel.ts, src/main.ts.
+
+## 2026-06-26 — 훈련장 랭킹 점검 + 계정 best-ever 전환
+
+- 점검 결과: 훈련 랭킹은 요새와 "동일한" 매-로드 리셋 버그는 **없음**. trainingStats/trainingTries 는 SavedGame 에 저장되고 restoreSaveData 에서 resetGameState 직후 세이브값으로 복원되므로(reset 6197 → 복원 6291) 로드 시 0 발행 안 됨.
+- 그러나 관련 약버그 존재: 훈련 기록은 캐릭터별(활성 능력치 보너스)이라 **새 게임/다른 세이브 로드 후 저장** 시 그 캐릭터의 낮은 값이 발행돼 닉네임 훈련 랭킹이 내려갔다(요새의 새-게임 리셋과 유사).
+- 결정(사용자): 요새와 동일하게 **계정 best-ever** 로 고정.
+- 구현: 활성 trainingStats(캐릭터별, 능력치 보너스)는 그대로 두고, 랭킹 전용 `bestTraining`(종목별 {stage,tries}, localStorage `best-training-v1`, 닉네임당 영구)을 game/training.ts 에 추가(loadBestTraining/saveBestTraining/raiseBestTraining/TRAINING_KINDS — leaf). main 은 필드+성공 시 raise+로드 시 시드 배선만(신규 메서드 0). progressUpdate 가 bestTraining 발행. resetGameState 는 bestTraining 을 건드리지 않음 → 새 게임에도 안 떨어짐. 로드 시 캐릭터 훈련치로 best-ever 시드(낮으면 안 떨어뜨림)라 기존 랭크 보존.
+- best-ever 규칙: 더 높은 stage, 또는 동률 stage 에서 더 적은 tries 일 때만 갱신(랭킹 정렬 stage desc·tries asc 와 일치).
+- 테스트: leaderboard-test 에 raiseBestTraining 단조성/동률-시도/0단계 케이스 추가. typecheck·전체 단위테스트 녹색.
+- 한계: 이미 새-게임 등으로 낮아진 과거 Firebase 훈련 기록은 복구 불가 — 이후 하락만 방지.
+- 비고: 훈련 랭킹은 난이도 분리 안 함(요청 범위 아님 — 요새만 난이도별).
+- 관련: src/game/training.ts, src/game/constants.ts, src/main.ts, scripts/leaderboard-test.mjs.

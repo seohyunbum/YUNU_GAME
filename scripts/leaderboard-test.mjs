@@ -6,6 +6,22 @@ const server = await createServer({ appType: "custom", logLevel: "silent", serve
 
 try {
   const { publishProgress, fetchFortressLeaderboards } = await server.ssrLoadModule("/src/game/progressSync.ts");
+  const { createBestTraining, raiseBestTraining } = await server.ssrLoadModule("/src/game/training.ts");
+
+  // 훈련 best-ever — 더 높은 단계 또는 동률에서 더 적은 시도일 때만 갱신(랭킹 정렬과 일치).
+  const best = createBestTraining();
+  assert.equal(raiseBestTraining(best, "hp", 5, 12), true, "첫 기록은 갱신");
+  assert.equal(best.hp.stage, 5);
+  assert.equal(best.hp.tries, 12);
+  assert.equal(raiseBestTraining(best, "hp", 4, 3), false, "더 낮은 단계는 무시(새 게임 시 떨어지지 않음)");
+  assert.equal(best.hp.stage, 5, "낮은 단계로 덮어쓰지 않음");
+  assert.equal(raiseBestTraining(best, "hp", 5, 8), true, "동률 단계에서 더 적은 시도는 갱신");
+  assert.equal(best.hp.tries, 8);
+  assert.equal(raiseBestTraining(best, "hp", 5, 20), false, "동률 단계에서 더 많은 시도는 무시");
+  assert.equal(raiseBestTraining(best, "hp", 6, 30), true, "더 높은 단계는 갱신");
+  assert.equal(best.hp.stage, 6);
+  assert.equal(raiseBestTraining(best, "attack", 0, 0), false, "0 단계는 기록 아님");
+  assert.equal(best.attack.stage, 0);
 
   // publishProgress 는 쉬움·어려움 단계/베이스를 모두 PATCH 로 보낸다.
   let captured = null;

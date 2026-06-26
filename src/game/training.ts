@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { BEST_TRAINING_KEY } from "./constants";
 import { applyStylizedMeshDefaults } from "../visuals";
 import type { TrainingKind, TrainingStats, WorldObject } from "./types";
 
@@ -23,6 +24,55 @@ export function createTrainingStats(): TrainingStats {
 export function normalizeTrainingStats(saved?: Partial<TrainingStats> | null): TrainingStats {
   const clamp = (value: unknown) => Math.max(0, Math.floor(typeof value === "number" && Number.isFinite(value) ? value : 0));
   return { hp: clamp(saved?.hp), attack: clamp(saved?.attack), armor: clamp(saved?.armor), mana: clamp(saved?.mana) };
+}
+
+export const TRAINING_KINDS: readonly TrainingKind[] = ["hp", "attack", "armor", "mana"];
+
+// 훈련 종목별 "계정 최고기록"(랭킹 전용). 활성 훈련치(캐릭터별 능력치 보너스)와 분리해
+// 닉네임당 영구 유지한다 — 새 게임·다른 세이브 로드에도 떨어지지 않는다(요새 기록과 동일 정책).
+// 더 높은 단계, 또는 같은 단계를 더 적은 시도로 = 더 좋은 기록(랭킹 정렬: stage desc, tries asc).
+export type BestTraining = Record<TrainingKind, { stage: number; tries: number }>;
+
+export function createBestTraining(): BestTraining {
+  return { hp: { stage: 0, tries: 0 }, attack: { stage: 0, tries: 0 }, armor: { stage: 0, tries: 0 }, mana: { stage: 0, tries: 0 } };
+}
+
+export function loadBestTraining(): BestTraining {
+  const best = createBestTraining();
+  try {
+    const raw = localStorage.getItem(BEST_TRAINING_KEY);
+    if (!raw) return best;
+    const parsed = JSON.parse(raw) as Partial<Record<TrainingKind, { stage?: number; tries?: number }>>;
+    for (const kind of TRAINING_KINDS) {
+      const v = parsed?.[kind];
+      best[kind] = { stage: Math.max(0, Math.floor(Number(v?.stage ?? 0))), tries: Math.max(0, Math.floor(Number(v?.tries ?? 0))) };
+    }
+  } catch {
+    // 손상된 값은 무시하고 0 기록으로 시작
+  }
+  return best;
+}
+
+export function saveBestTraining(best: BestTraining): void {
+  try {
+    localStorage.setItem(BEST_TRAINING_KEY, JSON.stringify(best));
+  } catch {
+    // 저장 실패(quota 등)는 조용히 무시 — 랭킹은 부가 기능
+  }
+}
+
+// 현재 (stage, tries) 가 기존 최고기록보다 좋으면 갱신하고 true. 더 높은 단계 또는 동률에서 더 적은 시도.
+export function raiseBestTraining(best: BestTraining, kind: TrainingKind, stage: number, tries: number): boolean {
+  const s = Math.max(0, Math.floor(stage));
+  const t = Math.max(0, Math.floor(tries));
+  if (s <= 0) return false;
+  const rec = best[kind];
+  if (s > rec.stage || (s === rec.stage && (rec.tries === 0 || t < rec.tries))) {
+    rec.stage = s;
+    rec.tries = t;
+    return true;
+  }
+  return false;
 }
 
 // ── 난이도 곡선 (성공 횟수 기반, 전부 단조) ──

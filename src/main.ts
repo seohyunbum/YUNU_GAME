@@ -260,7 +260,7 @@ import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorag
 import { appendPartyLedgerEvent, latestPartyLedgerEpoch, reconcilePartyLedger, clearPartyLedger } from "./game/partyLedger";
 import { renderHomeStoragePanel as renderHomeStoragePanelView } from "./ui/homeStoragePanel";
 import { PLAYER_CLASSES } from "./game/classes";
-import { createTrainingStats, ensureTrainingGround, normalizeTrainingStats, TRAINING_GAMES, TRAINING_MIN_LEVEL, TRAINING_REWARDS, type TrainingGroundContext } from "./game/training";
+import { createTrainingStats, ensureTrainingGround, loadBestTraining, normalizeTrainingStats, raiseBestTraining, saveBestTraining, TRAINING_GAMES, TRAINING_KINDS, TRAINING_MIN_LEVEL, TRAINING_REWARDS, type TrainingGroundContext } from "./game/training";
 import { applyCraftXp, craftXpForNextLevel, craftXpForRecipe, createCraftStatAlloc, normalizeCraftStatAlloc, type CraftStatAlloc } from "./game/craftLevel";
 import { renderCharacterPanelView } from "./ui/characterPanel";
 import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard } from "./ui/trainingPanel";
@@ -526,6 +526,7 @@ class WildernessGame {
   private trainingStats = createTrainingStats();
   private trainingTries = createTrainingStats(); // 종목별 최고단계 달성 시도수(랭킹 타이브레이크). 저장됨
   private triesSinceBest = createTrainingStats(); // 마지막 성공 이후 실패 누적(휘발) — 다음 성공 시 trainingTries 에 합산
+  private bestTraining = loadBestTraining(); // 종목별 계정 최고기록(랭킹 전용) — 활성 훈련치와 분리, 닉네임당 영구(새 게임·로드에도 유지)
   private craftLevel = 1;
   private craftXp = 0;
   private craftStatPoints = 0; // 미사용 스탯 포인트
@@ -4335,7 +4336,7 @@ class WildernessGame {
     return {
       level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds,
       bestFortressStage: this.bestFortress.easy.stage, baseLevel: this.bestFortress.easy.baseLevel, bestFortressStageHard: this.bestFortress.hard.stage, baseLevelHard: this.bestFortress.hard.baseLevel, kills: this.tutorialSignals.predatorKills,
-      training: { hp: { stage: this.trainingStats.hp, tries: this.trainingTries.hp }, attack: { stage: this.trainingStats.attack, tries: this.trainingTries.attack }, armor: { stage: this.trainingStats.armor, tries: this.trainingTries.armor }, mana: { stage: this.trainingStats.mana, tries: this.trainingTries.mana } },
+      training: this.bestTraining, // 랭킹은 계정 최고기록(best-ever) 발행 — 새 게임/로드로 떨어지지 않음(요새와 동일 정책)
     };
   }
 
@@ -4349,6 +4350,7 @@ class WildernessGame {
       onSuccess: (kind) => {
         this.trainingStats[kind] += 1;
         this.trainingTries[kind] += this.triesSinceBest[kind] + 1; this.triesSinceBest[kind] = 0; // 이번 성공 + 이 단계 도전 중 실패들 = 이 단계 달성 시도수(랭킹)
+        if (raiseBestTraining(this.bestTraining, kind, this.trainingStats[kind], this.trainingTries[kind])) saveBestTraining(this.bestTraining); // 계정 최고기록(랭킹) 갱신 — 활성 훈련치와 별개로 영구 보관
         if (kind === "hp") { this.maxHealth = this.maxHealthForLevel(); this.health = Math.min(this.maxHealth, this.health + TRAINING_REWARDS.hp); }
         if (kind === "mana") { this.maxMana += TRAINING_REWARDS.mana; this.mana = Math.min(this.maxMana, this.mana + TRAINING_REWARDS.mana); }
         this.playTone(880, 0.12, "triangle", 0.032); this.playTone(1175, 0.16, "triangle", 0.026);
@@ -6288,6 +6290,7 @@ class WildernessGame {
     this.currentHouseBedTier = save.player.currentHouseBedTier ?? "wood";
     this.trainingStats = normalizeTrainingStats(save.player.trainingStats);
     this.trainingTries = normalizeTrainingStats(save.player.trainingTries);
+    { let raised = false; for (const kind of TRAINING_KINDS) if (raiseBestTraining(this.bestTraining, kind, this.trainingStats[kind], this.trainingTries[kind])) raised = true; if (raised) saveBestTraining(this.bestTraining); } // 로드한 캐릭터의 훈련치로 계정 최고기록 시드(랭킹 보존) — best-ever 보다 낮으면 안 떨어뜨림
     this.homeStorage = normalizeHomeStorage(save.player.homeStorage);
     this.homeSupplyCooldowns = save.player.homeSupplyCooldowns ?? {};
     this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
