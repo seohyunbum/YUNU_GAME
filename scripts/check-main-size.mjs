@@ -76,7 +76,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-26: 정령 장착·능치 적용·버프칩·좌상단 뱃지 배선(로직은 spirits.ts·ui/spiritBadge.ts) +8 → 10158.
 // 2026-06-26: 정령 레벨업(처치 경험치 공유)·먹이 주기 배선 +3 → 10161.
 // 2026-06-26: 적대적 리뷰 수정 — 가챠 재진입 차단(isSpiritGachaActive)·연출 try/catch·먹이 확인창 +2 → 10163.
-const MAX_MAIN_LINES = 10163;
+// 2026-06-26: 쌓기블록 충돌 — 블록 바닥이 머리 위면 그 아래 통과(천장/다리 밑) 가드 + 주석 +2 → 10165.
+const MAX_MAIN_LINES = 10165;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
