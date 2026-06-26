@@ -245,7 +245,7 @@ import type {
 import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, monsterStatsFromLevel, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
 import { DEFAULT_DIFFICULTY, applyMonsterDifficulty, difficultyModifiers, difficultyShopCost, isDifficultyMode, type DifficultyMode, type DifficultyModifiers } from "./game/difficulty";
 import { createSpirit, createSpiritCollection, equippedSpirit, gainSpiritExperience, normalizeSpiritCollection, spiritAttackBonus, spiritDefenseBonus, spiritFeedExperience, spiritGradeDef, spiritGradeIndex } from "./game/spirits";
-import { runSpiritGacha } from "./ui/gachaScreen";
+import { isGachaActive, runSpiritGacha } from "./ui/gachaScreen";
 import { updateSpiritBadge } from "./ui/spiritBadge";
 import type { SpiritCollection } from "./game/types";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, nearestRegion, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
@@ -848,12 +848,14 @@ class WildernessGame {
     grantLevels: (count, fraction = 1) => this.gainExperience(Math.round(experienceForLevelUps(this.level, this.experience, count) * fraction * this.difficultyMods.xpPotion)), // 경험치병 — 난이도 배율 적용
     equipArmor: (item) => { this.equippedArmor = item; },
     equipShield: (item) => { this.equippedShield = item; this.shieldDurabilityUsed = 0; },
-    equipNecklace: (item) => { this.equippedNecklace = item; }, openSpiritGacha: () => {
+    equipNecklace: (item) => { this.equippedNecklace = item; }, isSpiritGachaActive: () => isGachaActive(), openSpiritGacha: () => {
       const id = `sp${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
       const spirit = createSpirit(id, { grade: Math.random(), attack: Math.random(), defense: Math.random() });
       this.spirits.owned.push(spirit); // 즉시 보유 추가(연출은 공개일 뿐) → 닫아도 유지. 다음 저장에 반영.
       if (this.currentPanel !== null) this.closePanel(); // 인벤 더블클릭 진입이면 패널 닫고 전체화면 연출
-      runSpiritGacha(spirit, { playTone: (f, d, t, v) => this.playTone(f, d, t, v), onFinish: () => { this.renderHud(); this.renderPanel(); } });
+      try {
+        runSpiritGacha(spirit, { playTone: (f, d, t, v) => this.playTone(f, d, t, v), onFinish: () => { this.renderHud(); this.renderPanel(); } });
+      } catch { this.renderHud(); this.renderPanel(); } // 연출 예외 시에도 정령은 이미 보유 추가됨 → HUD/패널만 복구
     }, consumeStew: () => { const healed = Math.min(STEW_HEAL, this.maxHealth - this.health); this.health += healed; this.skillBuffs.stewBuffUntil = performance.now() + STEW_BUFF_SECONDS * 1000; this.playTone(523, 0.14, "triangle", 0.04); this.showMessage(`고기 스튜를 먹었습니다! 5분간 공격·방어 +5${healed > 0 ? `, 체력 ${healed} 회복` : ""}.`); this.renderHud(); },
     playHandAction: () => this.playHandAction(),
     spawnHealEffect: () => spawnHealEffect(this.combatEffectContext, this.playerPosition),
@@ -6907,7 +6909,7 @@ class WildernessGame {
         },
         onEquipNecklace: (item) => { this.equippedNecklace = (item as ItemId | null) ?? null; this.playTone(880, 0.1, "triangle", 0.03); this.renderHud(); this.renderPanel(); },
         onEquipSpirit: (id) => { this.spirits.equippedId = id && this.spirits.owned.some((s) => s.id === id) ? id : null; this.playTone(740, 0.12, "triangle", 0.035); this.renderHud(); this.renderPanel(); },
-        onFeedSpirit: (id) => { const target = equippedSpirit(this.spirits); const mat = this.spirits.owned.find((s) => s.id === id); if (!target || !mat || mat.id === target.id) return; const exp = spiritFeedExperience(mat); this.spirits.owned = this.spirits.owned.filter((s) => s.id !== id); const ups = gainSpiritExperience(target, exp); this.playTone(660, 0.12, "triangle", 0.04); this.showMessage(ups > 0 ? `정령에게 먹이를 줬습니다 — 레벨업! Lv ${target.level} (공+${spiritAttackBonus(target)}/방+${spiritDefenseBonus(target)})` : `정령에게 먹이를 줬습니다 (+${exp} 경험치)`); this.renderHud(); this.renderPanel(); },
+        onFeedSpirit: (id) => { const target = equippedSpirit(this.spirits); const mat = this.spirits.owned.find((s) => s.id === id); if (!target || !mat || mat.id === target.id) return; if (!window.confirm(`${spiritGradeDef(mat.grade).label} 정령(Lv${mat.level})을 먹이로 줍니다. 이 정령은 영구히 사라집니다. 계속할까요?`)) return; const exp = spiritFeedExperience(mat); this.spirits.owned = this.spirits.owned.filter((s) => s.id !== id); const ups = gainSpiritExperience(target, exp); this.playTone(660, 0.12, "triangle", 0.04); this.showMessage(ups > 0 ? `정령에게 먹이를 줬습니다 — 레벨업! Lv ${target.level} (공+${spiritAttackBonus(target)}/방+${spiritDefenseBonus(target)})` : `정령에게 먹이를 줬습니다 (+${exp} 경험치)`); this.renderHud(); this.renderPanel(); },
         onClose: () => this.closePanel(),
       });
     }

@@ -32,6 +32,7 @@ export interface HotbarUseContext {
   equipShield(item: ItemId): void;
   equipNecklace(item: ItemId): void;
   openSpiritGacha(): void; // 정령 소환권 사용 — 토큰 소비 + 가챠 연출(main 이 처리)
+  isSpiritGachaActive(): boolean; // 가챠 연출 진행 중 여부(재진입 차단 — 토큰 이중 소모/연출 겹침 방지)
   consumeStew(): void;
   playHandAction(): void;
   spawnHealEffect(): void;
@@ -53,6 +54,7 @@ export function useHotbarItem(item: ItemId | null | undefined, context: HotbarUs
   }
   if (item === "spirit_gacha_token") {
     // 인벤 더블클릭(패널 열림) + 핫바 사용 모두 지원 — 패널 가드 앞에서 처리. 토큰 소비 후 가챠 연출.
+    if (context.isSpiritGachaActive()) { context.showMessage("정령 가챠가 진행 중입니다. 끝난 뒤 다시 사용하세요."); return; } // 재진입 차단 — 토큰 소비 전에 막아 이중 소모·연출 겹침 방지
     if (!context.removeItem(item, 1)) return;
     context.playHandAction();
     context.openSpiritGacha();

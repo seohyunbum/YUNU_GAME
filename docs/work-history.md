@@ -429,3 +429,13 @@
 - 결정/기본값(사용자 질문 도구가 권한오류로 실패 → 권장값으로 진행, 사용자 정정 가능): 5등급/위 배율, 공·방 독립 롤, BGM=엔진 신디사이즈(외부 파일 없음 — 이 환경서 바이너리 추가 불가), 단일 장착, 사냥·상자 드랍.
 - ⚠ 미검증(환경 제약): 브라우저 부재로 visual-check 미실행 — 가챠 연출(눈 애니메이션)·뱃지·패널 레이아웃은 실기기 확인 권장. 로직은 spirits-test 로 커버.
 - 관련: game/spirits.ts·types·items·chestLoot·hotbarUse·saveManager·saveMigration·constants·heldItemVisuals, ui/gachaScreen·spiritBadge·characterPanel·hudRenderer, main.ts, style.css, scripts/spirits-test.
+
+## 2026-06-26 — 정령 7등급 확장 + 적대적 테스트/리뷰
+
+- 7등급(일반/고급/희귀/영웅/전설/신화/초월), 확률 42/27/16/8/4/2/1%, 범위 …12-17/15-20/18-23.
+- spirits-test 를 적대적/엄격으로 재작성: 등급테이블 무결성·rollGrade 경계+6만표본 분포·rollStat 퍼징(범위이탈/비정수 0)·createSpirit 결정성·버프 단조성·레벨업 불변식(잔여<요구치, 무한루프 없음)·먹이 단조·악의적 normalize 입력(9999→상한클램프, NaN→0, 문자열파싱, 쓰레기 제외, 멱등성)·dangling equippedId→null.
+- 적대적 코드리뷰(서브에이전트)로 통합 버그 추적. 판정: 스탯수식·수치·핫패스·세이브/마이그·더블클릭 CLEAN. 발견·수정:
+  - [HIGH] 가챠 오버레이가 모듈 싱글톤이라 연출 중 2번째 토큰 사용 시 첫 결과가 고아화 → `isSpiritGachaActive()` 가드를 hotbarUse 의 토큰 소모 *전*에 추가(이중 소모·연출 겹침 차단).
+  - [HIGH→방어] 연출 예외 시 토큰만 소모되고 복구 안 됨 → openSpiritGacha 에 try/catch(정령은 이미 보유 추가됨 → HUD/패널 복구).
+  - [LOW] 먹이가 단클릭 영구 삭제 → window.confirm 확인창 추가(아이가 고등급 정령 실수 소멸 방지).
+- typecheck·아키텍처·hotpath·메서드(494)·전체 단위테스트 녹색. (브라우저 부재로 visual-check/roundtrip 미실행은 동일.)
