@@ -102,8 +102,12 @@ export function tickMinimap(ctx: MinimapContext, delta: number) {
   const yaw = ctx.yaw();
   const fx = -Math.sin(yaw), fy = -Math.cos(yaw); // 바라보는 방향(맵 좌표) — yaw 0 = 북(위)
   const gx = -fy, gy = fx;
-  const tip = `${(px + fx * 9).toFixed(1)},${(pz + fy * 9).toFixed(1)}`;
-  const left = `${(px + gx * 5 - fx * 3).toFixed(1)},${(pz + gy * 5 - fy * 3).toFixed(1)}`;
-  const right = `${(px - gx * 5 - fx * 3).toFixed(1)},${(pz - gy * 5 - fy * 3).toFixed(1)}`;
-  dynamicGroup!.innerHTML = `${markerSvg}<circle cx="${px.toFixed(1)}" cy="${pz.toFixed(1)}" r="2.6" fill="#fff7d6" stroke="#111827" stroke-width="1.4" /><polygon points="${tip} ${left} ${right}" fill="#ffe24a" stroke="#111827" stroke-width="1.4" stroke-linejoin="round" />`;
+  // 진행/시선 방향 직관화: ① 앞쪽으로 펼쳐지는 반투명 시야 부채꼴 ② 그 위에 길고 뾰족한 화살표 ③ 중심 점.
+  const coneA = 0.62, coneR = 17; // 시야각 ~71° · 길이
+  const cl = `${(px - Math.sin(yaw - coneA) * coneR).toFixed(1)},${(pz - Math.cos(yaw - coneA) * coneR).toFixed(1)}`;
+  const cr = `${(px - Math.sin(yaw + coneA) * coneR).toFixed(1)},${(pz - Math.cos(yaw + coneA) * coneR).toFixed(1)}`;
+  const tip = `${(px + fx * 12).toFixed(1)},${(pz + fy * 12).toFixed(1)}`; // 길고 뾰족하게 — 어느 쪽이 앞인지 명확
+  const left = `${(px + gx * 3.4 - fx * 1).toFixed(1)},${(pz + gy * 3.4 - fy * 1).toFixed(1)}`;
+  const right = `${(px - gx * 3.4 - fx * 1).toFixed(1)},${(pz - gy * 3.4 - fy * 1).toFixed(1)}`;
+  dynamicGroup!.innerHTML = `${markerSvg}<polygon points="${px.toFixed(1)},${pz.toFixed(1)} ${cl} ${cr}" fill="rgba(255,226,74,0.3)" stroke="none" /><circle cx="${px.toFixed(1)}" cy="${pz.toFixed(1)}" r="2.4" fill="#fff7d6" stroke="#111827" stroke-width="1.4" /><polygon points="${tip} ${left} ${right}" fill="#ffe24a" stroke="#111827" stroke-width="1.4" stroke-linejoin="round" />`;
 }
