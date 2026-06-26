@@ -275,7 +275,7 @@ try {
     }
     // 레전더리 = 최종 흑요석 무기 3종 + 상급 전직의 각서 + 경험치병 + 용 장비 4종(최고등급)
     const legendary = Object.keys(ITEM_NAMES).filter((id) => itemTier(id) === "legendary").sort();
-    const expectedLegendary = ["dragon_boots", "dragon_cloak", "dragon_crown", "dragon_gloves", "job_decree_high", "job_seal", "sharp_obsidian_gun", "sharp_obsidian_shield", "sharp_obsidian_staff", "xp_bottle"];
+    const expectedLegendary = ["dragon_boots", "dragon_cloak", "dragon_crown", "dragon_gloves", "job_decree_high", "job_seal", "sharp_obsidian_gun", "sharp_obsidian_shield", "sharp_obsidian_staff", "spirit_gacha_token", "xp_bottle"];
     if (JSON.stringify(legendary) !== JSON.stringify(expectedLegendary)) problems.push(`legendary set mismatch: ${JSON.stringify(legendary)}`);
     // 에픽·레전더리 무기 공격력 상향(기본 ×1.3 반올림) — 최고등급 위상 보장
     const boosted = { obsidian_dagger: 7, obsidian_sword: 13, arcane_staff: 12, sharp_obsidian_staff: 16, sharp_obsidian_gun: 14, sharp_obsidian_shield: 10 };

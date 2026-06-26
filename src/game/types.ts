@@ -378,6 +378,21 @@ export interface CompanionProgress {
   summoner: SummonerPetProgress;
 }
 
+// 정령(Spirit) — 가챠로 획득, 목걸이처럼 1개 장착해 공격·방어 보너스. 소환수식 레벨업.
+export type SpiritGrade = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export interface SpiritData {
+  id: string; // 인스턴스 고유 id
+  grade: SpiritGrade;
+  baseAttack: number; // 획득 시 롤된 초기 공격 보너스(불변) — 현재 버프 = base × 레벨배수
+  baseDefense: number; // 초기 방어 보너스(불변)
+  level: number;
+  experience: number;
+}
+export interface SpiritCollection {
+  owned: SpiritData[];
+  equippedId: string | null;
+}
+
 export interface Recipe {
   id: string;
   name: string;
