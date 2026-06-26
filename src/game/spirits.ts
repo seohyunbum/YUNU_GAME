@@ -112,11 +112,21 @@ export function gainSpiritExperience(spirit: SpiritData, amount: number): number
   return levelUps;
 }
 
-// 미착용 정령을 먹이로 줄 때 주는 경험치 — 등급·레벨이 높을수록 더.
+// 정령이 지금까지 쌓은 누적 경험치(현재 레벨까지 든 경험치 합 + 현재 잔여 경험치).
+export function spiritTotalExperience(spirit: SpiritData): number {
+  const level = Math.max(1, Math.floor(spirit.level ?? 1));
+  let total = Math.max(0, Math.floor(spirit.experience ?? 0));
+  for (let lv = 1; lv < level; lv += 1) total += experienceForNextSpiritLevel(lv);
+  return total;
+}
+
+// 미착용 정령을 먹이로 줄 때 주는 경험치.
+// 기 습득 누적 경험치의 80% 를 이어받아(공들여 키운 정령일수록 큰 보탬) + 등급 기본값(Lv1 정령도 가치).
+export const SPIRIT_FEED_CARRYOVER = 0.8;
 export function spiritFeedExperience(material: SpiritData): number {
-  const gradeBonus = (spiritGradeIndex(material.grade) + 1) * 25;
-  const levelBonus = (Math.max(1, material.level) - 1) * 15;
-  return gradeBonus + levelBonus;
+  const gradeBase = (spiritGradeIndex(material.grade) + 1) * 20;
+  const carried = Math.round(spiritTotalExperience(material) * SPIRIT_FEED_CARRYOVER);
+  return gradeBase + carried;
 }
 
 export function createSpiritCollection(): SpiritCollection {
