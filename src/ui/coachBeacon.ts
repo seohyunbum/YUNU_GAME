@@ -24,6 +24,12 @@ export const COACH_HINTS: Record<string, CoachHint> = {
   craft_bag: { key: "I", action: "제작대에서 가죽 7개로 가방을 만드세요 (8칸 → 40칸)", accent: true },
 };
 
+// 데스크톱 키/마우스 → 모바일 조작 라벨. 코치 비콘의 kbd 배지가 터치 유저에게 "우클릭" 같은 무의미한 문구를 보여주지 않게 한다.
+const MOBILE_KEY_LABEL: Record<string, string> = { WASD: "조이스틱", E: "👊 버튼", I: "🎒 가방", 좌클릭: "👊 버튼", 우클릭: "탭", Q: "퀘스트", K: "캐릭터", M: "지도", B: "도감" };
+function coachKeyFor(key: string, touch: boolean): string {
+  return touch ? MOBILE_KEY_LABEL[key] ?? key : key;
+}
+
 export interface OnboardingCoachState {
   shownGuides: Set<string>;
   lastCoachKey: string;
@@ -87,10 +93,12 @@ export function updateOnboardingCoach(
   if (key === state.lastCoachKey) return;
   state.lastCoachKey = key;
   const inChapterOne = Boolean(COACH_HINTS[ov.id]);
-  const hint: CoachHint | null = state.coachDismissed
+  const baseHint: CoachHint | null = state.coachDismissed
     ? null
     : ov.completed
       ? (inChapterOne ? { key: "Q", action: `보상 받기 — ${ov.title}`, accent: true } : null)
       : COACH_HINTS[ov.id] ?? null;
+  // 터치 기기면 kbd 배지를 모바일 조작 라벨로 치환(공유 상수는 변형하지 않도록 새 객체 생성).
+  const hint: CoachHint | null = baseHint ? { ...baseHint, key: coachKeyFor(baseHint.key, touch) } : null;
   renderCoachBeacon(coachEl, hint, () => { state.coachDismissed = true; state.lastCoachKey = ""; renderCoachBeacon(coachEl, null, () => {}); });
 }
