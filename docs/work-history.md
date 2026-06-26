@@ -382,3 +382,14 @@
 - 테스트: `scripts/difficulty-test.mjs` 신규(배율·보정·상점가격·항등) + save-migration 에 난이도 보존/폴백 assert 추가. typecheck·combat·save-migration·save-repository·content·gameplay-systems·balance·mobile·party-ledger·difficulty 전부 녹색.
 - ⚠ 미검증(환경 제약): 이 원격 컨테이너엔 브라우저가 없어 `save-roundtrip`(Windows Chrome 경로 한정 finder)·`visual-check`·`perf-check` 미실행. 타이틀 UI(난이도 버튼)는 기존 그래픽품질 셀렉터를 그대로 미러링했고, 엔티티 수 증가는 없음(능치만 보정)이라 성능 영향 낮음. 사용자 PC 에서 visual-check 권장.
 - 관련 파일: src/game/difficulty.ts(신규), entitySpawns·monsters·caveMonsters·fieldBosses·predatorAi·dragonAi·guardAi·saveManager·saveMigration·types·constants, src/objectiveClaim.ts, src/ui/titleScreen.ts·setupUi.ts, src/main.ts.
+
+## 2026-06-26 — 요새 글로벌 랭킹 난이도별 분리 + 리셋 버그 수정
+
+- 증상(사용자 보고): 몬스터요새 글로벌 랭킹이 자꾸 리셋됨 + 난이도별 구분 없음.
+- 근본 원인(리셋): `resetGameState()`(main.ts)가 무조건 `bestFortressStage=0; saveBestFortressStage()` 로 localStorage 를 0 으로 덮어썼다. 이 함수는 **신규게임뿐 아니라 세이브 로드(restoreSaveData)에서도 매번 호출**된다. bestFortressStage 는 세이브에 없고 닉네임당 전역(localStorage) 기록이라, 로드할 때마다 0 으로 지워지고 → 이후 publishProgress 가 Firebase `/users/{nick}` 에 fortressStage:0 을 PATCH 해 글로벌 기록까지 덮어썼다. (predatorKills 는 과거 같은 버그를 세이브 복원으로 막아둔 전례 있음 — main.ts:6259 주석.)
+- 수정(리셋): resetGameState 에서 bestFortress 초기화 제거. 요새 기록은 닉네임당 **영구**(로드·새 게임에도 유지, 단조 증가만). 맵별 진행(fortressStageByMap, 런 상태)만 계속 리셋.
+- 수정(난이도 분리): bestFortress 를 `Record<"easy"|"hard", {stage, baseLevel}>` 로. 클리어 시 현재 난이도 슬롯만 갱신. Firebase 레코드에 `fortressStageHard`/`fortressBaseHard` 추가(기존 fortressStage=쉬움, 레거시 기록은 쉬움으로 호환). `fetchFortressLeaderboards` 가 /users.json 1회 읽어 쉬움·어려움 두 표 생성. 캐릭터 창에 두 랭킹 + 내 최고(쉬움/어려움) 표시.
+- 메서드 −1: loadBestFortressStage+loadBestFortressBaseLevel → loadBestFortress 1개로 병합(MAX_METHODS 495→494 조임).
+- ⚠ 한계: 이미 옛 버그로 0 으로 덮어써진 과거 기록(local·Firebase 모두)은 **복구 불가** — 이번 수정은 이후 리셋만 막는다. 사용자에게 고지.
+- 테스트: `scripts/leaderboard-test.mjs` 신규(발행 필드·난이도 분리·레거시→쉬움·myRank). typecheck·전체 단위테스트 녹색. (브라우저 부재로 visual-check 미실행 — 패널 마크업만 추가.)
+- 관련: src/game/progressSync.ts, src/game/constants.ts, src/ui/characterPanel.ts, src/main.ts.

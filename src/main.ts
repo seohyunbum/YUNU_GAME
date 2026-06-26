@@ -111,6 +111,8 @@ import {
   PREDATOR_KILLS_KEY,
   BEST_FORTRESS_STAGE_KEY,
   BEST_FORTRESS_BASELEVEL_KEY,
+  BEST_FORTRESS_STAGE_HARD_KEY,
+  BEST_FORTRESS_BASELEVEL_HARD_KEY,
   QUALITY_MODE_KEY,
   BASE_BAG_SLOT_COUNT,
   BASE_MAX_MANA,
@@ -324,7 +326,7 @@ import {
 } from "./game/saveRepository";
 import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
-import { publishProgress, fetchLeaderboard, fetchTrainingLeaderboard, type LeaderboardResult, type ProgressUpdate } from "./game/progressSync";
+import { publishProgress, fetchFortressLeaderboards, fetchTrainingLeaderboard, type FortressLeaderboards, type ProgressUpdate } from "./game/progressSync";
 import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
 import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
 import { updateDragons, DRAGON_AGGRO_MS, type DragonAiContext } from "./game/dragonAi";
@@ -651,10 +653,9 @@ class WildernessGame {
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
   private caveReturnPosition: THREE.Vector3 | null = null;
   private fortressSiege: SiegeState | null = null; // 몬스터 요새 디펜스 진행 상태(휘발 — 세이브 안 함)
-  private bestFortressStage = this.loadBestFortressStage(); // 몬스터 요새 최고 클리어 단계(기록용 — 전역 유지, 새 게임 시 리셋)
-  private fortressStageByMap = loadFortressStageByMap(); // 맵별 요새 최고 클리어 단계 — 재입장 시 이어서 시작
-  private bestFortressBaseLevel = this.loadBestFortressBaseLevel(); // 그 최고 단계 기록 당시 baseLevel(난이도 맥락)
-  private leaderboard: LeaderboardResult | null = null; // 캐릭터 창 전체 랭킹(null = 불러오는 중). 창 열 때마다 재조회
+  private bestFortress = this.loadBestFortress(); // 난이도별 요새 최고 클리어 단계+baseLevel(닉네임당 전역 영구 기록 — 로드·새 게임에도 리셋 안 함). 랭킹 소스.
+  private fortressStageByMap = loadFortressStageByMap(); // 맵별 요새 최고 클리어 단계 — 재입장 시 이어서 시작(이건 런/세이브 상태라 새 게임 시 리셋 OK)
+  private leaderboards: FortressLeaderboards | null = null; // 캐릭터 창 난이도별 랭킹(null = 불러오는 중). 창 열 때마다 재조회
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
   private houseObjectIds: string[] = [];
@@ -807,7 +808,7 @@ class WildernessGame {
     grantStageReward: (stage, tomes, items) => {
       this.addItem("job_change_tome", tomes);
       for (const [item, count] of Object.entries(items)) if (count && count > 0) this.addItem(item as ItemId, count);
-      if (stage > this.bestFortressStage) { this.bestFortressStage = stage; this.bestFortressBaseLevel = this.fortressSiege?.baseLevel ?? this.bestFortressBaseLevel; this.saveBestFortressStage(); void publishProgress(this.nickname, this.progressUpdate()); } // 최고 단계 갱신(당시 baseLevel 기록) → 랭킹 즉시 반영
+      const rec = this.bestFortress[this.difficulty]; if (stage > rec.stage) { rec.stage = stage; rec.baseLevel = this.fortressSiege?.baseLevel ?? rec.baseLevel; this.saveBestFortressStage(); void publishProgress(this.nickname, this.progressUpdate()); } // 현재 난이도의 최고 단계 갱신(당시 baseLevel 기록) → 난이도별 랭킹 즉시 반영
       if ((this.fortressStageByMap[this.currentWorldMapId] ?? 0) < stage) { this.fortressStageByMap[this.currentWorldMapId] = stage; saveFortressStageByMap(this.fortressStageByMap); } // 맵별 최고 클리어 단계 → 재입장 시 이어서 시작
       startMiniFanfare(this.finaleContext);
       this.saveSiegeRewardSnapshot(); // 단계 보상을 즉시 디스크에 고정 — 크래시/탭닫힘 유실 방지(#1)
@@ -1017,24 +1018,24 @@ class WildernessGame {
     localStorage.setItem(PREDATOR_KILLS_KEY, String(Math.max(0, Math.floor(this.tutorialSignals.predatorKills))));
   }
 
-  private loadBestFortressStage() {
-    const raw = Number(localStorage.getItem(BEST_FORTRESS_STAGE_KEY) ?? 0);
-    return Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
-  }
-
-  private loadBestFortressBaseLevel() {
-    const raw = Number(localStorage.getItem(BEST_FORTRESS_BASELEVEL_KEY) ?? 0);
-    return Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+  private loadBestFortress(): Record<DifficultyMode, { stage: number; baseLevel: number }> {
+    const num = (key: string) => { const raw = Number(localStorage.getItem(key) ?? 0); return Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0; };
+    return {
+      easy: { stage: num(BEST_FORTRESS_STAGE_KEY), baseLevel: num(BEST_FORTRESS_BASELEVEL_KEY) },
+      hard: { stage: num(BEST_FORTRESS_STAGE_HARD_KEY), baseLevel: num(BEST_FORTRESS_BASELEVEL_HARD_KEY) },
+    };
   }
 
   private saveBestFortressStage() {
-    localStorage.setItem(BEST_FORTRESS_STAGE_KEY, String(Math.max(0, Math.floor(this.bestFortressStage))));
-    localStorage.setItem(BEST_FORTRESS_BASELEVEL_KEY, String(Math.max(0, Math.floor(this.bestFortressBaseLevel)))); // 단계 기록과 함께 그 당시 baseLevel 도 저장
+    localStorage.setItem(BEST_FORTRESS_STAGE_KEY, String(this.bestFortress.easy.stage));
+    localStorage.setItem(BEST_FORTRESS_BASELEVEL_KEY, String(this.bestFortress.easy.baseLevel));
+    localStorage.setItem(BEST_FORTRESS_STAGE_HARD_KEY, String(this.bestFortress.hard.stage));
+    localStorage.setItem(BEST_FORTRESS_BASELEVEL_HARD_KEY, String(this.bestFortress.hard.baseLevel));
   }
 
   private loadLeaderboard() {
-    this.leaderboard = null; // 열 때마다 최신 순위 재조회(불러오는 중 표시)
-    void fetchLeaderboard(this.nickname, 3).then((result) => { this.leaderboard = result; if (this.currentPanel === "character") this.renderPanel(); });
+    this.leaderboards = null; // 열 때마다 최신 순위 재조회(불러오는 중 표시) — 난이도별(쉬움/어려움) 한 번에
+    void fetchFortressLeaderboards(this.nickname, 3).then((result) => { this.leaderboards = result; if (this.currentPanel === "character") this.renderPanel(); });
   }
 
   private setupRenderer() {
@@ -4333,7 +4334,7 @@ class WildernessGame {
   private progressUpdate(): ProgressUpdate {
     return {
       level: this.level, cls: this.playerClass, steps: this.totalSteps, playSeconds: this.playSeconds,
-      bestFortressStage: this.bestFortressStage, baseLevel: this.bestFortressBaseLevel, kills: this.tutorialSignals.predatorKills,
+      bestFortressStage: this.bestFortress.easy.stage, baseLevel: this.bestFortress.easy.baseLevel, bestFortressStageHard: this.bestFortress.hard.stage, baseLevelHard: this.bestFortress.hard.baseLevel, kills: this.tutorialSignals.predatorKills,
       training: { hp: { stage: this.trainingStats.hp, tries: this.trainingTries.hp }, attack: { stage: this.trainingStats.attack, tries: this.trainingTries.attack }, armor: { stage: this.trainingStats.armor, tries: this.trainingTries.armor }, mana: { stage: this.trainingStats.mana, tries: this.trainingTries.mana } },
     };
   }
@@ -6398,7 +6399,7 @@ class WildernessGame {
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
     this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.fortressVisited = false; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
-    this.bestFortressStage = 0; this.bestFortressBaseLevel = 0; this.saveBestFortressStage(); this.fortressStageByMap = {}; saveFortressStageByMap(this.fortressStageByMap); // 새 게임 시 요새 기록(전역·맵별)도 초기화(잡은 몬스터 수와 일관)
+    this.fortressStageByMap = {}; saveFortressStageByMap(this.fortressStageByMap); // 맵별 요새 진행(런 상태)만 초기화. ★bestFortress(난이도별 전역 기록)는 리셋하지 않는다 — 로드/새 게임마다 0 으로 덮어써 글로벌 랭킹이 리셋되던 버그(닉네임당 영구 기록이어야 함).
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
     this.hungerTimer = 0;
@@ -6866,8 +6867,8 @@ class WildernessGame {
         ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
         dragonGear: DRAGON_GEAR_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
-        monstersKilled: this.tutorialSignals.predatorKills, bestFortressStage: this.bestFortressStage,
-        leaderboard: this.leaderboard, myNickname: this.nickname,
+        monstersKilled: this.tutorialSignals.predatorKills, bestFortressStageEasy: this.bestFortress.easy.stage, bestFortressStageHard: this.bestFortress.hard.stage,
+        leaderboards: this.leaderboards, myNickname: this.nickname,
       }, {
         onSpend: (kind) => {
           if (this.craftStatPoints <= 0) return;
