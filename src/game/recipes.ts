@@ -264,7 +264,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "bed",
     count: 1,
     ingredients: { leather: 3, wood: 3, stick: 3 },
-    note: "필드에 설치한 뒤 우클릭으로 자면 체력이 회복됩니다.",
+    note: "필드에 설치한 뒤 우클릭(모바일: 탭)으로 자면 체력이 회복됩니다.",
   },
   {
     id: "building_block",
@@ -272,7 +272,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "building_block",
     count: 4,
     ingredients: { refined_wood: 2 },
-    note: "오른쪽 클릭으로 붙여 놓습니다. 옆으로 이어 붙일 수 있고, 계단식으로 쌓으면 점프로 올라갈 수 있습니다.",
+    note: "오른쪽 클릭(모바일: 탭)으로 붙여 놓습니다. 옆으로 이어 붙일 수 있고, 계단식으로 쌓으면 점프로 올라갈 수 있습니다.",
   },
   {
     id: "bow",

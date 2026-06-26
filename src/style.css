@@ -416,9 +416,17 @@ body {
   color: #64748b;
   cursor: default;
 }
-/* 좁은 화면에서는 1열로 접는다 (스크롤보다 1열 우선) */
+/* 좁은 화면에서는 1열로 접고, 최근 커진 폰트·패딩을 모바일에 맞게 축소한다(넘침·줄바꿈 방지) */
 @media (max-width: 640px) {
   .character-body { grid-template-columns: 1fr; }
+  .character-panel { min-width: 0; width: min(680px, 94vw); gap: 9px; }
+  .character-panel .inventory-subtitle,
+  .character-panel .inventory-label { font-size: 14px; }
+  .character-gear-row,
+  .character-stat-row { font-size: 13px; padding: 7px 10px; gap: 8px; }
+  .character-stat-row { grid-template-columns: 64px 1fr auto auto; }
+  .character-records-sub { font-size: 11px; }
+  .character-note { font-size: 12px; }
 }
 
 /* 제작 레벨업으로 분배할 포인트가 있을 때 — 강조 배너 + 버튼 펄스로 즉시 인지 */

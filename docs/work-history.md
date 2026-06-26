@@ -405,3 +405,14 @@
 - 한계: 이미 새-게임 등으로 낮아진 과거 Firebase 훈련 기록은 복구 불가 — 이후 하락만 방지.
 - 비고: 훈련 랭킹은 난이도 분리 안 함(요청 범위 아님 — 요새만 난이도별).
 - 관련: src/game/training.ts, src/game/constants.ts, src/main.ts, scripts/leaderboard-test.mjs.
+
+## 2026-06-26 — 모바일 UX 4종 개선
+
+- 문제(사용자 보고): (1) 인게임 중 '새로시작' 버튼이 모바일에 없음, (2) 전체화면 아이콘(⛶)이 불직관, (3) 최근 바뀐 제작대·캐릭터창 UI가 모바일서 깨짐(축소 필요), (4) 가이드 문구가 데스크톱 단축키만 설명.
+- 원인(1): `body.touch-mode .save-controls { display:none }` 로 새로시작/저장/불러오기 바가 통째로 숨겨짐. 터치 메뉴엔 저장·불러오기만 있고 새로시작 없음.
+- 수정(1): touchControls 터치 메뉴에 '새로시작' 버튼 추가 — 불러오기와 동일하게 숨겨진 데스크톱 `[data-new-game]` 클릭 재사용(콜백/main.ts 무수정, 확인창 그대로).
+- 수정(2): 전체화면 버튼 라벨을 `⛶` → `⛶ 전체화면` 으로 병기.
+- 수정(3): style.css `@media (max-width:640px)` 에 캐릭터 패널 축소 추가(20px→13~14px 폰트, padding/gap 축소, stat-row 64px 컬럼). 워크벤치는 기존 720px 1열 collapse 로 커버. ⚠ 브라우저 부재로 visual-check 미실행 — 실기기 확인 권장.
+- 수정(4): coachBeacon 에 데스크톱키→모바일 라벨 맵(WASD→조이스틱, 좌/우클릭→👊버튼/탭, E→👊버튼 등) 추가해 touch 시 kbd 배지 치환. tutorial 책·training howTo·recipes note 의 데스크톱 전용 문구에 "(모바일: …)" 병기(기존 패턴 답습). controlsGuide 는 이미 모바일서 숨김, objectiveGuide 는 이미 모바일 안내 있음.
+- 검증: typecheck·mobile·content·gameplay-systems·combat·save·difficulty·leaderboard 녹색. main.ts 무변경(예산 그대로).
+- 관련: src/ui/touchControls.ts, src/ui/coachBeacon.ts, src/game/tutorial.ts, src/game/training.ts, src/game/recipes.ts, src/style.css.

@@ -163,8 +163,9 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
   const partyBtn = btn("파티", "touch-menu-btn"); // 인게임 파티 패널(데스크톱 O 키 대체)
   const saveBtn = btn("저장", "touch-menu-btn");
   const loadBtn = btn("불러오기", "touch-menu-btn"); // 숨겨진 데스크톱 불러오기 버튼 재사용
-  const fsBtn = btn("⛶", "touch-menu-btn"); // 전체화면(주소창 숨김)
-  menu.append(invBtn, charBtn, partyBtn, saveBtn, loadBtn, fsBtn); // '지도' 버튼 제거 — 미니맵 탭으로 지도 열기(minimap.ts onTap)
+  const newBtn = btn("새로시작", "touch-menu-btn"); // 인게임 새로시작(타이틀 복귀) — 데스크톱 .save-controls 가 터치서 숨겨져 누락됐던 기능 복원
+  const fsBtn = btn("⛶ 전체화면", "touch-menu-btn"); // 전체화면(주소창 숨김) — 아이콘만으론 불직관해 라벨 병기
+  menu.append(invBtn, charBtn, partyBtn, saveBtn, loadBtn, newBtn, fsBtn); // '지도' 버튼 제거 — 미니맵 탭으로 지도 열기(minimap.ts onTap)
 
   controls.append(joystick, actions, menu);
   parent.append(lookZone, controls);
@@ -311,6 +312,8 @@ export function createTouchControls(parent: HTMLElement, cb: TouchControlsCallba
     tap(saveBtn, () => cb.saveGame()),
     // 불러오기: 숨겨진 데스크톱 [data-load-game] 버튼 재사용(콜백/main.ts 무수정)
     tap(loadBtn, () => (document.querySelector("[data-load-game]") as HTMLElement | null)?.click()),
+    // 새로시작도 동일하게 숨겨진 데스크톱 [data-new-game] 재사용 — onNewGame(확인창 포함) 그대로 탐
+    tap(newBtn, () => (document.querySelector("[data-new-game]") as HTMLElement | null)?.click()),
     tap(fsBtn, toggleFullscreen),
     () => {
       lookZone.removeEventListener("touchstart", autoFullscreen);
