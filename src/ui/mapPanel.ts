@@ -88,14 +88,18 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
   const mapY = (z: number) => half + z * scale;
   const playerX = mapX(view.player.x);
   const playerY = mapY(view.player.z);
-  // 바라보는 방향을 한눈에 — 점+선 대신 큰 방향 화살표(삼각형)로 표시
-  const fwdX = -Math.sin(view.player.yaw);
-  const fwdY = -Math.cos(view.player.yaw);
+  // 바라보는/진행 방향을 한눈에 — 앞쪽 반투명 시야 부채꼴 + 길고 뾰족한 화살표(어느 쪽이 앞인지 즉시 인지)
+  const yaw = view.player.yaw;
+  const fwdX = -Math.sin(yaw);
+  const fwdY = -Math.cos(yaw);
   const perpX = -fwdY;
   const perpY = fwdX;
-  const arrowTip = `${(playerX + fwdX * 28).toFixed(1)},${(playerY + fwdY * 28).toFixed(1)}`;
-  const arrowL = `${(playerX + perpX * 13 - fwdX * 7).toFixed(1)},${(playerY + perpY * 13 - fwdY * 7).toFixed(1)}`;
-  const arrowR = `${(playerX - perpX * 13 - fwdX * 7).toFixed(1)},${(playerY - perpY * 13 - fwdY * 7).toFixed(1)}`;
+  const coneA = 0.6, coneR = 64; // 시야각 ~69° · 길이(화살표 끝보다 멀리 뻗어 방향감 강조)
+  const coneL = `${(playerX - Math.sin(yaw - coneA) * coneR).toFixed(1)},${(playerY - Math.cos(yaw - coneA) * coneR).toFixed(1)}`;
+  const coneR2 = `${(playerX - Math.sin(yaw + coneA) * coneR).toFixed(1)},${(playerY - Math.cos(yaw + coneA) * coneR).toFixed(1)}`;
+  const arrowTip = `${(playerX + fwdX * 34).toFixed(1)},${(playerY + fwdY * 34).toFixed(1)}`; // 더 길고
+  const arrowL = `${(playerX + perpX * 9 - fwdX * 6).toFixed(1)},${(playerY + perpY * 9 - fwdY * 6).toFixed(1)}`; // 더 좁게 → 뾰족한 화살촉
+  const arrowR = `${(playerX - perpX * 9 - fwdX * 6).toFixed(1)},${(playerY - perpY * 9 - fwdY * 6).toFixed(1)}`;
   const waters = view.waterZones
     .map((zone) => `<circle cx="${mapX(zone.center.x).toFixed(1)}" cy="${mapY(zone.center.z).toFixed(1)}" r="${(zone.radius * scale).toFixed(1)}" fill="#38bdf8" opacity="0.34"><title>${escapeHtml(zone.name)}</title></circle>`)
     .join("");
@@ -257,8 +261,9 @@ export function renderRegionMapPanel(panelEl: HTMLElement, view: RegionMapPanelV
           ${deaths}
           ${party}
           ${bosses}
-          <polygon points="${arrowTip} ${arrowL} ${arrowR}" fill="#ffe24a" stroke="#111827" stroke-width="3" stroke-linejoin="round"><title>내 위치 · 바라보는 방향</title></polygon>
+          <polygon points="${playerX.toFixed(1)},${playerY.toFixed(1)} ${coneL} ${coneR2}" fill="rgba(255,226,74,0.28)" stroke="none"><title>바라보는 방향(시야)</title></polygon>
           <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="6.5" fill="#fff7d6" stroke="#111827" stroke-width="2.5" />
+          <polygon points="${arrowTip} ${arrowL} ${arrowR}" fill="#ffe24a" stroke="#111827" stroke-width="3" stroke-linejoin="round"><title>내 위치 · 바라보는 방향(화살표 끝이 앞)</title></polygon>
         </svg>
         <aside class="map-region-list">
           <div class="map-player-level">현재 Lv ${view.player.level}</div>
