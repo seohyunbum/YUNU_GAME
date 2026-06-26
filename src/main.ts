@@ -244,7 +244,7 @@ import type {
 } from "./game/types";
 import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, monsterStatsFromLevel, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
 import { DEFAULT_DIFFICULTY, applyMonsterDifficulty, difficultyModifiers, difficultyShopCost, isDifficultyMode, type DifficultyMode, type DifficultyModifiers } from "./game/difficulty";
-import { createSpirit, createSpiritCollection, equippedSpirit, normalizeSpiritCollection, spiritAttackBonus, spiritDefenseBonus, spiritGradeDef, spiritGradeIndex } from "./game/spirits";
+import { createSpirit, createSpiritCollection, equippedSpirit, gainSpiritExperience, normalizeSpiritCollection, spiritAttackBonus, spiritDefenseBonus, spiritFeedExperience, spiritGradeDef, spiritGradeIndex } from "./game/spirits";
 import { runSpiritGacha } from "./ui/gachaScreen";
 import { updateSpiritBadge } from "./ui/spiritBadge";
 import type { SpiritCollection } from "./game/types";
@@ -4909,7 +4909,9 @@ class WildernessGame {
   }
 
   private grantExperienceForTarget(target: WorldObject, creditQuest = true) {
-    this.summonerCompanion.awardExperience(Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1)), this.summonerPetContext);
+    const killExp = Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1));
+    this.summonerCompanion.awardExperience(killExp, this.summonerPetContext);
+    { const sp = equippedSpirit(this.spirits); if (sp && gainSpiritExperience(sp, killExp) > 0) { this.showMessage(`✨ 정령 레벨업! Lv ${sp.level} (공+${spiritAttackBonus(sp)}/방+${spiritDefenseBonus(sp)})`); this.renderHud(); } } // 장착 정령도 소환수와 동일 경험치로 레벨업
     if (target.type === "wildPredator" && creditQuest) { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); } // creditQuest=false → 파티에서 게스트가 막타친 경우: 호스트는 사냥 카운터 증가 안 함(게스트가 자기 카운터 증가)
     if ((target.type === "wildPredator" || target.type === "dragon") && Math.random() < 0.012 * this.difficultyMods.dropChance && this.addItem("spirit_gacha_token", 1)) this.showMessage("✨ 정령 소환권을 발견했습니다! (전설 — 인벤에서 더블클릭 또는 핫바로 사용)"); // 사냥 시 낮은 확률 드랍(난이도 드랍률 반영)
     if (target.fortressBoss) {
@@ -6905,6 +6907,7 @@ class WildernessGame {
         },
         onEquipNecklace: (item) => { this.equippedNecklace = (item as ItemId | null) ?? null; this.playTone(880, 0.1, "triangle", 0.03); this.renderHud(); this.renderPanel(); },
         onEquipSpirit: (id) => { this.spirits.equippedId = id && this.spirits.owned.some((s) => s.id === id) ? id : null; this.playTone(740, 0.12, "triangle", 0.035); this.renderHud(); this.renderPanel(); },
+        onFeedSpirit: (id) => { const target = equippedSpirit(this.spirits); const mat = this.spirits.owned.find((s) => s.id === id); if (!target || !mat || mat.id === target.id) return; const exp = spiritFeedExperience(mat); this.spirits.owned = this.spirits.owned.filter((s) => s.id !== id); const ups = gainSpiritExperience(target, exp); this.playTone(660, 0.12, "triangle", 0.04); this.showMessage(ups > 0 ? `정령에게 먹이를 줬습니다 — 레벨업! Lv ${target.level} (공+${spiritAttackBonus(target)}/방+${spiritDefenseBonus(target)})` : `정령에게 먹이를 줬습니다 (+${exp} 경험치)`); this.renderHud(); this.renderPanel(); },
         onClose: () => this.closePanel(),
       });
     }

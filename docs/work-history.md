@@ -416,3 +416,16 @@
 - 수정(4): coachBeacon 에 데스크톱키→모바일 라벨 맵(WASD→조이스틱, 좌/우클릭→👊버튼/탭, E→👊버튼 등) 추가해 touch 시 kbd 배지 치환. tutorial 책·training howTo·recipes note 의 데스크톱 전용 문구에 "(모바일: …)" 병기(기존 패턴 답습). controlsGuide 는 이미 모바일서 숨김, objectiveGuide 는 이미 모바일 안내 있음.
 - 검증: typecheck·mobile·content·gameplay-systems·combat·save·difficulty·leaderboard 녹색. main.ts 무변경(예산 그대로).
 - 관련: src/ui/touchControls.ts, src/ui/coachBeacon.ts, src/game/tutorial.ts, src/game/training.ts, src/game/recipes.ts, src/style.css.
+
+## 2026-06-26 — 정령(Spirit) 가챠·장착·레벨업 시스템 (4단계 커밋)
+
+- 요청: 가챠 아이템으로 등급별 정령 확률 획득 → 목걸이처럼 장착해 공·방 버프, 소환수식 레벨업 + 먹이.
+- 설계: 로직은 leaf(game/spirits.ts), 연출/표현은 ui(gachaScreen.ts·spiritBadge.ts), main 은 배선만(신규 메서드 0 — 컨텍스트 콜백·필드로만). 등급/배율은 데이터(SPIRIT_GRADES)로 표현.
+- 등급: 5단계(일반/고급/희귀/영웅/전설), 가챠 48/30/15/5.5/1.5%, 공·방 각각 0-5/3-8/6-11/9-14/12-17 독립 롤. 레벨당 버프 = 초기치 ×(1+2%×(Lv-1)).
+- 1단계(e7d8743): spirits.ts + 타입 + 아이템(정령 소환권, 전설 tier + 황금 눈 외형) + spirits-test.
+- 2단계(530c72d): 세이브 스키마(SAVE_VERSION 13→14, 마이그레이션 빈 컬렉션) + 드랍(상자 12%/4%·사냥 1.2%×난이도) + 사용(인벤 더블클릭·핫바 → 전체화면 가챠 연출: 이집트 눈 빌드업→등급색 공개, 건너뛰기, 신디사이즈 효과음).
+- 3단계(dad3e4f): 캐릭터창 장착 섹션 + 공/방 적용(목걸이와 동일 합산 위치) + 좌하단 버프 칩(상시 value) + 좌상단 미니 뱃지(등급↑ 발광/반짝 차등).
+- 4단계(이 커밋): 장착 정령이 처치 시 소환수와 동일 경험치로 레벨업 + 미착용 정령 먹이기(등급·레벨 비례 경험치).
+- 결정/기본값(사용자 질문 도구가 권한오류로 실패 → 권장값으로 진행, 사용자 정정 가능): 5등급/위 배율, 공·방 독립 롤, BGM=엔진 신디사이즈(외부 파일 없음 — 이 환경서 바이너리 추가 불가), 단일 장착, 사냥·상자 드랍.
+- ⚠ 미검증(환경 제약): 브라우저 부재로 visual-check 미실행 — 가챠 연출(눈 애니메이션)·뱃지·패널 레이아웃은 실기기 확인 권장. 로직은 spirits-test 로 커버.
+- 관련: game/spirits.ts·types·items·chestLoot·hotbarUse·saveManager·saveMigration·constants·heldItemVisuals, ui/gachaScreen·spiritBadge·characterPanel·hudRenderer, main.ts, style.css, scripts/spirits-test.

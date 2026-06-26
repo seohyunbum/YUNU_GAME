@@ -38,6 +38,7 @@ export interface CharacterPanelCallbacks {
   onSpend(kind: "hp" | "mana" | "attack" | "defense"): void;
   onEquipNecklace(item: string | null): void;
   onEquipSpirit(id: string | null): void;
+  onFeedSpirit(id: string): void;
   onClose(): void;
 }
 
@@ -120,9 +121,10 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
                 ? `<div class="character-necklace-choices">${view.spirits
                     .map(
                       (s) =>
-                        `<button class="character-necklace-choice${s.equipped ? " equipped" : ""}" data-equip-spirit="${escapeHtml(s.id)}" title="공격 +${s.attack} · 방어 +${s.defense}">${s.emoji} ${escapeHtml(s.label)} Lv${s.level} (+${s.attack}/+${s.defense})${s.equipped ? " ✓" : ""}</button>`,
+                        `<button class="character-necklace-choice${s.equipped ? " equipped" : ""}" data-equip-spirit="${escapeHtml(s.id)}" title="공격 +${s.attack} · 방어 +${s.defense}">${s.emoji} ${escapeHtml(s.label)} Lv${s.level} (+${s.attack}/+${s.defense})${s.equipped ? " ✓" : ""}</button>${!s.equipped && view.spirits.some((o) => o.equipped) ? `<button class="character-spirit-feed" data-feed-spirit="${escapeHtml(s.id)}" title="장착 정령에게 먹여 경험치 획득(이 정령은 사라집니다)">🍽️</button>` : ""}`,
                     )
-                    .join("")}${view.spirits.some((s) => s.equipped) ? `<button class="character-necklace-choice" data-equip-spirit="">해제</button>` : ""}</div>`
+                    .join("")}${view.spirits.some((s) => s.equipped) ? `<button class="character-necklace-choice" data-equip-spirit="">해제</button>` : ""}</div>
+                  <div class="character-necklace-empty">🍽️ 버튼: 미착용 정령을 장착 정령에게 먹여 경험치를 올립니다(먹인 정령은 사라짐).</div>`
                 : `<div class="character-necklace-empty">보유한 정령이 없습니다. '정령 소환권'(전설)을 사냥·상자에서 얻어 사용하세요.</div>`
             }
           </div>
@@ -161,6 +163,9 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
   });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-spirit]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onEquipSpirit(button.dataset.equipSpirit ? button.dataset.equipSpirit : null));
+  });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-feed-spirit]").forEach((button) => {
+    button.addEventListener("click", () => { if (button.dataset.feedSpirit) callbacks.onFeedSpirit(button.dataset.feedSpirit); });
   });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-necklace]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onEquipNecklace(button.dataset.equipNecklace ? button.dataset.equipNecklace : null));
