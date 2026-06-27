@@ -66,6 +66,31 @@ export function calculateCombatDamage(attackPower: number, defense: number) {
   return Math.max(1, attack + Math.floor(gap / 10));
 }
 
+// 삼각분포 샘플 — 배율을 [min,max] 범위에서 mode 근처가 가장 잦고 한쪽으로 긴 꼬리(우편향)를 갖도록 뽑는다.
+// 손그림 데미지 분포(피크≈100%, 왼쪽은 80%에서 시작, 오른쪽으로 긴 꼬리)를 단순·검증가능하게 근사한다.
+// rng 주입(기본 Math.random)으로 테스트 결정성 확보 — rollDragonLootCount 와 동일 패턴.
+export function triangularRoll(min: number, mode: number, max: number, rng: () => number = Math.random): number {
+  if (max <= min) return min;
+  const m = Math.min(Math.max(mode, min), max);
+  const c = (m - min) / (max - min);
+  const u = Math.min(1, Math.max(0, rng()));
+  if (u < c) return min + Math.sqrt(u * (max - min) * (m - min));
+  return max - Math.sqrt((1 - u) * (max - min) * (max - m));
+}
+
+// 플레이어 공격 데미지 변동 — 80%~200%, 최빈 100%(우편향: 대부분 100% 안팎, 가끔 큰 한 방).
+// 고정 데미지 대신 매 타격마다 굴린다. base<=0 이면 0, 그 외 최소 1 보장.
+export function varyPlayerDamage(base: number, rng: () => number = Math.random): number {
+  if (base <= 0) return 0;
+  return Math.max(1, Math.round(base * triangularRoll(0.8, 1.0, 2.0, rng)));
+}
+
+// 몬스터(보스 포함) 공격 데미지 변동 — 80%~130%, 최빈 100%. 플레이어보다 변동폭이 좁다.
+export function varyMonsterDamage(base: number, rng: () => number = Math.random): number {
+  if (base <= 0) return 0;
+  return Math.max(1, Math.round(base * triangularRoll(0.8, 1.0, 1.3, rng)));
+}
+
 // 몬스터 → 플레이어 피해 전용: 방어가 아무리 높아도 공격의 15%(올림)는 들어온다.
 // 레벨 보너스(레벨당 방어 +1)가 몬스터 공격 성장(레벨당 +0.65)보다 빨라 생기는
 // "중반 이후 완전 무적"을 막는 하한이다. 플레이어 → 보스 방향은 기존 공식 유지.
