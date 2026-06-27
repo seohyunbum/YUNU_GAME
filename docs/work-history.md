@@ -682,3 +682,15 @@
 - 안전: 훈련장은 안전구역(몬스터 없음)이라 콤뱃 타겟과 충돌 없음. trainingRig 는 isCombatTarget 아님 → 액션 분기에서 기존 trainingRig 핸들러로 정상 진입.
 - 검증: typecheck·size(10168)·methods(494)·systems·content·balance·mobile 녹색. 레이캐스트/콘 상호작용은 브라우저 의존이라 단위테스트 불가 — 실기기 확인 권장(특히 역기 정면 접근 시 "E: 역기들기 훈련 시작" 프롬프트).
 - 관련: src/main.ts (updatePrompt, primaryInteract 대상 목록).
+
+## 2026-06-27 — 좌하단 상태 HUD: 레벨보너스 삭제 + 정령 레벨 표기 + 버프 툴팁 개선
+
+- 요청 3건: ① '레벨 보너스 +N' 표기 삭제 ② 정령 레벨 정보 추가 ③ 버프 아이콘 마우스오버 시 버프명+잔여시간 표기.
+- hudRenderer(leaf ui):
+  - HudViewModel 에서 statBonus 제거, spiritStatus?: string 추가.
+  - stats-detail 의 "레벨 보너스 +N" span 삭제 → 대신 spiritStatus span(있을 때만).
+  - 버프칩 title = 타이머 버프는 `이름 · 남은 시간 N분/초`, 상시 버프(정령 등 value 보유)는 이름만. 표시 시간 텍스트는 기존과 동일.
+- main.ts: statBonus 지역변수·뷰모델 필드 제거(−1줄), spiritStatus 뷰모델 추가(장착 정령: 등급·Lv·공/방 보너스·EXP 현재/다음). experienceForNextSpiritLevel 를 spirits import 에 추가(줄 수 무변).
+- main.ts 10168→10167 로 1줄 감소 → check-main-size MAX_MAIN_LINES 10167 로 조임(ratchet).
+- 검증: typecheck·size(10167)·methods(494)·architecture·combat·systems·content·balance·mobile·spirits·nickname·damage-variance 녹색. HUD 마크업 변경이라 visual-check 권장이나 Chrome 부재로 미실행(실기기에서 정령 장착 시 상태창 정령줄·버프 호버 확인 권장).
+- 관련: src/ui/hudRenderer.ts, src/main.ts, scripts/check-main-size.mjs.

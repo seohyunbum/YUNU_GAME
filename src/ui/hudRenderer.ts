@@ -40,9 +40,9 @@ export interface HudViewModel {
   skills: SkillSlotView[];
   passiveStatus: string;
   petStatus?: string;
+  spiritStatus?: string;
   equipmentArmor: number;
   equippedGearLabel?: string;
-  statBonus: number;
   eagleHp?: number;
   eagleMaxHp: number;
   eagleSkillStatus?: string;
@@ -99,7 +99,11 @@ function renderStatsMarkup(view: HudViewModel) {
   const buffMarkup = view.buffs.length === 0
     ? ""
     : `<div class="buff-bar">${view.buffs
-        .map((b) => `<div class="buff-chip${b.expiring ? " buff-expiring" : ""}" title="${escapeHtml(b.name)}"><span class="buff-icon">${b.icon}</span><span class="buff-time">${b.value !== undefined ? escapeHtml(b.value) : b.secs >= 60 ? `${Math.ceil(b.secs / 60)}분` : `${b.secs}초`}</span></div>`)
+        .map((b) => {
+          const timeText = b.value !== undefined ? b.value : b.secs >= 60 ? `${Math.ceil(b.secs / 60)}분` : `${b.secs}초`;
+          const tip = b.value !== undefined ? b.name : `${b.name} · 남은 시간 ${timeText}`; // 마우스 오버: 버프 이름 + 잔여 시간(상시 버프는 이름만)
+          return `<div class="buff-chip${b.expiring ? " buff-expiring" : ""}" title="${escapeHtml(tip)}"><span class="buff-icon">${b.icon}</span><span class="buff-time">${escapeHtml(timeText)}</span></div>`;
+        })
         .join("")}</div>`;
 
   return `
@@ -141,7 +145,7 @@ function renderStatsMarkup(view: HudViewModel) {
           <span>패시브 ${escapeHtml(view.passiveStatus)}</span>
           ${view.petStatus ? `<span>${escapeHtml(view.petStatus)}</span>` : ""}
           <span>장비 방어 ${view.equipmentArmor}${view.equippedGearLabel ? ` · ${escapeHtml(view.equippedGearLabel)}` : ""}</span>
-          <span>레벨 보너스 +${view.statBonus}</span>
+          ${view.spiritStatus ? `<span>${escapeHtml(view.spiritStatus)}</span>` : ""}
           ${eagleMarkup}
           ${view.eagleSkillStatus ? `<span>${escapeHtml(view.eagleSkillStatus)}</span>` : ""}
         </div>
