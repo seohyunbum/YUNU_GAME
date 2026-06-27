@@ -106,12 +106,13 @@ export function addBossRegalia(root: THREE.Object3D, palette: BossRegaliaPalette
   }
 
   // ── 6. 바닥 발광 아우라(가산 합성) + 위엄 라이트 ──
-  const auraMat = new THREE.MeshBasicMaterial({ color: palette.gem, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const auraMat = new THREE.MeshBasicMaterial({ color: palette.gem, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); // 가산 링 살짝 약화(0.4→0.3) — 밤에 "타게팅 원"처럼 과하게 도드라지던 문제 완화
   const aura = new THREE.Mesh(new THREE.RingGeometry(radius * 1.1, radius * 1.5, 28), auraMat);
   aura.rotation.x = -Math.PI / 2;
   aura.position.set(0, baseY + 0.05, 0);
   g.add(mark(aura));
-  const light = new THREE.PointLight(palette.gem, 0.6, radius * 6);
+  // 위엄 라이트 — 밤·어두운 맵에서 보스 본체가 새카만 실루엣("검은 네모박스")으로만 보이지 않도록 자체 조명 강화(0.6→1.3, 범위 ↑). 낮엔 태양광에 묻혀 영향 작음.
+  const light = new THREE.PointLight(palette.gem, 1.3, radius * 7.5);
   light.position.set(0, baseY + size.y * 0.6, 0);
   g.add(mark(light));
 
