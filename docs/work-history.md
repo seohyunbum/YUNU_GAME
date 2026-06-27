@@ -660,3 +660,16 @@
 - 신규 적대적 테스트 scripts/damage-variance-test.mjs (verify 에 편입): 경계·u=c 연속성·단조성(1001점)·적대적 rng 8종 클램프·비정상 범위·정수출력·하한1·비정상 base 6종→0·결정성(동일 시드)·20만 표본 통계(범위100%준수·평균≈(min+mode+max)/3·P(<mode)≈c·양쪽 꼬리 도달)·몬스터<플레이어 폭.
 - typecheck·size(10168)·methods(494)·architecture·hotpath(할당0)·combat·damage-variance·systems·balance·mobile·party-ledger·difficulty·leaderboard·spirits·content·save-migration 전부 녹색. save-roundtrip 만 환경 Chrome 부재로 미실행.
 - 관련: src/game/combat.ts, src/game/eaglePossession.ts, src/main.ts, scripts/damage-variance-test.mjs, scripts/combat-test.mjs, package.json.
+
+## 2026-06-27 — 닉네임에 띄어쓰기·특수기호 허용(안전 범위)
+
+- 요청: 닉네임 띄어쓰기·특수기호 허용(문제 없으면).
+- 사전 안전 점검(중요): 닉네임이 어디서 쓰이는지 전수 조사.
+  - Firebase 실시간DB **키로 직접 사용**(firebaseDirectory: users/${nick}, friends/${nick}/${to}, inbox/...). RTDB 키는 `. # $ [ ] /`·제어문자 금지(공백은 허용). progressSync 는 encodeURIComponent 로 REST 기록(공백·기호 → SDK 키와 동일하게 디코드되어 일치).
+  - 화면 렌더: party/map/character/training/chat 패널 + 리더보드 전부 escapeHtml(`& < > " '` 모두 이스케이프, 속성값 포함)로 출력 → XSS 안전. 3D/캔버스 네임플레이트·집 간판은 textContent/캔버스라 무해.
+- 결론: 공백 + 대부분의 특수기호는 안전. **차단 대상은 Firebase 키 금지문자(. # $ [ ] /) + HTML 특수문자(< > & " ') + 제어문자뿐.** (HTML 문자는 현재 전부 이스케이프되어 안전하지만, 향후 비이스케이프 렌더 경로 대비 방어적으로 제외.)
+- 변경(nickname.ts): 허용 정규식을 화이트리스트→블랙리스트(NICKNAME_FORBIDDEN)로 교체. trim + 내부 연속 공백 1칸 정규화. 비속어/예약어 필터의 normalizeForFilter 를 강화 — 영숫자·한글(완성형+자모)만 남기고 전부 제거 → "시 발"·"시*발"·"ㅅ.ㅂ"·"a d m i n" 같은 공백/기호 우회까지 검출(자모 보존으로 기존 ㅅㅂ 탐지 유지).
+- UI: nicknamePanel placeholder 문구에 "띄어쓰기·기호" 추가.
+- 테스트: scripts/nickname-test.mjs 신설(verify 편입) — 공백/기호 허용·Firebase 금지문자 6종 차단·HTML 5종 차단·제어문자(NUL/BEL/ESC/DEL) 차단·길이·비속어 우회 6종·예약어 우회·정규화 중복. gameplay-systems-test 의 옛 단언("공백/특수문자 거부") → 신정책(공백·일반기호 허용 + / 와 <b> 거부)으로 갱신.
+- typecheck·size(10168)·methods(494)·architecture·combat·damage-variance·nickname·systems·content·balance·mobile·party-ledger·difficulty·leaderboard·spirits·save-migration 전부 녹색. save-roundtrip 만 Chrome 부재로 미실행.
+- 관련: src/game/nickname.ts, src/ui/nicknamePanel.ts, scripts/nickname-test.mjs, scripts/gameplay-systems-test.mjs, package.json.

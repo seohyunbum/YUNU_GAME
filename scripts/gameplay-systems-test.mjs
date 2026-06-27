@@ -1332,8 +1332,10 @@ try {
     const { validateNickname, confirmNickname, loadNickname } = nickname;
     assert(!validateNickname("a", []).ok, "1글자 닉네임은 거부");
     assert(!validateNickname("열한글자가넘는닉네임임", []).ok, "11글자 닉네임은 거부");
-    assert(!validateNickname("연 우", []).ok, "공백 포함 닉네임은 거부");
-    assert(!validateNickname("연우!", []).ok, "특수문자 포함 닉네임은 거부");
+    assert(validateNickname("연 우", []).ok, "공백 포함 닉네임 허용");
+    assert(validateNickname("연우!", []).ok, "일반 특수문자 허용");
+    assert(!validateNickname("연우/맵", []).ok, "Firebase 키 금지문자(/)는 거부");
+    assert(!validateNickname("연우<b>", []).ok, "HTML 특수문자는 거부");
     assert(!validateNickname("시발맨", []).ok, "비속어 포함 닉네임은 거부");
     assert(!validateNickname("FxCk123", []).ok, "변형 영문 욕설도 거부");
     assert(!validateNickname("admin", []).ok, "시스템 예약어는 거부");

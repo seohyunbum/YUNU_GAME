@@ -25,11 +25,12 @@
     "test:leaderboard": "node scripts/leaderboard-test.mjs",
     "test:spirits": "node scripts/spirits-test.mjs",
     "test:damage-variance": "node scripts/damage-variance-test.mjs",
+    "test:nickname": "node scripts/nickname-test.mjs",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:size": "node scripts/check-main-size.mjs",
     "check:methods": "node scripts/check-method-count.mjs",
     "check:hotpath": "node scripts/check-hotpath-allocations.mjs",
-    "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run check:hotpath && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:systems && npm run test:balance && npm run test:mobile && npm run test:party-ledger && npm run test:difficulty && npm run test:leaderboard && npm run test:spirits && npm run test:damage-variance",
+    "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run check:hotpath && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:systems && npm run test:balance && npm run test:mobile && npm run test:party-ledger && npm run test:difficulty && npm run test:leaderboard && npm run test:spirits && npm run test:damage-variance && npm run test:nickname",
     "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run visual:weapons && npm run perf-check",
     "admin-report": "node scripts/admin-report.mjs"
   },

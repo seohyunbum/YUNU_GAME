@@ -16,7 +16,7 @@ export function ensureNickname(onReady: (nickname: string) => void) {
       <section class="nickname-modal">
         <h2>모험가 닉네임 정하기</h2>
         <p class="nickname-subtitle">앞으로 파티 친구들에게 보일 이름이에요. 신중하게 정해 주세요!</p>
-        <input class="nickname-input" data-nickname-input type="text" maxlength="${NICKNAME_MAX_LENGTH}" placeholder="${NICKNAME_MIN_LENGTH}~${NICKNAME_MAX_LENGTH}글자 (한글·영문·숫자)" autocomplete="off" />
+        <input class="nickname-input" data-nickname-input type="text" maxlength="${NICKNAME_MAX_LENGTH}" placeholder="${NICKNAME_MIN_LENGTH}~${NICKNAME_MAX_LENGTH}글자 (한글·영문·숫자·띄어쓰기·기호)" autocomplete="off" />
         <p class="nickname-error" data-nickname-error></p>
         <button class="nickname-confirm" data-nickname-confirm>확정</button>
         <p class="nickname-notice">
