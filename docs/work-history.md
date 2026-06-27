@@ -632,3 +632,17 @@
 - 테스트: gameplay-systems-test 의 보스순서 base 스냅샷이 `countItem:()=>999` 라 토큰을 999개 쥐여줘 새 인터럽트가 보스순서 검증을 깨뜨림 → hunger=HUNGER_MAX 로 eat_meat 를 막는 것과 동일하게 토큰만 0 으로(+ownedSpiritCount 0) 억제. 추가로 정령 퀘스트 양성 테스트 블록(소환권→소환→장착→완료후 미노출) 신설.
 - typecheck·size(10187)·methods(495)·architecture·hotpath·combat·save-migration·content·systems·balance·mobile·difficulty·leaderboard·party-ledger·spirits 전부 녹색. save-roundtrip 은 환경 Chrome 부재로 미실행(동일 한계).
 - 관련: src/objectives.ts, src/main.ts, scripts/gameplay-systems-test.mjs.
+
+## 2026-06-27 — 데미지 고정 → 범위 내 랜덤(삼각분포)
+
+- 요청(손그림 2장): 데미지를 고정이 아니라 범위 내 랜덤으로. 플레이어 80%~200%, 전체 몬스터(보스 포함) 80%~130%. 둘 다 피크≈100%·우편향(오른쪽 긴 꼬리).
+- 분포: 삼각분포(triangular) min/mode/max = 플레이어 0.8/1.0/2.0, 몬스터 0.8/1.0/1.3. 손그림(피크 100%, 왼쪽 80% 시작, 오른쪽 긴 꼬리)을 단순·검증가능하게 근사. 기대 평균 플레이어 1.267·몬스터 1.033.
+- 구현(순수 leaf): game/combat.ts 에 triangularRoll(min,mode,max,rng=Math.random) + varyPlayerDamage(base,rng) + varyMonsterDamage(base,rng). base<=0→0, 그 외 최소 1 보장. rng 주입으로 결정성(rollDragonLootCount 패턴).
+- 배선(main.ts, 신규 메서드 0·줄수 net 0):
+  - 플레이어 기본공격 6종 + 원거리 발사 1회굴림: attackAnimal/attackPredator/attackDragon/attackJammini/attackVillager/attackKnight 의 currentDamage(), fireRangedWeapon 의 currentRangedDamage() 를 varyPlayerDamage() 로 감쌈. (HUD 표기 displayedAttackPower 는 base 유지 — 깜빡임 방지.)
+  - 몬스터 피해: 적 발(發) damagePlayer 래퍼 7곳(projectileDamageContext/graveTrap/dragonAi/caveMonster/guardAi/guardProjectile/predatorAi)에서 amount→varyMonsterDamage(amount). 반격반사(tryCounterReflect)도 변동값 기준. dragonCounterAttack 직접호출 2곳(claw/fire)도 래핑.
+  - 환경/자해(낙하·레고)는 제외 — 적 피해만 변동.
+  - import 는 기존 combat import 줄에 이어붙여 main.ts 줄수 불변(10168).
+- 결정: 클래스 스킬(classSkills) / 독수리 빙의 데미지는 이번 범위에서 제외(기본공격·원거리·몬스터 전부 변동). 필요 시 후속.
+- 테스트: combat-test 에 변동 검증 추가 — 삼각분포 경계(rng 0/1/c)·연속성·플레이어 80~200%·몬스터 80~130%·하한 1·base<=0→0 + 1만표본 LCG 퍼징(항상 범위 내 + 우편향 평균). typecheck·size(10168)·methods(494)·architecture·hotpath(할당 0)·combat·save-migration·content·systems·balance·mobile·party-ledger·difficulty·leaderboard·spirits 전부 녹색. save-roundtrip 은 환경 Chrome 부재로 미실행.
+- 관련: src/game/combat.ts, src/main.ts, scripts/combat-test.mjs.
