@@ -1585,8 +1585,9 @@ try {
     assert(top.some((reward) => reward.item === "obsidian"), "level 100 supply should add obsidian");
     assert(top.some((reward) => reward.item === "sharp_obsidian") && top.some((r) => r.item === "obsidian_powder"), "endgame supply yields ultimate-weapon materials (balance vs field obsidian chest)");
     assert(!top.some((r) => r.item === "xp_bottle"), "xp bottle not guaranteed even at endgame supply");
-    const allBonus = rollHomeSupply(100, () => 0.01);
-    assert(allBonus.length === top.length + 2, "lucky tier-4 roll adds xp bottle(50%) + bonus line(20%) — two probabilistic lines");
+    const allBonus = rollHomeSupply(100, () => 0.01); // 행운 롤: 경험치병+정령+보너스 모두 추가되지만 6종 cap 적용
+    assert(top.length <= 6 && allBonus.length <= 6, "집 보급상자도 최대 6종류 cap (모든 상자 공통 규칙)");
+    assert(allBonus.some((r) => r.item === "xp_bottle") && allBonus.some((r) => r.item === "spirit_gacha_token"), "행운 롤이면 경험치병+정령 소환권(둘 다 전설)이 cap 상위로 보존된다");
     assert(homeSupplyReadyLabel(0).includes("준비"), "ready label should say ready");
     assert(homeSupplyReadyLabel(610).includes("11분"), "cooldown label should round up to minutes");
   }
@@ -2074,7 +2075,8 @@ try {
     assert(!["diamond", "obsidian", "dragon_scale", "diamond_sword", "obsidian_sword"].some((i) => t0.has(i)), "일반 상자엔 희귀 전리품이 없어야 한다");
     assert(t1.has("gold"), "황금 상자엔 금 재료");
     assert(t2.has("diamond"), "다이아몬드 상자엔 다이아몬드");
-    assert(t3.has("obsidian") && t3.has("dragon_scale"), "흑요석 상자엔 흑요석 + 드래곤 재료");
+    assert(t3.has("obsidian") && t3.size <= 6, "흑요석 상자엔 흑요석(에픽) 포함 + 최대 6종류 cap (등급순이라 풀 롤 시 dragon_scale 같은 rare 는 밀릴 수 있음)");
+    assert(t3.has("spirit_gacha_token") || t3.has("xp_bottle"), "흑요석 상자 풀 롤이면 전설템(정령 소환권/경험치병)이 cap 상위에 남는다");
     const rareCount = (s) => [...s].filter((i) => itemRarity(i) !== "common").length;
     assert(rareCount(t0) === 0, "일반 상자 전리품은 모두 common");
     assert(rareCount(t3) >= 3, `흑요석 상자는 rare/epic 다수여야 한다 (got ${rareCount(t3)})`);

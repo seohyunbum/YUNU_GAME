@@ -60,6 +60,8 @@ export function rollHomeSupply(level: number, random: () => number = Math.random
   if (tier >= 2) loot.push({ item: "iron", count: 8 + tier * 2 }, { item: "gold", count: 4 + tier });
   // 경험치병(레전더리) — tier≥2에서 35% 확률로만(종전 50%의 70%)
   if (tier >= 2 && random() < 0.35) loot.push({ item: "xp_bottle", count: 1 });
+  // 정령 소환권(전설) — tier≥2에서 낮은 확률(6%)로만. cap 에서 레전더리라 거의 항상 보존.
+  if (tier >= 2 && random() < 0.06) loot.push({ item: "spirit_gacha_token", count: 1 });
   if (tier >= 3) loot.push({ item: "diamond", count: 3 }, { item: "refined_diamond", count: 2 }, { item: "gold_powder", count: 3 }, { item: "diamond_powder", count: 2 });
   if (tier >= 4) loot.push({ item: "obsidian", count: 3 }, { item: "sharp_obsidian", count: 2 }, { item: "obsidian_powder", count: 2 }, { item: "dragon_scale", count: 2 });
   // 행운 보너스 1줄 — 등급별 상향(흑요석 베이스캠프는 용의 뿔까지)
