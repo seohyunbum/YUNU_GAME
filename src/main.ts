@@ -768,7 +768,7 @@ class WildernessGame {
     clawCooldownUntil: () => this.eagleClawCooldownUntil, windCutterCooldownUntil: () => this.windCutterCooldownUntil,
     setClawCooldownUntil: (value) => { this.eagleClawCooldownUntil = value; }, setWindCutterCooldownUntil: (value) => { this.windCutterCooldownUntil = value; },
     target: () => this.eagleCombatTarget(), scene: this.scene, camera: this.camera, projectiles: this.projectiles, combatEffectContext: this.combatEffectContext,
-    applyDamage: (target, damage, kind) => this.applyProjectileDamage(target, damage, kind), playHandAction: (mode) => this.playHandAction(mode), playMeleeWhoosh: () => this.playMeleeWhoosh(),
+    applyDamage: (target, damage, kind) => this.applyProjectileDamage(target, varyPlayerDamage(damage), kind), playHandAction: (mode) => this.playHandAction(mode), playMeleeWhoosh: () => this.playMeleeWhoosh(), // 빙의 스킬 데미지 80%~200% 랜덤
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(),
   };
   private readonly bannerEl = createBannerElement();
@@ -3098,7 +3098,7 @@ class WildernessGame {
     useSecondClassSkill(this.secondSkillContext);
   }
 
-  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), skillDamageMult: () => jobTierSkillDamageMult(this.playerClass, this.jobTier), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius, dirYaw) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius, dirYaw), applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass, this.jobTier >= 4) };
+  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), skillDamageMult: () => jobTierSkillDamageMult(this.playerClass, this.jobTier), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius, dirYaw) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius, dirYaw), applyDamage: (target, damage) => this.applyProjectileDamage(target, varyPlayerDamage(damage), "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass, this.jobTier >= 4) };
 
   // 3번째 스킬(F) — 1차 전직 시 해금. 2스킬 컨텍스트를 재사용하되 쿨다운 슬롯/광역·자가회복만 보강.
   private useThirdSkill() {
@@ -3189,7 +3189,7 @@ class WildernessGame {
     this.renderHud();
   }
 
-  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), skillDamageMult: () => jobTierSkillDamageMult(this.playerClass, this.jobTier), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, damage, "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, healingRain: () => spawnHealingRain(this.combatEffectContext, this.playerPosition), playerPosition: this.playerPosition };
+  private readonly skillEffectsContext: SkillEffectsContext = { now: () => performance.now(), buffs: this.skillBuffs, levelBonus: () => this.levelStatBonus(), skillDamageMult: () => jobTierSkillDamageMult(this.playerClass, this.jobTier), getObject: (id) => this.objects.get(id), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, applyDamage: (target, damage) => this.applyProjectileDamage(target, varyPlayerDamage(damage), "magic"), heal: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, healingRain: () => spawnHealingRain(this.combatEffectContext, this.playerPosition), playerPosition: this.playerPosition };
 
   private useHealerSkill() {
     const helpsParty = partyHasNearbyMember(this.playerPosition.x, this.playerPosition.z, HEAL_PARTY_RADIUS);
@@ -3277,7 +3277,7 @@ class WildernessGame {
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
     const origin = this.camera.position.clone().addScaledVector(direction, 0.9).addScaledVector(right, 0.18).addScaledVector(up, -0.14);
     const mesh = visual === "tnt" ? createTntProjectile(direction) : visual === "arrow" ? createArrowProjectile(direction) : visual === "wind" ? createWindCutterProjectile(direction) : visual === "fireball" ? createFireballProjectile(direction) : createMagicProjectile(direction);
-    const projectile: CombatProjectile = { kind, mesh, velocity: direction.multiplyScalar(speed), damage, radius, life: kind === "tnt" ? 2.1 : PROJECTILE_MAX_LIFE, explosionRadius };
+    const projectile: CombatProjectile = { kind, mesh, velocity: direction.multiplyScalar(speed), damage: varyPlayerDamage(damage), radius, life: kind === "tnt" ? 2.1 : PROJECTILE_MAX_LIFE, explosionRadius }; // 스킬 투사체 데미지 80%~200% 랜덤(발사 시 1회)
     projectile.mesh.position.copy(origin);
     this.scene.add(projectile.mesh);
     this.projectiles.push(projectile); notifyPartyAttack("skill", origin, direction, visual, speed, kind === "tnt" ? 2.1 : PROJECTILE_MAX_LIFE);
@@ -5316,7 +5316,7 @@ class WildernessGame {
       if (effect.nextTickAt <= 0 || now >= effect.nextTickAt) {
         effect.damagedThisTick.clear();
         spawnExplosionVisual(this.combatEffectContext, effect.mesh.position, effect.radius * 0.38);
-        this.applyAreaDamage(effect.mesh.position, effect.radius, effect.damage, effect.damagedThisTick, "tnt");
+        this.applyAreaDamage(effect.mesh.position, effect.radius, varyPlayerDamage(effect.damage), effect.damagedThisTick, "tnt"); // 장판 스킬 데미지 매 틱 80%~200% 랜덤
         effect.nextTickAt = now + 1000;
       }
       if (now < effect.expiresAt) continue;

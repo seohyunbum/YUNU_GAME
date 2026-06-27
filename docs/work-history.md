@@ -646,3 +646,17 @@
 - 결정: 클래스 스킬(classSkills) / 독수리 빙의 데미지는 이번 범위에서 제외(기본공격·원거리·몬스터 전부 변동). 필요 시 후속.
 - 테스트: combat-test 에 변동 검증 추가 — 삼각분포 경계(rng 0/1/c)·연속성·플레이어 80~200%·몬스터 80~130%·하한 1·base<=0→0 + 1만표본 LCG 퍼징(항상 범위 내 + 우편향 평균). typecheck·size(10168)·methods(494)·architecture·hotpath(할당 0)·combat·save-migration·content·systems·balance·mobile·party-ledger·difficulty·leaderboard·spirits 전부 녹색. save-roundtrip 은 환경 Chrome 부재로 미실행.
 - 관련: src/game/combat.ts, src/main.ts, scripts/combat-test.mjs.
+
+## 2026-06-27 — 스킬 데미지도 랜덤 변동 + 적대적 테스트
+
+- 요청: 스킬 데미지도 (기본공격처럼) 범위 내 랜덤으로. 전반적 적대적 테스트 후 병합.
+- 스킬 변동 배선(플레이어 80%~200%, varyPlayerDamage 재사용):
+  - 스킬 투사체: this.fireSkillProjectile() 메서드의 projectile.damage 를 발사 시 1회 굴림 → 메이지 파이어볼/메테오·거너 사격·소환사 윈드 등 모든 스킬 투사체 일괄.
+  - 즉발/근접/장판/도트: 스킬 컨텍스트 applyDamage 래퍼 3곳(eagleActionContext·secondSkillContext(2·3스킬 공용)·skillEffectsContext(도트/광역)) 에서 damage→varyPlayerDamage.
+  - 전사 장판(areaSkillEffects) 매 틱: applyAreaDamage 호출 시 effect.damage 를 변동(틱마다 굴림). 투사체 AOE(explode/magic)는 발사 시 이미 굴렸으므로 applyAreaDamage 내부는 불변 — 이중 굴림 방지.
+  - 독수리 빙의 윈드커터: 리프 모듈 eaglePossession.ts 에서 직접 생성하는 투사체 damage 를 varyPlayerDamage(발사 1회). combat.ts import(leaf→leaf, 순환 없음).
+  - 이중 변동 점검: applyProjectileDamage/applyAreaDamage 내부는 변동 없음 — 기본 원거리(스폰서 1회)·근접(호출부 1회)·스킬(래퍼/메서드 1회) 모두 단일 굴림 보장.
+- 적대적 강건화(combat.ts): triangularRoll 이 비정상 rng(NaN/Infinity/범위이탈) → 0 으로 클램프, 비정상 범위(max<=min, mode<min) 방어. varyX 가 비유한·비양수 base → 0 (NaN/Infinity 포함).
+- 신규 적대적 테스트 scripts/damage-variance-test.mjs (verify 에 편입): 경계·u=c 연속성·단조성(1001점)·적대적 rng 8종 클램프·비정상 범위·정수출력·하한1·비정상 base 6종→0·결정성(동일 시드)·20만 표본 통계(범위100%준수·평균≈(min+mode+max)/3·P(<mode)≈c·양쪽 꼬리 도달)·몬스터<플레이어 폭.
+- typecheck·size(10168)·methods(494)·architecture·hotpath(할당0)·combat·damage-variance·systems·balance·mobile·party-ledger·difficulty·leaderboard·spirits·content·save-migration 전부 녹색. save-roundtrip 만 환경 Chrome 부재로 미실행.
+- 관련: src/game/combat.ts, src/game/eaglePossession.ts, src/main.ts, scripts/damage-variance-test.mjs, scripts/combat-test.mjs, package.json.

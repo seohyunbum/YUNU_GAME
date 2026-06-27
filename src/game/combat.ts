@@ -70,24 +70,25 @@ export function calculateCombatDamage(attackPower: number, defense: number) {
 // 손그림 데미지 분포(피크≈100%, 왼쪽은 80%에서 시작, 오른쪽으로 긴 꼬리)를 단순·검증가능하게 근사한다.
 // rng 주입(기본 Math.random)으로 테스트 결정성 확보 — rollDragonLootCount 와 동일 패턴.
 export function triangularRoll(min: number, mode: number, max: number, rng: () => number = Math.random): number {
-  if (max <= min) return min;
+  if (!(max > min)) return min; // degenerate/비정상 범위 → 점값
   const m = Math.min(Math.max(mode, min), max);
   const c = (m - min) / (max - min);
-  const u = Math.min(1, Math.max(0, rng()));
+  const r = rng();
+  const u = Number.isFinite(r) ? Math.min(1, Math.max(0, r)) : 0; // 적대적 rng(NaN/Infinity/범위이탈) 방어
   if (u < c) return min + Math.sqrt(u * (max - min) * (m - min));
   return max - Math.sqrt((1 - u) * (max - min) * (max - m));
 }
 
 // 플레이어 공격 데미지 변동 — 80%~200%, 최빈 100%(우편향: 대부분 100% 안팎, 가끔 큰 한 방).
-// 고정 데미지 대신 매 타격마다 굴린다. base<=0 이면 0, 그 외 최소 1 보장.
+// 고정 데미지 대신 매 타격마다 굴린다. base 가 유한·양수가 아니면 0, 그 외 최소 1 보장.
 export function varyPlayerDamage(base: number, rng: () => number = Math.random): number {
-  if (base <= 0) return 0;
+  if (!Number.isFinite(base) || base <= 0) return 0;
   return Math.max(1, Math.round(base * triangularRoll(0.8, 1.0, 2.0, rng)));
 }
 
 // 몬스터(보스 포함) 공격 데미지 변동 — 80%~130%, 최빈 100%. 플레이어보다 변동폭이 좁다.
 export function varyMonsterDamage(base: number, rng: () => number = Math.random): number {
-  if (base <= 0) return 0;
+  if (!Number.isFinite(base) || base <= 0) return 0;
   return Math.max(1, Math.round(base * triangularRoll(0.8, 1.0, 1.3, rng)));
 }
 
