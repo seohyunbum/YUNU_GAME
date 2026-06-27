@@ -4689,51 +4689,53 @@ body.touch-mode .skill-bar {
 .gacha-glow-on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 .gacha-eye {
   position: relative;
-  width: min(70vw, 280px);
-  height: min(42vw, 168px);
-  border-radius: 50%;
-  overflow: hidden;
-  background: #0b1020;
-  box-shadow: 0 0 28px rgba(0, 0, 0, 0.8), inset 0 0 18px rgba(0, 0, 0, 0.9);
-  border: 2px solid rgba(212, 175, 55, 0.55);
-  animation: gacha-tremble 0.5s ease-in-out infinite alternate;
+  width: min(88vw, 380px);
+  filter: drop-shadow(0 6px 26px rgba(0, 0, 0, 0.6));
+  animation: gacha-tremble 0.42s ease-in-out infinite alternate;
 }
 .gacha-eye-open { animation: none; }
-@keyframes gacha-tremble { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
-.gacha-iris {
+@keyframes gacha-tremble { from { transform: translateX(-2.5px) rotate(-0.4deg); } to { transform: translateX(2.5px) rotate(0.4deg); } }
+.gacha-eye-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.gacha-eye-svg .gacha-pyramid { filter: drop-shadow(0 0 6px rgba(236, 198, 79, 0.5)); }
+/* 홍채(SVG circle) — 공개 시 등급 색으로 부풀어 깨어난다 */
+.gacha-iris { transform-box: fill-box; transform-origin: center; transform: scale(0.6); transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), fill 0.4s ease; }
+.gacha-eye-open .gacha-iris { transform: scale(1); }
+.gacha-eye-bloom { opacity: 0; transition: opacity 0.6s ease; }
+/* 회전 황금 광선(sunburst) — 빌드업엔 느리고 은은, 공개 시 빠르고 등급 색으로 */
+.gacha-rays {
   position: absolute;
+  width: 150%;
+  aspect-ratio: 1;
   left: 50%;
-  top: 50%;
-  width: 56%;
-  height: 92%;
-  border-radius: 50%;
+  top: 46%;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle at 50% 45%, #444 0%, #222 60%, #0b1020 100%);
-  transition: background 0.5s ease;
-}
-.gacha-pupil {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 18%;
-  height: 30%;
   border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: #05060a;
+  opacity: 0.26;
+  pointer-events: none;
+  --ray-color: rgba(236, 198, 79, 0.6);
+  background: repeating-conic-gradient(from 0deg, var(--ray-color) 0deg 3deg, transparent 3deg 11deg);
+  -webkit-mask: radial-gradient(circle, transparent 32%, #000 44%, transparent 74%);
+  mask: radial-gradient(circle, transparent 32%, #000 44%, transparent 74%);
+  animation: gacha-spin 26s linear infinite;
 }
-.gacha-lid {
+.gacha-rays-on { opacity: 0.72; animation-duration: 7s; }
+@keyframes gacha-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+/* 공개 반짝임 입자 */
+.gacha-sparkles { position: absolute; left: 50%; top: 46%; width: 0; height: 0; pointer-events: none; z-index: 2; }
+.gacha-spark {
   position: absolute;
-  left: -5%;
-  width: 110%;
-  height: 56%;
-  background: #1a1208;
-  z-index: 3;
-  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 9px; height: 9px;
+  left: 0; top: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(255, 240, 200, 0.9);
+  transform: translate(-50%, -50%);
+  animation: gacha-spark-fly var(--sd, 0.6s) ease-out forwards;
 }
-.gacha-lid-top { top: 0; border-bottom: 2px solid rgba(212, 175, 55, 0.5); }
-.gacha-lid-bottom { bottom: 0; border-top: 2px solid rgba(212, 175, 55, 0.5); }
-.gacha-eye-open .gacha-lid-top { transform: translateY(-100%); }
-.gacha-eye-open .gacha-lid-bottom { transform: translateY(100%); }
+@keyframes gacha-spark-fly {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1); opacity: 0; }
+}
 .gacha-result { text-align: center; }
 .gacha-result.hidden { display: none; }
 .gacha-grade { font-size: clamp(22px, 6vw, 34px); font-weight: 900; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8); }
@@ -4751,6 +4753,101 @@ body.touch-mode .skill-bar {
   font-weight: 900;
   cursor: pointer;
 }
+
+/* ===== 정령 보관함 (캐릭터창 내 팝업-인-팝업, characterPanel.ts) ===== */
+.character-spirit-open {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.16), rgba(251, 191, 36, 0.07));
+  color: #ffe6a3;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+.character-spirit-open:hover { background: rgba(251, 191, 36, 0.22); }
+.spirit-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+}
+.spirit-modal-backdrop { position: absolute; inset: 0; background: rgba(4, 6, 12, 0.74); backdrop-filter: blur(2px); }
+.spirit-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(96%, 540px);
+  max-height: min(82vh, 620px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  background: linear-gradient(180deg, #161a2b, #0f1320);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+.spirit-modal-head { display: flex; align-items: center; justify-content: space-between; }
+.spirit-modal-head h3 { margin: 0; font-size: 18px; color: #ffe6a3; }
+.spirit-modal-count { font-size: 13px; color: #9fb8c8; font-weight: 700; }
+.spirit-modal-equipped { font-size: 13px; color: #cdd9e5; }
+.spirit-modal-equipped strong { color: #ffe6a3; }
+.spirit-modal-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.spirit-modal-tool {
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8eef2;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.spirit-bulk-feed { border-color: rgba(74, 222, 128, 0.5); background: rgba(74, 222, 128, 0.12); color: #bbf7d0; }
+.spirit-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 9px;
+  overflow-y: auto;
+  padding: 2px;
+  flex: 1;
+}
+.spirit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 6px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--sc) 45%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--sc) 14%, #0e1322), #0c1020);
+}
+.spirit-card.equipped { border-color: var(--sc); box-shadow: 0 0 0 1px var(--sc), 0 0 14px color-mix(in srgb, var(--sc) 50%, transparent); }
+.spirit-card-emoji { font-size: 26px; line-height: 1; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sc) 60%, transparent)); }
+.spirit-card-name { font-size: 13px; font-weight: 900; }
+.spirit-card-name b { font-weight: 800; color: #f3ead6; }
+.spirit-card-stats { font-size: 12px; color: #cdd9e5; font-weight: 700; }
+.spirit-card-actions { display: flex; gap: 5px; margin-top: 3px; }
+.spirit-card-equip, .spirit-card-feed {
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8eef2;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.spirit-card-equip:hover, .spirit-card-feed:hover { background: rgba(255, 255, 255, 0.16); }
+.spirit-card-tag { font-size: 12px; font-weight: 800; color: var(--sc); }
+.spirit-modal-note { margin: 0; font-size: 11px; color: #8aa0b2; text-align: center; }
 
 /* ===== 장착 정령 미니 뱃지 (좌측 상단, spiritBadge.ts) ===== */
 .spirit-badge {
