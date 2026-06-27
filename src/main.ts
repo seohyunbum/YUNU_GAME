@@ -859,10 +859,11 @@ class WildernessGame {
       const id = `sp${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
       const spirit = createSpirit(id, { grade: Math.random(), attack: Math.random(), defense: Math.random() });
       this.spirits.owned.push(spirit); // 즉시 보유 추가(연출은 공개일 뿐) → 닫아도 유지. 다음 저장에 반영.
-      if (this.currentPanel !== null) this.closePanel(); // 인벤 더블클릭 진입이면 패널 닫고 전체화면 연출
       try {
-        runSpiritGacha(spirit, { playTone: (f, d, t, v) => this.playTone(f, d, t, v), playSample: (n, v) => this.sample(n, v, () => {}), onFinish: () => { this.renderHud(); this.renderPanel(); } });
+        runSpiritGacha(spirit, { playTone: (f, d, t, v) => this.playTone(f, d, t, v), playSample: (n, v) => this.sample(n, v, () => {}), onFinish: () => { this.renderHud(); this.renderPanel(); } }); // 먼저 — isGachaActive=true 로 만들어 아래 closePanel 의 포인터락 재획득을 게이트로 차단
       } catch { this.renderHud(); this.renderPanel(); } // 연출 예외 시에도 정령은 이미 보유 추가됨 → HUD/패널만 복구
+      if (this.currentPanel !== null) this.closePanel(); // 인벤 더블클릭 진입이면 패널 닫기(가챠 active 라 재잠금 안 됨)
+      document.exitPointerLock?.(); // 정령 소환 시 포인터락 해제 → ESC 안 눌러도 마우스가 보여 건너뛰기/확인 클릭 가능
     }, consumeStew: () => { const healed = Math.min(STEW_HEAL, this.maxHealth - this.health); this.health += healed; this.skillBuffs.stewBuffUntil = performance.now() + STEW_BUFF_SECONDS * 1000; this.playTone(523, 0.14, "triangle", 0.04); this.showMessage(`고기 스튜를 먹었습니다! 5분간 공격·방어 +5${healed > 0 ? `, 체력 ${healed} 회복` : ""}.`); this.renderHud(); },
     playHandAction: () => this.playHandAction(),
     spawnHealEffect: () => spawnHealEffect(this.combatEffectContext, this.playerPosition),
@@ -1999,6 +2000,7 @@ class WildernessGame {
 
   private requestGamePointerLock() {
     if (isTouchDevice()) return; // 모바일은 포인터락 미지원 — 터치 드래그로 시점 제어
+    if (isGachaActive()) return; // 정령 소환 연출 중엔 커서가 필요 — 포인터락 재획득 차단(ESC 없이 마우스 보이게)
     const canvas = this.renderer.domElement as HTMLCanvasElement & {
       requestPointerLock(options?: { unadjustedMovement?: boolean }): Promise<void> | void;
     };
@@ -7259,18 +7261,8 @@ class WildernessGame {
           <button class="icon-button" data-close>닫기</button>
         </header>
         <div class="recipes shop-list">
-          ${SELL_SHOP_OFFERS.map((offer) => {
-            const owned = this.countItem(offer.item);
-            const disabled = owned > 0 ? "" : "disabled";
-            return `<article class="recipe-card shop-card">
-              <div>
-                <strong>${ITEM_NAMES[offer.item] ?? offer.item}</strong>
-                <p>${ITEM_NAMES[offer.item] ?? offer.item} 1개 -> ${offer.points}P</p>
-                <small>상점 기준 ${offer.shopUnitPrice}P보다 낮은 매입가 · 보유 ${owned}개</small>
-              </div>
-              <button data-sell-offer="${offer.id}" ${disabled}>판매</button>
-            </article>`;
-          }).join("")}
+          ${(() => { const list = SELL_SHOP_OFFERS.filter((o) => this.countItem(o.item) > 0).sort((a, b) => b.points - a.points); // 보유 중인 것만, 비싼 것부터
+            return list.length === 0 ? `<div class="empty-inventory">팔 수 있는 아이템이 없습니다. 채집·제작·전투로 아이템을 모아 오세요.</div>` : list.map((offer) => `<article class="recipe-card shop-card"><div><strong>${ITEM_NAMES[offer.item] ?? offer.item}</strong><p>${ITEM_NAMES[offer.item] ?? offer.item} 1개 → ${offer.points}P</p><small>${offer.note} · 보유 ${this.countItem(offer.item)}개</small></div><button data-sell-offer="${offer.id}">판매</button></article>`).join(""); })()}
         </div>
       </section>
     `;
