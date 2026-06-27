@@ -1264,7 +1264,7 @@ body {
   /* 내용이 창보다 길어도 타이틀이 화면 위로 밀려나지 않게 — 안에서 스크롤 */
   max-height: calc(100vh - clamp(70px, 11vh, 110px));
   overflow-y: auto;
-  padding: 0 8px 0 0;
+  padding: 0 10px 0 10px; /* 좌우 여백 — 난이도/그래픽품질 등 카드 없는 섹션이 좌측 가장자리에 붙어 짤려 보이던 것 방지 */
   color: #f8fafc;
   text-shadow: 0 5px 24px rgba(0, 0, 0, 0.72);
 }
@@ -1285,10 +1285,10 @@ body {
 }
 
 .title-menu h1 {
-  margin: 0 0 16px;
+  margin: 0 0 10px;
   color: #ffffff;
-  /* 창 높이가 낮아도 타이틀이 화면을 집어삼키지 않게 vh 로도 제한한다 */
-  font-size: clamp(34px, min(8.5vw, 13vh), 126px);
+  /* 창 높이가 낮아도 타이틀이 화면을 집어삼키지 않게 vh 로도 제한한다(세로스크롤 완화 위해 상한·여백 축소) */
+  font-size: clamp(30px, min(7.5vw, 10vh), 104px);
   font-weight: 950;
   line-height: 1.02;
   letter-spacing: 0;
@@ -1311,8 +1311,10 @@ body {
 }
 
 .class-select {
-  width: min(680px, 92vw);
-  margin: 0 0 18px;
+  width: 100%;
+  max-width: 680px;
+  box-sizing: border-box; /* 메뉴 콘텐츠 폭을 넘지 않게 — 종전 92vw 가 메뉴보다 넓어 가로 오버플로(좌측 짤림)를 유발 */
+  margin: 0 0 12px;
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
@@ -1341,8 +1343,8 @@ body {
 }
 
 .class-card {
-  min-height: 112px;
-  padding: 10px;
+  min-height: 92px;
+  padding: 8px 9px;
   border: 1px solid rgba(226, 232, 240, 0.24);
   border-radius: 8px;
   background: rgba(15, 23, 42, 0.64);
