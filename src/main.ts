@@ -348,6 +348,7 @@ import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLo
 import { showObjectiveGuide } from "./ui/objectiveGuide";
 import { createOnboardingState, resetOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
 import { renderStationPanel } from "./ui/stationPanel";
+import { flashDeathBanner } from "./ui/deathBanner";
 import { ensureNickname } from "./ui/nicknamePanel";
 import { currentPartySession, initPartyLobby, togglePartyLobby } from "./ui/partyPanel";
 import { initPartyPresence, isGuardType, notifyPartyAttack, partyGuestAttackIntercept, partyGuestOpenIntercept, partyGuestPickupIntercept, partyGuestDropIntercept, partyGuestPlaceIntercept, partyGuestStorageActive, requestSharedStorage, sendStorageTake, sendStorageStore, sendSupplyClaim, partyHasNearbyMember, partyHealNearby, partyHostNotifyKill, partyMapMarkers, partyWorldGuestActive, pushOutOfPartyMembers, updatePartyPresence } from "./game/partyPresence";
@@ -2161,6 +2162,8 @@ class WildernessGame {
       this.loadGame();
       return;
     }
+    // ESC 는 입력칸(검색 등) 포커스 중에도 항상 팝업을 닫는다 — 입력 무시 게이트보다 먼저 처리.
+    if (event.code === "Escape" && this.currentPanel !== null) { if (event.target instanceof HTMLElement) event.target.blur(); this.closePanel(); return; }
     // 입력창(채팅·검색 등) 타이핑은 게임 단축키로 새지 않게 — 단, 위의 Ctrl+W/S/L(브라우저 차단)·미니게임은 통과시킨다 (window capture 핸들러).
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
     this.keys.add(event.code);
@@ -5506,6 +5509,7 @@ class WildernessGame {
         return true;
       }
       const deathPosition = this.locationMode === "overworld" ? this.playerPosition.clone() : (this.caveReturnPosition ?? this.houseReturnPosition ?? new THREE.Vector3(0, PLAYER_HEIGHT, 12)).clone();
+      this.playTone(150, 0.5, "sawtooth", 0.055); window.setTimeout(() => this.playTone(95, 0.7, "sawtooth", 0.05), 200); // 사망 효과음(낮게 가라앉는 2음)
       this.dropInventoryOnDeath(deathPosition);
       this.health = this.maxHealth;
       this.hunger = HUNGER_MAX;
@@ -5529,6 +5533,7 @@ class WildernessGame {
       } else this.playerPosition.set(0, PLAYER_HEIGHT, 12);
       this.settlePlayerAfterTeleport();
       this.showMessage(`사망 원인: ${deathReason} 튜토리얼 책, 직업 기본무기, 구급상자, 착용 중인 무기·방어구를 제외한 아이템이 죽은 자리에 떨어졌습니다.`);
+      flashDeathBanner(`사망 원인: ${deathReason}`); // 화면 중앙 큰 사망 배너(확실한 인지)
       this.renderHud();
       return true;
     }
@@ -8114,7 +8119,10 @@ class WildernessGame {
     slot.durabilityUsed = (slot.durabilityUsed ?? 0) + 1;
     const remaining = maxUses - slot.durabilityUsed;
     if (remaining > 0) {
-      if (remaining <= Math.min(8, Math.ceil(maxUses * 0.3))) {
+      if (remaining <= 3) { // 위험: 3 이하 — 더 강한 경고 + 경고음
+        this.showMessage(`⚠️🔴 ${ITEM_NAMES[item]} 내구도 ${remaining}/${maxUses}! 곧 부서집니다 — 제작대에서 즉시 수리하세요!`);
+        this.playTone(300, 0.13, "square", 0.05);
+      } else if (remaining <= Math.min(8, Math.ceil(maxUses * 0.3))) {
         this.showMessage(`⚒️ ${reason} ${ITEM_NAMES[item]} 내구도 ${remaining}/${maxUses} — 0이 되면 부서집니다. 제작대에서 수리하세요.`);
       }
       return;

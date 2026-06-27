@@ -4850,3 +4850,25 @@ body.touch-mode .skill-bar {
 .spirit-card-equip:hover, .spirit-card-feed:hover { background: rgba(255, 255, 255, 0.16); }
 .spirit-card-tag { font-size: 12px; font-weight: 800; color: var(--sc); }
 .spirit-modal-note { margin: 0; font-size: 11px; color: #8aa0b2; text-align: center; }
+
+/* ===== 사망 알림 배너 (ui/deathBanner.ts) — 화면 중앙 큰 안내 + 붉은 비네트, ~3.6초 페이드 ===== */
+.death-banner {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 45%, transparent 28%, rgba(110, 0, 0, 0.42) 100%);
+}
+.death-banner-show { animation: death-flash 3.6s ease-out forwards; }
+@keyframes death-flash { 0% { opacity: 0; } 7% { opacity: 1; } 72% { opacity: 1; } 100% { opacity: 0; } }
+.death-banner-title { font-size: clamp(42px, 9vw, 92px); font-weight: 950; color: #ff4d4d; letter-spacing: 0.02em; text-shadow: 0 4px 26px rgba(0, 0, 0, 0.95), 0 0 34px rgba(255, 40, 40, 0.5); }
+.death-banner-reason { max-width: 84vw; font-size: clamp(15px, 3vw, 23px); font-weight: 800; color: #ffdada; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95); }
+.death-banner-sub { font-size: 14px; font-weight: 700; color: #e7b8b8; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95); }
