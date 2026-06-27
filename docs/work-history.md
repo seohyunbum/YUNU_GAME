@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-27 — 용 리스폰 10분 쿨다운이 재접속 시 사라지던 버그 수정
+
+- 증상(사용자): 용 스폰이 10분보다 자주 느껴짐. 저장하고 나갔다 들어오면/맵이동하면 스폰되는지 의심.
+- 진단: DRAGON_RESPAWN_MS=10분은 정상. 그러나 dragonRespawnAt 은 ①절대 performance.now() 타임스탬프(페이지 reload 시 0으로 리셋) ②런타임 Map(세이브 미포함). → 용 처치 후 저장·재접속(reload)하면 쿨다운이 사라져 ensureChapterBoss 가 즉시 재스폰. (맵이동은 같은 세션이라 performance.now 유지 → 정상)
+- 수정: homeSupplyCooldowns 패턴 모사 — 남은 쿨타임(ms)을 세이브에 영속. 스냅샷에서 dragonRespawnAt Map→남은ms Record 변환 저장, 로드 시 performance.now()+남은ms 로 Map 복원. 스키마(types·saveManager)·migration(normalizeDragonCooldowns, 600000ms 상한)·main 스냅샷/복원 배선.
+- 검증: typecheck·build·verify 그린. E2E: 10분 쿨다운 세팅→저장(savedCd 600000)→Map클리어(respawnReady=true=버그)→로드→복원(남은 597초·respawnReady=false). 구세이브는 필드 없음→정상(쿨다운 없이 시작).
+
 ## 2026-06-27 — 집 보급 충전 시간 30분 → 20분
 
 - 요청: 집 보급 충전 시간 20분으로.
