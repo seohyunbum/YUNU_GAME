@@ -109,6 +109,8 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
   const duration = Number(predator.root.userData.attackDuration ?? 0);
   const baseScale = predator.root.userData.baseScale instanceof THREE.Vector3 ? predator.root.userData.baseScale : predator.root.scale;
   if (duration <= 0 || now - startedAt >= duration) {
+    const lx = Number(predator.root.userData.attackLungeX ?? 0), lz = Number(predator.root.userData.attackLungeZ ?? 0);
+    if (lx || lz) { predator.root.position.x -= lx; predator.root.position.z -= lz; predator.root.userData.attackLungeX = 0; predator.root.userData.attackLungeZ = 0; } // 도약 오프셋 원복(누적 방지)
     predator.root.rotation.x = 0;
     predator.root.rotation.z = 0;
     predator.root.scale.copy(baseScale);
@@ -130,8 +132,13 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
   const forwardZ = Number(predator.root.userData.attackForwardZ ?? 0);
   const advance = (strike * profile.lunge - windup * profile.pullBack) * (predator.fieldBossId ? 1.25 : 1);
 
-  predator.root.position.x += forwardX * advance;
-  predator.root.position.z += forwardZ * advance;
+  // 도약은 '누적'이 아니라 현재 오프셋으로 적용 — 이전 프레임 오프셋을 빼고 새 오프셋을 더한다(델타).
+  // 종전엔 매 프레임 += 라 추격 루프가 도약분을 그대로 이어받아 플레이어를 향해 끝없이 파고들었고(겹침/시야이탈), 이제 도약은 최대 lunge 거리만큼만 튀었다 돌아온다.
+  const lungeX = forwardX * advance, lungeZ = forwardZ * advance;
+  predator.root.position.x += lungeX - Number(predator.root.userData.attackLungeX ?? 0);
+  predator.root.position.z += lungeZ - Number(predator.root.userData.attackLungeZ ?? 0);
+  predator.root.userData.attackLungeX = lungeX;
+  predator.root.userData.attackLungeZ = lungeZ;
   predator.root.position.y += (windup * profile.rise + strike * profile.jump) * bf;
   predator.root.rotation.x = (windup * 0.14 - strike * profile.pitch - windup * (profile.rise > 0.3 ? 0.5 : 0)) * (predator.fieldBossId ? 1.35 : 1);
   predator.root.rotation.z = shake;
