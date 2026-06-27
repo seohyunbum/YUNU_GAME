@@ -6688,7 +6688,7 @@ class WildernessGame {
     object.attackDamage = savedObject.attackDamage;
     object.attackInterval = savedObject.attackInterval;
     object.animalKind = savedObject.animalKind;
-    object.homePosition = savedObject.homePosition ? this.fromSavedVector(savedObject.homePosition) : undefined;
+    object.homePosition = savedObject.homePosition ? this.fromSavedVector(savedObject.homePosition) : object.homePosition; // 저장값 우선, 없으면 스폰 시 설정된 홈 보존(용 리시 홈 — 구 세이브 대비)
     object.roamRadius = savedObject.roamRadius;
     object.enterable = savedObject.enterable;
     object.houseChestRich = savedObject.houseChestRich;

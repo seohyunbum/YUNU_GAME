@@ -93,6 +93,7 @@ export function applyFieldBossDefinition(object: WorldObject, def: FieldBossDef,
   object.monsterLevel = def.level;
   object.lootTier = 6;
   object.fieldBossId = def.id;
+  object.homePosition = object.root.position.clone(); // 리시 홈 — 어그로 풀리면 이 스폰 지점으로 복귀(predatorAi). 필드보스는 세이브 제외라 항상 fresh 스폰 시 설정됨.
   object.collisionRadius = (object.collisionRadius ?? 1) * def.scale;
   object.collisionHeight = (object.collisionHeight ?? 1.5) * def.scale;
   // 베이스 메시 색만 보스 tint 로 물들이고(regalia 는 제외), 그 위에 악마 군주 regalia 를 덧씌운다.
