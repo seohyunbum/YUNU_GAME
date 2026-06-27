@@ -83,7 +83,7 @@ export const NIGHT_PREDATOR_MIN_PLAYER_DISTANCE = 70;
 export const PREDATOR_RETALIATE_MS = 30_000;
 // 야생 몹 밀도 배수 — 초기 시딩·로드 탑업·런타임 야간 캡이 공유(드리프트 방지).
 export const WILDLIFE_DENSITY_MUL_HIGH = 2.4; // 고품질/보통 (구 2.0)
-export const WILDLIFE_DENSITY_MUL_PERF = 1.5; // 저사양 (구 1.3)
+export const WILDLIFE_DENSITY_MUL_PERF = 0.85; // 저사양 — 1.5→0.85 하향(포식자 1마리 ~27 메시=27 draw call 이라 저사양 렉 주범). 시작맵 60×0.85≈51마리.
 // 맵별 목표 포식자 수(시딩=로드 탑업 공통 기준). 시작맵 60 / 그 외 78 에 밀도 배수.
 export function wildlifePredatorTarget(isDefaultMap: boolean, performanceMode: boolean): number {
   return Math.round((isDefaultMap ? 60 : 78) * (performanceMode ? WILDLIFE_DENSITY_MUL_PERF : WILDLIFE_DENSITY_MUL_HIGH));
