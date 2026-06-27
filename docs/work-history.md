@@ -605,3 +605,16 @@
 - main 배선: scene 에 직접 add(월드오브젝트 아님), 장착/등급 변할 때만 모델 재생성, 미장착/타이틀 시 제거+dispose. 신규 메서드 0(인라인+leaf).
 - ⚠ 브라우저 부재로 visual-check 미실행 — 모델 외형·위치·크기는 실기기 확인 권장(필요 시 SPIRIT_AHEAD/SIDE/RISE/SCALE 상수로 조정).
 - 관련: src/game/spiritVisuals.ts(신규), src/main.ts, src/ui/spiritBadge.ts(삭제), src/style.css.
+
+## 2026-06-27 — 정령 소환권 최초 습득 시 소환·장착 퀘스트 자동 진행
+
+- 요청: 정령 소환권을 처음 얻는 시점에 "정령 소환" + "정령 장착" 퀘스트가 진행되게 추가.
+- 구현: objectives.ts `currentObjective` 에 시퀀스 밖 컨텍스트 인터럽트 2개 추가(eat_meat 와 동일 패턴, TUTORIAL_STEPS 외부).
+  - `summon_spirit`: `countItem("spirit_gacha_token")>0 || ownedSpiritCount>0` 일 때 노출, `ownedSpiritCount>0` 이면 완료(보상 수령). 보상 경험치 300+구급상자 2.
+  - `equip_spirit`: `ownedSpiritCount>0` 일 때 노출, `hasSpiritEquipped` 이면 완료. 보상 경험치 340+구급상자 2.
+  - 순서: 소환 → (보상 수령) → 장착. claimTutorialObjective 가 completedStepIds 에 기록 → 한 번 받으면 다시 안 뜸.
+- ObjectiveSnapshot 에 `ownedSpiritCount`/`hasSpiritEquipped` 필드 추가. main.ts 스냅샷에서 `this.spirits.owned.length`·`equippedSpirit(this.spirits)` 로 채움.
+- main.ts 예산 보존(net 0): 신규 2필드를 1줄로 합치고 completedStepIds/achievedStepIds 기존 2줄을 1줄로 병합 → 10187줄 유지.
+- 테스트: gameplay-systems-test 의 보스순서 base 스냅샷이 `countItem:()=>999` 라 토큰을 999개 쥐여줘 새 인터럽트가 보스순서 검증을 깨뜨림 → hunger=HUNGER_MAX 로 eat_meat 를 막는 것과 동일하게 토큰만 0 으로(+ownedSpiritCount 0) 억제. 추가로 정령 퀘스트 양성 테스트 블록(소환권→소환→장착→완료후 미노출) 신설.
+- typecheck·size(10187)·methods(495)·architecture·hotpath·combat·save-migration·content·systems·balance·mobile·difficulty·leaderboard·party-ledger·spirits 전부 녹색. save-roundtrip 은 환경 Chrome 부재로 미실행(동일 한계).
+- 관련: src/objectives.ts, src/main.ts, scripts/gameplay-systems-test.mjs.

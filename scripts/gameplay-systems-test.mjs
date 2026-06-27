@@ -526,7 +526,8 @@ try {
     // 보스 퀘스트: 튜토리얼 이후 필드보스 + 챕터 드래곤을 권장 레벨 오름차순으로 한 줄에 엮어 다음 미처치 보스를 제시
     const allIds = objectives.TUTORIAL_STEPS.map((s) => s.id);
     const base = (extra) => ({
-      health: 10, hunger: 5, countItem: () => 999, totalSteps: 9999, level: 200,
+      health: 10, hunger: 5, countItem: (it) => (it === "spirit_gacha_token" ? 0 : 999), totalSteps: 9999, level: 200,
+      ownedSpiritCount: 0, hasSpiritEquipped: false, // 정령 소환·장착 컨텍스트 퀘스트 인터럽트 억제(보스 순서 검증) — hunger=HUNGER_MAX 로 eat_meat 를 억제하는 것과 동일
       inCave: false, predatorKills: 99, mapOpened: true, saved: true, shopOpened: true,
       hasWorkbench: true, hasPickaxe: true, hasBag: true, playerClass: "warrior", classWeaponCount: 9, hasBasicArmor: true,
       hasSmelter: true, trainingTotal: 99, trainingKindsDone: 4, bossChapter: 0, defeatedFieldBosses: [],
@@ -540,6 +541,33 @@ try {
     assert(afterStarter.id === "boss_progression" && afterStarter.title.includes("챕터 1") && afterStarter.title.includes("권장 Lv 30"), "after the Lv26 field boss, the Lv30 chapter-1 dragon is next (interleaved by level)");
     const afterCh1 = objectives.currentObjective(base({ defeatedFieldBosses: ["boss_starter_valley"], completedStepIds: [...allIds, "boss_starter_valley"], bossChapter: 1 }));
     assert(afterCh1.id === "boss_dragon_plains" && afterCh1.title.includes("권장 Lv 33"), "after chapter 1 dragon, the Lv33 field boss is next — field & chapter bosses interspersed by recommended level");
+  }
+
+  {
+    // 정령 소환·장착 컨텍스트 퀘스트 — 소환권을 처음 얻는 순간 소환 퀘스트, 소환 후 장착 퀘스트가 시퀀스 밖 인터럽트로 뜬다.
+    const allIds = objectives.TUTORIAL_STEPS.map((s) => s.id);
+    const spiritBase = (extra) => ({
+      health: 10, hunger: 5, totalSteps: 9999, level: 200, inCave: false, predatorKills: 99,
+      mapOpened: true, saved: true, shopOpened: true, hasWorkbench: true, hasPickaxe: true, hasBag: true,
+      playerClass: "warrior", classWeaponCount: 9, hasBasicArmor: true, hasSmelter: true, trainingTotal: 99,
+      trainingKindsDone: 4, bossChapter: 0, defeatedFieldBosses: [], completedStepIds: [...allIds], achievedStepIds: [...allIds],
+      countItem: () => 0, ownedSpiritCount: 0, hasSpiritEquipped: false, ...extra,
+    });
+    // 소환권 보유 → 소환 퀘스트(미완)
+    const withToken = objectives.currentObjective(spiritBase({ countItem: (it) => (it === "spirit_gacha_token" ? 1 : 0) }));
+    assert(withToken.id === "summon_spirit" && withToken.completed === false && withToken.kind === "tutorial", "정령 소환권을 처음 얻으면 정령 소환 퀘스트가 인터럽트로 뜬다(미완)");
+    // 정령 보유(소환 완료) → 소환 퀘스트 완료(보상 수령 가능)
+    const summoned = objectives.currentObjective(spiritBase({ ownedSpiritCount: 1 }));
+    assert(summoned.id === "summon_spirit" && summoned.completed === true, "정령을 소환하면 소환 퀘스트가 완료(클릭해 보상 수령)된다");
+    // 소환 퀘스트 보상 수령 후 → 장착 퀘스트(미완)
+    const toEquip = objectives.currentObjective(spiritBase({ ownedSpiritCount: 1, completedStepIds: [...allIds, "summon_spirit"] }));
+    assert(toEquip.id === "equip_spirit" && toEquip.completed === false, "소환 보상 수령 후 정령 장착 퀘스트가 뜬다(미완)");
+    // 장착 완료 → 장착 퀘스트 완료
+    const equipped = objectives.currentObjective(spiritBase({ ownedSpiritCount: 1, hasSpiritEquipped: true, completedStepIds: [...allIds, "summon_spirit"] }));
+    assert(equipped.id === "equip_spirit" && equipped.completed === true, "정령을 장착하면 장착 퀘스트가 완료된다");
+    // 둘 다 수령 완료 → 정령 퀘스트는 더 이상 뜨지 않고 보스 라인으로 복귀
+    const done = objectives.currentObjective(spiritBase({ ownedSpiritCount: 1, hasSpiritEquipped: true, completedStepIds: [...allIds, "summon_spirit", "equip_spirit"] }));
+    assert(done.id !== "summon_spirit" && done.id !== "equip_spirit", "정령 퀘스트 2개를 모두 수령하면 다시 뜨지 않는다");
   }
 
   {
