@@ -14,6 +14,12 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-27 — 훈련장 방어(방패막기)·명상(명상호흡) 훈련도 스페이스바 지원
+
+- 요청: 훈련장의 방어 훈련·명상 훈련도 스페이스로 가능하게(과녁=attack 은 이미 지원).
+- 구현(trainingPanel.ts): runBlock 의 인라인 mousedown 핸들러를 `block()` 함수로, runMeditation 의 것을 `gather()` 로 추출. 각각 attack(runTarget)과 동일하게 window keydown(code==="Space") 핸들러 추가(클릭과 동일 동작, preventDefault) + tick 의 root.isConnected 해제 분기에서 removeEventListener 정리. howTo 문구에 "(또는 스페이스)" 추가(training.ts).
+- 검증: typecheck·build·verify 그린. E2E(레벨15, 패널 직접 오픈 후 Space 디스패치): armor→피드백 변화·mana→피드백 변화·attack(대조)도 변화·pageerror 0. main 무변경(리프).
+
 ## 2026-06-27 — 저사양 보스전 렉 완화(충격파 파티클 감량·슬램전용·지오 풀링)
 
 - 배경: 하드+저화질 저사양에서 멧돼지 대왕 파티전 큰 렉. 진단 결과 우리 최근 작업(도약/floor 클램프)은 가벼운 스칼라라 원인 아님(오히려 floor 가 보스의 카메라 관통 필레이트 폭발을 줄임). 진짜 비용은 기존 spawnGroundShockwave(호출마다 메시·지오·머티 30개 신규)가 ①저화질 무시 ②필드보스 일반 공격마다 발생.

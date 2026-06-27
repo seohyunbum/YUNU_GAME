@@ -177,7 +177,7 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
       scheduled = performance.now() + 700 + Math.random() * 1600;
     };
     schedule();
-    arena.addEventListener("mousedown", () => {
+    const block = () => {
       const count = callbacks.getCount(kind);
       if (state === "go" && performance.now() - goAt <= blockWindowMs(count)) {
         blocked += 1;
@@ -195,9 +195,16 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
         callbacks.onFail(kind);
         schedule();
       }
-    });
+    };
+    arena.addEventListener("mousedown", block);
+    const keyHandler = (event: KeyboardEvent) => { // 방어 훈련도 스페이스로 막기(클릭과 동일)
+      if (event.code !== "Space" || !root.isConnected) return;
+      event.preventDefault();
+      block();
+    };
+    window.addEventListener("keydown", keyHandler);
     const tick = () => {
-      if (!root.isConnected) return;
+      if (!root.isConnected) { window.removeEventListener("keydown", keyHandler); return; }
       const now = performance.now();
       const count = callbacks.getCount(kind);
       if (state === "idle" && now >= scheduled) {
@@ -243,7 +250,7 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
     let last = performance.now();
     let position = 0;
     let gathered = 0;
-    arena.addEventListener("mousedown", () => {
+    const gather = () => {
       const count = callbacks.getCount(kind);
       if (Math.abs(position) <= calmZoneRatio(count)) {
         gathered += 1;
@@ -259,9 +266,16 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
         setFeedback("마음이 흔들렸어요! 처음부터.");
         callbacks.onFail(kind);
       }
-    });
+    };
+    arena.addEventListener("mousedown", gather);
+    const keyHandler = (event: KeyboardEvent) => { // 명상 훈련도 스페이스로 호흡 모으기(클릭과 동일)
+      if (event.code !== "Space" || !root.isConnected) return;
+      event.preventDefault();
+      gather();
+    };
+    window.addEventListener("keydown", keyHandler);
     const tick = () => {
-      if (!root.isConnected) return;
+      if (!root.isConnected) { window.removeEventListener("keydown", keyHandler); return; }
       const now = performance.now();
       const delta = Math.min(0.05, (now - last) / 1000);
       last = now;

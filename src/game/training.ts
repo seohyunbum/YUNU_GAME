@@ -13,8 +13,8 @@ export const TRAINING_REWARDS: Record<TrainingKind, number> = { hp: 2, attack: 1
 export const TRAINING_GAMES: Record<TrainingKind, { name: string; rigName: string; statLabel: string; howTo: string }> = {
   hp: { name: "역기들기", rigName: "역기", statLabel: "최대 체력", howTo: "빠르게 연타(탭)해서 게이지를 끝까지 채우세요! 연타가 느려지면 역기가 내려갑니다." },
   attack: { name: "과녁맞추기", rigName: "과녁", statLabel: "공격력", howTo: "과녁이 가운데 조준선을 지나는 순간 클릭/탭(또는 스페이스)!" },
-  armor: { name: "방패막기", rigName: "방패 더미", statLabel: "방어력", howTo: "'막아!' 신호가 뜨는 순간 클릭/탭! 가짜 신호에 속지 말고 3번 연속 막으세요." },
-  mana: { name: "명상호흡", rigName: "명상 제단", statLabel: "최대 마나", howTo: "바늘이 가운데 고요 구역 안에 있을 때 클릭/탭! 3번 모으면 성공." },
+  armor: { name: "방패막기", rigName: "방패 더미", statLabel: "방어력", howTo: "'막아!' 신호가 뜨는 순간 클릭/탭(또는 스페이스)! 가짜 신호에 속지 말고 3번 연속 막으세요." },
+  mana: { name: "명상호흡", rigName: "명상 제단", statLabel: "최대 마나", howTo: "바늘이 가운데 고요 구역 안에 있을 때 클릭/탭(또는 스페이스)! 3번 모으면 성공." },
 };
 
 export function createTrainingStats(): TrainingStats {
