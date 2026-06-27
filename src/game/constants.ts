@@ -81,6 +81,7 @@ export const NIGHT_PREDATOR_SPAWN_SECONDS = 16;
 export const NIGHT_PREDATOR_MAX_COUNT = 8;
 export const NIGHT_PREDATOR_MIN_PLAYER_DISTANCE = 70;
 export const PREDATOR_RETALIATE_MS = 30_000;
+export const CAVE_MAX_ENTRIES = 5; // 동굴 입장 가능 횟수 — 이만큼 들어가면 만료(10분 타이머와 별개, 둘 중 먼저 도달 시 사라짐). 동굴 내부는 플레이어별 인스턴스라 횟수도 플레이어별.
 // 야생 몹 밀도 배수 — 초기 시딩·로드 탑업·런타임 야간 캡이 공유(드리프트 방지).
 export const WILDLIFE_DENSITY_MUL_HIGH = 2.4; // 고품질/보통 (구 2.0)
 export const WILDLIFE_DENSITY_MUL_PERF = 0.85; // 저사양 — 1.5→0.85 하향(포식자 1마리 ~27 메시=27 draw call 이라 저사양 렉 주범). 시작맵 60×0.85≈51마리.

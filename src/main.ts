@@ -207,6 +207,7 @@ import {
   WORKBENCH_SLOT_COUNT,
   WORLD_SIZE,
   OUTLINE_VISIBILITY_DISTANCE,
+  CAVE_MAX_ENTRIES,
 } from "./game/constants";
 import type {
   AnimalKind,
@@ -4160,7 +4161,7 @@ class WildernessGame {
     if (target.type === "buildingBlock") return selectedItem === "building_block" ? "좌클릭/E: 쌓기블록 회수 | 우클릭: 바라보는 면에 이어 붙이기" : "좌클릭/E: 쌓기블록 회수";
     if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에 누워 휴식 (체력 빠르게 회복)" : "좌클릭/E: 침대 회수 · 우클릭: 누워 휴식";
     if (target.type === "fortressGate") return "E: 몬스터 요새 입장 (디펜스)";
-    if (target.type === "cave") return "E: 동굴 들어가기";
+    if (target.type === "cave") return (target.entryCount ?? 0) >= CAVE_MAX_ENTRIES ? "동굴 탐험 완료 — 곧 사라짐 (5/5)" : `E: 동굴 들어가기 (${target.entryCount ?? 0}/${CAVE_MAX_ENTRIES})`;
     if (target.type === "caveExit") return this.fortressSiege?.active ? "E: 요새에서 나가기 (보상 유지)" : "E: 동굴 나가기";
     if (target.type === "houseExit") return "E: 집 밖으로 나가기";
     if (target.type === "train") return this.ridingTrainId === target.id ? "E: 기차에서 내리기" : "E: 기차 타기";
@@ -4640,6 +4641,10 @@ class WildernessGame {
   }
 
   private enterCave(target: WorldObject) {
+    const entries = (target.entryCount ?? 0) + 1; // 입장 횟수(플레이어별) — CAVE_MAX_ENTRIES 회 입장 시 만료(10분과 별개)
+    if (entries > CAVE_MAX_ENTRIES) { this.showMessage(`이 동굴은 ${CAVE_MAX_ENTRIES}번 모두 탐험했습니다. 곧 사라집니다 — 다른 동굴을 찾아보세요.`); return; }
+    target.entryCount = entries;
+    if (entries >= CAVE_MAX_ENTRIES) target.expiresAt = performance.now(); // 마지막 입장 — 만료 sweep 가 제거(파티 게스트의 synced 동굴은 partyTransient 라 sweep 제외 → 입장만 게이트, 실제 제거는 호스트 권위/10분)
     this.caveReturnPosition = target.caveReturn?.clone() ?? this.playerPosition.clone();
     this.clearCaveObjects();
     this.locationMode = "cave";
@@ -4651,9 +4656,10 @@ class WildernessGame {
     else createCaveInterior(this.interiorContext);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
+    const entryNote = entries >= CAVE_MAX_ENTRIES ? `🚪 마지막 입장! (${entries}/${CAVE_MAX_ENTRIES}) 나가면 이 동굴은 사라집니다.` : `🚪 동굴 입장 ${entries}/${CAVE_MAX_ENTRIES} (${CAVE_MAX_ENTRIES}회 입장하면 사라짐)`;
     this.showMessage(fortress
-      ? "⚔️ 몬스터 동굴에 진입했습니다. 동굴 끝 보스몹을 처치하면 희귀템을 드랍합니다!"
-      : "동굴 안으로 들어왔습니다. 돌과 석탄을 찾아보세요.");
+      ? `⚔️ 몬스터 동굴에 진입했습니다. 동굴 끝 보스몹을 처치하면 희귀템을 드랍합니다! ${entryNote}`
+      : `동굴 안으로 들어왔습니다. 돌과 석탄을 찾아보세요. ${entryNote}`);
     this.renderHud();
   }
 

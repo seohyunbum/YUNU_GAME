@@ -138,6 +138,7 @@ export interface WorldObject {
   mineRich?: boolean;
   chestTier?: number; // 필드 상자 등급 0 일반 / 1 황금 / 2 다이아 / 3 흑요석
   caveReturn?: THREE.Vector3;
+  entryCount?: number; // 동굴 입장 누적 횟수(플레이어별/클라이언트별) — CAVE_MAX_ENTRIES 회 입장 시 만료(10분과 별개)
   collidable?: boolean;
   collisionRadius?: number;
   collisionHeight?: number;
