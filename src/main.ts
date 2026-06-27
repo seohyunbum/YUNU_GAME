@@ -4337,7 +4337,7 @@ class WildernessGame {
       for (const r of rollHomeSupply(this.level)) if (transferSlot({ item: r.item, count: r.count }, this.homeStorage)) got.push(`${ITEM_NAMES[r.item] ?? r.item} ${r.count}`);
       if (got.length === 0) { this.showMessage("공유 창고가 가득 차서 보급품을 넣을 수 없습니다. 창고를 비운 뒤 다시 여세요."); return; }
       this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; this.broadcastSharedStorage(); this.playTone(880, 0.12, "triangle", 0.03);
-      this.showMessage(`보급품을 공유 창고에 넣었습니다: ${got.join(", ")}. 파티원과 함께 쓸 수 있어요. 다음 보급은 30분 뒤!`); this.renderHud();
+      this.showMessage(`보급품을 공유 창고에 넣었습니다: ${got.join(", ")}. 파티원과 함께 쓸 수 있어요. 다음 보급은 ${Math.round(HOME_SUPPLY_COOLDOWN_SECONDS / 60)}분 뒤!`); this.renderHud();
       return;
     }
     const supplyKey = this.currentHouseBedTier; if ((this.homeSupplyCooldowns[supplyKey] ?? 0) > 0) { // 집 종류별 쿨타임(통나무/돌/이층 각자)
@@ -4353,7 +4353,7 @@ class WildernessGame {
     }
     this.homeSupplyCooldowns[supplyKey] = HOME_SUPPLY_COOLDOWN_SECONDS;
     this.playTone(880, 0.12, "triangle", 0.03);
-    this.showMessage(`보급 상자를 열었습니다: ${received.join(", ")} (가방이 차면 집 창고로 들어갑니다)${received.length < loot.length ? " — 가방·창고가 가득 차 일부 미수령" : ""}. 다음 보급은 30분 뒤!`);
+    this.showMessage(`보급 상자를 열었습니다: ${received.join(", ")} (가방이 차면 집 창고로 들어갑니다)${received.length < loot.length ? " — 가방·창고가 가득 차 일부 미수령" : ""}. 다음 보급은 ${Math.round(HOME_SUPPLY_COOLDOWN_SECONDS / 60)}분 뒤!`);
     this.renderHud();
   }
 

@@ -6,8 +6,8 @@ import type { ItemId, Slot } from "./types";
 
 export const HOME_STORAGE_SLOTS = 24;
 
-// 보급 상자: 플레이 시간 30분마다 1회. 저장은 남은 초(cooldown)로 — 게임 시계는 하루 단위로 순환하므로 절대 시각을 쓸 수 없다.
-export const HOME_SUPPLY_COOLDOWN_SECONDS = 1800;
+// 보급 상자: 플레이 시간 20분마다 1회. 저장은 남은 초(cooldown)로 — 게임 시계는 하루 단위로 순환하므로 절대 시각을 쓸 수 없다.
+export const HOME_SUPPLY_COOLDOWN_SECONDS = 1200;
 
 export function normalizeHomeStorage(saved?: readonly Slot[] | null): Slot[] {
   const slots: Slot[] = Array.from({ length: HOME_STORAGE_SLOTS }, () => ({ item: null, count: 0 }));

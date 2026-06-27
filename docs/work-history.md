@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-27 — 집 보급 충전 시간 30분 → 20분
+
+- 요청: 집 보급 충전 시간 20분으로.
+- 수정: HOME_SUPPLY_COOLDOWN_SECONDS 1800→1200(homeBase.ts). 하드코딩 안내문구("다음 보급은 30분 뒤!" ×2)는 `${Math.round(HOME_SUPPLY_COOLDOWN_SECONDS/60)}분`으로 상수 파생화(드리프트 방지). housing 혜택 주석 30→20분.
+- 회귀 수정: gameplay-systems-test(쿨다운===1800→1200), save-migration-test(클램프 max 1800→1200) 갱신. 구세이브의 1200 초과 쿨다운은 로드 시 1200으로 클램프됨(migration).
+- 검증: typecheck·build·verify 전부 그린.
+
 ## 2026-06-27 — 판매소 등급별 다양한 아이템 판매 + 정령소환 포인터락 자동해제
 
 - ①판매소 확대: 종전 SELL_SHOP_OFFERS 가 구매상점(POINT_SHOP) 파생이라 소수만 판매 가능. trading.ts 에 등급별 매입가(SELL_POINTS_BY_TIER 일반6/고급90/희귀450/에픽1100/레전3000/신화7000) + ITEM_TIER 전체+공용(가죽/구리갑옷·기본무기/도구/재료) 오퍼 생성, 기존 가치기반 오퍼와 병합(중복 제거). 전직/진행·용 소재(전용 교환)는 블록. 판매소 패널은 보유분만 비싼순 정렬 표시.
