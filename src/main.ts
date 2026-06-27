@@ -654,6 +654,7 @@ class WildernessGame {
   private equippedShield: ItemId | null = null; private shieldDurabilityUsed = 0; private ironGuardUntil = 0; private equippedNecklace: ItemId | null = null;
   private permanentNecklace: ItemId | null = null; // 4차 전직 시 소비한 목걸이 — 그 효과를 영구 부여(착용 목걸이와 별개로 합산)
   private spirits: SpiritCollection = createSpiritCollection(); // 정령 보유/장착 — 목걸이처럼 1개 장착해 공·방 보너스, 소환수식 레벨업
+  private spiritManagerOpen = false; // 캐릭터창 정령 보관함 팝업(팝업내 팝업) 열림 — 패널 재렌더에도 유지
   private dragonGear: DragonGearWorn = NO_DRAGON_GEAR; // 용 장비 4종 착용 상태(보유=착용). refreshDragonGear() 로 인벤토리에서 동기화.
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
@@ -854,7 +855,7 @@ class WildernessGame {
       this.spirits.owned.push(spirit); // 즉시 보유 추가(연출은 공개일 뿐) → 닫아도 유지. 다음 저장에 반영.
       if (this.currentPanel !== null) this.closePanel(); // 인벤 더블클릭 진입이면 패널 닫고 전체화면 연출
       try {
-        runSpiritGacha(spirit, { playTone: (f, d, t, v) => this.playTone(f, d, t, v), onFinish: () => { this.renderHud(); this.renderPanel(); } });
+        runSpiritGacha(spirit, { playTone: (f, d, t, v) => this.playTone(f, d, t, v), playSample: (n, v) => this.sample(n, v, () => {}), onFinish: () => { this.renderHud(); this.renderPanel(); } });
       } catch { this.renderHud(); this.renderPanel(); } // 연출 예외 시에도 정령은 이미 보유 추가됨 → HUD/패널만 복구
     }, consumeStew: () => { const healed = Math.min(STEW_HEAL, this.maxHealth - this.health); this.health += healed; this.skillBuffs.stewBuffUntil = performance.now() + STEW_BUFF_SECONDS * 1000; this.playTone(523, 0.14, "triangle", 0.04); this.showMessage(`고기 스튜를 먹었습니다! 5분간 공격·방어 +5${healed > 0 ? `, 체력 ${healed} 회복` : ""}.`); this.renderHud(); },
     playHandAction: () => this.playHandAction(),
@@ -5730,7 +5731,7 @@ class WildernessGame {
     this.sfxMasterGain.connect(this.audioContext.destination);
     this.musicPlayer = createMusicPlayer(this.audioContext, this.audioContext.destination); // 실음원(CC0) BGM
     this.sfxPlayer = createSfxPlayer(this.audioContext, this.sfxMasterGain, import.meta.env.BASE_URL); // 실음원(CC0) 효과음
-    this.sfxPlayer.preload(["blade_01", "blade_02", "blade_03", "spell_01", "spell_02", "spell_fire_01", "spell_fire_02", "spell_fire_05", "metal_01", "metal_02", "metal_03", "creature_hurt_01", "creature_hurt_02", "item_coins_01", "item_coins_02", "item_gem_01", "item_misc_01", "wood_01", "wood_02", "wood_03", "wood_04", "stones_01", "stones_02", "stones_03", "item_stone_01", "item_stone_02", "lock_01", "victory.mp3", "levelup.wav", ...SKILL_SOUND_PRELOAD]);
+    this.sfxPlayer.preload(["blade_01", "blade_02", "blade_03", "spell_01", "spell_02", "spell_fire_01", "spell_fire_02", "spell_fire_05", "metal_01", "metal_02", "metal_03", "creature_hurt_01", "creature_hurt_02", "item_coins_01", "item_coins_02", "item_gem_01", "item_misc_01", "wood_01", "wood_02", "wood_03", "wood_04", "stones_01", "stones_02", "stones_03", "item_stone_01", "item_stone_02", "lock_01", "victory.mp3", "levelup.wav", "spirit_summon", ...SKILL_SOUND_PRELOAD]);
     this.nextBgmNoteAt = this.audioContext.currentTime + 0.08;
     this.nextAmbientCueAt = this.audioContext.currentTime + 2.2;
   }
@@ -6893,7 +6894,9 @@ class WildernessGame {
         armorItem: this.equippedArmor, shieldItem: this.equippedShield, necklaceItem: this.equippedNecklace,
         ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
         equippedSpiritLabel: (() => { const e = equippedSpirit(this.spirits); return e ? `${spiritGradeDef(e.grade).emoji} ${spiritGradeDef(e.grade).label} Lv${e.level} (공+${spiritAttackBonus(e)}/방+${spiritDefenseBonus(e)})` : "없음"; })(),
-        spirits: this.spirits.owned.map((s) => ({ id: s.id, label: spiritGradeDef(s.grade).label, emoji: spiritGradeDef(s.grade).emoji, attack: spiritAttackBonus(s), defense: spiritDefenseBonus(s), level: s.level, equipped: this.spirits.equippedId === s.id })),
+        equippedSpiritGradeIndex: (() => { const e = equippedSpirit(this.spirits); return e ? spiritGradeIndex(e.grade) : -1; })(),
+        spirits: this.spirits.owned.map((s) => ({ id: s.id, label: spiritGradeDef(s.grade).label, emoji: spiritGradeDef(s.grade).emoji, color: spiritGradeDef(s.grade).color, grade: s.grade, gradeIndex: spiritGradeIndex(s.grade), attack: spiritAttackBonus(s), defense: spiritDefenseBonus(s), level: s.level, equipped: this.spirits.equippedId === s.id })).sort((a, b) => (b.equipped ? 1 : 0) - (a.equipped ? 1 : 0) || b.gradeIndex - a.gradeIndex || b.level - a.level), // 장착 정령 먼저, 다음 등급↓·레벨↓ 순
+        spiritManagerOpen: this.spiritManagerOpen,
         dragonGear: DRAGON_GEAR_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
         monstersKilled: this.tutorialSignals.predatorKills, bestFortressStageEasy: this.bestFortress.easy.stage, bestFortressStageHard: this.bestFortress.hard.stage,
@@ -6912,7 +6915,10 @@ class WildernessGame {
         onEquipNecklace: (item) => { this.equippedNecklace = (item as ItemId | null) ?? null; this.playTone(880, 0.1, "triangle", 0.03); this.renderHud(); this.renderPanel(); },
         onEquipSpirit: (id) => { this.spirits.equippedId = id && this.spirits.owned.some((s) => s.id === id) ? id : null; this.playTone(740, 0.12, "triangle", 0.035); this.renderHud(); this.renderPanel(); },
         onFeedSpirit: (id) => { const target = equippedSpirit(this.spirits); const mat = this.spirits.owned.find((s) => s.id === id); if (!target || !mat || mat.id === target.id) return; if (!window.confirm(`${spiritGradeDef(mat.grade).label} 정령(Lv${mat.level})을 먹이로 줍니다. 이 정령은 영구히 사라집니다. 계속할까요?`)) return; const exp = spiritFeedExperience(mat); this.spirits.owned = this.spirits.owned.filter((s) => s.id !== id); const ups = gainSpiritExperience(target, exp); this.playTone(660, 0.12, "triangle", 0.04); this.showMessage(ups > 0 ? `정령에게 먹이를 줬습니다 — 레벨업! Lv ${target.level} (공+${spiritAttackBonus(target)}/방+${spiritDefenseBonus(target)})` : `정령에게 먹이를 줬습니다 (+${exp} 경험치)`); this.renderHud(); this.renderPanel(); },
-        onClose: () => this.closePanel(),
+        onOpenSpiritManager: () => { this.spiritManagerOpen = true; this.renderPanel(); },
+        onCloseSpiritManager: () => { this.spiritManagerOpen = false; this.renderPanel(); },
+        onFeedAllBelowEquipped: () => { const target = equippedSpirit(this.spirits); if (!target) return; const ti = spiritGradeIndex(target.grade); const food = this.spirits.owned.filter((s) => s.id !== target.id && spiritGradeIndex(s.grade) < ti); if (food.length === 0) return; if (!window.confirm(`장착 정령보다 낮은 등급 ${food.length}마리를 모두 먹입니다. 먹인 정령은 영구히 사라집니다. 계속할까요?`)) return; let exp = 0; for (const f of food) exp += spiritFeedExperience(f); const ids = new Set(food.map((f) => f.id)); this.spirits.owned = this.spirits.owned.filter((s) => !ids.has(s.id)); const ups = gainSpiritExperience(target, exp); this.playTone(700, 0.16, "triangle", 0.045); this.showMessage(ups > 0 ? `${food.length}마리를 먹였습니다 — 레벨업! Lv ${target.level} (공+${spiritAttackBonus(target)}/방+${spiritDefenseBonus(target)})` : `${food.length}마리를 먹였습니다 (+${exp} 경험치)`); this.renderHud(); this.renderPanel(); },
+        onClose: () => { this.spiritManagerOpen = false; this.closePanel(); },
       });
     }
     if (this.currentPanel === "saveOverwrite") {

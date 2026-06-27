@@ -23,7 +23,9 @@ export interface CharacterPanelView {
   necklaceItem: string | null;
   ownedNecklaces: { item: string; name: string; equipped: boolean }[];
   equippedSpiritLabel: string; // 장착 정령 표시명("없음" 가능)
-  spirits: { id: string; label: string; emoji: string; attack: number; defense: number; level: number; equipped: boolean }[]; // 보유 정령(장착 선택용)
+  equippedSpiritGradeIndex: number; // 장착 정령 등급 인덱스(-1=없음) — 낮은 등급 일괄먹이기 기준
+  spirits: { id: string; label: string; emoji: string; color: string; grade: string; gradeIndex: number; attack: number; defense: number; level: number; equipped: boolean }[]; // 보유 정령(등급 높은 순 정렬, 보관함 팝업에서 관리)
+  spiritManagerOpen: boolean; // 정령 보관함 팝업(팝업내 팝업) 열림 상태
   dragonGear: { item: string; name: string }[]; // 보유=자동 착용 중인 용 장비(최고등급)
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
@@ -39,7 +41,47 @@ export interface CharacterPanelCallbacks {
   onEquipNecklace(item: string | null): void;
   onEquipSpirit(id: string | null): void;
   onFeedSpirit(id: string): void;
+  onOpenSpiritManager(): void;
+  onCloseSpiritManager(): void;
+  onFeedAllBelowEquipped(): void;
   onClose(): void;
+}
+
+// 정령 보관함 팝업(팝업내 팝업) — 100마리도 한 곳에 스크롤로. 등급 높은 순 카드 그리드 + 낮은 등급 일괄 먹이기.
+function renderSpiritModal(view: CharacterPanelView): string {
+  const hasEquipped = view.equippedSpiritGradeIndex >= 0;
+  const belowCount = view.spirits.filter((s) => !s.equipped && s.gradeIndex < view.equippedSpiritGradeIndex).length;
+  const cards = view.spirits
+    .map(
+      (s) => `<div class="spirit-card${s.equipped ? " equipped" : ""}" style="--sc:${s.color}">
+        <div class="spirit-card-emoji">${s.emoji}</div>
+        <div class="spirit-card-name" style="color:${s.color}">${escapeHtml(s.label)} <b>Lv${s.level}</b></div>
+        <div class="spirit-card-stats">공 +${s.attack} · 방 +${s.defense}</div>
+        <div class="spirit-card-actions">${
+          s.equipped
+            ? `<span class="spirit-card-tag">장착중 ✓</span>`
+            : `<button class="spirit-card-equip" data-equip-spirit="${escapeHtml(s.id)}">장착</button>${hasEquipped ? `<button class="spirit-card-feed" data-feed-spirit="${escapeHtml(s.id)}" title="장착 정령에게 먹여 경험치(이 정령은 사라집니다)">🍽️</button>` : ""}`
+        }</div>
+      </div>`,
+    )
+    .join("");
+  return `
+    <div class="spirit-modal" data-spirit-modal>
+      <div class="spirit-modal-backdrop" data-close-spirit-modal></div>
+      <div class="spirit-modal-card">
+        <header class="spirit-modal-head">
+          <h3>✨ 정령 보관함 <span class="spirit-modal-count">${view.spirits.length}마리</span></h3>
+          <button class="icon-button" data-close-spirit-modal>닫기</button>
+        </header>
+        <div class="spirit-modal-equipped">장착 중: <strong>${escapeHtml(view.equippedSpiritLabel)}</strong></div>
+        <div class="spirit-modal-tools">
+          ${hasEquipped ? `<button class="spirit-modal-tool" data-equip-spirit="">장착 해제</button>` : ""}
+          ${hasEquipped && belowCount > 0 ? `<button class="spirit-modal-tool spirit-bulk-feed" data-feed-below>🍽️ 낮은 등급 일괄 먹이기 (${belowCount}마리)</button>` : ""}
+        </div>
+        <div class="spirit-modal-grid">${cards}</div>
+        <p class="spirit-modal-note">등급 높은 순 정렬 · 🍽️ = 장착 정령에게 먹여 경험치(먹인 정령 소멸)</p>
+      </div>
+    </div>`;
 }
 
 function escapeHtml(value: string) {
@@ -118,13 +160,7 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
             <div class="character-gear-row"><span>✨ 정령</span><strong>${escapeHtml(view.equippedSpiritLabel)}</strong></div>
             ${
               view.spirits.length > 0
-                ? `<div class="character-necklace-choices">${view.spirits
-                    .map(
-                      (s) =>
-                        `<button class="character-necklace-choice${s.equipped ? " equipped" : ""}" data-equip-spirit="${escapeHtml(s.id)}" title="공격 +${s.attack} · 방어 +${s.defense}">${s.emoji} ${escapeHtml(s.label)} Lv${s.level} (+${s.attack}/+${s.defense})${s.equipped ? " ✓" : ""}</button>${!s.equipped && view.spirits.some((o) => o.equipped) ? `<button class="character-spirit-feed" data-feed-spirit="${escapeHtml(s.id)}" title="장착 정령에게 먹여 경험치 획득(이 정령은 사라집니다)">🍽️</button>` : ""}`,
-                    )
-                    .join("")}${view.spirits.some((s) => s.equipped) ? `<button class="character-necklace-choice" data-equip-spirit="">해제</button>` : ""}</div>
-                  <div class="character-necklace-empty">🍽️ 버튼: 미착용 정령을 장착 정령에게 먹여 경험치를 올립니다(먹인 정령은 사라짐).</div>`
+                ? `<button class="character-spirit-open" data-open-spirit-modal>✨ 정령 보관함 열기 · ${view.spirits.length}마리 보유 ›</button>`
                 : `<div class="character-necklace-empty">보유한 정령이 없습니다. '정령 소환권'(전설)을 사냥·상자에서 얻어 사용하세요.</div>`
             }
           </div>
@@ -155,6 +191,7 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
           ${renderLeaderboard(view.leaderboards?.hard ?? null, view.myNickname)}
         </div>
         <p class="character-note">제작 레벨이 오르면 포인트를 얻어 위 스탯을 올릴 수 있어요 (체력·마나 +2, 공격·방어 +1).</p>
+        ${view.spiritManagerOpen ? renderSpiritModal(view) : ""}
       </section>
     `;
   panelEl.querySelector<HTMLButtonElement>("[data-close]")?.addEventListener("click", callbacks.onClose);
@@ -167,6 +204,9 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
   panelEl.querySelectorAll<HTMLButtonElement>("[data-feed-spirit]").forEach((button) => {
     button.addEventListener("click", () => { if (button.dataset.feedSpirit) callbacks.onFeedSpirit(button.dataset.feedSpirit); });
   });
+  panelEl.querySelector<HTMLButtonElement>("[data-open-spirit-modal]")?.addEventListener("click", callbacks.onOpenSpiritManager);
+  panelEl.querySelectorAll<HTMLElement>("[data-close-spirit-modal]").forEach((el) => el.addEventListener("click", callbacks.onCloseSpiritManager));
+  panelEl.querySelector<HTMLButtonElement>("[data-feed-below]")?.addEventListener("click", callbacks.onFeedAllBelowEquipped);
   panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-necklace]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onEquipNecklace(button.dataset.equipNecklace ? button.dataset.equipNecklace : null));
   });

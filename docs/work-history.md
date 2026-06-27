@@ -14,6 +14,15 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-27 — 정령 소환 사운드(CC0)·그래픽(호루스의 눈)·캐릭터창 정령 UI(팝업내 팝업)
+
+3건 일괄. 사용자 요청: ①소환 사운드를 CC0(뽑기 긴장감)로 교체 ②소환 그래픽을 이집트 호루스의 눈 풍으로 멋지게 ③캐릭터창 정령 목록이 100마리면 끝없이 나열 → 팝업내 팝업으로 정리.
+
+- ①사운드: OpenGameArt(BGM 작업 시 쓰던 CC0 소스)에서 Spring Spring "Power-Up Sound v3"(기존 heal_cast/buff_cast 동일 작가) 받아 `public/sfx/spirit_summon.ogg`. gachaScreen 공개 순간 `playSample("spirit_summon")` 재생(미로드 폴백). 빌드업은 절차 톤을 더 낮고 빠른 심장박동으로 강화(뽑기 조마조마함). main: preload 등록 + deps.playSample 주입. CREDITS 갱신.
+- ②그래픽: gachaScreen 의 단순 CSS 눈 → SVG 호루스의 눈(피라미드 프레임 + 눈썹·아몬드·홍채·눈물줄기·나선 컬) + 회전 황금 sunburst 광선 + 공개 시 홍채가 등급 색으로 부풀고 등급색 반짝임 입자 버스트. style.css 가챠 블록 교체. E2E 스샷으로 전설(황금) 공개 확인 — 첨부 레퍼런스(이집트의 눈)와 합치.
+- ③UI: characterPanel 인라인 정령 나열 제거 → "정령 보관함 열기·N마리" 버튼 → 팝업내 팝업(renderSpiritModal, 리프). 등급 높은 순 정렬 카드 그리드(스크롤), 장착/먹이기, 장착 해제, "낮은 등급 일괄 먹이기"(100마리 노가다 해소). 모달 열림상태=main.spiritManagerOpen 필드(재렌더에도 유지). main +6 → ratchet 10171.
+- 검증: npm run verify 전부 그린(typecheck·build·check:size/methods·전 테스트). E2E(Edge 헤드리스): gameStarted·gachaOpen·modalOpen·cards=14·bulkBtn 확인 + 스샷 2종 육안 확인.
+
 ## 2026-06-23 — 정령 소환권 획득처 확대(집 보급상자 + 보스/용/요새보스)
 
 - 요청: 지은 집 보급상자에서도 낮은 확률로, 보스몬스터/드래곤도 아주 낮은 확률로 정령 소환권(spirit_gacha_token) 드랍.

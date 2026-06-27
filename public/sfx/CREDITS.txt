@@ -19,3 +19,7 @@ wind_cast.wav — "Air whoosh" by pyranostudios — 소환사 바람 스킬
 gun_shot.wav  — "Gunshots"(22 Magnum) — 거너 강탄/관통강탄
 buff_cast.wav — "Magic Words"(magic_words) by Spring Spring — 탱커 함성/거너 속사 등 버프
 (불=기존 spell_fire, 근접=blade, 대지=stones, 소환=spell 재사용)
+
+[정령 가챠 소환음 (2026-06-27)] — OpenGameArt, CC0
+spirit_summon.ogg — "Power-Up Sound Effects v3" by Spring Spring — 정령 소환권 공개(가챠 당첨) 화려한 상승 효과음
+   출처: https://opengameart.org/content/power-up-sound-effects  — 긴장 빌드업(절차 톤)→공개 시 CC0 파워업 플레이
