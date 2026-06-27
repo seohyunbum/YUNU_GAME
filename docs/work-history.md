@@ -516,3 +516,12 @@
   - [HIGH→방어] 연출 예외 시 토큰만 소모되고 복구 안 됨 → openSpiritGacha 에 try/catch(정령은 이미 보유 추가됨 → HUD/패널 복구).
   - [LOW] 먹이가 단클릭 영구 삭제 → window.confirm 확인창 추가(아이가 고등급 정령 실수 소멸 방지).
 - typecheck·아키텍처·hotpath·메서드(494)·전체 단위테스트 녹색. (브라우저 부재로 visual-check/roundtrip 미실행은 동일.)
+
+## 2026-06-26 — 정령 표시를 좌상단 DOM 뱃지 → 왼쪽 어깨 3D 동행체로 교체
+
+- 사용자 의도 재확인(첨부 이미지): 정령은 소환수처럼 시야 안에 떠다니는 고퀄 3D 페어리(흰 몸+분홍 결정 날개+뿔+큰 눈)여야 함. 위치는 왼쪽 어깨(소환수=오른쪽 대칭), 크기는 소환수의 ~1/3.
+- 직전 구현(좌상단 DOM 뱃지)은 오해였음 → 제거(spiritBadge.ts·CSS·renderHud 호출 삭제).
+- 신규 game/spiritVisuals.ts(leaf 비주얼 팩토리): createSpiritCompanionModel(grade) — 통통한 흰 몸/큰 머리/큰 눈+하이라이트/유니콘 뿔/뾰족 귀/결정 꽃잎 날개(등급↑ 3~6장/측)/분홍 망토/발광 오라. 등급색 = spiritGradeDef. updateSpiritCompanion(매 프레임, 모듈 스크래치로 할당 0) — 왼쪽 어깨(ahead 2.0·side −1.15·rise 0.55)로 lerp 추종 + 날개 플랩 + 오라 맥동. scale 0.26(소환수 0.74의 ~1/3). disposeSpiritCompanion.
+- main 배선: scene 에 직접 add(월드오브젝트 아님), 장착/등급 변할 때만 모델 재생성, 미장착/타이틀 시 제거+dispose. 신규 메서드 0(인라인+leaf).
+- ⚠ 브라우저 부재로 visual-check 미실행 — 모델 외형·위치·크기는 실기기 확인 권장(필요 시 SPIRIT_AHEAD/SIDE/RISE/SCALE 상수로 조정).
+- 관련: src/game/spiritVisuals.ts(신규), src/main.ts, src/ui/spiritBadge.ts(삭제), src/style.css.
