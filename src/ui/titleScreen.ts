@@ -150,9 +150,11 @@ export function renderTitleScreen(titleScreenEl: HTMLElement, view: TitleScreenV
     `;
 
   titleScreenEl.querySelector<HTMLElement>(".title-menu")!.innerHTML = `
-      <div class="title-kicker">YUNU GAME LAB</div>
+      <div class="title-topbar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <div class="title-kicker" style="margin-bottom:0;">YUNU GAME LAB</div>
+        <span style="font-size:13px;font-weight:800;color:#fde68a;white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.7);">보유 포인트 <b data-title-points>0</b>P</span>
+      </div>
       <h1>1인칭 야생 마을</h1>
-      <p>마을, 동굴, 기차, 밤의 야생동물을 탐험하는 1인칭 생존 모험</p>
       <p class="title-nickname">모험가: <b data-player-nickname>이름을 정해 주세요</b></p>
       <div class="class-select" data-class-select>
         <strong>직업 선택</strong>
@@ -195,11 +197,6 @@ export function renderTitleScreen(titleScreenEl: HTMLElement, view: TitleScreenV
         <button data-title-mini>구슬 튕기기</button>
         <button data-title-lava>용암을 피해라</button>
         <button data-title-smith>대장간 게임</button>
-      </div>
-      <div class="title-meta">
-        <span>3D 오픈월드</span>
-        <span>제작과 탐험</span>
-        <span>보유 포인트 <b data-title-points>0</b>P</span>
       </div>
     `;
 }

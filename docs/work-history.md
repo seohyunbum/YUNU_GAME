@@ -14,6 +14,14 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-27 — 타이틀 화면 정리: 문구 제거·보유포인트 상단·좌측 짤림/세로스크롤 완화
+
+- 요청: ①태그라인("마을·동굴·기차…") 제거 ②기능칩(3D 오픈월드·제작과 탐험) 제거 ③보유 포인트 상단으로 ④난이도·그래픽품질이 좌측에 붙어 짤려보임 → 여백 + 가급적 세로스크롤 X.
+- 수정:
+  - titleScreen.ts: 태그라인 `<p>` 제거. 키커 줄을 flex topbar 로 바꿔 보유 포인트(data-title-points)를 우상단 배치(중복이던 .title-meta 의 포인트는 그게 정본). .title-meta(3D 오픈월드/제작과 탐험/포인트) 블록 통째 제거.
+  - style.css: **좌측 짤림 진짜 원인** = .class-select width:min(680px,92vw) 가 .title-menu(88vw) 콘텐츠폭을 넘어 가로 오버플로(overflow-y:auto→overflow-x:auto 클립). → class-select width:100%·max-width:680px·box-sizing:border-box 로 고정(narrow 700→669, 오버플로 0 확인). .title-menu 좌우 패딩 0/8→10/10(카드없는 섹션 여백). 세로 완화: h1 상한 126→104·여백 16→10, class-select 여백 18→12, class-card min-height 112→92·padding 10→8.
+- 검증(E2E 실측): 가로 오버플로 0(narrow scrollW==clientW), 1280×800 에서 난이도+그래픽품질 모두 노출(qualityBottomVisible=true, overflowH 216→133). 태그라인/칩 제거·포인트 상단 스샷 확인. verify 그린. main 무변경(리프).
+
 ## 2026-06-27 — 저사양 보스전 렉 2탄: draw call 급감(렌더거리·밀도)
 
 - 측정(E2E renderer.info, 보스 옆): **draw call 6,801 / 삼각형 549k / 씬자식 1,673 / 포식자 145마리**. 결정타 = 포식자 1마리당 **23~33 메시(=draw call)**, 보스 1마리 **75 메시**, 게다가 포식자 렌더거리 **175** 라 멀리 점 크기인 개체도 다 그림.
