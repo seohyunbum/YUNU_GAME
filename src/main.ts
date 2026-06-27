@@ -7264,13 +7264,20 @@ class WildernessGame {
         </header>
         <div class="recipes shop-list">
           ${(() => { const list = SELL_SHOP_OFFERS.filter((o) => this.countItem(o.item) > 0).sort((a, b) => b.points - a.points); // 보유 중인 것만, 비싼 것부터
-            return list.length === 0 ? `<div class="empty-inventory">팔 수 있는 아이템이 없습니다. 채집·제작·전투로 아이템을 모아 오세요.</div>` : list.map((offer) => `<article class="recipe-card shop-card"><div><strong>${ITEM_NAMES[offer.item] ?? offer.item}</strong><p>${ITEM_NAMES[offer.item] ?? offer.item} 1개 → ${offer.points}P</p><small>${offer.note} · 보유 ${this.countItem(offer.item)}개</small></div><button data-sell-offer="${offer.id}">판매</button></article>`).join(""); })()}
+            return list.length === 0 ? `<div class="empty-inventory">팔 수 있는 아이템이 없습니다. 채집·제작·전투로 아이템을 모아 오세요.</div>` : list.map((offer) => { const owned = this.countItem(offer.item); return `<article class="recipe-card shop-card"><div><strong>${ITEM_NAMES[offer.item] ?? offer.item}</strong><p>1개 → ${offer.points}P</p><small>${offer.note} · 보유 ${owned}개</small></div><div class="qty-stepper" data-qty-max="${owned}"><button type="button" class="qty-btn" data-qty-dec ${owned > 1 ? "" : "disabled"}>−</button><span class="qty-val" data-qty-val>1</span><button type="button" class="qty-btn" data-qty-inc ${owned > 1 ? "" : "disabled"}>＋</button>${owned > 1 ? `<button type="button" class="qty-btn qty-all-btn" data-qty-all title="전체(${owned})">전체</button>` : ""}</div><button data-sell-offer="${offer.id}">판매</button></article>`; }).join(""); })()}
         </div>
       </section>
     `;
     this.bindPanelBasics();
+    this.panelEl.querySelectorAll<HTMLElement>(".qty-stepper").forEach((s) => {
+      const max = Math.max(1, Number(s.dataset.qtyMax) || 1), v = s.querySelector<HTMLElement>("[data-qty-val]");
+      const set = (n: number) => { if (v) v.textContent = String(Math.max(1, Math.min(max, n))); };
+      s.querySelector<HTMLButtonElement>("[data-qty-dec]")?.addEventListener("click", () => set(Number(v?.textContent) - 1));
+      s.querySelector<HTMLButtonElement>("[data-qty-inc]")?.addEventListener("click", () => set(Number(v?.textContent) + 1));
+      s.querySelector<HTMLButtonElement>("[data-qty-all]")?.addEventListener("click", () => set(max));
+    });
     this.panelEl.querySelectorAll<HTMLButtonElement>("[data-sell-offer]").forEach((button) => {
-      button.addEventListener("click", () => this.sellToVillageShop(button.dataset.sellOffer ?? ""));
+      button.addEventListener("click", () => this.sellToVillageShop(button.dataset.sellOffer ?? "", Math.max(1, Number(button.closest(".shop-card")?.querySelector("[data-qty-val]")?.textContent) || 1)));
     });
   }
 
@@ -7828,19 +7835,20 @@ class WildernessGame {
     this.renderHud();
   }
 
-  private sellToVillageShop(offerId: string) {
+  private sellToVillageShop(offerId: string, qty = 1) {
     const offer = SELL_SHOP_OFFERS.find((candidate) => candidate.id === offerId);
     if (!offer) return;
-    if (!this.removeItem(offer.item, 1)) {
+    const count = Math.max(1, Math.min(Math.floor(qty), this.countItem(offer.item))); // 보유량으로 상한
+    if (count <= 0 || !this.removeItem(offer.item, count)) {
       this.showMessage(`${ITEM_NAMES[offer.item] ?? offer.item}이 없어 판매할 수 없습니다.`);
       this.renderPanel();
       return;
     }
-
-    this.arcadePoints += offer.points; this.tutorialSignals.materialsSold += 1;
+    const earned = offer.points * count;
+    this.arcadePoints += earned; this.tutorialSignals.materialsSold += count;
     this.saveArcadePoints();
     this.playTone(640, 0.12, "triangle", 0.035);
-    this.showMessage(`판매 완료: ${ITEM_NAMES[offer.item] ?? offer.item} 1개를 ${offer.points}P에 팔았습니다. 현재 포인트 ${this.arcadePoints}P.`);
+    this.showMessage(`판매 완료: ${ITEM_NAMES[offer.item] ?? offer.item} ${count}개를 ${earned}P에 팔았습니다. 현재 포인트 ${this.arcadePoints}P.`);
     this.renderPanel();
     this.renderHud();
   }
