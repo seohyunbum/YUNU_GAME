@@ -14,6 +14,16 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-28 — 세이브 슬롯 위치 혼선·잘못 덮어쓰기 유실 근본원인 수정
+
+- 신고: "저장슬롯 위치가 이상하고 다른 저장이 자꾸 사라진다." 정본 이력(docs/save-system-history.md) 정독 + 병렬 분석 워크플로(쓰기경로·표시불일치·전역풀·UI위치) + MemoryStorage 재현으로 근본원인 확정.
+- 닉네임 영구 단일(변경 불가) → §4 전역풀(다닉네임)은 원인 아님. 단일 닉네임 사용자의 실제 근본원인 2건(재현 완료):
+  - ★picker↔로드패널 순서 불일치: 로드 패널=readSaveSlots(savedAt desc) vs 덮어쓰기 picker·가득판정=readStoredSlotList(배열 삽입순). 덮어쓰기는 in-place 교체(배열 위치 유지·savedAt만 갱신)라 한 번 덮어쓰면 두 패널 "저장 N"이 어긋남 → picker에서 엉뚱한 슬롯 덮어써 유실. 재현: 덮어쓴 최신본이 picker '저장2' vs load '저장1'.
+  - ★backfill 유령 오염: backfillSlotDescription이 병합본(latest/backup 유령 포함)을 allowTrim 기본 true로 SAVE_LIST에 써넣어, 패널 조회만으로 유령 오염/trim 유실. 재현: 조회 후 SAVE_LIST에 latest-save 유령 추가됨.
+- 수정: ①readStoredSlotList도 savedAt desc 정렬(두 패널 번호 일치). ②backfillSlotDescription은 LIST만 읽어 해당 슬롯 description만 갱신+allowTrim:false. ③MAX_SAVE_SLOTS 10→20(덮어쓰기 강요 마찰↓).
+- 파일: saveRepository.ts, main.ts(backfill 호출부), constants.ts, save-repository-test.mjs(회귀 2건+MAX_SAVE_SLOTS import), save-system-history.md(§3·§4).
+- 검증: typecheck·build·verify(전체 세이브 테스트 포함) 그린. 회귀 테스트 2건 통과. 실브라우저 E2E: 3회 저장→로드패널·picker 순서 동일(desc)·최상단 일치·콘솔에러 0.
+
 ## 2026-06-27 — 보스 야간 "검은 네모박스" 시각 개선(필드보스 자체조명)
 
 - 증상(사용자): 보스가 가끔 "검은 네모박스 + 주황 원"으로 보임.

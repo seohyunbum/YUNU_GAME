@@ -41,6 +41,7 @@ try {
   const constants = await server.ssrLoadModule("/src/game/constants.ts");
 
   const {
+    backfillSlotDescription,
     backupLatestSave,
     persistLatestSaveQuietly,
     readSaveSlots,
@@ -53,6 +54,7 @@ try {
   } = repository;
   const { migrateSaveData } = migration;
   const {
+    MAX_SAVE_SLOTS,
     SAVE_BACKUP_KEY,
     SAVE_AUTOSAVE_KEY,
     SAVE_HISTORY_KEY,
@@ -213,14 +215,52 @@ try {
     assert.equal(readStoredSlotList(opts).length, 1, "promotion adds exactly one named slot");
     assert.equal(await promoteSaveToSlotList(save, opts), false, "re-promoting the same savedAt is a no-op (no duplicate)");
     assert.equal(readStoredSlotList(opts).length, 1, "no duplicate named slot after re-promote");
-    const full = Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, savedAt: `2026-04-${String(i + 10)}T00:00:00.000Z`, label: `S${i}`, packed: "AA" }));
+    const full = Array.from({ length: MAX_SAVE_SLOTS }, (_, i) => ({ id: `s${i}`, savedAt: `2026-04-${String(i + 10).padStart(2, "0")}T00:00:00.000Z`, label: `S${i}`, packed: "AA" }));
     promoStorage.setItem(SAVE_LIST_KEY, JSON.stringify(full));
     const freshSave = migrateSaveData({ version: 1, savedAt: "2026-05-05T00:00:00.000Z", player: { position: { x: 7, y: 0, z: 0 }, totalSteps: 1, hotbar: [], bagSlots: [], craftSlots: [] }, mountains: [], objects: [] });
     assert.equal(await promoteSaveToSlotList(freshSave, opts), false, "promotion must not run when slots are full (would risk dropping another slot)");
-    assert.equal(readStoredSlotList(opts).length, 10, "a blocked (full) promotion leaves the slot list untouched");
+    assert.equal(readStoredSlotList(opts).length, MAX_SAVE_SLOTS, "a blocked (full) promotion leaves the slot list untouched");
   }
 
-  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "packed latest save", "quota fallback evicts backup", "quiet bookkeeping failure", "corrupt packed slot rejects", "broken slot recovery", "allowTrim:false overwrite preserves other slots (no silent loss)", "graceful quota: gradual sacrifice", "promote loaded phantom save to named slot"] }, null, 2));
+  // 덮어쓰기 picker(readStoredSlotList) 와 로드 패널(readSaveSlots) 의 슬롯 순서·번호("저장 N") 일치 —
+  // 종전엔 readStoredSlotList 가 배열 삽입순 그대로라, 덮어쓰기로 슬롯 savedAt 만 바뀌고 배열 위치는 유지되면
+  // 두 패널의 "저장 N"이 어긋나 사용자가 picker 에서 엉뚱한(원하던) 슬롯을 덮어써 유실되던 크리티컬 버그의 회귀 가드.
+  {
+    const ord = new MemoryStorage();
+    const o = { migrateSaveData, formatSaveDate: (a) => a, storage: ord };
+    const mk = (savedAt) => migrateSaveData({ version: 1, savedAt, player: { position: { x: 0, y: 0, z: 0 }, totalSteps: 0, hotbar: [], bagSlots: [], craftSlots: [] }, mountains: [], objects: [] });
+    await writeSaveSlots([
+      { id: "s3", savedAt: "2026-07-03T00:00:00.000Z", label: "7-3", save: mk("2026-07-03T00:00:00.000Z") },
+      { id: "s2", savedAt: "2026-07-02T00:00:00.000Z", label: "7-2", save: mk("2026-07-02T00:00:00.000Z") },
+      { id: "s1", savedAt: "2026-07-01T00:00:00.000Z", label: "7-1", save: mk("2026-07-01T00:00:00.000Z") },
+    ], ord);
+    // 배열상 2번째 슬롯을 '더 새로운 시각'으로 in-place 덮어쓰기 (main.ts 덮어쓰기 핸들러와 동일 방식: 배열 위치 유지, savedAt 갱신)
+    const list = readStoredSlotList(o);
+    const next = list.map((slot) => (slot.id === list[1].id ? { id: list[1].id, savedAt: "2026-07-09T00:00:00.000Z", label: "7-9", save: mk("2026-07-09T00:00:00.000Z") } : slot));
+    await writeSaveSlots(next, ord, { allowTrim: false });
+    const picker = readStoredSlotList(o).map((slot) => slot.savedAt);
+    const loadPanel = readSaveSlots(o).filter((slot) => slot.id !== "latest-save" && slot.id !== "backup-save").map((slot) => slot.savedAt);
+    assert.deepEqual(picker, loadPanel, "overwrite picker(readStoredSlotList) and load panel(readSaveSlots) must order named slots identically (savedAt desc) so '저장 N' matches across panels — else the user overwrites the wrong slot and loses a save");
+    assert.ok(picker[0].startsWith("2026-07-09"), "the just-overwritten (newest) save must be '저장 1' in the picker too, matching the load panel");
+  }
+
+  // backfillSlotDescription 은 명명 슬롯(SAVE_LIST)만 갱신한다 — 패널 조회 시 병합본(latest/backup 유령)을 SAVE_LIST 로
+  // 써넣어 유령이 명명 슬롯으로 오염되거나 allowTrim 으로 다른 슬롯이 떨궈지던 유실의 회귀 가드.
+  {
+    const bf = new MemoryStorage();
+    const o = { migrateSaveData, formatSaveDate: (a) => a, storage: bf };
+    const mk = (savedAt) => migrateSaveData({ version: 1, savedAt, player: { position: { x: 0, y: 0, z: 0 }, totalSteps: 0, hotbar: [], bagSlots: [], craftSlots: [] }, mountains: [], objects: [] });
+    await writeSaveSlots([{ id: "named1", savedAt: "2026-08-01T00:00:00.000Z", label: "8-1", save: mk("2026-08-01T00:00:00.000Z") }], bf);
+    await writeLatestSave(mk("2026-08-09T00:00:00.000Z"), bf); // LIST 에 없는 latest → readSaveSlots 병합 시 유령 슬롯
+    const merged = readSaveSlots(o);
+    assert.ok(merged.length >= 2 && merged.some((s) => s.id === "latest-save"), "merged display must include the latest ghost (precondition)");
+    const named = merged.find((slot) => slot.id === "named1");
+    await backfillSlotDescription(named, o); // 종전엔 merged 를 그대로 써 유령이 SAVE_LIST 로 오염됐다
+    const afterIds = JSON.parse(bf.getItem(SAVE_LIST_KEY)).map((entry) => entry.id);
+    assert.deepEqual(afterIds, ["named1"], "viewing the panel (description backfill) must update only the named slot — never write latest/backup ghosts into SAVE_LIST or drop a slot");
+  }
+
+  console.log(JSON.stringify({ ok: true, checks: ["json write probe", "latest backup", "compressed slot roundtrip", "file export/import roundtrip", "slot dedupe", "packed latest save", "quota fallback evicts backup", "quiet bookkeeping failure", "corrupt packed slot rejects", "broken slot recovery", "allowTrim:false overwrite preserves other slots (no silent loss)", "graceful quota: gradual sacrifice", "promote loaded phantom save to named slot", "picker/load-panel slot order consistent (no wrong-slot overwrite)", "backfill updates only named slot (no ghost pollution)"] }, null, 2));
 } finally {
   await server.close();
 }

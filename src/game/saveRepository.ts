@@ -207,9 +207,13 @@ export function readStoredSlotList({ migrateSaveData, formatSaveDate, storage = 
   } catch {
     // no usable list
   }
-  // 같은 초(초 단위 savedAt) 중복 슬롯 제거 — 최신(앞) 1개만 유지. 과거 '저장 1회 → 동일슬롯 3개' 버그분 청소.
+  // savedAt 내림차순 정렬 — 덮어쓰기 picker(이 함수)와 로드 패널(readSaveSlots, 이미 desc 정렬)의 슬롯 순서·번호("저장 N")를 일치시킨다.
+  // (종전: 이 함수는 배열 삽입순 그대로라, 덮어쓰기로 슬롯의 savedAt 만 바뀌고 배열 위치는 유지되면 두 패널의 "저장 N"이 어긋나 → 사용자가 picker 에서 엉뚱한 슬롯을 덮어써 원하던 저장이 사라지던 크리티컬 유실.)
+  // 정렬 후 초 단위 중복 제거(최신 1개만) — 과거 '저장 1회 → 동일슬롯 3개' 버그분 청소.
   const seen = new Set<string>();
-  return slots.filter((slot) => { const key = typeof slot.savedAt === "string" ? slot.savedAt.slice(0, 19) : String(slot.savedAt); if (seen.has(key)) return false; seen.add(key); return true; });
+  return slots
+    .sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime())
+    .filter((slot) => { const key = typeof slot.savedAt === "string" ? slot.savedAt.slice(0, 19) : String(slot.savedAt); if (seen.has(key)) return false; seen.add(key); return true; });
 }
 
 // 로드한 세이브가 명명 슬롯(SAVE_LIST)에 없으면 승급해 둔다 — latest/backup 유령이나 백업/자동저장 복구본을
@@ -404,10 +408,20 @@ export function readAutosaveSlots(nickname: string, storage = localStorage): Sav
 }
 
 // 요약(description)이 없는 구버전 압축 슬롯: 해제해서 요약을 만들고, 다음을 위해 저장까지 해 둔다.
-export async function backfillSlotDescription(slot: SaveSlot, migrate: (save: PartialSavedGame) => SavedGame, allSlots: SaveSlot[], storage = localStorage): Promise<string | null> {
+// ★실제 명명 슬롯 목록(readStoredSlotList)만 다시 쓴다 — 종전엔 호출부가 넘긴 병합본(readSaveSlots: latest/backup 유령 포함)을
+//   그대로 써서, 패널을 열어 요약을 채우는 것만으로 유령이 SAVE_LIST 로 오염되거나(중복 슬롯) allowTrim 기본값으로 trim 되어 유실됐다.
+//   이제 LIST 만 읽어 해당 슬롯의 description 만 갱신하고 allowTrim:false 로 써, 조회가 슬롯을 늘리거나 떨구지 못하게 한다.
+export async function backfillSlotDescription(slot: SaveSlot, options: ReadSaveSlotsOptions): Promise<string | null> {
   const save = await resolveSlotSaveOrNull(slot);
   if (!save) return null;
-  const summary = saveSummary(migrate(save));
-  void writeSaveSlots(allSlots.map((candidate) => (candidate.id === slot.id ? { ...candidate, description: summary } : candidate)), storage).catch(() => {});
+  const summary = saveSummary(options.migrateSaveData(save as PartialSavedGame));
+  try {
+    const stored = readStoredSlotList(options);
+    if (stored.some((candidate) => candidate.id === slot.id)) {
+      await writeSaveSlots(stored.map((candidate) => (candidate.id === slot.id ? { ...candidate, description: summary } : candidate)), options.storage, { allowTrim: false });
+    }
+  } catch (error) {
+    console.warn("슬롯 요약 백필 저장 실패(요약 표시는 계속)", error);
+  }
   return summary;
 }
