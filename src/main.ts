@@ -246,8 +246,8 @@ import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, 
 import { DEFAULT_DIFFICULTY, applyMonsterDifficulty, difficultyModifiers, difficultyShopCost, isDifficultyMode, type DifficultyMode, type DifficultyModifiers } from "./game/difficulty";
 import { createSpirit, createSpiritCollection, equippedSpirit, gainSpiritExperience, normalizeSpiritCollection, spiritAttackBonus, spiritDefenseBonus, spiritFeedExperience, spiritGradeDef, spiritGradeIndex } from "./game/spirits";
 import { isGachaActive, runSpiritGacha } from "./ui/gachaScreen";
-import { updateSpiritBadge } from "./ui/spiritBadge";
-import type { SpiritCollection } from "./game/types";
+import { createSpiritCompanionModel, disposeSpiritCompanion, updateSpiritCompanion } from "./game/spiritVisuals";
+import type { SpiritCollection, SpiritGrade } from "./game/types";
 import { REGIONS, chooseRegionPredatorMonster, maybeWarnRegionLevel, nearestRegion, randomPointInRegion, regionAtPosition, regionLootChanceScale, type RegionWarningState } from "./game/regions";
 import { DEFAULT_WORLD_MAP_ID, WORLD_MAPS, canTeleportToWorldMap, getWorldMapById, regionsForWorldMap, worldMapLockReason } from "./game/worldMaps";
 import { clearWorldStateStore, installWorldStates, rememberWorldState, type WorldStateStore } from "./game/worldStateStore";
@@ -655,6 +655,8 @@ class WildernessGame {
   private permanentNecklace: ItemId | null = null; // 4차 전직 시 소비한 목걸이 — 그 효과를 영구 부여(착용 목걸이와 별개로 합산)
   private spirits: SpiritCollection = createSpiritCollection(); // 정령 보유/장착 — 목걸이처럼 1개 장착해 공·방 보너스, 소환수식 레벨업
   private spiritManagerOpen = false; // 캐릭터창 정령 보관함 팝업(팝업내 팝업) 열림 — 패널 재렌더에도 유지
+  private spiritCompanion: THREE.Group | null = null; // 장착 정령 동행체(왼쪽 어깨 페어리 3D). 장착 시 생성, 해제/등급변경 시 재생성.
+  private spiritCompanionGrade: SpiritGrade | null = null;
   private dragonGear: DragonGearWorn = NO_DRAGON_GEAR; // 용 장비 4종 착용 상태(보유=착용). refreshDragonGear() 로 인벤토리에서 동기화.
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
@@ -2758,6 +2760,12 @@ class WildernessGame {
     if (this.locationMode === "overworld") this.regionWarningState = maybeWarnRegionLevel(this.regionWarningState, this.playerPosition, this.level, performance.now(), (message, options) => this.showMessage(message, options), this.activeRegions);
     this.updateVisibilityCulling(delta);
     this.summonerCompanion.update(this.summonerPetContext, delta);
+    // 장착 정령 동행체(왼쪽 어깨 페어리) — 소환수와 대칭. 장착/등급 변할 때만 모델 재생성, 매 프레임 따라다님.
+    { const eq = this.gameStarted ? equippedSpirit(this.spirits) : null;
+      if (eq) {
+        if (!this.spiritCompanion || this.spiritCompanionGrade !== eq.grade) { if (this.spiritCompanion) { this.scene.remove(this.spiritCompanion); disposeSpiritCompanion(this.spiritCompanion); } this.spiritCompanion = createSpiritCompanionModel(eq.grade); this.spiritCompanionGrade = eq.grade; this.scene.add(this.spiritCompanion); }
+        updateSpiritCompanion(this.spiritCompanion, { px: this.playerPosition.x, py: this.playerPosition.y, pz: this.playerPosition.z, yaw: this.yaw, elapsed: this.clock.elapsedTime, delta });
+      } else if (this.spiritCompanion) { this.scene.remove(this.spiritCompanion); disposeSpiritCompanion(this.spiritCompanion); this.spiritCompanion = null; this.spiritCompanionGrade = null; } }
     this.updateEnvironmentHazards(delta);
     if (!partyWorldGuestActive()) updateVillageGuards(this.guardAiContext, delta); // 파티 게스트 — 경비는 호스트 권위 (스냅샷으로 보간)
     updateGuardProjectiles(this.guardProjectiles, this.guardProjectileContext, delta); // 가드 투사체(바위·화살·마법탄) 비행/착탄
@@ -6717,7 +6725,6 @@ class WildernessGame {
   }
 
   private renderHud() {
-    { const e = this.gameStarted ? equippedSpirit(this.spirits) : null; const d = e ? spiritGradeDef(e.grade) : null; updateSpiritBadge(e && d ? { emoji: d.emoji, color: d.color, glow: d.glow, label: d.label, level: e.level, gradeIndex: spiritGradeIndex(e.grade) } : null); } // 좌상단 정령 미니 뱃지(변경 시에만 갱신)
     if (this.fortressSiege?.active) {
       const status = siegeStatus(this.fortressSiege);
       this.siegeHudEl.textContent = status.intermission
