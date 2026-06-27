@@ -84,7 +84,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-27: 정령 동행체 — DOM 뱃지 제거하고 왼쪽 어깨 3D 페어리(game/spiritVisuals.ts)로 교체. 필드 2 + 매프레임 배선(뱃지 호출 제거 상쇄) +7 → 10187.
 // 2026-06-27: 동굴 입장횟수 만료(5회) — enterCave 에 횟수 게이트·증가·N/5 안내·만료 세팅 + 프롬프트 카운트. 상수는 constants(CAVE_MAX_ENTRIES) +6 → 10193.
 // 2026-06-27: 사망 배너 + 내구도≤3 경고 + ESC 입력포커스에서도 팝업닫기 — 사망음·flashDeathBanner 호출·import, 내구도 분기, ESC 게이트. 배너 로직은 ui/deathBanner 리프 +8 → 10201.
-const MAX_MAIN_LINES = 10201;
+// 2026-06-27: 마을 판매소 다량판매 — 카드별 수량 스테퍼(−/＋/전체) + qty 바인딩 + sellToVillageShop qty 인자. +4 → 10205.
+const MAX_MAIN_LINES = 10205;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

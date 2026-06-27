@@ -2910,6 +2910,12 @@ body {
   font-weight: 900;
   color: #fde68a;
 }
+.qty-stepper .qty-all-btn {
+  min-width: auto;
+  padding: 0 8px;
+  font-size: 12px;
+  border-left: 1px solid rgba(15, 23, 42, 0.5);
+}
 
 .recipe-card p,
 .recipe-card small,
