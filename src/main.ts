@@ -2899,7 +2899,7 @@ class WildernessGame {
     while (scanned < objects.length && changes < maxChanges) {
       const object = objects[(this.visibilityCullCursor + scanned) % objects.length];
       scanned += 1;
-      const distance = this.visibilityDistanceForType(object.type);
+      const distance = object.fieldBossId ? 240 : this.visibilityDistanceForType(object.type); // 필드보스는 랜드마크/타깃이라 멀리서도 보이게(컬링 면제)
       if (distance === Infinity) {
         if (!object.root.visible) {
           object.root.visible = true;
@@ -2933,6 +2933,7 @@ class WildernessGame {
       case "animal":
       case "wildPredator":
       case "jammini":
+        return this.qualityMode === "performance" ? 100 : 150; // 다중 메시 크리처(1마리 ~27 draw call) — 멀리선 점 크기라 가까이서만 렌더해 draw call 급감(저사양 100·그외 150, 종전 175). 필드보스는 위에서 면제.
       case "legoHazard":
       case "droppedItem":
       case "ore":
