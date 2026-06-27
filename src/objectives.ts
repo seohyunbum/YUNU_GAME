@@ -37,6 +37,8 @@ export interface ObjectiveSnapshot {
   recoveredWorkbench: boolean;
   ateMeat: boolean;
   hasNecklaceEquipped: boolean;
+  ownedSpiritCount: number; // 보유 정령 수 — 정령 소환 퀘스트 완료 판정
+  hasSpiritEquipped: boolean; // 정령 장착 여부 — 정령 장착 퀘스트 완료 판정
   hasWorkbench: boolean;
   hasPickaxe: boolean;
   hasBag: boolean;
@@ -294,6 +296,31 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
       progress: snapshot.ateMeat ? "1/1 — Q로 보상 받기" : "0/1",
       reward: { experience: 80, items: { meat: 3 }, label: "경험치 80 + 고기 3개" },
       completed: snapshot.ateMeat,
+      kind: "tutorial",
+    };
+  }
+
+  // 정령 소환권을 처음 얻는 순간(또는 이미 정령을 보유한 경우) 소환·장착을 안내하는 컨텍스트 퀘스트.
+  // 시퀀스 밖 인터럽트(eat_meat 와 동일 패턴) — 받으면 completedStepIds 에 기록돼 다시 뜨지 않는다. 소환→장착 순.
+  if ((snapshot.countItem("spirit_gacha_token") > 0 || snapshot.ownedSpiritCount > 0) && !completed(snapshot, "summon_spirit")) {
+    return {
+      id: "summon_spirit",
+      title: `정령 소환권으로 정령 소환하기 (${snapshot.ownedSpiritCount > 0 ? 1 : 0}/1)`,
+      detail: "정령 소환권을 얻었습니다! 소환권을 핫바(화면 아래 퀵슬롯)에 넣고 숫자키로 그 칸을 고른 뒤 사용하거나, 가방(I)에서 소환권을 더블클릭하면 정령 소환 연출이 시작됩니다. 등급이 높을수록 공격·방어 보너스가 큽니다.",
+      progress: snapshot.ownedSpiritCount > 0 ? "1/1 — Q로 보상 받기" : "0/1",
+      reward: { experience: 300, items: { medkit: 2 }, label: "경험치 300 + 구급상자 2개" },
+      completed: snapshot.ownedSpiritCount > 0,
+      kind: "tutorial",
+    };
+  }
+  if (snapshot.ownedSpiritCount > 0 && !completed(snapshot, "equip_spirit")) {
+    return {
+      id: "equip_spirit",
+      title: `정령 장착하기 (${snapshot.hasSpiritEquipped ? 1 : 0}/1)`,
+      detail: "K로 캐릭터 창을 열고 정령 보관함에서 소환한 정령을 골라 장착하세요. 장착하면 시야 왼쪽 어깨에 정령이 따라다니고 공격·방어 보너스를 받습니다. 정령은 한 번에 하나만 장착할 수 있습니다.",
+      progress: snapshot.hasSpiritEquipped ? "1/1 — Q로 보상 받기" : "0/1",
+      reward: { experience: 340, items: { medkit: 2 }, label: "경험치 340 + 구급상자 2개" },
+      completed: snapshot.hasSpiritEquipped,
       kind: "tutorial",
     };
   }
