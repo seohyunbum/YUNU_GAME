@@ -88,6 +88,7 @@ export function spawnDragon(context: EntitySpawnContext, position: THREE.Vector3
     bossKind,
   });
   applyMonsterDifficulty(dragon, context.monsterDifficulty()); // 보스 hp 보정 — 체력바 분모는 main 의 보스바에서 동일 배율로 맞춘다
+  dragon.homePosition = position.clone(); // 리시 홈 — 추격 끝나면 이 스폰 지점으로 복귀(dragonAi). 세이브/복원에 포함(saveManager)되어 라운드트립.
   return dragon;
 }
 

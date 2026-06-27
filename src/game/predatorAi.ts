@@ -172,6 +172,8 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
   }
 }
 
+const BOSS_LEASH_RADIUS = 6; // 보스(homePosition 보유)가 어그로를 잃었을 때 스폰 홈에서 이 거리 이상 벗어나 있으면 복귀 시작
+
 export function updatePredatorAi(context: PredatorAiContext, delta: number) {
   if (context.locationMode() !== "overworld") return;
   if (partyWorldGuestActive()) return; // 파티 게스트 — 몬스터는 호스트가 시뮬레이션 (partyWorldSync 가 보간)
@@ -208,13 +210,19 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     }
     const aggroRange = predator.attackRange ?? context.predatorAggroRange(predator.predatorKind);
     const aggroed = distance <= aggroRange || (predator.angryUntil ?? 0) > now;
-    if (!aggroed && Math.random() < 0.012) predator.wanderAngle = Math.random() * Math.PI * 2;
-    if (!aggroed && distance > aggroRange * 1.8) predator.wanderAngle = (predator.wanderAngle ?? 0) + THREE.MathUtils.randFloatSpread(0.08);
-    const angle = aggroed ? Math.atan2(dz, dx) : predator.wanderAngle ?? 0;
+    // 리시(leash) 복귀 — 어그로가 풀린 보스(homePosition 보유)는 스폰 지점으로 걸어 돌아간다. 멀리 도망가면 제자리에 방치(추격 불가·미복귀)되던 버그 수정. 홈 반경 안이면 평소처럼 가볍게 배회.
+    let returningHome = false, homeAngle = 0;
+    if (!aggroed && predator.homePosition) {
+      const hdx = predator.homePosition.x - predator.root.position.x, hdz = predator.homePosition.z - predator.root.position.z;
+      if (hdx * hdx + hdz * hdz > BOSS_LEASH_RADIUS * BOSS_LEASH_RADIUS) { returningHome = true; homeAngle = Math.atan2(hdz, hdx); }
+    }
+    if (!aggroed && !returningHome && Math.random() < 0.012) predator.wanderAngle = Math.random() * Math.PI * 2;
+    if (!aggroed && !returningHome && distance > aggroRange * 1.8) predator.wanderAngle = (predator.wanderAngle ?? 0) + THREE.MathUtils.randFloatSpread(0.08);
+    const angle = aggroed ? Math.atan2(dz, dx) : returningHome ? homeAngle : predator.wanderAngle ?? 0;
     const predatorStats = context.predatorStats(predator.predatorKind, predator.monsterId as MonsterId | undefined);
     // 근접 정지/공격 사거리 — 플레이어와 겹치지 않고 시야에 들어오게 일정 거리 밖에서 멈춰 공격(몸집 클수록 더 멀리).
     const reach = context.predatorStrikeRange(predator.predatorKind) + 3.2 + (predator.collisionRadius ?? 0); // 정지/공격 사거리 — 몸집(collisionRadius) 전부 반영(종전 ×0.5). 큰 보스일수록 더 멀리 멈춰 거대 모델이 카메라를 덮지 않게. 데미지는 사거리 내면 적용.
-    const speed = !aggroed ? predatorStats.speed * 0.28 : distance > reach ? (predatorStats.speed + (predator.speedBonus ?? 0)) * context.monsterChaseSpeedMul() : 0; // 사거리 안이면 더 다가가지 않고 정지(타게팅 가능). 추격(aggro+이동) 시에만 난이도 추격속도 배율 적용.
+    const speed = aggroed ? (distance > reach ? (predatorStats.speed + (predator.speedBonus ?? 0)) * context.monsterChaseSpeedMul() : 0) : returningHome ? predatorStats.speed * 0.7 : predatorStats.speed * 0.28; // 추격(사거리 밖)·홈 복귀(0.7배)·배회(0.28배). 사거리 안이면 정지(타게팅 가능).
     nextPosition.set(
       THREE.MathUtils.clamp(predator.root.position.x + Math.cos(angle) * speed * delta, -WORLD_SIZE / 2 + 6, WORLD_SIZE / 2 - 6),
       0,
