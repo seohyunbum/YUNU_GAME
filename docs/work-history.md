@@ -14,6 +14,17 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-23 — 정령 소환권 획득처 확대(집 보급상자 + 보스/용/요새보스)
+
+- 요청: 지은 집 보급상자에서도 낮은 확률로, 보스몬스터/드래곤도 아주 낮은 확률로 정령 소환권(spirit_gacha_token) 드랍.
+- 발견: main.ts:4920 `grantExperienceForTarget`(모든 처치 경로의 중앙 훅 — 솔로·호스트·파티 creditHostKill 공통)에 이미 일반 사냥 1.2% 드랍 존재.
+- 구현:
+  - 보스: 그 1줄을 머지해 `sc = (wildPredator/dragon ? 1.2% : 0) + (fieldBossId || dragon || fortressBoss ? +3% : 0)` 단일 롤로. 보스/용/요새보스=4.2%, 일반몹=1.2% 유지, 비몬스터=0. main 라인 net 0(머지).
+  - 집 보급: homeBase.rollHomeSupply tier≥2 에서 6% 추가(전설이라 6종 cap 상위로 거의 항상 보존).
+- 회귀 발견·수정: 직전 turn 의 6종 cap 이 gameplay-systems-test 2건을 깨뜨림(테스트가 pre-cap 계약 인코딩) — ①집보급 "정확히 2확률라인" → cap+정령으로 무효 ②흑요석 상자 dragon_scale 보장 → 풀 롤 시 rare 라 cap 에 밀림(의도된 등급순). 두 단언을 새 cap 계약으로 갱신(cap≤6·전설 보존 검증).
+- 검증: typecheck+build, check:size(10165=예산), 모듈 시뮬(집보급 6%·tier<2 0%·cap생존, 보스 4.2%/일반 1.2%/비몹 0%), test:systems·test:content 그린.
+- ⚠️ 부작용 고지: 6종 cap 은 등급순이라 흑요석 상자가 잭팟(에픽/전설 다수)일 때 dragon_scale 같은 rare 가 밀릴 수 있음. 기본 롤(확률템 미적중)은 6종 정확이라 보존.
+
 ## 2026-06-23 — 집 보급상자 경험치병 확률 70%로 하향 + 모든 상자 최대 6종류 제한
 
 - 요청1: 내가 지은 집 보급상자의 경험치병(xp_bottle) 드랍 확률을 현재의 70%로. → homeBase.rollHomeSupply 의 tier≥2 조건 확률 0.5→0.35.

@@ -4917,7 +4917,7 @@ class WildernessGame {
     this.summonerCompanion.awardExperience(killExp, this.summonerPetContext);
     { const sp = equippedSpirit(this.spirits); if (sp && gainSpiritExperience(sp, killExp) > 0) { this.showMessage(`✨ 정령 레벨업! Lv ${sp.level} (공+${spiritAttackBonus(sp)}/방+${spiritDefenseBonus(sp)})`); this.renderHud(); } } // 장착 정령도 소환수와 동일 경험치로 레벨업
     if (target.type === "wildPredator" && creditQuest) { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); } // creditQuest=false → 파티에서 게스트가 막타친 경우: 호스트는 사냥 카운터 증가 안 함(게스트가 자기 카운터 증가)
-    if ((target.type === "wildPredator" || target.type === "dragon") && Math.random() < 0.012 * this.difficultyMods.dropChance && this.addItem("spirit_gacha_token", 1)) this.showMessage("✨ 정령 소환권을 발견했습니다! (전설 — 인벤에서 더블클릭 또는 핫바로 사용)"); // 사냥 시 낮은 확률 드랍(난이도 드랍률 반영)
+    { const sc = (target.type === "wildPredator" || target.type === "dragon" ? 0.012 : 0) + (target.fieldBossId || target.type === "dragon" || target.fortressBoss ? 0.03 : 0); if (sc > 0 && Math.random() < sc * this.difficultyMods.dropChance && this.addItem("spirit_gacha_token", 1)) this.showMessage("✨ 정령 소환권을 발견했습니다! (전설 — 인벤에서 더블클릭 또는 핫바로 사용)"); } // 일반 사냥 1.2% + 보스/용/요새보스 +3% (아주 낮은 확률, 난이도 드랍률 반영)
     if (target.fortressBoss) {
       this.tutorialSignals.fortressBossKills += 1; // 요새 보스 처치 퀘스트 신호
       const level = target.fortressLevel ?? 20; // 흑요석+전직의서 확정 드랍 — 고레벨 맵일수록 더 많이
