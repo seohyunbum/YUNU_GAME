@@ -7279,7 +7279,7 @@ class WildernessGame {
         onLoad: (slotId) => this.loadSaveSlot(slotId),
         onExportSave: () => this.exportSaveData(),
         onImportSave: (save) => void this.applyLoadedSave(save as PartialSavedGame, "세이브 파일을 가져왔습니다."),
-        onResolveSummary: async (slotId) => { const slots = this.readSaveSlots(); const slot = slots.find((candidate) => candidate.id === slotId); return slot ? backfillSlotDescription(slot, (save) => migratePartialSaveData(save), slots) : null; },
+        onResolveSummary: async (slotId) => { const slot = this.readSaveSlots().find((candidate) => candidate.id === slotId); return slot ? backfillSlotDescription(slot, { migrateSaveData: (save) => migratePartialSaveData(save), formatSaveDate: (a) => formatSaveDate(a) }) : null; },
         onShowHistory: () => readRepositorySaveHistory(this.nickname).map((entry) => ({ savedAt: entry.savedAt, label: entry.label, summary: entry.summary })),
         onRecoverHistory: async (savedAt) => { const entry = readRepositorySaveHistory(this.nickname).find((candidate) => candidate.savedAt === savedAt); const save = entry ? await resolveRepositoryHistorySave(entry) : null; if (save) await this.applyLoadedSave(save, "백업에서 복구했습니다."); else this.showMessage("백업을 불러오지 못했습니다."); },
         onShowAutosave: () => readAutosaveSlots(this.nickname).map((entry) => ({ savedAt: entry.savedAt, label: entry.label, summary: entry.summary })),

@@ -57,14 +57,20 @@
 **중복 슬롯 (2026-06-21)**
 - `2abf2e1`(설계) → `75d4701` ★**저장 1회→동일슬롯 3중복** 수정: savedAt ms정밀+dedup 정확일치 → 같은 초 반복저장이 dedup 통과 → cap 3배소모로 타 캐릭터 슬롯 trim 유실. **A 디바운스**(`lastSaveCompletedAt`+`SAVE_DEBOUNCE_MS`=1500)·**B 초단위 dedup**(`savedAt.slice(0,19)`)·**C 로드 청소**(`readStoredSlotList` 같은-초 중복 제거).
 
+**위치 혼선·잘못 덮어쓰기 유실 (2026-06-28)**
+- 신고: "저장슬롯 위치가 이상하고 다른 저장이 자꾸 사라진다." 닉네임은 영구 단일(`nicknamePanel`: 변경 불가)이라 §4 전역풀(다닉네임)은 이 신고의 원인 아님 — 단일 닉네임 사용자의 실제 근본원인 2건을 재현·수정:
+  - ★**picker↔로드패널 순서 불일치**: 로드 패널=`readSaveSlots`(savedAt desc 정렬), 덮어쓰기 picker·가득판정=`readStoredSlotList`(배열 삽입순). 덮어쓰기는 슬롯을 **in-place 교체**(배열 위치 유지, savedAt만 갱신)라, 한 번이라도 덮어쓰면 두 패널의 "저장 N"이 어긋남 → picker 에서 엉뚱한(원하던) 슬롯을 덮어써 유실. **수정**: `readStoredSlotList` 도 savedAt desc 정렬(두 패널 번호 일치).
+  - ★**backfill 유령 오염**: `backfillSlotDescription` 가 호출부의 병합본(`readSaveSlots`: latest/backup 유령 포함)을 그대로 `writeSaveSlots`(allowTrim 기본 true) → 패널 조회만으로 유령이 SAVE_LIST 로 오염/중복, 병합>MAX 면 trim 유실. **수정**: LIST(`readStoredSlotList`)만 읽어 해당 슬롯 description 만 갱신 + `allowTrim:false`.
+  - QoL: `MAX_SAVE_SLOTS` 10→20(가득=덮어쓰기 강요 마찰↓). 회귀 테스트 2건 추가(picker/load 순서 일치·backfill 무오염).
+
 ---
 
 ## 4. 알려진 잔여 리스크 / 백로그
 > "여전히 완벽하지 않은" 부분. 또 유실/혼선 신고 오면 여기부터.
-- **명명 슬롯이 전역(닉네임 무관)** — 다른 캐릭터로 저장 시 한 풀(10칸)을 공유해 서로 밀어냄. `StoredSaveSlot`에 nickname 필드+필터(autosave/history 패턴 차용), 슬롯카드에 닉네임/클래스 표기. ← **가장 큰 잔여 혼선원**.
+- **명명 슬롯이 전역(닉네임 무관)** — 한 풀(MAX_SAVE_SLOTS=20)을 공유. **단, 닉네임은 영구 단일(변경 불가)**이라 한 origin 안에서 다닉네임 혼선은 발생 불가 — 캐릭터(클래스) 구분은 슬롯 요약(`saveSummary`: 난이도·클래스·레벨)으로 가능. (origin 분리는 [[yunu-game-dual-origin-saves]]) 잔여: 슬롯카드에 클래스/요약을 더 또렷이 표기하면 식별성↑.
 - **언로드 동기 자동저장이 raw(비압축) 기록** 가능성 → quota 유발↑. 직전 압축본 캐시 재사용 검토.
 - **디바운스(1500ms)는 같은-탭 단일 인스턴스 기준** — 두 탭 동시 플레이 등 멀티-탭 경합은 별개(스토리지 이벤트/락 미도입).
-- **표시 경로 병합(LIST+KEY+BACKUP)** 의 "유령 슬롯"은 승급(e80d2a2)으로 완화됐으나, 승급이 가득(≥MAX)이면 미작동(allowTrim:false) — 가득 상태의 유령 표기/안내 일관성 점검 여지.
+- **표시 경로 병합(LIST+KEY+BACKUP)** 의 "유령 슬롯"은 승급(e80d2a2)으로 완화됐으나, 승급이 가득(≥MAX)이면 미작동(allowTrim:false) — 가득 상태의 유령 표기/안내 일관성 점검 여지. (2026-06-28: 유령이 backfill 로 SAVE_LIST 오염시키던 경로는 차단함.)
 - (추정 해결) quota 전삭제(e80d2a2), 유령 슬롯(e80d2a2 승급), id dedup(e80d2a2) — 회귀 감시 대상.
 
 ---
