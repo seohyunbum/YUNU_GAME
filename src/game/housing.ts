@@ -1,6 +1,6 @@
 import type { HouseBuildOption } from "./types";
 
-// 내 집 공통 혜택: 안전지대 · 침대 완전 회복(체력+마나+배고픔1) · 집 창고 24칸 · 30분마다 보급 상자 · 사망 시 집 앞 부활 · 지도 표시
+// 내 집 공통 혜택: 안전지대 · 침대 완전 회복(체력+마나+배고픔1) · 집 창고 24칸 · 20분마다 보급 상자 · 사망 시 집 앞 부활 · 지도 표시
 export const HOUSE_BUILD_OPTIONS: HouseBuildOption[] = [
   {
     id: "wood_cabin",

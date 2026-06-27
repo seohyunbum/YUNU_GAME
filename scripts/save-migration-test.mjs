@@ -215,7 +215,7 @@ try {
   assert.equal(current.player.homeStorage.length, 24);
   assert.deepEqual(current.player.homeStorage[0], { item: "iron_pickaxe", count: 1, durabilityUsed: 7 });
   assert.deepEqual(current.player.homeStorage[1], { item: "wood", count: 30 });
-  assert.deepEqual(current.player.homeSupplyCooldowns, { wood: 1800, stone: 600 }, "per-house supply cooldowns should clamp to the 30-minute max and drop invalid entries");
+  assert.deepEqual(current.player.homeSupplyCooldowns, { wood: 1200, stone: 600 }, "per-house supply cooldowns should clamp to the 20-minute max and drop invalid entries");
   assert.equal(current.worldStates.snowfield.mountains.length, 0);
   assert.equal(current.worldStates.dragon_lands.mountains[0].radius, 12);
   assert.equal(current.worldStates.dragon_lands.objects.length, 1);

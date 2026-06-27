@@ -1563,7 +1563,7 @@ try {
     // 내 집 베이스캠프: 창고 이동, 보급 쿨다운/보상 티어, 정규화 골든값
     const { HOME_STORAGE_SLOTS, HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } = homeBase;
     assert(HOME_STORAGE_SLOTS === 24, "home storage should have 24 slots");
-    assert(HOME_SUPPLY_COOLDOWN_SECONDS === 1800, "supply cooldown should be 30 minutes of play time");
+    assert(HOME_SUPPLY_COOLDOWN_SECONDS === 1200, "supply cooldown should be 20 minutes of play time");
 
     const storage = normalizeHomeStorage([{ item: "wood", count: 10 }]);
     assert(storage.length === 24 && storage[0].item === "wood" && storage[1].item === null, "normalize should pad to 24 slots");
