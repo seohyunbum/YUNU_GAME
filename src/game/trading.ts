@@ -1,4 +1,5 @@
 import type { ItemId, PointShopOffer, SellShopOffer, TradeOffer } from "./types";
+import { ITEM_TIER, itemTier, type ItemTier } from "./items";
 
 export const TRADE_OFFERS: TradeOffer[] = [
   { id: "meat_for_iron", name: "고기와 철 교환", give: { meat: 2 }, receive: { iron: 1 } },
@@ -57,7 +58,8 @@ function roundedSellPrice(shopUnitPrice: number) {
   return Math.max(1, Math.floor(raw / step) * step);
 }
 
-export const SELL_SHOP_OFFERS: SellShopOffer[] = POINT_SHOP_OFFERS.flatMap((offer) =>
+// 구매 상점(POINT_SHOP)에서 파생한 기존 매입가 — 원자재 등은 이 값(가치 기반)을 유지한다.
+const BUY_DERIVED_SELL_OFFERS: SellShopOffer[] = POINT_SHOP_OFFERS.flatMap((offer) =>
   Object.entries(offer.receive).map(([item, count]) => {
     const shopUnitPrice = Math.ceil(offer.cost / Math.max(1, count));
     return {
@@ -69,6 +71,24 @@ export const SELL_SHOP_OFFERS: SellShopOffer[] = POINT_SHOP_OFFERS.flatMap((offe
     };
   }),
 );
+
+// 등급별 매입가 — 무기·방어구·도구·재료를 폭넓게 팔 수 있게(가격은 아이템 등급에 따라).
+const SELL_POINTS_BY_TIER: Record<ItemTier, number> = { common: 6, uncommon: 90, rare: 450, epic: 1100, legendary: 3000, mythic: 7000 };
+const TIER_LABEL: Record<ItemTier, string> = { common: "일반", uncommon: "고급", rare: "희귀", epic: "에픽", legendary: "레전더리", mythic: "신화" };
+// 판매 제외 — 전직/진행 아이템(되돌릴 수 없음)·용 소재(전용 포인트 교환 4000~10000P 있음)
+const SELL_BLOCKLIST = new Set<ItemId>(["job_change_tome", "job_decree", "job_seal", "job_decree_high", "job_decree_ultimate_strength", "job_decree_ultimate_guardian", "job_decree_ultimate_swift", "job_decree_ultimate_sage", "dragon_scale", "dragon_tail", "dragon_horn", "dragon_spawn"]);
+// 등급표에 없는(=일반) 추가 판매 품목 — 가죽/구리 갑옷, 기본 무기·도구·재료
+const COMMON_SELLABLE: ItemId[] = ["leather_armor", "copper_armor", "weak_wood_axe", "sharp_wood_axe", "wood_pickaxe", "wood_shovel", "stone_axe", "stone_pickaxe", "stone_shovel", "copper_axe", "copper_pickaxe", "copper_shovel", "wood", "stick", "stone", "coal", "copper", "leather", "meat", "stone_powder", "coal_powder", "copper_powder"];
+const buyDerivedItems = new Set(BUY_DERIVED_SELL_OFFERS.map((o) => o.item));
+const GRADE_SELL_OFFERS: SellShopOffer[] = [...new Set<ItemId>([...(Object.keys(ITEM_TIER) as ItemId[]), ...COMMON_SELLABLE])]
+  .filter((item) => !SELL_BLOCKLIST.has(item) && !buyDerivedItems.has(item)) // 블록·기존(가치기반) 중복 제외
+  .map((item) => {
+    const tier = itemTier(item);
+    const points = SELL_POINTS_BY_TIER[tier];
+    return { id: `grade_${item}_sell`, item, points, shopUnitPrice: Math.round(points / SELL_SHOP_RATE), note: `${TIER_LABEL[tier]} 등급 매입가입니다.` };
+  });
+
+export const SELL_SHOP_OFFERS: SellShopOffer[] = [...BUY_DERIVED_SELL_OFFERS, ...GRADE_SELL_OFFERS];
 
 export const POINT_EXCHANGE_OFFERS = [
   { id: "dragon_scale_points", item: "dragon_scale", points: 4000, name: "용의 비늘 교환" },

@@ -14,6 +14,12 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-27 — 판매소 등급별 다양한 아이템 판매 + 정령소환 포인터락 자동해제
+
+- ①판매소 확대: 종전 SELL_SHOP_OFFERS 가 구매상점(POINT_SHOP) 파생이라 소수만 판매 가능. trading.ts 에 등급별 매입가(SELL_POINTS_BY_TIER 일반6/고급90/희귀450/에픽1100/레전3000/신화7000) + ITEM_TIER 전체+공용(가죽/구리갑옷·기본무기/도구/재료) 오퍼 생성, 기존 가치기반 오퍼와 병합(중복 제거). 전직/진행·용 소재(전용 교환)는 블록. 판매소 패널은 보유분만 비싼순 정렬 표시.
+- ②정령소환 마우스: 가챠 연출 중 포인터락이 걸려 있어 ESC 안 누르면 커서가 안 보이던 문제. openSpiritGacha 에서 runSpiritGacha(active=true) 먼저 → closePanel(가챠 active 라 재잠금 게이트로 차단) → document.exitPointerLock. requestGamePointerLock 에 isGachaActive 게이트 추가.
+- 검증: typecheck·build·verify·check:size(10193, 여유8). E2E: 판매소에 마법봉90·가죽갑옷6·흑요석갑옷1100 등 등급가 표시(보유분만), 가챠 시 exitPointerLock 호출·pointerLocked=false.
+
 ## 2026-06-27 — 사망 안내 강화 + 내구도≤3 경고 + ESC 로 모든 팝업 닫기
 
 3건 일괄.
