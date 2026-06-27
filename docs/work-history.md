@@ -673,3 +673,12 @@
 - 테스트: scripts/nickname-test.mjs 신설(verify 편입) — 공백/기호 허용·Firebase 금지문자 6종 차단·HTML 5종 차단·제어문자(NUL/BEL/ESC/DEL) 차단·길이·비속어 우회 6종·예약어 우회·정규화 중복. gameplay-systems-test 의 옛 단언("공백/특수문자 거부") → 신정책(공백·일반기호 허용 + / 와 <b> 거부)으로 갱신.
 - typecheck·size(10168)·methods(494)·architecture·combat·damage-variance·nickname·systems·content·balance·mobile·party-ledger·difficulty·leaderboard·spirits·save-migration 전부 녹색. save-roundtrip 만 Chrome 부재로 미실행.
 - 관련: src/game/nickname.ts, src/ui/nicknamePanel.ts, scripts/nickname-test.mjs, scripts/gameplay-systems-test.mjs, package.json.
+
+## 2026-06-27 — 훈련장 역기(hp) 미니게임 상호작용 범위 수정
+
+- 증상: 훈련장 "역기들기" 리그가 E 상호작용이 잘 안 잡혀 미니게임 실행이 어려움.
+- 원인: 상호작용 대상 해석에서 trainingRig 가 관대한 nearbyObjectInView(콘/근접) 목록에 빠져 있어 strict 크로스헤어 레이캐스트(getLookTarget)로만 잡혔음. 역기 비주얼은 가장 낮음(바/원판 중심 y≈0.55, 최상단 ≈0.97m) → 눈높이(≈1.5m) 수평 조준선이 역기 위로 지나가 정조준(아래로 봐야)이 아니면 빗나감. 다른 리그(과녁 y1.6·방패 y1.25·제단 y1.05)는 높아 덜 티남.
+- 수정: updatePrompt(프롬프트, line~4107)·primaryInteract(액션, line~4220) 두 곳의 nearbyObjectInView 목록에 "trainingRig" 추가 → 침대·제작대처럼 콘/근접(반경 0.85+0.9 여유, 중심 높이 보정)으로 관대하게 잡힘. 충돌/물리값은 불변, 신규 메서드·줄 수 변화 0.
+- 안전: 훈련장은 안전구역(몬스터 없음)이라 콤뱃 타겟과 충돌 없음. trainingRig 는 isCombatTarget 아님 → 액션 분기에서 기존 trainingRig 핸들러로 정상 진입.
+- 검증: typecheck·size(10168)·methods(494)·systems·content·balance·mobile 녹색. 레이캐스트/콘 상호작용은 브라우저 의존이라 단위테스트 불가 — 실기기 확인 권장(특히 역기 정면 접근 시 "E: 역기들기 훈련 시작" 프롬프트).
+- 관련: src/main.ts (updatePrompt, primaryInteract 대상 목록).
