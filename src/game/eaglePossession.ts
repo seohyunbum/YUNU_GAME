@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { EAGLE_CLAW_COOLDOWN, EAGLE_CLAW_DAMAGE, PROJECTILE_MAX_LIFE, WIND_CUTTER_COOLDOWN, WIND_CUTTER_DAMAGE } from "./constants";
 import { createWindCutterProjectile, spawnEnemyHitParticles, spawnMeleeSlashTrail, type CombatEffectContext } from "./combatEffects";
+import { varyPlayerDamage } from "./combat";
 import { WEAPON_DAMAGE } from "./items";
 import type { CombatProjectile, HandActionMode, ItemId, WorldObject } from "./types";
 
@@ -89,7 +90,7 @@ export function tryEagleWindCutter(context: EagleActionContext) {
     kind: "wind",
     mesh: createWindCutterProjectile(direction),
     velocity: direction.multiplyScalar(37),
-    damage: possessedEagleDamage(WIND_CUTTER_DAMAGE, context.bodyAttackPower()),
+    damage: varyPlayerDamage(possessedEagleDamage(WIND_CUTTER_DAMAGE, context.bodyAttackPower())), // 80%~200% 랜덤(발사 시 1회)
     radius: 0.42,
     life: PROJECTILE_MAX_LIFE,
   };
