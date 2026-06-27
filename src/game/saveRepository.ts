@@ -263,7 +263,8 @@ export function saveSummary(save: SavedGame) {
   const location = save.player.locationMode === "cave" ? "동굴" : save.player.locationMode === "house" ? "집 안" : "야생";
   const className = PLAYER_CLASSES[save.player.playerClass ?? "warrior"]?.name ?? "전사";
   const filledSlots = [...save.player.hotbar, ...save.player.bagSlots].filter((slot) => slot.item && slot.count > 0).length;
-  return `${className} · Lv ${save.player.level} · 체력 ${Math.ceil(save.player.health)}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${timeOfDayName(hour)} ${gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
+  const difficulty = save.difficulty === "hard" ? "🔥 어려움" : "😊 쉬움"; // 세이브별 난이도 표기(구세이브=쉬움). 모든 슬롯/덮어쓰기/백업 패널이 saveSummary 공유 → 일괄 노출
+  return `${difficulty} · ${className} · Lv ${save.player.level} · 체력 ${Math.ceil(save.player.health)}/${save.player.maxHealth} · 마나 ${Math.floor(save.player.mana ?? BASE_MAX_MANA)}/${save.player.maxMana ?? BASE_MAX_MANA} · 배고픔 ${save.player.hunger ?? HUNGER_MAX}/${HUNGER_MAX} · ${timeOfDayName(hour)} ${gameClockText(hour)} · ${location} · 걸음 ${Math.floor(save.player.totalSteps)} · 아이템칸 ${filledSlots}`;
 }
 
 // ── 자동 백업 링 (닉네임별 최신 30개) ─────────────────────────────
