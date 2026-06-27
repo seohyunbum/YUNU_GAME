@@ -8,8 +8,10 @@ export const NICKNAME_REGISTRY_KEY = "ai-game-lab:nickname-registry-v1";
 export const NICKNAME_MIN_LENGTH = 2;
 export const NICKNAME_MAX_LENGTH = 10;
 
-// 한글·영문·숫자만 (공백/특수문자 불가)
-const NICKNAME_PATTERN = /^[가-힣a-zA-Z0-9]+$/;
+// 허용: 한글(완성형·자모)·영문·숫자·공백·대부분의 특수문자.
+// 차단(아래 문자만): Firebase 실시간DB 키 금지문자(. # $ [ ] /), HTML 특수문자(< > & " '), 제어문자.
+//   - 닉네임은 랭킹/파티/친구에서 DB 키로, 화면에서 innerHTML 로 쓰이므로 이 문자들만 막으면 안전하다.
+const NICKNAME_FORBIDDEN = /[.#$/[\]<>&"'\x00-\x1F\x7F]/;
 
 // 금지어 — 정규화(소문자·구분자 제거) 후 부분일치로 검사한다
 const BANNED_WORDS = [
@@ -28,14 +30,15 @@ const RESERVED_NAMES = ["관리자", "운영자", "시스템", "admin", "system"
 export type NicknameValidation = { ok: true; name: string } | { ok: false; reason: string };
 
 function normalizeForFilter(value: string) {
-  return value.toLowerCase().replace(/[\s._\-~!@#$%^&*()+=]/g, "");
+  // 영숫자·한글(완성형/자모)만 남기고 전부 제거 → 공백·기호로 우회한 비속어("시 발", "시*발", "ㅅ.ㅂ")도 검출
+  return value.toLowerCase().replace(/[^가-힣ㄱ-ㅎㅏ-ㅣa-z0-9]/g, "");
 }
 
 export function validateNickname(raw: string, takenNames: readonly string[]): NicknameValidation {
-  const name = raw.trim();
+  const name = raw.trim().replace(/\s+/g, " "); // 양끝 공백 제거 + 내부 연속 공백을 한 칸으로 정규화
   if (name.length < NICKNAME_MIN_LENGTH) return { ok: false, reason: `닉네임은 ${NICKNAME_MIN_LENGTH}글자 이상이어야 합니다.` };
   if (name.length > NICKNAME_MAX_LENGTH) return { ok: false, reason: `닉네임은 ${NICKNAME_MAX_LENGTH}글자 이하여야 합니다.` };
-  if (!NICKNAME_PATTERN.test(name)) return { ok: false, reason: "한글, 영문, 숫자만 사용할 수 있습니다. (공백·특수문자 불가)" };
+  if (NICKNAME_FORBIDDEN.test(name)) return { ok: false, reason: `다음 문자는 쓸 수 없습니다: < > & " ' . # $ [ ] / 와 제어문자` };
   const normalized = normalizeForFilter(name);
   if (BANNED_WORDS.some((word) => normalized.includes(normalizeForFilter(word)))) {
     return { ok: false, reason: "비속어나 욕설이 들어간 닉네임은 사용할 수 없습니다." };
