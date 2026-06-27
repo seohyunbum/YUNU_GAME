@@ -82,6 +82,7 @@ export interface SaveDataSnapshot {
     trainingTries: { hp: number; attack: number; armor: number; mana: number }; // 종목별 최고단계 달성 시도수(랭킹 동률 타이브레이크)
     homeStorage: readonly Slot[];
     homeSupplyCooldowns: Record<string, number>;
+    dragonRespawnCooldown: Record<string, number>;
     caveReturnPosition: VectorLike | null;
     houseReturnPosition: VectorLike | null;
     toolUses: Record<ItemId, number>;
@@ -266,6 +267,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       trainingTries: { ...snapshot.player.trainingTries },
       homeStorage: cloneSlots(snapshot.player.homeStorage),
       homeSupplyCooldowns: { ...snapshot.player.homeSupplyCooldowns },
+      dragonRespawnCooldown: { ...snapshot.player.dragonRespawnCooldown },
       caveReturnPosition: snapshot.player.caveReturnPosition ? toSavedVector(snapshot.player.caveReturnPosition) : null,
       houseReturnPosition: snapshot.player.houseReturnPosition ? toSavedVector(snapshot.player.houseReturnPosition) : null,
       toolUses: { ...snapshot.player.toolUses },

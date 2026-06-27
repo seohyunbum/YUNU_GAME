@@ -6228,6 +6228,7 @@ class WildernessGame {
         trainingTries: this.trainingTries,
         homeStorage: this.homeStorage,
         homeSupplyCooldowns: this.homeSupplyCooldowns,
+        dragonRespawnCooldown: Object.fromEntries([...this.dragonRespawnAt].map(([k, at]) => [k, Math.max(0, Math.round(at - performance.now()))] as [string, number]).filter(([, r]) => r > 0)), // 남은 용 리스폰 쿨타임(ms) — 재접속에도 10분 유지
         caveReturnPosition: this.caveReturnPosition,
         houseReturnPosition: this.houseReturnPosition,
         toolUses: { ...this.toolUses },
@@ -6344,6 +6345,7 @@ class WildernessGame {
     { let raised = false; for (const kind of TRAINING_KINDS) if (raiseBestTraining(this.bestTraining, kind, this.trainingStats[kind], this.trainingTries[kind])) raised = true; if (raised) saveBestTraining(this.bestTraining); } // 로드한 캐릭터의 훈련치로 계정 최고기록 시드(랭킹 보존) — best-ever 보다 낮으면 안 떨어뜨림
     this.homeStorage = normalizeHomeStorage(save.player.homeStorage);
     this.homeSupplyCooldowns = save.player.homeSupplyCooldowns ?? {};
+    this.dragonRespawnAt.clear(); for (const [kind, remaining] of Object.entries(save.player.dragonRespawnCooldown ?? {})) if (typeof remaining === "number" && remaining > 0) this.dragonRespawnAt.set(kind as BossKind, performance.now() + remaining); // 저장된 남은 쿨타임만큼 리스폰 지연 복원(재접속 시 즉시 스폰 방지)
     this.caveReturnPosition = save.player.caveReturnPosition ? this.fromSavedVector(save.player.caveReturnPosition) : null;
     this.houseReturnPosition = save.player.houseReturnPosition ? this.fromSavedVector(save.player.houseReturnPosition) : null;
     Object.keys(this.toolUses).forEach((item) => delete this.toolUses[item]);

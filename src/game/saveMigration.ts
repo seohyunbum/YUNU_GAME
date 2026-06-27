@@ -114,6 +114,16 @@ export function normalizeSupplyCooldowns(value: unknown): Record<string, number>
   return out;
 }
 
+// 용(챕터 보스) 종류별 남은 리스폰 쿨타임(ms) 정규화 — 양수 유한값만, 10분(600000ms) 상한.
+export function normalizeDragonCooldowns(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) out[key] = Math.min(raw, 600_000);
+  }
+  return out;
+}
+
 export function isPlayerClassId(value: unknown): value is PlayerClassId {
   return typeof value === "string" && value in PLAYER_CLASSES;
 }
@@ -307,6 +317,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       craftStatAlloc: normalizeCraftStatAlloc(player.craftStatAlloc),
       homeStorage: normalizeSavedSlots(player.homeStorage, HOME_STORAGE_SLOTS, [], player.toolUses),
       homeSupplyCooldowns: normalizeSupplyCooldowns(player.homeSupplyCooldowns),
+      dragonRespawnCooldown: normalizeDragonCooldowns(player.dragonRespawnCooldown),
       caveReturnPosition: isSavedVector(player.caveReturnPosition) ? savedVector(player.caveReturnPosition, DEFAULT_POSITION) : null,
       houseReturnPosition: isSavedVector(player.houseReturnPosition) ? savedVector(player.houseReturnPosition, DEFAULT_POSITION) : null,
       toolUses: {},
