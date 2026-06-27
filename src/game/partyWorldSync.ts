@@ -90,6 +90,7 @@ export interface PartyWorldContext {
   creditHostKill(target: WorldObject, creditQuest: boolean): void; // 호스트 처치 크레딧 (펫/플레이어 XP + 필드보스 기록). creditQuest=호스트가 직접 막타 → 사냥 카운터 증가
   creditQuestKill(): void; // 게스트: 내가 막타친 야생 처치 → 내 사냥 퀘스트 카운터(+1)
   rollLoot(item: ItemId, count: number, source: "guard" | "predator"): number; // 처치자 전리품 — 확률 롤 포함(보상 소스별 튜닝), 획득 수량 반환
+  dropKillSpiritToken(wild: boolean, boss: boolean): void; // 처치자(게스트 막타)에게 정령 소환권 롤 — 보스류 토큰을 막타자에게 귀속
   recordFieldBossDefeat(id: string): void;
   damageLocalPlayer(amount: number, sourceName: string): boolean; // true = 사망
   healLocalPlayer?(amount: number): void; // 5.1 — 파티 힐 수신 적용
@@ -744,6 +745,7 @@ function onPartyKill(message: { name: string; xp: number; killer: string; mapId:
     lootItem = loot.item;
     lootCount = loot.count;
   }
+  if (isKiller && message.kind) world.dropKillSpiritToken(true, Boolean(message.fieldBossId)); // 막타자 귀속 — 야생 1.2% + 필드보스 +3% (호스트는 자기 막타를 creditQuest 로 직접 처리하므로 자기 브로드캐스트 미수신 → 이중지급 없음)
   if (isKiller && lootItem) {
     const granted = world.rollLoot(lootItem, lootCount, message.lootItem ? "guard" : "predator"); // 경비 철은 guard 소스, 야생은 predator 소스 (운영 튜닝 일치)
     world.showMessage(granted > 0 ? `${message.name}을 쓰러뜨리고 ${ITEM_NAMES[lootItem] ?? lootItem} ${granted}개를 얻었습니다. (+${message.xp} XP)` : `${message.name}을 쓰러뜨렸지만 재료는 나오지 않았습니다. (+${message.xp} XP)`);

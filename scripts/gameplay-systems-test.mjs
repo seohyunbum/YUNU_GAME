@@ -908,6 +908,7 @@ try {
         creditHostKill: (target) => events.push(["credit", target.id]),
         creditQuestKill: () => {},
         rollLoot: (item, count, source) => { events.push(["loot", item, count, source]); return count; },
+        dropKillSpiritToken: (wild, boss) => events.push(["spiritRoll", wild, boss]),
         recordFieldBossDefeat: (id) => events.push(["bossDefeat", id]),
         damageLocalPlayer: (amount, name) => { events.push(["playerHit", amount, name]); return state.nextPlayerHitKills; },
         animateWalkCycle: () => {},
@@ -1003,6 +1004,7 @@ try {
     guest.getGameCb()({ type: "partyKill", name: "골든늑대", xp: 35, killer: "연우용사", mapId: "starter_valley", kind: "wolf" });
     assert(guest.events.some(([kind, amount]) => kind === "xp" && amount === 35), "killer guest gains the shared xp");
     assert(guest.events.some(([kind]) => kind === "loot"), "killer guest rolls loot locally");
+    assert(guest.events.some(([kind, wild, boss]) => kind === "spiritRoll" && wild === true && boss === false), "killer guest rolls spirit token locally (wild, non-boss) — 막타자 귀속");
     guest.events.length = 0;
     guest.getGameCb()({ type: "partyKill", name: "보스", xp: 240, killer: "아빠용사", mapId: "starter_valley", fieldBossId: "boss_starter_valley" });
     assert(guest.events.some(([kind, amount]) => kind === "xp" && amount === 240), "non-killer guest still gains full shared xp");
@@ -1071,6 +1073,7 @@ try {
         creditHostKill: (t) => events.push(["credit", t.id]),
         creditQuestKill: () => {},
         rollLoot: (item, count, source) => { events.push(["loot", item, count, source]); return count; },
+        dropKillSpiritToken: () => {},
         recordFieldBossDefeat: () => {},
         damageLocalPlayer: () => false,
         animateWalkCycle: () => {},
@@ -1165,6 +1168,7 @@ try {
         creditHostKill: () => {},
         creditQuestKill: () => {},
         rollLoot: () => 0,
+        dropKillSpiritToken: () => {},
         recordFieldBossDefeat: () => {},
         damageLocalPlayer: () => false,
         animateWalkCycle: () => {},
@@ -2075,7 +2079,8 @@ try {
     assert(!["diamond", "obsidian", "dragon_scale", "diamond_sword", "obsidian_sword"].some((i) => t0.has(i)), "일반 상자엔 희귀 전리품이 없어야 한다");
     assert(t1.has("gold"), "황금 상자엔 금 재료");
     assert(t2.has("diamond"), "다이아몬드 상자엔 다이아몬드");
-    assert(t3.has("obsidian") && t3.size <= 6, "흑요석 상자엔 흑요석(에픽) 포함 + 최대 6종류 cap (등급순이라 풀 롤 시 dragon_scale 같은 rare 는 밀릴 수 있음)");
+    assert(t3.has("obsidian") && t3.size <= 6, "흑요석 상자엔 흑요석(에픽) 포함 + 최대 6종류 cap");
+    assert(t3.has("dragon_scale"), "흑요석 상자는 dragon_scale 을 cap 에서 보호(풀 롤이어도 1종 보장)");
     assert(t3.has("spirit_gacha_token") || t3.has("xp_bottle"), "흑요석 상자 풀 롤이면 전설템(정령 소환권/경험치병)이 cap 상위에 남는다");
     const rareCount = (s) => [...s].filter((i) => itemRarity(i) !== "common").length;
     assert(rareCount(t0) === 0, "일반 상자 전리품은 모두 common");

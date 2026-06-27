@@ -14,6 +14,14 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-27 — 적대적 리뷰 후속: 정령 소환권 막타자 귀속 + 흑요석 상자 dragon_scale cap 예외
+
+직전 검수 3건(①파티 게스트 보스 막타 토큰이 호스트로 ②펫 보스 막타 토큰 미드랍 ③흑요석 상자 dragon_scale 밀림) 반영.
+
+- ①②(막타자 귀속): 토큰 롤을 main.dropKillSpiritToken(wild, boss) 1개로 중앙화. grantExperienceForTarget 의 토큰 롤을 creditQuest 게이트(호스트가 게스트 막타 크레딧 시 creditQuest=false → 스킵, 호스트 오귀속 차단). 막타자 귀속 경로 보강: 파티는 onPartyKill 의 isKiller 분기에서 world.dropKillSpiritToken(true, !!fieldBossId) 호출(필드보스 메시지는 kind+fieldBossId 둘 다 세팅 확인), 펫은 grantSummonerPetKill 의 wildPredator 분기에서 context.dropKillSpiritToken(true, !!fieldBossId) 호출(주인=로컬 귀속). 이중지급 없음(호스트는 자기 브로드캐스트 미수신).
+- ③(dragon_scale 보호): capLootByGrade 에 protect 셋 인자 추가(보호분 먼저 확보 후 등급순). rollChestLoot tier≥3 은 OBSIDIAN_CHEST_PROTECT={dragon_scale} 전달 → 잭팟 풀 롤이어도 dragon_scale 1종 항상 보존(총 ≤6 유지).
+- 검증: npm run verify 전부 그린. 모듈 시뮬(흑요석 풀 롤 dragon_scale 항상 보존·protect 없으면 밀림 대조). 시스템테스트 신규 단언(killer guest spiritRoll·dragon_scale 보호) + mock world 3곳 dropKillSpiritToken 배선. ratchet 10171→10178·메서드 494→495(중앙화 1개).
+
 ## 2026-06-27 — 근접 보스 도약공격 겹침/시야이탈/순간이동 회귀 정타 수정
 
 - 증상: 멧돼지 대왕 등 큰 보스가 도약공격 시 거의 겹쳐져 2초간 시야에서 사라졌다가 멀리서 다시 나타나기를 반복(직전 lunge 델타/원복 패치 회귀로 사용자 지목).

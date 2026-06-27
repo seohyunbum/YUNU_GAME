@@ -32,6 +32,7 @@ export interface SummonerPetContext {
   grantRewardItem(item: ItemId, baseCount: number, source: "predator" | "jammini"): number;
   experienceRewardFor(target: WorldObject): number;
   gainPlayerExperience(amount: number): void;
+  dropKillSpiritToken(wild: boolean, boss: boolean): void; // 펫이 막타 시 정령 소환권을 펫 주인(로컬)에게 귀속
   celebratePetLevel(level: number): void;
   renderHud(): void;
 }
@@ -207,6 +208,7 @@ function grantSummonerPetKill(context: SummonerPetContext, target: WorldObject) 
     const lootCount = context.rollRewardChance(1, "predator", loot) ? context.grantRewardItem(loot, target.predatorKind === "lion" ? 3 : 1, "predator") : 0;
     context.removeObject(target.id);
     context.showMessage(lootCount > 0 ? `독수리 정령이 ${target.name}을 물리치고 ${context.itemName(loot)} ${lootCount}개를 얻었습니다.` : `독수리 정령이 ${target.name}을 물리쳤습니다.`);
+    context.dropKillSpiritToken(true, Boolean(target.fieldBossId)); // 펫 막타 — 야생 1.2% + 필드보스 +3% 정령 소환권을 주인에게(중앙 훅 미경유 보강)
     awardSummonerExperience(context.experienceRewardFor(target), context, true);
     partyHostNotifyKill(target); // 호스트 펫 처치도 파티 XP 분배 (비호스트면 no-op)
     return;
