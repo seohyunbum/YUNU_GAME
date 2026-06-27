@@ -245,7 +245,7 @@ import type {
 } from "./game/types";
 import { applyPredatorMonsterDefinition, BOSS_STATS, experienceRewardForTarget, monsterStatsFromLevel, predatorAggroRangeFor, predatorBaseStats, predatorKindForMonster, predatorStrikeRangeFor, type MonsterId } from "./game/monsters";
 import { DEFAULT_DIFFICULTY, applyMonsterDifficulty, difficultyModifiers, difficultyShopCost, isDifficultyMode, type DifficultyMode, type DifficultyModifiers } from "./game/difficulty";
-import { createSpirit, createSpiritCollection, equippedSpirit, gainSpiritExperience, normalizeSpiritCollection, spiritAttackBonus, spiritDefenseBonus, spiritFeedExperience, spiritGradeDef, spiritGradeIndex } from "./game/spirits";
+import { createSpirit, createSpiritCollection, equippedSpirit, experienceForNextSpiritLevel, gainSpiritExperience, normalizeSpiritCollection, spiritAttackBonus, spiritDefenseBonus, spiritFeedExperience, spiritGradeDef, spiritGradeIndex } from "./game/spirits";
 import { isGachaActive, runSpiritGacha } from "./ui/gachaScreen";
 import { createSpiritCompanionModel, disposeSpiritCompanion, updateSpiritCompanion } from "./game/spiritVisuals";
 import type { SpiritCollection, SpiritGrade } from "./game/types";
@@ -6750,7 +6750,6 @@ class WildernessGame {
     }
     const armor = this.equippedArmorValue();
     const equipmentArmor = this.equipmentArmorValue();
-    const statBonus = this.levelStatBonus();
     const attack = this.displayedAttackPower();
     const healthValue = Math.max(0, Math.ceil(this.health));
     const objectiveView = this.currentObjectiveView(); // 보상 대기 전환 감지용 스냅샷
@@ -6798,7 +6797,7 @@ class WildernessGame {
         petStatus: this.playerClass === "tanker" ? tankerStatus : petStatus,
         equipmentArmor,
         equippedGearLabel: [this.equippedArmor, this.equippedShield, this.equippedNecklace].filter((item): item is ItemId => Boolean(item)).map((item) => ITEM_NAMES[item] ?? item).join(" · ") || undefined,
-        statBonus,
+        spiritStatus: (() => { const e = equippedSpirit(this.spirits); if (!e) return undefined; const d = spiritGradeDef(e.grade); return `${d.emoji} ${d.label} 정령 Lv${e.level} (공+${spiritAttackBonus(e)}/방+${spiritDefenseBonus(e)}) · EXP ${e.experience}/${experienceForNextSpiritLevel(e.level)}`; })(),
         eagleHp: eagle ? eagle.hp ?? this.eaglePossessionMaxHp : undefined,
         eagleMaxHp: this.eaglePossessionMaxHp,
         eagleSkillStatus,
