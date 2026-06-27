@@ -29,7 +29,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-23: 4차 전직 반격 tryCounterReflect 1개 → 494.
 // 2026-06-24: 4차 전직 4번째 스킬 입력 배선 useFourthSkill 1개 → 495.
 // 2026-06-26: 요새 랭킹 난이도 분리 — loadBestFortressStage+loadBestFortressBaseLevel 2개를 loadBestFortress 1개로 병합 → 494.
-const MAX_METHODS = 494;
+// 2026-06-27: 정령 소환권 막타자 귀속 — dropKillSpiritToken 1개(중앙화, grantExp/파티/펫 공용) → 495.
+const MAX_METHODS = 495;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

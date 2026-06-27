@@ -4,10 +4,17 @@ import type { ItemId } from "./types";
 const LOOT_TIER_RANK: Record<ItemTier, number> = { mythic: 5, legendary: 4, epic: 3, rare: 2, uncommon: 1, common: 0 };
 // 상자 전리품을 최대 max 종류로 제한 — 등급 높은 것 → 수량 많은 것 순으로 상위 max 개만 남긴다.
 // 모든 상자(보물·광산·집 보급)에서 공용으로 적용해 한 번에 너무 많은 종류가 쏟아지지 않게.
-export function capLootByGrade<T extends { item: ItemId; count: number }>(loot: T[], max: number): T[] {
+// protect: 등급과 무관하게 반드시 보존할 아이템(예: 흑요석 상자의 dragon_scale) — 보호분을 먼저 확보하고 나머지를 등급순으로 채운다.
+export function capLootByGrade<T extends { item: ItemId; count: number }>(loot: T[], max: number, protect?: ReadonlySet<ItemId>): T[] {
   if (loot.length <= max) return loot;
-  return [...loot].sort((a, b) => (LOOT_TIER_RANK[itemTier(b.item)] - LOOT_TIER_RANK[itemTier(a.item)]) || b.count - a.count).slice(0, max);
+  const sorted = [...loot].sort((a, b) => (LOOT_TIER_RANK[itemTier(b.item)] - LOOT_TIER_RANK[itemTier(a.item)]) || b.count - a.count);
+  if (!protect || protect.size === 0) return sorted.slice(0, max);
+  const kept: T[] = [], rest: T[] = [];
+  for (const e of sorted) (protect.has(e.item) ? kept : rest).push(e);
+  return [...kept, ...rest].slice(0, max); // 보호 아이템 우선 확보 후 나머지를 등급순으로 max 까지
 }
+
+const OBSIDIAN_CHEST_PROTECT: ReadonlySet<ItemId> = new Set<ItemId>(["dragon_scale"]); // 흑요석 상자(tier3)는 드래곤 재료(dragon_scale) 1종을 cap 에서 보호(잭팟이어도 밀리지 않게)
 
 // 보물 상자 전리품 롤 — main.openChest 에서 추출. 파티에선 호스트가 1회 롤해 개봉자에게 전달(이중 지급 방지).
 // 등급(chestTier) 0 일반 / 1 황금 / 2 다이아몬드 / 3 흑요석 — 고급일수록 희귀 재료·제작템·무기/방어구.
@@ -86,7 +93,7 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.38)) add("stone", ri(1, 3, rng));
     if (chance(0.15)) add("leather", 1);
   }
-  return capLootByGrade(loot, 6);
+  return capLootByGrade(loot, 6, tier >= 3 ? OBSIDIAN_CHEST_PROTECT : undefined); // 흑요석 상자는 dragon_scale 보호
 }
 
 // 광산 상자 — 어렵게 찾은 광산인 만큼 풍족한 광물. 흑요석 30%(운 좋으면 2~3개), 다이아·금은 더 흔하게.
