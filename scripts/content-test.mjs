@@ -357,6 +357,18 @@ try {
     for (const id of Object.keys(o.receive)) if (!isItem(id)) problems.push(`shop '${o.id}': '${id}' is not a known item`);
     if (!(o.cost > 0)) problems.push(`shop '${o.id}': cost ${o.cost} <= 0`);
   }
+  // 용 전리품 일원화: 비늘·꼬리·뿔은 상점 구매(POINT_SHOP_OFFERS) + 판매소 판매(SELL_SHOP_OFFERS) 양쪽에 존재하고, 판매:구매 단가 비율이 표준 판매율과 일치(floor 반올림이라 율 이하)
+  {
+    const rate = trading.SELL_SHOP_RATE;
+    for (const item of ["dragon_scale", "dragon_tail", "dragon_horn"]) {
+      const buy = POINT_SHOP_OFFERS.find((o) => o.receive?.[item]);
+      const sell = trading.SELL_SHOP_OFFERS.find((o) => o.item === item);
+      if (!buy) { problems.push(`dragon loot '${item}': must be buyable in POINT_SHOP_OFFERS`); continue; }
+      if (!sell) { problems.push(`dragon loot '${item}': must be sellable in SELL_SHOP_OFFERS`); continue; }
+      const ratio = sell.points / (buy.cost / buy.receive[item]);
+      if (ratio < rate - 0.03 || ratio > rate + 0.005) problems.push(`dragon loot '${item}': sell:buy ratio ${ratio.toFixed(3)} off standard ${rate}`);
+    }
+  }
 
   // 5. 아이템 디스크라이버(마우스오버 툴팁): 모든 아이템에 이름·등급, 능력치/설명이 누락 없이 나오는가
   {

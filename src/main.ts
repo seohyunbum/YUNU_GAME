@@ -284,7 +284,6 @@ import {
 import { MINI_RECIPES, WORKBENCH_RECIPES } from "./game/recipes";
 import {
   BLACKSMITH_TRADE_OFFERS,
-  POINT_EXCHANGE_OFFERS,
   POINT_SHOP_OFFERS,
   SELL_SHOP_OFFERS,
   TRADE_OFFERS,
@@ -7205,7 +7204,7 @@ class WildernessGame {
         <header>
           <div>
             <h2>마을 상점</h2>
-            <p class="inventory-subtitle">미니게임 포인트로 아이템을 사고, 용 전리품을 포인트로 바꿉니다. 현재 보유 ${this.arcadePoints}P</p>
+            <p class="inventory-subtitle">미니게임 포인트로 아이템을 삽니다(용 전리품 포함). 아이템 판매는 판매소에서. 현재 보유 ${this.arcadePoints}P</p>
           </div>
           <button class="icon-button" data-close>닫기</button>
         </header>
@@ -7226,29 +7225,11 @@ class WildernessGame {
             </article>`;
           }).join("")}
         </div>
-        <h3 class="shop-section-title">용 전리품 교환</h3>
-        <div class="recipes shop-list">
-          ${POINT_EXCHANGE_OFFERS.map((offer) => {
-            const owned = this.countItem(offer.item);
-            const disabled = owned > 0 ? "" : "disabled";
-            return `<article class="recipe-card shop-card">
-              <div>
-                <strong>${offer.name}</strong>
-                <p>${ITEM_NAMES[offer.item]} 1개 -> ${offer.points}P</p>
-                <small>보유 ${owned}개</small>
-              </div>
-              <button data-shop-exchange="${offer.id}" ${disabled}>교환</button>
-            </article>`;
-          }).join("")}
-        </div>
       </section>
     `;
     this.bindPanelBasics();
     this.panelEl.querySelectorAll<HTMLButtonElement>("[data-shop-buy]").forEach((button) => {
       button.addEventListener("click", () => this.buyFromPointShop(button.dataset.shopBuy ?? ""));
-    });
-    this.panelEl.querySelectorAll<HTMLButtonElement>("[data-shop-exchange]").forEach((button) => {
-      button.addEventListener("click", () => this.exchangeDragonLootForPoints(button.dataset.shopExchange ?? ""));
     });
   }
 
@@ -7849,22 +7830,6 @@ class WildernessGame {
     this.saveArcadePoints();
     this.playTone(640, 0.12, "triangle", 0.035);
     this.showMessage(`판매 완료: ${ITEM_NAMES[offer.item] ?? offer.item} ${count}개를 ${earned}P에 팔았습니다. 현재 포인트 ${this.arcadePoints}P.`);
-    this.renderPanel();
-    this.renderHud();
-  }
-
-  private exchangeDragonLootForPoints(offerId: string) {
-    const offer = POINT_EXCHANGE_OFFERS.find((candidate) => candidate.id === offerId);
-    if (!offer) return;
-    if (!this.removeItem(offer.item, 1)) {
-      this.showMessage(`${ITEM_NAMES[offer.item]}이 없어 교환할 수 없습니다.`);
-      this.renderPanel();
-      return;
-    }
-    this.arcadePoints += offer.points;
-    this.saveArcadePoints();
-    this.playTone(860, 0.16, "triangle", 0.04);
-    this.showMessage(`${ITEM_NAMES[offer.item]}을 ${offer.points}P로 교환했습니다. 현재 포인트 ${this.arcadePoints}P.`);
     this.renderPanel();
     this.renderHud();
   }
