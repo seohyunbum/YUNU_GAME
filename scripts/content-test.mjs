@@ -370,6 +370,26 @@ try {
     }
   }
 
+  // 4b. 2차 전직 퀘스트(advance_job_tier2)는 레벨 40+ 부터만 노출 — 게이트 술어 + currentObjective 통합 검증
+  {
+    const step = objectives.TUTORIAL_STEPS.find((s) => s.id === "advance_job_tier2");
+    if (!step) problems.push("advance_job_tier2 step missing");
+    else if (typeof step.available !== "function") problems.push("advance_job_tier2: must have a level-gate (available)");
+    else {
+      if (step.available({ level: 39 }) !== false) problems.push("advance_job_tier2: must be hidden below level 40");
+      if (step.available({ level: 40 }) !== true) problems.push("advance_job_tier2: must be available at level 40");
+      // 통합: advance_job_tier2 직전 단계 + 모든 필드보스 완료시켜 advance_job_tier2 가 '다음' 후보가 되게 한 뒤, 레벨로 노출 토글 확인
+      const ids = objectives.TUTORIAL_STEPS.map((s) => s.id);
+      const bossIds = fieldBosses.FIELD_BOSSES.map((b) => b.id);
+      const done = [...ids.slice(0, ids.indexOf("advance_job_tier2")), ...bossIds];
+      const base = { health: 100, hunger: HUNGER_MAX, countItem: () => 0, totalSteps: 0, sprintSteps: 0, inCave: false, predatorKills: 0, fortressBossKills: 0, fortressVisited: false, mapOpened: false, saved: false, shopOpened: false, materialsSold: 0, shopPurchases: 0, craftedNecklace: false, craftedAdvancedMedkit: false, recoveredWorkbench: false, ateMeat: false, hasNecklaceEquipped: false, hasWorkbench: false, hasPickaxe: false, hasBag: false, hasBigBag: false, playerClass: "warrior", classWeaponCount: 0, jobTier: 1, hasBasicArmor: false, hasSmelter: false, trainingTotal: 0, trainingKindsDone: 0, bossChapter: 99, defeatedFieldBosses: bossIds, completedStepIds: done, achievedStepIds: done };
+      const at39 = objectives.currentObjective({ ...base, level: 39 });
+      const at40 = objectives.currentObjective({ ...base, level: 40 });
+      if (at39.id === "advance_job_tier2") problems.push("advance_job_tier2: currentObjective must NOT surface it at level 39");
+      if (at40.id !== "advance_job_tier2") problems.push(`advance_job_tier2: currentObjective must surface it at level 40 (got '${at40.id}')`);
+    }
+  }
+
   // 5. 아이템 디스크라이버(마우스오버 툴팁): 모든 아이템에 이름·등급, 능력치/설명이 누락 없이 나오는가
   {
     const { describeItem } = itemInfo;
