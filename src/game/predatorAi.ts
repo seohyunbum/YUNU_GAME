@@ -254,7 +254,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     if (canAct && distance <= reach && (predator.attackCooldown ?? 0) <= 0) {
       predator.attackCooldown = predatorStats.cooldown;
       triggerPredatorAttackMotion(predator, now, dx / Math.max(0.001, distance), dz / Math.max(0.001, distance));
-      if (predator.fieldBossId) spawnGroundShockwave(context.effects(), predator.root.position, BOSS_SLAM_COLOR); // 보스 강타 = 지면 충격파
+      // 일반 공격마다 터지던 지면 충격파 제거 — 슬램(castBossSlam→resolveBossSlam)에서만 발생(저사양 렉 완화). 일반 공격은 도약 모션으로 충분히 읽힘.
       const attackDamage = predator.attackDamage ?? predatorStats.attackDamage;
       if (remoteTarget !== null) partyDamageRemotePlayer(remoteTarget, attackDamage, predator.name ?? "몬스터");
       else context.damagePlayer(attackDamage, true, `${predator.name}에게 공격받아 체력이 모두 떨어졌습니다.`, predator);

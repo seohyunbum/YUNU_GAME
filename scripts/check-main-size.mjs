@@ -79,7 +79,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-26: 쌓기블록 충돌 — 블록 바닥이 머리 위면 그 아래 통과(천장/다리 밑) 가드 + 주석 +2 → 10165.
 // 2026-06-27: 정령 보관함 팝업(팝업내 팝업) 배선 — spiritManagerOpen 필드 + 뷰 2필드(등급idx·정렬) + open/close/일괄먹이기 3콜백. 카드그리드 렌더는 ui/characterPanel 리프(renderSpiritModal) → 10165→10171.
 // 2026-06-27: 정령 소환권 막타자 귀속 — dropKillSpiritToken 메서드(중앙화) + 파티/펫 컨텍스트 2콜백. 보스류 토큰을 호스트/펫주인=막타자에게(grantExp 는 creditQuest 게이트). 롤은 leaf onPartyKill/grantSummonerPetKill 에서 호출 → 10171→10178.
-const MAX_MAIN_LINES = 10178;
+// 2026-06-27: 저사양 렉 완화 — combatEffectContext.lowFx 신호 1줄(충격파 파티클 감량·풀링 게이트). 이펙트 로직은 combatEffects 리프 → 10178→10179.
+const MAX_MAIN_LINES = 10179;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

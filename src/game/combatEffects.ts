@@ -7,6 +7,7 @@ export interface CombatEffectParticle {
   velocity: THREE.Vector3;
   life: number;
   maxLife: number;
+  pooled?: boolean; // 공유(풀링) 지오메트리 사용 — 소멸 시 geometry.dispose() 를 건너뛴다(다른 파티클/다음 호출이 재사용).
 }
 
 export interface CombatEffectContext {
@@ -15,6 +16,17 @@ export interface CombatEffectContext {
   playerPosition: THREE.Vector3;
   damageParticles: CombatEffectParticle[];
   getGroundHeightAt(x: number, z: number): number;
+  lowFx?(): boolean; // 저사양(performance) 품질 — 무거운 이펙트 파티클 수를 줄인다(미설정 시 풀 파티클)
+}
+
+// 충격파 공유 지오메트리(풀링) — 호출마다 new 하지 않아 GPU 업로드/GC 부담 제거. 모듈 수명 동안 유지(dispose 안 함).
+const SHOCK_RING_GEO: THREE.RingGeometry[] = [];
+function shockRingGeo(i: number): THREE.RingGeometry {
+  return SHOCK_RING_GEO[i] ?? (SHOCK_RING_GEO[i] = new THREE.RingGeometry(2.2 + i * 1.1, 3.3 + i * 1.1, 48));
+}
+let SHOCK_SPHERE_GEO: THREE.SphereGeometry | null = null;
+function shockSphereGeo(): THREE.SphereGeometry {
+  return SHOCK_SPHERE_GEO ?? (SHOCK_SPHERE_GEO = new THREE.SphereGeometry(0.11, 7, 5));
 }
 
 let slashTrailTexture: THREE.Texture | null = null;
@@ -529,29 +541,33 @@ export function spawnBossBreathStream(context: CombatEffectContext, source: THRE
 
 // 지면 충격파 — 바닥 확장 링 2겹(스케일 불가라 큰 반경+페이드) + 사방으로 튀는 흙/돌. 보스 강타·궁극기 임팩트용.
 export function spawnGroundShockwave(context: CombatEffectContext, center: THREE.Vector3, color: number) {
+  const low = context.lowFx?.() ?? false;
   const base = center.clone();
   base.y = context.getGroundHeightAt(base.x, base.z) + 0.05;
-  for (let i = 0; i < 2; i += 1) {
+  const rings = low ? 1 : 2; // 저사양: 링 1개
+  for (let i = 0; i < rings; i += 1) {
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(2.2 + i * 1.1, 3.3 + i * 1.1, 48),
+      shockRingGeo(i), // 공유 지오메트리(풀)
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5 - i * 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
     );
     ring.position.copy(base);
     ring.rotation.x = -Math.PI / 2;
     ring.renderOrder = 24;
     context.scene.add(ring);
-    context.damageParticles.push({ mesh: ring, velocity: new THREE.Vector3(0, 0.05, 0), life: 0.42 + i * 0.1, maxLife: 0.55 });
+    context.damageParticles.push({ mesh: ring, velocity: new THREE.Vector3(0, 0.05, 0), life: 0.42 + i * 0.1, maxLife: 0.55, pooled: true });
   }
-  for (let i = 0; i < 28; i += 1) {
-    const angle = (i / 28) * Math.PI * 2 + Math.random() * 0.22;
+  const count = low ? 6 : 28; // 저사양: 흙먼지 입자 28→6
+  for (let i = 0; i < count; i += 1) {
+    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.22;
     const particle = new THREE.Mesh(
-      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.06, 0.16), 7, 5),
+      shockSphereGeo(), // 공유 지오메트리(풀) — 크기 변화는 scale 로
       new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? color : 0x8a6a45, transparent: true, opacity: 0.86, depthWrite: false }),
     );
+    particle.scale.setScalar(THREE.MathUtils.randFloat(0.06, 0.16) / 0.11); // 공유 구체(r=0.11) 기준 스케일로 기존 크기감 유지
     particle.position.copy(base).add(new THREE.Vector3(Math.cos(angle) * 0.6, 0.15, Math.sin(angle) * 0.6));
     particle.renderOrder = 23;
     context.scene.add(particle);
-    context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(Math.cos(angle) * THREE.MathUtils.randFloat(2.4, 4.4), THREE.MathUtils.randFloat(1.2, 2.8), Math.sin(angle) * THREE.MathUtils.randFloat(2.4, 4.4)), life: 0.5, maxLife: 0.5 });
+    context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(Math.cos(angle) * THREE.MathUtils.randFloat(2.4, 4.4), THREE.MathUtils.randFloat(1.2, 2.8), Math.sin(angle) * THREE.MathUtils.randFloat(2.4, 4.4)), life: 0.5, maxLife: 0.5, pooled: true });
   }
 }
 
