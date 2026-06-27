@@ -14,6 +14,15 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-27 — 저사양 보스전 렉 완화(충격파 파티클 감량·슬램전용·지오 풀링)
+
+- 배경: 하드+저화질 저사양에서 멧돼지 대왕 파티전 큰 렉. 진단 결과 우리 최근 작업(도약/floor 클램프)은 가벼운 스칼라라 원인 아님(오히려 floor 가 보스의 카메라 관통 필레이트 폭발을 줄임). 진짜 비용은 기존 spawnGroundShockwave(호출마다 메시·지오·머티 30개 신규)가 ①저화질 무시 ②필드보스 일반 공격마다 발생.
+- 수정(3종):
+  1) **저사양 감량**: CombatEffectContext.lowFx 신호(main: qualityMode==="performance") → 충격파 링 2→1·흙먼지 28→6(총 30→7). lowFx 옵셔널이라 하위호환.
+  2) **슬램 전용**: 필드보스 일반 공격마다 터지던 충격파(predatorAi:257) 제거 → 슬램(resolveBossSlam)에서만. 동굴 요새보스(슬램 없음)는 per-attack 유지하되 lowFx 감량.
+  3) **지오메트리 풀링**: 충격파 링·구체 지오를 모듈 공유(SHOCK_RING_GEO·SHOCK_SPHERE_GEO, 구체는 scale 로 크기변화). 입자에 pooled 플래그 → updateDamageParticles·clearDamageParticles 가 공유 지오 dispose 스킵(다음 호출 재사용). 매번 new 제거로 GPU 업로드·GC 부담↓.
+- 검증: typecheck+build, verify 전부 그린. 모듈 시뮬(고품질 30·저사양 7·전입자 pooled·지오 호출간 공유 동일객체·lowFx 미설정 하위호환 30). E2E(performance, 슬램 3회 강제): pageerror 0(풀 지오 dispose/재사용 사이클 안전)·게임 정상·저화질 충격파 7개 확인. ratchet 10179.
+
 ## 2026-06-27 — 적대적 리뷰 후속: 정령 소환권 막타자 귀속 + 흑요석 상자 dragon_scale cap 예외
 
 직전 검수 3건(①파티 게스트 보스 막타 토큰이 호스트로 ②펫 보스 막타 토큰 미드랍 ③흑요석 상자 dragon_scale 밀림) 반영.

@@ -750,7 +750,7 @@ class WildernessGame {
     message: "시작을 누르면 주민의 제작 의뢰가 들어옵니다.",
   };
   private smithingLastRenderedSecond = SMITHING_ROUND_SECONDS;
-  private readonly damageParticles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number }[] = [];
+  private readonly damageParticles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number; pooled?: boolean }[] = [];
   private readonly projectiles: CombatProjectile[] = [];
   private readonly combatEffectContext: CombatEffectContext = {
     scene: this.scene,
@@ -758,6 +758,7 @@ class WildernessGame {
     playerPosition: this.playerPosition,
     damageParticles: this.damageParticles,
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
+    lowFx: () => this.qualityMode === "performance", // 저사양: 충격파 등 무거운 이펙트 파티클 감량
   };
   private readonly eagleActionContext: EagleActionContext = {
     possessedEagleId: () => this.possessedEagleId, selectedItem: () => this.hotbar[this.selectedHotbarIndex]?.item, bodyAttackPower: () => this.bodyMeleeAttackPower(), healEagle: (amount) => { const eagle = this.possessedEagleId ? this.objects.get(this.possessedEagleId) : null; if (eagle) { eagle.hp = Math.min(this.eaglePossessionMaxHp, (eagle.hp ?? 0) + Math.max(0, amount)); this.renderHud(); } },
@@ -5583,7 +5584,7 @@ class WildernessGame {
       if (material instanceof THREE.MeshBasicMaterial) material.opacity = Math.max(0, particle.life / particle.maxLife);
       if (particle.life > 0) continue;
       this.scene.remove(particle.mesh);
-      particle.mesh.geometry.dispose();
+      if (!particle.pooled) particle.mesh.geometry.dispose(); // 풀(공유) 지오메트리는 dispose 금지 — 다음 충격파가 재사용
       if (particle.mesh.material instanceof THREE.Material) particle.mesh.material.dispose();
       this.damageParticles.splice(index, 1);
     }
@@ -6526,7 +6527,7 @@ class WildernessGame {
   private clearDamageParticles() {
     for (const particle of this.damageParticles) {
       this.scene.remove(particle.mesh);
-      particle.mesh.geometry.dispose();
+      if (!particle.pooled) particle.mesh.geometry.dispose(); // 풀(공유) 지오메트리는 dispose 금지
       if (particle.mesh.material instanceof THREE.Material) particle.mesh.material.dispose();
     }
     this.damageParticles.splice(0, this.damageParticles.length);
