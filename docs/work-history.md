@@ -14,6 +14,14 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-23 — 집 보급상자 경험치병 확률 70%로 하향 + 모든 상자 최대 6종류 제한
+
+- 요청1: 내가 지은 집 보급상자의 경험치병(xp_bottle) 드랍 확률을 현재의 70%로. → homeBase.rollHomeSupply 의 tier≥2 조건 확률 0.5→0.35.
+- 요청2: 모든 상자(보물·광산·집 보급)가 한 번에 최대 6종류만 주도록. 6종 초과 시 등급 높은 것 → 수량 많은 것 순으로 상위 6개만.
+- 구현: chestLoot.ts 에 공용 `capLootByGrade<T>(loot, max)` 추가(LOOT_TIER_RANK: mythic5>legendary4>epic3>rare2>uncommon1>common0, 등급 desc → count desc 정렬 후 slice). rollChestLoot·rollMineChestLoot·rollHomeSupply 각 return 에 cap(.,6) 적용. 솔로·파티(호스트 1회 롤) 양쪽 자동 적용.
+- 함정: ItemTier 에 Codex가 추가한 `mythic`(레전더리 위)이 있어 rank map 누락 시 typecheck 실패 → mythic:5 포함.
+- 검증: typecheck+build, 모듈 시뮬 — cap=[xp_bottle,obsidian,sharp_obsidian,gold5,diamond3,medkit](common 전탈락·등급/수량 정렬), 집보급 ≤6·xp 35%, 보물/광산 ≤6. main 변경 없음(리프).
+
 ## 2026-06-23 — 근접 몹 도약공격이 플레이어를 관통·시야이탈하던 버그 수정
 
 - 증상: 늑대·독사 등 근접 몹이 "달려들듯" 공격할 때 캐릭터와 거의 겹쳐지거나(거미는 그나마 보임) 시야에서 완전히 사라져(뒤로 가버림) 카메라를 돌려야 보임.
