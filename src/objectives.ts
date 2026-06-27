@@ -77,6 +77,8 @@ interface TutorialStep {
   progress(snapshot: ObjectiveSnapshot): string;
   completed(snapshot: ObjectiveSnapshot): boolean;
   reward: TutorialReward;
+  // 노출 게이트(선택): false 면 미완료여도 currentObjective 선택에서 건너뛰어 "아직 안 나타남". 조건이 열리면 순서상 제자리에서 다시 나타남.
+  available?(snapshot: ObjectiveSnapshot): boolean;
 }
 
 export const DEFAULT_TUTORIAL_PROGRESS: TutorialProgress = { completedStepIds: [], achievedStepIds: [] };
@@ -211,7 +213,7 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   countQuest("hunt_fortress_boss", 1, (s) => s.fortressBossKills, "몬스터 요새 보스 처치", "위에서 찾은 몬스터 요새에 입장해 웨이브 디펜스 단계를 진행하고 요새 보스를 처치하세요. 흑요석과 전직의서를 떨어뜨립니다! 요새 난이도는 그 맵의 권장 레벨에 맞춰지니, 버거우면 더 낮은 레벨 맵의 요새부터 도전하세요.", { experience: 545, items: { diamond: 2, medkit: 3 }, label: "경험치 545 + 다이아몬드 2개 + 구급상자 3개" }),
   // ── 1차 전직 — 전직의서 3개로 전직의 표식을 만들어 레벨 30+에서 사용 ──
   checkQuest("advance_job_tier1", (s) => s.jobTier >= 1, "1차 전직 달성", "전직의서 3개로 제작대에서 '전직의 표식'을 만들고, 레벨 30 이상에서 표식을 핫바에 넣어 숫자키로 사용하면 1차 전직합니다. 직업별 새 스킬(F)·스탯 상승·새 외형을 얻습니다!", { experience: 600, items: { advanced_medkit: 2, diamond: 3 }, label: "경험치 600 + 고급 구급상자 2개 + 다이아몬드 3개" }),
-  checkQuest("advance_job_tier2", (s) => s.jobTier >= 2, "2차 전직 달성", "'전직의 각서'(흑요석 2 + 전직의 표식 1 + 전직의서 5)를 제작대에서 만들고, 레벨 50 이상에서 들고 사용하면 2차 전직합니다. 스탯이 더 오르고 모든 스킬 쿨다운이 짧아지며, 외형이 화려해집니다.", { experience: 1100, items: { advanced_medkit: 3, refined_diamond: 2 }, label: "경험치 1100 + 고급 구급상자 3개 + 제련된 다이아몬드 2개" }),
+  { ...checkQuest("advance_job_tier2", (s) => s.jobTier >= 2, "2차 전직 달성", "'전직의 각서'(흑요석 2 + 전직의 표식 1 + 전직의서 5)를 제작대에서 만들고, 레벨 50 이상에서 들고 사용하면 2차 전직합니다. 스탯이 더 오르고 모든 스킬 쿨다운이 짧아지며, 외형이 화려해집니다.", { experience: 1100, items: { advanced_medkit: 3, refined_diamond: 2 }, label: "경험치 1100 + 고급 구급상자 3개 + 제련된 다이아몬드 2개" }), available: (s) => s.level >= 40 }, // 2차 전직 퀘스트는 레벨 40+ 부터 노출(그 전엔 건너뜀)
   // ── 50~60 레벨대 보강 — 2차 전직(Lv50)과 최종 전직·용 보스(Lv70) 사이의 공백을 누적 사냥·최상급 무기·고레벨 진행으로 메움 ──
   countQuest("hunt_200", 200, (s) => s.predatorKills, "누적 몬스터 200마리 처치", "100마리를 넘어 200마리까지! 50레벨대의 진정한 베테랑 사냥꾼이 되는 길입니다. 요새·동굴·들판 어디서 잡든 누적됩니다.", { experience: 1250, items: { refined_diamond: 2, advanced_medkit: 2 }, label: "경험치 1250 + 제련된 다이아몬드 2개 + 고급 구급상자 2개" }),
   checkQuest("craft_ultimate_weapon", (s) => (["sharp_obsidian_staff", "sharp_obsidian_gun", "sharp_obsidian_shield", "obsidian_sword", "obsidian_dagger"] as ItemId[]).some((w) => s.countItem(w) > 0), "최상급 무기 갖추기", "직업별 최상급 무기를 만드세요 — 날카로운 흑요석 지팡이/총/방패(레전더리) 또는 흑요석 검/단검(에픽). 흑요석은 동굴 보스가 떨어뜨리며, 확장 제작대에서 제작합니다.", { experience: 1450, items: { sharp_obsidian: 3, advanced_medkit: 3 }, label: "경험치 1450 + 날카로운 흑요석 3개 + 고급 구급상자 3개" }),
@@ -296,7 +298,7 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
     };
   }
 
-  const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id));
+  const nextStep = TUTORIAL_STEPS.find((step) => !completed(snapshot, step.id) && (step.available?.(snapshot) ?? true)); // 게이트 미충족(예: 2차 전직 Lv<40) 단계는 건너뜀
   if (nextStep) {
     // 기초 전투(야생 몬스터 3마리) + 훈련장 4종까지 마친 뒤부터, 레벨대(격차 20 미만) 미처치 맵 보스를
     // 목표로 끼워넣는다. 그 전까지는 기초 채집·제작·훈련 튜토리얼(용용 평원 등 보스보다 먼저)이 가려지지 않도록 순서대로 진행한다.
