@@ -85,7 +85,7 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
     const angle = aggroed ? Math.atan2(dz, dx) : (monster.wanderAngle ?? 0);
     if (!aggroed && Math.random() < 0.02) monster.wanderAngle = Math.random() * Math.PI * 2;
     // 근접 정지/공격 사거리 — 겹치지 않고 시야에 들어오게 일정 거리 밖에서 멈춰 공격(몸집 클수록 더 멀리)
-    const reach = context.predatorStrikeRange(monster.predatorKind) + 2.5 + (monster.collisionRadius ?? 0) * 0.5; // 정지/공격 사거리 — 0.8→2.5 로 더 멀리 떨어져 멈춰 공격(겹침 방지·타게팅 쉽게).
+    const reach = context.predatorStrikeRange(monster.predatorKind) + 3.2 + (monster.collisionRadius ?? 0); // 정지/공격 사거리 — 몸집(collisionRadius) 전부 반영(종전 ×0.5). 큰 요새 보스가 카메라를 덮지 않게 더 멀리 멈춰 공격.
     const moving = aggroed ? distance > reach : true;
     const speed = (aggroed ? (moving ? stats.speed * context.monsterChaseSpeedMul() : 0) : stats.speed * 0.3) * (monster.fortressBoss ? 0.94 : 1); // 요새 보스 추격 +15% (0.82→0.94). 추격 시 난이도 배율 적용.
     next.set(
@@ -97,6 +97,17 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
     monster.root.position.copy(next);
     monster.root.rotation.y = -angle;
     animatePredatorAttackMotion(monster, now);
+    // 도약 후 최소거리 하드클램프 — 거대 요새 보스가 공격중에도 플레이어 시야를 덮지 않게(predatorAi 와 동일 정책).
+    {
+      const floor = context.predatorStrikeRange(monster.predatorKind) + 1.7 + (monster.collisionRadius ?? 0);
+      const fdx = monster.root.position.x - context.playerPosition.x, fdz = monster.root.position.z - context.playerPosition.z;
+      const fd = Math.hypot(fdx, fdz);
+      if (fd < floor) {
+        const ux = fd > 0.001 ? fdx / fd : -Math.cos(angle), uz = fd > 0.001 ? fdz / fd : -Math.sin(angle);
+        monster.root.position.x = context.playerPosition.x + ux * floor;
+        monster.root.position.z = context.playerPosition.z + uz * floor;
+      }
+    }
     context.refreshSpatialObject(monster);
     context.animateWalkCycle(monster, delta, aggroed ? 0.82 : 0.3);
 
