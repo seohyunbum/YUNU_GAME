@@ -4104,7 +4104,7 @@ class WildernessGame {
     this.promptRefreshTimer = this.isSprinting() ? SPRINT_LOOK_TARGET_REFRESH_SECONDS : LOOK_TARGET_REFRESH_SECONDS;
     const exactTarget = this.getLookTarget();
     const target =
-      this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "villageShop", "villageSellShop", "dragon", "jammini"]) ??
+      this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "trainingRig", "villageShop", "villageSellShop", "dragon", "jammini"]) ??
       exactTarget ??
       this.nearbyDroppedItemInView();
     if (target?.id === this.lastTargetId) return;
@@ -4217,7 +4217,7 @@ class WildernessGame {
     const target =
       exactTarget?.type === "blacksmithNpc"
         ? exactTarget
-        : this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "villageShop", "villageSellShop", "antHill", "wildPredator", "dragon", "jammini"]) ?? exactTarget;
+        : this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "trainingRig", "villageShop", "villageSellShop", "antHill", "wildPredator", "dragon", "jammini"]) ?? exactTarget;
     if (!this.possessedEagleId && selectedItemIsRanged && shouldFireRangedDuringInteract(true, Boolean(target), target ? this.isCombatTarget(target) : false)) {
       this.fireRangedWeapon(selectedItem);
       return;
