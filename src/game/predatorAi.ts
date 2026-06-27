@@ -189,6 +189,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     let dx = context.playerPosition.x - predator.root.position.x;
     let dz = context.playerPosition.z - predator.root.position.z;
     let distance = Math.hypot(dx, dz);
+    let targetX = context.playerPosition.x, targetZ = context.playerPosition.z; // 최근접 타깃 좌표 — 도약 후 최소거리 하드클램프에 사용
     let remoteTarget: string | null = null;
     let remotePanelOpen = false;
     for (const candidate of partyTargets) {
@@ -199,6 +200,8 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
         distance = rd;
         dx = rdx;
         dz = rdz;
+        targetX = candidate.x;
+        targetZ = candidate.z;
         remoteTarget = candidate.nickname;
         remotePanelOpen = candidate.panelOpen;
       }
@@ -210,7 +213,7 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     const angle = aggroed ? Math.atan2(dz, dx) : predator.wanderAngle ?? 0;
     const predatorStats = context.predatorStats(predator.predatorKind, predator.monsterId as MonsterId | undefined);
     // 근접 정지/공격 사거리 — 플레이어와 겹치지 않고 시야에 들어오게 일정 거리 밖에서 멈춰 공격(몸집 클수록 더 멀리).
-    const reach = context.predatorStrikeRange(predator.predatorKind) + 2.5 + (predator.collisionRadius ?? 0) * 0.5; // 정지/공격 사거리 — 0.8→2.5 로 더 멀리 떨어져 멈춰 공격(겹침 방지·타게팅 쉽게). 데미지는 사거리 내면 적용.
+    const reach = context.predatorStrikeRange(predator.predatorKind) + 3.2 + (predator.collisionRadius ?? 0); // 정지/공격 사거리 — 몸집(collisionRadius) 전부 반영(종전 ×0.5). 큰 보스일수록 더 멀리 멈춰 거대 모델이 카메라를 덮지 않게. 데미지는 사거리 내면 적용.
     const speed = !aggroed ? predatorStats.speed * 0.28 : distance > reach ? (predatorStats.speed + (predator.speedBonus ?? 0)) * context.monsterChaseSpeedMul() : 0; // 사거리 안이면 더 다가가지 않고 정지(타게팅 가능). 추격(aggro+이동) 시에만 난이도 추격속도 배율 적용.
     nextPosition.set(
       THREE.MathUtils.clamp(predator.root.position.x + Math.cos(angle) * speed * delta, -WORLD_SIZE / 2 + 6, WORLD_SIZE / 2 - 6),
@@ -224,6 +227,18 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     predator.root.position.copy(nextPosition);
     predator.root.rotation.y = -angle;
     animatePredatorAttackMotion(predator, now);
+    // 도약 후 최소거리 하드클램프 — 아무리 공격중이라도 몸 표면이 플레이어 시야에서 ~3~4칸 안으로 파고들지 않게(겹침·카메라 관통·시야이탈 방지).
+    // floor = 사거리 + 여유 + 몸집(collisionRadius). reach 보다 1.5칸 작아 도약은 보이되 그 이상은 못 들어온다. 겹쳐 방향 모호하면 추격 반대로 밀어낸다.
+    {
+      const floor = context.predatorStrikeRange(predator.predatorKind) + 1.7 + (predator.collisionRadius ?? 0);
+      const fdx = predator.root.position.x - targetX, fdz = predator.root.position.z - targetZ;
+      const fd = Math.hypot(fdx, fdz);
+      if (fd < floor) {
+        const ux = fd > 0.001 ? fdx / fd : -Math.cos(angle), uz = fd > 0.001 ? fdz / fd : -Math.sin(angle);
+        predator.root.position.x = targetX + ux * floor;
+        predator.root.position.z = targetZ + uz * floor;
+      }
+    }
     clampOutOfSafeZones(predator.root.position); // 도약(lunge)이 안전구역으로 찌르지 못하게 재클램프
     context.refreshSpatialObject(predator);
     context.animateWalkCycle(predator, delta, aggroed ? 0.82 : 0.28);
