@@ -4536,7 +4536,7 @@ body.touch-mode .skill-bar {
 .coach-beacon {
   position: fixed;
   left: 50%;
-  bottom: 104px;
+  bottom: 128px; /* 핫바(상단 ~91px) 위로 — 박스+드롭섀도(약 28px)가 스킬바를 덮지 않게 충분히 띄움 */
   transform: translateX(-50%);
   z-index: 55;
   display: flex;
