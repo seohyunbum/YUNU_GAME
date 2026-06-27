@@ -46,6 +46,10 @@ export const POINT_SHOP_OFFERS: PointShopOffer[] = [
   { id: "iron_armor_buy", name: "철 갑옷 1개", cost: 1400, receive: { iron_armor: 1 }, note: "방어 +10의 고급 방어구입니다." },
   { id: "gold_bundle", name: "금 2개", cost: 1800, receive: { gold: 2 }, note: "희귀 금속. 철보다 비싸고 다이아몬드보다 쌉니다." },
   { id: "gold_armor_buy", name: "금 갑옷 1개", cost: 2600, receive: { gold_armor: 1 }, note: "방어 +15의 희귀 방어구입니다." },
+  // ── 용 전리품(비늘·꼬리·뿔) — 직접 잡는 대신 포인트로 구매. 구매가 = 판매가 ÷ SELL_SHOP_RATE 로 책정해 판매:구매 비율을 일반 품목과 동일하게 맞춤(판매가는 BUY_DERIVED 가 자동 파생 → 4000/5000/10000P, 종전 교환가 보존). 판매는 판매소에서. ──
+  { id: "dragon_scale_buy", name: "용의 비늘 1개", cost: 9700, receive: { dragon_scale: 1 }, note: "용 보스 전리품. 용 장비·4차 전직 재료입니다." },
+  { id: "dragon_tail_buy", name: "용의 꼬리 1개", cost: 12100, receive: { dragon_tail: 1 }, note: "용 보스 전리품. 용 장비·4차 전직 재료입니다." },
+  { id: "dragon_horn_buy", name: "용의 뿔 1개", cost: 24100, receive: { dragon_horn: 1 }, note: "용 보스 최상급 전리품. 용 장비·4차 전직 재료입니다." },
 ];
 
 // 판매가 배수 — 0.595(0.85×0.70)에서 다시 현재의 70% 수준으로 하향(0.595×0.70≈0.4165).
@@ -75,8 +79,8 @@ const BUY_DERIVED_SELL_OFFERS: SellShopOffer[] = POINT_SHOP_OFFERS.flatMap((offe
 // 등급별 매입가 — 무기·방어구·도구·재료를 폭넓게 팔 수 있게(가격은 아이템 등급에 따라).
 const SELL_POINTS_BY_TIER: Record<ItemTier, number> = { common: 6, uncommon: 90, rare: 450, epic: 1100, legendary: 3000, mythic: 7000 };
 const TIER_LABEL: Record<ItemTier, string> = { common: "일반", uncommon: "고급", rare: "희귀", epic: "에픽", legendary: "레전더리", mythic: "신화" };
-// 판매 제외 — 전직/진행 아이템(되돌릴 수 없음)·용 소재(전용 포인트 교환 4000~10000P 있음)
-const SELL_BLOCKLIST = new Set<ItemId>(["job_change_tome", "job_decree", "job_seal", "job_decree_high", "job_decree_ultimate_strength", "job_decree_ultimate_guardian", "job_decree_ultimate_swift", "job_decree_ultimate_sage", "dragon_scale", "dragon_tail", "dragon_horn", "dragon_spawn"]);
+// 판매 제외 — 전직/진행 아이템(되돌릴 수 없음)·용 소환 아이템(dragon_spawn, 소비형). 용 소재(비늘·꼬리·뿔)는 상점 구매 + 판매소 판매로 일원화(POINT_SHOP_OFFERS 에서 BUY_DERIVED 로 자동 파생)
+const SELL_BLOCKLIST = new Set<ItemId>(["job_change_tome", "job_decree", "job_seal", "job_decree_high", "job_decree_ultimate_strength", "job_decree_ultimate_guardian", "job_decree_ultimate_swift", "job_decree_ultimate_sage", "dragon_spawn"]);
 // 등급표에 없는(=일반) 추가 판매 품목 — 가죽/구리 갑옷, 기본 무기·도구·재료
 const COMMON_SELLABLE: ItemId[] = ["leather_armor", "copper_armor", "weak_wood_axe", "sharp_wood_axe", "wood_pickaxe", "wood_shovel", "stone_axe", "stone_pickaxe", "stone_shovel", "copper_axe", "copper_pickaxe", "copper_shovel", "wood", "stick", "stone", "coal", "copper", "leather", "meat", "stone_powder", "coal_powder", "copper_powder"];
 const buyDerivedItems = new Set(BUY_DERIVED_SELL_OFFERS.map((o) => o.item));
@@ -90,8 +94,4 @@ const GRADE_SELL_OFFERS: SellShopOffer[] = [...new Set<ItemId>([...(Object.keys(
 
 export const SELL_SHOP_OFFERS: SellShopOffer[] = [...BUY_DERIVED_SELL_OFFERS, ...GRADE_SELL_OFFERS];
 
-export const POINT_EXCHANGE_OFFERS = [
-  { id: "dragon_scale_points", item: "dragon_scale", points: 4000, name: "용의 비늘 교환" },
-  { id: "dragon_tail_points", item: "dragon_tail", points: 5000, name: "용의 꼬리 교환" },
-  { id: "dragon_horn_points", item: "dragon_horn", points: 10000, name: "용의 뿔 교환" },
-] satisfies { id: string; item: ItemId; points: number; name: string }[];
+// (용 전리품 포인트 교환은 폐지 — 상점 구매 + 판매소 판매로 일원화. 위 POINT_SHOP_OFFERS 의 dragon_*_buy 참조)
