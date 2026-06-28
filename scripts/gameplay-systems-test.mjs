@@ -1801,13 +1801,13 @@ try {
     const mkH = (lvl, i) => migrateSaveData({ version: 11, savedAt: new Date(Date.UTC(2026, 5, 1, 0, 0, i)).toISOString(), player: { level: lvl, playerClass: "mage", position: { x: lvl, y: 1.7, z: i } } });
     for (let i = 1; i <= 20; i += 1) await appendSaveToHistory(mkH(i, i), "마법사씨", histStorage);
     const hist = readSaveHistory("마법사씨", histStorage);
-    assert(hist.length === 15, `history should cap at 15 per nickname, got ${hist.length}`);
+    assert(hist.length === constants.SAVE_HISTORY_PER_NICKNAME, `history should cap at ${constants.SAVE_HISTORY_PER_NICKNAME} per nickname, got ${hist.length}`);
     assert(new Date(hist[0].savedAt).getTime() > new Date(hist[1].savedAt).getTime(), "history should be newest-first");
     assert(hist.some((e) => e.savedAt === mkH(20, 20).savedAt), "latest backup must be retained");
     assert(!hist.some((e) => e.savedAt === mkH(1, 1).savedAt), "oldest backup beyond 15 must be evicted");
     await appendSaveToHistory(mkH(99, 99), "전사씨", histStorage);
     assert(readSaveHistory("전사씨", histStorage).length === 1, "other nickname's history is isolated");
-    assert(readSaveHistory("마법사씨", histStorage).length === 15, "appending to another nickname must not evict mine");
+    assert(readSaveHistory("마법사씨", histStorage).length === constants.SAVE_HISTORY_PER_NICKNAME, "appending to another nickname must not evict mine");
     const recovered = await resolveHistorySave(hist[0]);
     assert(recovered !== null && recovered.player.playerClass === "mage" && recovered.player.level === 20, "history entry should unpack back to the saved game for recovery");
   }

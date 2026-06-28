@@ -210,7 +210,7 @@ export interface SavedVector {
 
 export interface SavedObject {
   type: ObjectType;
-  name: string;
+  name?: string; // 나무 등 압축 세이브는 생략 — 복원 시 spawn 이 타입에서 name 을 재구성(restore 는 ?? object.name 로 폴백)
   position: SavedVector;
   hp?: number;
   armor?: number;
