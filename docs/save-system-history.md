@@ -63,6 +63,12 @@
   - ★**backfill 유령 오염**: `backfillSlotDescription` 가 호출부의 병합본(`readSaveSlots`: latest/backup 유령 포함)을 그대로 `writeSaveSlots`(allowTrim 기본 true) → 패널 조회만으로 유령이 SAVE_LIST 로 오염/중복, 병합>MAX 면 trim 유실. **수정**: LIST(`readStoredSlotList`)만 읽어 해당 슬롯 description 만 갱신 + `allowTrim:false`.
   - QoL: `MAX_SAVE_SLOTS` 10→20(가득=덮어쓰기 강요 마찰↓). 회귀 테스트 2건 추가(picker/load 순서 일치·backfill 무오염).
 
+**localStorage quota 초과로 옛 저장 떨굼 (2026-06-28)**
+- 신고(스샷): "저장 완료 … ⚠ 공간 부족으로 '…','…','…' 저장은 보관되지 못했습니다." = `saveGame` 의 정상 graceful trim(quota 초과 시 새 저장 보존·오래된 슬롯 떨굼+이름 경고). 근본원인 = **세이브가 너무 큼**.
+- 측정(E2E): 6맵 방문 세이브 raw 2.3MB, 그중 **worldStates 84%**. 맵당 ~1550 오브젝트(절차생성: smallTree 909·bigTree 245=63%, wildPredator 144·animal 50=19%, 마을 등). 절차물이 비결정적(Math.random)이라 재시드 동일복원 불가 → 저장으로 보존되며 다맵 누적.
+- 수정(안전·무회귀, 절차물 제외/재시드 안 함): ①나무는 `spawnTree(type,position)` 가 name·충돌·외형을 전부 재구성 → 저장에서 타입유래 필드 전부 생략(`createSavedWorldState` 나무 분기, 채집상태만 보존). 복원부는 생략 필드를 `?? object.X` 로 spawn 기본값 유지(구세이브 호환, `SavedObject.name` optional). ②`toSavedVector` 위치 2자리 반올림. → **세이브 44%↓**(raw 2346→1318KB, 압축 185KB). ③사본수 축소: `MAX_SAVE_SLOTS` 20→12, `SAVE_HISTORY_PER_NICKNAME` 15→8. (직전 20 상향이 quota 압박 가중.)
+- 검증: verify 그린. E2E 라운드트립 — 나무 압축저장 `{type,position}` → 로드 후 collidable·collisionRadius·name 정상 재구성(914그루). history-cap 테스트 상수화.
+
 ---
 
 ## 4. 알려진 잔여 리스크 / 백로그

@@ -6618,7 +6618,7 @@ class WildernessGame {
     if (savedObject.type === "chest" || savedObject.type === "mineChest") object = this.spawnChest(position, savedObject.type === "mineChest" || Boolean(savedObject.mineRich), savedObject.chestTier ?? 0);
     if (savedObject.type === "cave") object = this.spawnCave(position);
     if (savedObject.type === "fortressGate") object = this.spawnFortressGate(position);
-    if (savedObject.type === "water") object = this.spawnWaterBody(position, this.restoredWaterRadius(position, savedObject.terrainRadius ?? 12, savedObject.name), savedObject.name);
+    if (savedObject.type === "water") object = this.spawnWaterBody(position, this.restoredWaterRadius(position, savedObject.terrainRadius ?? 12, savedObject.name ?? ""), savedObject.name ?? "");
     if (savedObject.type === "droppedItem") object = this.spawnDroppedItem(savedObject.droppedItem ?? "tutorial_book", savedObject.droppedCount ?? 1, position);
     if (savedObject.type === "bed") object = spawnBedObject(this.spawnContext, position, savedObject.rotationY ?? 0);
     if (savedObject.type === "buildingBlock") object = spawnBuildingBlockObject(this.spawnContext, position);
@@ -6643,7 +6643,7 @@ class WildernessGame {
     if (savedObject.type === "villageArcher" || savedObject.type === "villageMage") object = this.spawnRangedGuard(position, villageId, savedObject.type);
     if (savedObject.type === "villageGolem") object = this.spawnGolem(position, villageId);
     if (savedObject.type === "foodStorage" || savedObject.type === "villageHouse") {
-      object = this.spawnVillageHouse(position, savedObject.name, savedObject.type === "foodStorage", villageId, savedObject.houseKind === "twoStory" ? 3 : 0, savedObject.playerOwned ? { deluxe: true, signLabel: `${this.nickname || "나"}의 집` } : undefined);
+      object = this.spawnVillageHouse(position, savedObject.name ?? "", savedObject.type === "foodStorage", villageId, savedObject.houseKind === "twoStory" ? 3 : 0, savedObject.playerOwned ? { deluxe: true, signLabel: `${this.nickname || "나"}의 집` } : undefined);
     }
     if (savedObject.type === "blacksmith") object = this.spawnBlacksmith(position, villageId);
     if (savedObject.type === "villageShop") object = this.spawnVillageShop(position, villageId);
@@ -6664,7 +6664,7 @@ class WildernessGame {
     }
 
     if (!object) return;
-    object.name = savedObject.name;
+    object.name = savedObject.name ?? object.name; // 생략 시 spawn 기본값 유지(나무 등 압축 세이브) — ?? 는 null/undefined 만 폴백이라 저장된 빈 문자열·false 는 보존
     if (savedObject.hp !== undefined) object.hp = savedObject.hp;
     object.armor = savedObject.armor;
     object.ore = savedObject.ore;
@@ -6672,9 +6672,9 @@ class WildernessGame {
     object.mineRich = savedObject.mineRich;
     object.caveReturn = savedObject.caveReturn ? this.fromSavedVector(savedObject.caveReturn) : undefined;
     if (savedObject.type !== "villageFence") {
-      object.collidable = savedObject.collidable;
-      object.collisionRadius = savedObject.collisionRadius;
-      object.collisionHeight = savedObject.collisionHeight;
+      object.collidable = savedObject.collidable ?? object.collidable; // 생략 시 spawn 기본값 유지(압축 세이브)
+      object.collisionRadius = savedObject.collisionRadius ?? object.collisionRadius;
+      object.collisionHeight = savedObject.collisionHeight ?? object.collisionHeight;
     }
     object.villageId = savedObject.villageId;
     object.foodRemaining = savedObject.foodRemaining;

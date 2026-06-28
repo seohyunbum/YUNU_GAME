@@ -99,7 +99,8 @@ export interface SaveDataSnapshot {
 }
 
 export function toSavedVector(vector: VectorLike): SavedVector {
-  return { x: vector.x, y: vector.y, z: vector.z };
+  // 2자리 반올림(cm 정밀) — 부동소수 긴 자릿수(12.345678901)를 제거해 세이브 용량을 줄인다. 위치 정밀도 영향 없음.
+  return { x: Math.round(vector.x * 100) / 100, y: Math.round(vector.y * 100) / 100, z: Math.round(vector.z * 100) / 100 };
 }
 
 export function cloneSlots(slots: readonly Slot[]): Slot[] {
@@ -144,7 +145,11 @@ export function createSavedWorldState(snapshot: Pick<SaveDataSnapshot, "nowMs" |
       // 필드 보스는 저장하지 않는다 — 처치 기록(defeatedFieldBosses)만 저장하고 스폰은 ensure 가 맡는다
       .filter((object) => !object.fieldBossId)
       .filter((object) => object.expiresAt === undefined || object.expiresAt > snapshot.nowMs)
-      .map((object) => ({
+      .map((object) =>
+        // 나무는 복원 시 spawnTree(type, position) 가 name·충돌·외형을 전부 재구성하므로 타입유래 필드를 전부 생략해 세이브를 대폭 줄인다(채집·손상 상태만 보존). 복원부가 생략 필드를 ?? 로 spawnTree 기본값 유지 → 구세이브 호환.
+        object.type === "smallTree" || object.type === "bigTree"
+          ? { type: object.type, position: toSavedVector(object.root.position), ...(object.hp !== undefined ? { hp: object.hp } : {}), ...(object.harvestProgress !== undefined ? { harvestProgress: object.harvestProgress } : {}) }
+          : ({
         type: object.type,
         name: object.name,
         position: toSavedVector(object.root.position),

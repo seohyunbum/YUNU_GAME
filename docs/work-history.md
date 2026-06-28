@@ -14,6 +14,14 @@
 - 관련 파일/검증:
 ```
 
+## 2026-06-28 — 세이브 용량 초과로 옛 저장 떨굼(공간 부족) 근본 수정
+
+- 신고(스샷): "저장 완료 … ⚠ 공간 부족으로 '…','…','…' 저장 보관 못함." = localStorage quota 초과 시 정상 graceful trim. 근본원인=세이브가 너무 큼.
+- 측정(E2E): 6맵 방문 raw 2.3MB, worldStates 84%. 맵당 ~1550 절차 오브젝트(나무 63%·야생 19%). 절차생성이 Math.random 비결정적이라 재시드 동일복원 불가(워크플로 확인).
+- 수정(안전·무회귀): ①나무 압축저장 — spawnTree(type,position)가 재구성하는 타입유래 필드 전부 생략, 복원부 `?? object.X` 폴백(구세이브 호환, SavedObject.name optional). ②toSavedVector 위치 2자리 반올림. → 세이브 44%↓(raw 2346→1318KB, 압축 185KB). ③사본수 축소 MAX_SAVE_SLOTS 20→12·SAVE_HISTORY_PER_NICKNAME 15→8(20 상향이 quota 가중).
+- 파일: saveManager.ts·main.ts(복원 가드)·types.ts·constants.ts·gameplay-systems-test(history cap 상수화)·save-system-history.md.
+- 검증: verify 그린. E2E 라운드트립 — 나무 `{type,position}` 압축저장→로드 후 collidable·collisionRadius·name 정상(914그루).
+
 ## 2026-06-28 — 용 장비 그리드 제작 시 선택과 다른 게 만들어지던 버그
 
 - 신고: "용의 장갑을 만들었는데 용의 왕관이 만들어짐. 선택한 거랑 다른 게 제작됨."
