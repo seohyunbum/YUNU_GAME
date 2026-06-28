@@ -52,15 +52,16 @@ export function experienceRewardForTarget(target: WorldObject): number {
   return 0;
 }
 
-// 포식자 처치 경험치 — 기본 3종은 기존 수치를 보존하고, 변종/신규 종은 몬스터 레벨 비례(레벨×3).
+// 포식자 처치 경험치 — 기본 3종은 기존 비례, 변종/신규 종은 몬스터 레벨 비례(레벨×3). 일반 몬스터 처치 경험치 일괄 +15%.
+const NORMAL_MONSTER_XP_MULT = 1.15; // 일반 몬스터(포식자) 처치 경험치 일괄 상향. 보스(dragon)는 experienceRewardForTarget 에서 별도 처리되어 제외.
 export function predatorExperienceReward(kind: PredatorKind | undefined, monsterLevel?: number): number {
-  if (kind === "spider" && !monsterLevel) return 18;
-  if (kind === "wolf" && !monsterLevel) return 45;
-  if (kind === "lion" && !monsterLevel) return 60;
+  if (kind === "spider" && !monsterLevel) return Math.round(18 * NORMAL_MONSTER_XP_MULT);
+  if (kind === "wolf" && !monsterLevel) return Math.round(45 * NORMAL_MONSTER_XP_MULT);
+  if (kind === "lion" && !monsterLevel) return Math.round(60 * NORMAL_MONSTER_XP_MULT);
   const level = monsterLevel ?? (kind && MONSTER_DEFS[kind as MonsterId] ? MONSTER_DEFS[kind as MonsterId].level : 8);
   // 50레벨 이상 몬스터 경험치 +10% (용/드래곤 보스는 type==="dragon" 으로 별도 처리되어 제외됨)
   const highLevelMult = level >= 50 ? 1.1 : 1;
-  return Math.round(level * 3 * highLevelMult);
+  return Math.round(level * 3 * highLevelMult * NORMAL_MONSTER_XP_MULT);
 }
 
 export type MonsterId =
