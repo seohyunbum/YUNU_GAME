@@ -1962,6 +1962,7 @@ class WildernessGame {
     });
     this.renderer.domElement.addEventListener("click", () => {
       if (!this.gameStarted) return;
+      if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) document.activeElement.blur(); // 게임 화면 클릭 = 입력창 포커스 해제(채팅·검색에 포커스가 남아 단축키가 막히던 트랩 복구)
       if (this.currentPanel === null) this.requestGamePointerLock();
     });
     this.renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -2166,8 +2167,13 @@ class WildernessGame {
     }
     // ESC 는 입력칸(검색 등) 포커스 중에도 항상 팝업을 닫는다 — 입력 무시 게이트보다 먼저 처리.
     if (event.code === "Escape" && this.currentPanel !== null) { if (event.target instanceof HTMLElement) event.target.blur(); this.closePanel(); return; }
-    // 입력창(채팅·검색 등) 타이핑은 게임 단축키로 새지 않게 — 단, 위의 Ctrl+W/S/L(브라우저 차단)·미니게임은 통과시킨다 (window capture 핸들러).
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+    // 입력창(채팅·검색 등) 타이핑은 게임 단축키로 새지 않게. 단 레시피 검색창에서 탐색 단축키(I/K/M/B)는 검색창을 닫고 그대로 동작 —
+    // 검색창에 포커스가 남은 줄 모르고 단축키를 눌러 '아무것도 안 먹던' 트랩 해소(검색은 한글 위주라 i/k/m/b 입력 손실 미미). Ctrl+W/S/L·미니게임은 위에서 이미 통과.
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+      const search = event.target instanceof HTMLInputElement && (event.target.dataset.recipeSearch !== undefined || event.target.dataset.wbRecipeSearch !== undefined) ? event.target : null;
+      if (search && (event.code === "KeyI" || event.code === "KeyK" || event.code === "KeyM" || event.code === "KeyB")) search.blur();
+      else return;
+    }
     this.keys.add(event.code);
     if (event.code === "Escape") {
       this.closePanel();
