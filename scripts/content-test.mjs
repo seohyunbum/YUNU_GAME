@@ -227,6 +227,17 @@ try {
     }
   }
 
+  // 일반 몬스터(포식자) 처치 경험치 +15% 일괄 상향 — 보스(용)·동물은 대상 아님(불변)
+  {
+    const { predatorExperienceReward, experienceRewardForTarget } = monsters;
+    if (predatorExperienceReward("spider") !== 21) problems.push(`spider XP should be 21 (+15% of 18), got ${predatorExperienceReward("spider")}`);
+    if (predatorExperienceReward("wolf") !== 52) problems.push(`wolf XP should be 52 (+15% of 45), got ${predatorExperienceReward("wolf")}`);
+    if (predatorExperienceReward("lion") !== 69) problems.push(`lion XP should be 69 (+15% of 60), got ${predatorExperienceReward("lion")}`);
+    if (predatorExperienceReward(undefined, 10) !== 35) problems.push(`Lv10 variant XP should be 35 (10×3×1.15), got ${predatorExperienceReward(undefined, 10)}`);
+    if (experienceRewardForTarget({ type: "dragon", bossKind: "dragon" }) !== 500) problems.push("dragon boss XP must stay 500 — 일반 몬스터 상향 대상 아님");
+    if (experienceRewardForTarget({ type: "animal", animalKind: "chicken" }) !== 4) problems.push("animal XP must stay 4 — 일반 몬스터(포식자) 아님");
+  }
+
   // 내 집 보급 상자: 모든 레벨 구간의 보상이 실존 아이템이어야 한다
   {
     const homeBase = await server.ssrLoadModule("/src/game/homeBase.ts");
