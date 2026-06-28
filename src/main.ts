@@ -476,6 +476,7 @@ class WildernessGame {
   private pendingStorageMove: { source: "hotbar" | "bag"; index: number } | null = null;
   private currentPanel: PanelType = null;
   private currentStationId: string | null = null;
+  private pendingGridRecipeId: string | null = null; // '재료 넣기'로 그리드에 채운 레시피 id — 재료가 같은 레시피(용 장비 4종)에서 의도한 것을 만들게 한다(수동 편집·비우기 시 해제)
   private currentWorldMapId: WorldMapId = DEFAULT_WORLD_MAP_ID;
   private bossChapter = 0;
   private activeRegions = regionsForWorldMap(DEFAULT_WORLD_MAP_ID);
@@ -7559,6 +7560,7 @@ class WildernessGame {
   private handleWorkbenchSlotClick(index: number) {
     const slot = this.workbenchSlots[index];
     if (!slot) return;
+    this.pendingGridRecipeId = null; // 수동으로 그리드를 손대면 '재료 넣기' 의도 해제 → 모호하면 첫 매칭으로 폴백
 
     if (slot.item && this.selectedCraftItem === slot.item) {
       if (!this.removeItem(this.selectedCraftItem, 1)) {
@@ -7634,6 +7636,7 @@ class WildernessGame {
       this.removeItem(item, count);
       if (!this.placeWorkbenchIngredient(item, count, isExtended)) this.addItem(item, count);
     }
+    this.pendingGridRecipeId = recipe.id; // 그리드 '제작'이 재료가 같은 형제 레시피(첫 매칭)가 아니라 방금 고른 이 레시피를 만들게 한다
     this.showMessage(`${recipe.name} 재료를 ${isExtended ? "6x6" : "3x3"} 제작 공간에 넣었습니다.`);
     this.renderPanel();
     this.renderHud();
@@ -7650,9 +7653,10 @@ class WildernessGame {
 
   private workbenchRecipeFromSlots(isExtended = false) {
     const counts = this.workbenchCounts(isExtended);
-    return this.workbenchRecipesForStation(isExtended).find((recipe) =>
-      this.countsMatchExactly(counts, recipe.ingredients),
-    );
+    const matches = this.workbenchRecipesForStation(isExtended).filter((recipe) => this.countsMatchExactly(counts, recipe.ingredients));
+    // 동일 재료로 여러 레시피가 매칭되면(용 장비 4종은 재료가 같음) '재료 넣기'로 고른 레시피를 우선한다 —
+    // 종전엔 항상 첫 매칭(용의 장갑)만 만들어져, 부츠/망토/왕관을 그리드로 만들 수 없던(선택과 다른 게 제작) 버그.
+    return matches.find((recipe) => recipe.id === this.pendingGridRecipeId) ?? matches[0];
   }
 
   private workbenchRecipesForStation(isExtended = false) {
@@ -7678,6 +7682,7 @@ class WildernessGame {
   }
 
   private clearWorkbenchSlots(returnItems = true, render = true) {
+    this.pendingGridRecipeId = null; // 그리드를 비우면 '재료 넣기' 의도도 해제(채움 직전·제작 직후 호출됨 — 채움은 이후 다시 설정)
     for (const slot of this.workbenchSlots) {
       if (returnItems && slot.item) this.addItem(slot.item, slot.count);
       slot.item = null;

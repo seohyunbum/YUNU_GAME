@@ -86,7 +86,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-27: 사망 배너 + 내구도≤3 경고 + ESC 입력포커스에서도 팝업닫기 — 사망음·flashDeathBanner 호출·import, 내구도 분기, ESC 게이트. 배너 로직은 ui/deathBanner 리프 +8 → 10201.
 // 2026-06-27: 마을 판매소 다량판매 — 카드별 수량 스테퍼(−/＋/전체) + qty 바인딩 + sellToVillageShop qty 인자. +4 → 10205.
 // 2026-06-27: 용 전리품 상점 일원화 — 포인트 교환 섹션·exchangeDragonLootForPoints 핸들러·import 제거(용 소재는 POINT_SHOP_OFFERS 구매 + 판매소 자동파생). 순 -37 → 10168.
-const MAX_MAIN_LINES = 10167;
+// 2026-06-28: 그리드 제작 모호성 수정 — 재료 같은 형제 레시피(용 장비 4종)에서 '재료 넣기'로 고른 의도 레시피 우선(pendingGridRecipeId 필드+set/clear 3곳, workbenchRecipeFromSlots filter+prefer). +5 → 10172.
+const MAX_MAIN_LINES = 10172;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
