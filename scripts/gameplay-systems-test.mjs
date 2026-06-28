@@ -1624,6 +1624,11 @@ try {
     assert(allBonus.some((r) => r.item === "xp_bottle") && allBonus.some((r) => r.item === "spirit_gacha_token"), "행운 롤이면 경험치병+정령 소환권(둘 다 전설)이 cap 상위로 보존된다");
     assert(homeSupplyReadyLabel(0).includes("준비"), "ready label should say ready");
     assert(homeSupplyReadyLabel(610).includes("11분"), "cooldown label should round up to minutes");
+    // 나무·돌 제외 + 영웅(에픽)등급 이상 보너스
+    assert(![...low, ...mid, ...top].some((r) => r.item === "wood" || r.item === "stone"), "집 보급상자는 더 이상 나무·돌을 주지 않는다");
+    const EPIC_PLUS_BONUS = ["obsidian", "sharp_obsidian", "obsidian_powder", "dragon_tail", "obsidian_sword", "obsidian_dagger", "arcane_staff", "advanced_medkit", "dragon_horn", "sharp_obsidian_staff", "sharp_obsidian_gun", "sharp_obsidian_shield", "xp_bottle", "spirit_gacha_token"];
+    assert(rollHomeSupply(20, () => 0.01).some((r) => EPIC_PLUS_BONUS.includes(r.item)), "tier≥1 행운 롤이면 영웅(에픽)등급 이상 보너스가 낮은 확률로 추가된다");
+    assert(!rollHomeSupply(20, () => 0.99).some((r) => ["obsidian_sword", "sharp_obsidian_staff", "xp_bottle"].includes(r.item)), "불운 롤(0.99)엔 영웅등급+ 보너스가 없다(낮은 확률)");
   }
 
   {
