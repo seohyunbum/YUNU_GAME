@@ -336,6 +336,9 @@ export interface SavedGame {
     predatorKills?: number; // 캐릭터 생성부터 누적 몬스터 처치 수 — 세이브에 포함해 로드 시 복원(전엔 localStorage 전역값이 로드마다 0 리셋됐음). 구세이브는 완료 퀘스트로 백필
     fortressBossKills?: number; // 누적 요새 보스 처치 수 — 동일하게 세이브 복원(로드 리셋 방지)
     fortressStageByMap?: Record<string, number>; // 맵별 몬스터 요새 최고 클리어 단계 — 재입장 이어하기. 세이브 복원(전엔 localStorage 만 있어 로드마다 1단계 리셋). 구세이브는 localStorage 백필
+    materialsSold?: number; // 상점 판매 누적 횟수(sell_materials 퀘스트 진행) — 세이브 복원(로드 리셋으로 중간 진행 유실 방지). 구세이브는 완료 퀘스트 임계 백필
+    shopPurchases?: number; // 상점 구매 누적 횟수(buy_from_shop 퀘스트 진행) — 동일하게 세이브 복원
+    antStepBank?: number; // 개미굴 스폰 페이싱 걸음 뱅크 — chest/caveStepBank 와 동일하게 세이브 복원(로드마다 0 리셋 방지)
     craftStatAlloc?: { hp: number; mana: number; attack: number; defense: number };
     caveReturnPosition: SavedVector | null;
     houseReturnPosition?: SavedVector | null;

@@ -6227,7 +6227,7 @@ class WildernessGame {
         characterId: this.currentCharacterId,
         partyLedgerEpoch: this.currentPartyLedgerEpoch,
         predatorKills: this.tutorialSignals.predatorKills,
-        fortressBossKills: this.tutorialSignals.fortressBossKills, fortressStageByMap: this.fortressStageByMap, // 맵별 요새 최고 단계 — 세이브 포함(스냅샷이 spread 복사)
+        fortressBossKills: this.tutorialSignals.fortressBossKills, fortressStageByMap: this.fortressStageByMap, materialsSold: this.tutorialSignals.materialsSold, shopPurchases: this.tutorialSignals.shopPurchases, // 맵별 요새 최고 단계·상점 판매/구매 누적 — 세이브 포함(로드 리셋 방지)
         craftStatAlloc: { ...this.craftStatAlloc },
         classSkillCooldownUntil: this.classSkillCooldownUntil,
         secondSkillCooldownUntil: this.secondSkillCooldownUntil,
@@ -6244,7 +6244,7 @@ class WildernessGame {
         totalSteps: this.totalSteps,
         playSeconds: this.playSeconds,
         chestStepBank: this.chestStepBank,
-        caveStepBank: this.caveStepBank,
+        caveStepBank: this.caveStepBank, antStepBank: this.antStepBank, // 개미굴 걸음 뱅크 — chest/cave 와 동일 취급
         equippedArmor: this.equippedArmor,
         equippedShield: this.equippedShield,
         equippedNecklace: this.equippedNecklace,
@@ -6347,7 +6347,7 @@ class WildernessGame {
     const killFloor = ([["hunt_200", 200], ["hunt_100", 100], ["hunt_30", 30], ["hunt_predators", 3]] as [string, number][]).reduce((m, [id, n]) => doneIds.includes(id) ? Math.max(m, n) : m, 0);
     const fortFloor = ([["hunt_fortress_boss_3", 3], ["hunt_fortress_boss", 1]] as [string, number][]).reduce((m, [id, n]) => doneIds.includes(id) ? Math.max(m, n) : m, 0);
     this.tutorialSignals.predatorKills = Math.max(save.player.predatorKills ?? 0, killFloor);
-    this.tutorialSignals.fortressBossKills = Math.max(save.player.fortressBossKills ?? 0, fortFloor);
+    this.tutorialSignals.fortressBossKills = Math.max(save.player.fortressBossKills ?? 0, fortFloor); this.tutorialSignals.materialsSold = Math.max(save.player.materialsSold ?? 0, doneIds.includes("sell_materials") ? 3 : 0); this.tutorialSignals.shopPurchases = Math.max(save.player.shopPurchases ?? 0, doneIds.includes("buy_from_shop") ? 1 : 0); // 상점 판매/구매 누적 복원 — 동일 로드-리셋 패턴. 구세이브는 완료 퀘스트 임계 백필
     this.savePredatorKills(); this.fortressStageByMap = restoreFortressStageByMap(save.player.fortressStageByMap, doneIds.includes("visit_fortress") || this.tutorialProgress.achievedStepIds.includes("visit_fortress") ? keptFortressStages : {}); // ★맵별 요새 최고 단계 복원 — resetGameState 가 {} 로 지운 걸 세이브값으로 복구(전엔 로드마다 1단계 리셋 버그). 구세이브 백필은 요새 방문 증거(visit_fortress)가 있을 때만 — 전역 미러가 다른 슬롯 진행을 미방문 캐릭터에 주입하는 것 차단
     this.playerBodyPosition = null;
     this.renderClassSelection();
@@ -6362,7 +6362,7 @@ class WildernessGame {
     this.lastHudStepCount = Math.floor(this.totalSteps);
     this.movementHudTimer = 0;
     this.chestStepBank = save.player.chestStepBank;
-    this.caveStepBank = save.player.caveStepBank;
+    this.caveStepBank = save.player.caveStepBank; this.antStepBank = Math.max(0, Math.floor(save.player.antStepBank ?? 0)); // 개미굴 걸음 뱅크 복원(구세이브는 0)
     this.equippedArmor = save.player.equippedArmor;
     this.equippedShield = save.player.equippedShield ?? null; this.equippedNecklace = save.player.equippedNecklace ?? null; this.permanentNecklace = save.player.permanentNecklace ?? null;
     this.spirits = normalizeSpiritCollection(save.player.spirits);
@@ -6486,7 +6486,7 @@ class WildernessGame {
     this.summonerCompanion.reset();
     this.tutorialProgress.completedStepIds.splice(0);
     this.tutorialProgress.achievedStepIds.splice(0);
-    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.fortressVisited = false; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.savePredatorKills();
+    this.tutorialSignals.predatorKills = 0; this.tutorialSignals.fortressBossKills = 0; this.tutorialSignals.fortressVisited = false; this.tutorialSignals.mapOpened = false; this.tutorialSignals.saved = false; this.tutorialSignals.shopOpened = false; this.tutorialSignals.materialsSold = 0; this.tutorialSignals.shopPurchases = 0; this.tutorialSignals.craftedNecklace = false; this.tutorialSignals.craftedAdvancedMedkit = false; this.tutorialSignals.recoveredWorkbench = false; this.tutorialSignals.ateMeat = false; this.savePredatorKills(); // recoveredWorkbench·ateMeat 도 리셋 — 누락 시 이전 플레이스루 신호가 새 게임/타 슬롯 퀘스트를 자동 완료시킴
     this.fortressStageByMap = {}; saveFortressStageByMap(this.fortressStageByMap); // 맵별 요새 진행(런 상태)만 초기화. ★bestFortress(난이도별 전역 기록)는 리셋하지 않는다 — 로드/새 게임마다 0 으로 덮어써 글로벌 랭킹이 리셋되던 버그(닉네임당 영구 기록이어야 함).
     this.playerBodyPosition = null;
     this.hunger = HUNGER_MAX;
