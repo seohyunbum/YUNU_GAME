@@ -379,7 +379,7 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     output: "sharp_obsidian_shield",
     count: 1,
     ingredients: { sharp_obsidian: 5, refined_iron: 4, gold_powder: 2 },
-    note: "궁극의 방패 — 방어 +10, 강타 10, 피격 300회 후 부서집니다.",
+    note: "궁극의 방패 — 방어 +10, 강타 10, 피격 1000회 후 부서집니다(제작대에서 수리 가능).",
     extendedOnly: true,
   },
   {
