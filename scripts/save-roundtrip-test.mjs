@@ -49,6 +49,9 @@ function stableSaveShape(save) {
       bossChapter: save.player.bossChapter,
       defeatedFieldBosses: save.player.defeatedFieldBosses,
       fortressStageByMap: { ...(save.player.fortressStageByMap ?? {}) },
+      materialsSold: save.player.materialsSold,
+      shopPurchases: save.player.shopPurchases,
+      antStepBank: save.player.antStepBank,
       totalSteps: save.player.totalSteps,
       playSeconds: save.player.playSeconds,
       chestStepBank: save.player.chestStepBank,
@@ -158,6 +161,9 @@ try {
     game.worldTimeSeconds = 2400;
     game.currentWorldMapId = "mushroom_glen";
     game.fortressStageByMap = { mushroom_glen: 4, dragon_lands: 2 };
+    game.tutorialSignals.materialsSold = 2;
+    game.tutorialSignals.shopPurchases = 1;
+    game.antStepBank = 37;
     game.totalSteps = 321;
     game.playSeconds = 4567;
     game.chestStepBank = 22;
@@ -220,9 +226,10 @@ try {
     mountainPosition.set(40, 0, -40);
     game.spawnMountain(mountainPosition, 32, 8);
 
-    const dropPosition = game.playerPosition.clone();
-    dropPosition.z -= 3;
-    game.spawnDroppedItem("hammer", 2, dropPosition);
+    // spawnDroppedItem 은 leaf(droppedItemSpawns)로 추출돼 GameClient 메서드가 아님 — 실사용 드랍 경로로 대체
+    const tempDropSlot = { item: "hammer", count: 2 };
+    game.dropItemFromSlot(tempDropSlot);
+    game.dropItemFromSlot(tempDropSlot);
     game.worldStates.dragon_lands = {
       mountains: [{ position: { x: 300, y: 0, z: -310 }, radius: 44, height: 12 }],
       objects: [{ type: "droppedItem", name: "다른 맵 전리품", position: { x: 301, y: 1.7, z: -312 }, droppedItem: "diamond", droppedCount: 3 }],
@@ -252,7 +259,23 @@ try {
     game.fortressStageByMap = { legacy_map: 7 };
     game.restoreSaveData(legacyNoEvidence);
     const fortressAfterNoEvidence = { ...game.fortressStageByMap };
-    return { before, after, arcadePointsAfterReload, fortressAfterReload, fortressAfterLegacyLoad, fortressAfterNoEvidence };
+    // 상점 판매/구매·개미굴 뱅크: 로드가 세이브값을 복원한다(전엔 로드마다 0 리셋 → 퀘스트 중간 진행 유실).
+    game.restoreSaveData(before);
+    const countersAfterReload = { materialsSold: game.tutorialSignals.materialsSold, shopPurchases: game.tutorialSignals.shopPurchases, antStepBank: game.antStepBank };
+    // 구세이브(필드 없음)는 완료 퀘스트 임계로 백필(sell_materials 완료=최소 3회 판매).
+    const legacyCounters = JSON.parse(JSON.stringify(before));
+    delete legacyCounters.player.materialsSold;
+    delete legacyCounters.player.shopPurchases;
+    delete legacyCounters.player.antStepBank;
+    legacyCounters.player.tutorial.completedStepIds.push("sell_materials", "buy_from_shop");
+    game.restoreSaveData(legacyCounters);
+    const countersAfterLegacyLoad = { materialsSold: game.tutorialSignals.materialsSold, shopPurchases: game.tutorialSignals.shopPurchases, antStepBank: game.antStepBank };
+    // 스테일 신호 리셋: recoveredWorkbench·ateMeat 는 리셋 누락 시 이전 플레이스루가 새 게임 퀘스트를 자동 완료시킴.
+    game.tutorialSignals.recoveredWorkbench = true;
+    game.tutorialSignals.ateMeat = true;
+    game.resetGameState({ reseed: false });
+    const staleSignalsAfterReset = { recoveredWorkbench: game.tutorialSignals.recoveredWorkbench, ateMeat: game.tutorialSignals.ateMeat };
+    return { before, after, arcadePointsAfterReload, fortressAfterReload, fortressAfterLegacyLoad, fortressAfterNoEvidence, countersAfterReload, countersAfterLegacyLoad, staleSignalsAfterReset };
   });
 
   assert.deepEqual(stableSaveShape(result.after), stableSaveShape(result.before));
@@ -261,6 +284,9 @@ try {
   assert.deepEqual(result.fortressAfterReload, { mushroom_glen: 4, dragon_lands: 2 }, "loading must restore per-map fortress stages from the save (load-reset regression guard)");
   assert.deepEqual(result.fortressAfterLegacyLoad, { legacy_map: 7 }, "legacy saves with fortress-visit evidence must keep pre-load fortress progress (localStorage backfill)");
   assert.deepEqual(result.fortressAfterNoEvidence, {}, "legacy saves without fortress-visit evidence must NOT inherit another slot's fortress progress");
+  assert.deepEqual(result.countersAfterReload, { materialsSold: 2, shopPurchases: 1, antStepBank: 37 }, "loading must restore shop counters and ant step bank from the save (load-reset regression guard)");
+  assert.deepEqual(result.countersAfterLegacyLoad, { materialsSold: 3, shopPurchases: 1, antStepBank: 0 }, "legacy saves must backfill shop counters from completed quest thresholds (ant bank has no quest → 0)");
+  assert.deepEqual(result.staleSignalsAfterReset, { recoveredWorkbench: false, ateMeat: false }, "resetGameState must clear recoveredWorkbench/ateMeat (stale signals auto-completed quests in a new playthrough)");
   assert.deepEqual(browserErrors, []);
 
   console.log(JSON.stringify({
@@ -273,6 +299,8 @@ try {
       "world map state roundtrip",
       "home storage and supply cooldown roundtrip",
       "fortress stage per-map roundtrip + legacy backfill",
+      "shop counters + ant step bank roundtrip + legacy quest-threshold backfill",
+      "stale boolean signals cleared on reset",
     ],
   }, null, 2));
 } finally {

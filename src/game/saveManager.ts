@@ -51,6 +51,9 @@ export interface SaveDataSnapshot {
     predatorKills: number;
     fortressBossKills: number;
     fortressStageByMap: Record<string, number>; // 맵별 요새 최고 클리어 단계 — 재입장 이어하기(로드 리셋 방지)
+    materialsSold: number; // 상점 판매 누적(sell_materials 퀘스트) — 로드 리셋 방지
+    shopPurchases: number; // 상점 구매 누적(buy_from_shop 퀘스트) — 로드 리셋 방지
+    antStepBank: number; // 개미굴 스폰 걸음 뱅크 — chest/caveStepBank 와 동일 취급
     craftStatAlloc: { hp: number; mana: number; attack: number; defense: number };
     classSkillCooldownUntil: number;
     secondSkillCooldownUntil: number;
@@ -240,6 +243,9 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       predatorKills: snapshot.player.predatorKills,
       fortressBossKills: snapshot.player.fortressBossKills,
       fortressStageByMap: { ...snapshot.player.fortressStageByMap },
+      materialsSold: snapshot.player.materialsSold,
+      shopPurchases: snapshot.player.shopPurchases,
+      antStepBank: snapshot.player.antStepBank,
       craftStatAlloc: { ...snapshot.player.craftStatAlloc },
       classSkillCooldownRemainingMs: Math.max(0, snapshot.player.classSkillCooldownUntil - snapshot.nowMs),
       secondSkillCooldownRemainingMs: Math.max(0, snapshot.player.secondSkillCooldownUntil - snapshot.nowMs),

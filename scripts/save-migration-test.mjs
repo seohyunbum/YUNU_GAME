@@ -77,6 +77,9 @@ try {
   assert.equal(legacy.player.playerClass, "warrior");
   assert.equal(legacy.player.jobTier, 0); // 구세이브엔 전직 차수가 없음 → 0
   assert.equal(legacy.player.fortressStageByMap, undefined, "구세이브(필드 없음)는 키 자체를 생략 — restoreSaveData 가 localStorage 로 백필하도록");
+  assert.equal(legacy.player.materialsSold, undefined, "구세이브는 상점 판매 누적 키 생략 — 완료 퀘스트 임계로 백필하도록");
+  assert.equal(legacy.player.shopPurchases, undefined, "구세이브는 상점 구매 누적 키 생략");
+  assert.equal(legacy.player.antStepBank, undefined, "구세이브는 개미굴 걸음 뱅크 키 생략(복원부 ?? 0)");
   assert.equal(legacy.player.thirdSkillCooldownRemainingMs, 0);
   assert.equal(legacy.player.maxMana, BASE_MAX_MANA);
   assert.equal(legacy.player.mana, BASE_MAX_MANA);
@@ -162,6 +165,9 @@ try {
       homeStorage: [{ item: "iron_pickaxe", count: 1, durabilityUsed: 7 }, { item: "wood", count: 30 }],
       homeSupplyCooldowns: { wood: 999_999, stone: 600, twoStory: -5, bad: "x" },
       fortressStageByMap: { default: 4, snowfield: 2.9, bad: "x", zero: 0, neg: -3 },
+      materialsSold: 2.7,
+      shopPurchases: -5,
+      antStepBank: 12.9,
       caveReturnPosition: { x: 7, y: 8, z: 9 },
       houseReturnPosition: { x: 1, y: 2, z: 3 },
       selectedHotbarIndex: -3,
@@ -219,6 +225,9 @@ try {
   assert.deepEqual(current.player.homeStorage[1], { item: "wood", count: 30 });
   assert.deepEqual(current.player.homeSupplyCooldowns, { wood: 1200, stone: 600 }, "per-house supply cooldowns should clamp to the 20-minute max and drop invalid entries");
   assert.deepEqual(current.player.fortressStageByMap, { default: 4, snowfield: 2 }, "맵별 요새 최고 단계 — 1 이상 정수만 보존(소수 내림), 쓰레기 항목 제거");
+  assert.equal(current.player.materialsSold, 2, "상점 판매 누적 — 정수 절사 보존");
+  assert.equal(current.player.shopPurchases, 0, "상점 구매 누적 — 음수는 0 으로 클램프");
+  assert.equal(current.player.antStepBank, 12, "개미굴 걸음 뱅크 — 정수 절사 보존");
   assert.equal(current.worldStates.snowfield.mountains.length, 0);
   assert.equal(current.worldStates.dragon_lands.mountains[0].radius, 12);
   assert.equal(current.worldStates.dragon_lands.objects.length, 1);

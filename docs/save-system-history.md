@@ -75,6 +75,13 @@
 - 적대적 리뷰 지적 반영: 전역 미러 백필이 "마지막에 플레이한 다른 슬롯" 진행을 레거시 세이브에 주입 가능(상향 혜택만·레거시 한정이라 minor) → 백필을 **요새 방문 증거(`visit_fortress` 퀘스트 달성)가 있는 세이브로 게이트**. 미방문 캐릭터는 항상 `{}`(1단계부터).
 - 검증: verify 그린 + roundtrip 회귀 가드 3건(로드 복원·legacy 백필·무증거 주입 차단) + 실브라우저 E2E(3단계 클리어→저장→**page reload**→로드→요새 재입장 3단계 시작→5단계 갱신→재재시작 후 5 유지).
 
+**로드-리셋 패턴 전수 감사 후속 (2026-07-04)**
+- 요새 단계 수정의 교훈("resetGameState 가 지우는데 세이브에 없는 필드 전수 점검")을 실행 — resetGameState 전 필드 × restoreSaveData 복원 여부 교차 대조.
+- 수정 3건: ①`tutorialSignals.materialsSold`(재료 3번 팔기 진행)·`shopPurchases`(상점 구매) 세이브 필드화 — 로드 복원+구세이브는 완료 퀘스트 임계 백필(sell_materials→3, buy_from_shop→1). ②`antStepBank`(개미굴 스폰 걸음 뱅크) — chest/caveStepBank 는 저장되는데 이것만 누락 → 동일 취급. ③resetGameState 신호 리셋 라인에 `recoveredWorkbench`·`ateMeat` 누락 → 이전 플레이스루 신호가 새 게임/타 슬롯 퀘스트를 자동 완료시키던 역방향 버그 수정.
+- 의도적 미수정(문서화된 결정 존중): `sprintSteps`(30걸음, 재획득 수초·필드 주석에 세이브 불필요 명시), `triesSinceBest`(휘발 명시 — 성공 시 저장되는 trainingTries 로 합산).
+- 부수: Codex 리팩터(spawnDroppedItem leaf 추출)로 깨진 save-roundtrip 테스트를 `dropItemFromSlot` 실경로로 수리(verify 복구).
+- 검증: verify 전체 그린 + roundtrip 가드 3건 추가(카운터 복원·임계 백필·스테일 신호 리셋) + 실브라우저 E2E(판매 2/3 저장→page reload→로드→2/3 유지).
+
 ---
 
 ## 4. 알려진 잔여 리스크 / 백로그

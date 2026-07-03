@@ -891,3 +891,14 @@
     기반이라 samurai 자동 인정, 구세이브는 warrior 폴백 유지). 사용자 PC 에서 visual-check 1회 권장.
 - 잔여/이월: 사무라이 전용 시전음(현재 melee/wind 공용 샘플 재사용) · 도약 이동 궤적 연출(현재 즉시 이동 + 충격파) ·
   터치 UI 스킬 버튼은 buildSkillSlots 데이터 주도라 자동 지원(별도 작업 불요).
+
+## 2026-07-04 — 로드-리셋 패턴 전수 감사: 상점 카운터·개미굴 뱅크 세이브화 + 스테일 신호 리셋
+- 요새 단계 버그(5452de8)와 같은 패턴 잔여 후보 전수 점검(resetGameState × restoreSaveData 교차 대조).
+- 수정: ①materialsSold·shopPurchases 세이브 필드화(로드 복원+완료 퀘스트 임계 백필) — "재료 3번 팔기" 중간 진행이
+  로드마다 0 리셋되던 유실 해소. ②antStepBank 세이브화(chest/cave 뱅크와 동일 취급). ③resetGameState 에
+  recoveredWorkbench·ateMeat 리셋 누락 → 이전 플레이스루 신호가 새 게임 퀘스트를 자동 완료시키던 버그 수정.
+- 미수정(문서화된 결정): sprintSteps(재획득 수초), triesSinceBest(휘발 명시, trainingTries 로 합산·저장).
+- 부수: Codex 추출 리팩터로 깨진 save-roundtrip(spawnDroppedItem 메서드 제거)를 dropItemFromSlot 실경로로 수리.
+- 검증: verify 전체 그린(리팩터 후 첫 완주), 신규 가드 6건(마이그레이션 3·roundtrip 3), 실브라우저 E2E
+  (판매 2/3 저장→재시작→로드→유지). main.ts 는 전부 기존 줄 인라인 — 래칫 9339/480 여유 0 유지.
+- 상세: docs/save-system-history.md 2026-07-04 항목.

@@ -326,6 +326,10 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       ...(typeof player.fortressBossKills === "number" ? { fortressBossKills: savedInteger(player.fortressBossKills, 0, 0, Number.POSITIVE_INFINITY) } : {}),
       // 맵별 요새 최고 클리어 단계 — 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 localStorage 로 백필
       ...(player.fortressStageByMap && typeof player.fortressStageByMap === "object" ? { fortressStageByMap: normalizeFortressStageByMap(player.fortressStageByMap) } : {}),
+      // 상점 판매/구매 누적·개미굴 걸음 뱅크 — 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 완료 퀘스트 임계로 백필
+      ...(typeof player.materialsSold === "number" ? { materialsSold: savedInteger(player.materialsSold, 0, 0, Number.POSITIVE_INFINITY) } : {}),
+      ...(typeof player.shopPurchases === "number" ? { shopPurchases: savedInteger(player.shopPurchases, 0, 0, Number.POSITIVE_INFINITY) } : {}),
+      ...(typeof player.antStepBank === "number" ? { antStepBank: savedInteger(player.antStepBank, 0, 0, Number.POSITIVE_INFINITY) } : {}),
       craftStatAlloc: normalizeCraftStatAlloc(player.craftStatAlloc),
       homeStorage: normalizeSavedSlots(player.homeStorage, HOME_STORAGE_SLOTS, [], player.toolUses),
       homeSupplyCooldowns: normalizeSupplyCooldowns(player.homeSupplyCooldowns),
