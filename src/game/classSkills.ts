@@ -56,7 +56,7 @@ export const SECOND_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   summoner: { name: "바람 정령", summary: "빙의 없이 본체가 윈드커터를 발사합니다.", manaCost: 25, cooldown: 16 },
   gunner: { name: "속사", summary: "10초 동안 원거리 무기 연사 속도가 2배가 됩니다.", manaCost: 30, cooldown: 40 },
   tanker: { name: "불타는 방패", summary: "20초 동안 방어 +1, 가까이 붙은 적이 매초 화상 피해를 입습니다.", manaCost: 40, cooldown: 50 },
-  samurai: { name: "도약", summary: `전방으로 최대 ${SAMURAI_DASH_RANGE}칸 돌진해 경로의 모든 적에게 공격력 1.5배 피해. 건물에 막히면 멈춥니다.`, manaCost: 40, cooldown: 30 },
+  samurai: { name: "도약", summary: `전방으로 최대 ${SAMURAI_DASH_RANGE}칸 돌진해 경로의 모든 적에게 공격력 1.5배 피해. 몬스터·보스는 관통하고, 건물에 막히면 멈춥니다.`, manaCost: 40, cooldown: 25 },
 };
 
 // 2스킬 수치
