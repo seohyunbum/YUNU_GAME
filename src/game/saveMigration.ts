@@ -114,6 +114,16 @@ export function normalizeSupplyCooldowns(value: unknown): Record<string, number>
   return out;
 }
 
+// 맵별 몬스터 요새 최고 클리어 단계 정규화 — 1 이상 유한 정수만 보존(변조·손상 방어).
+export function normalizeFortressStageByMap(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof raw === "number" && Number.isFinite(raw) && raw >= 1) out[key] = Math.floor(raw);
+  }
+  return out;
+}
+
 // 용(챕터 보스) 종류별 남은 리스폰 쿨타임(ms) 정규화 — 양수 유한값만, 10분(600000ms) 상한.
 export function normalizeDragonCooldowns(value: unknown): Record<string, number> {
   if (!value || typeof value !== "object") return {};
@@ -314,6 +324,8 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       // 누적 처치 — 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 완료 퀘스트 기반으로 백필
       ...(typeof player.predatorKills === "number" ? { predatorKills: savedInteger(player.predatorKills, 0, 0, Number.POSITIVE_INFINITY) } : {}),
       ...(typeof player.fortressBossKills === "number" ? { fortressBossKills: savedInteger(player.fortressBossKills, 0, 0, Number.POSITIVE_INFINITY) } : {}),
+      // 맵별 요새 최고 클리어 단계 — 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 localStorage 로 백필
+      ...(player.fortressStageByMap && typeof player.fortressStageByMap === "object" ? { fortressStageByMap: normalizeFortressStageByMap(player.fortressStageByMap) } : {}),
       craftStatAlloc: normalizeCraftStatAlloc(player.craftStatAlloc),
       homeStorage: normalizeSavedSlots(player.homeStorage, HOME_STORAGE_SLOTS, [], player.toolUses),
       homeSupplyCooldowns: normalizeSupplyCooldowns(player.homeSupplyCooldowns),
