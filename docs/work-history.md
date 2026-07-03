@@ -860,3 +860,34 @@
   규칙 추가, §12 에 "일괄 편집은 고유 앵커로 + 직후 typecheck" 규칙 추가(villageSpawns 1차 오매칭 사고 참조).
 - 검증: 확장 검사기 전 지표 기준선 일치(alloc 0/0·clone 6/6·set/map 2/2·innerHTML 3/3)·typecheck 0·size/methods/architecture
   녹색·combat/systems/content 녹색.
+
+## 2026-07-03 — 사무라이 직업 구현 완료 (wip/samurai 재개 → 완주)
+
+- 배경: 두 차례 세션 한도 중단으로 남아있던 wip/samurai(32 타입에러)를 master 에 병합해 완성. 카타나 2종(리치 2배)은
+  선행 커밋(c2078af)으로 이미 반영돼 있었음.
+- 확정 수치:
+  - 패시브: 방어 +3(레벨당 +0.15) — 전사(4/0.2) 미만. 한방 배수 0.8 — 전사(0.95) 미만. 스윙 시간 ×0.8(=공속 +25%,
+    쾌속 목걸이와 같은 스윙 축소 메커니즘) → DPS ≈ 전사(무기 없이 +5.3%, 근접무기 전사 대비 −4.3%).
+  - 카타나 시너지(사무라이+카타나): 공격 +5%(classWeaponDamageMult 합성) · 공속 +5%(스윙 ×1/1.05) · 이속 +5%(합연산 계층).
+    카타나 리치 2배는 이번에 실배선 — interact() 전투 한정 확장 탐색 + 스킬 lookCombatTarget 에 meleeReach 적용
+    (기존 items.meleeReach 헬퍼가 미사용 상태였음).
+  - 스킬: R 난도(마나 30·쿨 16s·4연격×55%=합 2.2배) · T 도약(마나 40·쿨 30s·최대 15칸 돌진×150%, 0.5 스텝 전진 중
+    전진량<40% 면 정지 — 건물 관통 금지) · F 무한 찌르기(1차 전직 해금·마나 50·쿨 32s·11연격×40%≈1.6초 채널) ·
+    G 월광베기(4차 해금·마나 80·쿨 45s·반경 6.8 광역 3연격×220%=합 6.6배, 전사 천검난무 7배 바로 아래).
+  - 전직: 전사 동수치, 칭호 검객→검호→검성→검선.
+- 구조: 로직·수치 전부 리프(game/samurai + classSkills 분기). 연격은 화상 도트와 같은 등록형 틱(updateSamuraiFlurries,
+  updateSecondSkillEffects 에서 호출). SecondSkillContext 에 이동·공간 커널 4종(playerPosition·forwardXZ·
+  nearbyCombatTargets·dashStep) 승격, SkillEffectsContext 에 meleeEffects 추가. main.ts 는 배선 +2줄(import·핸들러)로
+  size 예산 9337→9339(사유 주석), methods 480 유지.
+- 검증: typecheck 0에러 · size/methods/architecture/hotpath 녹색 · combat/save-migration/save-repository/content/
+  systems/balance/mobile/party-ledger/difficulty/leaderboard/spirits/damage-variance/nickname 전부 녹색.
+  gameplay-systems-test 에 사무라이 골든 블록 추가(패시브·시너지·스킬 수치·연격 틱 생명주기·도약 기하/장애물 정지·칭호)
+  — 고장 주입(0.79 기대값)으로 실제 실행됨을 확인 후 복원.
+- ⚠ 실패 기록(§11):
+  - 고장 주입 확인 뒤 `git checkout scripts/gameplay-systems-test.mjs` 로 원복하다 **미커밋 테스트 블록 전체를 함께 날림**
+    → 재작성. 다음 작업자: 미커밋 파일의 일부만 되돌릴 땐 checkout 금지 — 해당 한 줄만 재수정하라.
+  - save-roundtrip·visual-check 는 이 작업 환경(Linux, Chrome/Edge 없음)에서 실행 불가(스크립트가 Windows 브라우저 경로
+    하드코딩). 세이브 안전성은 node 기반 save-migration/save-repository 로 검증(isPlayerClassId 가 PLAYER_CLASSES 키
+    기반이라 samurai 자동 인정, 구세이브는 warrior 폴백 유지). 사용자 PC 에서 visual-check 1회 권장.
+- 잔여/이월: 사무라이 전용 시전음(현재 melee/wind 공용 샘플 재사용) · 도약 이동 궤적 연출(현재 즉시 이동 + 충격파) ·
+  터치 UI 스킬 버튼은 buildSkillSlots 데이터 주도라 자동 지원(별도 작업 불요).
