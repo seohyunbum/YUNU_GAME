@@ -738,3 +738,26 @@
 - main.ts 10168→10167 로 1줄 감소 → check-main-size MAX_MAIN_LINES 10167 로 조임(ratchet).
 - 검증: typecheck·size(10167)·methods(494)·architecture·combat·systems·content·balance·mobile·spirits·nickname·damage-variance 녹색. HUD 마크업 변경이라 visual-check 권장이나 Chrome 부재로 미실행(실기기에서 정령 장착 시 상태창 정령줄·버프 호버 확인 권장).
 - 관련: src/ui/hudRenderer.ts, src/main.ts, scripts/check-main-size.mjs.
+
+## 2026-06-27 — 보스 리전 탈출 추격 수정 + 보스 방어력 현재대비 +30%
+
+- 요청: ① 보스가 어느정도 추격해오다 지도 끝쪽으로 가면 추격 못 오는 오류 수정 ② 보스 방어력 현재대비 +30% 전반 상향.
+- ① 근본 원인: predatorAi 추격 이동이 매 프레임 clampPointToRegion 으로 스폰 리전(원형 서식지, 반경 68~78)에 클램프됨.
+  리전 안에서는 따라오다 플레이어가 리전 밖(지도 끝 방향)으로 나가면 보스가 원 경계에 고정 — 증상과 정확히 일치.
+  월드 가장자리 마진(몬스터 −6 vs 플레이어 −5, 1유닛 차)은 reach(3.3+) 이내라 원인 아님. 용(dragonAi)은 리전 클램프가 없어 무관.
+- ① 수정: 리전 클램프를 **fieldBossId 없는 일반 몬스터에만** 적용. 필드 보스는 홈 리시(BOSS_LEASH_RADIUS=6, Codex dd0748f)가
+  어그로 해제 시 스폰 홈 복귀를 보장하므로 클램프 불필요 → 어디까지든 추격. 부가 효과: 리전 밖으로 나간 보스가 다음 프레임
+  clampPointToRegion 의 거리 클램프로 경계까지 순간이동하던 잠재 버그도 제거.
+- ② 보스 방어 +30% (현재대비 ×1.3):
+  - monsterStatsFromLevel(boss=true): floor(26+0.33L) → floor((26+0.33L)×1.3) — 필드보스 8종 + 요새 '동굴의 주인' 공용.
+  - 챕터 용: DRAGON_ARMOR 65→85, 파이어 81→105, 레드 101→131, 레이저/다크/불멸 117→152.
+  - 요새 시즈 웨이브몹(비보스)·일반몹은 armor 0 유지 — 무영향.
+- balance-test 모델 수정(오탐 해소): 종전엔 모든 보스를 Lv60 플레이어 기준으로 킬 가능성 판정 → Lv170~300 후반 용이
+  전부 UNKILLABLE 오탐(기존 armor 117도 고정 스킬 100 이 армor−20=97 을 3 차로 간신히 통과하던 우연). MONSTER_DEFS 의
+  bossKind→level 로 보스별 의도 레벨 기준으로 재작성 + 스킬도 levelBonus 가산(실제 classSkills 동작과 일치 — 종전 주석
+  "스킬은 레벨 보너스 미적용"이 오류). 새 armor 로 전 보스 의도 레벨 킬 가능 확인(기본 용 gap −10 → 타당 37뎀/타).
+- systems-test: Lv26 필드보스 armor 34→44 기대값 갱신 + 신규 골든 "필드 보스는 리전 경계 밖까지 추격(x>30), 일반몹은
+  경계에 클램프(x≤28)" 추가.
+- typecheck·size(10178)·methods(494)·architecture·hotpath·combat·systems·balance·content·mobile·difficulty·spirits·
+  damage-variance·nickname·save-migration·party-ledger·leaderboard 전부 녹색. save-roundtrip 은 Chrome 부재로 미실행.
+- 관련: src/game/predatorAi.ts, src/game/monsters.ts, src/game/constants.ts, scripts/balance-test.mjs, scripts/gameplay-systems-test.mjs.

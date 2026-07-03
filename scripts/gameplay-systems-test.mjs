@@ -588,7 +588,7 @@ try {
     };
     updateFieldBosses(context);
     assert(spawned !== null && spawned.fieldBossId === "boss_starter_valley", "starter valley should spawn its field boss");
-    assert(spawned.hp === 590 && spawned.armor === 34 && spawned.attackDamage === 21, `field boss should use boss-formula stats for Lv 26 (보스 대폭 상향: HP +100%/방어 +30%/공격 +20%) (hp ${spawned.hp}, armor ${spawned.armor}, atk ${spawned.attackDamage})`);
+    assert(spawned.hp === 590 && spawned.armor === 44 && spawned.attackDamage === 21, `field boss should use boss-formula stats for Lv 26 (보스 방어 2차 상향: floor((26+0.33L)×1.3)=44) (hp ${spawned.hp}, armor ${spawned.armor}, atk ${spawned.attackDamage})`);
     const firstBoss = spawned;
     updateFieldBosses(context);
     assert(spawned === firstBoss, "live field boss should not be duplicated");
@@ -1552,6 +1552,37 @@ try {
     const facing = new THREE.Vector3(1, 0, 0).applyEuler(predator.root.rotation);
     const toPlayer = new THREE.Vector3(dx, 0, dz).normalize();
     assert(facing.dot(toPlayer) > 0.999, `predator front (+X) should point at the player (dot ${facing.dot(toPlayer).toFixed(3)})`);
+  }
+
+  {
+    // 필드 보스 리전 탈출 추격 골든: 보스는 스폰 리전(원) 밖까지 플레이어를 쫓고, 일반 몬스터는 리전에 갇힌다.
+    // 회귀 대상: 보스가 리전 경계에서 추격을 멈춰 지도 끝으로 가면 못 쫓아오던 버그.
+    const { updatePredatorAi } = predatorAi;
+    const region = { id: "test-region", name: "테스트", center: new THREE.Vector3(0, 0, 0), radius: 30 };
+    const makeChaser = (fieldBossId) => ({ root: new THREE.Group(), type: "wildPredator", name: "보스", predatorKind: "bear", attackCooldown: 99, attackRange: 300, regionId: "test-region", fieldBossId });
+    const makeChaseContext = (chaser) => ({
+      locationMode: () => "overworld",
+      isPanelOpen: () => false,
+      playerPosition: new THREE.Vector3(200, 1.7, 0), // 리전 밖 멀리(지도 끝 방향)
+      activeRegions: () => [region],
+      predators: () => [chaser],
+      predatorAggroRange: () => 300,
+      predatorStrikeRange: () => 0.1,
+      predatorStats: () => ({ speed: 10, attackDamage: 1, cooldown: 1, aggroRange: 300, strikeRange: 0.1, hp: 10 }),
+      monsterChaseSpeedMul: () => 1,
+      getGroundHeightAt: () => 0,
+      refreshSpatialObject: () => {},
+      animateWalkCycle: () => {},
+      damagePlayer: () => false,
+    });
+    const boss = makeChaser("boss_test");
+    boss.root.position.set(28, 0, 0); // 리전 경계(반경 30 − 마진 2) 직전
+    updatePredatorAi(makeChaseContext(boss), 1);
+    assert(boss.root.position.x > 30, `field boss should chase past its region boundary (x ${boss.root.position.x.toFixed(1)})`);
+    const normal = makeChaser(undefined);
+    normal.root.position.set(28, 0, 0);
+    updatePredatorAi(makeChaseContext(normal), 1);
+    assert(normal.root.position.x <= 28.01, `ordinary monster should stay clamped inside its region (x ${normal.root.position.x.toFixed(1)})`);
   }
 
   {

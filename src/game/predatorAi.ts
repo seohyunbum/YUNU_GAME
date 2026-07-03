@@ -228,8 +228,13 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
       0,
       THREE.MathUtils.clamp(predator.root.position.z + Math.sin(angle) * speed * delta, -WORLD_SIZE / 2 + 6, WORLD_SIZE / 2 - 6),
     );
-    const region = getRegionById(predator.regionId, context.activeRegions()) ?? regionAtPosition(predator.root.position, context.activeRegions());
-    if (region) clampPointToRegion(nextPosition, region);
+    // 필드 보스는 리전(원형 서식지)에 가두지 않는다 — 추격이 리전 경계에서 끊겨 플레이어가 지도 끝쪽으로 가면
+    // 못 쫓아오던 버그 수정. 보스는 홈 리시(BOSS_LEASH_RADIUS)가 스스로 복귀를 보장하므로 클램프 불필요.
+    // 일반 몬스터는 서식지(레벨 구역) 유지를 위해 기존대로 리전에 가둔다.
+    if (!predator.fieldBossId) {
+      const region = getRegionById(predator.regionId, context.activeRegions()) ?? regionAtPosition(predator.root.position, context.activeRegions());
+      if (region) clampPointToRegion(nextPosition, region);
+    }
     clampOutOfSafeZones(nextPosition); // 마을·훈련장 진입 차단(추격 중에도)
     nextPosition.y = context.getGroundHeightAt(nextPosition.x, nextPosition.z);
     predator.root.position.copy(nextPosition);
