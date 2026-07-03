@@ -2,6 +2,7 @@ import type * as THREE from "three";
 import { GUNNER_SKILL_DAMAGE, HEALER_HEAL_AMOUNT, MAGE_TNT_DAMAGE, MAGE_TNT_RADIUS, WARRIOR_EXPLOSION_DAMAGE, WIND_CUTTER_DAMAGE } from "./constants";
 import { partyEmpowerNearby, partyHealNearby, partyRallyNearby } from "./partyPresence";
 import { partyGuestAttackIntercept } from "./partyWorldSync";
+import { performSamuraiDash, registerSamuraiFlurry, resetSamuraiEffects, samuraiDashDamage, samuraiMoonlightDamage, samuraiPierceHitDamage, updateSamuraiFlurries, SAMURAI_DASH_RANGE, SAMURAI_MOONLIGHT_WAVES, SAMURAI_PIERCE_HITS, SAMURAI_PIERCE_INTERVAL_MS } from "./samurai";
 import type { SkillElement } from "./skillSounds";
 import type { PlayerClassId, WorldObject } from "./types";
 
@@ -55,6 +56,7 @@ export const SECOND_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   summoner: { name: "바람 정령", summary: "빙의 없이 본체가 윈드커터를 발사합니다.", manaCost: 25, cooldown: 16 },
   gunner: { name: "속사", summary: "10초 동안 원거리 무기 연사 속도가 2배가 됩니다.", manaCost: 30, cooldown: 40 },
   tanker: { name: "불타는 방패", summary: "20초 동안 방어 +1, 가까이 붙은 적이 매초 화상 피해를 입습니다.", manaCost: 40, cooldown: 50 },
+  samurai: { name: "도약", summary: `전방으로 최대 ${SAMURAI_DASH_RANGE}칸 돌진해 경로의 모든 적에게 공격력 1.5배 피해. 건물에 막히면 멈춥니다.`, manaCost: 40, cooldown: 30 },
 };
 
 // 2스킬 수치
