@@ -23,13 +23,6 @@ import {
 } from "./visuals";
 import { createCloudLayer, createStylizedGround } from "./game/environmentVisuals";
 import {
-  createBedVisual as createPlaceableBedVisual,
-  createBuildingBlockVisual as createPlaceableBuildingBlockVisual,
-  createGrinderVisual as createPlaceableGrinderVisual,
-  createSmelterVisual as createPlaceableSmelterVisual,
-  createWorkbenchVisual as createPlaceableWorkbenchVisual,
-} from "./game/placeableVisuals";
-import {
   spawnBed as spawnBedObject,
   spawnBuildingBlock as spawnBuildingBlockObject,
   spawnGrinder as spawnGrinderObject,
@@ -44,6 +37,7 @@ import {
   waterDepthForRadius,
   type EnvironmentSpawnContext,
 } from "./game/environmentSpawns";
+import { spawnDroppedItem, type DroppedItemSpawnContext } from "./game/droppedItemSpawns";
 import {
   applyShadowQuality, shouldSkipTinyRaycastDetail, capCreatureRaycastMeshes, precompileSceneShaders, registerDistanceCulledVisual, refreshTrackedVisualVisibility,
   shouldHideInvisibleMeshFromRender, shouldShowPerformanceHiddenVisual, updateDistanceCulledVisuals, applyOutlineDistanceGate,
@@ -56,7 +50,6 @@ import {
 import { createHeldItemModel as createHeldItemVisualModel } from "./game/heldItemVisuals";
 import { armorTierOf } from "./game/tierVisuals";
 import { shouldDropSlotOnDeath, type DeathDropContext } from "./game/deathDrop";
-import { createBucketVisual as createBucketVisualModel } from "./game/bucketVisuals";
 import {
   createBuildingSign as createBuildingSignModel,
   type BuildingSignKind,
@@ -385,7 +378,7 @@ class WildernessGame {
   private readonly spawnContext: SpawnContext = {
     addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
   };
-  private readonly environmentSpawnContext: EnvironmentSpawnContext = {
+  private readonly worldSpawnContext: EnvironmentSpawnContext & DroppedItemSpawnContext = {
     addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
     mergeStaticMeshes: (group) => this.mergeStaticMeshes(group),
@@ -496,7 +489,7 @@ class WildernessGame {
   private activeWaterZones = waterZonesForWorldMap(DEFAULT_WORLD_MAP_ID);
   private readonly worldStates: WorldStateStore = {};
   private readonly tutorialProgress = { completedStepIds: [...DEFAULT_TUTORIAL_PROGRESS.completedStepIds], achievedStepIds: [...DEFAULT_TUTORIAL_PROGRESS.achievedStepIds] };
-  private readonly objectiveClaimDeps: ObjectiveClaimDeps = { gainExperience: (n) => this.gainExperience(n), addItem: (i, c) => this.addItem(i, c), dropItem: (i, c) => this.spawnDroppedItem(i, c, this.playerPosition.clone()), showMessage: (t) => this.showMessage(t), renderHud: () => this.renderHud(), questExpMultiplier: () => this.difficultyMods.questExp };
+  private readonly objectiveClaimDeps: ObjectiveClaimDeps = { gainExperience: (n) => this.gainExperience(n), addItem: (i, c) => this.addItem(i, c), dropItem: (i, c) => spawnDroppedItem(this.worldSpawnContext, i, c, this.playerPosition.clone()), showMessage: (t) => this.showMessage(t), renderHud: () => this.renderHud(), questExpMultiplier: () => this.difficultyMods.questExp };
   private regionWarningState: RegionWarningState = { regionId: null, lastWarnAt: 0 };
   private yaw = 0;
   private pitch = 0;
@@ -1026,7 +1019,7 @@ class WildernessGame {
     for (const ev of ["pointerdown", "keydown"]) window.addEventListener(ev, () => this.ensureAudio(), { once: true }); // 첫 상호작용에 오디오 언락 → 타이틀 BGM 시작(브라우저 자동재생 정책)
     ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });    initPartyLobby(() => this.nickname);
     initPartyFlow({ isInGame: () => this.gameStarted, startNewGame: () => { if (!this.pendingPlayerClass) this.pendingPlayerClass = this.playerClass ?? "warrior"; this.startGame("new"); }, summonTo: (mapId, x, z) => { if (this.locationMode === "cave") this.leaveCave(); else if (this.locationMode === "house") this.leaveHouse(); if (this.currentWorldMapId !== mapId) this.teleportToWorldMap(mapId, true); this.playerPosition.set(x + 2.5, this.playerPosition.y, z + 2.5); this.settlePlayerAfterTeleport(); this.camera.position.copy(this.playerPosition); }, showMessage: (text) => this.showMessage(text) });
-    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined, hasPet: this.summonerCompanion.petActive(), jobTier: this.jobTier, dragonGear: { boots: this.dragonGear.boots, cloak: this.dragonGear.cloak, crown: this.dragonGear.crown } }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, hostGameHour: () => this.gameHour(), setSyncedHour: (hour) => { this.syncedHour = hour; }, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? this.spawnGolem(pos, villageId) : type === "villageKnight" ? this.spawnKnight(pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened, chestTier) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich, chestTier ?? 0); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => spawnCave(this.environmentSpawnContext, new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return chest.chestTier ?? 0; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => { if (target.type === "wildPredator" || target.type === "dragon" || target.type === "jammini") this.enterCombatMood(); triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed); }, showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target, creditQuest) => this.grantExperienceForTarget(target, creditQuest), creditQuestKill: () => { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.renderHud(); }, dropKillSpiritToken: (wild, boss) => this.dropKillSpiritToken(wild, boss), rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.sample("victory.mp3", 0.45, () => {}); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, empowerLocalPlayer: (durationMs) => { this.skillBuffs.empowerUntil = performance.now() + durationMs; this.showMessage("아군의 심판의 빛! 5분간 공격·방어 +10%."); this.renderHud(); }, rallyLocalPlayer: (durationMs) => { this.skillBuffs.rallyDefUntil = performance.now() + durationMs; this.showMessage("아군의 불굴의 함성! 20초간 방어 +20%."); this.renderHud(); }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object), sharedGroundObjects: () => [...this.objectsOfTypes(["droppedItem", "smelter", "specialSmelter", "workbench", "extendedWorkbench", "grinder", "bed"])].filter((o) => !o.partyTransient), spawnDroppedItemView: (item, count, x, z) => this.spawnDroppedItem(item as ItemId, count, new THREE.Vector3(x, 0, z)), spawnStationView: (objType, x, z, bedTier) => { const pos = new THREE.Vector3(x, 0, z); const obj = objType === "smelter" ? spawnSmelterObject(this.spawnContext, pos, false) : objType === "specialSmelter" ? spawnSmelterObject(this.spawnContext, pos, true) : objType === "workbench" ? spawnWorkbenchObject(this.spawnContext, pos, false) : objType === "extendedWorkbench" ? spawnWorkbenchObject(this.spawnContext, pos, true) : objType === "grinder" ? spawnGrinderObject(this.spawnContext, pos) : spawnBedObject(this.spawnContext, pos, 0); if (objType === "bed" && bedTier) obj.bedTier = bedTier as typeof obj.bedTier; return obj; }, pickupSharedObject: (id) => { const obj = this.objects.get(id); if (!obj || obj.lockedStation) return null; const stationItem: Record<string, ItemId> = { smelter: "smelter", specialSmelter: "special_smelter", workbench: "crafting_table", extendedWorkbench: "extended_workbench", grinder: "grinder", bed: "bed" }; const items = obj.type === "droppedItem" && obj.droppedItem ? [{ item: obj.droppedItem, count: obj.droppedCount ?? 1 }] : stationItem[obj.type] ? [{ item: stationItem[obj.type], count: 1 }] : null; if (!items) return null; this.removeObject(id); return items; }, hostSpawnDroppedGround: (item, count, x, z) => { this.spawnDroppedItem(item as ItemId, count, new THREE.Vector3(x, 0, z)); }, hostSpawnStation: (item, x, z, yaw) => { const pos = new THREE.Vector3(x, 0, z); if (item === "crafting_table") spawnWorkbenchObject(this.spawnContext, pos, false); else if (item === "extended_workbench") spawnWorkbenchObject(this.spawnContext, pos, true); else if (item === "smelter") spawnSmelterObject(this.spawnContext, pos, false); else if (item === "special_smelter") spawnSmelterObject(this.spawnContext, pos, true); else if (item === "grinder") spawnGrinderObject(this.spawnContext, pos); else if (item === "bed") spawnBedObject(this.spawnContext, pos, yaw); }, canAddItem: (item, _count) => item === "bag" || item === "big_bag" || (isDurableTool(item) ? this.allStorageSlots().some((s) => !s.item) : this.allStorageSlots().some((s) => s.item === item || !s.item)), receivePickupItems: (items) => items.filter((it) => { const ok = this.addItem(it.item as ItemId, it.count); if (ok) this.appendPartyLedger(it.item as ItemId, it.count); return !ok; }), homeStorageSlots: () => this.homeStorage.map((s) => ({ item: s.item, count: s.count, durabilityUsed: s.durabilityUsed })), sharedSupplyCooldownValue: () => this.homeSupplyCooldowns["__party__"] ?? 0, hostStorageTake: (index) => { const slot = this.homeStorage[index]; if (!slot?.item || slot.count <= 0) return null; const items = [{ item: slot.item, count: slot.count }]; slot.item = null; slot.count = 0; slot.durabilityUsed = undefined; return items; }, hostStorageStore: (item, count, durabilityUsed) => transferSlot({ item: item as ItemId, count, durabilityUsed }, this.homeStorage), hostClaimSharedSupply: () => { if ((this.homeSupplyCooldowns["__party__"] ?? 0) > 0) return false; for (const r of rollHomeSupply(this.level)) transferSlot({ item: r.item, count: r.count }, this.homeStorage); this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; return true; }, applySharedStorage: (slots, supplyCooldown) => { this.sharedStorage = slots.map((s) => ({ item: s.item as ItemId | null, count: s.count, durabilityUsed: s.durabilityUsed })); this.sharedSupplyCd = supplyCooldown; if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel(); this.renderHud(); } } });
+    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined, hasPet: this.summonerCompanion.petActive(), jobTier: this.jobTier, dragonGear: { boots: this.dragonGear.boots, cloak: this.dragonGear.cloak, crown: this.dragonGear.crown } }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, hostGameHour: () => this.gameHour(), setSyncedHour: (hour) => { this.syncedHour = hour; }, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? this.spawnGolem(pos, villageId) : type === "villageKnight" ? this.spawnKnight(pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened, chestTier) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich, chestTier ?? 0); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => spawnCave(this.worldSpawnContext, new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return chest.chestTier ?? 0; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => { if (target.type === "wildPredator" || target.type === "dragon" || target.type === "jammini") this.enterCombatMood(); triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed); }, showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target, creditQuest) => this.grantExperienceForTarget(target, creditQuest), creditQuestKill: () => { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.renderHud(); }, dropKillSpiritToken: (wild, boss) => this.dropKillSpiritToken(wild, boss), rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.sample("victory.mp3", 0.45, () => {}); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, empowerLocalPlayer: (durationMs) => { this.skillBuffs.empowerUntil = performance.now() + durationMs; this.showMessage("아군의 심판의 빛! 5분간 공격·방어 +10%."); this.renderHud(); }, rallyLocalPlayer: (durationMs) => { this.skillBuffs.rallyDefUntil = performance.now() + durationMs; this.showMessage("아군의 불굴의 함성! 20초간 방어 +20%."); this.renderHud(); }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object), sharedGroundObjects: () => [...this.objectsOfTypes(["droppedItem", "smelter", "specialSmelter", "workbench", "extendedWorkbench", "grinder", "bed"])].filter((o) => !o.partyTransient), spawnDroppedItemView: (item, count, x, z) => spawnDroppedItem(this.worldSpawnContext, item as ItemId, count, new THREE.Vector3(x, 0, z)), spawnStationView: (objType, x, z, bedTier) => { const pos = new THREE.Vector3(x, 0, z); const obj = objType === "smelter" ? spawnSmelterObject(this.spawnContext, pos, false) : objType === "specialSmelter" ? spawnSmelterObject(this.spawnContext, pos, true) : objType === "workbench" ? spawnWorkbenchObject(this.spawnContext, pos, false) : objType === "extendedWorkbench" ? spawnWorkbenchObject(this.spawnContext, pos, true) : objType === "grinder" ? spawnGrinderObject(this.spawnContext, pos) : spawnBedObject(this.spawnContext, pos, 0); if (objType === "bed" && bedTier) obj.bedTier = bedTier as typeof obj.bedTier; return obj; }, pickupSharedObject: (id) => { const obj = this.objects.get(id); if (!obj || obj.lockedStation) return null; const stationItem: Record<string, ItemId> = { smelter: "smelter", specialSmelter: "special_smelter", workbench: "crafting_table", extendedWorkbench: "extended_workbench", grinder: "grinder", bed: "bed" }; const items = obj.type === "droppedItem" && obj.droppedItem ? [{ item: obj.droppedItem, count: obj.droppedCount ?? 1 }] : stationItem[obj.type] ? [{ item: stationItem[obj.type], count: 1 }] : null; if (!items) return null; this.removeObject(id); return items; }, hostSpawnDroppedGround: (item, count, x, z) => { spawnDroppedItem(this.worldSpawnContext, item as ItemId, count, new THREE.Vector3(x, 0, z)); }, hostSpawnStation: (item, x, z, yaw) => { const pos = new THREE.Vector3(x, 0, z); if (item === "crafting_table") spawnWorkbenchObject(this.spawnContext, pos, false); else if (item === "extended_workbench") spawnWorkbenchObject(this.spawnContext, pos, true); else if (item === "smelter") spawnSmelterObject(this.spawnContext, pos, false); else if (item === "special_smelter") spawnSmelterObject(this.spawnContext, pos, true); else if (item === "grinder") spawnGrinderObject(this.spawnContext, pos); else if (item === "bed") spawnBedObject(this.spawnContext, pos, yaw); }, canAddItem: (item, _count) => item === "bag" || item === "big_bag" || (isDurableTool(item) ? this.allStorageSlots().some((s) => !s.item) : this.allStorageSlots().some((s) => s.item === item || !s.item)), receivePickupItems: (items) => items.filter((it) => { const ok = this.addItem(it.item as ItemId, it.count); if (ok) this.appendPartyLedger(it.item as ItemId, it.count); return !ok; }), homeStorageSlots: () => this.homeStorage.map((s) => ({ item: s.item, count: s.count, durabilityUsed: s.durabilityUsed })), sharedSupplyCooldownValue: () => this.homeSupplyCooldowns["__party__"] ?? 0, hostStorageTake: (index) => { const slot = this.homeStorage[index]; if (!slot?.item || slot.count <= 0) return null; const items = [{ item: slot.item, count: slot.count }]; slot.item = null; slot.count = 0; slot.durabilityUsed = undefined; return items; }, hostStorageStore: (item, count, durabilityUsed) => transferSlot({ item: item as ItemId, count, durabilityUsed }, this.homeStorage), hostClaimSharedSupply: () => { if ((this.homeSupplyCooldowns["__party__"] ?? 0) > 0) return false; for (const r of rollHomeSupply(this.level)) transferSlot({ item: r.item, count: r.count }, this.homeStorage); this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; return true; }, applySharedStorage: (slots, supplyCooldown) => { this.sharedStorage = slots.map((s) => ({ item: s.item as ItemId | null, count: s.count, durabilityUsed: s.durabilityUsed })); this.sharedSupplyCd = supplyCooldown; if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel(); this.renderHud(); } } });
     this.animate();
   }
 
@@ -2039,7 +2032,7 @@ class WildernessGame {
     createBiomeDecor(this.biomeDecorContext);
     if (this.currentWorldMapId === "dragon_lands") this.spawnInitialLavaDragons();
     const mapDef = getWorldMapById(this.currentWorldMapId);
-    for (let i = 0; i < Math.round(1144 * (mapDef.treeScale ?? 1)); i += 1) spawnTree(this.environmentSpawnContext, Math.random() < 0.78 ? "smallTree" : "bigTree", this.randomGroundPoint());
+    for (let i = 0; i < Math.round(1144 * (mapDef.treeScale ?? 1)); i += 1) spawnTree(this.worldSpawnContext, Math.random() < 0.78 ? "smallTree" : "bigTree", this.randomGroundPoint());
     for (const point of [
       new THREE.Vector3(-10, 0, -8),
       new THREE.Vector3(-16, 0, 4),
@@ -2051,17 +2044,17 @@ class WildernessGame {
       new THREE.Vector3(9, 0, 28),
     ]) {
       point.y = this.getGroundHeightAt(point.x, point.z);
-      spawnTree(this.environmentSpawnContext, "smallTree", point);
+      spawnTree(this.worldSpawnContext, "smallTree", point);
     }
-    spawnTree(this.environmentSpawnContext, "bigTree", new THREE.Vector3(28, this.getGroundHeightAt(28, 34), 34));
-    spawnTree(this.environmentSpawnContext, "bigTree", new THREE.Vector3(-32, this.getGroundHeightAt(-32, 30), 30));
+    spawnTree(this.worldSpawnContext, "bigTree", new THREE.Vector3(28, this.getGroundHeightAt(28, 34), 34));
+    spawnTree(this.worldSpawnContext, "bigTree", new THREE.Vector3(-32, this.getGroundHeightAt(-32, 30), 30));
     for (let i = 0; i < 26; i += 1) this.spawnDirtPatch(this.randomGroundPoint());
     for (let i = 0; i < 28; i += 1) this.spawnTerrainPatch(this.randomGroundPoint(), "grass", THREE.MathUtils.randFloat(2, 3.4), false);
     for (let i = 0; i < 16; i += 1) this.spawnTerrainPatch(this.randomGroundPoint(), Math.random() < 0.72 ? "stone" : "ore", THREE.MathUtils.randFloat(1.8, 3), true);
-    for (const waterZone of this.activeWaterZones) spawnWaterBody(this.environmentSpawnContext, waterZone.center.clone(), this.waterZoneRadius(waterZone), waterZone.name);
+    for (const waterZone of this.activeWaterZones) spawnWaterBody(this.worldSpawnContext, waterZone.center.clone(), this.waterZoneRadius(waterZone), waterZone.name);
     this.spawnTrain(0.1);
     for (let i = 0; i < 6; i += 1) this.spawnChest(this.randomGroundPoint(), false, rollChestTier());
-    for (let i = 0; i < Math.round(3 * (mapDef.caveScale ?? 1)); i += 1) spawnCave(this.environmentSpawnContext, this.randomGroundPoint());
+    for (let i = 0; i < Math.round(3 * (mapDef.caveScale ?? 1)); i += 1) spawnCave(this.worldSpawnContext, this.randomGroundPoint());
     this.spawnFortressGate(this.randomGroundPoint()); // 몬스터 요새 디펜스 입구(맵당 1개)
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
@@ -2399,7 +2392,7 @@ class WildernessGame {
     this.syncEquippedShield(item);
 
     const position = this.pointInFront(2.0);
-    if (partyGuestDropIntercept(item, 1, position.x, position.z)) this.appendPartyLedger(item, -1); else this.spawnDroppedItem(item, 1, position); // 파티 양도=비가역 기록(복제 차단). 솔로 드랍은 미기록 → 불러오기로 복구.
+    if (partyGuestDropIntercept(item, 1, position.x, position.z)) this.appendPartyLedger(item, -1); else spawnDroppedItem(this.worldSpawnContext, item, 1, position); // 파티 양도=비가역 기록(복제 차단). 솔로 드랍은 미기록 → 불러오기로 복구.
     this.playHandAction();
     this.showMessage(`${ITEM_NAMES[item] ?? item}을 바닥에 내려놓았습니다. 가까이서 바라보고 E 또는 좌클릭하면 다시 주울 수 있습니다.`);
     this.renderPanel();
@@ -3501,7 +3494,7 @@ class WildernessGame {
       this.caveStepBank -= CAVE_STEP_INTERVAL;
       const pity = this.caveMissStreak >= 6; // 6회(≈3000걸음) 연속 미출현 시 보장 — 불운한 RNG 벽 방지(#7)
       if (pity || Math.random() < 0.2 * (getWorldMapById(this.currentWorldMapId).caveScale ?? 1)) {
-        spawnCave(this.environmentSpawnContext, this.pointNearPlayer(26, 44));
+        spawnCave(this.worldSpawnContext, this.pointNearPlayer(26, 44));
         this.caveMissStreak = 0;
         this.showMessage("멀리 동굴 입구가 보입니다. 가서 철·석탄·보석을 캐세요.");
       } else {
@@ -5617,7 +5610,7 @@ class WildernessGame {
         continue;
       }
       const scatter = new THREE.Vector3(THREE.MathUtils.randFloatSpread(2.6), 0, THREE.MathUtils.randFloatSpread(2.6));
-      this.spawnDroppedItem(slot.item, slot.count, position.clone().add(scatter));
+      spawnDroppedItem(this.worldSpawnContext, slot.item, slot.count, position.clone().add(scatter));
       slot.item = null;
       slot.count = 0;
       slot.durabilityUsed = undefined;
@@ -6392,7 +6385,7 @@ class WildernessGame {
     reconcilePartyLedger(localStorage, this.currentCharacterId, save.player.partyLedgerEpoch ?? 0, {
       add: (item, count) => this.addItem(item, count),
       remove: (item, count) => this.removeItem(item, count),
-      onLeftover: (item, count) => { if (!transferSlot({ item, count }, this.homeStorage)) this.spawnDroppedItem(item, count, this.playerPosition.clone()); }, // 인벤 가득 → 집창고, 그것도 가득 → 발밑(유실 0)
+      onLeftover: (item, count) => { if (!transferSlot({ item, count }, this.homeStorage)) spawnDroppedItem(this.worldSpawnContext, item, count, this.playerPosition.clone()); }, // 인벤 가득 → 집창고, 그것도 가득 → 발밑(유실 0)
     });
     this.currentPartyLedgerEpoch = latestPartyLedgerEpoch(localStorage, this.currentCharacterId); // 라이브 카운터 이어받아 epoch 단조성 유지
 
@@ -6646,12 +6639,12 @@ class WildernessGame {
     const villageId = savedObject.villageId ?? `loaded-village-${crypto.randomUUID()}`;
     let object: WorldObject | null = null;
 
-    if (savedObject.type === "smallTree" || savedObject.type === "bigTree") object = spawnTree(this.environmentSpawnContext, savedObject.type, position);
+    if (savedObject.type === "smallTree" || savedObject.type === "bigTree") object = spawnTree(this.worldSpawnContext, savedObject.type, position);
     if (savedObject.type === "chest" || savedObject.type === "mineChest") object = this.spawnChest(position, savedObject.type === "mineChest" || Boolean(savedObject.mineRich), savedObject.chestTier ?? 0);
-    if (savedObject.type === "cave") object = spawnCave(this.environmentSpawnContext, position);
+    if (savedObject.type === "cave") object = spawnCave(this.worldSpawnContext, position);
     if (savedObject.type === "fortressGate") object = this.spawnFortressGate(position);
-    if (savedObject.type === "water") object = spawnWaterBody(this.environmentSpawnContext, position, this.restoredWaterRadius(position, savedObject.terrainRadius ?? 12, savedObject.name ?? ""), savedObject.name ?? "");
-    if (savedObject.type === "droppedItem") object = this.spawnDroppedItem(savedObject.droppedItem ?? "tutorial_book", savedObject.droppedCount ?? 1, position);
+    if (savedObject.type === "water") object = spawnWaterBody(this.worldSpawnContext, position, this.restoredWaterRadius(position, savedObject.terrainRadius ?? 12, savedObject.name ?? ""), savedObject.name ?? "");
+    if (savedObject.type === "droppedItem") object = spawnDroppedItem(this.worldSpawnContext, savedObject.droppedItem ?? "tutorial_book", savedObject.droppedCount ?? 1, position);
     if (savedObject.type === "bed") object = spawnBedObject(this.spawnContext, position, savedObject.rotationY ?? 0);
     if (savedObject.type === "buildingBlock") object = spawnBuildingBlockObject(this.spawnContext, position);
     if (savedObject.type === "train") object = this.spawnTrain(savedObject.trainAngle ?? 0);
@@ -8178,91 +8171,6 @@ class WildernessGame {
 
   private spawnDirtPatch(position: THREE.Vector3) {
     return this.spawnTerrainPatch(position, "dirt", 2.3, false, "dirtPatch");
-  }
-
-  private spawnDroppedItem(item: ItemId, count: number, position: THREE.Vector3) {
-    position.y = this.getGroundHeightAt(position.x, position.z) + 0.08;
-    const group = new THREE.Group();
-    const groundShadow = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.42, 0.5, 0.012, 24),
-      new THREE.MeshBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.2, depthWrite: false }),
-    );
-    groundShadow.position.y = 0.012;
-    group.add(groundShadow);
-    if (item === "tutorial_book") {
-      const pages = new THREE.Mesh(
-        new THREE.BoxGeometry(0.54, 0.06, 0.72),
-        new THREE.MeshStandardMaterial({ color: 0xf5ead1, roughness: 0.78 }),
-      );
-      pages.position.y = 0.08;
-      const cover = new THREE.Mesh(
-        new THREE.BoxGeometry(0.6, 0.04, 0.78),
-        new THREE.MeshStandardMaterial({ color: 0x4169a8, roughness: 0.68 }),
-      );
-      cover.position.y = 0.13;
-      const spine = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, 0.08, 0.82),
-        new THREE.MeshStandardMaterial({ color: 0x27456f, roughness: 0.7 }),
-      );
-      spine.position.set(-0.32, 0.12, 0);
-      const title = new THREE.Mesh(
-        new THREE.BoxGeometry(0.32, 0.012, 0.08),
-        new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0x6b4d03, emissiveIntensity: 0.2, roughness: 0.5 }),
-      );
-      title.position.set(0.07, 0.155, 0.04);
-      group.add(pages, cover, spine, title);
-    } else if (item === "smelter" || item === "special_smelter") {
-      group.add(createPlaceableSmelterVisual(item === "special_smelter", 0.42));
-    } else if (item === "grinder") {
-      group.add(createPlaceableGrinderVisual(0.4));
-    } else if (item === "mirror") {
-      group.add(createMirrorModel(0.48));
-    } else if (item === "crafting_table" || item === "extended_workbench") {
-      group.add(createPlaceableWorkbenchVisual(item === "extended_workbench", 0.38));
-    } else if (item === "bed") {
-      group.add(createPlaceableBedVisual(0.34));
-    } else if (item === "building_block") {
-      const block = createPlaceableBuildingBlockVisual(0.42);
-      block.position.y = 0.02;
-      group.add(block);
-    } else if (item === "bow" || item === "magic_wand") {
-      const model = createHeldItemVisualModel(item);
-      model.position.y = 0.16;
-      model.rotation.set(-Math.PI / 2, 0, 0.35);
-      model.scale.setScalar(item === "bow" ? 0.92 : 0.82);
-      group.add(model);
-    } else if (/_(sword|dagger|axe|pickaxe|shovel|bow|necklace|armor)$/.test(item) || item.startsWith("dragon_") || item === "advanced_medkit" || item === "diamond" || item === "refined_diamond" || item === "obsidian" || item === "sharp_obsidian") {
-      const model = createHeldItemVisualModel(item); // 티어 무기/도구·에픽 장신구/방어구·용 전리품·보석은 실제 모델로 떨어진다 (등급이 한눈에 보이게)
-      model.position.y = 0.22;
-      model.rotation.set(-Math.PI / 2.3, 0.3, 0.3);
-      model.scale.setScalar(0.95);
-      group.add(model);
-    } else if (this.isBucketItem(item)) {
-      const bucket = createBucketVisualModel(item, 0.62);
-      bucket.position.y = 0.04;
-      group.add(bucket);
-    } else {
-      // 재료·기타 아이템도 손에 든 모델 그대로 바닥에 — 광물/주괴/가루/나무 등 컨셉이 드러나게
-      const model = createHeldItemVisualModel(item);
-      model.position.y = 0.18;
-      model.rotation.set(0, Math.random() * Math.PI * 2, 0);
-      model.scale.setScalar(1.15);
-      group.add(model);
-    }
-    const pickupTarget = new THREE.Mesh(
-      new THREE.SphereGeometry(0.62, 12, 8),
-      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
-    );
-    pickupTarget.position.y = 0.34;
-    group.add(pickupTarget);
-    group.rotation.y = Math.random() * Math.PI * 2;
-    group.position.copy(position);
-    return this.addWorldObject("droppedItem", ITEM_NAMES[item] ?? item, group, {
-      droppedItem: item,
-      droppedCount: count,
-      collisionRadius: 0.8,
-      collisionHeight: 0.8,
-    });
   }
 
   private spawnTrain(angle = 0) {
