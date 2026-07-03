@@ -114,6 +114,7 @@ try {
   const homeBase = await server.ssrLoadModule("/src/game/homeBase.ts");
   const hitFeedback = await server.ssrLoadModule("/src/game/hitFeedback.ts");
   const classSkills = await server.ssrLoadModule("/src/game/classSkills.ts");
+  const samuraiMod = await server.ssrLoadModule("/src/game/samurai.ts");
   const training = await server.ssrLoadModule("/src/game/training.ts");
   const nickname = await server.ssrLoadModule("/src/game/nickname.ts");
   const party = await server.ssrLoadModule("/src/game/party.ts");
@@ -202,6 +203,97 @@ try {
     assert(isMeleeWeapon("katana") && isMeleeWeapon("obsidian_katana"), "katanas are melee weapons (전사 근접 패시브 포함)");
     assert(ITEM_NAMES.katana === "카타나" && ITEM_NAMES.obsidian_katana === "흑요석 카타나", "katana items need display names");
     assert(itemTier("katana") === "uncommon" && itemTier("obsidian_katana") === "epic", "katana tiers: uncommon / epic");
+  }
+
+  // 사무라이 — 패시브(공속 +25%·전사보다 낮은 공방)·카타나 시너지(+5% 공/공속/이속)·스킬 4종 수치·전직 칭호
+  {
+    const { classAttackSpeedMult, classMoveSpeedMult } = classPassives;
+    const samuraiPassive = CLASS_PASSIVES.samurai;
+    const warriorPassive = CLASS_PASSIVES.warrior;
+    almostEqual(samuraiPassive.armorBonus, 3, "samurai armor base (전사 4 보다 낮게)");
+    almostEqual(samuraiPassive.armorPerLevel, 0.15, "samurai armor per level (전사 0.2 보다 낮게)");
+    almostEqual(samuraiPassive.basicAttackMult, 0.8, "samurai per-hit attack ×0.8 (전사 0.95 보다 낮게)");
+    assert(samuraiPassive.armorBonus < warriorPassive.armorBonus && samuraiPassive.basicAttackMult < warriorPassive.basicAttackMult, "samurai attack & defense stay below warrior");
+    // 공속: 스윙 시간 ×0.8 = 공속 +25% (쾌속 목걸이와 같은 메커니즘). 카타나 시 추가 ×1/1.05.
+    almostEqual(classAttackSpeedMult("samurai", null), 0.8, "samurai swing time ×0.8 (attack speed +25%)");
+    almostEqual(classAttackSpeedMult("samurai", "katana"), 0.8 / 1.05, "samurai+katana swing time ×0.8/1.05");
+    almostEqual(classAttackSpeedMult("warrior", "katana"), 1, "warrior swing time unaffected by katana");
+    // 카타나 시너지 — 공격 +5% (사무라이 한정). 전사는 근접 +10% 만.
+    almostEqual(classWeaponDamageMult("samurai", "katana"), 1.05, "samurai+katana attack +5%");
+    almostEqual(classWeaponDamageMult("samurai", "obsidian_katana"), 1.05, "samurai+obsidian katana attack +5%");
+    almostEqual(classWeaponDamageMult("samurai", "iron_sword"), 1, "samurai without katana: no weapon bonus");
+    almostEqual(classWeaponDamageMult("warrior", "katana"), 1.1, "warrior+katana keeps melee +10% (no samurai synergy)");
+    // 이속 — 사무라이+카타나 +5% (합연산 계층 입력)
+    almostEqual(classMoveSpeedMult("samurai", "katana"), 1.05, "samurai+katana move speed +5%");
+    almostEqual(classMoveSpeedMult("samurai", null), 1, "samurai without katana: base move speed");
+    almostEqual(classMoveSpeedMult("gunner", "pistol"), 1.1, "gunner move speed unaffected by samurai synergy");
+    // DPS ≈ 전사: (한방 × 무기배수 / 스윙) 비율이 좁은 창 안 (기본무기·카타나 두 케이스)
+    const warriorDps = (warriorPassive.basicAttackMult * classWeaponDamageMult("warrior", "iron_sword")) / classAttackSpeedMult("warrior", "iron_sword");
+    const samuraiBaseDps = (samuraiPassive.basicAttackMult * classWeaponDamageMult("samurai", "iron_sword")) / classAttackSpeedMult("samurai", "iron_sword");
+    const samuraiKatanaDps = (samuraiPassive.basicAttackMult * classWeaponDamageMult("samurai", "katana")) / classAttackSpeedMult("samurai", "katana");
+    assert(samuraiBaseDps / warriorDps > 0.9 && samuraiBaseDps / warriorDps < 1.1, "samurai DPS ≈ warrior (non-katana)");
+    assert(samuraiKatanaDps / warriorDps > 0.95 && samuraiKatanaDps / warriorDps < 1.15, "samurai+katana DPS slightly above warrior (synergy reward)");
+
+    // 스킬 수치 — 난도(4연격 합 2.2배)·도약(15칸·150%)·무한 찌르기(11연격 ≈1.6초·합 4.4배)·월광베기(3연격 합 6.6배)
+    const sam = samuraiMod;
+    assert(sam.SAMURAI_FLURRY_HITS === 4 && sam.samuraiFlurryHitDamage(100) === 55, "난도: 4 hits × 55% (합 2.2배)");
+    assert(sam.SAMURAI_DASH_RANGE === 15 && sam.samuraiDashDamage(100) === 150, "도약: 15칸 돌진 × 공격력 150%");
+    assert(sam.SAMURAI_PIERCE_HITS === 11 && sam.samuraiPierceHitDamage(100) === 40, "무한 찌르기: 11 hits × 40% (합 4.4배)");
+    assert(sam.SAMURAI_PIERCE_HITS * sam.SAMURAI_PIERCE_INTERVAL_MS >= 1400 && sam.SAMURAI_PIERCE_HITS * sam.SAMURAI_PIERCE_INTERVAL_MS <= 1800, "무한 찌르기 채널 ≈1.6초");
+    assert(sam.SAMURAI_MOONLIGHT_WAVES === 3 && sam.samuraiMoonlightDamage(100) === 220, "월광베기: 3연격 × 220% (합 6.6배 < 전사 천검난무 7배)");
+    const { SECOND_SKILLS, THIRD_SKILLS, FOURTH_SKILLS } = classSkills;
+    assert(classes.PLAYER_CLASSES.samurai.skillName === "난도" && SECOND_SKILLS.samurai.name === "도약" && THIRD_SKILLS.samurai.name === "무한 찌르기" && FOURTH_SKILLS.samurai.name === "월광베기", "samurai skill names R/T/F/G");
+    assert(classes.PLAYER_CLASSES.samurai.starterItem === "katana", "samurai starts with a katana");
+    assert(objectives.CLASS_WEAPON_QUESTS.samurai.items.includes("obsidian_katana"), "samurai weapon quest targets obsidian katana");
+
+    // 연격 틱 (난도/무한 찌르기 공용) — 등록 → 간격마다 1타 → 완주 시 해제, 대상 사망 시 취소
+    sam.resetSamuraiEffects();
+    const flurry = { hp: 100, melee: 0, dealt: [] };
+    const tickCtx = (now) => ({ now: () => now, getObject: (id) => (id === "m1" && flurry.hp > 0 ? { id: "m1", hp: flurry.hp } : undefined), meleeEffects: () => { flurry.melee += 1; }, applyDamage: (t, d) => { flurry.dealt.push(d); flurry.hp -= d; } });
+    sam.registerSamuraiFlurry("m1", 10, 4, 120, 1000);
+    assert(sam.activeSamuraiFlurryCount() === 1, "flurry registered");
+    sam.updateSamuraiFlurries(tickCtx(1000)); // 1타
+    sam.updateSamuraiFlurries(tickCtx(1060)); // 간격 미도달 — 타격 없음
+    sam.updateSamuraiFlurries(tickCtx(1120)); // 2타
+    sam.updateSamuraiFlurries(tickCtx(1240)); // 3타
+    sam.updateSamuraiFlurries(tickCtx(1360)); // 4타 — 완주
+    assert(flurry.melee === 4 && flurry.dealt.length === 4 && flurry.dealt.every((d) => d === 10), "flurry lands exactly 4 hits of snapshot damage");
+    assert(sam.activeSamuraiFlurryCount() === 0, "flurry unregisters after last hit");
+    sam.registerSamuraiFlurry("m1", 999, 4, 120, 2000);
+    flurry.hp = 0; // 대상 사망 → 남은 연격 취소
+    sam.updateSamuraiFlurries(tickCtx(2000));
+    assert(sam.activeSamuraiFlurryCount() === 0 && flurry.dealt.length === 4, "flurry cancels when target is gone");
+
+    // 도약 기하 — 막힘 없으면 15칸 완주, 경로 폭 1.5+반경 안의 적만 1회씩 타격. 막히면 그 지점에서 정지.
+    const dashState = (blockAt) => {
+      const st = { pos: { x: 0, y: 0, z: 0 }, hit: [], melee: 0 };
+      st.ctx = {
+        playerPosition: st.pos,
+        forwardXZ: () => ({ x: 0, z: -1 }),
+        nearbyCombatTargets: () => [
+          { id: "near", root: { position: { x: 0.6, z: -4 } }, collisionRadius: 0.4, hp: 50 },
+          { id: "far", root: { position: { x: 6, z: -4 } }, collisionRadius: 0.4, hp: 50 },
+          { id: "behind", root: { position: { x: 0, z: 3 } }, collisionRadius: 0.4, hp: 50 },
+        ],
+        dashStep: (dx, dz) => { const nz = st.pos.z + dz; if (blockAt !== null && nz < -blockAt) return; st.pos.x += dx; st.pos.z = nz; }, // blockAt 가상 벽 — 넘어가는 스텝은 이동 0 (main resolveCollisions 밀어내기 모사)
+        meleeEffects: () => { st.melee += 1; },
+        applyDamage: (t) => { st.hit.push(t.id); },
+      };
+      return st;
+    };
+    const open = dashState(null);
+    const openResult = sam.performSamuraiDash(open.ctx, 30);
+    almostEqual(openResult.distance, 15, "unblocked dash travels the full 15 units");
+    assert(open.hit.length === 1 && open.hit[0] === "near" && openResult.hits === 1, "dash damages only enemies within the path width, once each");
+    const blocked = dashState(5);
+    const blockedResult = sam.performSamuraiDash(blocked.ctx, 30);
+    assert(blockedResult.distance < 5.6 && Math.abs(blocked.ctx.playerPosition.z) < 5.6, "blocked dash stops at the obstacle (no clipping)");
+    assert(blocked.hit.length === 1 && blocked.hit[0] === "near", "blocked dash still damages enemies along the traveled path");
+
+    // 전직 — 검객/검호/검성/검선 (수치는 전 직업 공통 루프에서 이미 검증)
+    const tiers = jobAdvancement.JOB_TIERS.samurai;
+    assert(tiers.map((t) => t.title).join(",") === "검객,검호,검성,검선", "samurai job titles 검객→검호→검성→검선");
+    assert(tiers[0].unlockThirdSkill === true && tiers[3].unlockFourthSkill === true, "samurai tier1 unlocks F, tier4 unlocks G");
   }
   assert(EAGLE_RAM_DAMAGE === 5, "possessed eagle ram should start from 5 damage");
   assert(EAGLE_CLAW_DAMAGE === 20 && EAGLE_CLAW_COOLDOWN === 14, "possessed eagle claw should keep intended damage/cooldown");
@@ -2230,6 +2322,7 @@ try {
         "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",
         "treasure chest tiers: roll boundaries (74/20/5/1) + higher tier = rarer loot (monotonic)",
         "ultimate weapons: sharp obsidian shield/staff/gun exceed top of category, correct ranged/projectile class, epic, extended-workbench recipes with valid ingredients",
+        "samurai: passives below warrior with +25% attack speed (DPS ≈ warrior), katana synergy +5% atk/speed/move, skill numbers (난도 4×55%, 도약 15u×150% stop-on-block, 무한 찌르기 11×40% ≈1.6s, 월광베기 3×220%), flurry tick lifecycle, dash path damage/blocking, job titles 검객~검선",
         "chapter boss respawn: killed dragon does not instantly respawn; re-spawns only after 10-minute cooldown",
         "safe zones: villages + training block monster spawn (isInSafeZone) and movement (clampOutOfSafeZones pushes to boundary); all boss coords clear of safe zones",
       ],
