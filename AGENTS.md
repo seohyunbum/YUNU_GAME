@@ -82,7 +82,7 @@
 
 ## 9. 기술 사실 (stale 금지)
 
-- 엔진은 **Three.js**. `phaser`·`react`·`react-dom` 은 **미사용 — 제거 예정**(새 코드에서 쓰지 말 것).
+- 엔진은 **Three.js**. `phaser`·`react`·`react-dom` 은 **제거 완료**(2026-07 확인 — 재도입 금지).
 - Vite + TypeScript **strict**(`any` 금지 유지). 저장은 localStorage + 버전 마이그레이션.
 
 ## 10. 성능 예산 (렉 방지)
@@ -106,6 +106,8 @@
 
 ### 기계적 게이트
 
+- `npm run check:hotpath` 는 `update*`/`animate*`/`tick*` 함수 본문의 `new THREE.*` 뿐 아니라 **`.clone()`·`new Set/Map`·`innerHTML=`** 도 라쳇으로 잡는다(2026-07 확장 — 미니맵 매 프레임 innerHTML·objectsNear Set 할당류 재발 방지). **스캐너를 피하려고 함수 이름을 바꾸는 것(예: update→tick) 은 금지** — 매 프레임 불리는 함수는 반드시 세 접두사 중 하나를 쓴다.
+- 적응형 화질(updateAdaptiveQuality)은 **하향과 복구가 한 쌍**이다 — 하향 로직을 수정하면 복구(승급) 경로·히스테리시스가 함께 동작하는지 확인한다. 복구 없는 하향은 "일시 스톨 한 번에 세션 내내 저화질" 회귀다.
 - `npm run perf-check` 가 **성능 예산 초과 시 실패**한다(`scripts/performance-smoke.mjs` 의 `PERF_BUDGET`). 씬 카운트(메시/객체/raycast)는 런-간 분산 <1% 라 신뢰 가능; 프레임타임은 머신 의존이라 느슨한 상한만 둔다.
 - 예산은 **내려가기만** 한다(ratchet). 최적화로 메시가 줄면 `PERF_BUDGET` 를 낮춰 조인다.
 - `verify:full` 에 포함된다. **엔티티·메시·매 프레임 작업을 추가/변경하면 perf-check 전후를 비교**한다.
@@ -140,6 +142,7 @@
 - **리프부터.** 자기 작업은 `src/game/`·`src/ui/` 리프 모듈에서 먼저 끝낸다. 공유 파일(`main.ts`) 배선은 마지막에 한 번에.
 - **인계 전 커밋 + 명시 선언.** 공유 파일을 넘기기 전 자기 변경을 커밋하고 "main.ts 비었음" 처럼 명시한다. "작업 완료" 안내만으론 부족하다 — 받는 쪽은 **`git status` 가 정적(미변경)인지 확인한 뒤** 편집한다.
 - **충돌하면 멈춘다.** Edit 가 "file modified since read" 로 실패하면 상대가 작업 중이라는 신호다. 재시도로 race 하지 말고 멈춰 상대의 커밋·정지를 기다린다.
+- **스크립트 일괄 편집은 고유 앵커로.** 컨텍스트 객체들은 끝 멤버가 서로 같아 광역 replace 가 이웃 객체까지 오매칭한 실사고가 있다(2026-07-03 villageSpawns 1차 시도, work-history 참조). sed/replace 일괄 편집은 대상에만 존재하는 고유 문자열·앵커 범위로 한정하고, 편집 직후 typecheck 로 확인한다.
 - **데이터/리프 우선 설계.** 가능하면 기능을 데이터(`game/`)로 표현해 `main.ts` 변경을 0 으로 만든다(예: 원거리 무기 = `RANGED_WEAPONS`). 그러면 두 에이전트가 다른 파일에서 충돌 없이 병행할 수 있다.
 
 ### Runtime Shadow Toggle Rule
