@@ -846,3 +846,17 @@
 - 결과: main.ts 9470→9337줄(−133), 482→480메서드(−2). 라쳇 하향(size 9337·methods 480).
 - 검증: typecheck 0에러·size·methods·architecture·hotpath·combat·systems·content·balance·mobile·save-migration 녹색.
 - 잔여 추출 대상: spawnVillage(오케스트레이션 성격 — 판단 필요)·세이브 직렬화 3종.
+
+## 2026-07-03 — 재발 방지 체계화: 핫패스 검사기 확장 + 거버넌스 명문화
+
+- 배경: 이번 감사·수정 사이클에서 드러난 치명 리스크 3류(검사기 사각지대의 매 프레임 할당/DOM, tick* 네이밍 스캐너 회피,
+  광역 replace 오매칭)를 기계 게이트·규약으로 재발 차단.
+- check-hotpath-allocations.mjs 확장:
+  ① 핫함수 패턴에 tick[A-Z]* 추가 + \b 경계(createStickModel 오탐 방지) — "이름 바꿔 회피" 봉쇄(실사례: tickMinimap 주석이
+    스캐너 회피를 자인했었음).
+  ② 신규 라쳇 3종: .clone()(≤6)·new Set/Map(≤2)·innerHTML=(≤3). 예산 = 전수 실측 기준선(전부 저위험 확인, 주석에 명단).
+    새 코드가 늘리면 실패, 정리로 줄면 조인다.
+- AGENTS.md: §9 stale 수정(phaser/react 제거 완료), §10 게이트에 확장 검사기·네이밍 회피 금지·적응형 화질 "하향-복구 한 쌍"
+  규칙 추가, §12 에 "일괄 편집은 고유 앵커로 + 직후 typecheck" 규칙 추가(villageSpawns 1차 오매칭 사고 참조).
+- 검증: 확장 검사기 전 지표 기준선 일치(alloc 0/0·clone 6/6·set/map 2/2·innerHTML 3/3)·typecheck 0·size/methods/architecture
+  녹색·combat/systems/content 녹색.
