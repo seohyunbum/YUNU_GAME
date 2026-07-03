@@ -24,7 +24,7 @@ export const DEFAULT_AVATAR_APPEARANCE: AvatarAppearance = {
   accentColor: ASSET_PALETTE.gold,
 };
 
-export type AvatarClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner" | "tanker";
+export type AvatarClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner" | "tanker" | "samurai";
 
 // 직업별 외형 팔레트 — 거울/파티 표시에서 직업을 한눈에 구분한다.
 export const CLASS_APPEARANCE: Record<AvatarClassId, AvatarAppearance> = {
@@ -33,6 +33,7 @@ export const CLASS_APPEARANCE: Record<AvatarClassId, AvatarAppearance> = {
   mage: { skinColor: ASSET_PALETTE.skin, hairColor: 0x2a2440, shirtColor: 0x553a8b, pantsColor: 0x2c2347, bootColor: 0x241d3a, accentColor: 0x8e6bd6 },
   summoner: { skinColor: ASSET_PALETTE.skin, hairColor: 0x3a2a1c, shirtColor: 0x6b4a2f, pantsColor: 0x3f2e1f, bootColor: 0x2c2016, accentColor: 0xcf9b3a },
   gunner: { skinColor: ASSET_PALETTE.skin, hairColor: 0x2c241d, shirtColor: 0x4a3a2c, pantsColor: 0x2f2820, bootColor: 0x1f1a14, accentColor: 0xb9925a },
+  samurai: { skinColor: ASSET_PALETTE.skin, hairColor: 0x1f1a16, shirtColor: 0x6b2f39, pantsColor: 0x2a2230, bootColor: 0x1c1720, accentColor: 0xf0b24a },
   tanker: { skinColor: ASSET_PALETTE.skin, hairColor: 0x29313a, shirtColor: 0x596473, pantsColor: 0x25313d, bootColor: 0x151a20, accentColor: 0xa8b3c7 },
 };
 
@@ -249,6 +250,25 @@ function addClassAccessories(group: THREE.Group, classId: AvatarClassId, pal: Av
       group.add(feather);
     }
     group.add(hood, emblem);
+    return;
+  }
+
+  if (classId === "samurai") {
+    // 사무라이: 촌마게(상투) + 진홍 오비(허리띠) + 등 뒤 카타나 칼집
+    const topknot = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 0.18, 8), makeToonMaterial(pal.hairColor, { roughness: 0.82 }));
+    topknot.position.set(0, 2.22, -0.04);
+    topknot.rotation.x = -0.35;
+    const obi = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.5), makeToonMaterial(pal.shirtColor, { roughness: 0.68 }));
+    obi.position.y = 0.7;
+    const obiKnot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.1), accentMetal);
+    obiKnot.position.set(0, 0.7, -0.28);
+    const sheath = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.1, 0.12), makeToonMaterial(ASSET_PALETTE.leatherDark, { roughness: 0.7 }));
+    sheath.position.set(0.26, 1.16, -0.32);
+    sheath.rotation.z = 0.42;
+    const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.26, 8), accentGlow);
+    hilt.position.set(0.62, 1.68, -0.32);
+    hilt.rotation.z = 0.42;
+    group.add(topknot, obi, obiKnot, sheath, hilt);
     return;
   }
 
