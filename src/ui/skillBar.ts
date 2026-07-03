@@ -9,6 +9,7 @@ const SKILL_ICONS: Record<PlayerClassId, { primary: string; second: string; thir
   mage: { primary: "💣", second: "☄️", third: "🌠", fourth: "🌟" }, // TNT발사 / 파이어볼 / 메테오 / 천공의 운석우
   summoner: { primary: "🦅", second: "🌪️", third: "🍃", fourth: "🐉" }, // 독수리소환술 / 바람 정령 / 정령 폭풍 / 용 정령 강림
   gunner: { primary: "🔫", second: "💨", third: "🎯", fourth: "💥" }, // 강탄 / 속사 / 관통 강탄 / 초토화 난사
+  samurai: { primary: "🗡️", second: "💨", third: "⚔️", fourth: "🌙" }, // 난도 / 도약 / 무한 찌르기 / 월광베기
   tanker: { primary: "🛡️", second: "♨️", third: "📣", fourth: "🏰" }, // 철벽방어 / 불타는 방패 / 불굴의 함성 / 불멸의 요새
 };
 
