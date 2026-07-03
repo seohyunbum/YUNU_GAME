@@ -7124,7 +7124,7 @@ class WildernessGame {
           canCraft: this.canCraft(recipe),
           maxCraft: recipe.output === "bag" || recipe.output === "big_bag" ? 1 : Math.max(1, Math.min(99, maxCraftable(recipe.ingredients, counts))), // 보유 재료 기준 한 번에 제작 가능 최대(일회성 가방류는 1)
         })),
-        repairSlots: this.wornToolSlots().map((slot) => ({ item: slot.item!, durabilityUsed: slot.durabilityUsed ?? 0 })),
+        repairSlots: [...this.wornToolSlots().map((slot) => ({ item: slot.item!, durabilityUsed: slot.durabilityUsed ?? 0 })), ...(this.equippedShield && this.shieldDurabilityUsed > 0 ? [{ item: this.equippedShield, durabilityUsed: this.shieldDurabilityUsed }] : [])], // 착용한 방패도 닳았으면 수리 대상(장착형이라 인벤 슬롯 아닌 shieldDurabilityUsed 로 관리)
       },
       {
         onClose: () => this.closePanel(),
@@ -7137,7 +7137,7 @@ class WildernessGame {
         onClear: () => this.clearWorkbenchSlots(),
         onFillRecipe: (recipeId) => this.fillWorkbenchRecipe(recipeId),
         onCraftRecipe: (recipeId, quantity) => this.craftWorkbenchRecipe(recipeId, quantity),
-        onRepair: (index) => this.repairToolSlot(index),
+        onRepair: (index) => { const tools = this.wornToolSlots(); if (index < tools.length) this.repairToolSlot(index); else this.repairEquippedShield(); }, // 마지막 인덱스는 착용 방패
         bindDragDrop: () => this.bindInventoryDragDrop(),
       },
     );
@@ -8104,6 +8104,19 @@ class WildernessGame {
     this.removeItem(material, 1);
     slot.durabilityUsed = Math.max(0, (slot.durabilityUsed ?? 0) - repairPerMaterial(slot.item));
     this.showMessage(`${ITEM_NAMES[slot.item]} 수리 완료! 내구도 ${toolMaxDurability(slot.item) - slot.durabilityUsed}/${toolMaxDurability(slot.item)}.`);
+    this.renderWorkbenchPanel();
+    this.renderHud();
+  }
+
+  // 착용 방패 수리 — 도구와 달리 인벤 슬롯이 아니라 shieldDurabilityUsed(장착 방패) 를 재료 1개당 최대의 50% 회복한다.
+  private repairEquippedShield() {
+    const shield = this.equippedShield;
+    const material = shield ? repairMaterialFor(shield) : null;
+    if (!shield || !material || this.shieldDurabilityUsed <= 0 || this.countItem(material) <= 0) return;
+    this.removeItem(material, 1);
+    this.shieldDurabilityUsed = Math.max(0, this.shieldDurabilityUsed - repairPerMaterial(shield));
+    const max = toolMaxDurability(shield);
+    this.showMessage(`${ITEM_NAMES[shield]} 수리 완료! 내구도 ${max - this.shieldDurabilityUsed}/${max}.`);
     this.renderWorkbenchPanel();
     this.renderHud();
   }

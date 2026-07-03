@@ -260,6 +260,14 @@ try {
     }
   }
   if (repairMaterialFor("iron_sword") !== null) problems.push("repair: combat weapons have no durability and must not be repairable");
+  // 방패 수리: 착용형 방패(iron·날카로운 흑요석)는 수리 재료·내구도·수리량이 유효해야 한다
+  for (const shield of Object.keys(SHIELD_DURABILITY)) {
+    const material = repairMaterialFor(shield);
+    if (!material || !isItem(material)) problems.push(`shield repair: '${shield}' must have a valid repair material, got '${material}'`);
+    if (toolMaxDurability(shield) !== SHIELD_DURABILITY[shield]) problems.push(`shield repair: toolMaxDurability('${shield}')=${toolMaxDurability(shield)} must equal SHIELD_DURABILITY ${SHIELD_DURABILITY[shield]}`);
+    if (repairPerMaterial(shield) * 2 < SHIELD_DURABILITY[shield]) problems.push(`shield repair: '${shield}' should fully repair within 2 materials`);
+  }
+  if (repairMaterialFor("sharp_obsidian_shield") !== "sharp_obsidian") problems.push("shield repair: 날카로운 흑요석 방패 must repair with sharp_obsidian");
 
   // 경험치병은 치트(F4) 전용: 제작 레시피·상점·거래 어디에도 나오면 안 된다
   if ([...MINI_RECIPES, ...WORKBENCH_RECIPES].some((r) => r.output === "xp_bottle")) {

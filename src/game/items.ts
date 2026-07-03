@@ -320,6 +320,12 @@ export const SHIELD_DURABILITY: Record<ItemId, number> = {
   sharp_obsidian_shield: 300, // 더 단단(iron 200 초과)
 };
 
+// 방패 수리 재료 — 방패는 도구 테이블 밖(장착형, shieldDurabilityUsed 로 별도 관리)이라 수리 재료를 여기 명시한다.
+export const SHIELD_REPAIR_MATERIAL: Partial<Record<ItemId, ItemId>> = {
+  iron_shield: "refined_iron",
+  sharp_obsidian_shield: "sharp_obsidian",
+};
+
 export const AXE_POWER: Record<ItemId, number> = {
   weak_wood_axe: 1,
   sharp_wood_axe: 2,
@@ -388,11 +394,12 @@ export function isDurableTool(item: ItemId | null) {
 }
 
 export function toolMaxDurability(item: ItemId): number {
-  return TOOL_DURABILITY[item] ?? DEFAULT_TOOL_DURABILITY;
+  return TOOL_DURABILITY[item] ?? SHIELD_DURABILITY[item] ?? DEFAULT_TOOL_DURABILITY; // 방패도 수리 가능 — 최대 내구도(SHIELD_DURABILITY) 반영
 }
 
-// 수리 시스템 (docs/repair-system.md) — 도구 id prefix 에서 등급 제련 재료를 파생한다.
+// 수리 시스템 (docs/repair-system.md) — 도구 id prefix 에서 등급 제련 재료를 파생한다. 방패는 SHIELD_REPAIR_MATERIAL 로 직접 매핑.
 export function repairMaterialFor(item: ItemId): ItemId | null {
+  if (SHIELD_DURABILITY[item] !== undefined) return SHIELD_REPAIR_MATERIAL[item] ?? null; // 장착형 방패(iron·날카로운 흑요석) 수리 재료
   if (!DURABLE_TOOL_TABLES.some((table) => table[item])) return null;
   if (item.startsWith("weak_wood_") || item.startsWith("sharp_wood_")) return "refined_wood";
   return MATERIALS.find((material) => item.startsWith(`${material.prefix}_`))?.refined ?? null;

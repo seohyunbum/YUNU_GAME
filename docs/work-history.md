@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-03 — 방패도 수리 가능(날카로운 흑요석 방패·철 방패)
+
+- 요청: 날카로운 흑요석 방패도 수리 가능하도록.
+- 진단: 방패는 도구 테이블(DURABLE_TOOL_TABLES) 밖 + 장착형(equippedShield·shieldDurabilityUsed)이라 기존 수리(인벤 슬롯 도구)에 안 잡혀 수리 불가·닳으면 파괴만 됐음.
+- 구현: ①items.ts — repairMaterialFor 가 방패(SHIELD_DURABILITY 보유)면 SHIELD_REPAIR_MATERIAL(iron→제련철, sharp_obsidian_shield→날카로운 흑요석) 반환, toolMaxDurability 가 SHIELD_DURABILITY 반영. ②main.ts — 수리 패널 repairSlots 에 착용 방패(닳았을 때) 추가 + onRepair 라우팅 + repairEquippedShield(shieldDurabilityUsed 를 재료당 50% 회복). ratchet 10211→10220.
+- 검증: typecheck·build·verify 그린. content-test 방패 수리 불변식 단언 추가(재료 유효·최대내구도 일치·2개로 완전회복·흑요석방패→sharp_obsidian). E2E: 착용 흑요석방패(50/300) 수리→내구도 사용 250→100(+150)·재료 5→4, 재료 없으면 버튼 disabled. repair-system.md P2 완료 표기.
+
 ## 2026-06-28 — 검색/채팅 중 한글 입력이 단축키를 발동시키던 회귀 수정 (f403d21 되돌림)
 
 - 신고: 제작대에서 '용의' 검색 시 지도(m)가 열림. 채팅·검색 중 단축키가 먹으면 안 됨.

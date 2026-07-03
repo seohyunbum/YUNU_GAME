@@ -1,7 +1,7 @@
 # 수리 시스템 설계 (Repair System)
 
-> 상태: **P1 구현 완료** (2026-06-11). P2(방패 등 확장)는 미착수.
-> 관련 코드: `src/game/items.ts` `repairMaterialFor`/`repairPerMaterial`/`toolMaxDurability` · `src/ui/workbenchPanel.ts` 수리 섹션 · `src/main.ts` `repairToolSlot`/`wornToolSlots`.
+> 상태: **P1 구현 완료** (2026-06-11) · **P2(방패 수리) 구현 완료** (2026-07-03).
+> 관련 코드: `src/game/items.ts` `repairMaterialFor`/`repairPerMaterial`/`toolMaxDurability`·`SHIELD_REPAIR_MATERIAL` · `src/ui/workbenchPanel.ts` 수리 섹션 · `src/main.ts` `repairToolSlot`/`wornToolSlots`·`repairEquippedShield`.
 > 구현 시 변경점: 회복량은 floor 가 아니라 **ceil(최대 × 0.5)** — 홀수 내구도(철 45, 금 25)에서도 "재료 2개로 완전 회복" 약속을 지키기 위함. `test:content` 가 이 불변식을 강제한다.
 
 ## 1. 목적
@@ -75,7 +75,7 @@ export function repairPerMaterial(item: ItemId): number {
 
 ## 10. 단계
 - **P1 ✅ 구현 완료**: 제작대 수리(도구) — `repairToolSlot`(main) + `repairMaterialFor`/`repairPerMaterial`(items) + 제작대 "도구 수리" 섹션(workbenchPanel). 닳은 도구가 있을 때만 섹션 노출.
-- **P2**: 방패(탱커)·향후 내구도 아이템으로 확장(동일 함수 재사용).
+- **P2 ✅ 구현 완료(2026-07-03)**: 착용 방패(iron·날카로운 흑요석)도 제작대에서 수리. 장착형이라 인벤 슬롯이 아닌 `shieldDurabilityUsed` 를 `repairEquippedShield`(main)가 재료 1개당 최대의 50% 회복. 재료=`SHIELD_REPAIR_MATERIAL`(iron_shield→제련철, sharp_obsidian_shield→날카로운 흑요석), 최대내구도=`toolMaxDurability`(SHIELD_DURABILITY 반영). 수리 패널엔 착용 방패가 닳았을 때만 항목 추가.
 
 ## 범위 밖
 - **전투 무기 내구도 도입**(현재 무한) — 본 문서 범위 아님. 필요 시 별도 설계.
