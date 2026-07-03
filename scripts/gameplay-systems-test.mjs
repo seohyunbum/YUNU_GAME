@@ -205,7 +205,7 @@ try {
     assert(itemTier("katana") === "uncommon" && itemTier("obsidian_katana") === "epic", "katana tiers: uncommon / epic");
   }
 
-  // 사무라이 — 패시브(공속 +25%·전사보다 낮은 공방)·카타나 시너지(+5% 공/공속/이속)·스킬 4종 수치·전직 칭호
+  // 사무라이 — 패시브(공속 +33%·전사보다 낮은 공방)·카타나 시너지(+5% 공/공속/이속)·스킬 4종 수치·전직 칭호
   {
     const { classAttackSpeedMult, classMoveSpeedMult } = classPassives;
     const samuraiPassive = CLASS_PASSIVES.samurai;
@@ -214,9 +214,9 @@ try {
     almostEqual(samuraiPassive.armorPerLevel, 0.15, "samurai armor per level (전사 0.2 보다 낮게)");
     almostEqual(samuraiPassive.basicAttackMult, 0.8, "samurai per-hit attack ×0.8 (전사 0.95 보다 낮게)");
     assert(samuraiPassive.armorBonus < warriorPassive.armorBonus && samuraiPassive.basicAttackMult < warriorPassive.basicAttackMult, "samurai attack & defense stay below warrior");
-    // 공속: 스윙 시간 ×0.8 = 공속 +25% (쾌속 목걸이와 같은 메커니즘). 카타나 시 추가 ×1/1.05.
-    almostEqual(classAttackSpeedMult("samurai", null), 0.8, "samurai swing time ×0.8 (attack speed +25%)");
-    almostEqual(classAttackSpeedMult("samurai", "katana"), 0.8 / 1.05, "samurai+katana swing time ×0.8/1.05");
+    // 공속: 스윙 시간 ×0.75 = 공속 +33% (쾌속 목걸이와 같은 메커니즘. 0.8→0.75 상향 2026-07-04). 카타나 시 추가 ×1/1.05.
+    almostEqual(classAttackSpeedMult("samurai", null), 0.75, "samurai swing time ×0.75 (attack speed +33%)");
+    almostEqual(classAttackSpeedMult("samurai", "katana"), 0.75 / 1.05, "samurai+katana swing time ×0.75/1.05");
     almostEqual(classAttackSpeedMult("warrior", "katana"), 1, "warrior swing time unaffected by katana");
     // 카타나 시너지 — 공격 +5% (사무라이 한정). 전사는 근접 +10% 만.
     almostEqual(classWeaponDamageMult("samurai", "katana"), 1.05, "samurai+katana attack +5%");
@@ -227,22 +227,25 @@ try {
     almostEqual(classMoveSpeedMult("samurai", "katana"), 1.05, "samurai+katana move speed +5%");
     almostEqual(classMoveSpeedMult("samurai", null), 1, "samurai without katana: base move speed");
     almostEqual(classMoveSpeedMult("gunner", "pistol"), 1.1, "gunner move speed unaffected by samurai synergy");
-    // DPS ≈ 전사: (한방 × 무기배수 / 스윙) 비율이 좁은 창 안 (기본무기·카타나 두 케이스)
+    // DPS: 전사보다 소폭 위 (2026-07-04 유저 밸런스 결정 — 공속 0.8→0.75 상향으로 기존 "≈ 전사" 계약을 의도적으로 갱신)
     const warriorDps = (warriorPassive.basicAttackMult * classWeaponDamageMult("warrior", "iron_sword")) / classAttackSpeedMult("warrior", "iron_sword");
     const samuraiBaseDps = (samuraiPassive.basicAttackMult * classWeaponDamageMult("samurai", "iron_sword")) / classAttackSpeedMult("samurai", "iron_sword");
     const samuraiKatanaDps = (samuraiPassive.basicAttackMult * classWeaponDamageMult("samurai", "katana")) / classAttackSpeedMult("samurai", "katana");
-    assert(samuraiBaseDps / warriorDps > 0.9 && samuraiBaseDps / warriorDps < 1.1, "samurai DPS ≈ warrior (non-katana)");
-    assert(samuraiKatanaDps / warriorDps > 0.95 && samuraiKatanaDps / warriorDps < 1.15, "samurai+katana DPS slightly above warrior (synergy reward)");
+    assert(samuraiBaseDps / warriorDps > 1.0 && samuraiBaseDps / warriorDps < 1.25, "samurai DPS above warrior but bounded (non-katana)");
+    assert(samuraiKatanaDps > samuraiBaseDps && samuraiKatanaDps / warriorDps < 1.35, "samurai+katana DPS above base (synergy reward), bounded");
 
-    // 스킬 수치 — 난도(4연격 합 2.2배)·도약(15칸·150%)·무한 찌르기(11연격 ≈1.6초·합 4.4배)·월광베기(3연격 합 6.6배)
+    // 스킬 수치 — 난도(4연격 합 2.8배, 55%→70% 상향)·도약(15칸·150%·쿨 25초)·무한 찌르기(11연격 ≈1.6초·합 4.4배)·월광베기(3연격 합 6.6배)
     const sam = samuraiMod;
-    assert(sam.SAMURAI_FLURRY_HITS === 4 && sam.samuraiFlurryHitDamage(100) === 55, "난도: 4 hits × 55% (합 2.2배)");
+    assert(sam.SAMURAI_FLURRY_HITS === 4 && sam.samuraiFlurryHitDamage(100) === 70, "난도: 4 hits × 70% (합 2.8배)");
     assert(sam.SAMURAI_DASH_RANGE === 15 && sam.samuraiDashDamage(100) === 150, "도약: 15칸 돌진 × 공격력 150%");
     assert(sam.SAMURAI_PIERCE_HITS === 11 && sam.samuraiPierceHitDamage(100) === 40, "무한 찌르기: 11 hits × 40% (합 4.4배)");
     assert(sam.SAMURAI_PIERCE_HITS * sam.SAMURAI_PIERCE_INTERVAL_MS >= 1400 && sam.SAMURAI_PIERCE_HITS * sam.SAMURAI_PIERCE_INTERVAL_MS <= 1800, "무한 찌르기 채널 ≈1.6초");
     assert(sam.SAMURAI_MOONLIGHT_WAVES === 3 && sam.samuraiMoonlightDamage(100) === 220, "월광베기: 3연격 × 220% (합 6.6배 < 전사 천검난무 7배)");
     const { SECOND_SKILLS, THIRD_SKILLS, FOURTH_SKILLS } = classSkills;
     assert(classes.PLAYER_CLASSES.samurai.skillName === "난도" && SECOND_SKILLS.samurai.name === "도약" && THIRD_SKILLS.samurai.name === "무한 찌르기" && FOURTH_SKILLS.samurai.name === "월광베기", "samurai skill names R/T/F/G");
+    assert(SECOND_SKILLS.samurai.cooldown === 25, "도약 쿨다운 25초 (30→25 하향 2026-07-04)");
+    assert(SECOND_SKILLS.samurai.summary.includes("관통"), "도약 요약에 몬스터 관통 명시");
+    assert(sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("wildPredator") && sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("dragon") && !sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("buildingBlock") && !sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("villageHouse"), "도약 관통 대상 = 생명체만(건물류 제외)");
     assert(classes.PLAYER_CLASSES.samurai.starterItem === "katana", "samurai starts with a katana");
     assert(objectives.CLASS_WEAPON_QUESTS.samurai.items.includes("obsidian_katana"), "samurai weapon quest targets obsidian katana");
 

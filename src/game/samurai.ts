@@ -5,11 +5,11 @@ import type { ItemId, PlayerClassId } from "./types";
 import type { SecondSkillContext, SecondSkillDef, SkillEffectsContext } from "./classSkills";
 
 // 사무라이 직업 — 순수 데이터·로직 리프(main.ts import 금지).
-// 컨셉: 전사보다 한 방은 약하지만 공속 +25% 로 DPS ≈ 전사. 카타나(리치 2배) 장착 시 공·공속·이속 +5% 시너지.
+// 컨셉: 전사보다 한 방은 약하지만 공속 +33% 로 DPS 는 전사보다 소폭 위(2026-07-04 유저 밸런스 결정, 이전엔 ≈ 전사). 카타나(리치 2배) 장착 시 공·공속·이속 +5% 시너지.
 // 스킬 4종: 난도(R, 4연격) · 도약(T, 15칸 관통 돌진) · 무한 찌르기(F, 11연속 찌르기·1차 전직 해금) · 월광베기(G, 광역 3연격·4차 해금).
 
 // ===== 패시브·시너지 수치 =====
-export const SAMURAI_SWING_MULT = 0.8; // 기본 공격 스윙 시간 ×0.8 = 공격속도 +25% (전사 대비)
+export const SAMURAI_SWING_MULT = 0.75; // 기본 공격 스윙 시간 ×0.75 = 공격속도 +33% (전사 대비. 0.8→0.75 상향 2026-07-04)
 export const SAMURAI_KATANA_ATTACK_BONUS = 0.05; // 카타나 장착 시 공격력 +5%
 export const SAMURAI_KATANA_SPEED_BONUS = 0.05; // 카타나 장착 시 공격속도 +5% (스윙 ×1/1.05)
 export const SAMURAI_KATANA_MOVE_BONUS = 0.05; // 카타나 장착 시 이동속도 +5% (합연산 계층)
@@ -31,18 +31,22 @@ export function samuraiKatanaMoveBonus(playerClass: PlayerClassId, heldItem: Ite
 }
 
 // ===== 스킬 수치 =====
-// 난도(1스킬): 4연격 × 공격력 55% = 합 ≈ 2.2배 (전사 '불타는 공격' 2배와 유사한 위력, 짧은 쿨다운)
+// 난도(1스킬): 4연격 × 공격력 70% = 합 ≈ 2.8배 (55%→70% 상향 2026-07-04 — 전사 '불타는 공격' 2배보다 확실히 위, 짧은 쿨다운 유지)
 export const SAMURAI_FLURRY_HITS = 4;
 export const SAMURAI_FLURRY_INTERVAL_MS = 120;
 export function samuraiFlurryHitDamage(currentDamage: number) {
-  return Math.max(1, Math.round(currentDamage * 0.55));
+  return Math.max(1, Math.round(currentDamage * 0.7));
 }
 
-// 도약(2스킬): 최대 15칸 돌진, 경로 폭 1.5 안의 모든 적에게 1회씩 공격력 150% 피해. 충돌체에 막히면 정지.
+// 도약(2스킬): 최대 15칸 돌진, 경로 폭 1.5 안의 모든 적에게 1회씩 공격력 150% 피해.
+// 건물·지형 충돌체에 막히면 정지하되, 몬스터·보스 등 생명체는 **관통**한다(2026-07-04) — main 의 dashStep 이
+// SAMURAI_DASH_PASSTHROUGH_TYPES 를 충돌 해석에서 제외해 보장. 관통한 적도 경로 선분 판정으로 피해를 입는다.
 export const SAMURAI_DASH_RANGE = 15;
 export const SAMURAI_DASH_STEP = 0.5; // 충돌 해석 스텝 — MOVEMENT_COLLISION_STEP 보다 약간 크게(동기 일괄 처리)
 export const SAMURAI_DASH_HIT_WIDTH = 1.5;
 export const SAMURAI_DASH_BLOCK_RATIO = 0.4; // 스텝 전진량이 이 비율 미만이면 막힌 것으로 보고 정지
+// 도약이 관통하는 생명체 타입 — 건물·지형·설치물은 미포함(막힘 유지)
+export const SAMURAI_DASH_PASSTHROUGH_TYPES: ReadonlySet<string> = new Set(["wildPredator", "dragon", "jammini", "animal", "eagleSummon", "summonerPet", "graveHand"]);
 export function samuraiDashDamage(currentDamage: number) {
   return Math.max(1, Math.round(currentDamage * 1.5));
 }

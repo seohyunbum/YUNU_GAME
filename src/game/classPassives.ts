@@ -155,7 +155,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
   },
   samurai: {
     label: "신속 검격",
-    summary: "공격속도 +25% · 방어 +3 (레벨당 +0.15) · 카타나 장착 시 공격·공속·이속 +5%.",
+    summary: "공격속도 +33% · 방어 +3 (레벨당 +0.15) · 카타나 장착 시 공격·공속·이속 +5%.",
     armorBonus: 3, // 전사(4)보다 약간 낮은 방어
     armorPerLevel: 0.15,
     rangedCooldownScale: 1,
