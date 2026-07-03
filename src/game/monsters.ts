@@ -165,7 +165,7 @@ export function monsterStatsFromLevel(level: number, boss = false) {
     // 보스 대폭 상향(기존 수치 직접 상향): 체력 +100%(레벨계수 11→22), 공격 +20%(0.62→0.75), 방어 +30%(20·0.25→26·0.33). 일반몹(boss=false)은 불변.
     hp: Math.floor(18 + safeLevel * (boss ? 22 : 9)),
     attackDamage: Math.max(1, Math.floor(2 + safeLevel * (boss ? 0.75 : 0.65) + highLevelAtk)),
-    armor: boss ? Math.floor(26 + safeLevel * 0.33) : 0,
+    armor: boss ? Math.floor((26 + safeLevel * 0.33) * 1.3) : 0, // 2026-06-27 보스 방어 추가 +30%(현재대비 ×1.3)
   };
 }
 
@@ -276,7 +276,7 @@ export const BOSS_STATS: Record<
   fire_dragon: {
     name: "파이어 드래곤",
     maxHp: 1400,
-    armor: 81,
+    armor: 105, // 보스 방어 상향 2차: +30% (81→105)
     fireDamage: 20,
     clawDamage: 18,
     attackRange: 31,
@@ -291,7 +291,7 @@ export const BOSS_STATS: Record<
   red_dragon: {
     name: "레드 드래곤",
     maxHp: 1800,
-    armor: 101,
+    armor: 131, // +30% (101→131)
     fireDamage: 28,
     clawDamage: 24,
     attackRange: 34,
@@ -306,7 +306,7 @@ export const BOSS_STATS: Record<
   laser_dragon: {
     name: "레이저 드래곤",
     maxHp: 2300,
-    armor: 117,
+    armor: 152, // +30% (117→152)
     fireDamage: 37,
     clawDamage: 29,
     attackRange: 42,
@@ -321,7 +321,7 @@ export const BOSS_STATS: Record<
   dark_dragon: {
     name: "다크 드래곤",
     maxHp: 2900,
-    armor: 117,
+    armor: 152, // +30% (117→152)
     fireDamage: 50,
     clawDamage: 38,
     attackRange: 45,
@@ -336,7 +336,7 @@ export const BOSS_STATS: Record<
   immortal: {
     name: "불멸의 존재",
     maxHp: 4400,
-    armor: 117,
+    armor: 152, // +30% (117→152)
     fireDamage: 67,
     clawDamage: 55,
     attackRange: 50,
