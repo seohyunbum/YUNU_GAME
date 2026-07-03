@@ -18,6 +18,7 @@ const PALETTE: Record<PlayerClassId, ClassCosmeticPalette> = {
   mage: { primary: 0x553a8b, trim: 0x8e6bd6 },
   summoner: { primary: 0x6b4a2f, trim: 0xcf9b3a },
   gunner: { primary: 0x4a3a2c, trim: 0xb9925a },
+  samurai: { primary: 0x6b2f39, trim: 0xf0b24a }, // 진홍 하카마 + 금빛 트림
   tanker: { primary: 0x596473, trim: 0xa8b3c7 },
 };
 
@@ -102,6 +103,23 @@ function buildTier1(classId: PlayerClassId, group: THREE.Group) {
     group.add(brim, crown, band, bandolier);
     return;
   }
+  if (classId === "samurai") {
+    // 등 뒤 카타나 칼집 + 진홍 오비(허리띠) + 어깨 소형 견갑
+    const sheath = box(0.07, 1.05, 0.12, metal);
+    sheath.position.set(0.24, 1.2, -0.3);
+    sheath.rotation.z = 0.42;
+    const obi = box(0.9, 0.12, 0.5, makeToonMaterial(pal.primary, { roughness: 0.66 }));
+    obi.position.set(0, 0.72, 0);
+    const knot = box(0.16, 0.16, 0.1, glow);
+    knot.position.set(0, 0.72, -0.28);
+    group.add(sheath, obi, knot);
+    for (const side of [-1, 1]) {
+      const sode = box(0.3, 0.18, 0.4, metal); // 사무라이 소데(어깨 갑주)
+      sode.position.set(side * 0.5, 1.46, 0);
+      group.add(sode);
+    }
+    return;
+  }
   // tanker — 대형 강철 견갑 + 가슴 엠블럼 + 은청 트림
   for (const side of [-1, 1]) {
     const pauldron = box(0.44, 0.28, 0.46, metal);
@@ -164,6 +182,16 @@ function buildTier2(classId: PlayerClassId, group: THREE.Group) {
     }
     return;
   }
+  if (classId === "samurai") {
+    const second = box(0.06, 0.9, 0.1, metal); // 두 번째 칼집(와키자시) — 쌍검 실루엣
+    second.position.set(-0.2, 1.1, -0.3);
+    second.rotation.z = -0.5;
+    const edge = box(0.03, 0.92, 0.04, glow);
+    edge.position.set(-0.24, 1.1, -0.3);
+    edge.rotation.z = -0.5;
+    group.add(second, edge);
+    return;
+  }
   // tanker — 대형 견갑 추가
   for (const side of [-1, 1]) {
     const plate = box(0.5, 0.32, 0.5, metal);
@@ -218,6 +246,14 @@ function buildTier3(classId: PlayerClassId, group: THREE.Group) {
     const visor = box(0.3, 0.06, 0.05, glow);
     visor.position.set(0, 1.94, 0.31);
     group.add(brim, visor);
+    return;
+  }
+  if (classId === "samurai") {
+    const banner = box(0.34, 0.86, 0.04, makeGlowMaterial(pal.trim, pal.trim, { emissiveIntensity: 0.5 })); // 등 사시모노(장수 깃발)
+    banner.position.set(-0.3, 1.75, -0.34);
+    const pole = box(0.04, 1.5, 0.04, glow);
+    pole.position.set(-0.3, 1.4, -0.36);
+    group.add(banner, pole);
     return;
   }
   // tanker — 등 배너

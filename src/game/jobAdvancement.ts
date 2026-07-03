@@ -74,6 +74,13 @@ export const JOB_TIERS: Record<PlayerClassId, JobTierDef[]> = {
     { tier: 3, title: "총사령관", requiredLevel: 70, statLevelBonus: 7, advanceItem: JOB_DECREE_HIGH, skillCooldownMult: 0.8 },
     { tier: 4, title: "총신", requiredLevel: 100, statLevelBonus: 10, advanceItem: "job_decree_ultimate_strength", unlockFourthSkill: true, allStatMult: 1.1, skillDamageMult: 1.1, counterChance: 0.05 },
   ],
+  samurai: [
+    // 전사와 동일 수치(레벨·보너스·쿨다운 단축) — 차별점은 스킬·패시브 쪽에 있다. 칭호: 검객→검호→검성→검선.
+    { tier: 1, title: "검객", requiredLevel: 30, statLevelBonus: 5, advanceItem: JOB_SEAL, unlockThirdSkill: true },
+    { tier: 2, title: "검호", requiredLevel: 50, statLevelBonus: 5, advanceItem: JOB_DECREE, skillCooldownMult: 0.85 },
+    { tier: 3, title: "검성", requiredLevel: 70, statLevelBonus: 7, advanceItem: JOB_DECREE_HIGH, skillCooldownMult: 0.8 },
+    { tier: 4, title: "검선", requiredLevel: 100, statLevelBonus: 10, advanceItem: "job_decree_ultimate_strength", unlockFourthSkill: true, allStatMult: 1.1, skillDamageMult: 1.1, counterChance: 0.05 },
+  ],
   tanker: [
     { tier: 1, title: "수호기사", requiredLevel: 30, statLevelBonus: 5, advanceItem: JOB_SEAL, unlockThirdSkill: true },
     { tier: 2, title: "성기사", requiredLevel: 50, statLevelBonus: 5, advanceItem: JOB_DECREE, skillCooldownMult: 0.85 },
