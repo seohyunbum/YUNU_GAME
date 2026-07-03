@@ -93,7 +93,8 @@ import { readFileSync } from "node:fs";
 // 2026-07-03: 방패 수리 — 착용 방패(iron·날카로운 흑요석)도 제작대에서 수리 가능하게 repairEquippedShield 메서드 + 수리패널 방패 항목·라우팅. +9 → 10220.
 // 2026-07-03: spawn* 메시 팩토리 리프 추출 — waterBody/tree/cave→environmentSpawns, droppedItem→droppedItemSpawns,
 //   knight/golem→guardSpawns, miner/villager/blacksmithNpc→npcSpawns (메서드 통째 이동·동작 보존). 방패수리 커밋과 리베이스 합류 → 9470.
-const MAX_MAIN_LINES = 9470;
+// 2026-07-03: 중단됐던 5배치 재시도 성공 — spawnVillageFence·spawnVillageSellShop → game/villageSpawns (이동만·동작 보존). -133 → 9337.
+const MAX_MAIN_LINES = 9337;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

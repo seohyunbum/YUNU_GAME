@@ -836,3 +836,13 @@
   restoreWorldObject)이 남은 추출 대상. replace 시 컨텍스트 객체 끝 멤버가 동일한 점 주의(고유 앵커로 편집).
 - 검증(폐기 후 HEAD): typecheck 0에러·size·methods·architecture·hotpath·combat·systems·content·balance·mobile·
   save-migration 전부 녹색. 시각 동일성은 브라우저 확인 권장(Chrome 부재로 visual-check 미실행).
+
+## 2026-07-03 — spawn* 추출 5배치 재시도 성공 (villageSpawns)
+
+- 앞서 세션 한도로 중단·폐기됐던 배치 재작업: spawnVillageFence·spawnVillageSellShop → game/villageSpawns (메서드 통째
+  이동·동작 보존). 기존 worldSpawnContext 교차 타입에 VillageSpawnContext 합류(멤버 이미 충족 — addWorldObject·
+  getGroundHeightAt·mergeStaticMeshes). createBuildingSign 은 리프(buildingSigns)의 동명 export 를 직접 import.
+- 지난 실패 원인이던 "컨텍스트 객체 replace 오매칭"은 python 앵커 기반 삭제·고유 문자열 치환으로 회피.
+- 결과: main.ts 9470→9337줄(−133), 482→480메서드(−2). 라쳇 하향(size 9337·methods 480).
+- 검증: typecheck 0에러·size·methods·architecture·hotpath·combat·systems·content·balance·mobile·save-migration 녹색.
+- 잔여 추출 대상: spawnVillage(오케스트레이션 성격 — 판단 필요)·세이브 직렬화 3종.
