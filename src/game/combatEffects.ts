@@ -786,6 +786,12 @@ export function spawnSkillCastImpact(context: CombatEffectContext, classId: Play
     case "tanker":
       spawnIronBarrier(context, 0x9fb4c9);
       break;
+    case "samurai": { // 진홍 검기 — 발밑 충격파(전사의 주황과 구분되는 진홍·금)
+      const feet = context.playerPosition.clone();
+      feet.y = context.getGroundHeightAt(feet.x, feet.z) + 0.05;
+      spawnGroundShockwave(context, feet, 0xff3b52);
+      break;
+    }
   }
   // 4차(초월) 전직자 — 모든 스킬 시전에 압도적 푸른빛 다이아몬드 아우라를 덧입힌다.
   if (transcended) {
