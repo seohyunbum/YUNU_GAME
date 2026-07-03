@@ -2,7 +2,7 @@ import type * as THREE from "three";
 import { GUNNER_SKILL_DAMAGE, HEALER_HEAL_AMOUNT, MAGE_TNT_DAMAGE, MAGE_TNT_RADIUS, WARRIOR_EXPLOSION_DAMAGE, WIND_CUTTER_DAMAGE } from "./constants";
 import { partyEmpowerNearby, partyHealNearby, partyRallyNearby } from "./partyPresence";
 import { partyGuestAttackIntercept } from "./partyWorldSync";
-import { performSamuraiDash, registerSamuraiFlurry, resetSamuraiEffects, samuraiDashDamage, samuraiMoonlightDamage, samuraiPierceHitDamage, updateSamuraiFlurries, SAMURAI_DASH_RANGE, SAMURAI_MOONLIGHT_WAVES, SAMURAI_PIERCE_HITS, SAMURAI_PIERCE_INTERVAL_MS } from "./samurai";
+import { performSamuraiDash, registerSamuraiFlurry, resetSamuraiEffects, samuraiDashDamage, samuraiMoonlightDamage, samuraiPierceHitDamage, updateSamuraiFlurries, SAMURAI_DASH_RANGE, SAMURAI_MOONLIGHT_RADIUS, SAMURAI_MOONLIGHT_WAVES, SAMURAI_PIERCE_HITS, SAMURAI_PIERCE_INTERVAL_MS } from "./samurai";
 import type { SkillElement } from "./skillSounds";
 import type { PlayerClassId, WorldObject } from "./types";
 
@@ -171,6 +171,11 @@ export interface SecondSkillContext {
   showMessage(text: string): void;
   renderHud(): void;
   castImpact(): void;
+  // ── 이동·공간 커널 (사무라이 도약 등 위치 기반 스킬용 — 시전 시 1회 호출, 핫패스 아님) ──
+  playerPosition: THREE.Vector3; // 읽기 전용 참조 (main 소유)
+  forwardXZ(): { x: number; z: number }; // 카메라 전방의 XZ 성분 (정규화 안 됨 가능)
+  nearbyCombatTargets(radius: number): WorldObject[];
+  dashStep(dx: number, dz: number): void; // 이동 + 경계 클램프 + 충돌 해석(밀어내기) 1스텝 — 관통 금지 보장
 }
 
 export function useSecondClassSkill(context: SecondSkillContext) {
@@ -223,6 +228,16 @@ export function useSecondClassSkill(context: SecondSkillContext) {
     context.renderHud();
     return;
   }
+  if (playerClass === "samurai") {
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    const dashDmg = Math.max(1, Math.round(samuraiDashDamage(context.currentDamage()) * context.skillDamageMult()));
+    const result = performSamuraiDash(context, dashDmg); // 이동은 main 이 주입한 dashStep(충돌 해석 포함) — 건물 관통 금지
+    context.playHandAction("melee");
+    context.skillSound("wind");
+    context.showMessage(result.hits > 0 ? `도약! ${result.distance.toFixed(1)}칸 돌진 — 적 ${result.hits}명에게 ${dashDmg} 피해.` : `도약! ${result.distance.toFixed(1)}칸 돌진했습니다.`);
+    return;
+  }
   if (playerClass === "tanker") {
     if (!context.trySpend(skill)) return;
     context.castImpact();
@@ -267,6 +282,7 @@ export function registerBurn(id: string, damage: number, now: number) {
 
 export function resetSecondSkillEffects(buffs: SkillBuffs) {
   burningTargets.length = 0;
+  resetSamuraiEffects(); // 사무라이 연격(난도·무한 찌르기) 진행분도 함께 초기화
   buffs.burningShieldUntil = 0;
   buffs.healingRainUntil = 0;
   buffs.rapidFireUntil = 0;
@@ -289,6 +305,7 @@ export interface SkillEffectsContext {
   getObject(id: string): WorldObject | undefined;
   nearbyCombatTargets(radius: number): WorldObject[];
   applyDamage(target: WorldObject, damage: number): void;
+  meleeEffects(target: WorldObject): void; // 사무라이 연격 틱의 타격 연출 (SecondSkillContext.meleeEffects 와 동일 배선)
   heal(amount: number): void;
   healingRain(): void; // 치유의 비 지속 연출(틱마다 떨어지는 빗방울)
   playerPosition: THREE.Vector3;
@@ -296,6 +313,8 @@ export interface SkillEffectsContext {
 
 export function updateSecondSkillEffects(context: SkillEffectsContext) {
   const now = context.now();
+
+  updateSamuraiFlurries(context); // 사무라이 연격 틱(난도 4연격·무한 찌르기 11연격) — 화상 도트와 같은 등록형 패턴
 
   // 화상 도트 — 1초 간격, 대상이 사라지면 종료
   for (let index = burningTargets.length - 1; index >= 0; index -= 1) {
@@ -376,12 +395,12 @@ export const THIRD_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   mage: { name: "메테오", summary: "불덩이 운석 3발을 부채꼴로 발사해 넓은 범위에 큰 피해를 줍니다.", manaCost: 62, cooldown: 22 },
   summoner: { name: "정령 폭풍", summary: "주변에 바람 정령 폭풍을 일으켜 3초간 초당 광역 피해(총 3회)를 줍니다.", manaCost: 45, cooldown: 28 },
   gunner: { name: "관통 강탄", summary: "강력한 관통탄을 발사해 직선상의 적에게 큰 피해를 줍니다.", manaCost: 55, cooldown: 30 },
+  samurai: { name: "무한 찌르기", summary: `정면의 적을 약 1.6초간 ${SAMURAI_PIERCE_HITS}연속으로 찌릅니다. (타격당 공격력 40%)`, manaCost: 50, cooldown: 32 },
   tanker: { name: "불굴의 함성", summary: "20초 동안 자신과 파티원 전체의 방어력을 +20% 높입니다.", manaCost: 50, cooldown: 60 },
 };
 
-// 3스킬 컨텍스트 — 2스킬 컨텍스트에 광역 대상/자가회복만 추가.
+// 3스킬 컨텍스트 — 2스킬 컨텍스트에 자가회복/광역 연출만 추가 (nearbyCombatTargets 는 2스킬 컨텍스트로 승격).
 export interface ThirdSkillContext extends SecondSkillContext {
-  nearbyCombatTargets(radius: number): WorldObject[];
   heal(amount: number): void;
   spiritStorm(radius: number): void; // 정령 폭풍 — 주변 회오리 광역 연출
 }
@@ -450,6 +469,22 @@ export function useThirdClassSkill(context: ThirdSkillContext) {
     context.showMessage(`관통 강탄! ${pierceDmg} 피해의 관통탄을 발사했습니다.`);
     return;
   }
+  if (playerClass === "samurai") {
+    // 무한 찌르기 — 정면 단일 대상 11연속 찌르기(≈1.6초 채널). 난도와 같은 연격 등록 패턴.
+    const target = context.lookCombatTarget();
+    if (!target) {
+      context.showMessage("무한 찌르기: 정면의 몬스터를 바라보고 사용하세요.");
+      return;
+    }
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    const pierceHit = Math.max(1, Math.round(samuraiPierceHitDamage(context.currentDamage()) * context.skillDamageMult()));
+    registerSamuraiFlurry(target.id, pierceHit, SAMURAI_PIERCE_HITS, SAMURAI_PIERCE_INTERVAL_MS, context.now());
+    context.playHandAction("melee");
+    context.skillSound("melee");
+    context.showMessage(`무한 찌르기! ${SAMURAI_PIERCE_HITS}연속 찌르기 — 타격당 ${pierceHit} 피해.`);
+    return;
+  }
   // tanker — 불굴의 함성
   if (!context.trySpend(skill)) return;
   context.castImpact();
@@ -468,6 +503,7 @@ export const FOURTH_SKILLS: Record<PlayerClassId, SecondSkillDef> = {
   mage: { name: "천공의 운석우", summary: "운석 5발을 부채꼴로 쏟아부어 초광역에 큰 피해를 줍니다.", manaCost: 95, cooldown: 50 },
   summoner: { name: "용 정령 강림", summary: "거대 용 정령의 폭풍이 6초간 주변을 휩쓸어 초당 큰 피해를 줍니다.", manaCost: 90, cooldown: 55 },
   gunner: { name: "초토화 난사", summary: "관통탄 7발을 부채꼴로 퍼부어 직선상의 적을 초토화합니다.", manaCost: 85, cooldown: 45 },
+  samurai: { name: "월광베기", summary: "달빛 검기로 주변을 3연격해 막대한 광역 피해를 줍니다.", manaCost: 80, cooldown: 45 },
   tanker: { name: "불멸의 요새", summary: "20초간 방어를 대폭 강화하고 주변에 도발 폭발, 파티 전체를 보호합니다.", manaCost: 80, cooldown: 70 },
 };
 
@@ -521,6 +557,17 @@ export function useFourthClassSkill(context: ThirdSkillContext) {
     for (let i = -3; i <= 3; i += 1) context.fireSkillProjectile("arrow", "arrow", dmg, 64, 0.24, undefined, i * 0.12);
     context.playHandAction("magic"); context.skillSound("gun");
     context.showMessage(`초토화 난사! ${dmg} 관통탄 7발을 퍼부었습니다.`);
+    return;
+  }
+  if (playerClass === "samurai") {
+    // 월광베기 — 주변 광역 3연격 × 공격력 220% (합 6.6배, 전사 천검난무 7배 바로 아래)
+    if (!context.trySpend(skill)) return;
+    context.castImpact();
+    const targets = context.nearbyCombatTargets(SAMURAI_MOONLIGHT_RADIUS);
+    const dmg = Math.max(1, Math.round(samuraiMoonlightDamage(context.currentDamage()) * context.skillDamageMult()));
+    for (let wave = 0; wave < SAMURAI_MOONLIGHT_WAVES; wave += 1) for (const t of targets) { context.meleeEffects(t); context.applyDamage(t, dmg); }
+    context.playHandAction("melee"); context.skillSound("melee");
+    context.showMessage(`월광베기! 주변 ${targets.length}명에게 ${dmg} 피해를 ${SAMURAI_MOONLIGHT_WAVES}연격했습니다.`);
     return;
   }
   // tanker — 불멸의 요새
