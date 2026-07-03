@@ -26,9 +26,14 @@ const SCALE = SIZE / WORLD_SIZE;
 const proj = (v: number) => HALF + Math.max(-WORLD_SIZE / 2, Math.min(WORLD_SIZE / 2, v)) * SCALE;
 
 let root: HTMLDivElement | null = null;
-let dynamicGroup: SVGGElement | null = null;
+let markerGroup: SVGGElement | null = null; // 마커(집/보스/동굴/요새) — ~3Hz 재생성, 내용 변경 시에만 DOM 쓰기
+let coneEl: SVGPolygonElement | null = null; // 시야 부채꼴 — 영속 노드, 속성만 갱신(매 프레임 innerHTML 금지 — §10.4)
+let dotEl: SVGCircleElement | null = null;
+let arrowEl: SVGPolygonElement | null = null;
 let markerSvg = "";
 let markerTimer = 0;
+let lastMarkerSvg = ""; // 마지막으로 DOM 에 쓴 마커 문자열 — 동일하면 스킵
+let lastPx = NaN, lastPz = NaN, lastYaw = NaN; // 플레이어 화살표 변경감지 — 정지 상태에선 DOM 작업 0
 
 function ensureDom() {
   if (root) return;
@@ -47,7 +52,16 @@ function ensureDom() {
     <text x="9" y="${HALF + 4}" text-anchor="middle" fill="#fff7d6" font-size="11" font-weight="800" ${halo}>W</text>
   </svg>`;
   document.body.appendChild(root);
-  dynamicGroup = root.querySelector("#mm-dyn");
+  const dyn = root.querySelector("#mm-dyn")!;
+  // 영속 노드 1회 생성 — 이후엔 points/cx/cy 속성만 갱신 (SVG 문자열 재파싱·노드 재생성 제거)
+  dyn.innerHTML = `<g id="mm-markers"></g>
+    <polygon id="mm-cone" points="" fill="rgba(255,226,74,0.3)" stroke="none" />
+    <circle id="mm-dot" cx="0" cy="0" r="2.4" fill="#fff7d6" stroke="#111827" stroke-width="1.4" />
+    <polygon id="mm-arrow" points="" fill="#ffe24a" stroke="#111827" stroke-width="1.4" stroke-linejoin="round" />`;
+  markerGroup = dyn.querySelector("#mm-markers");
+  coneEl = dyn.querySelector("#mm-cone");
+  dotEl = dyn.querySelector("#mm-dot");
+  arrowEl = dyn.querySelector("#mm-arrow");
 }
 
 function dot(cx: number, cy: number, r: number, fill: string, stroke = "#0c1812") {
@@ -94,12 +108,16 @@ export function tickMinimap(ctx: MinimapContext, delta: number) {
   root!.style.display = "block";
   markerTimer -= delta;
   if (markerTimer <= 0) {
-    markerTimer = 0.3; // 마커(집/보스/동굴)는 ~3Hz 갱신, 플레이어는 매 프레임
+    markerTimer = 0.3; // 마커(집/보스/동굴)는 ~3Hz 갱신
     markerSvg = buildMarkers(ctx);
+    if (markerSvg !== lastMarkerSvg) { markerGroup!.innerHTML = markerSvg; lastMarkerSvg = markerSvg; } // 내용 변경 시에만 DOM 쓰기
   }
-  const px = proj(ctx.playerX());
-  const pz = proj(ctx.playerZ());
-  const yaw = ctx.yaw();
+  // 플레이어 화살표 — 변경감지: 위치 0.1px·yaw 0.005rad 단위로 반올림해 동일하면 스킵(정지 시 DOM 작업 0)
+  const px = Math.round(proj(ctx.playerX()) * 10) / 10;
+  const pz = Math.round(proj(ctx.playerZ()) * 10) / 10;
+  const yaw = Math.round(ctx.yaw() * 200) / 200;
+  if (px === lastPx && pz === lastPz && yaw === lastYaw) return;
+  lastPx = px; lastPz = pz; lastYaw = yaw;
   const fx = -Math.sin(yaw), fy = -Math.cos(yaw); // 바라보는 방향(맵 좌표) — yaw 0 = 북(위)
   const gx = -fy, gy = fx;
   // 진행/시선 방향 직관화: ① 앞쪽으로 펼쳐지는 반투명 시야 부채꼴 ② 그 위에 길고 뾰족한 화살표 ③ 중심 점.
@@ -109,5 +127,8 @@ export function tickMinimap(ctx: MinimapContext, delta: number) {
   const tip = `${(px + fx * 12).toFixed(1)},${(pz + fy * 12).toFixed(1)}`; // 길고 뾰족하게 — 어느 쪽이 앞인지 명확
   const left = `${(px + gx * 3.4 - fx * 1).toFixed(1)},${(pz + gy * 3.4 - fy * 1).toFixed(1)}`;
   const right = `${(px - gx * 3.4 - fx * 1).toFixed(1)},${(pz - gy * 3.4 - fy * 1).toFixed(1)}`;
-  dynamicGroup!.innerHTML = `${markerSvg}<polygon points="${px.toFixed(1)},${pz.toFixed(1)} ${cl} ${cr}" fill="rgba(255,226,74,0.3)" stroke="none" /><circle cx="${px.toFixed(1)}" cy="${pz.toFixed(1)}" r="2.4" fill="#fff7d6" stroke="#111827" stroke-width="1.4" /><polygon points="${tip} ${left} ${right}" fill="#ffe24a" stroke="#111827" stroke-width="1.4" stroke-linejoin="round" />`;
+  coneEl!.setAttribute("points", `${px},${pz} ${cl} ${cr}`);
+  dotEl!.setAttribute("cx", String(px));
+  dotEl!.setAttribute("cy", String(pz));
+  arrowEl!.setAttribute("points", `${tip} ${left} ${right}`);
 }

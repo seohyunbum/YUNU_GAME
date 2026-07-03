@@ -88,7 +88,9 @@ import { readFileSync } from "node:fs";
 // 2026-06-27: 용 전리품 상점 일원화 — 포인트 교환 섹션·exchangeDragonLootForPoints 핸들러·import 제거(용 소재는 POINT_SHOP_OFFERS 구매 + 판매소 자동파생). 순 -37 → 10168.
 // 2026-06-28: 그리드 제작 모호성 수정 — 재료 같은 형제 레시피(용 장비 4종)에서 '재료 넣기'로 고른 의도 레시피 우선(pendingGridRecipeId 필드+set/clear 3곳, workbenchRecipeFromSlots filter+prefer). +5 → 10172.
 // 2026-06-28: 단축키 입력창 트랩 수정 — 레시피 검색창 포커스 중 I/K/M/B 가 검색에 먹혀 단축키가 안 먹던 것 해소(검색창 blur+통과) + 게임 화면 클릭 시 입력 포커스 해제. +6 → 10178.
-const MAX_MAIN_LINES = 10178;
+// 2026-07-03: 핫패스 GC 제거 + 적응형 화질 복구 — objectsNear 스크래치 Set 풀·숫자 셀키(공간 인덱스 = §3 커널), 트레일 풀 반납 배선 2곳,
+//   적응형 화질 승급 경로(복구 상한·히스테리시스·플립플롭 백오프 — 일시 스톨에 세션 내내 저화질로 남던 문제 해소). +33 → 10211.
+const MAX_MAIN_LINES = 10211;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

@@ -761,3 +761,29 @@
 - typecheck·size(10178)·methods(494)·architecture·hotpath·combat·systems·balance·content·mobile·difficulty·spirits·
   damage-variance·nickname·save-migration·party-ledger·leaderboard 전부 녹색. save-roundtrip 은 Chrome 부재로 미실행.
 - 관련: src/game/predatorAi.ts, src/game/monsters.ts, src/game/constants.ts, scripts/balance-test.mjs, scripts/gameplay-systems-test.mjs.
+
+## 2026-07-03 — 감사 후속: 핫패스 GC 제거 4종 + 적응형 화질 복구 경로
+
+- 배경: 거버넌스·성능 3관점 병렬 감사에서 기계 검사기 사각지대 누수 4건 확인 → 품질 무손실 수정 일괄 적용.
+- ① 미니맵(ui/minimap.ts): 매 프레임 dynamicGroup.innerHTML 전체 재작성(SVG 문자열 생성+파싱+노드 재생성) →
+  영속 노드(mm-markers/cone/dot/arrow) 1회 생성 + 변경감지(위치 0.1px·yaw 0.005rad 반올림 비교, 마커는 문자열 비교) +
+  points/cx/cy 속성 직접 갱신. 정지 시 DOM 작업 0, 이동 시에도 재파싱 없음. 픽셀 동일.
+- ② objectsNear(main.ts): 호출마다 new Set + 셀키 템플릿 문자열 → 깊이별 스크래치 Set 풀(3단, 중첩 제너레이터 안전:
+  try/finally 로 깊이 복원, for-of break 시에도 동작) + 셀키 숫자 패킹(cellX·65536+cellZ). spatialBuckets/spatialKeysByObject
+  키 타입 string→number. 이동 중 프레임당 5~10회 불리는 최다 경로의 GC 압력 제거. 동작 동일.
+- ③ 투사체 트레일(combatEffects.ts): magic/wind/tnt 트레일이 파티클마다 new SphereGeometry+Material+Vector3×2 →
+  단위 구 지오메트리 공유(크기는 scale)·머티리얼 free-list 풀(페이드가 per-particle opacity 라 공유 불가 → 반납 재사용,
+  CAP 96)·고정 속도벡터 모듈 상수 공유(updateDamageParticles 는 velocity 읽기 전용 — 확인함). CombatEffectParticle 에
+  pooledMaterial 플래그 추가, main.ts 정리 2곳에서 dispose 대신 releasePooledTrailMaterial 반납. main 의 인라인 파티클
+  타입을 CombatEffectParticle 로 정본화. 비주얼 동일.
+- ④ 적응형 화질 복구(main.ts updateAdaptiveQuality): 종전엔 하향만 있고 복구 없음 → 일시 스톨(보스 스폰 등) 한 번에
+  세션 내내 저화질(외곽선·HDRI·픽셀 40% 손실). 신규: 첫 자동 하향 시 원래 품질을 adaptiveRestoreTarget 으로 기억,
+  쾌적 윈도우(avg<26ms·slow<2%·히치0 — 하향 임계보다 훨씬 엄격한 히스테리시스) 연속 4회(10초)면 한 단계 승급,
+  승급 직후 워밍업 3초 리셋(전환 히치로 인한 즉시 재하향 방지), 승급 후 재하향 시 요구 윈도우 2배(최대 16 — 플립플롭
+  방지), 원래 품질 도달 시 상태 초기화. 수동 선택(qualityLocked)은 기존대로 자동 경로 완전 비활성.
+- main.ts +33줄(10178→10211) — 공간 인덱스·적응형 화질은 §3 이 main 소유로 지정한 공유 커널이라 배선 잔류가 규약 적합.
+  size 예산 이력 주석과 함께 10211 로 갱신. 메서드 수 불변(494).
+- 검증: typecheck·size·methods·architecture·hotpath(할당0)·combat·systems·content·balance·mobile·difficulty·spirits·
+  damage-variance·nickname·save-migration·party-ledger·leaderboard 전부 녹색. 미니맵/트레일은 브라우저 시각 확인 권장
+  (Chrome 부재로 visual-check 미실행 — 특히 미니맵 화살표·마커, 마법/총알 트레일 잔상).
+- 관련: src/ui/minimap.ts, src/main.ts, src/game/combatEffects.ts, scripts/check-main-size.mjs.
