@@ -317,7 +317,12 @@ export const SHIELD_DEFENSE: Record<ItemId, number> = {
 
 export const SHIELD_DURABILITY: Record<ItemId, number> = {
   iron_shield: 200,
-  sharp_obsidian_shield: 300, // 더 단단(iron 200 초과)
+  sharp_obsidian_shield: 1000, // 궁극의 방패 — 매우 단단(피격 1000회)
+};
+
+// 수리 1회 회복량 오버라이드 — 기본은 최대의 50%(repairPerMaterial). 방패 등 예외만 고정값.
+export const REPAIR_PER_MATERIAL_OVERRIDE: Partial<Record<ItemId, number>> = {
+  sharp_obsidian_shield: 300, // 내구도 1000, 수리 1회 +300(재료 4개로 완전 회복)
 };
 
 // 방패 수리 재료 — 방패는 도구 테이블 밖(장착형, shieldDurabilityUsed 로 별도 관리)이라 수리 재료를 여기 명시한다.
@@ -405,9 +410,9 @@ export function repairMaterialFor(item: ItemId): ItemId | null {
   return MATERIALS.find((material) => item.startsWith(`${material.prefix}_`))?.refined ?? null;
 }
 
-// 수리 1회 = 최대 내구도의 50% 회복(올림). 완전히 닳은 도구도 재료 2개로 반드시 완전 회복된다.
+// 수리 1회 = 최대 내구도의 50% 회복(올림) — 완전히 닳은 도구도 재료 2개로 완전 회복. 단 오버라이드(방패 등)는 고정값.
 export function repairPerMaterial(item: ItemId): number {
-  return Math.ceil(toolMaxDurability(item) * 0.5);
+  return REPAIR_PER_MATERIAL_OVERRIDE[item] ?? Math.ceil(toolMaxDurability(item) * 0.5);
 }
 
 export function shortName(item: ItemId) {

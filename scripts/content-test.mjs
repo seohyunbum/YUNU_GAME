@@ -265,7 +265,7 @@ try {
     const material = repairMaterialFor(shield);
     if (!material || !isItem(material)) problems.push(`shield repair: '${shield}' must have a valid repair material, got '${material}'`);
     if (toolMaxDurability(shield) !== SHIELD_DURABILITY[shield]) problems.push(`shield repair: toolMaxDurability('${shield}')=${toolMaxDurability(shield)} must equal SHIELD_DURABILITY ${SHIELD_DURABILITY[shield]}`);
-    if (repairPerMaterial(shield) * 2 < SHIELD_DURABILITY[shield]) problems.push(`shield repair: '${shield}' should fully repair within 2 materials`);
+    if (repairPerMaterial(shield) <= 0 || Math.ceil(SHIELD_DURABILITY[shield] / repairPerMaterial(shield)) > 5) problems.push(`shield repair: '${shield}' repair amount ${repairPerMaterial(shield)} must fully repair within 5 materials of max ${SHIELD_DURABILITY[shield]}`);
   }
   if (repairMaterialFor("sharp_obsidian_shield") !== "sharp_obsidian") problems.push("shield repair: 날카로운 흑요석 방패 must repair with sharp_obsidian");
 
