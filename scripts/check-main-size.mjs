@@ -91,7 +91,9 @@ import { readFileSync } from "node:fs";
 // 2026-07-03: 핫패스 GC 제거 + 적응형 화질 복구 — objectsNear 스크래치 Set 풀·숫자 셀키(공간 인덱스 = §3 커널), 트레일 풀 반납 배선 2곳,
 //   적응형 화질 승급 경로(복구 상한·히스테리시스·플립플롭 백오프 — 일시 스톨에 세션 내내 저화질로 남던 문제 해소). +33 → 10211.
 // 2026-07-03: 방패 수리 — 착용 방패(iron·날카로운 흑요석)도 제작대에서 수리 가능하게 repairEquippedShield 메서드 + 수리패널 방패 항목·라우팅. +9 → 10220.
-const MAX_MAIN_LINES = 10220;
+// 2026-07-03: spawn* 메시 팩토리 리프 추출 — waterBody/tree/cave→environmentSpawns, droppedItem→droppedItemSpawns,
+//   knight/golem→guardSpawns, miner/villager/blacksmithNpc→npcSpawns (메서드 통째 이동·동작 보존). 방패수리 커밋과 리베이스 합류 → 9470.
+const MAX_MAIN_LINES = 9470;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
