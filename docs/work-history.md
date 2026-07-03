@@ -821,3 +821,18 @@
   실브라우저 E2E: 새게임→요새 3단계 클리어→저장→page reload→이어하기→재입장 **3단계부터 시작** 확인,
   5단계 갱신 후 재재시작→5 유지, localStorage 미러 동기화, 파티 sync 는 세이브 경로 미사용(오염 없음) 확인.
 - 상세: docs/save-system-history.md 2026-07-03 항목.
+## 2026-07-03 — spawn* 메시 팩토리 리프 추출 (God Object 축소 1차)
+
+- 감사 권고 5번 실행. 4배치 커밋(각각 typecheck·architecture·systems·content 녹색 확인 후):
+  - spawnWaterBody·spawnTree·spawnCave → game/environmentSpawns
+  - spawnDroppedItem → game/droppedItemSpawns
+  - spawnKnight·spawnGolem → game/guardSpawns
+  - spawnMiner·spawnVillager·spawnBlacksmithNpc → game/npcSpawns
+  전부 메서드 통째 이동(좁은 컨텍스트 주입, entitySpawns 패턴)·동작 보존.
+- 결과: main.ts 10211→9461줄(−750), 494→481메서드(−13). 예산 라쳇 하향(size 9461·methods 481, 여유 0).
+- ⚠ 실패 기록(§11): 5번째 배치(spawnVillageSellShop·spawnVillageFence → villageSpawns)는 작업 에이전트가 세션 한도로
+  중단되며 미커밋 상태가 오염됨(컨텍스트 객체 replace 가 entitySpawnContext 까지 잘못 매칭) → 미커밋분 폐기(checkout --).
+  다음 작업자: 이 두 메서드 + spawnVillage(오케스트레이션) + 세이브 직렬화 3종(createSaveData/restoreSaveData/
+  restoreWorldObject)이 남은 추출 대상. replace 시 컨텍스트 객체 끝 멤버가 동일한 점 주의(고유 앵커로 편집).
+- 검증(폐기 후 HEAD): typecheck 0에러·size·methods·architecture·hotpath·combat·systems·content·balance·mobile·
+  save-migration 전부 녹색. 시각 동일성은 브라우저 확인 권장(Chrome 부재로 visual-check 미실행).

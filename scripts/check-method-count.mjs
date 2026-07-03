@@ -30,7 +30,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-24: 4차 전직 4번째 스킬 입력 배선 useFourthSkill 1개 → 495.
 // 2026-06-26: 요새 랭킹 난이도 분리 — loadBestFortressStage+loadBestFortressBaseLevel 2개를 loadBestFortress 1개로 병합 → 494.
 // 2026-06-27: 정령 소환권 막타자 귀속 — dropKillSpiritToken 1개(중앙화, grantExp/파티/펫 공용) → 495.
-const MAX_METHODS = 495;
+// 2026-07-03: spawn* 추출로 9개 메서드+헬퍼 리프 이동 → 494→481. 방패수리(repairEquippedShield) 리베이스 합류 +1 → 482.
+const MAX_METHODS = 482;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");
