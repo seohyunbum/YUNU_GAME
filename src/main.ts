@@ -38,6 +38,7 @@ import {
   type EnvironmentSpawnContext,
 } from "./game/environmentSpawns";
 import { spawnDroppedItem, type DroppedItemSpawnContext } from "./game/droppedItemSpawns";
+import { spawnGolem, spawnKnight, type GuardSpawnContext } from "./game/guardSpawns";
 import {
   applyShadowQuality, shouldSkipTinyRaycastDetail, capCreatureRaycastMeshes, precompileSceneShaders, registerDistanceCulledVisual, refreshTrackedVisualVisibility,
   shouldHideInvisibleMeshFromRender, shouldShowPerformanceHiddenVisual, updateDistanceCulledVisuals, applyOutlineDistanceGate,
@@ -378,12 +379,14 @@ class WildernessGame {
   private readonly spawnContext: SpawnContext = {
     addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
   };
-  private readonly worldSpawnContext: EnvironmentSpawnContext & DroppedItemSpawnContext = {
+  private readonly worldSpawnContext: EnvironmentSpawnContext & DroppedItemSpawnContext & GuardSpawnContext = {
     addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
     getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z),
     mergeStaticMeshes: (group) => this.mergeStaticMeshes(group),
     overlapsPriorityBiome: (point, radius, margin) => Boolean(this.overlapsPriorityBiome(point, radius, margin)),
     sunPosition: () => this.sunPosition,
+    createWalkCycle: (parts, amplitude, speed, lift) => this.createWalkCycle(parts, amplitude, speed, lift),
+    monsterDifficulty: () => this.difficultyMods,
   };
   private readonly entitySpawnContext: EntitySpawnContext = {
     addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra),
@@ -1019,7 +1022,7 @@ class WildernessGame {
     for (const ev of ["pointerdown", "keydown"]) window.addEventListener(ev, () => this.ensureAudio(), { once: true }); // 첫 상호작용에 오디오 언락 → 타이틀 BGM 시작(브라우저 자동재생 정책)
     ensureNickname((name) => { this.nickname = name; const badge = document.querySelector("[data-player-nickname]"); if (badge) badge.textContent = name; });    initPartyLobby(() => this.nickname);
     initPartyFlow({ isInGame: () => this.gameStarted, startNewGame: () => { if (!this.pendingPlayerClass) this.pendingPlayerClass = this.playerClass ?? "warrior"; this.startGame("new"); }, summonTo: (mapId, x, z) => { if (this.locationMode === "cave") this.leaveCave(); else if (this.locationMode === "house") this.leaveHouse(); if (this.currentWorldMapId !== mapId) this.teleportToWorldMap(mapId, true); this.playerPosition.set(x + 2.5, this.playerPosition.y, z + 2.5); this.settlePlayerAfterTeleport(); this.camera.position.copy(this.playerPosition); }, showMessage: (text) => this.showMessage(text) });
-    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined, hasPet: this.summonerCompanion.petActive(), jobTier: this.jobTier, dragonGear: { boots: this.dragonGear.boots, cloak: this.dragonGear.cloak, crown: this.dragonGear.crown } }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, hostGameHour: () => this.gameHour(), setSyncedHour: (hour) => { this.syncedHour = hour; }, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? this.spawnGolem(pos, villageId) : type === "villageKnight" ? this.spawnKnight(pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened, chestTier) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich, chestTier ?? 0); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => spawnCave(this.worldSpawnContext, new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return chest.chestTier ?? 0; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => { if (target.type === "wildPredator" || target.type === "dragon" || target.type === "jammini") this.enterCombatMood(); triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed); }, showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target, creditQuest) => this.grantExperienceForTarget(target, creditQuest), creditQuestKill: () => { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.renderHud(); }, dropKillSpiritToken: (wild, boss) => this.dropKillSpiritToken(wild, boss), rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.sample("victory.mp3", 0.45, () => {}); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, empowerLocalPlayer: (durationMs) => { this.skillBuffs.empowerUntil = performance.now() + durationMs; this.showMessage("아군의 심판의 빛! 5분간 공격·방어 +10%."); this.renderHud(); }, rallyLocalPlayer: (durationMs) => { this.skillBuffs.rallyDefUntil = performance.now() + durationMs; this.showMessage("아군의 불굴의 함성! 20초간 방어 +20%."); this.renderHud(); }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object), sharedGroundObjects: () => [...this.objectsOfTypes(["droppedItem", "smelter", "specialSmelter", "workbench", "extendedWorkbench", "grinder", "bed"])].filter((o) => !o.partyTransient), spawnDroppedItemView: (item, count, x, z) => spawnDroppedItem(this.worldSpawnContext, item as ItemId, count, new THREE.Vector3(x, 0, z)), spawnStationView: (objType, x, z, bedTier) => { const pos = new THREE.Vector3(x, 0, z); const obj = objType === "smelter" ? spawnSmelterObject(this.spawnContext, pos, false) : objType === "specialSmelter" ? spawnSmelterObject(this.spawnContext, pos, true) : objType === "workbench" ? spawnWorkbenchObject(this.spawnContext, pos, false) : objType === "extendedWorkbench" ? spawnWorkbenchObject(this.spawnContext, pos, true) : objType === "grinder" ? spawnGrinderObject(this.spawnContext, pos) : spawnBedObject(this.spawnContext, pos, 0); if (objType === "bed" && bedTier) obj.bedTier = bedTier as typeof obj.bedTier; return obj; }, pickupSharedObject: (id) => { const obj = this.objects.get(id); if (!obj || obj.lockedStation) return null; const stationItem: Record<string, ItemId> = { smelter: "smelter", specialSmelter: "special_smelter", workbench: "crafting_table", extendedWorkbench: "extended_workbench", grinder: "grinder", bed: "bed" }; const items = obj.type === "droppedItem" && obj.droppedItem ? [{ item: obj.droppedItem, count: obj.droppedCount ?? 1 }] : stationItem[obj.type] ? [{ item: stationItem[obj.type], count: 1 }] : null; if (!items) return null; this.removeObject(id); return items; }, hostSpawnDroppedGround: (item, count, x, z) => { spawnDroppedItem(this.worldSpawnContext, item as ItemId, count, new THREE.Vector3(x, 0, z)); }, hostSpawnStation: (item, x, z, yaw) => { const pos = new THREE.Vector3(x, 0, z); if (item === "crafting_table") spawnWorkbenchObject(this.spawnContext, pos, false); else if (item === "extended_workbench") spawnWorkbenchObject(this.spawnContext, pos, true); else if (item === "smelter") spawnSmelterObject(this.spawnContext, pos, false); else if (item === "special_smelter") spawnSmelterObject(this.spawnContext, pos, true); else if (item === "grinder") spawnGrinderObject(this.spawnContext, pos); else if (item === "bed") spawnBedObject(this.spawnContext, pos, yaw); }, canAddItem: (item, _count) => item === "bag" || item === "big_bag" || (isDurableTool(item) ? this.allStorageSlots().some((s) => !s.item) : this.allStorageSlots().some((s) => s.item === item || !s.item)), receivePickupItems: (items) => items.filter((it) => { const ok = this.addItem(it.item as ItemId, it.count); if (ok) this.appendPartyLedger(it.item as ItemId, it.count); return !ok; }), homeStorageSlots: () => this.homeStorage.map((s) => ({ item: s.item, count: s.count, durabilityUsed: s.durabilityUsed })), sharedSupplyCooldownValue: () => this.homeSupplyCooldowns["__party__"] ?? 0, hostStorageTake: (index) => { const slot = this.homeStorage[index]; if (!slot?.item || slot.count <= 0) return null; const items = [{ item: slot.item, count: slot.count }]; slot.item = null; slot.count = 0; slot.durabilityUsed = undefined; return items; }, hostStorageStore: (item, count, durabilityUsed) => transferSlot({ item: item as ItemId, count, durabilityUsed }, this.homeStorage), hostClaimSharedSupply: () => { if ((this.homeSupplyCooldowns["__party__"] ?? 0) > 0) return false; for (const r of rollHomeSupply(this.level)) transferSlot({ item: r.item, count: r.count }, this.homeStorage); this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; return true; }, applySharedStorage: (slots, supplyCooldown) => { this.sharedStorage = slots.map((s) => ({ item: s.item as ItemId | null, count: s.count, durabilityUsed: s.durabilityUsed })); this.sharedSupplyCd = supplyCooldown; if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel(); this.renderHud(); } } });
+    initPartyPresence({ scene: this.scene, session: () => currentPartySession(), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), localPresence: () => ({ nickname: this.nickname, mapId: this.currentWorldMapId, x: this.playerPosition.x, z: this.playerPosition.z, yaw: this.yaw, playerClass: this.playerClass, inGame: this.gameStarted && this.locationMode === "overworld", panelOpen: this.currentPanel !== null, health: this.health, maxHealth: this.maxHealth, armorTier: armorTierOf(this.equippedArmor) ?? undefined, hasPet: this.summonerCompanion.petActive(), jobTier: this.jobTier, dragonGear: { boots: this.dragonGear.boots, cloak: this.dragonGear.cloak, crown: this.dragonGear.crown } }), onChat: (message) => this.partyChat.appendIncoming(message), world: { entityContext: this.entitySpawnContext, activeRegions: () => this.activeRegions, mapXpScale: () => getWorldMapById(this.currentWorldMapId).xpScale ?? 1, hostGameHour: () => this.gameHour(), setSyncedHour: (hour) => { this.syncedHour = hour; }, predators: () => this.objectsOfType("wildPredator"), guards: () => this.objectsOfTypes(["villageKnight", "villageArcher", "villageMage", "villageGolem"]), spawnGuard: (type, x, z, villageId) => { const pos = new THREE.Vector3(x, 0, z); return type === "villageGolem" ? spawnGolem(this.worldSpawnContext, pos, villageId) : type === "villageKnight" ? spawnKnight(this.worldSpawnContext, pos, villageId) : this.spawnRangedGuard(pos, villageId, type as "villageArcher" | "villageMage"); }, enrageVillage: (villageId, message) => this.enrageVillage(villageId, message), chests: () => this.objectsOfTypes(["chest", "mineChest"]), caves: () => this.objectsOfType("cave"), spawnChest: (x, z, mineRich, opened, chestTier) => { const chest = this.spawnChest(new THREE.Vector3(x, 0, z), mineRich, chestTier ?? 0); if (opened) { chest.opened = true; this.tintObject(chest.root, mineRich ? 0x4f4636 : 0x6a5940); } return chest; }, spawnCave: (x, z) => spawnCave(this.worldSpawnContext, new THREE.Vector3(x, 0, z)), markChestOpened: (id) => { const chest = this.objects.get(id); if (!chest || chest.opened || (chest.type !== "chest" && chest.type !== "mineChest")) return null; chest.opened = true; chest.expiresAt = performance.now() + 8_000; this.tintObject(chest.root, chest.type === "mineChest" ? 0x4f4636 : 0x6a5940); return chest.chestTier ?? 0; }, grantChestLoot: (items) => { const got: string[] = []; for (const entry of items) if (this.addItem(entry.item as ItemId, entry.count)) got.push(ITEM_NAMES[entry.item as ItemId] ?? entry.item); this.showMessage(got.length > 0 ? `상자에서 ${got.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다."); }, getObject: (id) => this.objects.get(id), removeObject: (id) => this.removeObject(id), removeObjectSilent: (id) => { const keep = this.suppressRespawn; this.suppressRespawn = true; this.removeObject(id); this.suppressRespawn = keep; }, hitFeedback: (target, damage, killed) => { if (target.type === "wildPredator" || target.type === "dragon" || target.type === "jammini") this.enterCombatMood(); triggerHitFeedback(this.hitFeedbackDeps, target, damage, killed); }, showMessage: (text) => this.showMessage(text), gainExperience: (amount) => this.gainExperience(amount), creditHostKill: (target, creditQuest) => this.grantExperienceForTarget(target, creditQuest), creditQuestKill: () => { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.renderHud(); }, dropKillSpiritToken: (wild, boss) => this.dropKillSpiritToken(wild, boss), rollLoot: (item, count, source) => (this.rollRewardChance(1, source, item) ? this.grantRewardItem(item, count, source) : 0), recordFieldBossDefeat: (id) => { if (!this.defeatedFieldBosses.includes(id)) { this.defeatedFieldBosses.push(id); startMiniFanfare(this.finaleContext); this.sample("victory.mp3", 0.45, () => {}); this.showMessage(fieldBossDefeatMessage(id)); this.renderHud(); } }, damageLocalPlayer: (amount, name) => this.damagePlayer(amount, true, `${name}에게 공격받아 체력이 모두 떨어졌습니다.`), healLocalPlayer: (amount) => { if (this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + amount); spawnHealEffect(this.combatEffectContext, this.playerPosition); this.renderHud(); } }, empowerLocalPlayer: (durationMs) => { this.skillBuffs.empowerUntil = performance.now() + durationMs; this.showMessage("아군의 심판의 빛! 5분간 공격·방어 +10%."); this.renderHud(); }, rallyLocalPlayer: (durationMs) => { this.skillBuffs.rallyDefUntil = performance.now() + durationMs; this.showMessage("아군의 불굴의 함성! 20초간 방어 +20%."); this.renderHud(); }, animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), refreshSpatialObject: (object) => this.refreshSpatialObject(object), sharedGroundObjects: () => [...this.objectsOfTypes(["droppedItem", "smelter", "specialSmelter", "workbench", "extendedWorkbench", "grinder", "bed"])].filter((o) => !o.partyTransient), spawnDroppedItemView: (item, count, x, z) => spawnDroppedItem(this.worldSpawnContext, item as ItemId, count, new THREE.Vector3(x, 0, z)), spawnStationView: (objType, x, z, bedTier) => { const pos = new THREE.Vector3(x, 0, z); const obj = objType === "smelter" ? spawnSmelterObject(this.spawnContext, pos, false) : objType === "specialSmelter" ? spawnSmelterObject(this.spawnContext, pos, true) : objType === "workbench" ? spawnWorkbenchObject(this.spawnContext, pos, false) : objType === "extendedWorkbench" ? spawnWorkbenchObject(this.spawnContext, pos, true) : objType === "grinder" ? spawnGrinderObject(this.spawnContext, pos) : spawnBedObject(this.spawnContext, pos, 0); if (objType === "bed" && bedTier) obj.bedTier = bedTier as typeof obj.bedTier; return obj; }, pickupSharedObject: (id) => { const obj = this.objects.get(id); if (!obj || obj.lockedStation) return null; const stationItem: Record<string, ItemId> = { smelter: "smelter", specialSmelter: "special_smelter", workbench: "crafting_table", extendedWorkbench: "extended_workbench", grinder: "grinder", bed: "bed" }; const items = obj.type === "droppedItem" && obj.droppedItem ? [{ item: obj.droppedItem, count: obj.droppedCount ?? 1 }] : stationItem[obj.type] ? [{ item: stationItem[obj.type], count: 1 }] : null; if (!items) return null; this.removeObject(id); return items; }, hostSpawnDroppedGround: (item, count, x, z) => { spawnDroppedItem(this.worldSpawnContext, item as ItemId, count, new THREE.Vector3(x, 0, z)); }, hostSpawnStation: (item, x, z, yaw) => { const pos = new THREE.Vector3(x, 0, z); if (item === "crafting_table") spawnWorkbenchObject(this.spawnContext, pos, false); else if (item === "extended_workbench") spawnWorkbenchObject(this.spawnContext, pos, true); else if (item === "smelter") spawnSmelterObject(this.spawnContext, pos, false); else if (item === "special_smelter") spawnSmelterObject(this.spawnContext, pos, true); else if (item === "grinder") spawnGrinderObject(this.spawnContext, pos); else if (item === "bed") spawnBedObject(this.spawnContext, pos, yaw); }, canAddItem: (item, _count) => item === "bag" || item === "big_bag" || (isDurableTool(item) ? this.allStorageSlots().some((s) => !s.item) : this.allStorageSlots().some((s) => s.item === item || !s.item)), receivePickupItems: (items) => items.filter((it) => { const ok = this.addItem(it.item as ItemId, it.count); if (ok) this.appendPartyLedger(it.item as ItemId, it.count); return !ok; }), homeStorageSlots: () => this.homeStorage.map((s) => ({ item: s.item, count: s.count, durabilityUsed: s.durabilityUsed })), sharedSupplyCooldownValue: () => this.homeSupplyCooldowns["__party__"] ?? 0, hostStorageTake: (index) => { const slot = this.homeStorage[index]; if (!slot?.item || slot.count <= 0) return null; const items = [{ item: slot.item, count: slot.count }]; slot.item = null; slot.count = 0; slot.durabilityUsed = undefined; return items; }, hostStorageStore: (item, count, durabilityUsed) => transferSlot({ item: item as ItemId, count, durabilityUsed }, this.homeStorage), hostClaimSharedSupply: () => { if ((this.homeSupplyCooldowns["__party__"] ?? 0) > 0) return false; for (const r of rollHomeSupply(this.level)) transferSlot({ item: r.item, count: r.count }, this.homeStorage); this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; return true; }, applySharedStorage: (slots, supplyCooldown) => { this.sharedStorage = slots.map((s) => ({ item: s.item as ItemId | null, count: s.count, durabilityUsed: s.durabilityUsed })); this.sharedSupplyCd = supplyCooldown; if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel(); this.renderHud(); } } });
     this.animate();
   }
 
@@ -3987,7 +3990,7 @@ class WildernessGame {
       this.respawnQueue.splice(index, 1); const position = entry.position.clone(); position.y = this.getGroundHeightAt(position.x, position.z); const villageId = entry.villageId ?? "respawn-village";
       if (entry.type === "wildPredator") { const region = this.activeRegions.find((candidate) => candidate.id === entry.regionId) ?? regionAtPosition(position, this.activeRegions); const monsterId = (entry.monsterId as MonsterId | undefined) ?? chooseRegionPredatorMonster(region); const predator = spawnPredatorEntity(this.entitySpawnContext, this.randomPredatorSpawnPoint(region) ?? position, entry.predatorKind ?? predatorKindForMonster(monsterId)); applyPredatorMonsterDefinition(predator, region ?? regionAtPosition(predator.root.position, this.activeRegions) ?? this.activeRegions[0] ?? REGIONS[REGIONS.length - 1], monsterId, this.level, this.difficultyMods); }
       else if (entry.type === "jammini") spawnJamminiEntity(this.entitySpawnContext, position);
-      else if (entry.type === "villageKnight") this.spawnKnight(position, villageId); else if (entry.type === "villageGolem") this.spawnGolem(position, villageId); else if (entry.type === "villageArcher" || entry.type === "villageMage") this.spawnRangedGuard(position, villageId, entry.type);
+      else if (entry.type === "villageKnight") spawnKnight(this.worldSpawnContext, position, villageId); else if (entry.type === "villageGolem") spawnGolem(this.worldSpawnContext, position, villageId); else if (entry.type === "villageArcher" || entry.type === "villageMage") this.spawnRangedGuard(position, villageId, entry.type);
     }
     this.nightSpawnTimer += delta;
     if (this.nightSpawnTimer < NIGHT_PREDATOR_SPAWN_SECONDS || partyWorldGuestActive()) return; // 야생 신규 스폰만 호스트 권위 — 경비/잼미니 리스폰은 위 큐에서 정상 처리
@@ -6664,9 +6667,9 @@ class WildernessGame {
     if (savedObject.type === "animal") object = spawnAnimalEntity(this.entitySpawnContext, position, savedObject.animalKind);
     if (savedObject.type === "villager") object = this.spawnVillager(position, villageId, savedObject.homePosition ? this.fromSavedVector(savedObject.homePosition) : position, savedObject.roamRadius);
     if (savedObject.type === "blacksmithNpc") object = this.spawnBlacksmithNpc(position, villageId);
-    if (savedObject.type === "villageKnight") object = this.spawnKnight(position, villageId);
+    if (savedObject.type === "villageKnight") object = spawnKnight(this.worldSpawnContext, position, villageId);
     if (savedObject.type === "villageArcher" || savedObject.type === "villageMage") object = this.spawnRangedGuard(position, villageId, savedObject.type);
-    if (savedObject.type === "villageGolem") object = this.spawnGolem(position, villageId);
+    if (savedObject.type === "villageGolem") object = spawnGolem(this.worldSpawnContext, position, villageId);
     if (savedObject.type === "foodStorage" || savedObject.type === "villageHouse") {
       object = this.spawnVillageHouse(position, savedObject.name ?? "", savedObject.type === "foodStorage", villageId, savedObject.houseKind === "twoStory" ? 3 : 0, savedObject.playerOwned ? { deluxe: true, signLabel: `${this.nickname || "나"}의 집` } : undefined);
     }
@@ -8584,7 +8587,7 @@ class WildernessGame {
     const meleeCount = special ? 5 : 3;
     for (let i = 0; i < meleeCount; i += 1) {
       const angle = (i / meleeCount) * Math.PI * 2;
-      this.spawnKnight(position.clone().add(new THREE.Vector3(Math.cos(angle) * 8, 0, Math.sin(angle) * 8)), villageId);
+      spawnKnight(this.worldSpawnContext, position.clone().add(new THREE.Vector3(Math.cos(angle) * 8, 0, Math.sin(angle) * 8)), villageId);
     }
     if (special && houseCount >= 10) {
       this.spawnRangedGuard(position.clone().add(new THREE.Vector3(0, 0, -21)), villageId, "villageArcher");
@@ -8592,7 +8595,7 @@ class WildernessGame {
       this.spawnRangedGuard(position.clone().add(new THREE.Vector3(-18, 0, 12)), villageId, "villageMage");
     }
     if (houseCount >= 15 && Math.random() < 0.01) this.spawnKing(position.clone().add(new THREE.Vector3(0, 0, 6)), villageId);
-    this.spawnGolem(position.clone().add(new THREE.Vector3(-5, 0, 5)), villageId);
+    spawnGolem(this.worldSpawnContext, position.clone().add(new THREE.Vector3(-5, 0, 5)), villageId);
   }
 
   private spawnVillageGroundDecor(position: THREE.Vector3, radius: number, special: boolean) {
@@ -9059,159 +9062,6 @@ class WildernessGame {
       wanderAngle: Math.random() * Math.PI * 2,
       walkCycle: this.createWalkCycle(walkParts, 0.34, 7, 0.025),
     });
-  }
-
-  private spawnKnight(position: THREE.Vector3, villageId: string) {
-    position.y = this.getGroundHeightAt(position.x, position.z);
-    const group = new THREE.Group();
-    const steel = makeMetalMaterial(ASSET_PALETTE.steel, { metalness: 0.45, roughness: 0.38 });
-    const darkSteel = makeMetalMaterial(ASSET_PALETTE.steelDark, { metalness: 0.45, roughness: 0.42 });
-    const blue = makeToonMaterial(ASSET_PALETTE.clothBlue, { roughness: 0.68 });
-    const gold = makeMetalMaterial(ASSET_PALETTE.gold, { metalness: 0.35, roughness: 0.36 });
-    const skin = makeToonMaterial(ASSET_PALETTE.skin, { roughness: 0.8 });
-    const leather = makeToonMaterial(ASSET_PALETTE.leatherDark, { roughness: 0.85 });
-    const walkParts: WalkPartSetup[] = [];
-
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.25, 0.52), steel);
-    torso.position.y = 1.02;
-    const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.055), darkSteel);
-    chestPlate.position.set(0, 1.12, 0.3);
-    const crest = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.42, 0.07), gold);
-    crest.position.set(0, 1.18, 0.34);
-    const belt = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.11, 0.58), leather);
-    belt.position.y = 0.58;
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.18, 10), skin);
-    neck.position.y = 1.72;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), skin);
-    head.position.y = 1.93;
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.72), darkSteel);
-    helmet.position.y = 2.02;
-    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.09, 0.09), steel);
-    visor.position.set(0, 1.93, 0.31);
-    const plume = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.08), blue);
-    plume.position.set(0, 2.34, -0.04);
-    group.add(torso, chestPlate, crest, belt, neck, head, helmet, visor, plume);
-
-    for (const side of [-1, 1]) {
-      const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 6), darkSteel);
-      pauldron.position.set(side * 0.62, 1.52, 0);
-      pauldron.scale.set(1.25, 0.58, 0.9);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.78, 0.2), steel);
-      arm.position.set(side * 0.68, 1.0, 0.02);
-      arm.rotation.z = side * -0.12;
-      const gauntlet = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.22), darkSteel);
-      gauntlet.position.set(side * 0.73, 0.58, 0.06);
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.66, 0.24), steel);
-      leg.position.set(side * 0.23, 0.27, 0);
-      const boot = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 0.34), darkSteel);
-      boot.position.set(side * 0.23, 0.03, 0.06);
-      walkParts.push({ object: leg, side, axis: "x" }, { object: boot, side, axis: "x" });
-      group.add(pauldron, arm, gauntlet, leg, boot);
-    }
-
-    const shield = new THREE.Mesh(
-      new THREE.BoxGeometry(0.18, 0.95, 0.68),
-      blue,
-    );
-    shield.position.set(-0.75, 1.05, 0.22);
-    shield.rotation.z = 0.05;
-    const shieldBoss = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 6), gold);
-    shieldBoss.position.set(-0.86, 1.06, 0.22);
-    shieldBoss.scale.set(0.55, 1, 1);
-    const swordBlade = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 0.82, 0.05),
-      makeMetalMaterial(0xd8dee8, { metalness: 0.6, roughness: 0.28 }),
-    );
-    swordBlade.position.set(0.78, 1.12, 0.26);
-    swordBlade.rotation.z = -0.22;
-    const swordGuard = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.05, 0.07), gold);
-    swordGuard.position.set(0.7, 0.78, 0.24);
-    swordGuard.rotation.z = -0.22;
-    const swordGrip = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.28, 8), leather);
-    swordGrip.position.set(0.64, 0.62, 0.22);
-    swordGrip.rotation.z = -0.22;
-    group.add(shield, shieldBoss, swordBlade, swordGuard, swordGrip);
-    group.position.copy(position);
-    const knight = this.addWorldObject("villageKnight", "마을기사", group, {
-      hp: 90,
-      armor: 18,
-      collidable: true,
-      collisionRadius: 0.78,
-      collisionHeight: 2.42,
-      villageId, homePosition: position.clone(),
-      guardMode: "melee",
-      attackRange: 2.05,
-      attackDamage: 8,
-      walkCycle: this.createWalkCycle(walkParts, 0.38, 8, 0.025),
-    });
-    applyMonsterDifficulty(knight, this.difficultyMods);
-    return knight;
-  }
-
-  private spawnGolem(position: THREE.Vector3, villageId: string) {
-    position.y = this.getGroundHeightAt(position.x, position.z);
-    const group = new THREE.Group();
-    const stone = makeToonMaterial(ASSET_PALETTE.stone, { roughness: 0.92, metalness: 0.1 });
-    const darkStone = makeToonMaterial(ASSET_PALETTE.stoneDark, { roughness: 0.96, metalness: 0.08 });
-    const moss = makeToonMaterial(ASSET_PALETTE.moss, { roughness: 0.92 });
-    const glow = makeGlowMaterial(ASSET_PALETTE.magicCyan, 0x16a6c7, { emissiveIntensity: 1.4, roughness: 0.22 });
-
-    const addBlock = (geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, rx = 0, ry = 0, rz = 0) => {
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(x, y, z);
-      mesh.rotation.set(rx, ry, rz);
-      group.add(mesh);
-      return mesh;
-    };
-
-    addBlock(new THREE.BoxGeometry(1.78, 2.18, 0.98), stone, 0, 1.62, 0, 0.02, 0, 0.03);
-    addBlock(new THREE.BoxGeometry(1.32, 0.78, 1.04), darkStone, 0, 1.28, 0.04, 0, 0, -0.02);
-    const chestCore = addBlock(new THREE.OctahedronGeometry(0.28), glow, 0, 1.95, 0.56);
-    chestCore.scale.set(0.85, 1.15, 0.35);
-    addBlock(new THREE.BoxGeometry(0.64, 0.34, 0.62), darkStone, 0, 2.82, 0);
-    addBlock(new THREE.BoxGeometry(1.04, 0.86, 0.82), stone, 0, 3.24, 0.02, -0.02, 0.02, 0);
-    addBlock(new THREE.BoxGeometry(1.12, 0.16, 0.18), darkStone, 0, 3.38, 0.45);
-    addBlock(new THREE.BoxGeometry(0.82, 0.18, 0.24), darkStone, 0, 2.88, 0.4);
-
-    for (const x of [-0.26, 0.26]) {
-      const eye = addBlock(new THREE.BoxGeometry(0.16, 0.12, 0.08), glow, x, 3.28, 0.48);
-      eye.scale.z = 0.55;
-    }
-
-    for (const side of [-1, 1]) {
-      addBlock(new THREE.BoxGeometry(0.86, 0.42, 0.78), darkStone, side * 1.18, 2.38, 0, 0, 0, side * 0.12);
-      addBlock(new THREE.BoxGeometry(0.42, 1.18, 0.44), stone, side * 1.42, 1.68, 0, 0, 0, side * 0.14);
-      addBlock(new THREE.BoxGeometry(0.5, 1.02, 0.48), darkStone, side * 1.5, 0.85, 0.04, 0, 0, side * -0.1);
-      addBlock(new THREE.BoxGeometry(0.74, 0.48, 0.64), stone, side * 1.56, 0.28, 0.08, 0, side * 0.04, side * -0.05);
-      addBlock(new THREE.BoxGeometry(0.54, 1.0, 0.55), stone, side * 0.52, 0.58, 0, 0, 0, side * 0.04);
-      addBlock(new THREE.BoxGeometry(0.7, 0.28, 0.72), darkStone, side * 0.54, 0.08, 0.14);
-      addBlock(new THREE.ConeGeometry(0.16, 0.46, 4), darkStone, side * 1.2, 2.84, 0.03, 0, side * 0.55, side * -0.22);
-      addBlock(new THREE.BoxGeometry(0.08, 0.42, 0.08), glow, side * 1.14, 2.32, 0.43, 0, 0, side * 0.1);
-      addBlock(new THREE.BoxGeometry(0.08, 0.38, 0.08), glow, side * 1.55, 1.22, 0.34, 0, 0, side * -0.1);
-    }
-
-    addBlock(new THREE.BoxGeometry(1.1, 0.08, 1.04), moss, -0.18, 2.72, 0.04);
-    addBlock(new THREE.BoxGeometry(0.14, 0.74, 0.08), moss, -0.66, 2.28, 0.54, 0, 0, -0.08);
-    addBlock(new THREE.BoxGeometry(0.1, 0.58, 0.08), moss, 0.58, 2.16, 0.54, 0, 0, 0.12);
-    addBlock(new THREE.BoxGeometry(0.78, 0.1, 0.1), glow, 0, 1.54, 0.58);
-    addBlock(new THREE.BoxGeometry(0.1, 0.5, 0.08), glow, 0, 1.18, 0.58);
-    addBlock(new THREE.ConeGeometry(0.1, 0.38, 4), darkStone, -0.42, 3.82, 0.02, 0, 0.2, 0);
-    addBlock(new THREE.ConeGeometry(0.1, 0.38, 4), darkStone, 0.42, 3.82, 0.02, 0, -0.2, 0);
-    group.position.copy(position);
-    const golem = this.addWorldObject("villageGolem", "마을 수호신 골렘", group, {
-      hp: 180,
-      armor: 30,
-      collidable: true,
-      collisionRadius: 1.45,
-      collisionHeight: 3.9,
-      villageId, homePosition: position.clone(),
-      guardMode: "melee",
-      attackRange: 2.55,
-      attackDamage: 14,
-      attackInterval: 5,
-    });
-    applyMonsterDifficulty(golem, this.difficultyMods);
-    return golem;
   }
 
   private spawnRangedGuard(position: THREE.Vector3, villageId: string, type: "villageArcher" | "villageMage") {
