@@ -1,5 +1,6 @@
 import type { ItemId, PlayerClassId, SummonerPetProgress } from "./types";
 import { isStaffWeapon, isMeleeWeapon } from "./items";
+import { samuraiKatanaAttackMult, samuraiKatanaMoveBonus, samuraiSwingMult } from "./samurai";
 
 export interface SummonerPetPassive {
   label: string;
@@ -35,11 +36,23 @@ export interface ClassPassive {
 }
 
 // 무기조건 데미지 배수 — 든 무기가 직업 조건(근접/지팡이)에 맞을 때만 (1 + pct), 아니면 1.
+// 사무라이 카타나 시너지(공격 +5%)도 여기서 합성 — 기본 공격·스킬(damageMult 경유)에 일관 적용.
 export function classWeaponDamageMult(playerClass: PlayerClassId, heldItem: ItemId | null): number {
+  const synergy = samuraiKatanaAttackMult(playerClass, heldItem);
   const wd = CLASS_PASSIVES[playerClass].weaponDamage;
-  if (!wd) return 1;
+  if (!wd) return synergy;
   const match = wd.group === "melee" ? isMeleeWeapon(heldItem) : isStaffWeapon(heldItem);
-  return match ? 1 + wd.pct : 1;
+  return (match ? 1 + wd.pct : 1) * synergy;
+}
+
+// 직업 기본공격 스윙(시전시간) 배수 — 작을수록 빠름. 사무라이 ×0.8(카타나 시 추가 ×1/1.05), 그 외 1.
+export function classAttackSpeedMult(playerClass: PlayerClassId, heldItem: ItemId | null): number {
+  return samuraiSwingMult(playerClass, heldItem);
+}
+
+// 직업 이동속도 배수(장착 아이템 반영) — additiveMoveSpeedMult 합연산 계층의 입력.
+export function classMoveSpeedMult(playerClass: PlayerClassId, heldItem: ItemId | null): number {
+  return CLASS_PASSIVES[playerClass].moveSpeedMult + samuraiKatanaMoveBonus(playerClass, heldItem);
 }
 
 export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
@@ -139,6 +152,22 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
     moveSpeedMult: 1.1,
     basicAttackMult: 0.7,
     rangedRangeScale: 0.9, // 거너 사거리 90% 로 하향
+  },
+  samurai: {
+    label: "신속 검격",
+    summary: "공격속도 +25% · 방어 +3 (레벨당 +0.15) · 카타나 장착 시 공격·공속·이속 +5%.",
+    armorBonus: 3, // 전사(4)보다 약간 낮은 방어
+    armorPerLevel: 0.15,
+    rangedCooldownScale: 1,
+    gunOnlyRangedCooldown: false,
+    manaRegenScale: 1,
+    manaRegenFlat: 0.5,
+    healthRegenPerSec: 0.5,
+    moveSpeedMult: 1,
+    shieldHealthRegenBase: 0,
+    shieldHealthRegenPerLevel: 0,
+    basicAttackMult: 0.8, // 전사(0.95)보다 낮은 한 방 × 스윙 0.8 = DPS ≈ 전사. 카타나 시너지 시 ≈ +5%
+    rangedRangeScale: 1,
   },
   tanker: {
     label: "철벽",
