@@ -204,6 +204,31 @@ export function createHeldItemModel(item: ItemId) {
         }
       }
     }
+  } else if (item === "katana" || item === "obsidian_katana") {
+    // 카타나 — 길고 가는 외날 검. 3분절로 살짝 휜 곡률 + 밝은 날(하몬) 스트립 + 둥근 츠바(코등이).
+    const obsidian = item === "obsidian_katana";
+    const bladeMat = new THREE.MeshStandardMaterial({ color: obsidian ? 0x2a1136 : 0xdfe5ec, metalness: 0.58, roughness: 0.22, emissive: obsidian ? 0x14051d : 0x000000, emissiveIntensity: obsidian ? 0.4 : 0 });
+    const edgeMat = new THREE.MeshStandardMaterial({ color: obsidian ? 0xc084fc : 0xf8fafc, metalness: 0.6, roughness: 0.16, emissive: obsidian ? 0x7c3aed : 0x93c5fd, emissiveIntensity: obsidian ? 0.65 : 0.18 });
+    const wrapMat = new THREE.MeshStandardMaterial({ color: obsidian ? 0x3b0764 : 0x1e293b, roughness: 0.85 });
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.037, 0.3, 8), wrapMat); // 츠카(긴 양손 손잡이)
+    grip.position.y = 0.13;
+    for (const yy of [0.06, 0.13, 0.2]) { const knot = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.008, 6, 10), obsidian ? edgeMat : bladeMat); knot.position.y = yy; knot.rotation.x = Math.PI / 2; group.add(knot); } // 그립 감기 매듭
+    const tsuba = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.088, 0.022, 14), new THREE.MeshStandardMaterial({ color: obsidian ? 0x6d28d9 : 0xb08d3e, metalness: 0.62, roughness: 0.34 }));
+    tsuba.position.y = 0.29;
+    const segLen = 0.33;
+    for (let i = 0; i < 3; i += 1) { // 일반 검(0.58~)의 약 1.7배 길이 — 3분절로 완만한 곡선
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(0.055, segLen, 0.02), bladeMat);
+      seg.position.set(0.014 * i * i, 0.3 + segLen / 2 + i * (segLen - 0.015), 0);
+      seg.rotation.z = -0.055 * i;
+      const edge = new THREE.Mesh(new THREE.BoxGeometry(0.014, segLen, 0.022), edgeMat);
+      edge.position.set(seg.position.x + 0.033, seg.position.y, 0);
+      edge.rotation.z = seg.rotation.z;
+      group.add(seg, edge);
+    }
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 6), edgeMat); // 킷사키(칼끝)
+    tip.position.set(0.075, 1.32, 0);
+    tip.rotation.z = -0.16;
+    group.add(grip, tsuba, tip);
   } else if (item === "bed") {
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.5), handleMaterial);
     base.position.y = 0.16;

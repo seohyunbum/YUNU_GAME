@@ -1,4 +1,4 @@
-import { BOW_DAMAGE, MAGIC_WAND_DAMAGE, PISTOL_DAMAGE } from "./constants";
+import { BOW_DAMAGE, INTERACT_DISTANCE, MAGIC_WAND_DAMAGE, PISTOL_DAMAGE } from "./constants";
 import { NECKLACE_IDS } from "./necklace";
 import { DRAGON_GEAR_IDS } from "./dragonGear";
 import type { ItemId, ObjectType } from "./types";
@@ -109,6 +109,8 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   gold_sword: "금 검",
   diamond_sword: "다이아몬드 검",
   obsidian_sword: "날카로운 흑요석 검",
+  katana: "카타나",
+  obsidian_katana: "흑요석 카타나",
   leather_armor: "가죽 갑옷",
   copper_armor: "구리 갑옷",
   iron_armor: "철 갑옷",
@@ -171,6 +173,8 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   gold_sword: 7, // 금=철(6)보다 비싼 재료 → 역전 해소(철 6 < 금 7 < 다이아 8)
   diamond_sword: 8,
   obsidian_sword: 13, // 에픽 ×1.3 (기본 10)
+  katana: 7, // 사무라이 시작 무기 — 철 검(6)과 다이아 검(8) 사이. 리치 2배(WEAPON_REACH_MULT) + 사무라이 시너지(samuraiKatanaBonus) 대상
+  obsidian_katana: 12, // 에픽 카타나 — 흑요석 검(13)보다 한 방은 약하지만 리치 2배·사무라이 시너지로 보완
   bow: BOW_DAMAGE,
   magic_wand: MAGIC_WAND_DAMAGE,
   pistol: PISTOL_DAMAGE,
@@ -213,6 +217,20 @@ export function isStaffWeapon(item: ItemId | null | undefined): boolean {
 export function isMeleeWeapon(item: ItemId | null | undefined): boolean {
   return Boolean(item && WEAPON_DAMAGE[item] !== undefined && !RANGED_WEAPONS.has(item) && item !== "iron_shield" && item !== "sharp_obsidian_shield");
 }
+// 카타나 계열 — 사무라이 시너지(공·공속·이속 +5%, game/samurai.ts) + 리치 2배 판정용.
+export const KATANA_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["katana", "obsidian_katana"]);
+export function isKatanaWeapon(item: ItemId | null | undefined): boolean {
+  return Boolean(item && KATANA_WEAPONS.has(item));
+}
+// 무기별 근접 리치 배수 — 미등재 무기는 1(기본 리치). 카타나는 일반 근접무기의 2배.
+export const WEAPON_REACH_MULT: Partial<Record<ItemId, number>> = { katana: 2, obsidian_katana: 2 };
+export function weaponReachMult(item: ItemId | null | undefined): number {
+  return (item && WEAPON_REACH_MULT[item]) || 1;
+}
+// 선택 아이템 기준 근접/상호작용 리치 — main 의 getLookTarget·nearbyObjectInView 판정 거리에 곱해 쓴다.
+export function meleeReach(item: ItemId | null | undefined): number {
+  return INTERACT_DISTANCE * weaponReachMult(item);
+}
 
 export const HEAL_ITEMS: Record<ItemId, number> = {
   medkit: 15,
@@ -238,6 +256,7 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   rifle: "rare",
   obsidian_sword: "epic",
   obsidian_dagger: "epic",
+  obsidian_katana: "epic",
   obsidian_armor: "epic",
   arcane_staff: "epic",
   xp_bottle: "epic",
@@ -278,7 +297,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   bag: "uncommon", medkit: "uncommon", bed: "uncommon", lava_bucket: "uncommon", mineral_compound: "uncommon",
   iron: "uncommon", iron_powder: "uncommon", refined_iron: "uncommon",
   sharp_wood_axe: "uncommon", iron_axe: "uncommon", iron_shovel: "uncommon", iron_pickaxe: "uncommon",
-  iron_dagger: "uncommon", iron_sword: "uncommon", iron_armor: "uncommon",
+  iron_dagger: "uncommon", iron_sword: "uncommon", iron_armor: "uncommon", katana: "uncommon",
   magic_wand: "uncommon", pistol: "uncommon", iron_shield: "uncommon", iron_bow: "uncommon",
   // 희귀(rare) — 금·다이아몬드 계열
   gold: "rare", gold_powder: "rare", refined_gold: "rare", diamond: "rare", diamond_powder: "rare", refined_diamond: "rare",
@@ -287,7 +306,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   diamond_armor: "rare", diamond_bow: "rare", rifle: "rare", crystal_staff: "rare", dragon_scale: "rare", meat_stew: "rare",
   // 에픽(epic) — 흑요석·용 소재·최상급 장비
   obsidian: "epic", obsidian_powder: "epic", sharp_obsidian: "epic",
-  obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_armor: "epic", arcane_staff: "epic",
+  obsidian_dagger: "epic", obsidian_sword: "epic", obsidian_katana: "epic", obsidian_armor: "epic", arcane_staff: "epic",
   dragon_tail: "epic", dragon_horn: "epic", dragon_spawn: "epic",
   strength_necklace: "epic", guardian_necklace: "epic", swift_necklace: "epic", sage_necklace: "epic",
   advanced_medkit: "epic", big_bag: "epic", job_change_tome: "epic", job_decree: "epic",
