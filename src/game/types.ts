@@ -11,7 +11,7 @@ export type BossKind = "dragon" | "fire_dragon" | "red_dragon" | "laser_dragon" 
 export type HouseKind = "home" | "blacksmith" | "twoStory";
 export type QualityMode = "high" | "balanced" | "performance";
 export type DifficultyMode = "easy" | "hard"; // 게임 난이도 — 신규게임 시 선택, 게임 중 불변(세이브에 고정)
-export type PlayerClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner" | "tanker";
+export type PlayerClassId = "warrior" | "healer" | "mage" | "summoner" | "gunner" | "tanker" | "samurai";
 export type WorldMapId = "starter_valley" | "dragon_plains" | "bamboo_frontier" | "mushroom_glen" | "toxic_swamp" | "mountain_ridge" | "graveyard" | "snowfield" | "dragon_lands";
 export type ObjectType =
   | "smallTree"
