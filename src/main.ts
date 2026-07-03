@@ -2172,13 +2172,9 @@ class WildernessGame {
     }
     // ESC 는 입력칸(검색 등) 포커스 중에도 항상 팝업을 닫는다 — 입력 무시 게이트보다 먼저 처리.
     if (event.code === "Escape" && this.currentPanel !== null) { if (event.target instanceof HTMLElement) event.target.blur(); this.closePanel(); return; }
-    // 입력창(채팅·검색 등) 타이핑은 게임 단축키로 새지 않게. 단 레시피 검색창에서 탐색 단축키(I/K/M/B)는 검색창을 닫고 그대로 동작 —
-    // 검색창에 포커스가 남은 줄 모르고 단축키를 눌러 '아무것도 안 먹던' 트랩 해소(검색은 한글 위주라 i/k/m/b 입력 손실 미미). Ctrl+W/S/L·미니게임은 위에서 이미 통과.
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
-      const search = event.target instanceof HTMLInputElement && (event.target.dataset.recipeSearch !== undefined || event.target.dataset.wbRecipeSearch !== undefined) ? event.target : null;
-      if (search && (event.code === "KeyI" || event.code === "KeyK" || event.code === "KeyM" || event.code === "KeyB")) search.blur();
-      else return;
-    }
+    // 입력창(채팅·검색 등) 타이핑은 게임 단축키로 절대 새지 않게 — 한글 IME 조합(두벌식 M=ㅡ, I=ㅑ, K=ㅏ, B=ㅠ 등)도 반드시 차단.
+    // (검색창에 포커스가 갇혀 단축키가 안 먹으면 ESC 또는 게임 화면 클릭으로 포커스 해제 — 아래 esc 처리·캔버스 클릭 핸들러.)
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.isComposing) return;
     this.keys.add(event.code);
     if (event.code === "Escape") {
       this.closePanel();
