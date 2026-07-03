@@ -94,7 +94,9 @@ import { readFileSync } from "node:fs";
 // 2026-07-03: spawn* 메시 팩토리 리프 추출 — waterBody/tree/cave→environmentSpawns, droppedItem→droppedItemSpawns,
 //   knight/golem→guardSpawns, miner/villager/blacksmithNpc→npcSpawns (메서드 통째 이동·동작 보존). 방패수리 커밋과 리베이스 합류 → 9470.
 // 2026-07-03: 중단됐던 5배치 재시도 성공 — spawnVillageFence·spawnVillageSellShop → game/villageSpawns (이동만·동작 보존). -133 → 9337.
-const MAX_MAIN_LINES = 9337;
+// 2026-07-03: 사무라이 직업 배선 — 스킬 로직·수치는 전부 game/samurai·classSkills 리프. main 은 import 1줄 + classSkillHandlers 1줄
+//   (컨텍스트 확장 playerPosition/forwardXZ/nearbyCombatTargets/dashStep·meleeEffects 는 기존 한 줄 리터럴 내 인라인). +2 → 9339.
+const MAX_MAIN_LINES = 9339;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

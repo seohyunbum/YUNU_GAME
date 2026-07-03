@@ -56,6 +56,7 @@ export function samuraiPierceHitDamage(currentDamage: number) {
 
 // 월광베기(4스킬·4차 전직 해금): 주변 광역 3연격 × 공격력 220% = 합 6.6배 (전사 천검난무 7배보다 약간 아래)
 export const SAMURAI_MOONLIGHT_WAVES = 3;
+export const SAMURAI_MOONLIGHT_RADIUS = 6.8; // 전사 천검난무와 같은 광역 반경 (EARTH_CLEAVE_RADIUS 4 × 1.7)
 export function samuraiMoonlightDamage(currentDamage: number) {
   return Math.max(1, Math.round(currentDamage * 2.2));
 }
