@@ -99,9 +99,9 @@ import {
   OBSIDIAN_PROJECTILE,
   spawnProjectileImpact,
   spawnSkillCastImpact,
-  spawnTntTrail,
+  releasePooledTrailMaterial, spawnTntTrail,
   spawnWindCutterTrail,
-  type CombatEffectContext,
+  type CombatEffectContext, type CombatEffectParticle,
 } from "./game/combatEffects";
 import { celebrateLevelUp, celebrateRareDrop } from "./game/juice";
 import { createBannerElement } from "./ui/banner";
@@ -391,9 +391,11 @@ class WildernessGame {
   private readonly raycastTargetsByObject = new Map<string, THREE.Object3D[]>();
   private readonly objectIdsByType = new Map<ObjectType, Set<string>>();
   private readonly respawnQueue: { dueAt: number; type: ObjectType; position: THREE.Vector3; villageId?: string; predatorKind?: PredatorKind; monsterId?: MonsterId; regionId?: string }[] = []; private suppressRespawn = false;
-  private readonly spatialBuckets = new Map<string, Set<string>>();
-  private readonly spatialKeysByObject = new Map<string, Set<string>>();
+  private readonly spatialBuckets = new Map<number, Set<string>>(); // 키 = 숫자 패킹(cellX·65536+cellZ) — 매 조회 템플릿 문자열 할당 제거(GC↓)
+  private readonly spatialKeysByObject = new Map<string, Set<number>>();
   private readonly spatialRangeByObject = new Map<string, { minX: number; maxX: number; minZ: number; maxZ: number }>(); // refreshSpatialObject 셀범위 캐시 — 불변 시 할당0 조기반환
+  private readonly objectsNearSeenPool = [new Set<string>(), new Set<string>(), new Set<string>()]; // objectsNear 중복제거 스크래치 — 매 호출 new Set 제거. 중첩 호출은 깊이별 풀(초과 시에만 신규)
+  private objectsNearDepth = 0;
   private readonly waterObjects: WorldObject[] = [];
   private readonly waterRippleMeshes: THREE.Object3D[] = [];
   private readonly waterSurfaceMeshes: THREE.Mesh[] = [];
@@ -710,6 +712,9 @@ class WildernessGame {
   private readonly hudRenderCache = createHudRenderCache();
   private qualityMode: QualityMode = this.loadQualityMode(); // 저장된 사용자 선택 우선, 없으면 모바일=저사양/PC=고품질
   private qualityLocked = localStorage.getItem(QUALITY_MODE_KEY) !== null; // 직접 고른 품질 — 자동 다운그레이드보다 우선(안 바뀜)
+  private adaptiveRestoreTarget: QualityMode | null = null; // 자동 하향 전의 원래 품질 — fps 안정 시 여기까지 단계 복구(일시 스톨 한 번에 세션 내내 저화질로 남던 문제 해소)
+  private adaptiveGoodWindows = 0; // 연속 쾌적 샘플 윈도우(2.5s) 수 — adaptiveUpgradeNeed 도달 시 한 단계 승급
+  private adaptiveUpgradeNeed = 4; // 승급 요구 연속 윈도우(기본 10초) — 승급 후 재하향(플립플롭) 시 2배로 증가(최대 16)
   private ctrlWBlocked = false;
   private arcadePoints = this.loadArcadePoints();
   private currentCharacterId = ""; // 플레이스루 식별(파티 거래 원장 키). 새 게임=UUID, 로드=세이브값(구세이브는 닉네임 백필)
@@ -754,7 +759,7 @@ class WildernessGame {
     message: "시작을 누르면 주민의 제작 의뢰가 들어옵니다.",
   };
   private smithingLastRenderedSecond = SMITHING_ROUND_SECONDS;
-  private readonly damageParticles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number; pooled?: boolean }[] = [];
+  private readonly damageParticles: CombatEffectParticle[] = []; // 타입 정본은 combatEffects(풀링 플래그 포함)
   private readonly projectiles: CombatProjectile[] = [];
   private readonly combatEffectContext: CombatEffectContext = {
     scene: this.scene,
@@ -2828,10 +2833,29 @@ class WildernessGame {
     if (this.performanceSampleTimer < 2.5) return;
     const averageFrame = this.performanceSampleSum / Math.max(1, this.performanceSampleFrames);
     const slowRatio = this.performanceSlowFrames / Math.max(1, this.performanceSampleFrames);
+    const qualityRank = (mode: QualityMode) => (mode === "performance" ? 0 : mode === "balanced" ? 1 : 2);
     if (!this.qualityLocked && this.qualityMode === "high" && (averageFrame > 0.034 || slowRatio > 0.1 || this.performanceHitchFrames > 2)) {
+      if (this.adaptiveRestoreTarget) this.adaptiveUpgradeNeed = Math.min(16, this.adaptiveUpgradeNeed * 2); // 승급 후 재하향 = 플립플롭 → 다음 승급을 더 신중히
+      else this.adaptiveRestoreTarget = "high"; // 첫 자동 하향 — 원래 품질 기억(복구 상한)
+      this.adaptiveGoodWindows = 0;
       this.applyQualityMode("balanced");
     } else if (!this.qualityLocked && this.qualityMode === "balanced" && (averageFrame > 0.045 || slowRatio > 0.18 || this.performanceHitchFrames > 4)) {
+      if (this.adaptiveRestoreTarget) this.adaptiveUpgradeNeed = Math.min(16, this.adaptiveUpgradeNeed * 2);
+      else this.adaptiveRestoreTarget = "balanced";
+      this.adaptiveGoodWindows = 0;
       this.applyQualityMode("performance");
+    } else if (!this.qualityLocked && this.adaptiveRestoreTarget && qualityRank(this.qualityMode) < qualityRank(this.adaptiveRestoreTarget) && averageFrame < 0.026 && slowRatio < 0.02 && this.performanceHitchFrames === 0) {
+      // 복구 — 하향 원인이 일시 스톨(보스 스폰 등)이었다면 쾌적 윈도우가 연속되고, 원래 품질로 한 단계씩 되돌린다.
+      // 승급 임계(avg<26ms·slow<2%·히치0)는 하향 임계보다 훨씬 엄격(히스테리시스) — 경계선 성능에서의 왕복 방지.
+      this.adaptiveGoodWindows += 1;
+      if (this.adaptiveGoodWindows >= this.adaptiveUpgradeNeed) {
+        this.adaptiveGoodWindows = 0;
+        this.applyQualityMode(this.qualityMode === "performance" ? "balanced" : "high");
+        this.performanceWarmupTimer = 0; // 승급 직후 전환 히치(HDRI/외곽선 재적용)가 즉시 재하향을 유발하지 않게 3초 유예
+        if (qualityRank(this.qualityMode) >= qualityRank(this.adaptiveRestoreTarget)) { this.adaptiveRestoreTarget = null; this.adaptiveUpgradeNeed = 4; } // 원래 품질 복귀 완료
+      }
+    } else {
+      this.adaptiveGoodWindows = 0; // 쾌적 조건 미달 윈도우 → 연속 카운트 리셋
     }
     this.performanceSampleTimer = 0;
     this.performanceSampleFrames = 0;
@@ -5613,7 +5637,7 @@ class WildernessGame {
       if (particle.life > 0) continue;
       this.scene.remove(particle.mesh);
       if (!particle.pooled) particle.mesh.geometry.dispose(); // 풀(공유) 지오메트리는 dispose 금지 — 다음 충격파가 재사용
-      if (particle.mesh.material instanceof THREE.Material) particle.mesh.material.dispose();
+      if (particle.mesh.material instanceof THREE.Material) { if (particle.pooledMaterial) releasePooledTrailMaterial(particle.mesh.material); else particle.mesh.material.dispose(); } // 풀 머티리얼은 반납(재사용)
       this.damageParticles.splice(index, 1);
     }
   }
@@ -6558,7 +6582,7 @@ class WildernessGame {
     for (const particle of this.damageParticles) {
       this.scene.remove(particle.mesh);
       if (!particle.pooled) particle.mesh.geometry.dispose(); // 풀(공유) 지오메트리는 dispose 금지
-      if (particle.mesh.material instanceof THREE.Material) particle.mesh.material.dispose();
+      if (particle.mesh.material instanceof THREE.Material) { if (particle.pooledMaterial) releasePooledTrailMaterial(particle.mesh.material); else particle.mesh.material.dispose(); }
     }
     this.damageParticles.splice(0, this.damageParticles.length);
   }
@@ -9622,7 +9646,7 @@ class WildernessGame {
   }
 
   private spatialKey(cellX: number, cellZ: number) {
-    return `${cellX},${cellZ}`;
+    return cellX * 65536 + cellZ; // 숫자 패킹 — 셀 좌표(월드 ±900/셀크기 → 수십 범위)에 충분한 유일성, 문자열 할당 0
   }
 
   private spatialRadiusForObject(object: WorldObject) {
@@ -9637,7 +9661,7 @@ class WildernessGame {
     const maxX = this.spatialCell(object.root.position.x + radius);
     const minZ = this.spatialCell(object.root.position.z - radius);
     const maxZ = this.spatialCell(object.root.position.z + radius);
-    const keys = new Set<string>();
+    const keys = new Set<number>();
     for (let cellX = minX; cellX <= maxX; cellX += 1) {
       for (let cellZ = minZ; cellZ <= maxZ; cellZ += 1) keys.add(this.spatialKey(cellX, cellZ));
     }
@@ -9678,7 +9702,7 @@ class WildernessGame {
     if (prev && prev.minX === minX && prev.maxX === maxX && prev.minZ === minZ && prev.maxZ === maxZ) return; // 셀범위 불변 → Set/문자열 할당 없이 조기반환(GC↓)
     this.unregisterSpatialObject(object.id);
     this.spatialRangeByObject.set(object.id, { minX, maxX, minZ, maxZ });
-    const keys = new Set<string>();
+    const keys = new Set<number>();
     for (let cellX = minX; cellX <= maxX; cellX += 1) for (let cellZ = minZ; cellZ <= maxZ; cellZ += 1) keys.add(this.spatialKey(cellX, cellZ));
     this.spatialKeysByObject.set(object.id, keys);
     for (const key of keys) {
@@ -9693,18 +9717,27 @@ class WildernessGame {
     const maxX = this.spatialCell(point.x + radius);
     const minZ = this.spatialCell(point.z - radius);
     const maxZ = this.spatialCell(point.z + radius);
-    const seen = new Set<string>();
-    for (let cellX = minX; cellX <= maxX; cellX += 1) {
-      for (let cellZ = minZ; cellZ <= maxZ; cellZ += 1) {
-        const bucket = this.spatialBuckets.get(this.spatialKey(cellX, cellZ));
-        if (!bucket) continue;
-        for (const id of bucket) {
-          if (seen.has(id)) continue;
-          seen.add(id);
-          const object = this.objects.get(id);
-          if (object) yield object;
+    // 매 호출 new Set 대신 깊이별 스크래치 재사용 — 이동 중 프레임당 5~10회 불리는 최다 호출 경로의 GC 압력 제거.
+    // 제너레이터 중첩(for-of 안에서 다시 objectsNear)에도 안전: 깊이마다 다른 Set, for-of 는 break 시 finally 로 깊이 복원.
+    const depth = this.objectsNearDepth;
+    this.objectsNearDepth += 1;
+    const seen = depth < this.objectsNearSeenPool.length ? this.objectsNearSeenPool[depth] : new Set<string>();
+    seen.clear();
+    try {
+      for (let cellX = minX; cellX <= maxX; cellX += 1) {
+        for (let cellZ = minZ; cellZ <= maxZ; cellZ += 1) {
+          const bucket = this.spatialBuckets.get(this.spatialKey(cellX, cellZ));
+          if (!bucket) continue;
+          for (const id of bucket) {
+            if (seen.has(id)) continue;
+            seen.add(id);
+            const object = this.objects.get(id);
+            if (object) yield object;
+          }
         }
       }
+    } finally {
+      this.objectsNearDepth -= 1;
     }
   }
 

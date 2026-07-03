@@ -8,6 +8,7 @@ export interface CombatEffectParticle {
   life: number;
   maxLife: number;
   pooled?: boolean; // 공유(풀링) 지오메트리 사용 — 소멸 시 geometry.dispose() 를 건너뛴다(다른 파티클/다음 호출이 재사용).
+  pooledMaterial?: boolean; // 풀링 머티리얼 사용 — 소멸 시 dispose 대신 releasePooledTrailMaterial 로 반납(재사용).
 }
 
 export interface CombatEffectContext {
@@ -27,6 +28,41 @@ function shockRingGeo(i: number): THREE.RingGeometry {
 let SHOCK_SPHERE_GEO: THREE.SphereGeometry | null = null;
 function shockSphereGeo(): THREE.SphereGeometry {
   return SHOCK_SPHERE_GEO ?? (SHOCK_SPHERE_GEO = new THREE.SphereGeometry(0.11, 7, 5));
+}
+
+// ── 투사체 트레일 풀링 — 비행 중 매 프레임 불리므로 geometry/material/Vector3 신규 할당 금지(§10.1·2) ──
+// 지오메트리: 단위 구 1개 공유(크기는 mesh.scale 로). 머티리얼: free-list 풀(페이드가 per-particle opacity 라 공유 불가 → 재사용).
+// 속도: 트레일은 고정 상승/하강 벡터라 모듈 상수 공유(updateDamageParticles 는 velocity 를 읽기만 한다).
+let TRAIL_GEO: THREE.SphereGeometry | null = null;
+function trailGeo(): THREE.SphereGeometry {
+  return TRAIL_GEO ?? (TRAIL_GEO = new THREE.SphereGeometry(1, 8, 6));
+}
+const trailMaterialPool: THREE.MeshBasicMaterial[] = [];
+const TRAIL_MATERIAL_POOL_CAP = 96; // 동시 트레일 상한(수십) 대비 여유 — 초과 반납은 dispose
+function acquireTrailMaterial(color: number, opacity: number): THREE.MeshBasicMaterial {
+  const material = trailMaterialPool.pop() ?? new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  material.color.setHex(color);
+  material.opacity = opacity;
+  return material;
+}
+export function releasePooledTrailMaterial(material: THREE.Material) {
+  if (material instanceof THREE.MeshBasicMaterial && trailMaterialPool.length < TRAIL_MATERIAL_POOL_CAP) trailMaterialPool.push(material);
+  else material.dispose();
+}
+const TRAIL_RISE_SLOW = new THREE.Vector3(0, 0.06, 0); // magic
+const TRAIL_RISE = new THREE.Vector3(0, 0.07, 0); // wind
+const TRAIL_FALL = new THREE.Vector3(0, -0.03, 0); // tnt
+function spawnPooledTrail(context: CombatEffectContext, position: THREE.Vector3, color: number, opacity: number, size: number, jitter: number, jitterY: number, velocity: THREE.Vector3, life: number) {
+  const particle = new THREE.Mesh(trailGeo(), acquireTrailMaterial(color, opacity));
+  particle.scale.setScalar(size);
+  particle.position.set(
+    position.x + THREE.MathUtils.randFloatSpread(jitter),
+    position.y + THREE.MathUtils.randFloatSpread(jitterY),
+    position.z + THREE.MathUtils.randFloatSpread(jitter),
+  );
+  particle.renderOrder = 18;
+  context.scene.add(particle);
+  context.damageParticles.push({ mesh: particle, velocity, life, maxLife: life, pooled: true, pooledMaterial: true });
 }
 
 let slashTrailTexture: THREE.Texture | null = null;
@@ -242,14 +278,7 @@ export function spawnFireworkBurst(context: CombatEffectContext, position: THREE
 
 export function spawnTntTrail(context: CombatEffectContext, position: THREE.Vector3) {
   if (Math.random() > 0.72) return;
-  const particle = new THREE.Mesh(
-    new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.035, 0.085), 8, 6),
-    new THREE.MeshBasicMaterial({ color: Math.random() > 0.45 ? 0xfff3a1 : 0xff7a1a, transparent: true, opacity: 0.58, blending: THREE.AdditiveBlending, depthWrite: false }),
-  );
-  particle.position.copy(position).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.16), THREE.MathUtils.randFloatSpread(0.16), THREE.MathUtils.randFloatSpread(0.16)));
-  particle.renderOrder = 18;
-  context.scene.add(particle);
-  context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(0, -0.03, 0), life: 0.22, maxLife: 0.22 });
+  spawnPooledTrail(context, position, Math.random() > 0.45 ? 0xfff3a1 : 0xff7a1a, 0.58, THREE.MathUtils.randFloat(0.035, 0.085), 0.16, 0.16, TRAIL_FALL, 0.22);
 }
 
 export function spawnMeleeSlashTrail(context: CombatEffectContext, obsidian = false) {
@@ -352,26 +381,12 @@ export function spawnProjectileImpact(context: CombatEffectContext, position: TH
 
 export function spawnWindCutterTrail(context: CombatEffectContext, position: THREE.Vector3) {
   if (Math.random() > 0.68) return;
-  const particle = new THREE.Mesh(
-    new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.025, 0.06), 8, 6),
-    new THREE.MeshBasicMaterial({ color: 0xcffafe, transparent: true, opacity: 0.48, blending: THREE.AdditiveBlending, depthWrite: false }),
-  );
-  particle.position.copy(position).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.24), THREE.MathUtils.randFloatSpread(0.12), THREE.MathUtils.randFloatSpread(0.24)));
-  particle.renderOrder = 18;
-  context.scene.add(particle);
-  context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(0, 0.07, 0), life: 0.22, maxLife: 0.22 });
+  spawnPooledTrail(context, position, 0xcffafe, 0.48, THREE.MathUtils.randFloat(0.025, 0.06), 0.24, 0.12, TRAIL_RISE, 0.22);
 }
 
 export function spawnMagicTrail(context: CombatEffectContext, position: THREE.Vector3) {
   if (Math.random() > 0.62) return;
-  const particle = new THREE.Mesh(
-    new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.035, 0.075), 8, 6),
-    new THREE.MeshBasicMaterial({ color: 0x86ffc2, transparent: true, opacity: 0.52, blending: THREE.AdditiveBlending, depthWrite: false }),
-  );
-  particle.position.copy(position).add(new THREE.Vector3(THREE.MathUtils.randFloatSpread(0.18), THREE.MathUtils.randFloatSpread(0.18), THREE.MathUtils.randFloatSpread(0.18)));
-  particle.renderOrder = 18;
-  context.scene.add(particle);
-  context.damageParticles.push({ mesh: particle, velocity: new THREE.Vector3(0, 0.06, 0), life: 0.24, maxLife: 0.24 });
+  spawnPooledTrail(context, position, 0x86ffc2, 0.52, THREE.MathUtils.randFloat(0.035, 0.075), 0.18, 0.18, TRAIL_RISE_SLOW, 0.24);
 }
 
 export function spawnDamageParticles(context: CombatEffectContext) {
