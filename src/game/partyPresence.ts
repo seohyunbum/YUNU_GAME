@@ -283,7 +283,7 @@ function spawnRemoteProjectile(message: Extract<PartyMessage, { type: "playerAtt
 // rotation 은 호출자의 Euler(또는 {x,y,z})를 직접 변형 — 할당 없음(핫패스 안전). p: 0→1 진행도.
 export function applyAttackMotion(rotation: { x: number; y: number; z: number }, playerClass: string, p: number) {
   const swing = Math.sin(p * Math.PI); // 0 → 1 → 0 봉우리
-  if (playerClass === "warrior" || playerClass === "tanker") {
+  if (playerClass === "warrior" || playerClass === "tanker" || playerClass === "samurai") { // 사무라이도 근접 휘두르기 모션
     rotation.x = -swing * 0.3; // 앞으로 베어내며
     rotation.y = -swing * 0.45; // 몸통 비틀기 = 휘두르기
     rotation.z = swing * 0.2; // 대각선 스윙 느낌
