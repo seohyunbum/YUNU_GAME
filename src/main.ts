@@ -273,7 +273,7 @@ import { renderTrainingPanel as renderTrainingPanelView, fillTrainingLeaderboard
 import { activeBuffs, burningShieldArmorBonus, createSkillBuffs, empowerMultiplier, rallyDefenseMultiplier, stewAttackBonus, stewDefenseBonus, STEW_BUFF_SECONDS, STEW_HEAL, gunnerShotDamage, HEAL_PARTY_RADIUS, healerHealAmount, mageTntDamage, rapidFireCooldownScale, resetSecondSkillEffects, SECOND_SKILLS, unbreakableArmorBonus, updateSecondSkillEffects, useSecondClassSkill, useThirdClassSkill, useFourthClassSkill, warriorExplosionDamage, type SecondSkillContext, type SecondSkillDef, type SkillEffectsContext, type ThirdSkillContext } from "./game/classSkills";
 import { useSamuraiPrimarySkill } from "./game/samurai";
 import { SKILL_SOUND, SKILL_SOUND_PRELOAD, type SkillElement } from "./game/skillSounds";
-import { CLASS_PASSIVES, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
+import { CLASS_PASSIVES, classAttackSpeedMult, classMoveSpeedMult, classWeaponDamageMult, experienceForNextPetLevel, summonerPetDamage } from "./game/classPassives";
 import { canAdvanceJob, jobTierCooldownMult, jobTierStatBonus, jobTierTitle, jobTierAllStatMult, jobTierSkillDamageMult, jobTierCounterChance, isUltimateDecree, JOB_DECREE_ULTIMATE_NECKLACE } from "./game/jobAdvancement";
 import { SummonerCompanionController, type SummonerPetContext } from "./game/summonerPet";
 import { BIOME_TERRAIN_PLANS, TERRAIN_COLORS, TERRAIN_NAMES, WATER_RADIUS_MULTIPLIER, biomesForWorldMap, waterZonesForWorldMap, type WaterZone } from "./game/worldData";
@@ -281,7 +281,7 @@ import {
   ARMOR_VALUE, AXE_POWER, DURABLE_TOOL_TABLES, GRINDABLE_MATERIALS, HARVEST_HARDNESS, ITEM_NAMES, MELEE_WEAPON_DAMAGE,
   PICKAXE_POWER, PLACEABLE_TYPES, POWDER_BY_MINERAL, RAW_MATERIALS, REFINED_BY_RAW, SHOVEL_POWER, isDurableTool, shortName,
   repairMaterialFor, repairPerMaterial, toolMaxDurability, SPECIAL_SMELTER_MATERIALS, WEAPON_DAMAGE, RANGED_WEAPONS,
-  RANGED_PROJECTILE, GUN_WEAPONS,
+  RANGED_PROJECTILE, GUN_WEAPONS, meleeReach,
 } from "./game/items";
 import { MINI_RECIPES, WORKBENCH_RECIPES } from "./game/recipes";
 import {
@@ -3135,7 +3135,7 @@ class WildernessGame {
     useSecondClassSkill(this.secondSkillContext);
   }
 
-  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), skillDamageMult: () => jobTierSkillDamageMult(this.playerClass, this.jobTier), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"]) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius, dirYaw) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius, dirYaw), applyDamage: (target, damage) => this.applyProjectileDamage(target, varyPlayerDamage(damage), "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass, this.jobTier >= 4), playerPosition: this.playerPosition, forwardXZ: () => ({ x: -Math.sin(this.yaw), z: -Math.cos(this.yaw) }), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, dashStep: (dx, dz) => { this.playerPosition.x += dx; this.playerPosition.z += dz; this.clampPlayerHorizontalPosition(this.playerPosition); this.resolveCollisions(this.playerPosition); } };
+  private readonly secondSkillContext: SecondSkillContext = { playerClass: () => this.playerClass, levelBonus: () => this.levelStatBonus(), currentDamage: () => this.currentDamage(), damageMult: () => classWeaponDamageMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), skillDamageMult: () => jobTierSkillDamageMult(this.playerClass, this.jobTier), now: () => performance.now(), buffs: this.skillBuffs, trySpend: (skill: SecondSkillDef) => this.trySpendSkill(skill.name, skill.manaCost, skill.cooldown, "second"), lookCombatTarget: () => { const target = this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal", "villager"], meleeReach(this.hotbar[this.selectedHotbarIndex]?.item ?? null) + 1.2) ?? this.getLookTarget(); return target && this.isCombatTarget(target) ? target : null; }, fireSkillProjectile: (kind, visual, damage, speed, radius, explosionRadius, dirYaw) => this.fireSkillProjectile(kind, visual, damage, speed, radius, explosionRadius, dirYaw), applyDamage: (target, damage) => this.applyProjectileDamage(target, varyPlayerDamage(damage), "magic"), meleeEffects: (target) => this.playMeleeAttackEffects(target), playHandAction: (kind) => this.playHandAction(kind), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), skillSound: (el) => this.playSkillSound(el), showMessage: (text) => this.showMessage(text), renderHud: () => this.renderHud(), castImpact: () => spawnSkillCastImpact(this.combatEffectContext, this.playerClass, this.jobTier >= 4), playerPosition: this.playerPosition, forwardXZ: () => ({ x: -Math.sin(this.yaw), z: -Math.cos(this.yaw) }), nearbyCombatTargets: (radius) => { const targets: WorldObject[] = []; for (const object of this.objectsNear(this.playerPosition, radius + 4)) if (this.isCombatTarget(object) && Math.hypot(object.root.position.x - this.playerPosition.x, object.root.position.z - this.playerPosition.z) <= radius + (object.collisionRadius ?? 0)) targets.push(object); return targets; }, dashStep: (dx, dz) => { this.playerPosition.x += dx; this.playerPosition.z += dz; this.clampPlayerHorizontalPosition(this.playerPosition); this.resolveCollisions(this.playerPosition); } };
 
   // 3번째 스킬(F) — 1차 전직 시 해금. 2스킬 컨텍스트를 재사용하되 쿨다운 슬롯/광역·자가회복만 보강.
   private useThirdSkill() {
@@ -3357,7 +3357,7 @@ class WildernessGame {
     if (movingHorizontally) {
       direction.normalize();
       sprinting = this.isSprinting();
-      let speed = WALK_SPEED * (sprinting ? RUN_MULTIPLIER : 1) * additiveMoveSpeedMult(CLASS_PASSIVES[this.playerClass].moveSpeedMult, this.dragonGear); // 거너 +10% + 용의 부츠 +15%(합연산)
+      let speed = WALK_SPEED * (sprinting ? RUN_MULTIPLIER : 1) * additiveMoveSpeedMult(classMoveSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), this.dragonGear); // 거너 +10% + 사무라이 카타나 +5% + 용의 부츠 +15%(합연산)
       if (this.keys.has("KeyC")) speed *= 0.38;
       else if (this.isShiftDown() && !sprinting) speed *= 0.62;
       const horizontalDistance = speed * delta;
@@ -4066,7 +4066,7 @@ class WildernessGame {
     this.actionTimer = Math.max(0, this.actionTimer - delta);
     this.rangedCooldown = Math.max(0, this.rangedCooldown - delta);
 
-    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace)); // 쾌속 목걸이(착용/영구) + 용장갑(공속 합연산)
+    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * classAttackSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 쾌속 목걸이(착용/영구) + 용장갑(공속 합연산) + 사무라이 공속(×0.8, 카타나 시 추가 ×1/1.05)
     const progress = this.actionTimer > 0 ? THREE.MathUtils.clamp(1 - this.actionTimer / duration, 0, 1) : 1;
     const swing = this.actionTimer > 0 ? Math.sin(progress * Math.PI) : 0;
 
@@ -4092,7 +4092,7 @@ class WildernessGame {
 
   private playHandAction(mode: HandActionMode = "use") {
     this.actionMode = mode;
-    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace));
+    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * classAttackSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 사무라이: 스윙(=기본공격 쿨다운) ×0.8 → 공속 +25%
   }
 
   private updateHeldItem() {
@@ -4250,7 +4250,7 @@ class WildernessGame {
     const target =
       exactTarget?.type === "blacksmithNpc"
         ? exactTarget
-        : this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "trainingRig", "villageShop", "villageSellShop", "antHill", "wildPredator", "dragon", "jammini"]) ?? exactTarget;
+        : this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "trainingRig", "villageShop", "villageSellShop", "antHill", "wildPredator", "dragon", "jammini"]) ?? exactTarget ?? (meleeReach(selectedItem) > INTERACT_DISTANCE ? this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal"], meleeReach(selectedItem) + 1.2) : null); // 카타나(리치 2배) — 일반 사거리에서 못 찾았을 때만 전투 대상 한정 확장 탐색
     if (!this.possessedEagleId && selectedItemIsRanged && shouldFireRangedDuringInteract(true, Boolean(target), target ? this.isCombatTarget(target) : false)) {
       this.fireRangedWeapon(selectedItem);
       return;
