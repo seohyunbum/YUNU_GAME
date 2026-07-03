@@ -183,6 +183,26 @@ try {
   assert(SHIELD_DEFENSE.iron_shield === 5, "iron shield should add 5 defense");
   assert(SHIELD_DURABILITY.iron_shield === 200, "iron shield should last 200 hits");
   assert(WEAPON_DAMAGE.iron_shield === 3, "iron shield bash should deal 3 damage");
+
+  // 카타나 — 철 검(6)과 다이아 검(8) 사이 데미지 + 리치 2배(일반 근접무기는 1배)
+  {
+    const { INTERACT_DISTANCE } = constants;
+    const { isKatanaWeapon, isMeleeWeapon, meleeReach, weaponReachMult, ITEM_NAMES, itemTier } = items;
+    assert(WEAPON_DAMAGE.katana === 7, "katana damage should be 7 (iron 6 < katana < diamond 8)");
+    assert(WEAPON_DAMAGE.iron_sword < WEAPON_DAMAGE.katana && WEAPON_DAMAGE.katana < WEAPON_DAMAGE.diamond_sword, "katana damage should sit between iron and diamond swords");
+    assert(WEAPON_DAMAGE.obsidian_katana === 12, "obsidian katana damage should be 12 (just under obsidian sword 13)");
+    assert(WEAPON_DAMAGE.obsidian_katana < WEAPON_DAMAGE.obsidian_sword, "obsidian katana per-hit should stay under obsidian sword (리치·시너지 보완)");
+    almostEqual(weaponReachMult("katana"), 2, "katana reach multiplier ×2");
+    almostEqual(weaponReachMult("obsidian_katana"), 2, "obsidian katana reach multiplier ×2");
+    almostEqual(weaponReachMult("iron_sword"), 1, "normal melee weapon keeps ×1 reach");
+    almostEqual(weaponReachMult(null), 1, "bare hand keeps ×1 reach");
+    almostEqual(meleeReach("katana"), INTERACT_DISTANCE * 2, "katana melee reach = 2× interact distance");
+    almostEqual(meleeReach("iron_sword"), INTERACT_DISTANCE, "sword melee reach = base interact distance");
+    assert(isKatanaWeapon("katana") && isKatanaWeapon("obsidian_katana") && !isKatanaWeapon("iron_sword"), "isKatanaWeapon should recognize only katanas");
+    assert(isMeleeWeapon("katana") && isMeleeWeapon("obsidian_katana"), "katanas are melee weapons (전사 근접 패시브 포함)");
+    assert(ITEM_NAMES.katana === "카타나" && ITEM_NAMES.obsidian_katana === "흑요석 카타나", "katana items need display names");
+    assert(itemTier("katana") === "uncommon" && itemTier("obsidian_katana") === "epic", "katana tiers: uncommon / epic");
+  }
   assert(EAGLE_RAM_DAMAGE === 5, "possessed eagle ram should start from 5 damage");
   assert(EAGLE_CLAW_DAMAGE === 20 && EAGLE_CLAW_COOLDOWN === 14, "possessed eagle claw should keep intended damage/cooldown");
   assert(WIND_CUTTER_DAMAGE === 35 && WIND_CUTTER_COOLDOWN === 40, "possessed eagle wind cutter should keep intended damage/cooldown");

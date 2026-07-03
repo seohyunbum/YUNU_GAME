@@ -323,6 +323,23 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     note: "데미지 13.",
   },
   {
+    id: "katana",
+    name: "카타나",
+    output: "katana",
+    count: 1,
+    ingredients: { refined_iron: 4, stick: 1 }, // 철 검(3+1)보다 약간 비싼 철 티어 카타나
+    note: `데미지 ${WEAPON_DAMAGE.katana}. 사무라이의 시작 무기 — 일반 근접무기보다 리치가 2배 깁니다.`,
+  },
+  {
+    id: "obsidian_katana",
+    name: "흑요석 카타나",
+    output: "obsidian_katana",
+    count: 1,
+    ingredients: { sharp_obsidian: 3, refined_iron: 2, stick: 1 },
+    note: `데미지 ${WEAPON_DAMAGE.obsidian_katana}의 에픽 카타나 — 리치 2배, 사무라이가 들면 공격·공속·이속 +5%.`,
+    extendedOnly: true,
+  },
+  {
     id: "leather_armor",
     name: "가죽 갑옷",
     output: "leather_armor",
