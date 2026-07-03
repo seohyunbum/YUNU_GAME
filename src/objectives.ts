@@ -12,6 +12,7 @@ export const CLASS_WEAPON_QUESTS: Record<PlayerClassId, { items: ItemId[]; title
   mage: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 제련된 나무는 제련대에서 나무를 제련해 만들고, 가루는 분쇄기에서 만듭니다." },
   summoner: { items: ["crystal_staff", "arcane_staff"], title: "수정 지팡이 만들기", detail: "마법봉보다 강한 수정 지팡이(제련된 나무 3 + 다이아 가루 2 + 금 가루 2)를 만드세요. 제련된 나무는 제련대에서 나무를 제련해 만들고, 가루는 분쇄기에서 만듭니다." },
   gunner: { items: ["rifle"], title: "소총 만들기", detail: "권총보다 강한 소총(제련된 철 10 + 제련된 나무 4 + 석탄 4)을 확장 제작대에서 만드세요." },
+  samurai: { items: ["obsidian_katana"], title: "흑요석 카타나 만들기", detail: "시작 무기인 카타나보다 강한 흑요석 카타나(날카로운 흑요석 3 + 제련된 철 2 + 막대기 1)를 확장 제작대에서 만드세요. 리치 2배는 그대로, 사무라이가 들면 공격·공속·이속 +5% 시너지도 유지됩니다. 흑요석은 동굴 깊은 곳에서 다이아 곡괭이로 캘 수 있습니다." },
   tanker: { items: ["iron_sword", "iron_dagger"], title: "철 검 만들기", detail: "방패와 함께 쓸 철 검(제련된 철 2 + 막대기 1)을 제작대에서 만드세요." },
 };
 
