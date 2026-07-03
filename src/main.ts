@@ -258,7 +258,7 @@ import { spawnGuardProjectile, updateGuardProjectiles, type GuardProjectile, typ
 import { keepOutOfBuildings } from "./game/npcMovement";
 import { hitStopScale, triggerHitFeedback, updateHitFeedback, type HitFeedbackDeps } from "./game/hitFeedback";
 import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, createMonsterFortressInterior, createSiegeArenaInterior, type InteriorContext } from "./game/interiors";
-import { createSiegeState, loadFortressStageByMap, saveFortressStageByMap, siegeStatus, updateSiege, type SiegeContext, type SiegeState } from "./game/fortressSiege";
+import { createSiegeState, loadFortressStageByMap, restoreFortressStageByMap, saveFortressStageByMap, siegeStatus, updateSiege, type SiegeContext, type SiegeState } from "./game/fortressSiege";
 import { spawnFortressMonster, updateCaveMonsters, type CaveMonsterContext, type FortressSpawnDeps } from "./game/caveMonsters";
 import { buildOreMesh, oreSharedGeometries, oreSharedMaterials } from "./game/oreVisual";
 import { HOME_SUPPLY_COOLDOWN_SECONDS, homeSupplyReadyLabel, normalizeHomeStorage, rollHomeSupply, transferSlot } from "./game/homeBase";
@@ -667,7 +667,7 @@ class WildernessGame {
   private caveReturnPosition: THREE.Vector3 | null = null;
   private fortressSiege: SiegeState | null = null; // 몬스터 요새 디펜스 진행 상태(휘발 — 세이브 안 함)
   private bestFortress = this.loadBestFortress(); // 난이도별 요새 최고 클리어 단계+baseLevel(닉네임당 전역 영구 기록 — 로드·새 게임에도 리셋 안 함). 랭킹 소스.
-  private fortressStageByMap = loadFortressStageByMap(); // 맵별 요새 최고 클리어 단계 — 재입장 시 이어서 시작(이건 런/세이브 상태라 새 게임 시 리셋 OK)
+  private fortressStageByMap = loadFortressStageByMap(); // 맵별 요새 최고 클리어 단계 — 재입장 시 이어서 시작. 세이브에 직렬화·로드 시 복원(SSOT=세이브, localStorage 는 구세이브 백필용 미러). 새 게임만 리셋
   private leaderboards: FortressLeaderboards | null = null; // 캐릭터 창 난이도별 랭킹(null = 불러오는 중). 창 열 때마다 재조회
   private houseReturnPosition: THREE.Vector3 | null = null;
   private caveObjectIds: string[] = [];
@@ -6221,7 +6221,7 @@ class WildernessGame {
         characterId: this.currentCharacterId,
         partyLedgerEpoch: this.currentPartyLedgerEpoch,
         predatorKills: this.tutorialSignals.predatorKills,
-        fortressBossKills: this.tutorialSignals.fortressBossKills,
+        fortressBossKills: this.tutorialSignals.fortressBossKills, fortressStageByMap: this.fortressStageByMap, // 맵별 요새 최고 단계 — 세이브 포함(스냅샷이 spread 복사)
         craftStatAlloc: { ...this.craftStatAlloc },
         classSkillCooldownUntil: this.classSkillCooldownUntil,
         secondSkillCooldownUntil: this.secondSkillCooldownUntil,
@@ -6272,7 +6272,7 @@ class WildernessGame {
   }
 
   private restoreSaveData(sourceSave: SavedGame | PartialSavedGame) {
-    const save = migratePartialSaveData(sourceSave);
+    const save = migratePartialSaveData(sourceSave); const keptFortressStages = this.fortressStageByMap; // 구세이브(필드 없음) 백필용 — 아래 resetGameState 가 지우기 전에 캡처
     this.resetGameState({ reseed: false });
     this.currentWorldMapId = save.player.worldMapId ?? DEFAULT_WORLD_MAP_ID;
     this.bossChapter = normalizeBossChapter(save.player.bossChapter);
@@ -6342,7 +6342,7 @@ class WildernessGame {
     const fortFloor = ([["hunt_fortress_boss_3", 3], ["hunt_fortress_boss", 1]] as [string, number][]).reduce((m, [id, n]) => doneIds.includes(id) ? Math.max(m, n) : m, 0);
     this.tutorialSignals.predatorKills = Math.max(save.player.predatorKills ?? 0, killFloor);
     this.tutorialSignals.fortressBossKills = Math.max(save.player.fortressBossKills ?? 0, fortFloor);
-    this.savePredatorKills();
+    this.savePredatorKills(); this.fortressStageByMap = restoreFortressStageByMap(save.player.fortressStageByMap, doneIds.includes("visit_fortress") || this.tutorialProgress.achievedStepIds.includes("visit_fortress") ? keptFortressStages : {}); // ★맵별 요새 최고 단계 복원 — resetGameState 가 {} 로 지운 걸 세이브값으로 복구(전엔 로드마다 1단계 리셋 버그). 구세이브 백필은 요새 방문 증거(visit_fortress)가 있을 때만 — 전역 미러가 다른 슬롯 진행을 미방문 캐릭터에 주입하는 것 차단
     this.playerBodyPosition = null;
     this.renderClassSelection();
     this.hunger = save.player.hunger ?? HUNGER_MAX;

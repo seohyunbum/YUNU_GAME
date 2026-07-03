@@ -50,6 +50,7 @@ export interface SaveDataSnapshot {
     partyLedgerEpoch: number;
     predatorKills: number;
     fortressBossKills: number;
+    fortressStageByMap: Record<string, number>; // 맵별 요새 최고 클리어 단계 — 재입장 이어하기(로드 리셋 방지)
     craftStatAlloc: { hp: number; mana: number; attack: number; defense: number };
     classSkillCooldownUntil: number;
     secondSkillCooldownUntil: number;
@@ -238,6 +239,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       partyLedgerEpoch: snapshot.player.partyLedgerEpoch,
       predatorKills: snapshot.player.predatorKills,
       fortressBossKills: snapshot.player.fortressBossKills,
+      fortressStageByMap: { ...snapshot.player.fortressStageByMap },
       craftStatAlloc: { ...snapshot.player.craftStatAlloc },
       classSkillCooldownRemainingMs: Math.max(0, snapshot.player.classSkillCooldownUntil - snapshot.nowMs),
       secondSkillCooldownRemainingMs: Math.max(0, snapshot.player.secondSkillCooldownUntil - snapshot.nowMs),

@@ -48,6 +48,7 @@ function stableSaveShape(save) {
       worldMapId: save.player.worldMapId,
       bossChapter: save.player.bossChapter,
       defeatedFieldBosses: save.player.defeatedFieldBosses,
+      fortressStageByMap: { ...(save.player.fortressStageByMap ?? {}) },
       totalSteps: save.player.totalSteps,
       playSeconds: save.player.playSeconds,
       chestStepBank: save.player.chestStepBank,
@@ -156,6 +157,7 @@ try {
     game.hungerTimer = 77;
     game.worldTimeSeconds = 2400;
     game.currentWorldMapId = "mushroom_glen";
+    game.fortressStageByMap = { mushroom_glen: 4, dragon_lands: 2 };
     game.totalSteps = 321;
     game.playSeconds = 4567;
     game.chestStepBank = 22;
@@ -233,12 +235,32 @@ try {
     game.arcadePoints = 999999;
     game.restoreSaveData(before);
     const arcadePointsAfterReload = game.arcadePoints;
-    return { before, after, arcadePointsAfterReload };
+    // 요새 단계 회귀 가드: 로드가 맵별 진행을 지우지 않는다(전엔 resetGameState 가 로드마다 {} 리셋 → 매번 1단계부터).
+    const fortressAfterReload = { ...game.fortressStageByMap };
+    // 구세이브(필드 없음) 백필: 요새 방문 증거(visit_fortress)가 있으면 로드 직전 in-memory(=localStorage 미러) 진행을 유지한다.
+    const legacySave = JSON.parse(JSON.stringify(before));
+    delete legacySave.player.fortressStageByMap;
+    legacySave.player.tutorial.completedStepIds.push("visit_fortress");
+    game.fortressStageByMap = { legacy_map: 7 };
+    game.restoreSaveData(legacySave);
+    const fortressAfterLegacyLoad = { ...game.fortressStageByMap };
+    // 증거 없는 구세이브는 백필하지 않는다 — 전역 미러가 다른 슬롯 진행을 미방문 캐릭터에 주입하는 것 차단.
+    const legacyNoEvidence = JSON.parse(JSON.stringify(before));
+    delete legacyNoEvidence.player.fortressStageByMap;
+    legacyNoEvidence.player.tutorial.completedStepIds = legacyNoEvidence.player.tutorial.completedStepIds.filter((id) => id !== "visit_fortress");
+    legacyNoEvidence.player.tutorial.achievedStepIds = legacyNoEvidence.player.tutorial.achievedStepIds.filter((id) => id !== "visit_fortress");
+    game.fortressStageByMap = { legacy_map: 7 };
+    game.restoreSaveData(legacyNoEvidence);
+    const fortressAfterNoEvidence = { ...game.fortressStageByMap };
+    return { before, after, arcadePointsAfterReload, fortressAfterReload, fortressAfterLegacyLoad, fortressAfterNoEvidence };
   });
 
   assert.deepEqual(stableSaveShape(result.after), stableSaveShape(result.before));
   assert.equal(result.before.player.arcadePoints, 8765, "arcadePoints must be persisted inside the save");
   assert.equal(result.arcadePointsAfterReload, 8765, "loading must roll arcadePoints back to the saved value (sell→load point-dupe exploit guard)");
+  assert.deepEqual(result.fortressAfterReload, { mushroom_glen: 4, dragon_lands: 2 }, "loading must restore per-map fortress stages from the save (load-reset regression guard)");
+  assert.deepEqual(result.fortressAfterLegacyLoad, { legacy_map: 7 }, "legacy saves with fortress-visit evidence must keep pre-load fortress progress (localStorage backfill)");
+  assert.deepEqual(result.fortressAfterNoEvidence, {}, "legacy saves without fortress-visit evidence must NOT inherit another slot's fortress progress");
   assert.deepEqual(browserErrors, []);
 
   console.log(JSON.stringify({
@@ -250,6 +272,7 @@ try {
       "dropped item roundtrip",
       "world map state roundtrip",
       "home storage and supply cooldown roundtrip",
+      "fortress stage per-map roundtrip + legacy backfill",
     ],
   }, null, 2));
 } finally {

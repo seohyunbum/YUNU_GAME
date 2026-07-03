@@ -69,6 +69,12 @@
 - 수정(안전·무회귀, 절차물 제외/재시드 안 함): ①나무는 `spawnTree(type,position)` 가 name·충돌·외형을 전부 재구성 → 저장에서 타입유래 필드 전부 생략(`createSavedWorldState` 나무 분기, 채집상태만 보존). 복원부는 생략 필드를 `?? object.X` 로 spawn 기본값 유지(구세이브 호환, `SavedObject.name` optional). ②`toSavedVector` 위치 2자리 반올림. → **세이브 44%↓**(raw 2346→1318KB, 압축 185KB). ③사본수 축소: `MAX_SAVE_SLOTS` 20→12, `SAVE_HISTORY_PER_NICKNAME` 15→8. (직전 20 상향이 quota 압박 가중.)
 - 검증: verify 그린. E2E 라운드트립 — 나무 압축저장 `{type,position}` → 로드 후 collidable·collisionRadius·name 정상 재구성(914그루). history-cap 테스트 상수화.
 
+**맵별 요새 최고 단계가 로드마다 1단계로 리셋 (2026-07-03)**
+- 신고: "요새가 클리어 단계를 기억 못하고 매번 첫 단계부터." 근본원인 = `fortressStageByMap` 이 **localStorage 에만** 있고 세이브 미포함인데, 로드 경로 `restoreSaveData`→`resetGameState` 가 로드마다 메모리+localStorage 를 `{}` 로 리셋(predatorKills 가 겪은 "로드 리셋" 버그와 동일 패턴 — 그때 요새 단계는 누락 수리).
+- 수정(predatorKills 표준 패턴): ①세이브 필드 `player.fortressStageByMap` 추가(types/saveManager/createSaveData) ②마이그레이션 보존 `normalizeFortressStageByMap`(1 이상 유한 정수만, 구세이브는 키 생략) ③로드 시 세이브값 복원, 구세이브(필드 없음)는 로드 직전 in-memory(=localStorage 미러) 백필(`restoreFortressStageByMap` leaf). 새 게임 리셋(6484행)은 유지 — 복원이 로드 경로에서만 덮어씀. SSOT=세이브, localStorage 는 백필용 미러로 격하.
+- 적대적 리뷰 지적 반영: 전역 미러 백필이 "마지막에 플레이한 다른 슬롯" 진행을 레거시 세이브에 주입 가능(상향 혜택만·레거시 한정이라 minor) → 백필을 **요새 방문 증거(`visit_fortress` 퀘스트 달성)가 있는 세이브로 게이트**. 미방문 캐릭터는 항상 `{}`(1단계부터).
+- 검증: verify 그린 + roundtrip 회귀 가드 3건(로드 복원·legacy 백필·무증거 주입 차단) + 실브라우저 E2E(3단계 클리어→저장→**page reload**→로드→요새 재입장 3단계 시작→5단계 갱신→재재시작 후 5 유지).
+
 ---
 
 ## 4. 알려진 잔여 리스크 / 백로그

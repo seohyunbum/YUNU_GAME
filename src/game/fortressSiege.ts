@@ -44,13 +44,21 @@ export interface SiegeState {
   spawnCursor: number; // 통로 라운드로빈 — 진입마다 리셋(모듈 전역 누적 방지)
 }
 
-// 맵별 몬스터 요새 최고 클리어 단계 — 재입장 시 이어서 시작하기 위해 localStorage 에 보존(세이브 스키마 무관, bestFortressStage 와 동일 방식).
+// 맵별 몬스터 요새 최고 클리어 단계 — 재입장 시 이어서 시작. SSOT=세이브(player.fortressStageByMap, 로드 시 복원);
+// localStorage 는 부팅 초기값·구세이브(필드 없음) 백필용 미러다(전엔 여기에만 있어 로드-리셋으로 매번 1단계부터 시작하던 버그).
 const FORTRESS_STAGE_BY_MAP_KEY = "ai-game-lab:fortress-stage-by-map-v1";
 export function loadFortressStageByMap(): Record<string, number> {
   try { const raw = localStorage.getItem(FORTRESS_STAGE_BY_MAP_KEY); const obj = raw ? JSON.parse(raw) : {}; return obj && typeof obj === "object" ? (obj as Record<string, number>) : {}; } catch { return {}; }
 }
 export function saveFortressStageByMap(map: Record<string, number>): void {
   try { localStorage.setItem(FORTRESS_STAGE_BY_MAP_KEY, JSON.stringify(map)); } catch { /* 저장 차단 환경 무시 */ }
+}
+// 로드 시 복원 — 세이브 필드 우선, 없으면(구세이브) 로드 직전 값으로 백필(localStorage 전역값).
+// resetGameState 가 로드 경로에서도 진행을 {} 로 지우므로, 여기서 세이브 기준으로 되살리고 localStorage 미러도 맞춘다.
+export function restoreFortressStageByMap(fromSave: Record<string, number> | undefined, fallback: Record<string, number>): Record<string, number> {
+  const restored = { ...(fromSave ?? fallback) };
+  saveFortressStageByMap(restored);
+  return restored;
 }
 
 export function createSiegeState(baseLevel: number, startStage = 1): SiegeState {

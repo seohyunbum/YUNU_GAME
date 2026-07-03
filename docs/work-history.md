@@ -807,3 +807,17 @@
   damage-variance·nickname·save-migration·party-ledger·leaderboard 전부 녹색. 미니맵/트레일은 브라우저 시각 확인 권장
   (Chrome 부재로 visual-check 미실행 — 특히 미니맵 화살표·마커, 마법/총알 트레일 잔상).
 - 관련: src/ui/minimap.ts, src/main.ts, src/game/combatEffects.ts, scripts/check-main-size.mjs.
+
+## 2026-07-03 — 몬스터 요새 단계 이어하기가 로드마다 1단계로 리셋되던 버그 수정
+- 신고: "맵별 요새가 클리어 단계를 기억 못하고 매번 첫 단계부터 시작."
+- 근본원인: `fortressStageByMap`(맵별 최고 클리어 단계)이 localStorage 에만 존재·세이브 미포함.
+  로드 경로 `restoreSaveData`→`resetGameState`(main.ts)가 로드마다 메모리+localStorage 를 `{}` 리셋
+  → 껐다 켜서 이어하기만 해도 요새 진행 증발. (predatorKills 로드-리셋 버그와 동일 패턴의 누락 수리)
+- 수정: 세이브 필드 `player.fortressStageByMap` 신설(직렬화·마이그레이션 정규화·로드 복원+구세이브 localStorage 백필).
+  leaf 헬퍼 `restoreFortressStageByMap`(fortressSiege.ts). main.ts 는 전부 기존 줄 인라인 — size/methods 래칫 여유 0 유지.
+- 적대적 리뷰(3렌즈+반박 판정) 확정 1건 반영: 구세이브 백필은 요새 방문 증거(visit_fortress 달성) 있을 때만 —
+  전역 localStorage 미러가 다른 슬롯 진행을 미방문 캐릭터에 주입하던 창 차단.
+- 검증: verify 전체 그린. save-migration(정규화·구세이브 생략)·save-roundtrip(복원·legacy 백필·무증거 차단 가드 3건) 추가.
+  실브라우저 E2E: 새게임→요새 3단계 클리어→저장→page reload→이어하기→재입장 **3단계부터 시작** 확인,
+  5단계 갱신 후 재재시작→5 유지, localStorage 미러 동기화, 파티 sync 는 세이브 경로 미사용(오염 없음) 확인.
+- 상세: docs/save-system-history.md 2026-07-03 항목.
