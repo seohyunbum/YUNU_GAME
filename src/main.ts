@@ -344,7 +344,7 @@ import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } fr
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
-import { enterLandscapeFullscreen, isTouchDevice } from "./game/platform";
+import { enterLandscapeFullscreen, isTouchDevice, toggleFullscreen } from "./game/platform";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
 import { showObjectiveGuide } from "./ui/objectiveGuide";
 import { createOnboardingState, resetOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
@@ -2155,7 +2155,7 @@ class WildernessGame {
   }
 
   private handleKeyDown(event: KeyboardEvent) {
-    if (this.handleMiniGameKeyDown(event)) return;
+    if (event.altKey && event.code === "Enter" && !event.repeat) { event.preventDefault(); toggleFullscreen(); return; } if (this.handleMiniGameKeyDown(event)) return; // 앞: 데스크탑 전체화면 토글(게임 표준 Alt+Enter) — 타이틀/게임/검색 중 어디서든, 문자 입력 영향 없음
     if (this.handleLavaMiniGameKeyDown(event)) return;
     if (this.handleSmithingMiniGameKeyDown(event)) return;
     if (!this.gameStarted) {

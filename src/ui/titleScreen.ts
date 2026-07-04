@@ -197,6 +197,7 @@ export function renderTitleScreen(titleScreenEl: HTMLElement, view: TitleScreenV
         <button data-title-mini>구슬 튕기기</button>
         <button data-title-lava>용암을 피해라</button>
         <button data-title-smith>대장간 게임</button>
+        <button data-title-fullscreen title="게임 중에는 Alt+Enter 로도 전환">🖥 전체화면</button>
       </div>
     `;
 }
