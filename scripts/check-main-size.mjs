@@ -102,7 +102,8 @@ import { readFileSync } from "node:fs";
 //   (claimSubquest)·spawnVillage 이장·restore·ensure 백필·주민수 하향 배선. +19 → 9390.
 // 2026-07-04: 최종 보스 일리아 — 상태 필드 1 + 컨텍스트/헬퍼 화살표 필드 6(엔진·컷씬·비주얼은 leaf illiaBoss/illiaVisuals) + recordBossDefeat 일리아 분기 + 사망 특례 블록. +38 → 9376.
 // 2026-07-05: 서브퀘스트(+51)·일리아(+38) 리베이스 합류 — 실측 재기준(아래 값).
-const MAX_MAIN_LINES = 9428;
+// 2026-07-04: 마을집·대장간 안 상자 20분 쿨타임 — 리프(상수·상자-opened) + main 집 오브젝트 추적/판정/세팅 배선(+6). 리베이스 합류 실측 재기준.
+const MAX_MAIN_LINES = 9434;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

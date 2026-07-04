@@ -504,7 +504,7 @@ function createHomeSupplyVisual(position: THREE.Vector3) {
   return group;
 }
 
-export function createHouseInterior(context: InteriorContext, chestRich: boolean, houseKind: HouseKind = "home", playerOwned = false, bedTier: BedTier = "wood") {
+export function createHouseInterior(context: InteriorContext, chestRich: boolean, houseKind: HouseKind = "home", playerOwned = false, bedTier: BedTier = "wood", chestReady = true) {
   const room = new THREE.Group();
   const twoStory = houseKind === "twoStory";
   const floor = new THREE.Mesh(
@@ -624,6 +624,7 @@ export function createHouseInterior(context: InteriorContext, chestRich: boolean
     context.trackHouseObjects(storage.id, supply.id);
   } else {
     const chest = context.spawnChest(new THREE.Vector3(2.4, 0, HOUSE_CENTER_Z - 3.15), houseKind === "blacksmith" || chestRich);
+    if (!chestReady) chest.opened = true; // 20분 쿨타임 중 — 이미 연 상자로 스폰(재약탈 방지)
     context.trackHouseObjects(chest.id);
   }
   if (houseKind === "blacksmith") {
