@@ -5592,7 +5592,7 @@ class WildernessGame {
         for (const o of [...this.objectsOfType("wildPredator")]) if (o.fortressMonster) this.removeObject(o.id);
         this.playerPosition.set(ILLIA_ENTRY_POS.x, PLAYER_HEIGHT, ILLIA_ENTRY_POS.z); this.settlePlayerAfterTeleport();
         this.spawnIlliaBoss(phase);
-        this.showMessage("💀 일리아에게 쓰러졌습니다… 아이템은 잃지 않았습니다. 패턴을 기억하고 다시 도전하세요!", { durationSeconds: 7 });
+        this.showMessage("💀 일리아에게 쓰러졌습니다… 차원 밖으로 나가지 않고 결계 입구에서 즉시 재대결합니다(양쪽 체력 회복). 아이템은 잃지 않으니 패턴을 기억하고 다시 도전하세요!", { durationSeconds: 8, lockSeconds: 3 });
         this.renderHud();
         return true;
       }
@@ -5606,6 +5606,7 @@ class WildernessGame {
         this.renderHud();
         return true;
       }
+      const wasInIllia = this.illiaInArena; // 일리아 차원에서의 사망(전투 밖 — 승리 후 배회·굶주림 등)은 밖으로 밀려나며 특별 안내
       const deathPosition = this.locationMode === "overworld" ? this.playerPosition.clone() : (this.caveReturnPosition ?? this.houseReturnPosition ?? new THREE.Vector3(0, PLAYER_HEIGHT, 12)).clone();
       this.playTone(150, 0.5, "sawtooth", 0.055); window.setTimeout(() => this.playTone(95, 0.7, "sawtooth", 0.05), 200); // 사망 효과음(낮게 가라앉는 2음)
       this.dropInventoryOnDeath(deathPosition);
@@ -5616,6 +5617,7 @@ class WildernessGame {
         this.locationMode = "overworld";
         this.clearCaveObjects();
         this.setOverworldAtmosphere();
+        if (wasInIllia) { this.illiaInArena = false; resetIlliaFight(this.illiaFight, this.scene); if (this.illiaCutscene.active) { this.illiaCutscene.active = false; for (const prop of this.illiaCutscene.props) this.scene.remove(prop); this.illiaCutscene.props = []; this.illiaCutscene.anchor = null; hideIlliaCutsceneOverlay(this.uiRoot); this.handGroup.visible = true; } } // 차원 이탈 정리 — illiaInArena 누수 시 저장이 영구 차단되던 버그 수정(전투·컷씬 잔재도 함께 해제)
       }
       if (this.locationMode === "house") {
         this.locationMode = "overworld";
@@ -5630,6 +5632,7 @@ class WildernessGame {
         this.playerPosition.set(homeHouse.root.position.x + 4.5, PLAYER_HEIGHT, homeHouse.root.position.z + 6.5);
       } else this.playerPosition.set(0, PLAYER_HEIGHT, 12);
       this.settlePlayerAfterTeleport();
+      if (wasInIllia) this.showMessage("🌌 일리아의 차원에서 쓰러져 문 밖 세계로 밀려났습니다.", { durationSeconds: 6, lockSeconds: 2 }); // 차원 이탈을 명시(갑작스러운 장면 전환의 어색함 완화)
       this.showMessage(`사망 원인: ${deathReason} 튜토리얼 책, 직업 기본무기, 구급상자, 착용 중인 무기·방어구를 제외한 아이템이 죽은 자리에 떨어졌습니다.`);
       flashDeathBanner(`사망 원인: ${deathReason}`); // 화면 중앙 큰 사망 배너(확실한 인지)
       this.renderHud();
