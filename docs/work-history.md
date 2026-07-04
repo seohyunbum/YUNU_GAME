@@ -1258,3 +1258,21 @@
 - 검증: 전 게이트 녹색 + systems 유닛(오퍼 구조·kill/gather 진행·완료·쿨다운·sanitize·UI 렌더 3상태) +
   실브라우저 E2E(right-hud-column 이 퀘스트+서브퀘 포함·레벨1 숨김·퀘스트 카드 정상·무에러). save-roundtrip/visual-check/
   perf-check 는 이 환경(Windows 전용) 실행 불가 — PC 에서 확인 권장(특히 save-roundtrip 로 v15 왕복).
+
+## 2026-07-04 — 서브퀘스트를 마을 이장 NPC 방식으로 전환 + 주민 수 감소
+- 유저 요청: 모든 마을에 이장 NPC 추가. 서브퀘스트는 이장에게 말 걸어 3개 중 택1. 보상도 이장에게서 수령 —
+  가져다 달라는 재료/아이템이 있으면 제출하고 받음(제출형은 보상 상향). 렉 감소 위해 주민 수 축소.
+- 이장 NPC: `npcSpawns.spawnVillageChief`(리프) — 정지형 남색 로브 원로(저메시). 모든 마을에 1명
+  (spawnVillage 신규 + restoreWorldObject 로드 + ensureVillageShops 백필=구세이브·전 마을 소급). villageChief 타입 추가.
+  E 직접 조준 우선(대장장이와 동일 패턴). hp 없음=비전투(퀘스트 지급자 보호).
+- 상호작용 전환: 평상시 HUD 패널은 **읽기전용**(진행 표시 / 미선택 시 "이장에게 받으세요" 힌트). 이장 대화(E) 시
+  `subquestDialog=true` + 포인터락 해제 → 같은 패널이 인터랙티브(3택1·새로고침·포기·보상받기)로 전환. ESC(closePanel)로 닫힘.
+  기존 subquestEl + setupUi 위임 리스너 재사용 → 새 패널레이어 모달 불필요(main 최소 증가).
+- 보상 수령 이장화: syncSubquests 는 완료 감지만(자동 지급 제거). claimSubquest(이장)에서 지급 — 제출형(gather)은
+  countItem 검증 후 removeItem 로 소비. gather 진행 = 보유량 기준(min(target,보유))으로 변경(제출 전제).
+- 제출형 보상 상향: rollSubquest 에서 gather 는 경험치·아이템 수량 ×1.6(SUBMISSION_REWARD_MULT).
+- 주민 수: 데스크톱 special 12→6 / 일반 7→3 (모바일 유지). 이장 1명 추가분 상쇄 + 순감소.
+- ⚠️ 라쳇: main 9371→9390(+19)·480→... 482(claimSubquest 1). 로직/NPC 메시는 리프, main 은 배선만.
+- 검증: 전 게이트 녹색 + systems 유닛(gather 보유량 진행·제출 재료·비제출 null·제출형 보상>비제출·UI 5상태:
+  숨김/passive힌트/dialog오퍼/미완료포기/완료보상) + 실브라우저 E2E(3마을 이장 시드 무에러·패널 정상).
+  save-roundtrip/visual/perf 는 Windows 전용이라 이 환경 미실행 — PC 확인 권장.

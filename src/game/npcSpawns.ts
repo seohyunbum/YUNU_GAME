@@ -214,3 +214,46 @@ export function spawnVillager(context: NpcSpawnContext, position: THREE.Vector3,
     walkCycle: context.createWalkCycle(walkParts, 0.34, 7, 0.025),
   });
 }
+
+// 마을 이장 — 모든 마을에 1명. 서브퀘스트를 주고 보상을 준다. 정지형(walk 없음)·저메시(파란 로브 원로).
+export function spawnVillageChief(context: NpcSpawnContext, position: THREE.Vector3, villageId: string) {
+  position.y = context.getGroundHeightAt(position.x, position.z);
+  const group = new THREE.Group();
+  const skin = makeToonMaterial(ASSET_PALETTE.skin, { roughness: 0.74 });
+  const robe = makeToonMaterial(0x3b4f9e, { roughness: 0.82 }); // 남색 로브 — 주민(초록)과 확연히 구분
+  const trim = makeToonMaterial(0xf2c14e, { roughness: 0.6 }); // 금색 장식
+  const white = makeToonMaterial(0xe8ecf2, { roughness: 0.85 }); // 흰 수염
+  const dark = makeToonMaterial(ASSET_PALETTE.ink, { roughness: 0.7 });
+  const wood = makeToonMaterial(ASSET_PALETTE.wood, { roughness: 0.9 });
+
+  const robeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.66, 1.5, 14), robe);
+  robeBody.position.y = 0.75;
+  const sash = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.6, 0.14, 14), trim);
+  sash.position.y = 0.62;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), skin);
+  head.position.y = 1.72;
+  const beard = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.42, 12), white);
+  beard.position.set(0, 1.5, 0.16);
+  beard.rotation.x = Math.PI;
+  const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.44, 0.06, 16), trim);
+  hatBrim.position.y = 1.96;
+  const hatTop = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.3, 0.4, 16), robe);
+  hatTop.position.y = 2.2;
+  const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.9, 8), wood);
+  staff.position.set(0.5, 0.95, 0.05);
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), trim);
+  orb.position.set(0.5, 1.95, 0.05);
+  group.add(robeBody, sash, head, beard, hatBrim, hatTop, staff, orb);
+  for (const x of [-0.11, 0.11]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), dark);
+    eye.position.set(x, 1.74, 0.27);
+    group.add(eye);
+  }
+  group.position.copy(position);
+  return context.addWorldObject("villageChief", "마을 이장", group, {
+    collidable: true,
+    collisionRadius: 0.6,
+    collisionHeight: 2.3,
+    villageId,
+  });
+}

@@ -73,6 +73,9 @@ const GATHER_ITEMS: Record<SubquestRarity, ItemId[]> = {
   legendary: ["diamond", "refined_iron", "gold"],
 };
 
+// 아이템 제출형(gather) 보상 배수 — 재료를 이장에게 바치는 대신 보상 상향(유저 요구).
+export const SUBMISSION_REWARD_MULT = 1.6;
+
 // 희귀도별 보상(경험치 + 아이템). 레벨 20+ 도전이라 넉넉하되 난이도 차등.
 const REWARDS: Record<SubquestRarity, { experience: number; items: Partial<Record<ItemId, number>> }> = {
   common: { experience: 300, items: { medkit: 2 } },
@@ -124,7 +127,12 @@ export function rollSubquest(index: number, names: Record<string, string>): Subq
   const target = TARGETS[kind][rarity];
   const item = kind === "gather" ? pick(GATHER_ITEMS[rarity]) : undefined;
   const base = REWARDS[rarity];
-  const reward: SubquestReward = { experience: base.experience, items: base.items, label: rewardLabel(base, names) };
+  // gather(아이템 제출형)는 재료를 바치는 대가로 보상 상향(경험치·아이템 수량 ×1.6)
+  const mult = kind === "gather" ? SUBMISSION_REWARD_MULT : 1;
+  const items: Partial<Record<ItemId, number>> = {};
+  for (const [it, count] of Object.entries(base.items)) items[it as ItemId] = Math.max(1, Math.round((count as number) * mult));
+  const rewardBase = { experience: Math.round(base.experience * mult), items };
+  const reward: SubquestReward = { experience: rewardBase.experience, items: rewardBase.items, label: rewardLabel(rewardBase, names) };
   const id = `sq-${index}-${kind}-${rarity}-${Math.floor(Math.random() * 1e9).toString(36)}`;
   return { id, kind, rarity, target, item, reward };
 }
@@ -193,12 +201,16 @@ export function bumpSubquestOnEvent(state: SubquestState, kind: SubquestKind, am
   return true;
 }
 
-// gather 진행 폴링 — (현재 보유 - 수락 시점 기준)의 최댓값. 만들어 쓰거나 버려도 되돌아가지 않음.
+// gather(제출형) 진행 폴링 — 이장에게 바칠 재료를 현재 보유 수량만큼 진행으로 본다(제출 시 소비되므로 보유량 기준).
 export function pollSubquestGather(state: SubquestState, currentCount: number): boolean {
   if (!state.selected || state.selected.kind !== "gather") return false;
-  const gained = Math.max(0, currentCount - state.gatherBaseline);
-  const next = Math.min(state.selected.target, Math.max(state.progress, gained));
+  const next = Math.min(state.selected.target, Math.max(0, currentCount));
   if (next === state.progress) return false;
   state.progress = next;
   return true;
+}
+
+// 제출형(gather) 이면 이장에게 바칠 재료 {item, count}, 아니면 null.
+export function subquestSubmission(def: SubquestDef): { item: ItemId; count: number } | null {
+  return def.kind === "gather" && def.item ? { item: def.item, count: def.target } : null;
 }

@@ -272,14 +272,23 @@ try {
       subquests.bumpSubquestOnEvent(st, "kill"); subquests.bumpSubquestOnEvent(st, "kill"); subquests.bumpSubquestOnEvent(st, "kill");
       assert(st.progress === 3 && subquests.isSubquestComplete(st), "subquest kill: target 에서 완료(초과 없음)");
     }
-    // gather 진행: 수락 후 추가 채집분(현재-기준)의 최댓값, 되돌아가지 않음
+    // gather(제출형) 진행: 이장에게 바칠 재료 = 현재 보유량 기준(제출 시 소비되므로)
     {
       const st = subquests.defaultSubquestState();
       st.choices = [{ id: "g1", kind: "gather", rarity: "common", target: 5, item: "wood", reward: { experience: 100, items: {}, label: "경험치 100" } }];
-      st.selected = st.choices[0]; st.gatherBaseline = 10; // 수락 시 10개 보유
-      subquests.pollSubquestGather(st, 13); assert(st.progress === 3, "subquest gather: 수락 후 +3");
-      subquests.pollSubquestGather(st, 11); assert(st.progress === 3, "subquest gather: 소비해도 진행 감소 없음(최댓값 유지)");
-      subquests.pollSubquestGather(st, 16); assert(st.progress === 5 && subquests.isSubquestComplete(st), "subquest gather: target 도달 완료");
+      st.selected = st.choices[0];
+      subquests.pollSubquestGather(st, 3); assert(st.progress === 3, "subquest gather: 보유 3개 → 진행 3");
+      subquests.pollSubquestGather(st, 6); assert(st.progress === 5 && subquests.isSubquestComplete(st), "subquest gather: 보유 target 이상 → 완료");
+      subquests.pollSubquestGather(st, 2); assert(st.progress === 2 && !subquests.isSubquestComplete(st), "subquest gather: 보유가 줄면 진행도 감소(제출 전이라)");
+      const sub = subquests.subquestSubmission(st.selected);
+      assert(sub && sub.item === "wood" && sub.count === 5, "subquest gather: subquestSubmission = 바칠 재료 5개");
+      assert(subquests.subquestSubmission({ kind: "kill", rarity: "common", target: 3, reward: { experience: 1, items: {}, label: "x" }, id: "k" }) === null, "subquest: 비제출형은 subquestSubmission null");
+    }
+    // 제출형(gather) 보상 상향 — 같은 희귀도 kill 대비 gather 경험치가 높다(제출 배수 ×1.6)
+    {
+      const mk = (kind) => { let d; for (let i = 0; i < 200; i += 1) { const c = subquests.rollSubquest(0, names); if (c.kind === kind && c.rarity === "common") { d = c; break; } } return d; };
+      const g = mk("gather"), k = mk("kill");
+      if (g && k) assert(g.reward.experience > k.reward.experience, "subquest: 제출형(gather) 보상 > 동일 희귀도 비제출형");
     }
     // 새로고침 쿨다운
     assert(subquests.canRefreshSubquests(subquests.SUBQUEST_REFRESH_COOLDOWN_MS + 1, 0) === true && subquests.canRefreshSubquests(1000, 0) === false, "subquest: 새로고침 5분 쿨다운");
@@ -293,20 +302,32 @@ try {
     }
     // UI 렌더 — 레벨 게이트/선택 화면/진행 화면(스텁 el 로 markup 검증)
     {
-      const stub = () => ({ innerHTML: "", classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); } } });
+      const stub = () => ({ innerHTML: "", classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, on) { if (on) this._s.add(c); else this._s.delete(c); } } });
       const st = subquests.defaultSubquestState();
       st.choices = [
         { id: "a", kind: "kill", rarity: "legendary", target: 50, reward: { experience: 2800, items: {}, label: "경험치 2800" } },
         { id: "b", kind: "gather", rarity: "common", target: 10, item: "wood", reward: { experience: 300, items: {}, label: "경험치 300" } },
         { id: "c", kind: "chest", rarity: "rare", target: 3, reward: { experience: 700, items: {}, label: "경험치 700" } },
       ];
-      let el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 10);
+      let el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 10, false);
       assert(el.classList._s.has("hidden") && el.innerHTML === "", "subquest UI: 레벨 20 미만이면 숨김");
-      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25);
-      assert(!el.classList._s.has("hidden") && (el.innerHTML.match(/data-subquest-pick=/g) || []).length === 3 && el.innerHTML.includes("data-subquest-refresh") && el.innerHTML.includes("전설") && el.innerHTML.includes("fbbf24"), "subquest UI: 레벨 20+ 오퍼 3개·새로고침·희귀도 배경색 렌더");
+      // 평상시(passive): 선택 없으면 이장 안내 힌트, 오퍼/버튼 노출 안 함
+      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25, false);
+      assert(!el.classList._s.has("hidden") && !el.innerHTML.includes("data-subquest-pick=") && el.innerHTML.includes("마을 이장"), "subquest UI passive: 선택 없으면 이장 힌트(오퍼 버튼 없음)");
+      // 이장 대화중(dialogOpen): 오퍼 3개 + 새로고침 + 희귀도 배경색
+      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25, true);
+      assert((el.innerHTML.match(/data-subquest-pick=/g) || []).length === 3 && el.innerHTML.includes("data-subquest-refresh") && el.innerHTML.includes("전설") && el.innerHTML.includes("fbbf24"), "subquest UI dialog: 오퍼 3개·새로고침·희귀도 배경색");
+      // 선택 미완료: 진행 표시, 대화중이면 포기 버튼(완료 아니라 보상 버튼 없음)
       st.selected = st.choices[0]; st.progress = 20;
-      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25);
-      assert(el.innerHTML.includes("data-subquest-abandon") && el.innerHTML.includes("20/50") && !el.innerHTML.includes("data-subquest-pick="), "subquest UI: 선택 중이면 진행/포기 카드(선택 버튼 없음)");
+      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25, true);
+      assert(el.innerHTML.includes("data-subquest-abandon") && el.innerHTML.includes("20/50") && !el.innerHTML.includes("data-subquest-claim") && !el.innerHTML.includes("data-subquest-pick="), "subquest UI dialog: 미완료면 진행/포기(보상 버튼 없음)");
+      // 완료 + 대화중: 보상 받기 버튼
+      st.progress = 50;
+      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25, true);
+      assert(el.innerHTML.includes("data-subquest-claim"), "subquest UI dialog: 완료면 보상 받기 버튼");
+      // 완료 + 평상시: 이장에게 가라는 안내(버튼 없음)
+      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25, false);
+      assert(!el.innerHTML.includes("data-subquest-claim") && el.innerHTML.includes("이장"), "subquest UI passive: 완료면 이장에게 안내(버튼 없음)");
     }
 
     // 연격 틱 (난도/무한 찌르기 공용) — 등록 → 간격마다 1타 → 완주 시 해제, 대상 사망 시 취소

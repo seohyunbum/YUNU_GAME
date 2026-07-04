@@ -52,6 +52,7 @@ export type ObjectType =
   | "villageSellShop"
   | "blacksmith"
   | "blacksmithNpc"
+  | "villageChief"
   | "villageHouse"
   | "villageKnight"
   | "villageArcher"
