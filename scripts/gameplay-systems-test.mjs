@@ -205,7 +205,7 @@ try {
     assert(itemTier("katana") === "uncommon" && itemTier("obsidian_katana") === "epic", "katana tiers: uncommon / epic");
   }
 
-  // 사무라이 — 패시브(공속 +33%·전사보다 낮은 공방)·카타나 시너지(+5% 공/공속/이속)·스킬 4종 수치·전직 칭호
+  // 사무라이 — 패시브(공속 +33%·전사보다 낮은 공방)·카타나 시너지(공+5%/공속+10%/이속+5%)·스킬 4종 수치·전직 칭호
   {
     const { classAttackSpeedMult, classMoveSpeedMult } = classPassives;
     const samuraiPassive = CLASS_PASSIVES.samurai;
@@ -214,9 +214,9 @@ try {
     almostEqual(samuraiPassive.armorPerLevel, 0.15, "samurai armor per level (전사 0.2 보다 낮게)");
     almostEqual(samuraiPassive.basicAttackMult, 0.8, "samurai per-hit attack ×0.8 (전사 0.95 보다 낮게)");
     assert(samuraiPassive.armorBonus < warriorPassive.armorBonus && samuraiPassive.basicAttackMult < warriorPassive.basicAttackMult, "samurai attack & defense stay below warrior");
-    // 공속: 스윙 시간 ×0.75 = 공속 +33% (쾌속 목걸이와 같은 메커니즘. 0.8→0.75 상향 2026-07-04). 카타나 시 추가 ×1/1.05.
+    // 공속: 스윙 시간 ×0.75 = 공속 +33% (쾌속 목걸이와 같은 메커니즘. 0.8→0.75 상향 2026-07-04). 카타나 시 추가 ×1/1.1(공속 시너지 5%→10% 상향 2026-07-04).
     almostEqual(classAttackSpeedMult("samurai", null), 0.75, "samurai swing time ×0.75 (attack speed +33%)");
-    almostEqual(classAttackSpeedMult("samurai", "katana"), 0.75 / 1.05, "samurai+katana swing time ×0.75/1.05");
+    almostEqual(classAttackSpeedMult("samurai", "katana"), 0.75 / 1.1, "samurai+katana swing time ×0.75/1.1 (katana speed synergy +10%)");
     almostEqual(classAttackSpeedMult("warrior", "katana"), 1, "warrior swing time unaffected by katana");
     // 카타나 시너지 — 공격 +5% (사무라이 한정). 전사는 근접 +10% 만.
     almostEqual(classWeaponDamageMult("samurai", "katana"), 1.05, "samurai+katana attack +5%");

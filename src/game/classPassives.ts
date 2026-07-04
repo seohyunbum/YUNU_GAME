@@ -45,7 +45,7 @@ export function classWeaponDamageMult(playerClass: PlayerClassId, heldItem: Item
   return (match ? 1 + wd.pct : 1) * synergy;
 }
 
-// 직업 기본공격 스윙(시전시간) 배수 — 작을수록 빠름. 사무라이 ×0.8(카타나 시 추가 ×1/1.05), 그 외 1.
+// 직업 기본공격 스윙(시전시간) 배수 — 작을수록 빠름. 사무라이 ×0.75(카타나 시 추가 ×1/1.1), 그 외 1.
 export function classAttackSpeedMult(playerClass: PlayerClassId, heldItem: ItemId | null): number {
   return samuraiSwingMult(playerClass, heldItem);
 }
@@ -155,7 +155,7 @@ export const CLASS_PASSIVES: Record<PlayerClassId, ClassPassive> = {
   },
   samurai: {
     label: "신속 검격",
-    summary: "공격속도 +33% · 방어 +3 (레벨당 +0.15) · 카타나 장착 시 공격·공속·이속 +5%.",
+    summary: "공격속도 +33% · 방어 +3 (레벨당 +0.15) · 카타나 장착 시 공격 +5%·공속 +10%·이속 +5%.",
     armorBonus: 3, // 전사(4)보다 약간 낮은 방어
     armorPerLevel: 0.15,
     rangedCooldownScale: 1,

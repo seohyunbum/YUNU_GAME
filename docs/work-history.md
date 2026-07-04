@@ -1065,3 +1065,8 @@
 - 검증: 코드 관련 게이트 전부 녹색 — typecheck·check:size(9339)·check:methods(480)·check:architecture·
   check:hotpath·test:samurai·test:systems·test:balance + 나머지 node 스위트. save-roundtrip 은 이 환경
   (Linux, Windows Chrome/Edge 경로 하드코딩) 실행 불가 — clean HEAD 에서도 동일 실패 확인(내 변경 무관, 기지 제약).
+
+## 2026-07-04 — 사무라이 카타나 공속 시너지 +5%→+10%
+- 유저 요청. SAMURAI_KATANA_SPEED_BONUS 0.05→0.1(스윙 ×1/1.1). 공격 +5%·이속 +5% 는 유지.
+- 결과 DPS(기본무기 대비 전사): 비카타나 1.12배 → 카타나 1.30배(골든 창 1.35 내 유지).
+- 표기 갱신: classPassives summary·주석·골든 테스트(0.75/1.1). 검증: verify 전체 그린.
