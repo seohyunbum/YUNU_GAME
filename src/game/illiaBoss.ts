@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ARENA_CENTER_Z, ARENA_HALF } from "./constants";
+import { ARENA_HALF, ILLIA_CENTER_Z } from "./constants";
 import { bal } from "./balanceTuning";
 import type { WorldObject } from "./types";
 
@@ -11,8 +11,19 @@ import type { WorldObject } from "./types";
 
 export const ILLIA_P1_KIND = "illia_sealed";
 export const ILLIA_P2_KIND = "illia_desperate";
-export const ILLIA_ARENA_CENTER = { x: 0, z: ARENA_CENTER_Z };
-export const ILLIA_ENTRY_POS = { x: 0, z: ARENA_CENTER_Z + ARENA_HALF - 3 }; // 아레나 남쪽 입구(사망 부활 지점)
+export const ILLIA_ARENA_CENTER = { x: 0, z: ILLIA_CENTER_Z };
+export const ILLIA_ARENA_RADIUS = 16; // 원형 결계 반경(몬스터 요새 아레나 폭 수준) — 밖으로 빠지는 원거리 카이팅 차단. 인테리어 결계벽(16.6)과 짝
+// 전투 중 매 프레임 플레이어를 결계 안으로 — updateMovement 직후 1프레임 초과분(~0.1)만 되밀어 부드럽다.
+export function clampToIlliaArena(position: THREE.Vector3): void {
+  const dx = position.x - ILLIA_ARENA_CENTER.x;
+  const dz = position.z - ILLIA_ARENA_CENTER.z;
+  const dist = Math.hypot(dx, dz);
+  if (dist <= ILLIA_ARENA_RADIUS) return;
+  const scale = ILLIA_ARENA_RADIUS / dist;
+  position.x = ILLIA_ARENA_CENTER.x + dx * scale;
+  position.z = ILLIA_ARENA_CENTER.z + dz * scale;
+}
+export const ILLIA_ENTRY_POS = { x: 0, z: ILLIA_CENTER_Z + ARENA_HALF - 3 }; // 아레나 남쪽 입구(사망 부활 지점)
 
 // ── 텔레그래프 ──────────────────────────────────────────────────────────────
 export type TelegraphSpec =
@@ -26,12 +37,19 @@ interface Telegraph {
   detonateAt: number;
   group: THREE.Group;
   fill: THREE.Mesh;
+  edge: THREE.Mesh | null;
+  shrink: THREE.Mesh | null; // 바깥에서 영역 경계로 수축하는 경고 링 — 남은 시간을 직관적으로 보여준다
 }
 
 const fillMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff1f3d, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
 const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0xff5566, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide });
+const shrinkMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff8090, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+const TELEGRAPH_COLOR_FAR = new THREE.Color(0x99101f); // 예고 시작(어두운 핏빛)
+const TELEGRAPH_COLOR_NEAR = new THREE.Color(0xff4050); // 폭발 직전(밝은 진홍) — lerpColors 로 무할당 보간
+const PILLAR_GEOMETRY = new THREE.CylinderGeometry(1, 1.3, 1, 12, 1, true); // 폭발 빛기둥(단위 — per-burst 스케일)
+const pillarMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff3048, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
 
-function telegraphMesh(spec: TelegraphSpec): { group: THREE.Group; fill: THREE.Mesh } {
+function telegraphMesh(spec: TelegraphSpec): { group: THREE.Group; fill: THREE.Mesh; edge: THREE.Mesh | null; shrink: THREE.Mesh | null } {
   const group = new THREE.Group();
   let fillGeometry: THREE.BufferGeometry;
   let edgeGeometry: THREE.BufferGeometry | null = null;
@@ -57,14 +75,49 @@ function telegraphMesh(spec: TelegraphSpec): { group: THREE.Group; fill: THREE.M
     fill.position.z = spec.len / 2;
   }
   group.add(fill);
+  let edge: THREE.Mesh | null = null;
   if (edgeGeometry) {
-    const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+    edge = new THREE.Mesh(edgeGeometry, edgeMaterial.clone());
     edge.rotation.x = -Math.PI / 2;
     edge.position.y = 0.012;
     group.add(edge);
   }
+  // 수축 경고 링 — 영역 바깥(×1.55)에서 경계까지 조여든다(원/링/부채꼴). 직선은 채움 스트로브만.
+  let shrink: THREE.Mesh | null = null;
+  if (spec.kind !== "line") {
+    const outerR = spec.r;
+    shrink = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.2, outerR - 0.22), outerR, 40), shrinkMaterialBase.clone());
+    shrink.rotation.x = -Math.PI / 2;
+    shrink.position.y = 0.02;
+    shrink.scale.setScalar(1.55);
+    group.add(shrink);
+  }
   group.position.set(spec.x, 0.07, spec.z);
-  return { group, fill };
+  return { group, fill, edge, shrink };
+}
+
+// 폭발 연출 기준점 — 직선은 시작점이 아니라 경로 중앙에서 터져야 자연스럽다.
+function telegraphBurstPoint(spec: TelegraphSpec): { x: number; z: number } {
+  if (spec.kind === "line") return { x: spec.x + spec.dirX * spec.len * 0.5, z: spec.z + spec.dirZ * spec.len * 0.5 };
+  if (spec.kind === "cone") return { x: spec.x + Math.sin(spec.angle) * spec.r * 0.5, z: spec.z + Math.cos(spec.angle) * spec.r * 0.5 };
+  return { x: spec.x, z: spec.z };
+}
+
+// 폭발 빛기둥 — 형태별 스케일로 영역 위에 수직 섬광 기둥을 세운다(수명 0.45s, update 가 소멸 관리).
+function spawnDetonationPillar(state: IlliaFightState, ctx: IlliaContext, spec: TelegraphSpec): void {
+  const pillar = new THREE.Mesh(PILLAR_GEOMETRY, pillarMaterialBase.clone());
+  const p = telegraphBurstPoint(spec);
+  if (spec.kind === "line") {
+    pillar.scale.set(spec.width * 0.55, 8, spec.len * 0.5);
+    pillar.rotation.y = Math.atan2(spec.dirX, spec.dirZ);
+  } else if (spec.kind === "ring") {
+    pillar.scale.set(spec.r * 0.92, 7, spec.r * 0.92); // 링은 바깥 반경 크기의 원통 셸(open-ended라 껍데기만 빛남)
+  } else {
+    pillar.scale.set((spec.kind === "cone" ? spec.r * 0.4 : spec.r * 0.7), 8, (spec.kind === "cone" ? spec.r * 0.4 : spec.r * 0.7));
+  }
+  pillar.position.set(p.x, 4, p.z);
+  ctx.scene.add(pillar);
+  state.bursts.push({ mesh: pillar, bornAt: ctx.now() });
 }
 
 export function telegraphContains(spec: TelegraphSpec, px: number, pz: number): boolean { // export: 골든 테스트(판정 기하)용
@@ -98,11 +151,12 @@ export interface IlliaFightState {
   pending: { at: number; run: () => void }[]; // 다단 패턴 지연 스텝
   minionIds: string[];
   move: { fromX: number; fromZ: number; toX: number; toZ: number; startAt: number; durMs: number; fly: boolean } | null;
+  bursts: { mesh: THREE.Mesh; bornAt: number }[]; // 폭발 빛기둥(수명 0.45s) — update 소멸·reset 청소
   animT: number;
 }
 
 export function createIlliaFightState(): IlliaFightState {
-  return { active: false, phase: 1, lastNow: 0, nextPatternAt: 0, patternCursor: 0, telegraphs: [], pending: [], minionIds: [], move: null, animT: 0 };
+  return { active: false, phase: 1, lastNow: 0, nextPatternAt: 0, patternCursor: 0, telegraphs: [], pending: [], minionIds: [], move: null, bursts: [], animT: 0 };
 }
 
 export interface IlliaContext {
@@ -121,6 +175,8 @@ export interface IlliaContext {
 
 export function resetIlliaFight(state: IlliaFightState, scene: THREE.Scene): void {
   for (const telegraph of state.telegraphs) { scene.remove(telegraph.group); disposeTelegraph(telegraph); }
+  for (const burst of state.bursts) { scene.remove(burst.mesh); (burst.mesh.material as THREE.Material).dispose(); }
+  state.bursts.length = 0;
   state.telegraphs.length = 0;
   state.lastNow = 0;
   state.pending.length = 0;
@@ -153,19 +209,25 @@ function disposeTelegraph(telegraph: Telegraph): void {
 }
 
 function addTelegraph(state: IlliaFightState, ctx: IlliaContext, spec: TelegraphSpec): void {
-  const { group, fill } = telegraphMesh(spec);
+  const { group, fill, edge, shrink } = telegraphMesh(spec);
   ctx.scene.add(group);
-  state.telegraphs.push({ spec, detonateAt: ctx.now() + spec.delayMs, group, fill });
+  state.telegraphs.push({ spec, detonateAt: ctx.now() + spec.delayMs, group, fill, edge, shrink });
 }
 
 function clampArena(v: number, margin = 1.5): number {
   return Math.max(-ARENA_HALF + margin, Math.min(ARENA_HALF - margin, v));
 }
 function clampArenaZ(z: number, margin = 1.5): number {
-  return Math.max(ARENA_CENTER_Z - ARENA_HALF + margin, Math.min(ARENA_CENTER_Z + ARENA_HALF - margin, z));
+  return Math.max(ILLIA_CENTER_Z - ARENA_HALF + margin, Math.min(ILLIA_CENTER_Z + ARENA_HALF - margin, z));
 }
 
 const telegraphMsScale = () => bal("illia_telegraph_scale", 1); // 텔레그래프 시간 배율(높을수록 쉬움)
+// 결계 원판 내부 균등 랜덤 지점(sqrt 로 면적 균등) — 사각 스프레드는 모서리가 결계 밖이라 낭비된다.
+function randomArenaPoint(maxR: number): { x: number; z: number } {
+  const a = Math.random() * Math.PI * 2;
+  const r = Math.sqrt(Math.random()) * maxR;
+  return { x: ILLIA_ARENA_CENTER.x + Math.cos(a) * r, z: ILLIA_ARENA_CENTER.z + Math.sin(a) * r };
+}
 const T = (ms: number) => Math.round(ms * telegraphMsScale());
 
 // ── P1 패턴(고정형) — 보스 위치 = 아레나 중앙 ──────────────────────────────
@@ -189,15 +251,15 @@ const P1_PATTERNS: ((state: IlliaFightState, ctx: IlliaContext) => number)[] = [
   },
   (state, ctx) => { // 속박의 파동 — 중거리 링(안전=보스 근접 or 바깥)
     ctx.showMessage("⚠ 속박의 파동 — 바짝 붙거나 멀리 벗어나세요!");
-    addTelegraph(state, ctx, { kind: "ring", x: ILLIA_ARENA_CENTER.x, z: ILLIA_ARENA_CENTER.z, inner: 4.2, r: 10.5, delayMs: T(1800) });
+    addTelegraph(state, ctx, { kind: "ring", x: ILLIA_ARENA_CENTER.x, z: ILLIA_ARENA_CENTER.z, inner: 3.6, r: 13.5, delayMs: T(1800) }); // 결계 16 기준 — 안전지대는 보스 발밑(<3.6) 또는 결계 가장자리 띠(13.5~16)뿐
     return 4400;
   },
   (state, ctx) => { // 어둠의 부채 — 플레이어 방향 부채꼴 2연속(살짝 각도 보정)
     ctx.showMessage("⚠ 어둠의 참격 — 옆으로 피하세요!");
     const c = ILLIA_ARENA_CENTER;
     const angleTo = () => Math.atan2(ctx.playerPosition.x - c.x, ctx.playerPosition.z - c.z);
-    addTelegraph(state, ctx, { kind: "cone", x: c.x, z: c.z, angle: angleTo(), arc: Math.PI / 2.1, r: 13, delayMs: T(1400) });
-    state.pending.push({ at: ctx.now() + 1500, run: () => addTelegraph(state, ctx, { kind: "cone", x: c.x, z: c.z, angle: angleTo(), arc: Math.PI / 2.6, r: 13, delayMs: T(1200) }) });
+    addTelegraph(state, ctx, { kind: "cone", x: c.x, z: c.z, angle: angleTo(), arc: Math.PI / 2.1, r: 17, delayMs: T(1400) }); // 결계 끝까지 — 뒤로 빠져도 못 피함, 옆으로만
+    state.pending.push({ at: ctx.now() + 1500, run: () => addTelegraph(state, ctx, { kind: "cone", x: c.x, z: c.z, angle: angleTo(), arc: Math.PI / 2.6, r: 17, delayMs: T(1200) }) });
     return 4600;
   },
   (state, ctx) => { // 구속의 병사 — 졸개 소환(가장자리 4방)
@@ -215,7 +277,7 @@ const P1_PATTERNS: ((state: IlliaFightState, ctx: IlliaContext) => number)[] = [
   (state, ctx) => { // 절망의 비 — 무작위 원 8개 순차 낙하
     ctx.showMessage("⚠ 절망의 비 — 계속 움직이세요!");
     for (let i = 0; i < 8; i += 1) {
-      state.pending.push({ at: ctx.now() + i * 340, run: () => addTelegraph(state, ctx, { kind: "circle", x: clampArena(THREE.MathUtils.randFloatSpread(ARENA_HALF * 1.7)), z: clampArenaZ(ILLIA_ARENA_CENTER.z + THREE.MathUtils.randFloatSpread(ARENA_HALF * 1.7)), r: 2.6, delayMs: T(1250) }) });
+      state.pending.push({ at: ctx.now() + i * 340, run: () => { const p = randomArenaPoint(ILLIA_ARENA_RADIUS - 0.5); addTelegraph(state, ctx, { kind: "circle", x: p.x, z: p.z, r: 2.6, delayMs: T(1250) }); } }); // 결계 원판 균등 낙하(모서리 낭비 제거)
     }
     return 5600;
   },
@@ -240,7 +302,7 @@ const P2_PATTERNS: ((state: IlliaFightState, ctx: IlliaContext) => number)[] = [
       const dz = ctx.playerPosition.z - b.root.position.z;
       const d = Math.hypot(dx, dz) || 1;
       const len = Math.min(26, d + 7);
-      addTelegraph(state, ctx, { kind: "line", x: b.root.position.x, z: b.root.position.z, dirX: dx / d, dirZ: dz / d, len, width: 3.6, delayMs: T(1050) });
+      addTelegraph(state, ctx, { kind: "line", x: b.root.position.x, z: b.root.position.z, dirX: dx / d, dirZ: dz / d, len, width: 3.8, delayMs: T(1050) });
       state.pending.push({ at: ctx.now() + T(1050), run: () => startMove(state, ctx, b.root.position.x + (dx / d) * len, b.root.position.z + (dz / d) * len, 340, false) });
     };
     dash();
@@ -287,8 +349,8 @@ const P2_PATTERNS: ((state: IlliaFightState, ctx: IlliaContext) => number)[] = [
   (state, ctx) => { // 절망 강림 — 중앙 대형 원(가장자리로 대피) 후 착지 충격 링
     ctx.showMessage("⚠ 절망이 강림합니다 — 가장자리로 대피!");
     startMove(state, ctx, ILLIA_ARENA_CENTER.x, ILLIA_ARENA_CENTER.z, 800, true);
-    addTelegraph(state, ctx, { kind: "circle", x: ILLIA_ARENA_CENTER.x, z: ILLIA_ARENA_CENTER.z, r: 10.5, delayMs: T(2300) });
-    state.pending.push({ at: ctx.now() + T(2300) + 500, run: () => { startMove(state, ctx, ILLIA_ARENA_CENTER.x, ILLIA_ARENA_CENTER.z, 250, false); addTelegraph(state, ctx, { kind: "ring", x: ILLIA_ARENA_CENTER.x, z: ILLIA_ARENA_CENTER.z, inner: 10.5, r: 14.5, delayMs: T(1000) }); } });
+    addTelegraph(state, ctx, { kind: "circle", x: ILLIA_ARENA_CENTER.x, z: ILLIA_ARENA_CENTER.z, r: 11, delayMs: T(2300) });
+    state.pending.push({ at: ctx.now() + T(2300) + 500, run: () => { startMove(state, ctx, ILLIA_ARENA_CENTER.x, ILLIA_ARENA_CENTER.z, 250, false); addTelegraph(state, ctx, { kind: "ring", x: ILLIA_ARENA_CENTER.x, z: ILLIA_ARENA_CENTER.z, inner: 10.8, r: 16.4, delayMs: T(1000) }); } }); // 후속 링이 결계 끝까지 — 가장자리 대피 후 반드시 안쪽으로 되돌아와야(인-아웃)
     return 6400;
   },
 ];
@@ -307,8 +369,23 @@ export function updateIlliaFight(state: IlliaFightState, ctx: IlliaContext, delt
     if (state.move) state.move.startAt += elapsedMs;
     return;
   }
+  clampToIlliaArena(ctx.playerPosition); // 원형 결계 — 뒤로 빠지는 원거리 카이팅 차단(1프레임 초과분만 되밀기)
   const boss = ctx.boss();
   state.animT += delta;
+
+  // 폭발 빛기둥 소멸(0.45s: 위로 뻗으며 사라짐)
+  for (let i = state.bursts.length - 1; i >= 0; i -= 1) {
+    const burst = state.bursts[i];
+    const age = (now - burst.bornAt) / 450;
+    if (age >= 1) {
+      ctx.scene.remove(burst.mesh);
+      (burst.mesh.material as THREE.Material).dispose();
+      state.bursts.splice(i, 1);
+      continue;
+    }
+    (burst.mesh.material as THREE.MeshBasicMaterial).opacity = 0.6 * (1 - age);
+    burst.mesh.scale.y = 8 * (0.5 + age * 0.9);
+  }
 
   // 지연 스텝 실행
   for (let i = state.pending.length - 1; i >= 0; i -= 1) {
@@ -342,16 +419,24 @@ export function updateIlliaFight(state: IlliaFightState, ctx: IlliaContext, delt
     const telegraph = state.telegraphs[i];
     const remain = telegraph.detonateAt - now;
     if (remain > 0) {
-      (telegraph.fill.material as THREE.MeshBasicMaterial).opacity = 0.18 + (1 - remain / telegraph.spec.delayMs) * 0.34; // 다가올수록 진해짐
+      const progress = 1 - remain / telegraph.spec.delayMs;
+      const fillMaterial = telegraph.fill.material as THREE.MeshBasicMaterial;
+      fillMaterial.color.lerpColors(TELEGRAPH_COLOR_FAR, TELEGRAPH_COLOR_NEAR, progress); // 어두운 핏빛 → 밝은 진홍(무할당 보간)
+      fillMaterial.opacity = remain < 350 ? 0.5 + Math.sin(now * 0.055) * 0.28 : 0.18 + progress * 0.4; // 마지막 0.35s 스트로브 점멸
+      if (telegraph.edge) (telegraph.edge.material as THREE.MeshBasicMaterial).opacity = remain < 350 ? 0.55 + Math.sin(now * 0.06) * 0.45 : 0.85;
+      if (telegraph.shrink) { const s = 1.55 - progress * 0.55; telegraph.shrink.scale.set(s, s, s); (telegraph.shrink.material as THREE.MeshBasicMaterial).opacity = 0.45 + progress * 0.4; }
       continue;
     }
     state.telegraphs.splice(i, 1);
     exploded.push(telegraph);
   }
+  if (exploded.length > 0) { ctx.playTone(42, 0.42, "sawtooth", 0.085); ctx.playTone(300, 0.1, "square", 0.05); } // 볼리당 1회 저역 폭음(다발 스팸 방지)
   for (const telegraph of exploded) {
     ctx.scene.remove(telegraph.group);
     disposeTelegraph(telegraph);
-    ctx.groundBurst(telegraph.spec.x, telegraph.spec.z);
+    const burstAt = telegraphBurstPoint(telegraph.spec);
+    ctx.groundBurst(burstAt.x, burstAt.z);
+    spawnDetonationPillar(state, ctx, telegraph.spec);
   }
   for (const telegraph of exploded) {
     if (!telegraphContains(telegraph.spec, ctx.playerPosition.x, ctx.playerPosition.z)) continue;
@@ -433,47 +518,94 @@ export function finishIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
 }
 
 // 매 프레임 — 카메라 연출 + 소품 타임라인. t(초) 기반 연속 파라미터 + 원샷 스텝.
+// 컷씬 화면 진동 오프셋 — 고주파 사인 합성(결정적, 프레임레이트 무관 부드러움)
+function cutsceneShake(t: number, amplitude: number): { x: number; y: number } {
+  return { x: (Math.sin(t * 47.3) + Math.sin(t * 31.7) * 0.5) * amplitude, y: (Math.cos(t * 38.7) + Math.cos(t * 52.1) * 0.5) * amplitude * 0.6 };
+}
+
+// 컷씬 섬광 — 오버레이 내 .illia-flash 재생(CSS 애니). node(SSR 테스트)에서는 no-op.
+function flashCutsceneScreen(): void {
+  if (typeof document === "undefined") return;
+  const flash = document.querySelector(".illia-cutscene .illia-flash") as HTMLElement | null;
+  if (!flash) return;
+  flash.classList.remove("on");
+  void flash.offsetWidth; // reflow 로 애니 재시작
+  flash.classList.add("on");
+}
+
 export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutsceneContext): void {
   if (!state.active) return;
   const t = (ctx.now() - state.startedAt) / 1000;
-  const cz = ARENA_CENTER_Z;
+  const cz = ILLIA_CENTER_Z;
   if (t >= ILLIA_CUTSCENE_MS / 1000) { finishIlliaCutscene(state, ctx); return; }
 
   if (state.kind === "awaken") {
+    // 진동: 균열 진행(1.2s~)과 함께 점증 → 파열(6s) 대폭발 → 등장부 잔진동
+    const amplitude = t < 1.2 ? 0 : t < 6 ? 0.04 + ((t - 1.2) / 4.8) * 0.3 : t < 7 ? 0.95 * (1 - (t - 6) * 0.72) : 0.1;
+    const shake = cutsceneShake(t, amplitude);
     // 카메라: 남쪽 원경 → 봉인석 근접 저각 → 파열 순간 뒤로 밀림 → 보스 로우앵글
     if (t < 6) {
       const k = t / 6;
-      ctx.setCamera(0, 3.4 - k * 1.2, cz + 14 - k * 8.5, 0, 2.4, cz);
+      ctx.setCamera(shake.x, 3.4 - k * 1.4 + shake.y, cz + 14 - k * 9.6, 0, 2.4, cz); // 봉인석 코앞(cz+4.4)까지 줌인 — 균열 발광 클로즈업
     } else if (t < 7) {
       const k = (t - 6);
-      ctx.setCamera(THREE.MathUtils.randFloatSpread(0.24), 2.2 + k * 0.4, cz + 5.5 + k * 2.4, 0, 2.4, cz); // 파열 반동+흔들림
+      ctx.setCamera(shake.x, 2.2 + k * 0.4 + shake.y, cz + 5.5 + k * 2.4, 0, 2.4, cz); // 파열 반동+대진동
     } else {
       const k = (t - 7) / 3;
-      ctx.setCamera(Math.sin(k * 0.9) * 3.2, 1.2 + k * 1.4, cz + 6.4 - k * 1.2, 0, 1.8, cz);
+      ctx.setCamera(Math.sin(k * 0.9) * 3.2 + shake.x, 1.2 + k * 1.4 + shake.y, cz + 6.4 - k * 1.2, 0, 1.8, cz);
     }
-    // 봉인석 소품 애니: 크랙 진행(1.5s~6s), 진동, 6s 파열
+    // 봉인석: 크랙 발광 진행(1.5~6s, 맥동) + 내부 광원 점증 + 광선 성장 → 6s 파열(파편 비산·섬광)
+    const crackRamp = Math.min(1, Math.max(0, (t - 1.5) / 4.5));
     for (const prop of state.props) {
       const crystal = prop.getObjectByName("seal-crystal");
       if (!crystal) continue;
-      if (t > 1.2 && t < 6) crystal.position.x = Math.sin(t * 34) * 0.03 * (t / 6);
+      if (t > 1.2 && t < 6) crystal.position.x = Math.sin(t * 34) * 0.05 * (t / 6);
+      const sealLight = prop.getObjectByName("seal-light") as THREE.PointLight | null;
+      if (sealLight) sealLight.intensity = t < 6 ? crackRamp * crackRamp * (1.6 + Math.sin(t * 9) * 0.6) : Math.max(0, 9 * (1 - (t - 6) * 1.6)); // 균열 새어나오는 빛 → 파열 섬광(크리스탈 실루엣이 빛에 묻히지 않게 절제)
+      const crystalMaterial = (crystal as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      if (crystalMaterial?.emissive) crystalMaterial.emissiveIntensity = 0.35 + crackRamp * 1.9; // 내부에서 차오르는 발광 — 형체는 유지
       for (const child of prop.children) {
-        if (child.userData.sealCrack) (child as THREE.Mesh & { material: THREE.MeshBasicMaterial }).material.opacity = Math.min(1, Math.max(0, (t - 1.5) / 4.5));
+        if (child.userData.sealCrack) (child as THREE.Mesh & { material: THREE.MeshBasicMaterial }).material.opacity = crackRamp * (0.75 + Math.sin(t * 8 + child.position.y * 3) * 0.25); // 균열 맥동 발광
+        if (child.userData.sealRay) { // 균열에서 새어나오는 광선 — 성장 후 파열과 함께 소멸
+          const ray = child as THREE.Mesh & { material: THREE.MeshBasicMaterial };
+          ray.material.opacity = t < 6 ? Math.max(0, (t - 2.2) / 3.8) * 0.55 : 0;
+          ray.scale.y = 0.5 + crackRamp * 1.4;
+          ray.rotation.y += 0.003;
+        }
+        if (child.userData.sealShard) { // 파열 파편 — 방사 비산 + 낙하 + 회전
+          const shard = child;
+          const throwInfo = shard.userData.sealShard as { dx: number; dy: number; dz: number; spin: number; homeX: number; homeY: number; homeZ: number };
+          if (t >= 6 && t < 7.8) {
+            shard.visible = true;
+            const dt = t - 6;
+            shard.position.set(throwInfo.homeX + throwInfo.dx * dt * 7, Math.max(0.1, throwInfo.homeY + throwInfo.dy * dt * 5 - 6 * dt * dt), throwInfo.homeZ + throwInfo.dz * dt * 7);
+            shard.rotation.x += throwInfo.spin * 0.15;
+            shard.rotation.z += throwInfo.spin * 0.11;
+          } else if (t >= 7.8) shard.visible = false;
+        }
         if (t >= 6 && (child.userData.sealCrack || child.userData.sealChain)) child.visible = false;
       }
-      if (t >= 6) { crystal.visible = false; prop.visible = t < 6.05 ? prop.visible : true; }
+      if (t >= 6) crystal.visible = false;
     }
     if (state.firedSteps === 0 && t >= 1.5) { state.firedSteps = 1; ctx.playTone(55, 1.2, "sawtooth", 0.05); }
-    if (state.firedSteps === 1 && t >= 3.5) { state.firedSteps = 2; ctx.playTone(48, 1.4, "sawtooth", 0.06); }
-    if (state.firedSteps === 2 && t >= 6) { state.firedSteps = 3; ctx.groundBurst(0, cz); ctx.playTone(38, 1.8, "sawtooth", 0.09); ctx.playTone(660, 0.5, "triangle", 0.05); }
+    if (state.firedSteps === 1 && t >= 3.5) { state.firedSteps = 2; ctx.playTone(48, 1.4, "sawtooth", 0.06); ctx.playTone(1200, 0.15, "sine", 0.03); }
+    if (state.firedSteps === 2 && t >= 6) { state.firedSteps = 3; flashCutsceneScreen(); ctx.groundBurst(0, cz); ctx.groundBurst(-2.5, cz + 1.5); ctx.groundBurst(2.5, cz - 1.5); ctx.playTone(38, 1.8, "sawtooth", 0.1); ctx.playTone(660, 0.5, "triangle", 0.05); ctx.playTone(90, 0.9, "square", 0.06); }
     if (state.firedSteps === 3 && t >= 7.2) { state.firedSteps = 4; ctx.playTone(220, 1.2, "sine", 0.05); }
   } else {
-    // 해방(unseal): 사슬이 하나씩 끊기고 → 날개 펼침 → 카메라 풀백
+    // 해방(unseal): 사슬이 하나씩 끊기고 → 날개 펼침 → 카메라 풀백. 진동 = 사슬 파단마다 펄스 + 각성(6s) 대진동
+    let amplitude = 0.05;
+    for (let chain = 0; chain < 4; chain += 1) {
+      const breakAt = 1.2 + chain * 1.05;
+      if (t >= breakAt && t < breakAt + 0.45) amplitude = Math.max(amplitude, 0.6 * (1 - (t - breakAt) / 0.45));
+    }
+    if (t >= 6 && t < 7) amplitude = Math.max(amplitude, 0.9 * (1 - (t - 6)));
+    const shake = cutsceneShake(t, amplitude);
     if (t < 5.5) {
       const k = t / 5.5;
-      ctx.setCamera(Math.sin(k * 1.6) * 4.5, 1.6 + k * 0.8, cz + 7.5 - k * 1.5, 0, 1.9, cz);
+      ctx.setCamera(Math.sin(k * 1.6) * 4.5 + shake.x, 1.6 + k * 0.8 + shake.y, cz + 7.5 - k * 1.5, 0, 1.9, cz);
     } else {
       const k = (t - 5.5) / 4.5;
-      ctx.setCamera(Math.sin(k * 0.6) * 2, 2.2 + k * 2.6, cz + 6 + k * 7, 0, 2.2 + k * 0.8, cz);
+      ctx.setCamera(Math.sin(k * 0.6) * 2 + shake.x, 2.2 + k * 2.6 + shake.y, cz + 6 + k * 7, 0, 2.2 + k * 0.8, cz);
     }
     for (const prop of state.props) {
       let chainIndex = 0;
@@ -481,11 +613,11 @@ export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
         if (!child.userData.illiaChain) continue;
         const breakAt = 1.2 + chainIndex * 1.05;
         chainIndex += 1;
-        if (t >= breakAt && child.visible) { child.visible = false; ctx.groundBurst(child.position.x, cz + child.position.z); ctx.playTone(900 - chainIndex * 120, 0.3, "square", 0.05); }
+        if (t >= breakAt && child.visible) { child.visible = false; flashCutsceneScreen(); ctx.groundBurst(child.position.x, cz + child.position.z); ctx.playTone(900 - chainIndex * 120, 0.3, "square", 0.05); ctx.playTone(60, 0.5, "sawtooth", 0.06); }
       }
       animateIlliaBody(prop, t * (t > 6 ? 2.2 : 1), t > 6 ? 2 : 1);
     }
-    if (state.firedSteps === 0 && t >= 6) { state.firedSteps = 1; ctx.groundBurst(0, cz); ctx.playTone(140, 1.6, "sawtooth", 0.08); ctx.playTone(880, 0.8, "triangle", 0.06); }
+    if (state.firedSteps === 0 && t >= 6) { state.firedSteps = 1; flashCutsceneScreen(); ctx.groundBurst(0, cz); ctx.groundBurst(-2, cz + 2); ctx.groundBurst(2, cz - 2); ctx.playTone(140, 1.6, "sawtooth", 0.08); ctx.playTone(880, 0.8, "triangle", 0.06); ctx.playTone(45, 1.4, "sawtooth", 0.09); }
   }
 }
 
@@ -494,9 +626,20 @@ export function showIlliaCutsceneOverlay(host: HTMLElement, title: string): void
   hideIlliaCutsceneOverlay(host);
   const overlay = document.createElement("div");
   overlay.className = "illia-cutscene";
-  overlay.innerHTML = `<div class="illia-bar top"></div><div class="illia-title">${title}</div><div class="illia-skip">Space / 클릭: 건너뛰기</div><div class="illia-bar bottom"></div>`;
+  overlay.innerHTML = `<div class="illia-bar top"></div><div class="illia-flash"></div><div class="illia-title">${title}</div><div class="illia-skip">Space / 클릭: 건너뛰기</div><div class="illia-bar bottom"></div>`;
   host.appendChild(overlay);
+  host.classList.add("illia-cinema"); // 시네마 모드 — HUD·패널 숨김(오버레이만 표시), CSS 가 처리
+}
+
+// 전투 피격 섬광 — 붉은 비네트가 화면을 덮었다 사라진다(0.55s). main 의 applyPlayerHit 이 호출.
+export function flashIlliaHit(host: HTMLElement): void {
+  if (typeof document === "undefined") return;
+  const flash = document.createElement("div");
+  flash.className = "illia-hit-flash";
+  host.appendChild(flash);
+  window.setTimeout(() => flash.remove(), 600);
 }
 export function hideIlliaCutsceneOverlay(host: HTMLElement): void {
   host.querySelector(".illia-cutscene")?.remove();
+  host.classList.remove("illia-cinema");
 }

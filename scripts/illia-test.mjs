@@ -18,8 +18,8 @@ try {
   const tuning = await server.ssrLoadModule("/src/game/balanceTuning.ts");
   const saveMigration = await server.ssrLoadModule("/src/game/saveMigration.ts");
   const constants = await server.ssrLoadModule("/src/game/constants.ts");
-  const { ARENA_CENTER_Z, ARENA_HALF } = constants;
-  const CZ = ARENA_CENTER_Z;
+  const { ARENA_HALF } = constants;
+  const CZ = constants.ILLIA_CENTER_Z; // 일리아 전용 중심(오버월드 밖) — 요새 아레나와 분리
 
   // ── 1) 텔레그래프 판정 기하 골든 ──
   {
@@ -160,6 +160,37 @@ try {
       assert.ok(Number.isFinite(bossRoot.position.x) && Number.isFinite(bossRoot.position.y) && Number.isFinite(bossRoot.position.z), "보스 좌표 유한");
     }
     illia.resetIlliaFight(state, scene);
+  }
+
+  // ── 3b) 원형 결계 클램프 + 폭발 빛기둥 수명 ──
+  {
+    const v = new THREE.Vector3(30, 1.2, CZ + 30); // 결계 밖 대각
+    illia.clampToIlliaArena(v);
+    assert.ok(Math.hypot(v.x, v.z - CZ) <= illia.ILLIA_ARENA_RADIUS + 1e-9, `결계 밖 → 반경(${illia.ILLIA_ARENA_RADIUS}) 경계로 클램프`);
+    assert.equal(v.y, 1.2, "y(고도)는 불변");
+    const inside = new THREE.Vector3(3, 0, CZ - 4);
+    illia.clampToIlliaArena(inside);
+    assert.ok(inside.x === 3 && inside.z === CZ - 4, "결계 안은 미변형");
+
+    // 전투 틱이 플레이어를 결계 안으로 유지 + 폭발 기둥이 스폰됐다가 수명(0.45s) 후 자동 소멸
+    const scene = new THREE.Scene();
+    const player = new THREE.Vector3(0, 0, CZ);
+    const { ctx, setT } = makeCtx(scene, player);
+    const state = illia.createIlliaFightState();
+    illia.startIlliaFight(state, 1, 0);
+    player.set(40, 0, CZ + 40); // 도주 시도
+    setT(100); illia.updateIlliaFight(state, ctx, 0.016);
+    assert.ok(Math.hypot(player.x, player.z - CZ) <= illia.ILLIA_ARENA_RADIUS + 1e-9, "전투 틱이 도주 플레이어를 결계 안으로 되밀음");
+    // 낙인 폭발 → bursts 스폰 확인 → 0.5s 후 자동 소멸·씬 청소
+    player.set(0, 0, CZ);
+    setT(2600); illia.updateIlliaFight(state, ctx, 0.016);
+    setT(2600 + 620 * 2 + 1); illia.updateIlliaFight(state, ctx, 0.016);
+    setT(2600 + 620 * 2 + 1 + 1400); illia.updateIlliaFight(state, ctx, 0.016);
+    assert.ok(state.bursts.length >= 1, `폭발 빛기둥 스폰 (${state.bursts.length})`);
+    setT(2600 + 620 * 2 + 1 + 1400 + 500); illia.updateIlliaFight(state, ctx, 0.016);
+    assert.equal(state.bursts.length, 0, "빛기둥 수명(0.45s) 후 자동 소멸");
+    illia.resetIlliaFight(state, scene);
+    assert.equal(scene.children.length, 0, "리셋 후 씬 완전 청소(기둥 포함)");
   }
 
   // ── 4) 컷씬 시퀀서 — 완주/스킵 onFinish 1회 ──

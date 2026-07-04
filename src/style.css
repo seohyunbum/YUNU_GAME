@@ -5066,3 +5066,15 @@ body.touch-mode .skill-bar {
 .illia-cutscene .illia-title { position: absolute; left: 0; right: 0; bottom: 13vh; text-align: center; color: #f5f0f7; font-size: 30px; font-weight: 700; letter-spacing: 0.35em; text-shadow: 0 0 18px rgba(255, 31, 61, 0.85), 0 2px 6px #000; animation: illia-title-in 2.4s ease-out; }
 .illia-cutscene .illia-skip { position: absolute; right: 18px; bottom: 3.2vh; color: rgba(245, 240, 247, 0.75); font-size: 13px; letter-spacing: 0.08em; }
 @keyframes illia-title-in { from { opacity: 0; transform: translateY(12px); } 40% { opacity: 0; } to { opacity: 1; transform: none; } }
+
+/* 일리아 컷씬 파열 섬광 — .illia-flash 에 .on 토글로 재생 */
+.illia-cutscene .illia-flash { position: absolute; inset: 0; background: radial-gradient(circle, rgba(255, 240, 245, 0.95) 0%, rgba(255, 32, 56, 0.55) 55%, transparent 100%); opacity: 0; pointer-events: none; }
+.illia-cutscene .illia-flash.on { animation: illia-flash-burst 0.7s ease-out; }
+@keyframes illia-flash-burst { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+
+/* 일리아 전투 피격 섬광 — 붉은 비네트(0.55s 소멸) */
+.illia-hit-flash { position: fixed; inset: 0; z-index: 55; pointer-events: none; background: radial-gradient(circle, transparent 30%, rgba(255, 20, 45, 0.5) 100%); animation: illia-hit-vignette 0.55s ease-out forwards; }
+@keyframes illia-hit-vignette { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+/* 일리아 시네마 모드 — 컷씬 동안 HUD·패널 전부 숨김(오버레이만 표시). showIlliaCutsceneOverlay 가 토글 */
+.game-ui.illia-cinema > *:not(.illia-cutscene) { visibility: hidden !important; }
