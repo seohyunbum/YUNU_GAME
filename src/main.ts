@@ -6435,7 +6435,7 @@ class WildernessGame {
 
   private resetGameState(options: { reseed?: boolean } = {}) {
     const reseed = options.reseed ?? true;
-    this.subquests = defaultSubquestState(); this.subquestSig = ""; // 서브퀘스트 초기화(새 게임/로드 전 리셋)
+    this.subquests = defaultSubquestState(); this.subquestSig = ""; this.subquestDialog = false; // 서브퀘스트 초기화(새 게임/로드 전 리셋) — dialog 플래그 누수 방지
     this.closePanel(); resetOnboardingState(this.onboarding); // playthrough 마다 온보딩 안내 새로 시작(같은 세션 재시작 포함). 고급 세이브는 스텝 게이트가 오발화 차단.
     this.setSprintRenderOptimizations(false);
     this.clearWorld();

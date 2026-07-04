@@ -329,6 +329,34 @@ try {
       el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25, false);
       assert(!el.innerHTML.includes("data-subquest-claim") && el.innerHTML.includes("이장"), "subquest UI passive: 완료면 이장에게 안내(버튼 없음)");
     }
+    // === 적대적 엣지/악용 ===
+    {
+      // bumpSubquestOnEvent: 선택 없음 / 종류 불일치 / gather(폴링전용) → 진행 변화 없음
+      const empty = subquests.defaultSubquestState();
+      assert(subquests.bumpSubquestOnEvent(empty, "kill") === false && empty.progress === 0, "adv: 선택 없이 이벤트는 무시");
+      const g = subquests.defaultSubquestState();
+      g.choices = [{ id: "g", kind: "gather", rarity: "common", target: 3, item: "wood", reward: { experience: 1, items: {}, label: "x" } }];
+      g.selected = g.choices[0];
+      assert(subquests.bumpSubquestOnEvent(g, "gather") === false && g.progress === 0, "adv: gather 는 이벤트 증가 대상 아님(폴링 전용)");
+      assert(subquests.bumpSubquestOnEvent(g, "kill") === false, "adv: 종류 불일치 이벤트 무시");
+      // pollSubquestGather: 선택 없으면 false
+      assert(subquests.pollSubquestGather(subquests.defaultSubquestState(), 99) === false, "adv: 선택 없이 gather 폴링 무시");
+      // isSubquestComplete: 선택 없으면 false
+      assert(subquests.isSubquestComplete(subquests.defaultSubquestState()) === false, "adv: 선택 없으면 미완료");
+      // bump 는 target 초과 안 함
+      const k = subquests.defaultSubquestState();
+      k.choices = [{ id: "k", kind: "kill", rarity: "common", target: 2, reward: { experience: 1, items: {}, label: "x" } }];
+      k.selected = k.choices[0];
+      for (let i = 0; i < 5; i += 1) subquests.bumpSubquestOnEvent(k, "kill");
+      assert(k.progress === 2, "adv: 이벤트 진행은 target 상한");
+      // sanitize: 유효 오퍼3 + 선택이 그 중 하나면 유지, progress 는 target 로 클램프
+      const validDef = { id: "s1", kind: "kill", rarity: "epic", target: 25, reward: { experience: 1400, items: { diamond: 2 }, label: "x" } };
+      const two = [{ id: "s2", kind: "chest", rarity: "common", target: 1, reward: { experience: 1, items: {}, label: "y" } }, { id: "s3", kind: "supply", rarity: "rare", target: 2, reward: { experience: 1, items: {}, label: "z" } }];
+      const kept = subquests.sanitizeSubquestState({ choices: [validDef, ...two], selected: { ...validDef }, progress: 9999, lastRefreshEpoch: 123 });
+      assert(kept.choices && kept.choices.length === 3 && kept.selected && kept.selected.id === "s1" && kept.progress === 25 && kept.lastRefreshEpoch === 123, "adv sanitize: 유효 선택 유지 + progress target 클램프 + 쿨다운 보존");
+      // canRefresh 경계: 정확히 쿨다운이면 허용
+      assert(subquests.canRefreshSubquests(subquests.SUBQUEST_REFRESH_COOLDOWN_MS, 0) === true, "adv: 쿨다운 정각 새로고침 허용");
+    }
 
     // 연격 틱 (난도/무한 찌르기 공용) — 등록 → 간격마다 1타 → 완주 시 해제, 대상 사망 시 취소
     sam.resetSamuraiEffects();
