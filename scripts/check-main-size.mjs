@@ -105,7 +105,8 @@ import { readFileSync } from "node:fs";
 // 2026-07-04: 마을집·대장간 안 상자 20분 쿨타임 — 리프(상수·상자-opened) + main 집 오브젝트 추적/판정/세팅 배선(+6). 리베이스 합류 실측 재기준.
 // 2026-07-05: 일리아 결계 — cave 복도 클램프의 아레나(월드 밖 -1250) 견인 차단 분기 +2 → 9436.
 // 2026-07-04: 서브퀘스트 종류 확장(craft/enterCave/enterFortress/dragon) + 메인퀘스트 '이장 서브퀘스트 받기' — 로직·보상은 game/subquests·objectives 리프. main 은 이벤트 훅 3(cave/fortress/dragon) + subquestAccepted 신호 1 = +4 → 9440(일리아 리베이스 위 실측).
-const MAX_MAIN_LINES = 9440;
+// 2026-07-04: 차원의 문 개방 트레일러(gateOpen 컷씬) — 시퀀서·연출은 illiaBoss/illiaVisuals 리프. main 은 기존 라인 확장(처치 훅·onFinish 분기·평시애니 제외·anchor 정리) + 컷씬 무적 가드 1줄 = +1 → 9441.
+const MAX_MAIN_LINES = 9441;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

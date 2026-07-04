@@ -14,6 +14,17 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-04 — 차원의 문 개방 트레일러(불멸의 존재 처치 → 10초 컷씬)
+
+- 시도: 불멸의 존재(최종 챕터) 처치 시 차원의 문이 열리는 ~10초 트레일러 컷씬 추가.
+- 결과: 기존 일리아 컷씬 시퀀서에 3번째 종류 `gateOpen` 추가로 구현 — 레터박스·스킵(Space/클릭)·이동 정지·카메라 보호가 `illiaCutscene.active` 기준이라 전부 무료 상속. verify 그린(9441, +1 = 컷씬 무적 가드).
+- 구현:
+  - `illiaVisuals.ts`(리프): `animateGateOpening(root,t)` — 지반 융기→부유석 수렴·링 형성(1.6~6s)→6s 점화(팽창+광량 스파이크)→안정. 스케일·광량·위치만 변형(공유 머티리얼 불변, 할당 0). `resetGateVisual` — 종료/스킵 시 평시 복구(부유석 정위치는 userData 1회 메모).
+  - `illiaBoss.ts`(리프): `IlliaCutsceneState.anchor`(월드 소유 오브젝트 참조 — props 와 달리 종료 시 씬에서 제거하지 않고 복구만). gateOpen 카메라 타임라인(하이앵글 원경→반원 아크 접근→점화 반동→로우앵글→풀백) + 사운드 스텝.
+  - `main.ts`(배선): 처치 훅(오버월드+게이트 존재 시 트레일러, 아니면 기존 안내 메시지 폴백)·onFinish gateOpen 분기·평시 `animateIlliaProps` 에서 anchor 게이트 제외(안 하면 매 프레임 컷씬 변형을 덮어씀)·수동 정리 2지점 anchor 해제·**컷씬 중 damagePlayer 무적 가드**(+1줄 — 오버월드 컷씬은 몬스터가 살아 있어 카메라 강탈 중 사망화면 진입 사고 방지).
+- 주의(다음 작업자): ① 월드 소유 오브젝트를 컷씬에 쓸 땐 props 가 아니라 anchor 로 — props 는 finish 에서 scene.remove 된다. ② 평시 애니메이터(animateIlliaProps 류)와 컷씬 애니메이터가 같은 오브젝트를 만지면 update 루프 순서상 평시가 이긴다 — 반드시 평시 쪽에서 제외.
+- 관련 파일/검증: src/game/illiaBoss.ts · src/game/illiaVisuals.ts · src/main.ts · scripts/illia-test.mjs(gateOpen 완주/스킵/복구 테스트 추가).
+
 ## 2026-07-04 — 메인퀘스트 '이장 서브퀘스트 받기' + 서브퀘스트 종류 확장 + 보상 밸런스 정밀화
 
 - 시도: (a) 메인퀘스트에 "마을 이장에게서 서브퀘스트 받기" 추가, (b) 이장 서브퀘스트 종류 다양화(제작템 납품·동굴/요새 입장·용 사냥 등), (c) 보상 템 다양화 + 퀘스트 난이도별 보상 정밀 밸런스.
