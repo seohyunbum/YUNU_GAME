@@ -3,6 +3,17 @@
 
 const FORCE_TOUCH_KEY = "ai-game-lab:force-touch";
 
+// 개발자 기능(F4 치트 아이템 소환 등) 게이트 — 서버 PC 에서 직접 실행한 URL(localhost·127.0.0.1·사설 LAN IP·.local)에서만 true.
+// 공개 배포(GitHub Pages *.github.io, 커스텀 도메인 등)에서는 false 라 일반 유저는 사용 불가.
+// hostname 인자는 테스트용(미지정 시 현재 window.location.hostname 을 읽음). 브라우저 밖(node)에서는 false.
+export function isLocalGameHost(hostname?: string): boolean {
+  const host = hostname ?? (typeof window !== "undefined" ? window.location.hostname : "");
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "" || host.endsWith(".local")) return true;
+  // 사설 LAN 대역 — 서버 PC 를 같은 네트워크의 다른 기기(폰·태블릿)에서 접속하는 경우도 허용
+  if (/^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) return true;
+  return false;
+}
+
 // 수동 오버라이드 — 자동 감지가 실패하는 기기(예: 크롬 "데스크톱 사이트" 모드)를 위한 탈출구.
 // URL ?touch=1 → 강제 ON, ?touch=0 → 강제 OFF. 한 번 방문하면 localStorage 에 영속.
 // 반환: true(강제 ON) / false(강제 OFF) / null(오버라이드 없음 → 자동 감지).

@@ -344,7 +344,7 @@ import { renderLoadGamePanel as renderLoadGamePanelView, setLoadPanelNotice } fr
 import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/saveOverwritePanel";
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
-import { enterLandscapeFullscreen, isTouchDevice, toggleFullscreen } from "./game/platform";
+import { enterLandscapeFullscreen, isLocalGameHost, isTouchDevice, toggleFullscreen } from "./game/platform";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
 import { showObjectiveGuide } from "./ui/objectiveGuide";
 import { createOnboardingState, resetOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
@@ -2189,7 +2189,7 @@ class WildernessGame {
       this.closePanel();
       return;
     }
-    if (event.code === "F4") {
+    if (event.code === "F4" && isLocalGameHost()) { // 치트 아이템 소환은 서버 PC 직접 실행 URL(localhost·LAN)에서만 — 공개 배포에선 비활성
       event.preventDefault();
       this.togglePanel("cheat");
       return;
