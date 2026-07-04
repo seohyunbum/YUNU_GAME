@@ -32,6 +32,7 @@ export interface GameUiCallbacks {
   onSubquestPick(index: number): void; // 서브퀘스트 3개 중 선택
   onSubquestAbandon(): void; // 선택 미션 포기 → 오퍼 목록 재노출
   onSubquestRefresh(): void; // 오퍼 새로고침(5분 쿨다운)
+  onSubquestClaim(): void; // 완료 미션 보상 수령(이장) — 제출형이면 재료 소비
   onSaveGame(): void;
   onLoadGame(): void;
   onTitleNew(): void;
@@ -107,6 +108,7 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
     const pick = target.closest<HTMLElement>("[data-subquest-pick]");
     if (pick?.dataset.subquestPick) { callbacks.onSubquestPick(Number(pick.dataset.subquestPick)); return; }
     if (target.closest("[data-subquest-abandon]")) { callbacks.onSubquestAbandon(); return; }
+    if (target.closest("[data-subquest-claim]")) { callbacks.onSubquestClaim(); return; }
     if (target.closest("[data-subquest-refresh]")) callbacks.onSubquestRefresh();
   });
   const rightHudColumn = document.createElement("div"); // 퀘스트 카드 + 서브퀘스트 세로 스택

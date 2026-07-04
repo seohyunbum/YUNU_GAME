@@ -98,7 +98,9 @@ import { readFileSync } from "node:fs";
 //   (컨텍스트 확장 playerPosition/forwardXZ/nearbyCombatTargets/dashStep·meleeEffects 는 기존 한 줄 리터럴 내 인라인). +2 → 9339.
 // 2026-07-04: 서브퀘스트 배선 — 로직·데이터·UI 는 전부 game/subquests·ui/subquestPanel 리프. main 은 상태 필드 3 +
 //   syncSubquests 배선 메서드 1 + 이벤트 훅(kill/chest/supply/caveBoss 인라인)·save/load·setupUi 원소. +32 → 9371.
-const MAX_MAIN_LINES = 9371;
+// 2026-07-04: 마을 이장 NPC + 서브퀘스트 이장 방식 전환 — NPC 메시는 npcSpawns 리프. main 은 이장 상호작용/보상수령
+//   (claimSubquest)·spawnVillage 이장·restore·ensure 백필·주민수 하향 배선. +19 → 9390.
+const MAX_MAIN_LINES = 9390;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

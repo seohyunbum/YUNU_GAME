@@ -38,7 +38,7 @@ import {
 } from "./game/environmentSpawns";
 import { spawnDroppedItem, type DroppedItemSpawnContext } from "./game/droppedItemSpawns";
 import { spawnGolem, spawnKnight, type GuardSpawnContext } from "./game/guardSpawns";
-import { spawnBlacksmithNpc, spawnMiner, spawnVillager, type NpcSpawnContext } from "./game/npcSpawns";
+import { spawnBlacksmithNpc, spawnMiner, spawnVillager, spawnVillageChief, type NpcSpawnContext } from "./game/npcSpawns";
 import { spawnVillageFence, spawnVillageSellShop, type VillageSpawnContext } from "./game/villageSpawns";
 import {
   applyShadowQuality, shouldSkipTinyRaycastDetail, capCreatureRaycastMeshes, precompileSceneShaders, registerDistanceCulledVisual, refreshTrackedVisualVisibility,
@@ -346,7 +346,7 @@ import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { enterLandscapeFullscreen, isLocalGameHost, isTouchDevice, toggleFullscreen } from "./game/platform";
 import { renderSubquestPanel } from "./ui/subquestPanel";
-import { defaultSubquestState, sanitizeSubquestState, rollSubquestChoices, canRefreshSubquests, bumpSubquestOnEvent, pollSubquestGather, isSubquestComplete, SUBQUEST_MIN_LEVEL, type SubquestKind } from "./game/subquests";
+import { defaultSubquestState, sanitizeSubquestState, rollSubquestChoices, canRefreshSubquests, bumpSubquestOnEvent, pollSubquestGather, isSubquestComplete, subquestSubmission, SUBQUEST_MIN_LEVEL, type SubquestKind } from "./game/subquests";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
 import { showObjectiveGuide } from "./ui/objectiveGuide";
 import { createOnboardingState, resetOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
@@ -472,6 +472,7 @@ class WildernessGame {
   private readonly subquestEl = document.createElement("div"); // 서브퀘스트 패널(퀘스트 카드 아래, 레벨 20+)
   private subquests = defaultSubquestState();
   private subquestSig = ""; // 패널 재렌더 변경감지(매 renderHud innerHTML 방지)
+  private subquestDialog = false; // 마을 이장과 대화중(인터랙티브 선택/보상 수령) — 저장 안 함(세션 한정)
   private readonly coachEl = document.createElement("div");
   private readonly onboarding = createOnboardingState();
   private readonly promptEl = document.createElement("div");
@@ -951,9 +952,10 @@ class WildernessGame {
       },
       {
         onNewGame: () => this.newGame(), onQuickAction: (a) => { if (a === "inventory") this.togglePanel("inventory"); else if (a === "character") this.togglePanel("character"); else togglePartyLobby(); },
-        onSubquestPick: (index) => { const c = this.subquests.choices; if (!c?.[index] || this.subquests.selected) return; const def = c[index]; this.subquests.selected = def; this.subquests.progress = 0; this.subquests.gatherBaseline = def.item ? this.countItem(def.item) : 0; this.syncSubquests(); },
+        onSubquestPick: (index) => { const c = this.subquests.choices; if (!c?.[index] || this.subquests.selected) return; const def = c[index]; this.subquests.selected = def; this.subquests.progress = 0; this.subquests.gatherBaseline = 0; this.subquestDialog = false; this.showMessage("🏘️ 이장: 미션을 맡았네. 완료하면 다시 오게."); this.syncSubquests(); },
         onSubquestAbandon: () => { this.subquests.selected = null; this.subquests.progress = 0; this.syncSubquests(); },
         onSubquestRefresh: () => { if (this.subquests.selected || !canRefreshSubquests(Date.now(), this.subquests.lastRefreshEpoch)) return; this.subquests.choices = rollSubquestChoices(ITEM_NAMES); this.subquests.lastRefreshEpoch = Date.now(); this.syncSubquests(); },
+        onSubquestClaim: () => this.claimSubquest(),
         onSaveGame: () => this.saveGame(),
         onLoadGame: () => this.loadGame(),
         onTitleNew: () => { enterLandscapeFullscreen(); runWithLoading(this.uiRoot, () => this.startGame("new")); }, // 모바일: 진입 클릭(제스처)에서 가로+전체화면
@@ -4235,6 +4237,7 @@ class WildernessGame {
     if (target.type === "homeStorage") return "E: 집 창고 열기";
     if (target.type === "trainingRig") return this.level < TRAINING_MIN_LEVEL ? `${target.name} 훈련 (레벨 ${TRAINING_MIN_LEVEL}부터)` : `E: ${TRAINING_GAMES[target.trainingKind ?? "hp"].name} 훈련 시작`;
     if (target.type === "homeSupply") { const cd = partyGuestStorageActive() ? this.sharedSupplyCd : currentPartySession() !== null ? (this.homeSupplyCooldowns["__party__"] ?? 0) : (this.homeSupplyCooldowns[this.currentHouseBedTier] ?? 0); return cd <= 0 ? "E: 보급 상자 열기 (준비됨!)" : `보급 상자 — ${homeSupplyReadyLabel(cd)}`; }
+    if (target.type === "villageChief") return this.level < SUBQUEST_MIN_LEVEL ? `마을 이장 (레벨 ${SUBQUEST_MIN_LEVEL}부터 서브퀘스트)` : "E: 마을 이장 — 서브퀘스트 받기/보상";
     if (this.isVillageGuard(target)) return `E: ${target.name} 공격`;
     if (target.type === "foodStorage") return "E: 식량창고 열기";
     if (target.type === "workbench" || target.type === "extendedWorkbench") return "우클릭: 제작대 열기(제작) | 좌클릭/E: 가방에 회수";
@@ -4257,9 +4260,9 @@ class WildernessGame {
     const selectedItemIsRanged = this.isRangedWeapon(selectedItem);
     const exactTarget = this.getLookTarget();
     const target =
-      exactTarget?.type === "blacksmithNpc"
+      exactTarget?.type === "blacksmithNpc" || exactTarget?.type === "villageChief"
         ? exactTarget
-        : this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "trainingRig", "villageShop", "villageSellShop", "antHill", "wildPredator", "dragon", "jammini"]) ?? exactTarget ?? (meleeReach(selectedItem) > INTERACT_DISTANCE ? this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal"], meleeReach(selectedItem) + 1.2) : null); // 카타나(리치 2배) — 일반 사거리에서 못 찾았을 때만 전투 대상 한정 확장 탐색
+        : this.nearbyObjectInView(["bed", "workbench", "extendedWorkbench", "smelter", "specialSmelter", "grinder", "trainingRig", "villageShop", "villageSellShop", "antHill", "wildPredator", "dragon", "jammini"]) ?? exactTarget ?? (meleeReach(selectedItem) > INTERACT_DISTANCE ? this.nearbyObjectInView(["wildPredator", "dragon", "jammini", "animal"], meleeReach(selectedItem) + 1.2) : null); // 카타나(리치 2배) — 일반 사거리에서 못 찾았을 때만 전투 대상 한정 확장 탐색 · 이장/대장장이는 직접 조준 우선
     if (!this.possessedEagleId && selectedItemIsRanged && shouldFireRangedDuringInteract(true, Boolean(target), target ? this.isCombatTarget(target) : false)) {
       this.fireRangedWeapon(selectedItem);
       return;
@@ -4295,6 +4298,11 @@ class WildernessGame {
     }
     if (target.type === "homeStorage") {
       this.openPanel("homeStorage");
+      return;
+    }
+    if (target.type === "villageChief") { // 마을 이장 — 서브퀘스트 받기/보상 수령(레벨 20+)
+      if (this.level < SUBQUEST_MIN_LEVEL) { this.showMessage(`마을 이장: 아직 여행 초보로군. 레벨 ${SUBQUEST_MIN_LEVEL}이 되면 부탁할 일이 있네.`); return; }
+      this.subquestDialog = true; this.subquestSig = ""; document.exitPointerLock?.(); this.syncSubquests();
       return;
     }
     if (target.type === "trainingRig") {
@@ -6022,6 +6030,7 @@ class WildernessGame {
 
   private closePanel() {
     this.currentPanel = null;
+    if (this.subquestDialog) { this.subquestDialog = false; this.subquestSig = ""; this.syncSubquests(); } // 이장 대화창도 ESC 로 닫힘
     this.currentStationId = null;
     this.pendingStorageMove = null;
     this.renderPanel();
@@ -6635,14 +6644,15 @@ class WildernessGame {
   }
 
   private ensureVillageShops() {
-    const villages = new Map<string, { center: THREE.Vector3; special: boolean; hasFoodStorage: boolean; hasShop: boolean; hasSellShop: boolean; hasBlacksmith: boolean }>();
+    const villages = new Map<string, { center: THREE.Vector3; special: boolean; hasFoodStorage: boolean; hasShop: boolean; hasSellShop: boolean; hasBlacksmith: boolean; hasChief: boolean }>();
     for (const object of this.objects.values()) {
       if (!object.villageId) continue;
-      const entry = villages.get(object.villageId) ?? { center: object.root.position.clone(), special: false, hasFoodStorage: false, hasShop: false, hasSellShop: false, hasBlacksmith: false };
+      const entry = villages.get(object.villageId) ?? { center: object.root.position.clone(), special: false, hasFoodStorage: false, hasShop: false, hasSellShop: false, hasBlacksmith: false, hasChief: false };
       if (object.type === "foodStorage") { entry.center.copy(object.root.position); entry.hasFoodStorage = true; entry.special = VILLAGE_CENTERS.some((v) => v.special && Math.hypot(v.x - object.root.position.x, v.z - object.root.position.z) < 6); }
       else if (object.type === "villageShop") entry.hasShop = true;
       else if (object.type === "villageSellShop") entry.hasSellShop = true;
       else if (object.type === "blacksmith") entry.hasBlacksmith = true;
+      else if (object.type === "villageChief") entry.hasChief = true;
       villages.set(object.villageId, entry);
     }
     const at = (c: THREE.Vector3, dx: number, dz: number) => { const p = c.clone().add(new THREE.Vector3(dx, 0, dz)); p.y = this.getGroundHeightAt(p.x, p.z); return p; };
@@ -6651,6 +6661,7 @@ class WildernessGame {
       if (!village.hasShop) this.spawnVillageShop(at(village.center, 10, 8), villageId);
       if (!village.hasSellShop) spawnVillageSellShop(this.worldSpawnContext, at(village.center, 10, -8), villageId);
       if (village.special && !village.hasBlacksmith) this.spawnBlacksmith(at(village.center, -27 * 0.62, 27 * 0.54), villageId); // 큰 마을 대장간 확정(제련대 교환처) — spawnVillage 와 동일 위치
+      if (!village.hasChief) spawnVillageChief(this.worldSpawnContext, at(village.center, 3, -8), villageId); // 이장 소급 추가(구세이브·모든 마을)
     }
   }
 
@@ -6684,6 +6695,7 @@ class WildernessGame {
     if (savedObject.type === "animal") object = spawnAnimalEntity(this.entitySpawnContext, position, savedObject.animalKind);
     if (savedObject.type === "villager") object = spawnVillager(this.worldSpawnContext, position, villageId, savedObject.homePosition ? this.fromSavedVector(savedObject.homePosition) : position, savedObject.roamRadius);
     if (savedObject.type === "blacksmithNpc") object = spawnBlacksmithNpc(this.worldSpawnContext, position, villageId);
+    if (savedObject.type === "villageChief") object = spawnVillageChief(this.worldSpawnContext, position, villageId);
     if (savedObject.type === "villageKnight") object = spawnKnight(this.worldSpawnContext, position, villageId);
     if (savedObject.type === "villageArcher" || savedObject.type === "villageMage") object = this.spawnRangedGuard(position, villageId, savedObject.type);
     if (savedObject.type === "villageGolem") object = spawnGolem(this.worldSpawnContext, position, villageId);
@@ -6769,22 +6781,28 @@ class WildernessGame {
     return restoreVectorFromSave(vector, fallback);
   }
 
-  // 서브퀘스트 동기화 — 레벨 게이트로 오퍼 생성, 이벤트 진행 반영, gather 폴링, 완료 시 보상+재롤. 변경 시에만 재렌더.
+  // 서브퀘스트 동기화 — 레벨 게이트로 오퍼 생성, 이벤트 진행 반영, gather 폴링. 완료해도 보상은 이장에게 수령(claimSubquest). 변경 시에만 재렌더.
   private syncSubquests(event?: SubquestKind) {
     if (this.level >= SUBQUEST_MIN_LEVEL && !this.subquests.choices) this.subquests.choices = rollSubquestChoices(ITEM_NAMES);
     if (event) bumpSubquestOnEvent(this.subquests, event);
     if (this.subquests.selected?.item) pollSubquestGather(this.subquests, this.countItem(this.subquests.selected.item));
-    if (isSubquestComplete(this.subquests) && this.subquests.selected) {
-      const def = this.subquests.selected;
-      this.gainExperience(def.reward.experience);
-      const got: string[] = [];
-      for (const [item, count] of Object.entries(def.reward.items)) if (this.addItem(item as ItemId, count as number)) got.push(`${ITEM_NAMES[item as ItemId] ?? item} ${count}`);
-      this.showMessage(`🎯 서브퀘스트 완료! 경험치 ${def.reward.experience}${got.length ? " + " + got.join(", ") : ""}`);
-      this.subquests.selected = null; this.subquests.progress = 0; this.subquests.choices = rollSubquestChoices(ITEM_NAMES);
-    }
     const s = this.subquests;
-    const sig = `${this.level >= SUBQUEST_MIN_LEVEL ? 1 : 0}|${s.selected?.id ?? ""}|${s.progress}|${s.choices?.map((c) => c.id).join(",") ?? ""}|${s.selected ? 0 : Math.floor((Date.now() - s.lastRefreshEpoch) / 1000)}`;
-    if (sig !== this.subquestSig) { this.subquestSig = sig; renderSubquestPanel(this.subquestEl, this.subquests, ITEM_NAMES, Date.now(), this.level); }
+    const sig = `${this.level >= SUBQUEST_MIN_LEVEL ? 1 : 0}|${this.subquestDialog ? 1 : 0}|${s.selected?.id ?? ""}|${s.progress}|${s.choices?.map((c) => c.id).join(",") ?? ""}|${s.selected || !this.subquestDialog ? 0 : Math.floor((Date.now() - s.lastRefreshEpoch) / 1000)}`;
+    if (sig !== this.subquestSig) { this.subquestSig = sig; renderSubquestPanel(this.subquestEl, this.subquests, ITEM_NAMES, Date.now(), this.level, this.subquestDialog); }
+  }
+
+  // 이장에게 보상 수령 — 완료된 서브퀘스트의 보상 지급(제출형이면 재료 소비). 이후 새 오퍼 3개.
+  private claimSubquest() {
+    const def = this.subquests.selected;
+    if (!def || !isSubquestComplete(this.subquests)) return;
+    const submit = subquestSubmission(def);
+    if (submit) { if (this.countItem(submit.item) < submit.count) { this.showMessage(`이장: 아직 ${ITEM_NAMES[submit.item] ?? submit.item} ${submit.count}개가 부족하구나.`); return; } this.removeItem(submit.item, submit.count); }
+    this.gainExperience(def.reward.experience);
+    const got: string[] = [];
+    for (const [item, count] of Object.entries(def.reward.items)) if (this.addItem(item as ItemId, count as number)) got.push(`${ITEM_NAMES[item as ItemId] ?? item} ${count}`);
+    this.showMessage(`🏘️ 이장: 수고했네! 경험치 ${def.reward.experience}${got.length ? " + " + got.join(", ") : ""}`);
+    this.subquests.selected = null; this.subquests.progress = 0; this.subquests.choices = rollSubquestChoices(ITEM_NAMES);
+    this.subquestDialog = false; this.syncSubquests();
   }
 
   private renderHud() {
@@ -8560,9 +8578,10 @@ class WildernessGame {
     well.position.copy(position.clone().add(new THREE.Vector3(-1, 0, -9)));
     this.addWorldObject("villageHouse", "마을 우물", well, { collidable: true, collisionRadius: 1.55, collisionHeight: 1.0, villageId });
 
-    for (let i = 0; i < (isTouchDevice() ? (special ? 2 : 0) : (special ? 12 : 7)); i += 1) { // 모바일: 일반 주민 거의 제거(가드는 유지) — 가까운 마을 NPC 드로우콜 절감
+    for (let i = 0; i < (isTouchDevice() ? (special ? 2 : 0) : (special ? 6 : 3)); i += 1) { // 렉 감소: 일반 주민 수 하향(데스크톱 12/7→6/3, 모바일 유지). 이장 NPC 추가분 상쇄.
       spawnVillager(this.worldSpawnContext, position.clone().add(new THREE.Vector3(THREE.MathUtils.randFloat(-ringRadius, ringRadius), 0, THREE.MathUtils.randFloat(-ringRadius, ringRadius))), villageId, position.clone(), ringRadius);
     }
+    spawnVillageChief(this.worldSpawnContext, position.clone().add(new THREE.Vector3(3, 0, -8)), villageId); // 마을 이장 — 서브퀘스트(우물 근처, 진입 동선상 눈에 띔)
     const meleeCount = special ? 5 : 3;
     for (let i = 0; i < meleeCount; i += 1) {
       const angle = (i / meleeCount) * Math.PI * 2;
