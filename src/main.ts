@@ -4484,7 +4484,7 @@ class WildernessGame {
       this.showMessage("집 침대는 회수할 수 없습니다. E나 우클릭으로 푹 쉴 수 있습니다.");
       return;
     }
-    if (partyGuestPickupIntercept(target)) return; // 파티: 동기화 침대면 호스트에 회수 요청(침대 아이템은 pickupGrant 로 수령)
+    if (this.isResting && Math.abs(target.root.position.x - this.restAnchor.x) < 0.05 && Math.abs(target.root.position.z - this.restAnchor.z) < 0.05) { this.isResting = false; this.showMessage("침대를 회수하려 일어났습니다."); } if (partyGuestPickupIntercept(target)) return; // 앞: 누워 있던 침대 회수 시 휴식 종료(회수 후에도 가속 회복이 유지되던 버그, 자연해제는 이동0.6칸/패널만 감지) / 뒤: 파티 동기화 침대는 호스트에 회수 요청
     if (!this.addItem("bed", 1)) return;
     this.removeObject(target.id);
     this.playHandAction();
