@@ -6849,7 +6849,7 @@ class WildernessGame {
       for (const candidate of this.objectsOfType("dragon")) {
         const centerDistance = Math.hypot(candidate.root.position.x - this.playerPosition.x, candidate.root.position.z - this.playerPosition.z);
         const surfaceDistance = Math.max(0, centerDistance - (candidate.collisionRadius ?? 0));
-        if (surfaceDistance <= DRAGON_BOSS_BAR_DISTANCE && surfaceDistance < nearestDistance) {
+        if ((surfaceDistance <= DRAGON_BOSS_BAR_DISTANCE || (candidate.angryUntil ?? 0) > performance.now()) && surfaceDistance < nearestDistance) { // 표시 = 전투 거리 안 또는 어그로 중(도망쳐도 잔여 HP 확인 가능)
           dragon = candidate;
           nearestDistance = surfaceDistance;
         }
