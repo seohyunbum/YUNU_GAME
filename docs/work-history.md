@@ -1224,3 +1224,19 @@
   는 서버 PC 직접 파일 실행에 해당해 허용.
 - 검증: systems 테스트에 isLocalGameHost 양/음성 케이스(localhost·LAN·.local·file ↔ github.io·공인IP) 추가 녹색
   + 헤드리스 E2E(localhost 에서 F4→cheat-panel 오픈 확인). verify 게이트 녹색.
+
+## 2026-07-04 — 시작 초원·용용평원 몬스터 밀도 ×1.5 (렉 심한 큰 마을 인접 제외)
+- 유저 요청: 시작 초원(starter_valley)·용용평원(dragon_plains) 몬스터 1.5배↑. 단 렉 심한 마을 인접은 제외,
+  저부하 지역 중심으로 증량.
+- 밀도: `wildlifePredatorTarget` 를 boolean(isDefaultMap) → mapId 기반 per-map 으로 변경(PREDATOR_TARGET_BY_MAP).
+  starter 60→90, dragon_plains 78→117(둘 다 ×1.5), 나머지 7맵 78 불변. 고품질 216/281, 저사양 77/99.
+  main.ts 호출부 2곳은 boolean→mapId 인자로 동일줄 수정(라쳇 9339/480 여유 0 유지).
+- 렉 회피: safeZones.ts 에 `isNearHeavyVillage(x,z)` leaf(무할당) — special(큰) 마을 2곳 반경 70 버퍼.
+  randomPredatorSpawnPoint 리젝트 조건에 OR 추가(동일줄) → 시딩·리스폰·야간 스폰 전부 큰 마을 인접 회피.
+  일반 마을·훈련장은 기존 isInSafeZone(8 마진) 그대로.
+- ⚠️ perf-check(다음 작업자/PC): 이 환경(Linux)은 Windows Chrome 경로 하드코딩이라 perf-check 실행 불가(save-roundtrip
+  과 동일 제약). 시작맵 포식자 +72(144→216)라 field 프로파일 상승 예상 — fieldObjects 는 ~1486<1520 으로 통과
+  가능하나 **fieldVisibleMeshes(예산 4650)는 스폰 지점 부근 밀도 ×1.5 로 초과할 수 있음**. PC 에서 `npm run perf-check`
+  재측정 후, 의도된 콘텐츠 증량이므로 초과 시 field 예산을 측정값+마진으로 재기준(2026-06-20 마을 대형화 때와 동일 패턴).
+- 검증: typecheck·size·methods·architecture·hotpath·systems·content·combat·balance 녹색 + tsx 프로브
+  (맵별 목표 216/281·타맵 187 불변·×1.5 비율·버퍼 true<70/false≥70·일반마을 제외).

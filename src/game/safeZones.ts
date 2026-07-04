@@ -33,6 +33,20 @@ export function isInSafeZone(x: number, z: number, margin = 0): boolean {
   return false;
 }
 
+// 렉이 심한 큰(special) 마을 인접 버퍼 — 몬스터 밀도 상향 시 이 반경 안에는 스폰하지 않아 마을 근처 렉을 피한다.
+// 일반 마을·훈련장은 대상이 아니다(렉 부담이 작음). 무할당(스폰 시도 루프에서 호출).
+const HEAVY_VILLAGE_BUFFER = 70;
+const HEAVY_VILLAGE_CENTERS: readonly { x: number; z: number }[] = VILLAGE_CENTERS.filter((v) => v.special).map((v) => ({ x: v.x, z: v.z }));
+export function isNearHeavyVillage(x: number, z: number): boolean {
+  for (let i = 0; i < HEAVY_VILLAGE_CENTERS.length; i += 1) {
+    const c = HEAVY_VILLAGE_CENTERS[i];
+    const dx = x - c.x;
+    const dz = z - c.z;
+    if (dx * dx + dz * dz < HEAVY_VILLAGE_BUFFER * HEAVY_VILLAGE_BUFFER) return true;
+  }
+  return false;
+}
+
 // 안전구역 안의 점을 가장 가까운 경계로 밀어낸다(제자리 변형, 무할당). 이동 클램프(추격 차단)용.
 export function clampOutOfSafeZones(point: { x: number; z: number }): void {
   for (let i = 0; i < SAFE_CIRCLES.length; i += 1) {
