@@ -3,6 +3,7 @@ import { HUNGER_MAX } from "./game/constants";
 import { getWorldMapById } from "./game/worldMaps";
 import { FIELD_BOSSES, type FieldBossDef } from "./game/fieldBosses";
 import { BOSS_STATS } from "./game/monsters";
+import { SUBQUEST_MIN_LEVEL } from "./game/subquests";
 import type { ItemId, PlayerClassId, TutorialProgress } from "./game/types";
 
 // 직업별 "한 단계 위" 무기 제작 퀘스트 — 시작 무기보다 상위 티어를 정확한 레시피와 함께 안내한다.
@@ -53,6 +54,7 @@ export interface ObjectiveSnapshot {
   trainingKindsDone: number;
   bossChapter: number;
   defeatedFieldBosses: readonly string[];
+  subquestAccepted: boolean; // 마을 이장에게서 서브퀘스트를 수락했는지 — 메인퀘스트 판정
   completedStepIds: readonly string[];
   achievedStepIds: readonly string[];
 }
@@ -214,6 +216,8 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   checkQuest("visit_fortress", (s) => s.fortressVisited, "몬스터 요새 탐방", "맵마다 1곳에 있는 '몬스터 요새 입구'(해골 기둥 + 붉은 포탈, 지도 M에 요새 아이콘 표시)를 찾아 E로 입장해 보세요. 입장만 해도 완료입니다! 안은 중앙을 사수하는 웨이브 디펜스이고, 단계를 클리어할수록 전직의서·보상이 커집니다. (사망·퇴장해도 받은 보상은 유지)", { experience: 540, items: { medkit: 3 }, label: "경험치 540 + 구급상자 3개" }),
   // ── 몬스터 요새 토벌 (최종 도전) ──
   countQuest("hunt_fortress_boss", 1, (s) => s.fortressBossKills, "몬스터 요새 보스 처치", "위에서 찾은 몬스터 요새에 입장해 웨이브 디펜스 단계를 진행하고 요새 보스를 처치하세요. 흑요석과 전직의서를 떨어뜨립니다! 요새 난이도는 그 맵의 권장 레벨에 맞춰지니, 버거우면 더 낮은 레벨 맵의 요새부터 도전하세요.", { experience: 545, items: { diamond: 2, medkit: 3 }, label: "경험치 545 + 다이아몬드 2개 + 구급상자 3개" }),
+  // ── 마을 이장의 서브퀘스트 (레벨 20+ 개방) ──
+  { ...checkQuest("accept_subquest", (s) => s.subquestAccepted, "마을 이장에게 서브퀘스트 받기", "레벨 20부터 마을 광장의 '이장'(파란 로브의 어르신)에게 E로 말을 걸면 서브퀘스트 3개 중 하나를 받을 수 있습니다. 몬스터 사냥·재료 채집·제작 납품·보물상자·동굴/요새 탐험·용 사냥 등 다양하며, 희귀도가 높을수록 경험치·아이템 보상이 커집니다. 하나를 골라 수락해 보세요! (퀘스트창 아래 서브퀘스트 패널에서 진행도 확인)", { experience: 560, items: { advanced_medkit: 2, diamond: 2 }, label: "경험치 560 + 고급 구급상자 2개 + 다이아몬드 2개" }), available: (s) => s.level >= SUBQUEST_MIN_LEVEL }, // 서브퀘스트 개방 레벨부터 노출
   // ── 1차 전직 — 전직의서 3개로 전직의 표식을 만들어 레벨 30+에서 사용 ──
   checkQuest("advance_job_tier1", (s) => s.jobTier >= 1, "1차 전직 달성", "전직의서 3개로 제작대에서 '전직의 표식'을 만들고, 레벨 30 이상에서 표식을 핫바에 넣어 숫자키로 사용하면 1차 전직합니다. 직업별 새 스킬(F)·스탯 상승·새 외형을 얻습니다!", { experience: 600, items: { advanced_medkit: 2, diamond: 3 }, label: "경험치 600 + 고급 구급상자 2개 + 다이아몬드 3개" }),
   { ...checkQuest("advance_job_tier2", (s) => s.jobTier >= 2, "2차 전직 달성", "'전직의 각서'(흑요석 2 + 전직의 표식 1 + 전직의서 5)를 제작대에서 만들고, 레벨 50 이상에서 들고 사용하면 2차 전직합니다. 스탯이 더 오르고 모든 스킬 쿨다운이 짧아지며, 외형이 화려해집니다.", { experience: 1100, items: { advanced_medkit: 3, refined_diamond: 2 }, label: "경험치 1100 + 고급 구급상자 3개 + 제련된 다이아몬드 2개" }), available: (s) => s.level >= 40 }, // 2차 전직 퀘스트는 레벨 40+ 부터 노출(그 전엔 건너뜀)
