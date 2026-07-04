@@ -260,7 +260,7 @@ try {
     // 서브퀘스트 — 오퍼 생성/진행/보상/새로고침/정규화
     const names = { wood: "나무", iron: "철" };
     const choices = subquests.rollSubquestChoices(names);
-    assert(choices.length === subquests.SUBQUEST_OFFER_COUNT && choices.every((c) => c.target > 0 && subquests.RARITY_ORDER.includes(c.rarity) && ["kill", "gather", "chest", "supply", "caveBoss"].includes(c.kind) && c.reward && typeof c.reward.experience === "number" && typeof c.reward.label === "string"), "subquest: 오퍼 3개 구조 유효(종류·희귀도·목표·보상)");
+    assert(choices.length === subquests.SUBQUEST_OFFER_COUNT && choices.every((c) => c.target > 0 && subquests.RARITY_ORDER.includes(c.rarity) && ["kill", "gather", "craft", "chest", "supply", "caveBoss", "enterCave", "enterFortress", "dragon"].includes(c.kind) && c.reward && typeof c.reward.experience === "number" && Object.keys(c.reward.items).length > 0 && typeof c.reward.label === "string"), "subquest: 오퍼 3개 구조 유효(9종·희귀도·목표·보상아이템)");
     assert(subquests.SUBQUEST_MIN_LEVEL === 20, "subquest: 레벨 20 게이트");
     // kill 진행: 선택 후 이벤트 bump → target 에서 완료
     {
@@ -289,6 +289,32 @@ try {
       const mk = (kind) => { let d; for (let i = 0; i < 200; i += 1) { const c = subquests.rollSubquest(0, names); if (c.kind === kind && c.rarity === "common") { d = c; break; } } return d; };
       const g = mk("gather"), k = mk("kill");
       if (g && k) assert(g.reward.experience > k.reward.experience, "subquest: 제출형(gather) 보상 > 동일 희귀도 비제출형");
+    }
+    // 신규 종류(craft/enterCave/enterFortress/dragon) + 난이도별 보상 밸런스 정밀 점검
+    {
+      const mk = (kind) => { for (let i = 0; i < 400; i += 1) { const c = subquests.rollSubquest(0, names); if (c.kind === kind && c.rarity === "common") return c; } return null; };
+      // craft 는 제작 납품(제출형) — item 지정 + subquestSubmission 반환, 이벤트 bump 대상 아님
+      const craft = mk("craft");
+      if (craft) {
+        assert(typeof craft.item === "string" && craft.item.length > 0, "subquest craft: 납품할 제작품 item 지정");
+        const cs = subquests.defaultSubquestState(); cs.choices = [craft]; cs.selected = craft;
+        assert(subquests.bumpSubquestOnEvent(cs, "craft") === false, "subquest craft: 이벤트 bump 대상 아님(제출 폴링 전용)");
+        subquests.pollSubquestGather(cs, craft.target); assert(subquests.isSubquestComplete(cs), "subquest craft: 보유 target → 폴링 완료");
+        const sub = subquests.subquestSubmission(craft); assert(sub && sub.item === craft.item && sub.count === craft.target, "subquest craft: subquestSubmission = 바칠 제작품");
+      }
+      // enterCave/enterFortress/dragon 은 이벤트 bump 로 진행하는 비제출형
+      for (const kind of ["enterCave", "enterFortress", "dragon"]) {
+        const d = mk(kind);
+        if (!d) continue;
+        assert(subquests.subquestSubmission(d) === null, `subquest ${kind}: 비제출형(subquestSubmission null)`);
+        const st = subquests.defaultSubquestState(); st.choices = [d]; st.selected = d;
+        for (let i = 0; i < d.target + 3; i += 1) subquests.bumpSubquestOnEvent(st, kind);
+        assert(st.progress === d.target && subquests.isSubquestComplete(st), `subquest ${kind}: 이벤트 bump 로 완료(target 상한)`);
+      }
+      // 난이도 계수: 같은 희귀도에서 dragon(3.0) > kill(1.0) 경험치, supply(0.9) < kill 경험치
+      const dr = mk("dragon"), kl = mk("kill"), sp = mk("supply");
+      if (dr && kl) assert(dr.reward.experience > kl.reward.experience, "subquest 밸런스: 용(고난이도) 경험치 > 사냥(기본)");
+      if (sp && kl) assert(sp.reward.experience < kl.reward.experience, "subquest 밸런스: 보급(저난이도) 경험치 < 사냥(기본)");
     }
     // 새로고침 쿨다운
     assert(subquests.canRefreshSubquests(subquests.SUBQUEST_REFRESH_COOLDOWN_MS + 1, 0) === true && subquests.canRefreshSubquests(1000, 0) === false, "subquest: 새로고침 5분 쿨다운");

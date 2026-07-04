@@ -14,6 +14,17 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-04 — 메인퀘스트 '이장 서브퀘스트 받기' + 서브퀘스트 종류 확장 + 보상 밸런스 정밀화
+
+- 시도: (a) 메인퀘스트에 "마을 이장에게서 서브퀘스트 받기" 추가, (b) 이장 서브퀘스트 종류 다양화(제작템 납품·동굴/요새 입장·용 사냥 등), (c) 보상 템 다양화 + 퀘스트 난이도별 보상 정밀 밸런스.
+- 결과: verify 그린(check:size 9434→9438 배선 실측 재기준, check:methods 482 불변 — 새 메서드 0). 신규 kind/보상/밸런스 테스트를 gameplay-systems-test 에 추가(craft 제출·enterCave/fortress/dragon bump 완료·용>사냥>보급 경험치 순).
+- 구현:
+  - `game/subquests.ts`(리프): SubquestKind 에 craft/enterCave/enterFortress/dragon 4종 추가(총 9종). 보상 공식을 `BASE_XP[rarity] × KIND_DIFFICULTY[kind]` + `REWARD_ITEM_POOLS[rarity]` 번들(난이도 계수로 수량 스케일)로 재설계 — 희귀도×종류 두 축 차등. KIND_DIFFICULTY: supply 0.9 · enterCave 0.8 · kill 1.0 · chest 1.15 · enterFortress 1.3 · gather 1.6(제출) · craft 2.0(제작) · caveBoss 2.2 · dragon 3.0. craft 는 제출형(보유 폴링 + subquestSubmission 소비)으로 gather 와 동일 처리(isSubmissionKind 헬퍼).
+  - `objectives.ts`(리프): ObjectiveSnapshot 에 subquestAccepted 추가. 메인퀘스트 스텝 accept_subquest(available: level≥SUBQUEST_MIN_LEVEL, completed: subquestAccepted) 를 fortress 탐방 다음·1차 전직 앞에 삽입.
+  - `main.ts`(배선만 +4): enterCave/enterFortressSiege/dragon-kill 에 syncSubquests 훅 3 + currentObjectiveView 스냅샷에 subquestAccepted 신호 1. 로직·데이터·UI 는 전부 리프.
+- 이유/다음 판단: save-roundtrip E2E 는 이 컨테이너에서 Firebase RTDB WebSocket 이 프록시(ERR_TUNNEL_CONNECTION_FAILED)로 막혀 browserErrors 어서션만 실패 — 세이브 형태 비교 자체는 통과. 로컬 PC(사용자)에서만 완전 그린. SubquestState 형태 불변이라 세이브 마이그레이션 영향 없음.
+- 관련 파일/검증: src/game/subquests.ts · src/objectives.ts · src/main.ts · scripts/gameplay-systems-test.mjs · scripts/content-test.mjs · scripts/check-main-size.mjs.
+
 ## 2026-07-03 — 날카로운 흑요석 방패 내구도 1000·수리 +300 조정
 
 - 요청: 최대 내구도 1000, 수리 1회 +300.

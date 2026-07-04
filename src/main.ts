@@ -4741,6 +4741,7 @@ class WildernessGame {
     this.showMessage(fortress
       ? `⚔️ 몬스터 동굴에 진입했습니다. 동굴 끝 보스몹을 처치하면 희귀템을 드랍합니다! ${entryNote}`
       : `동굴 안으로 들어왔습니다. 돌과 석탄을 찾아보세요. ${entryNote}`);
+    this.syncSubquests("enterCave"); // 서브퀘스트 — 동굴 입장 진행
     this.renderHud();
   }
 
@@ -4772,6 +4773,7 @@ class WildernessGame {
     precompileSceneShaders(this.renderer, this.scene, this.camera, "cave");
     this.playTransitionSound("enter");
     this.tutorialSignals.fortressVisited = true; // 요새 탐방 체험 퀘스트 신호(입장만으로 달성)
+    this.syncSubquests("enterFortress"); // 서브퀘스트 — 몬스터 요새 입장 진행
     this.showMessage(startStage > 1
       ? `🏰 몬스터 요새 재입성 — ${startStage}단계부터 이어서 시작! (이 맵 최고 클리어 단계) 중앙을 사수하세요. (사망/중도 퇴장해도 받은 보상은 유지)`
       : "🏰 몬스터 요새 입성 — 1단계 도전 시작! 중앙을 사수하세요. 단계를 클리어할수록 전직의서·보상이 커집니다. (사망/중도 퇴장해도 받은 보상은 유지)");
@@ -5026,6 +5028,7 @@ class WildernessGame {
     this.summonerCompanion.awardExperience(killExp, this.summonerPetContext);
     { const sp = equippedSpirit(this.spirits); if (sp && gainSpiritExperience(sp, killExp) > 0) { this.showMessage(`✨ 정령 레벨업! Lv ${sp.level} (공+${spiritAttackBonus(sp)}/방+${spiritDefenseBonus(sp)})`); this.renderHud(); } } // 장착 정령도 소환수와 동일 경험치로 레벨업
     if (target.type === "wildPredator" && creditQuest) { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.syncSubquests("kill"); } // creditQuest=false → 파티에서 게스트가 막타친 경우: 호스트는 사냥 카운터 증가 안 함(게스트가 자기 카운터 증가)
+    if (target.type === "dragon" && creditQuest) this.syncSubquests("dragon"); // 서브퀘스트 — 용 처치 진행(막타자만)
     if (creditQuest) this.dropKillSpiritToken(target.type === "wildPredator" || target.type === "dragon", Boolean(target.fieldBossId || target.type === "dragon" || target.fortressBoss)); // 막타자(=이 클라이언트)만 롤. 파티 게스트 막타는 호스트가 creditQuest=false 로 스킵 → 게스트가 onPartyKill 에서 받음
     if (target.fortressBoss) {
       this.tutorialSignals.fortressBossKills += 1; this.syncSubquests("caveBoss"); // 요새 보스 처치 퀘스트 신호(+서브퀘스트 동굴의 주인)
@@ -6994,6 +6997,7 @@ class WildernessGame {
       trainingKindsDone: [this.trainingStats.hp, this.trainingStats.attack, this.trainingStats.armor, this.trainingStats.mana].filter((count) => count > 0).length,
       bossChapter: this.bossChapter,
       defeatedFieldBosses: this.defeatedFieldBosses,
+      subquestAccepted: this.subquests.selected !== null, // 메인퀘스트: 이장에게 서브퀘스트 받기(수락 시 달성·latch)
       completedStepIds: this.tutorialProgress.completedStepIds, achievedStepIds: this.tutorialProgress.achievedStepIds,
     };
     latchAchievedObjectives(this.tutorialProgress, snapshot);

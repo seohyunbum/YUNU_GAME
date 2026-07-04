@@ -7,7 +7,7 @@ export const SUBQUEST_MIN_LEVEL = 20;
 export const SUBQUEST_REFRESH_COOLDOWN_MS = 5 * 60 * 1000; // 5분에 1회 새로고침
 export const SUBQUEST_OFFER_COUNT = 3;
 
-export type SubquestKind = "kill" | "gather" | "chest" | "supply" | "caveBoss";
+export type SubquestKind = "kill" | "gather" | "craft" | "chest" | "supply" | "caveBoss" | "enterCave" | "enterFortress" | "dragon";
 export type SubquestRarity = "common" | "rare" | "epic" | "legendary";
 
 export interface SubquestReward {
@@ -51,21 +51,29 @@ export const RARITY_META: Record<SubquestRarity, { label: string; bg: string; bo
 const KIND_META: Record<SubquestKind, { label: string; verb: string }> = {
   kill: { label: "몬스터 사냥", verb: "처치" },
   gather: { label: "재료 채집", verb: "채집" },
+  craft: { label: "제작 납품", verb: "제작" },
   chest: { label: "보물상자", verb: "개봉" },
   supply: { label: "보급상자", verb: "수령" },
   caveBoss: { label: "동굴의 주인", verb: "처치" },
+  enterCave: { label: "동굴 탐험", verb: "입장" },
+  enterFortress: { label: "몬스터 요새", verb: "입장" },
+  dragon: { label: "용 사냥", verb: "처치" },
 };
 
-// 종류×희귀도 목표 수치. (동굴 주인·보급은 값이 커지면 부담이 크므로 완만)
+// 종류×희귀도 목표 수치. (보스·용·제작은 부담이 커 완만하게)
 const TARGETS: Record<SubquestKind, Record<SubquestRarity, number>> = {
   kill: { common: 5, rare: 12, epic: 25, legendary: 50 },
   gather: { common: 10, rare: 15, epic: 20, legendary: 25 },
+  craft: { common: 1, rare: 2, epic: 3, legendary: 4 },
   chest: { common: 1, rare: 3, epic: 6, legendary: 12 },
   supply: { common: 1, rare: 2, epic: 4, legendary: 8 },
   caveBoss: { common: 1, rare: 2, epic: 3, legendary: 5 },
+  enterCave: { common: 1, rare: 2, epic: 3, legendary: 5 },
+  enterFortress: { common: 1, rare: 1, epic: 2, legendary: 3 },
+  dragon: { common: 1, rare: 1, epic: 2, legendary: 3 },
 };
 
-// gather 아이템 풀(희귀도별). 흔한 채집물 → 희귀 광물 순.
+// gather(채집) 아이템 풀. 흔한 채집물 → 희귀 광물 순.
 const GATHER_ITEMS: Record<SubquestRarity, ItemId[]> = {
   common: ["wood", "stone", "meat", "leather"],
   rare: ["coal", "iron", "gold"],
@@ -73,15 +81,39 @@ const GATHER_ITEMS: Record<SubquestRarity, ItemId[]> = {
   legendary: ["diamond", "refined_iron", "gold"],
 };
 
-// 아이템 제출형(gather) 보상 배수 — 재료를 이장에게 바치는 대신 보상 상향(유저 요구).
+// craft(제작 납품) 아이템 풀 — 만들어서 바치는 소모/생활 제작품(스테이션류 제외).
+const CRAFT_ITEMS: Record<SubquestRarity, ItemId[]> = {
+  common: ["leather_bandage", "meat_stew"],
+  rare: ["medkit", "meat_stew"],
+  epic: ["advanced_medkit", "medkit"],
+  legendary: ["advanced_medkit"],
+};
+
+// 아이템 제출형 보상 배수(하위호환 export). gather 난이도 계수와 동일.
 export const SUBMISSION_REWARD_MULT = 1.6;
 
-// 희귀도별 보상(경험치 + 아이템). 레벨 20+ 도전이라 넉넉하되 난이도 차등.
-const REWARDS: Record<SubquestRarity, { experience: number; items: Partial<Record<ItemId, number>> }> = {
-  common: { experience: 300, items: { medkit: 2 } },
-  rare: { experience: 700, items: { medkit: 3, iron: 5 } },
-  epic: { experience: 1400, items: { advanced_medkit: 2, diamond: 2 } },
-  legendary: { experience: 2800, items: { advanced_medkit: 3, refined_diamond: 2, sharp_obsidian: 1 } },
+// 종류별 난이도 계수 — 희귀도 기본 보상(경험치·아이템 수량)에 곱해 "난이도에 따른 보상"을 정밀 차등.
+const KIND_DIFFICULTY: Record<SubquestKind, number> = {
+  supply: 0.9, // 보급상자 열기(쉬움)
+  enterCave: 0.8, // 동굴 입장(쉬움·일회성)
+  kill: 1.0,
+  chest: 1.15, // 보물상자 찾기
+  enterFortress: 1.3, // 요새 입장(위험)
+  gather: SUBMISSION_REWARD_MULT, // 재료 제출(1.6)
+  craft: 2.0, // 제작 납품(제작 비용)
+  caveBoss: 2.2, // 요새 보스(어려움)
+  dragon: 3.0, // 용(최상 난이도)
+};
+
+// 희귀도별 기본 경험치.
+const BASE_XP: Record<SubquestRarity, number> = { common: 300, rare: 700, epic: 1400, legendary: 2800 };
+
+// 희귀도별 보상 아이템 번들 풀(다양화) — 롤마다 하나를 뽑아 난이도 계수로 수량 스케일.
+const REWARD_ITEM_POOLS: Record<SubquestRarity, Partial<Record<ItemId, number>>[]> = {
+  common: [{ medkit: 2 }, { meat: 6 }, { leather: 4 }, { coal: 6 }, { stone: 8 }],
+  rare: [{ medkit: 3, iron: 5 }, { refined_iron: 3 }, { gold: 4 }, { coal: 10, medkit: 2 }],
+  epic: [{ advanced_medkit: 2, diamond: 2 }, { refined_diamond: 2 }, { sharp_obsidian: 1, gold: 3 }, { diamond: 3, refined_iron: 3 }],
+  legendary: [{ advanced_medkit: 3, refined_diamond: 2, sharp_obsidian: 1 }, { sharp_obsidian: 2, diamond: 5 }, { refined_diamond: 3, advanced_medkit: 2 }],
 };
 
 export function itemDisplayName(item: ItemId, names: Record<string, string>): string {
@@ -91,11 +123,28 @@ export function itemDisplayName(item: ItemId, names: Record<string, string>): st
 // 오퍼 제목 — UI 표시용(아이템명 주입).
 export function subquestTitle(def: SubquestDef, names: Record<string, string>): string {
   const k = KIND_META[def.kind];
-  if (def.kind === "gather" && def.item) return `${names[def.item] ?? def.item} ${def.target}개 ${k.verb}`;
-  if (def.kind === "kill") return `몬스터 ${def.target}마리 ${k.verb}`;
-  if (def.kind === "chest") return `보물상자 ${def.target}개 ${k.verb}`;
-  if (def.kind === "supply") return `보급상자 ${def.target}회 ${k.verb}`;
-  return `동굴의 주인 ${def.target}회 ${k.verb}`;
+  switch (def.kind) {
+    case "gather":
+      return def.item ? `${names[def.item] ?? def.item} ${def.target}개 ${k.verb}` : `재료 ${def.target}개 ${k.verb}`;
+    case "craft":
+      return def.item ? `${names[def.item] ?? def.item} ${def.target}개 ${k.verb}·납품` : `제작품 ${def.target}개 ${k.verb}`;
+    case "kill":
+      return `몬스터 ${def.target}마리 ${k.verb}`;
+    case "chest":
+      return `보물상자 ${def.target}개 ${k.verb}`;
+    case "supply":
+      return `보급상자 ${def.target}회 ${k.verb}`;
+    case "caveBoss":
+      return `동굴의 주인 ${def.target}회 ${k.verb}`;
+    case "enterCave":
+      return `동굴 ${def.target}곳 ${k.verb}`;
+    case "enterFortress":
+      return `몬스터 요새 ${def.target}곳 ${k.verb}`;
+    case "dragon":
+      return `용 ${def.target}마리 ${k.verb}`;
+    default:
+      return `${k.label} ${def.target}회`;
+  }
 }
 
 function rewardLabel(reward: { experience: number; items: Partial<Record<ItemId, number>> }, names: Record<string, string>): string {
@@ -118,21 +167,22 @@ function rollRarity(): SubquestRarity {
   return "common";
 }
 
-const ALL_KINDS: readonly SubquestKind[] = ["kill", "gather", "chest", "supply", "caveBoss"];
+const ALL_KINDS: readonly SubquestKind[] = ["kill", "gather", "craft", "chest", "supply", "caveBoss", "enterCave", "enterFortress", "dragon"];
 
 // 오퍼 1개 생성 — names 는 보상 라벨용.
+// 보상 = 희귀도 기본(경험치 BASE_XP·아이템 번들 REWARD_ITEM_POOLS) × 종류 난이도 계수(KIND_DIFFICULTY).
+// → "퀘스트 난이도에 따른 보상 밸런스"를 희귀도 × 종류 두 축으로 정밀 차등.
 export function rollSubquest(index: number, names: Record<string, string>): SubquestDef {
   const kind = pick(ALL_KINDS);
   const rarity = rollRarity();
   const target = TARGETS[kind][rarity];
-  const item = kind === "gather" ? pick(GATHER_ITEMS[rarity]) : undefined;
-  const base = REWARDS[rarity];
-  // gather(아이템 제출형)는 재료를 바치는 대가로 보상 상향(경험치·아이템 수량 ×1.6)
-  const mult = kind === "gather" ? SUBMISSION_REWARD_MULT : 1;
+  const item = kind === "gather" ? pick(GATHER_ITEMS[rarity]) : kind === "craft" ? pick(CRAFT_ITEMS[rarity]) : undefined;
+  const mult = KIND_DIFFICULTY[kind];
+  const bundle = pick(REWARD_ITEM_POOLS[rarity]);
   const items: Partial<Record<ItemId, number>> = {};
-  for (const [it, count] of Object.entries(base.items)) items[it as ItemId] = Math.max(1, Math.round((count as number) * mult));
-  const rewardBase = { experience: Math.round(base.experience * mult), items };
-  const reward: SubquestReward = { experience: rewardBase.experience, items: rewardBase.items, label: rewardLabel(rewardBase, names) };
+  for (const [it, count] of Object.entries(bundle)) items[it as ItemId] = Math.max(1, Math.round((count as number) * mult));
+  const experience = Math.round(BASE_XP[rarity] * mult);
+  const reward: SubquestReward = { experience, items, label: rewardLabel({ experience, items }, names) };
   const id = `sq-${index}-${kind}-${rarity}-${Math.floor(Math.random() * 1e9).toString(36)}`;
   return { id, kind, rarity, target, item, reward };
 }
@@ -193,24 +243,30 @@ export function isSubquestComplete(state: SubquestState): boolean {
   return state.selected !== null && state.progress >= state.selected.target;
 }
 
-// 이벤트 발생 시 진행 증가(선택 중이고 종류가 맞을 때만). kill/chest/supply/caveBoss 용. 반환: 진행이 바뀌었는가.
+// 제출형(보유 수량 폴링) 종류 — 진행을 이벤트가 아니라 인벤토리 보유량으로 본다.
+function isSubmissionKind(kind: SubquestKind): boolean {
+  return kind === "gather" || kind === "craft";
+}
+
+// 이벤트 발생 시 진행 증가(선택 중이고 종류가 맞을 때만). kill/chest/supply/caveBoss/enterCave/enterFortress/dragon 용.
+// 제출형(gather/craft)은 이벤트가 아니라 보유량 폴링으로 진행하므로 제외. 반환: 진행이 바뀌었는가.
 export function bumpSubquestOnEvent(state: SubquestState, kind: SubquestKind, amount = 1): boolean {
-  if (!state.selected || state.selected.kind !== kind || state.selected.kind === "gather") return false;
+  if (!state.selected || state.selected.kind !== kind || isSubmissionKind(state.selected.kind)) return false;
   if (state.progress >= state.selected.target) return false;
   state.progress = Math.min(state.selected.target, state.progress + amount);
   return true;
 }
 
-// gather(제출형) 진행 폴링 — 이장에게 바칠 재료를 현재 보유 수량만큼 진행으로 본다(제출 시 소비되므로 보유량 기준).
+// 제출형(gather/craft) 진행 폴링 — 이장에게 바칠 재료·제작품을 현재 보유 수량만큼 진행으로 본다(제출 시 소비되므로 보유량 기준).
 export function pollSubquestGather(state: SubquestState, currentCount: number): boolean {
-  if (!state.selected || state.selected.kind !== "gather") return false;
+  if (!state.selected || !isSubmissionKind(state.selected.kind)) return false;
   const next = Math.min(state.selected.target, Math.max(0, currentCount));
   if (next === state.progress) return false;
   state.progress = next;
   return true;
 }
 
-// 제출형(gather) 이면 이장에게 바칠 재료 {item, count}, 아니면 null.
+// 제출형(gather/craft) 이면 이장에게 바칠 {item, count}, 아니면 null.
 export function subquestSubmission(def: SubquestDef): { item: ItemId; count: number } | null {
-  return def.kind === "gather" && def.item ? { item: def.item, count: def.target } : null;
+  return isSubmissionKind(def.kind) && def.item ? { item: def.item, count: def.target } : null;
 }
