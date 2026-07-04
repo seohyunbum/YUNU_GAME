@@ -170,6 +170,8 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
     let goAt = 0;
     let blocked = 0;
     let scheduled = 0;
+    let lastActiveAt = performance.now(); // 마지막 플레이어 입력 시각 — '흔들기 안 누르기' 성공은 실제 플레이 중일 때만 인정(순수 방치 자동클리어 차단)
+    const BLOCK_AFK_MS = 12_000; // 이보다 오래 입력이 없으면 방치로 간주 — 가짜-통과 무득점(고난도에서 가짜만으로 무한 성공 악용 방지)
     const schedule = () => {
       state = "idle";
       signal.textContent = "기다리세요…";
@@ -177,17 +179,21 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
       scheduled = performance.now() + 700 + Math.random() * 1600;
     };
     schedule();
+    const succeed = (label: string) => { // 성공 1회 공통 — '막아!'를 제때 막거나, '흔들기'(가짜)에 안 속고 넘긴 경우
+      blocked += 1;
+      progress.textContent = `${blocked} / 3`;
+      if (blocked >= 3) {
+        celebrate();
+        blocked = 0;
+        progress.textContent = "0 / 3";
+      } else setFeedback(`${label} (${blocked}/3)`, true);
+      schedule();
+    };
     const block = () => {
+      lastActiveAt = performance.now(); // 클릭·스페이스 = 플레이어 활동(성공/실패 무관)
       const count = callbacks.getCount(kind);
       if (state === "go" && performance.now() - goAt <= blockWindowMs(count)) {
-        blocked += 1;
-        progress.textContent = `${blocked} / 3`;
-        if (blocked >= 3) {
-          celebrate();
-          blocked = 0;
-          progress.textContent = "0 / 3";
-        } else setFeedback(`막았다! (${blocked}/3)`, true);
-        schedule();
+        succeed("막았다!");
       } else {
         blocked = 0;
         progress.textContent = "0 / 3";
@@ -220,7 +226,8 @@ export function renderTrainingPanel(panelEl: HTMLElement, kind: TrainingKind, ca
           signal.className = "block-signal go";
         }
       } else if (state === "fake" && now >= scheduled) {
-        schedule();
+        if (now - lastActiveAt <= BLOCK_AFK_MS) succeed("잘 참았어요!"); // 흔들기(가짜)를 안 누르고 넘김 = 성공 인정(단, 최근 입력이 있어 실제 플레이 중일 때만 — 방치 자동클리어 차단)
+        else schedule(); // 장시간 방치 중이면 무득점으로 넘김
       } else if (state === "go" && now - goAt > blockWindowMs(count)) {
         blocked = 0;
         progress.textContent = "0 / 3";
