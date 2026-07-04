@@ -220,6 +220,34 @@ try {
     illia.finishIlliaCutscene(state, cutCtx); // 이중 스킵(키+클릭 경합)
     assert.equal(finished, 1, "스킵 시에도 onFinish 정확히 1회");
     assert.equal(scene.children.includes(stone2), false, "스킵 시 소품 제거");
+
+    // gateOpen(차원의 문 개방 트레일러): anchor 는 월드 소유 — 종료 시 씬에서 제거하지 않고 평시 상태로 복구
+    const gate = visuals.createDimensionGateVisual();
+    gate.position.set(420, 0, -386);
+    scene.add(gate);
+    finished = 0; cameraSets = 0; t = 0;
+    illia.startIlliaCutscene(state, "gateOpen", 0, [], gate);
+    t = 3000; illia.updateIlliaCutscene(state, cutCtx); // 형성 중간 — 링/코어가 아직 덜 자람
+    const swirl = gate.children.find((c) => c.userData.portalSwirl);
+    assert.ok(swirl && swirl.scale.x < 0.9, `gateOpen: 형성 중 스월 스케일 축소 (${swirl?.scale.x.toFixed(2)})`);
+    for (t = 0; t <= illia.ILLIA_CUTSCENE_MS + 200; t += 100) illia.updateIlliaCutscene(state, cutCtx);
+    assert.equal(finished, 1, "gateOpen: 완주 시 onFinish 정확히 1회");
+    assert.equal(scene.children.includes(gate), true, "gateOpen: 게이트는 월드 소유 — 종료 시 씬에 유지");
+    assert.equal(state.anchor, null, "gateOpen: 종료 시 anchor 해제");
+    assert.ok(cameraSets > 50, "gateOpen: 컷씬 동안 카메라 연출 지속");
+    for (const child of gate.children) assert.ok(Math.abs(child.scale.x - 1) < 1e-9, "gateOpen: 종료 시 스케일 원상복구");
+    const light = gate.children.find((c) => c.isLight);
+    assert.ok(light && Math.abs(light.intensity - 1.8) < 1e-9, "gateOpen: 종료 시 광량 평시(1.8) 복구");
+    // 중간 스킵도 동일 복구 — 부유석 정위치·스케일 복귀
+    const shard = gate.children.find((c) => c.userData.gateShard);
+    const homeX = shard.position.x, homeZ = shard.position.z;
+    finished = 0; t = 0;
+    illia.startIlliaCutscene(state, "gateOpen", 0, [], gate);
+    t = 2500; illia.updateIlliaCutscene(state, cutCtx); // 수렴 중(정위치에서 벗어난 상태)
+    illia.finishIlliaCutscene(state, cutCtx);
+    assert.equal(finished, 1, "gateOpen: 스킵 시 onFinish 1회");
+    assert.ok(Math.abs(shard.position.x - homeX) < 1e-6 && Math.abs(shard.position.z - homeZ) < 1e-6, "gateOpen: 스킵 시 부유석 정위치 복구");
+    assert.equal(scene.children.includes(gate), true, "gateOpen: 스킵 시에도 게이트 유지");
   }
 
   // ── 5) 레지스트리 골든 — 보스 스탯·XP·튜너블 def ──

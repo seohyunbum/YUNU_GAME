@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ARENA_HALF, ILLIA_CENTER_Z } from "./constants";
 import { bal } from "./balanceTuning";
+import { animateGateOpening, resetGateVisual } from "./illiaVisuals";
 import type { WorldObject } from "./types";
 
 // 최종 보스 '일리아' 전투 엔진 — 텔레그래프(사전 표시 붉은 영역) 기반 패턴 보스. leaf(main.ts import 금지).
@@ -487,25 +488,29 @@ export interface IlliaCutsceneContext {
   onFinish(): void;
 }
 
+export type IlliaCutsceneKind = "awaken" | "unseal" | "gateOpen";
+
 export interface IlliaCutsceneState {
   active: boolean;
-  kind: "awaken" | "unseal";
+  kind: IlliaCutsceneKind;
   startedAt: number;
   props: THREE.Object3D[]; // 컷씬 전용 소품(봉인석 등) — 종료 시 제거
+  anchor: THREE.Object3D | null; // 월드 소유 오브젝트 참조(gateOpen 의 차원의 문) — 종료 시 제거하지 않고 원상복구만
   firedSteps: number; // 원샷 스텝 진행 인덱스
 }
 
 export const ILLIA_CUTSCENE_MS = 10_000;
 
 export function createIlliaCutsceneState(): IlliaCutsceneState {
-  return { active: false, kind: "awaken", startedAt: 0, props: [], firedSteps: 0 };
+  return { active: false, kind: "awaken", startedAt: 0, props: [], anchor: null, firedSteps: 0 };
 }
 
-export function startIlliaCutscene(state: IlliaCutsceneState, kind: "awaken" | "unseal", now: number, props: THREE.Object3D[]): void {
+export function startIlliaCutscene(state: IlliaCutsceneState, kind: IlliaCutsceneKind, now: number, props: THREE.Object3D[], anchor: THREE.Object3D | null = null): void {
   state.active = true;
   state.kind = kind;
   state.startedAt = now;
   state.props = props;
+  state.anchor = anchor;
   state.firedSteps = 0;
 }
 
@@ -514,6 +519,7 @@ export function finishIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
   state.active = false;
   for (const prop of state.props) ctx.scene.remove(prop);
   state.props = [];
+  if (state.anchor) { resetGateVisual(state.anchor); state.anchor = null; } // 게이트는 월드 소유 — 씬에서 빼지 않고 평시 상태로만 복귀
   ctx.onFinish();
 }
 
@@ -591,6 +597,28 @@ export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
     if (state.firedSteps === 1 && t >= 3.5) { state.firedSteps = 2; ctx.playTone(48, 1.4, "sawtooth", 0.06); ctx.playTone(1200, 0.15, "sine", 0.03); }
     if (state.firedSteps === 2 && t >= 6) { state.firedSteps = 3; flashCutsceneScreen(); ctx.groundBurst(0, cz); ctx.groundBurst(-2.5, cz + 1.5); ctx.groundBurst(2.5, cz - 1.5); ctx.playTone(38, 1.8, "sawtooth", 0.1); ctx.playTone(660, 0.5, "triangle", 0.05); ctx.playTone(90, 0.9, "square", 0.06); }
     if (state.firedSteps === 3 && t >= 7.2) { state.firedSteps = 4; ctx.playTone(220, 1.2, "sine", 0.05); }
+  } else if (state.kind === "gateOpen") {
+    // 개방(gateOpen): 불멸의 존재 처치 직후 — 지반 융기 → 부유석 수렴·링 형성 → 6s 점화(섬광·충격파) → 로우앵글 위용 → 풀백. anchor = 월드의 차원의 문.
+    const gate = state.anchor;
+    if (!gate) { finishIlliaCutscene(state, ctx); return; }
+    const gx = gate.position.x, gz = gate.position.z;
+    const amplitude = t < 1 ? 0 : t < 6 ? 0.03 + ((t - 1) / 5) * 0.22 : t < 7 ? 0.8 * (1 - (t - 6) * 0.75) : 0.06;
+    const shake = cutsceneShake(t, amplitude);
+    if (t < 6) {
+      const k = t / 6; const ang = 2.6 - k * 1.1; const r = 16 - k * 9.5;
+      ctx.setCamera(gx + Math.sin(ang) * r + shake.x, 7.5 - k * 5.3 + shake.y, gz + Math.cos(ang) * r, gx, 2.2, gz); // 하이앵글 원경 → 반원 아크로 접근
+    } else if (t < 7) {
+      const k = t - 6;
+      ctx.setCamera(gx + shake.x, 2.0 + k * 0.3 + shake.y, gz + 6.5 + k * 2.2, gx, 2.4, gz); // 점화 반동 — 뒤로 밀림
+    } else {
+      const k = (t - 7) / 3;
+      ctx.setCamera(gx + Math.sin(k * 1.1) * 4 + shake.x, 1.1 + k * 3.2 + shake.y, gz + 5.2 + k * 4.5, gx, 2.4 + k * 0.6, gz); // 로우앵글 올려보기 → 상승 풀백
+    }
+    animateGateOpening(gate, t);
+    if (state.firedSteps === 0 && t >= 1) { state.firedSteps = 1; ctx.playTone(50, 1.6, "sawtooth", 0.06); }
+    if (state.firedSteps === 1 && t >= 3.2) { state.firedSteps = 2; ctx.playTone(65, 1.4, "sawtooth", 0.06); ctx.playTone(980, 0.3, "sine", 0.03); }
+    if (state.firedSteps === 2 && t >= 6) { state.firedSteps = 3; flashCutsceneScreen(); ctx.groundBurst(gx, gz); ctx.groundBurst(gx - 2.2, gz + 1.6); ctx.groundBurst(gx + 2.2, gz - 1.6); ctx.playTone(36, 2, "sawtooth", 0.1); ctx.playTone(720, 0.6, "triangle", 0.05); ctx.playTone(110, 1, "square", 0.06); }
+    if (state.firedSteps === 3 && t >= 7.5) { state.firedSteps = 4; ctx.playTone(520, 1.2, "sine", 0.04); ctx.playTone(780, 1.2, "sine", 0.03); }
   } else {
     // 해방(unseal): 사슬이 하나씩 끊기고 → 날개 펼침 → 카메라 풀백. 진동 = 사슬 파단마다 펄스 + 각성(6s) 대진동
     let amplitude = 0.05;

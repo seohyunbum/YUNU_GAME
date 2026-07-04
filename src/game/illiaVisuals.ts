@@ -260,3 +260,41 @@ export function animateIlliaProps(root: THREE.Object3D, t: number): void {
     else if (ud.gateShard) child.position.y = 1.1 + (Math.sin(t * 1.4 + ud.gateShard.phase) + 1) * 0.55;
   }
 }
+
+// 차원의 문 '개방' 트레일러 프레임 변형(할당 0) — 컷씬 전용. t(초): ~1.6s 지반 융기 → 6s 까지 링 형성·부유석 수렴 → 6s 점화(오버슈트+광량 스파이크) → 안정.
+// 스케일·광량·부유석 위치만 만지고 머티리얼(공유)은 건드리지 않는다. 종료/스킵 시 resetGateVisual 로 원상복구.
+export function animateGateOpening(root: THREE.Object3D, t: number): void {
+  const form = Math.min(1, Math.max(0, (t - 1.6) / 4.4)); // 형성 진행도(1.6~6s)
+  const pop = t < 6 ? 0 : Math.min(1, (t - 6) / 0.5); // 점화 순간 팽창
+  const ringScale = Math.max(0.02, form * form * 0.55 + pop * 0.45 + (t >= 6.5 ? Math.sin((t - 6.5) * 3.2) * 0.02 : 0));
+  for (const child of root.children) {
+    const ud = child.userData;
+    if (ud.portalSwirl) {
+      child.scale.setScalar(ringScale);
+      child.rotation.z = -t * (t < 6 ? 0.9 : 4.2); // 점화 후 소용돌이 가속
+    } else if (ud.gateShard) {
+      const info = ud.gateShard as { phase: number; hx?: number; hz?: number };
+      if (info.hx === undefined || info.hz === undefined) { info.hx = child.position.x; info.hz = child.position.z; } // 정위치 1회 기억(리셋용)
+      const spread = 1 + (1 - form) * 1.6; // 바깥에서 정위치로 수렴
+      child.position.set(info.hx * spread, Math.max(-0.3, -0.3 + form * (1.4 + (info.phase % 3) * 0.9)) + (t >= 6 ? (Math.sin(t * 1.4 + info.phase) + 1) * 0.55 : 0), info.hz * spread);
+      child.rotation.y = t * (0.6 + info.phase * 0.1);
+    } else if ((child as THREE.PointLight).isLight) {
+      (child as THREE.PointLight).intensity = t < 6 ? form * 1.2 : Math.max(1.8, 8 * (1 - (t - 6) * 1.2)); // 점화 섬광 → 평시 광량으로 감쇠
+    } else if ((child as THREE.Mesh).geometry?.type === "TorusGeometry") {
+      child.scale.setScalar(ringScale); // 림도 코어와 함께 형성
+    }
+  }
+}
+
+// 컷씬 종료/스킵 시 게이트를 평시 상태로 원상복구 — 이후엔 animateIlliaProps 가 스월/부유석을 이어받는다.
+export function resetGateVisual(root: THREE.Object3D): void {
+  for (const child of root.children) {
+    child.scale.setScalar(1);
+    const ud = child.userData;
+    if (ud.gateShard) {
+      const info = ud.gateShard as { phase: number; hx?: number; hz?: number };
+      if (info.hx !== undefined && info.hz !== undefined) child.position.set(info.hx, child.position.y, info.hz);
+      child.rotation.y = 0;
+    } else if ((child as THREE.PointLight).isLight) (child as THREE.PointLight).intensity = 1.8;
+  }
+}
