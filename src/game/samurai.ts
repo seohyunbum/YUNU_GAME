@@ -5,13 +5,13 @@ import type { ItemId, PlayerClassId } from "./types";
 import type { SecondSkillContext, SecondSkillDef, SkillEffectsContext } from "./classSkills";
 
 // 사무라이 직업 — 순수 데이터·로직 리프(main.ts import 금지).
-// 컨셉: 전사보다 한 방은 약하지만 공속 +33% 로 DPS 는 전사보다 소폭 위(2026-07-04 유저 밸런스 결정, 이전엔 ≈ 전사). 카타나(리치 2배) 장착 시 공·공속·이속 +5% 시너지.
+// 컨셉: 전사보다 한 방은 약하지만 공속 +33% 로 DPS 는 전사보다 소폭 위(2026-07-04 유저 밸런스 결정, 이전엔 ≈ 전사). 카타나(리치 2배) 장착 시 공격 +5%·공속 +10%·이속 +5% 시너지(공속 5→10% 상향 2026-07-04).
 // 스킬 4종: 난도(R, 4연격) · 도약(T, 15칸 관통 돌진) · 무한 찌르기(F, 11연속 찌르기·1차 전직 해금) · 월광베기(G, 광역 3연격·4차 해금).
 
 // ===== 패시브·시너지 수치 =====
 export const SAMURAI_SWING_MULT = 0.75; // 기본 공격 스윙 시간 ×0.75 = 공격속도 +33% (전사 대비. 0.8→0.75 상향 2026-07-04)
 export const SAMURAI_KATANA_ATTACK_BONUS = 0.05; // 카타나 장착 시 공격력 +5%
-export const SAMURAI_KATANA_SPEED_BONUS = 0.05; // 카타나 장착 시 공격속도 +5% (스윙 ×1/1.05)
+export const SAMURAI_KATANA_SPEED_BONUS = 0.1; // 카타나 장착 시 공격속도 +10% (스윙 ×1/1.1. 5%→10% 상향 2026-07-04)
 export const SAMURAI_KATANA_MOVE_BONUS = 0.05; // 카타나 장착 시 이동속도 +5% (합연산 계층)
 
 // 카타나 시너지 공격 배수 — 사무라이가 카타나를 들었을 때만 1.05, 그 외 1.
@@ -19,7 +19,7 @@ export function samuraiKatanaAttackMult(playerClass: PlayerClassId, heldItem: It
   return playerClass === "samurai" && isKatanaWeapon(heldItem) ? 1 + SAMURAI_KATANA_ATTACK_BONUS : 1;
 }
 
-// 기본 공격 스윙(시전시간) 배수 — 작을수록 빠름. 사무라이 ×0.8, 카타나 시너지 시 추가 ×1/1.05. 그 외 직업 1.
+// 기본 공격 스윙(시전시간) 배수 — 작을수록 빠름. 사무라이 ×0.75, 카타나 시너지 시 추가 ×1/1.1. 그 외 직업 1.
 export function samuraiSwingMult(playerClass: PlayerClassId, heldItem: ItemId | null | undefined): number {
   if (playerClass !== "samurai") return 1;
   return SAMURAI_SWING_MULT * (isKatanaWeapon(heldItem) ? 1 / (1 + SAMURAI_KATANA_SPEED_BONUS) : 1);
