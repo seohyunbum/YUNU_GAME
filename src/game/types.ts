@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { BedTier } from "./constants";
+import type { SubquestState } from "./subquests";
 
 export type ItemId = string;
 export type TerrainKind = "grass" | "dirt" | "stone" | "ore" | "snow" | "swamp" | "lava" | "savanna";
@@ -300,6 +301,7 @@ export interface SavedGame {
     fourthSkillCooldownRemainingMs?: number;
     companionProgress?: CompanionProgress;
     tutorial?: TutorialProgress;
+    subquests?: SubquestState; // 서브퀘스트 오퍼/선택/진행 상태 (v15+). 구세이브엔 없음 → 로드 시 기본값.
     hunger?: number;
     hungerTimer?: number;
     worldTimeSeconds?: number;

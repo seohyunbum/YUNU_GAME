@@ -345,6 +345,8 @@ import { renderSaveOverwritePanel as renderSaveOverwritePanelView } from "./ui/s
 import { renderRegionMapPanel } from "./ui/mapPanel";
 import { setLoadButtonsBusy, setupGameUi } from "./ui/setupUi";
 import { enterLandscapeFullscreen, isLocalGameHost, isTouchDevice, toggleFullscreen } from "./game/platform";
+import { renderSubquestPanel } from "./ui/subquestPanel";
+import { defaultSubquestState, sanitizeSubquestState, rollSubquestChoices, canRefreshSubquests, bumpSubquestOnEvent, pollSubquestGather, isSubquestComplete, SUBQUEST_MIN_LEVEL, type SubquestKind } from "./game/subquests";
 import { createTouchControls, showStationChoice, showSlotActionChoice, runWithLoading } from "./ui/touchControls";
 import { showObjectiveGuide } from "./ui/objectiveGuide";
 import { createOnboardingState, resetOnboardingState, updateOnboardingCoach } from "./ui/coachBeacon";
@@ -467,6 +469,9 @@ class WildernessGame {
   private readonly partyChat!: PartyChatHandle; // setupGameUi 가 uiRoot.innerHTML 을 비우므로 생성자에서 그 이후에 배치
   private readonly statsEl = document.createElement("div");
   private readonly objectiveEl = document.createElement("div");
+  private readonly subquestEl = document.createElement("div"); // 서브퀘스트 패널(퀘스트 카드 아래, 레벨 20+)
+  private subquests = defaultSubquestState();
+  private subquestSig = ""; // 패널 재렌더 변경감지(매 renderHud innerHTML 방지)
   private readonly coachEl = document.createElement("div");
   private readonly onboarding = createOnboardingState();
   private readonly promptEl = document.createElement("div");
@@ -923,6 +928,7 @@ class WildernessGame {
         uiRoot: this.uiRoot,
         statsEl: this.statsEl,
         objectiveEl: this.objectiveEl,
+        subquestEl: this.subquestEl,
         coachEl: this.coachEl,
         promptEl: this.promptEl,
         hotbarEl: this.hotbarEl,
@@ -945,6 +951,9 @@ class WildernessGame {
       },
       {
         onNewGame: () => this.newGame(), onQuickAction: (a) => { if (a === "inventory") this.togglePanel("inventory"); else if (a === "character") this.togglePanel("character"); else togglePartyLobby(); },
+        onSubquestPick: (index) => { const c = this.subquests.choices; if (!c?.[index] || this.subquests.selected) return; const def = c[index]; this.subquests.selected = def; this.subquests.progress = 0; this.subquests.gatherBaseline = def.item ? this.countItem(def.item) : 0; this.syncSubquests(); },
+        onSubquestAbandon: () => { this.subquests.selected = null; this.subquests.progress = 0; this.syncSubquests(); },
+        onSubquestRefresh: () => { if (this.subquests.selected || !canRefreshSubquests(Date.now(), this.subquests.lastRefreshEpoch)) return; this.subquests.choices = rollSubquestChoices(ITEM_NAMES); this.subquests.lastRefreshEpoch = Date.now(); this.syncSubquests(); },
         onSaveGame: () => this.saveGame(),
         onLoadGame: () => this.loadGame(),
         onTitleNew: () => { enterLandscapeFullscreen(); runWithLoading(this.uiRoot, () => this.startGame("new")); }, // 모바일: 진입 클릭(제스처)에서 가로+전체화면
@@ -4368,7 +4377,7 @@ class WildernessGame {
       const got: string[] = [];
       for (const r of rollHomeSupply(this.level)) if (transferSlot({ item: r.item, count: r.count }, this.homeStorage)) got.push(`${ITEM_NAMES[r.item] ?? r.item} ${r.count}`);
       if (got.length === 0) { this.showMessage("공유 창고가 가득 차서 보급품을 넣을 수 없습니다. 창고를 비운 뒤 다시 여세요."); return; }
-      this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; this.broadcastSharedStorage(); this.playTone(880, 0.12, "triangle", 0.03);
+      this.homeSupplyCooldowns["__party__"] = HOME_SUPPLY_COOLDOWN_SECONDS; this.broadcastSharedStorage(); this.playTone(880, 0.12, "triangle", 0.03); this.syncSubquests("supply");
       this.showMessage(`보급품을 공유 창고에 넣었습니다: ${got.join(", ")}. 파티원과 함께 쓸 수 있어요. 다음 보급은 ${Math.round(HOME_SUPPLY_COOLDOWN_SECONDS / 60)}분 뒤!`); this.renderHud();
       return;
     }
@@ -4383,7 +4392,7 @@ class WildernessGame {
       this.showMessage("인벤토리가 가득 차서 보급품을 받을 수 없습니다. 칸을 비운 뒤 다시 여세요.");
       return;
     }
-    this.homeSupplyCooldowns[supplyKey] = HOME_SUPPLY_COOLDOWN_SECONDS;
+    this.homeSupplyCooldowns[supplyKey] = HOME_SUPPLY_COOLDOWN_SECONDS; this.syncSubquests("supply");
     this.playTone(880, 0.12, "triangle", 0.03);
     this.showMessage(`보급 상자를 열었습니다: ${received.join(", ")} (가방이 차면 집 창고로 들어갑니다)${received.length < loot.length ? " — 가방·창고가 가득 차 일부 미수령" : ""}. 다음 보급은 ${Math.round(HOME_SUPPLY_COOLDOWN_SECONDS / 60)}분 뒤!`);
     this.renderHud();
@@ -4674,6 +4683,7 @@ class WildernessGame {
     const loot: string[] = []; if (this.countItem("hammer") === 0 && this.countItem("crafting_table") === 0 && !this.hasWorldObjectType("workbench", "extendedWorkbench") && this.addItem("hammer", 1)) loot.push(ITEM_NAMES["hammer"] ?? "망치"); // 초보 보장: 망치·제작대가 없으면 상자에서 무조건 망치(find_hammer 막힘 방지)
     for (const entry of rollChestLoot(target.chestTier ?? 0)) if (this.addItem(entry.item, entry.count)) loot.push(ITEM_NAMES[entry.item] ?? entry.item);
     this.showMessage(loot.length > 0 ? `상자에서 ${loot.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다.");
+    this.syncSubquests("chest"); // 서브퀘스트 — 보물상자 개봉 진행
     if (!isTouchDevice()) showChestContents(this.uiRoot, loot); // 데스크탑 상자 획득 카드(#14) — 모바일은 자체 UI라 제외
   }
 
@@ -4977,10 +4987,10 @@ class WildernessGame {
     const killExp = Math.round(experienceRewardForTarget(target) * (getWorldMapById(this.currentWorldMapId).xpScale ?? 1));
     this.summonerCompanion.awardExperience(killExp, this.summonerPetContext);
     { const sp = equippedSpirit(this.spirits); if (sp && gainSpiritExperience(sp, killExp) > 0) { this.showMessage(`✨ 정령 레벨업! Lv ${sp.level} (공+${spiritAttackBonus(sp)}/방+${spiritDefenseBonus(sp)})`); this.renderHud(); } } // 장착 정령도 소환수와 동일 경험치로 레벨업
-    if (target.type === "wildPredator" && creditQuest) { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); } // creditQuest=false → 파티에서 게스트가 막타친 경우: 호스트는 사냥 카운터 증가 안 함(게스트가 자기 카운터 증가)
+    if (target.type === "wildPredator" && creditQuest) { this.tutorialSignals.predatorKills += 1; this.savePredatorKills(); this.syncSubquests("kill"); } // creditQuest=false → 파티에서 게스트가 막타친 경우: 호스트는 사냥 카운터 증가 안 함(게스트가 자기 카운터 증가)
     if (creditQuest) this.dropKillSpiritToken(target.type === "wildPredator" || target.type === "dragon", Boolean(target.fieldBossId || target.type === "dragon" || target.fortressBoss)); // 막타자(=이 클라이언트)만 롤. 파티 게스트 막타는 호스트가 creditQuest=false 로 스킵 → 게스트가 onPartyKill 에서 받음
     if (target.fortressBoss) {
-      this.tutorialSignals.fortressBossKills += 1; // 요새 보스 처치 퀘스트 신호
+      this.tutorialSignals.fortressBossKills += 1; this.syncSubquests("caveBoss"); // 요새 보스 처치 퀘스트 신호(+서브퀘스트 동굴의 주인)
       const level = target.fortressLevel ?? 20; // 흑요석+전직의서 확정 드랍 — 고레벨 맵일수록 더 많이
       const obsidianCount = THREE.MathUtils.randInt(2, 4) + Math.floor(level / 30), tomeCount = THREE.MathUtils.randInt(1, 2) + Math.floor(level / 45);
       this.addItem("obsidian", obsidianCount); this.addItem("job_change_tome", tomeCount);
@@ -6235,6 +6245,7 @@ class WildernessGame {
         fourthSkillCooldownUntil: this.fourthSkillCooldownUntil,
         companionProgress: this.summonerCompanion.companionProgress(),
         tutorial: this.tutorialProgress,
+        subquests: this.subquests,
         hunger: this.hunger,
         hungerTimer: this.hungerTimer,
         worldTimeSeconds: this.worldTimeSeconds,
@@ -6342,6 +6353,7 @@ class WildernessGame {
     this.summonerCompanion.restore(save.player.companionProgress);
     this.tutorialProgress.completedStepIds.splice(0, this.tutorialProgress.completedStepIds.length, ...(save.player.tutorial?.completedStepIds ?? []));
     this.tutorialProgress.achievedStepIds.splice(0, this.tutorialProgress.achievedStepIds.length, ...(save.player.tutorial?.achievedStepIds ?? save.player.tutorial?.completedStepIds ?? []));
+    this.subquests = sanitizeSubquestState(save.player.subquests); this.subquestSig = ""; // 서브퀘스트 상태 복원(구세이브는 기본값)
     // ★누적 처치 복원 — resetGameState 가 0으로 만든 걸 세이브값으로 덮어쓴다(전엔 로드마다 0 리셋 버그). 세이브값 우선, 구세이브(필드 없음)는 이미 "완료한" 누적킬 퀘스트의 임계로 백필(예: hunt_100 완료=최소 100마리는 잡았다는 뜻).
     const doneIds = this.tutorialProgress.completedStepIds;
     const killFloor = ([["hunt_200", 200], ["hunt_100", 100], ["hunt_30", 30], ["hunt_predators", 3]] as [string, number][]).reduce((m, [id, n]) => doneIds.includes(id) ? Math.max(m, n) : m, 0);
@@ -6414,6 +6426,7 @@ class WildernessGame {
 
   private resetGameState(options: { reseed?: boolean } = {}) {
     const reseed = options.reseed ?? true;
+    this.subquests = defaultSubquestState(); this.subquestSig = ""; // 서브퀘스트 초기화(새 게임/로드 전 리셋)
     this.closePanel(); resetOnboardingState(this.onboarding); // playthrough 마다 온보딩 안내 새로 시작(같은 세션 재시작 포함). 고급 세이브는 스텝 게이트가 오발화 차단.
     this.setSprintRenderOptimizations(false);
     this.clearWorld();
@@ -6756,7 +6769,26 @@ class WildernessGame {
     return restoreVectorFromSave(vector, fallback);
   }
 
+  // 서브퀘스트 동기화 — 레벨 게이트로 오퍼 생성, 이벤트 진행 반영, gather 폴링, 완료 시 보상+재롤. 변경 시에만 재렌더.
+  private syncSubquests(event?: SubquestKind) {
+    if (this.level >= SUBQUEST_MIN_LEVEL && !this.subquests.choices) this.subquests.choices = rollSubquestChoices(ITEM_NAMES);
+    if (event) bumpSubquestOnEvent(this.subquests, event);
+    if (this.subquests.selected?.item) pollSubquestGather(this.subquests, this.countItem(this.subquests.selected.item));
+    if (isSubquestComplete(this.subquests) && this.subquests.selected) {
+      const def = this.subquests.selected;
+      this.gainExperience(def.reward.experience);
+      const got: string[] = [];
+      for (const [item, count] of Object.entries(def.reward.items)) if (this.addItem(item as ItemId, count as number)) got.push(`${ITEM_NAMES[item as ItemId] ?? item} ${count}`);
+      this.showMessage(`🎯 서브퀘스트 완료! 경험치 ${def.reward.experience}${got.length ? " + " + got.join(", ") : ""}`);
+      this.subquests.selected = null; this.subquests.progress = 0; this.subquests.choices = rollSubquestChoices(ITEM_NAMES);
+    }
+    const s = this.subquests;
+    const sig = `${this.level >= SUBQUEST_MIN_LEVEL ? 1 : 0}|${s.selected?.id ?? ""}|${s.progress}|${s.choices?.map((c) => c.id).join(",") ?? ""}|${s.selected ? 0 : Math.floor((Date.now() - s.lastRefreshEpoch) / 1000)}`;
+    if (sig !== this.subquestSig) { this.subquestSig = sig; renderSubquestPanel(this.subquestEl, this.subquests, ITEM_NAMES, Date.now(), this.level); }
+  }
+
   private renderHud() {
+    this.syncSubquests(); // 서브퀘스트 패널 갱신(gather 폴링·완료 처리 포함, 변경 시에만 재렌더)
     if (this.fortressSiege?.active) {
       const status = siegeStatus(this.fortressSiege);
       this.siegeHudEl.textContent = status.intermission

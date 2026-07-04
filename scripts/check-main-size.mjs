@@ -96,7 +96,9 @@ import { readFileSync } from "node:fs";
 // 2026-07-03: 중단됐던 5배치 재시도 성공 — spawnVillageFence·spawnVillageSellShop → game/villageSpawns (이동만·동작 보존). -133 → 9337.
 // 2026-07-03: 사무라이 직업 배선 — 스킬 로직·수치는 전부 game/samurai·classSkills 리프. main 은 import 1줄 + classSkillHandlers 1줄
 //   (컨텍스트 확장 playerPosition/forwardXZ/nearbyCombatTargets/dashStep·meleeEffects 는 기존 한 줄 리터럴 내 인라인). +2 → 9339.
-const MAX_MAIN_LINES = 9339;
+// 2026-07-04: 서브퀘스트 배선 — 로직·데이터·UI 는 전부 game/subquests·ui/subquestPanel 리프. main 은 상태 필드 3 +
+//   syncSubquests 배선 메서드 1 + 이벤트 훅(kill/chest/supply/caveBoss 인라인)·save/load·setupUi 원소. +32 → 9371.
+const MAX_MAIN_LINES = 9371;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;
