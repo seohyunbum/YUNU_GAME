@@ -8,7 +8,7 @@ export type BiomeKind = "bamboo" | "mountain" | "mushroom" | "swamp" | "snow" | 
 export type GuardMode = "melee" | "ranged";
 export type AnimalKind = "horse" | "cow" | "pig" | "chicken";
 export type PredatorKind = "wolf" | "lion" | "spider" | "boar" | "snake" | "bat" | "scorpion" | "bear" | "zombie" | "ghost" | "drake";
-export type BossKind = "dragon" | "fire_dragon" | "red_dragon" | "laser_dragon" | "dark_dragon" | "immortal";
+export type BossKind = "dragon" | "fire_dragon" | "red_dragon" | "laser_dragon" | "dark_dragon" | "immortal" | "illia_sealed" | "illia_desperate"; // illia_* = 최종 보스 일리아(차원 아레나 전용 — 챕터 progression 밖)
 export type HouseKind = "home" | "blacksmith" | "twoStory";
 export type QualityMode = "high" | "balanced" | "performance";
 export type DifficultyMode = "easy" | "hard"; // 게임 난이도 — 신규게임 시 선택, 게임 중 불변(세이브에 고정)
@@ -20,6 +20,7 @@ export type ObjectType =
   | "chest"
   | "cave"
   | "fortressGate"
+  | "dimensionGate"
   | "caveExit"
   | "graveHand"
   | "houseExit"
@@ -308,6 +309,7 @@ export interface SavedGame {
     worldTimeSeconds?: number;
     worldMapId?: WorldMapId;
     bossChapter?: number;
+    illiaProgress?: number; // 최종 보스 일리아 진행 — 0 미클리어 / 1 P1(봉인) 클리어 / 2 최종 클리어
     defeatedFieldBosses?: string[];
     totalSteps: number;
     playSeconds: number;

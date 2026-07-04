@@ -258,7 +258,7 @@ import { updateVillageGuards, type GuardAiContext } from "./game/guardAi";
 import { spawnGuardProjectile, updateGuardProjectiles, type GuardProjectile, type GuardProjectileContext } from "./game/guardProjectiles";
 import { keepOutOfBuildings } from "./game/npcMovement";
 import { hitStopScale, triggerHitFeedback, updateHitFeedback, type HitFeedbackDeps } from "./game/hitFeedback";
-import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, createMonsterFortressInterior, createSiegeArenaInterior, type InteriorContext } from "./game/interiors";
+import { caveSharedGeometries, caveSharedMaterials, createCaveInterior, createHouseInterior, createIlliaArenaInterior, createMonsterFortressInterior, createSiegeArenaInterior, type InteriorContext } from "./game/interiors";
 import { createSiegeState, loadFortressStageByMap, restoreFortressStageByMap, saveFortressStageByMap, siegeStatus, updateSiege, type SiegeContext, type SiegeState } from "./game/fortressSiege";
 import { spawnFortressMonster, updateCaveMonsters, type CaveMonsterContext, type FortressSpawnDeps } from "./game/caveMonsters";
 import { buildOreMesh, oreSharedGeometries, oreSharedMaterials } from "./game/oreVisual";
@@ -294,6 +294,7 @@ import { SMITHING_PRODUCTS, smithingProductIcon } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { renderBookPanelMarkup } from "./ui/bookPanel";
 import { renderCheatPanelMarkup } from "./ui/cheatPanel"; import { bal, loadGlobalBalance } from "./game/balanceTuning"; // 밸런스는 바탕화면 관리자 페이지에서 조정(전역 fetch 만 게임에 존재)
+import { createIlliaFightState, createIlliaCutsceneState, startIlliaFight, resetIlliaFight, updateIlliaFight, startIlliaCutscene, updateIlliaCutscene, finishIlliaCutscene, showIlliaCutsceneOverlay, hideIlliaCutsceneOverlay, ILLIA_P1_KIND, ILLIA_P2_KIND, ILLIA_ENTRY_POS, ILLIA_ARENA_CENTER, type IlliaContext, type IlliaCutsceneContext } from "./game/illiaBoss"; import { createIlliaModel, createSealStone, createDimensionGateVisual, animateIlliaProps } from "./game/illiaVisuals"; // 최종 보스 일리아 — 패턴 엔진·컷씬·비주얼(leaf)
 import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
@@ -584,12 +585,23 @@ class WildernessGame {
     bossStats: (kind) => this.bossStats(kind),
     bossLockMessage: (kind) => bossLockMessage(kind ?? "dragon", this.bossChapter),
     recordBossDefeat: (kind) => {
+      if (kind === ILLIA_P1_KIND) { // 1페이즈 클리어 — 해방 컷씬(사슬 파괴→각성) 후 저장 확인 + 2페이즈
+        this.illiaProgress = Math.max(this.illiaProgress, 1); resetIlliaFight(this.illiaFight, this.scene);
+        for (const o of [...this.objectsOfType("wildPredator")]) if (o.fortressMonster) this.removeObject(o.id); // 잔여 졸개 정리
+        const prop = createIlliaModel(1); prop.position.set(ILLIA_ARENA_CENTER.x, 0, ILLIA_ARENA_CENTER.z); this.scene.add(prop);
+        showIlliaCutsceneOverlay(this.uiRoot, "절망의 군주, 일리아"); startIlliaCutscene(this.illiaCutscene, "unseal", performance.now(), [prop]); return;
+      }
+      if (kind === ILLIA_P2_KIND) { // 최종 클리어 — 엔딩(크레딧+전용 BGM)
+        this.illiaProgress = 2; resetIlliaFight(this.illiaFight, this.scene); this.endingTheme = true; this.updateMusic();
+        for (const o of [...this.objectsOfType("wildPredator")]) if (o.fortressMonster) this.removeObject(o.id);
+        startFinale(this.finaleContext); this.showMessage("🌅 절망의 군주 일리아를 물리쳤습니다. 세계에 새벽이 돌아옵니다…", { durationSeconds: 10, lockSeconds: 6 }); this.renderHud(); return;
+      }
       this.dragonRespawnAt.set(kind ?? "dragon", performance.now() + DRAGON_RESPAWN_MS); // 처치 → 10분 뒤 재등장
       this.sample("victory.mp3", 0.45, () => {}); // 보스(드래곤/챕터) 처치 — CC0 승리 팡파레
       const result = applyBossDefeat(this.bossChapter, kind ?? "dragon");
       this.bossChapter = result.bossChapter;
       if (result.message) this.showMessage(result.message);
-      if (result.message && result.bossChapter === FINAL_BOSS_CHAPTER) startFinale(this.finaleContext);
+      if (result.message && result.bossChapter === FINAL_BOSS_CHAPTER) { this.ensureDimensionGate(); this.showMessage("🌌 차원의 문이 열렸습니다! 용의 땅에 나타난 문으로 들어가 최후의 존재와 맞서세요.", { durationSeconds: 10, lockSeconds: 5 }); } // 진짜 엔딩은 일리아 클리어로 이관
     },
     dragonCounterAttack: (target) => this.dragonCounterAttack(target),
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
@@ -638,7 +650,7 @@ class WildernessGame {
     state: createFinaleState(), effects: () => this.combatEffectContext, playerPosition: this.playerPosition,
     cameraForward: () => ({ x: -Math.sin(this.yaw), z: -Math.cos(this.yaw) }), now: () => performance.now(),
     playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume),
-    showCredits: () => showEndingScreen(this.uiRoot, () => this.renderHud()), showMessage: (text) => this.showMessage(text),
+    showCredits: () => showEndingScreen(this.uiRoot, () => { this.endingTheme = false; this.updateMusic(); this.renderHud(); }), showMessage: (text) => this.showMessage(text),
   };
   private defeatedFieldBosses: string[] = [];
   private readonly dragonRespawnAt = new Map<BossKind, number>(); // 챕터 보스 종류별 리스폰 가능 시각(처치 시 +10분)
@@ -681,6 +693,13 @@ class WildernessGame {
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
   private caveReturnPosition: THREE.Vector3 | null = null;
   private fortressSiege: SiegeState | null = null; // 몬스터 요새 디펜스 진행 상태(휘발 — 세이브 안 함)
+  private readonly illiaFight = createIlliaFightState(); private readonly illiaCutscene = createIlliaCutsceneState(); private illiaProgress = 0; private illiaAwakenSeen = false; private endingTheme = false; private illiaInArena = false; // 최종 보스 일리아 — 진행(0/1페이즈클리어/2클리어, 세이브 영속)·컷씬 1회 플래그(세션)·엔딩 BGM 게이트
+  private readonly illiaContext: IlliaContext = { scene: this.scene, now: () => performance.now(), playerPosition: this.playerPosition, boss: () => { for (const o of this.objectsOfType("dragon")) if (o.bossKind === ILLIA_P1_KIND || o.bossKind === ILLIA_P2_KIND) return o; return null; }, applyPlayerHit: (pct, label) => this.damagePlayer(Math.max(10, Math.round(this.maxHealth * pct)), true, `${label}에 맞아 체력이 모두 떨어졌습니다.`, true), isPanelOpen: () => this.currentPanel !== null, spawnMinion: (x, z) => { const m = spawnFortressMonster(this.fortressSpawnDeps, new THREE.Vector3(x, 0, z), false); if (m) this.caveObjectIds.push(m.id); return m?.id ?? null; }, isMinionAlive: (id) => this.objects.has(id), groundBurst: (x, z) => spawnGroundShockwave(this.combatEffectContext, new THREE.Vector3(x, 0.1, z), 0xff2038), showMessage: (text) => this.showMessage(text, { soft: true }), playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume) };
+  private readonly illiaCutsceneContext: IlliaCutsceneContext = { scene: this.scene, now: () => performance.now(), setCamera: (x, y, z, lookX, lookY, lookZ) => { this.camera.position.set(x, y, z); this.camera.lookAt(lookX, lookY, lookZ); }, playTone: (frequency, duration, type, volume) => this.playTone(frequency, duration, type, volume), groundBurst: (x, z) => spawnGroundShockwave(this.combatEffectContext, new THREE.Vector3(x, 0.1, z), 0xff2038), onFinish: () => { hideIlliaCutsceneOverlay(this.uiRoot); this.camera.position.copy(this.playerPosition); this.camera.rotation.set(this.pitch, this.yaw, 0, "YXZ"); if (this.illiaCutscene.kind === "awaken") { this.spawnIlliaBoss(1); this.showMessage("⚔ 봉인된 군주 일리아 — 붉은 영역을 피하며 반격하세요!", { durationSeconds: 8, lockSeconds: 4 }); } else { this.showMessage("사슬이 부서졌습니다… 절망의 군주가 깨어납니다!", { durationSeconds: 6 }); if (window.confirm("최후의 결전을 앞두고 지금까지의 진행을 저장할까요?\n(저장 위치는 차원의 문 앞으로 기록됩니다)")) { const kx = this.playerPosition.x, ky = this.playerPosition.y, kz = this.playerPosition.z, keepMode = this.locationMode, back = this.caveReturnPosition ?? new THREE.Vector3(420, PLAYER_HEIGHT, -386); this.playerPosition.set(back.x, back.y, back.z); this.previousPosition.copy(this.playerPosition); this.locationMode = "overworld"; this.illiaInArena = false; void this.saveGame(); this.illiaInArena = true; this.playerPosition.set(kx, ky, kz); this.previousPosition.copy(this.playerPosition); this.locationMode = keepMode; } this.spawnIlliaBoss(2); } this.renderHud(); } }; // 컷씬 종료 훅 — 각성=P1 개전 / 해방=저장 확인(위치는 게이트 앞으로 스왑 저장 — createSaveData 가 saveGame 동기 프리픽스라 안전) 후 P2 개전
+  private readonly spawnIlliaBoss = (phase: 1 | 2) => { const kind = (phase === 1 ? ILLIA_P1_KIND : ILLIA_P2_KIND) as BossKind; const stats = BOSS_STATS[kind]; const model = createIlliaModel(phase); model.position.set(ILLIA_ARENA_CENTER.x, 0, ILLIA_ARENA_CENTER.z); const boss = this.addWorldObject("dragon", stats.name, model, { hp: Math.round(bal(phase === 1 ? "illia_p1_hp" : "illia_p2_hp", stats.maxHp) * this.difficultyMods.monsterHp), armor: Math.max(0, stats.armor + bal("illia_armor", 0)), bossKind: kind, collidable: true, collisionRadius: stats.collisionRadius, collisionHeight: stats.collisionHeight }); this.caveObjectIds.push(boss.id); startIlliaFight(this.illiaFight, phase, performance.now()); this.enterCombatMood(); this.updateBossBar(); return boss; }; // 일리아 스폰 — hp 는 튜너블×난이도(보스바 분모와 동일 산식)
+  private readonly spawnDimensionGate = (position: THREE.Vector3) => { const visual = createDimensionGateVisual(); visual.position.set(position.x, 0, position.z); return this.addWorldObject("dimensionGate", "차원의 문", visual, { caveReturn: position.clone().setY(PLAYER_HEIGHT).add(new THREE.Vector3(0, 0, 5)), collidable: false }); };
+  private readonly ensureDimensionGate = () => { if (this.bossChapter < FINAL_BOSS_CHAPTER || this.currentWorldMapId !== "dragon_lands") return; for (const gate of this.objectsOfType("dimensionGate")) { void gate; return; } this.spawnDimensionGate(new THREE.Vector3(420, 0, -386)); }; // 불멸의 존재 클리어(챕터 완주) 세이브 소급 — 용의 땅 진입/복원 시 문 보장
+  private readonly enterIlliaDimension = (target: WorldObject) => { this.caveReturnPosition = target.caveReturn?.clone() ?? this.playerPosition.clone(); this.clearCaveObjects(); this.locationMode = "cave"; this.illiaInArena = true; this.setCaveAtmosphere(); this.playerPosition.set(ILLIA_ENTRY_POS.x, PLAYER_HEIGHT, ILLIA_ENTRY_POS.z); this.settlePlayerAfterTeleport(); createIlliaArenaInterior(this.interiorContext); this.playTransitionSound("enter"); if (this.illiaProgress >= 1) { this.spawnIlliaBoss(2); this.showMessage("절망의 군주 일리아가 어둠 속에서 기다리고 있습니다…", { durationSeconds: 6 }); } else if (!this.illiaAwakenSeen) { this.illiaAwakenSeen = true; const stone = createSealStone(); stone.position.set(0, 0, ILLIA_ARENA_CENTER.z); this.scene.add(stone); showIlliaCutsceneOverlay(this.uiRoot, "봉인된 군주, 일리아"); startIlliaCutscene(this.illiaCutscene, "awaken", performance.now(), [stone]); } else { this.spawnIlliaBoss(1); this.showMessage("봉인된 군주 일리아가 다시 눈을 뜹니다…", { durationSeconds: 6 }); } this.renderHud(); }; // 차원 진입 — 최초 1회 각성 컷씬(재도전은 즉시 개전), P1 클리어 세이브면 바로 P2
   private bestFortress = this.loadBestFortress(); // 난이도별 요새 최고 클리어 단계+baseLevel(닉네임당 전역 영구 기록 — 로드·새 게임에도 리셋 안 함). 랭킹 소스.
   private fortressStageByMap = loadFortressStageByMap(); // 맵별 요새 최고 클리어 단계 — 재입장 시 이어서 시작. 세이브에 직렬화·로드 시 복원(SSOT=세이브, localStorage 는 구세이브 백필용 미러). 새 게임만 리셋
   private leaderboards: FortressLeaderboards | null = null; // 캐릭터 창 난이도별 랭킹(null = 불러오는 중). 창 열 때마다 재조회
@@ -833,7 +852,7 @@ class WildernessGame {
 
   private readonly trainingGroundContext: TrainingGroundContext = { defaultMapId: DEFAULT_WORLD_MAP_ID, worldMapId: () => this.currentWorldMapId, locationMode: () => this.locationMode, hasTrainingGround: () => { for (const object of this.objectsOfType("trainingGround")) return Boolean(object); return false; }, addWorldObject: (type, name, root, extra) => this.addWorldObject(type, name, root, extra), getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z) };
 
-  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), monsterChaseSpeedMul: () => this.difficultyMods.monsterChaseSpeed, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); const dmg = varyMonsterDamage(amount); if (this.tryCounterReflect(attacker, dmg)) return false; return this.damagePlayer(dmg, showParticles, reason); }, effects: () => this.combatEffectContext, arenaBounds: () => this.fortressSiege?.active ? { minX: -ARENA_HALF + 1, maxX: ARENA_HALF - 1, minZ: ARENA_CENTER_Z - ARENA_HALF + 1, maxZ: ARENA_CENTER_Z + ARENA_HALF - 1 } : null };
+  private readonly caveMonsterContext: CaveMonsterContext = { playerPosition: this.playerPosition, isPanelOpen: () => this.currentPanel !== null, predators: () => this.objectsOfType("wildPredator"), predatorStats: (kind, monsterId) => predatorBaseStats(kind, monsterId), predatorStrikeRange: (kind) => predatorStrikeRangeFor(kind), monsterChaseSpeedMul: () => this.difficultyMods.monsterChaseSpeed, getGroundHeightAt: (x, z) => this.getGroundHeightAt(x, z), refreshSpatialObject: (object) => this.refreshSpatialObject(object), animateWalkCycle: (object, delta, speed) => this.animateWalkCycle(object, delta, speed), damagePlayer: (amount, showParticles, reason, attacker) => { this.enterCombatMood(); const dmg = varyMonsterDamage(amount); if (this.tryCounterReflect(attacker, dmg)) return false; return this.damagePlayer(dmg, showParticles, reason); }, effects: () => this.combatEffectContext, arenaBounds: () => this.fortressSiege?.active || this.illiaFight.active ? { minX: -ARENA_HALF + 1, maxX: ARENA_HALF - 1, minZ: ARENA_CENTER_Z - ARENA_HALF + 1, maxZ: ARENA_CENTER_Z + ARENA_HALF - 1 } : null };
 
   private readonly siegeContext: SiegeContext = {
     spawnSiegeMonster: (x, z, level, elite) => this.spawnSiegeMonster(x, z, level, elite),
@@ -898,7 +917,7 @@ class WildernessGame {
   private gameStarted = false; private navGuard?: NavigationGuardHandle;
   private nightSpawnTimer = 0; private expirySweepTimer = 0; private autosaveTimer = 0;
   // 자동저장 flush — 별도 슬롯(SAVE_AUTOSAVE_KEY)에만 기록, 수동 저장 절대 미덮어쓰기. sync=true 는 이탈 직전 동기 저장.
-  private flushAutosave = (sync = false) => { if (!this.gameStarted || this.fortressSiege) return; const save = this.createSaveData(); if (sync) appendAutosaveSync(save, this.nickname); else void appendSaveToAutosave(save, this.nickname); };
+  private flushAutosave = (sync = false) => { if (!this.gameStarted || this.fortressSiege || this.illiaInArena) return; const save = this.createSaveData(); if (sync) appendAutosaveSync(save, this.nickname); else void appendSaveToAutosave(save, this.nickname); }; // illiaInArena: 일리아 차원 체류 중 자동저장 금지 — 아레나(cave) 좌표가 자동슬롯에 박히는 것 방지
   private mirrorViewTimer = 0;
   private mirrorAvatar: THREE.Object3D | null = null;
   private audioContext: AudioContext | null = null;
@@ -1992,6 +2011,7 @@ class WildernessGame {
     });
     this.renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
     this.renderer.domElement.addEventListener("mousedown", (event) => {
+      if (this.illiaCutscene.active) { finishIlliaCutscene(this.illiaCutscene, this.illiaCutsceneContext); return; } // 클릭 = 컷씬 건너뛰기
       if (this.currentPanel !== null) return;
       if (event.button === 2) {
         event.preventDefault();
@@ -2159,6 +2179,7 @@ class WildernessGame {
   }
 
   private rotateCameraByMouse(movementX: number, movementY: number) {
+    if (this.illiaCutscene.active) return; // 컷씬 카메라 연출 보호
     this.yaw -= movementX * MOUSE_SENSITIVITY_X;
     this.pitch -= movementY * MOUSE_SENSITIVITY_Y;
     this.pitch = THREE.MathUtils.clamp(this.pitch, -1.32, 1.32);
@@ -2166,7 +2187,7 @@ class WildernessGame {
   }
 
   private handleKeyDown(event: KeyboardEvent) {
-    if (event.altKey && event.code === "Enter" && !event.repeat) { event.preventDefault(); toggleFullscreen(); return; } if (this.handleMiniGameKeyDown(event)) return; // 앞: 데스크탑 전체화면 토글(게임 표준 Alt+Enter)
+    if (event.altKey && event.code === "Enter" && !event.repeat) { event.preventDefault(); toggleFullscreen(); return; } if (this.illiaCutscene.active) { if ((event.code === "Space" || event.code === "Escape" || event.code === "Enter") && !event.repeat) finishIlliaCutscene(this.illiaCutscene, this.illiaCutsceneContext); event.preventDefault(); return; } if (this.handleMiniGameKeyDown(event)) return; // 앞: 데스크탑 전체화면 토글(게임 표준 Alt+Enter) / 일리아 컷씬 중엔 스킵 키만
     if (this.handleLavaMiniGameKeyDown(event)) return;
     if (this.handleSmithingMiniGameKeyDown(event)) return;
     if (!this.gameStarted) {
@@ -2785,11 +2806,11 @@ class WildernessGame {
     updateFinale(this.finaleContext);
     if (!partyWorldGuestActive() && !partyGuestSuppressLocalBosses()) updateFieldBosses(this.fieldBossContext); // 파티 게스트 — 보스는 호스트 스냅샷으로. 호스트가 같은 맵이면 스냅샷이 잠깐 끊겨도(실내 등) 로컬 보스 스폰 억제("각자 잡음" 방지)
     if (!partyWorldGuestActive() && !partyGuestSuppressLocalBosses()) ensureChapterBoss(this.chapterBossContext); // 게스트는 호스트 스냅샷 — 자기 드래곤 분기 스폰 방지(같은 맵이면 단절 창에도 억제)
-    updateDragons(this.dragonAiContext, delta);
+    updateDragons(this.dragonAiContext, delta); if (this.illiaCutscene.active) updateIlliaCutscene(this.illiaCutscene, this.illiaCutsceneContext); else if (this.illiaFight.active) { updateIlliaFight(this.illiaFight, this.illiaContext, delta); this.updateBossBar(); } if (this.locationMode === "overworld") for (const gate of this.objectsOfType("dimensionGate")) animateIlliaProps(gate.root, this.worldTimeSeconds); // 일리아: 컷씬 중엔 전투 정지(카메라 연출), 전투 중 매 프레임 패턴 틱+보스바(HTML diff 라 저렴)
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
     this.updateNightSpawns(delta); this.expirySweepTimer += delta; if (this.expirySweepTimer >= 1) { const now = performance.now(); this.expirySweepTimer = 0; for (const object of [...this.objects.values()]) if (object.expiresAt !== undefined && !object.partyTransient && object.expiresAt <= now && (object.type === "chest" || object.type === "mineChest" || object.type === "cave")) this.removeObject(object.id); }
-    this.updateMovement(delta); tickMinimap(this.minimapContext, delta);
+    if (!this.illiaCutscene.active) this.updateMovement(delta); tickMinimap(this.minimapContext, delta); // 컷씬 중 이동·카메라 추적 정지(연출이 카메라 소유)
     if (this.locationMode === "overworld") this.regionWarningState = maybeWarnRegionLevel(this.regionWarningState, this.playerPosition, this.level, performance.now(), (message, options) => this.showMessage(message, options), this.activeRegions);
     this.updateVisibilityCulling(delta);
     this.summonerCompanion.update(this.summonerPetContext, delta);
@@ -4208,7 +4229,7 @@ class WildernessGame {
     if (target.type === "droppedItem") return `좌클릭/E: ${target.name} 줍기`;
     if (target.type === "buildingBlock") return selectedItem === "building_block" ? "좌클릭/E: 쌓기블록 회수 | 우클릭: 바라보는 면에 이어 붙이기" : "좌클릭/E: 쌓기블록 회수";
     if (target.type === "bed") return target.homeBed ? "E/우클릭: 내 침대에 누워 휴식 (체력 빠르게 회복)" : "좌클릭/E: 침대 회수 · 우클릭: 누워 휴식";
-    if (target.type === "fortressGate") return "E: 몬스터 요새 입장 (디펜스)";
+    if (target.type === "fortressGate") return "E: 몬스터 요새 입장 (디펜스)"; if (target.type === "dimensionGate") return this.illiaProgress >= 2 ? "E: 차원의 문 (클리어 — 재도전)" : this.illiaProgress >= 1 ? "E: 차원의 문 — 절망의 군주가 기다립니다" : "E: 차원의 문 — 최후의 결전";
     if (target.type === "cave") return (target.entryCount ?? 0) >= CAVE_MAX_ENTRIES ? "동굴 탐험 완료 — 곧 사라짐 (5/5)" : `E: 동굴 들어가기 (${target.entryCount ?? 0}/${CAVE_MAX_ENTRIES})`;
     if (target.type === "caveExit") return this.fortressSiege?.active ? "E: 요새에서 나가기 (보상 유지)" : "E: 동굴 나가기";
     if (target.type === "houseExit") return "E: 집 밖으로 나가기";
@@ -4348,7 +4369,7 @@ class WildernessGame {
     if (target.type === "smallTree") this.harvestSmallTree(target);
     if (target.type === "bigTree") this.harvestBigTree(target);
     if (target.type === "chest") this.openChest(target);
-    if (target.type === "fortressGate") this.enterFortressSiege(target);
+    if (target.type === "fortressGate") this.enterFortressSiege(target); if (target.type === "dimensionGate") this.enterIlliaDimension(target);
     if (target.type === "cave") this.enterCave(target);
     if (target.type === "caveExit") { if (this.fortressSiege?.active) { this.showMessage("요새에서 나갑니다. 지금까지 받은 보상은 그대로 유지됩니다."); this.exitFortressSiege(); } else this.leaveCave(); }
     if (target.type === "houseExit") this.leaveHouse();
@@ -4720,7 +4741,7 @@ class WildernessGame {
 
   private leaveCave() {
     if (this.possessedEagleId) this.endEaglePossession(false); // 빙의 중 이탈 시 독수리 정리(orphan 방지)
-    this.fortressSiege = null; // 어떤 경로로 동굴을 나가든 siege 플래그 해제(상태 일관성)
+    this.fortressSiege = null; resetIlliaFight(this.illiaFight, this.scene); this.illiaInArena = false; if (this.illiaCutscene.active) { this.illiaCutscene.active = false; for (const prop of this.illiaCutscene.props) this.scene.remove(prop); this.illiaCutscene.props = []; hideIlliaCutsceneOverlay(this.uiRoot); } // 어떤 경로로 동굴을 나가든 siege·일리아 전투·컷씬 해제(파티 summonTo 가 컷씬 중 leaveCave 를 호출해도 카메라 강탈/보스 오버월드 누출이 없도록 onFinish 미발화 수동 정리)
     this.locationMode = "overworld";
     this.clearCaveObjects();
     this.setOverworldAtmosphere();
@@ -4961,6 +4982,7 @@ class WildernessGame {
   }
 
   private dragonCounterAttack(target: WorldObject) {
+    if (target.bossKind === ILLIA_P1_KIND || target.bossKind === ILLIA_P2_KIND) return; // 일리아는 반격 없음 — illiaBoss 패턴 엔진이 공격 담당
     target.angryUntil = performance.now() + DRAGON_AGGRO_MS; // 건드리면 추격 시작 (dragonAi 가 따라붙음)
     const stats = this.bossStats(target.bossKind);
     const colors = bossBreathColors(target.bossKind);
@@ -5550,6 +5572,18 @@ class WildernessGame {
     if (showParticles) this.playTone(90, 0.12, "sawtooth", 0.03);
     this.health = Math.max(0, this.health - damage);
     if (this.health <= 0) {
+      if (this.illiaFight.active) {
+        // 일리아 결전 사망 — 아이템 미드랍, 아레나 입구 부활, 보스는 풀피로 리셋(패턴을 익혀 재도전)
+        this.health = this.maxHealth; this.hunger = HUNGER_MAX; this.hungerTimer = 0;
+        const phase = this.illiaFight.phase; resetIlliaFight(this.illiaFight, this.scene);
+        for (const o of [...this.objectsOfType("dragon")]) if (o.bossKind === ILLIA_P1_KIND || o.bossKind === ILLIA_P2_KIND) this.removeObject(o.id);
+        for (const o of [...this.objectsOfType("wildPredator")]) if (o.fortressMonster) this.removeObject(o.id);
+        this.playerPosition.set(ILLIA_ENTRY_POS.x, PLAYER_HEIGHT, ILLIA_ENTRY_POS.z); this.settlePlayerAfterTeleport();
+        this.spawnIlliaBoss(phase);
+        this.showMessage("💀 일리아에게 쓰러졌습니다… 아이템은 잃지 않았습니다. 패턴을 기억하고 다시 도전하세요!", { durationSeconds: 7 });
+        this.renderHud();
+        return true;
+      }
       if (this.fortressSiege?.active) {
         // 요새 내 사망 — 아이템 손실 없음(드랍 생략), 요새 이탈. 받은 보상은 유지.
         this.health = this.maxHealth;
@@ -5693,6 +5727,7 @@ class WildernessGame {
     if (!this.musicPlayer) return;
     const T = (name: string) => `${import.meta.env.BASE_URL}bgm/${name}`;
     if (!this.gameStarted) { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.21, fadeMs: 1500 }); return; } // 타이틀 (+30%)
+    if (this.endingTheme) { this.musicPlayer.setTrack(T("ending.mp3"), { volume: 0.3, fadeMs: 2000 }); return; } // 일리아 클리어 엔딩 — 크레딧 동안 감동 테마(닫으면 해제)
     if (this.fortressSiege?.active) { this.musicPlayer.setTrack(T("fortress.ogg"), { volume: 0.22, fadeMs: 800 }); return; } // 몬스터 요새 — 전투 오버라이드보다 먼저 체크: 요새 고유 테마(일반 배틀 아님)
     if (this.combatMoodActive()) { this.musicPlayer.setTrack(T(this.combatTrack), { volume: 0.23, fadeMs: 450 }); return; } // 전투 — 빠른 페이드(타격 즉시). 곡은 enterCombatMood 가 전투 진입 시 풀에서 랜덤 선택
     if (this.locationMode === "cave") { this.musicPlayer.setTrack(T("cave_crystal.mp3"), { volume: 0.22, fadeMs: 1200 }); return; } // 동굴 — 밝고 신비로운 '수정 동굴' 루프(아동 친화. 이전 Dark Shrine Loop 은 너무 무섭다는 피드백으로 교체)
@@ -6104,7 +6139,7 @@ class WildernessGame {
   }
 
   private async saveGame() {
-    if (this.fortressSiege?.active) { this.showMessage("요새 진행 중에는 저장할 수 없습니다. 나가거나 끝낸 뒤 저장하세요."); return; }
+    if (this.fortressSiege?.active) { this.showMessage("요새 진행 중에는 저장할 수 없습니다. 나가거나 끝낸 뒤 저장하세요."); return; } if (this.illiaInArena) { this.showMessage("일리아의 차원 안에서는 저장할 수 없습니다. 밖으로 나가 저장하세요."); return; } // 아레나(cave) 위치가 세이브에 박혀 일반 동굴로 오복원되는 것 방지 — 전투·컷씬·승리 후 잔류 전부 커버
     if (this.saveInProgress) { this.showMessage("저장을 진행하고 있습니다…"); return; } // 동시 저장 차단 — 직전 저장이 덮어써져 사라지던 경쟁 방지
     if (Date.now() - this.lastSaveCompletedAt < SAVE_DEBOUNCE_MS) { this.showMessage("방금 저장했습니다."); return; } // 연타·이중발화로 같은-초 중복 슬롯이 생겨 다른 슬롯이 trim 되던 크리티컬 버그 방지
     this.saveInProgress = true;
@@ -6259,7 +6294,7 @@ class WildernessGame {
         hungerTimer: this.hungerTimer,
         worldTimeSeconds: this.worldTimeSeconds,
         worldMapId: this.currentWorldMapId,
-        bossChapter: this.bossChapter,
+        bossChapter: this.bossChapter, illiaProgress: this.illiaProgress, // 최종 보스 일리아 진행(0/1/2)
         defeatedFieldBosses: this.defeatedFieldBosses,
         totalSteps: this.totalSteps,
         playSeconds: this.playSeconds,
@@ -6301,7 +6336,7 @@ class WildernessGame {
     const save = migratePartialSaveData(sourceSave); const keptFortressStages = this.fortressStageByMap; // 구세이브(필드 없음) 백필용 — 아래 resetGameState 가 지우기 전에 캡처
     this.resetGameState({ reseed: false });
     this.currentWorldMapId = save.player.worldMapId ?? DEFAULT_WORLD_MAP_ID;
-    this.bossChapter = normalizeBossChapter(save.player.bossChapter);
+    this.bossChapter = normalizeBossChapter(save.player.bossChapter); this.illiaProgress = typeof save.player.illiaProgress === "number" ? Math.max(0, Math.min(2, Math.floor(save.player.illiaProgress))) : 0;
     this.defeatedFieldBosses.splice(0, this.defeatedFieldBosses.length, ...(save.player.defeatedFieldBosses ?? []));
     this.activeRegions = regionsForWorldMap(this.currentWorldMapId);
     this.activeBiomes = biomesForWorldMap(this.currentWorldMapId); this.activeWaterZones = waterZonesForWorldMap(this.currentWorldMapId); this.biomeDecorContext.biomes = this.activeBiomes;
@@ -6319,7 +6354,7 @@ class WildernessGame {
       }
     }
     this.ensureVillageShops();
-    this.ensureFortressGate();
+    this.ensureFortressGate(); this.ensureDimensionGate();
 
     restoreSlots(this.hotbar, save.player.hotbar);
     this.ensureHotbarSize();
@@ -6437,6 +6472,7 @@ class WildernessGame {
     const reseed = options.reseed ?? true;
     this.subquests = defaultSubquestState(); this.subquestSig = ""; this.subquestDialog = false; // 서브퀘스트 초기화(새 게임/로드 전 리셋) — dialog 플래그 누수 방지
     this.closePanel(); resetOnboardingState(this.onboarding); // playthrough 마다 온보딩 안내 새로 시작(같은 세션 재시작 포함). 고급 세이브는 스텝 게이트가 오발화 차단.
+    this.closePanel(); resetOnboardingState(this.onboarding); this.illiaProgress = 0; this.illiaAwakenSeen = false; this.endingTheme = false; this.illiaInArena = false; resetIlliaFight(this.illiaFight, this.scene); if (this.illiaCutscene.active) { this.illiaCutscene.active = false; for (const prop of this.illiaCutscene.props) this.scene.remove(prop); this.illiaCutscene.props = []; hideIlliaCutsceneOverlay(this.uiRoot); } // 일리아 상태 리셋(로드/새게임 공통) — onFinish 미발화 정리라 finish 호출 대신 수동 해제
     this.setSprintRenderOptimizations(false);
     this.clearWorld();
     this.keys.clear();
@@ -6674,6 +6710,7 @@ class WildernessGame {
     if (savedObject.type === "chest" || savedObject.type === "mineChest") object = this.spawnChest(position, savedObject.type === "mineChest" || Boolean(savedObject.mineRich), savedObject.chestTier ?? 0);
     if (savedObject.type === "cave") object = spawnCave(this.worldSpawnContext, position);
     if (savedObject.type === "fortressGate") object = this.spawnFortressGate(position);
+    if (savedObject.type === "dimensionGate") object = this.spawnDimensionGate(position);
     if (savedObject.type === "water") object = spawnWaterBody(this.worldSpawnContext, position, this.restoredWaterRadius(position, savedObject.terrainRadius ?? 12, savedObject.name ?? ""), savedObject.name ?? "");
     if (savedObject.type === "droppedItem") object = spawnDroppedItem(this.worldSpawnContext, savedObject.droppedItem ?? "tutorial_book", savedObject.droppedCount ?? 1, position);
     if (savedObject.type === "bed") object = spawnBedObject(this.spawnContext, position, savedObject.rotationY ?? 0);
@@ -6905,13 +6942,14 @@ class WildernessGame {
         }
       }
     }
+    if (!dragon && this.illiaFight.active) dragon = this.illiaContext.boss(); // 일리아 아레나(cave) — 오버월드 스캔 밖이라 직접 조회
     if (!dragon) {
       this.bossBarEl.classList.add("hidden");
       this.bossBarEl.innerHTML = "";
       return;
     }
     const stats = this.bossStats(dragon.bossKind);
-    const maxHp = Math.round(stats.maxHp * this.difficultyMods.monsterHp); // 보스 hp 도 난이도로 스폰 시 ×배율 → 체력바 분모도 동일 배율
+    const maxHp = Math.round((dragon.bossKind === ILLIA_P1_KIND || dragon.bossKind === ILLIA_P2_KIND ? bal(dragon.bossKind === ILLIA_P1_KIND ? "illia_p1_hp" : "illia_p2_hp", stats.maxHp) : (dragon.bossKind ?? "dragon") === "dragon" ? bal("dragon_hp", stats.maxHp) : stats.maxHp) * this.difficultyMods.monsterHp); // 보스 hp 도 난이도로 스폰 시 ×배율 → 체력바 분모도 동일 배율(일리아는 튜너블 반영)
     const hp = Math.max(0, Math.ceil(dragon.hp ?? maxHp));
     const ratio = THREE.MathUtils.clamp(hp / maxHp, 0, 1);
     this.bossBarEl.classList.remove("hidden");
@@ -7067,7 +7105,7 @@ class WildernessGame {
     rememberWorldState(this.worldStates, this.currentWorldMapId, this.createSaveData().worldStates?.[this.currentWorldMapId]);
     this.currentWorldMapId = map.id; this.activeRegions = regionsForWorldMap(map.id); this.activeBiomes = biomesForWorldMap(map.id); this.activeWaterZones = waterZonesForWorldMap(map.id); this.biomeDecorContext.biomes = this.activeBiomes; this.regionWarningState = { regionId: null, lastWarnAt: 0 };
     this.locationMode = "overworld"; this.clearWorld(); const worldState = this.worldStates[map.id];
-    if (worldState) { for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height); createBiomeDecor(this.biomeDecorContext); for (const savedObject of worldState.objects) this.restoreWorldObject(savedObject); this.ensureVillageShops(); this.ensureFortressGate(); this.ensureWildlifeDensity(); } else this.seedOverworld(); // 방문했던 맵은 저장분포 복원 후 현재 밀도까지 보충(소급)
+    if (worldState) { for (const mountain of worldState.mountains) this.spawnMountain(this.fromSavedVector(mountain.position), mountain.radius, mountain.height); createBiomeDecor(this.biomeDecorContext); for (const savedObject of worldState.objects) this.restoreWorldObject(savedObject); this.ensureVillageShops(); this.ensureFortressGate(); this.ensureDimensionGate(); this.ensureWildlifeDensity(); } else { this.seedOverworld(); this.ensureDimensionGate(); } // 방문했던 맵은 저장분포 복원 후 현재 밀도까지 보충(소급). 신규 시드에도 차원의 문 보장(치트/테스트로 챕터 완주 상태 진입 대비)
     this.playerPosition.copy(map.spawn); this.playerPosition.y = this.getOverworldHeightAt(map.spawn.x, map.spawn.z) + PLAYER_HEIGHT;
     this.previousPosition.copy(this.playerPosition); this.setOverworldAtmosphere(); this.settlePlayerAfterTeleport(); this.closePanel();
     for (const pred of [...this.objectsOfType("wildPredator")]) { if (Math.hypot(pred.root.position.x - map.spawn.x, pred.root.position.z - map.spawn.z) < 15) { const dest = this.randomPredatorSpawnPoint(regionAtPosition(pred.root.position, this.activeRegions)); if (dest) { pred.root.position.copy(dest); this.refreshSpatialObject(pred); } } } // 도착 15칸 안 몬스터(복원·배회 개체)는 멀리 재배치 — 텔레포트 직후 피격 방지

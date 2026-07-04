@@ -165,9 +165,19 @@ try {
     applyMeleeDragonAttack(context, dragon, 40);
     assert.deepEqual(
       context.calls.map((call) => call[0]),
-      ["tone", "reward", "remove", "tone", "message", "experience", "bossDefeat", "bossBar"],
-      "lethal melee dragon hit grants loot, records the chapter defeat, and refreshes boss bar",
+      ["tone", "reward", "message", "remove", "tone", "experience", "bossDefeat", "bossBar"],
+      "lethal melee dragon hit grants loot, records the chapter defeat, and refreshes boss bar", // 일리아 분기 도입으로 message 가 remove 앞으로 이동(동작 동일)
     );
+  }
+
+  {
+    // 일리아(최종 보스)는 근접 막타에서도 전리품 없음 — 반복 파밍 차단 + 전용 메시지(원거리 경로와 동일)
+    const context = createProjectileContext();
+    const illia = { id: "illia-1", type: "dragon", name: "봉인된 군주 일리아", root: createRoot(), hp: 10, bossKind: "illia_sealed" };
+    applyMeleeDragonAttack(context, illia, 40);
+    assert.ok(!context.calls.some((call) => call[0] === "reward"), "illia melee kill grants no dragon loot");
+    assert.ok(context.calls.some((call) => call[0] === "message" && String(call[1]).includes("무릎을")), "illia melee kill shows dedicated message");
+    assert.ok(context.calls.some((call) => call[0] === "bossDefeat"), "illia melee kill still records defeat (progression/cutscene)");
   }
 
   {

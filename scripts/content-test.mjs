@@ -337,8 +337,9 @@ try {
     if (!(constants.MAGIC_AOE_RADIUS > 0)) problems.push(`MAGIC_AOE_RADIUS should be > 0, got ${constants.MAGIC_AOE_RADIUS}`);
   }
 
-  // 보스 챕터 진행표: 모든 보스를 정확히 1회씩 포함 + 챕터/권장레벨 단조 증가
-  const bossKinds = Object.keys(BOSS_STATS);
+  // 보스 챕터 진행표: 모든 필드 보스를 정확히 1회씩 포함 + 챕터/권장레벨 단조 증가.
+  // 일리아(illia_*) 는 챕터 progression 밖의 차원 아레나 전용 최종 보스 — 의도적 제외(진행은 illiaProgress 세이브 필드).
+  const bossKinds = Object.keys(BOSS_STATS).filter((kind) => !kind.startsWith("illia_"));
   if (BOSS_PROGRESSION.length !== bossKinds.length) {
     problems.push(`boss progression: covers ${BOSS_PROGRESSION.length} bosses, expected ${bossKinds.length}`);
   }

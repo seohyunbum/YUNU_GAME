@@ -47,6 +47,8 @@ function baseExperienceRewardForTarget(target: WorldObject): number {
       laser_dragon: 1800,
       dark_dragon: 2400,
       immortal: 3500,
+      illia_sealed: 5000,
+      illia_desperate: 8000,
     };
     return rewards[target.bossKind ?? "dragon"];
   }
@@ -158,6 +160,8 @@ export const MONSTER_DEFS: Record<MonsterId, MonsterDef> = {
   laser_dragon: { id: "laser_dragon", name: "레이저 드래곤", archetype: "dragon", level: 220, tint: 0x22d3ee, bossKind: "laser_dragon" },
   dark_dragon: { id: "dark_dragon", name: "다크 드래곤", archetype: "dragon", level: 260, tint: 0x6d28d9, bossKind: "dark_dragon" },
   immortal: { id: "immortal", name: "불멸의 존재", archetype: "dragon", level: 300, tint: 0xf8fafc, bossKind: "immortal" },
+  illia_sealed: { id: "illia_sealed", name: "봉인된 군주 일리아", archetype: "dragon", level: 320, tint: 0x14101c, bossKind: "illia_sealed" }, // 최종 보스 P1 — 아레나 전용(필드 스폰 없음), Record 완전성+XP 산정용
+  illia_desperate: { id: "illia_desperate", name: "절망의 군주 일리아", archetype: "dragon", level: 340, tint: 0x14101c, bossKind: "illia_desperate" }, // 최종 보스 P2 — 상동
 };
 
 export function monsterStatsFromLevel(level: number, boss = false) {
@@ -264,8 +268,8 @@ export const BOSS_STATS: Record<
 > = {
   dragon: {
     name: "용",
-    maxHp: bal("dragon_hp", DRAGON_MAX_HP),
-    armor: bal("dragon_armor", DRAGON_ARMOR),
+    maxHp: DRAGON_MAX_HP, // 튜너블은 스폰(entitySpawns)·보스바 분모에서 적용 — 상수 테이블은 로드 1회 평가라 여기서 bal 은 무효
+    armor: DRAGON_ARMOR,
     fireDamage: 12,
     clawDamage: 13,
     attackRange: 28,
@@ -336,6 +340,36 @@ export const BOSS_STATS: Record<
     belly: 0x6d28d9,
     wing: 0x4c1d95,
     glow: 0xa855f7,
+  },
+  illia_sealed: {
+    name: "봉인된 군주 일리아",
+    maxHp: 3000, // 스폰 시 bal("illia_p1_hp") 적용
+    armor: 90,
+    fireDamage: 0, // 패턴 엔진(illiaBoss)이 공격 — 접촉/브레스 미사용
+    clawDamage: 0,
+    attackRange: 0,
+    collisionRadius: 2.1,
+    collisionHeight: 3.2,
+    scale: 1,
+    body: 0x14101c,
+    belly: 0xf5f0f7,
+    wing: 0x0b0812,
+    glow: 0xff2038,
+  },
+  illia_desperate: {
+    name: "절망의 군주 일리아",
+    maxHp: 4200, // 스폰 시 bal("illia_p2_hp") 적용
+    armor: 110,
+    fireDamage: 0,
+    clawDamage: 0,
+    attackRange: 0,
+    collisionRadius: 2.1,
+    collisionHeight: 3.6,
+    scale: 1,
+    body: 0x14101c,
+    belly: 0xf5f0f7,
+    wing: 0x0b0812,
+    glow: 0xff2d55,
   },
   immortal: {
     name: "불멸의 존재",
