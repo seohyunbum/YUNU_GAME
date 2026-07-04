@@ -4939,3 +4939,17 @@ body.touch-mode .skill-bar {
 .death-banner-title { font-size: clamp(42px, 9vw, 92px); font-weight: 950; color: #ff4d4d; letter-spacing: 0.02em; text-shadow: 0 4px 26px rgba(0, 0, 0, 0.95), 0 0 34px rgba(255, 40, 40, 0.5); }
 .death-banner-reason { max-width: 84vw; font-size: clamp(15px, 3vw, 23px); font-weight: 800; color: #ffdada; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95); }
 .death-banner-sub { font-size: 14px; font-weight: 700; color: #e7b8b8; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95); }
+
+/* F8 어드민 밸런스 튜닝 패널 — 숨김 기능(조작 안내 미표기) */
+.admin-panel { max-width: 720px; max-height: 82vh; display: flex; flex-direction: column; }
+.admin-hint { margin: 4px 0 10px; opacity: 0.85; font-size: 13px; }
+.admin-scroll { overflow-y: auto; flex: 1; padding-right: 6px; }
+.admin-group h3 { margin: 12px 0 6px; font-size: 14px; color: #f4d488; border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 3px; }
+.admin-row { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(120px, 1.2fr) 76px 30px; gap: 8px; align-items: center; padding: 3px 4px; border-radius: 6px; font-size: 13px; }
+.admin-row.overridden { background: rgba(244, 212, 136, 0.12); }
+.admin-row.overridden .admin-label { color: #f4d488; font-weight: 700; }
+.admin-row input[type="number"] { width: 72px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 6px; color: #f3ead6; padding: 3px 6px; }
+.admin-row button { padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.06); color: #f3ead6; cursor: pointer; }
+.admin-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.15); }
+.admin-actions button { padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.06); color: #f3ead6; cursor: pointer; font-size: 13px; }
+.admin-actions [data-admin-publish] { background: #f4d488; color: #1a2b1f; font-weight: 700; }

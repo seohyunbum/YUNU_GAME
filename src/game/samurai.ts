@@ -1,4 +1,5 @@
 import { SAMURAI_SKILL_COST, SAMURAI_SKILL_COOLDOWN } from "./constants";
+import { bal } from "./balanceTuning";
 import { isKatanaWeapon } from "./items";
 import { partyGuestAttackIntercept } from "./partyWorldSync";
 import type { ItemId, PlayerClassId } from "./types";
@@ -16,13 +17,13 @@ export const SAMURAI_KATANA_MOVE_BONUS = 0.05; // 카타나 장착 시 이동속
 
 // 카타나 시너지 공격 배수 — 사무라이가 카타나를 들었을 때만 1.05, 그 외 1.
 export function samuraiKatanaAttackMult(playerClass: PlayerClassId, heldItem: ItemId | null | undefined): number {
-  return playerClass === "samurai" && isKatanaWeapon(heldItem) ? 1 + SAMURAI_KATANA_ATTACK_BONUS : 1;
+  return playerClass === "samurai" && isKatanaWeapon(heldItem) ? 1 + bal("samurai_katana_attack", SAMURAI_KATANA_ATTACK_BONUS) : 1;
 }
 
 // 기본 공격 스윙(시전시간) 배수 — 작을수록 빠름. 사무라이 ×0.75, 카타나 시너지 시 추가 ×1/1.1. 그 외 직업 1.
 export function samuraiSwingMult(playerClass: PlayerClassId, heldItem: ItemId | null | undefined): number {
   if (playerClass !== "samurai") return 1;
-  return SAMURAI_SWING_MULT * (isKatanaWeapon(heldItem) ? 1 / (1 + SAMURAI_KATANA_SPEED_BONUS) : 1);
+  return bal("samurai_swing", SAMURAI_SWING_MULT) * (isKatanaWeapon(heldItem) ? 1 / (1 + bal("samurai_katana_speed", SAMURAI_KATANA_SPEED_BONUS)) : 1);
 }
 
 // 이동속도 합연산 가산 — additiveMoveSpeedMult 계층에 더하는 비율(사무라이+카타나 0.05, 그 외 0).
@@ -41,7 +42,7 @@ function finiteOr1(value: number): number {
 export const SAMURAI_FLURRY_HITS = 4;
 export const SAMURAI_FLURRY_INTERVAL_MS = 120;
 export function samuraiFlurryHitDamage(currentDamage: number) {
-  return Math.max(1, Math.round(finiteOr1(currentDamage) * 0.9));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * bal("samurai_flurry_pct", 0.9)));
 }
 
 // 도약(2스킬): 최대 15칸 돌진, 경로 폭(중심선 좌/우 반폭) 3.0 안의 모든 적에게 1회씩 공격력 150% 피해.
@@ -54,21 +55,21 @@ export const SAMURAI_DASH_BLOCK_RATIO = 0.4; // 스텝 전진량이 이 비율 �
 // 도약이 관통하는 생명체 타입 — 건물·지형·설치물은 미포함(막힘 유지)
 export const SAMURAI_DASH_PASSTHROUGH_TYPES: ReadonlySet<string> = new Set(["wildPredator", "dragon", "jammini", "animal", "eagleSummon", "summonerPet", "graveHand"]);
 export function samuraiDashDamage(currentDamage: number) {
-  return Math.max(1, Math.round(finiteOr1(currentDamage) * 1.5));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * bal("samurai_dash_pct", 1.5)));
 }
 
 // 무한 찌르기(3스킬·1차 전직 해금): 11연속 찌르기 × 공격력 40% = 합 ≈ 4.4배 단일 대상 (약 1.6초 채널)
 export const SAMURAI_PIERCE_HITS = 11;
 export const SAMURAI_PIERCE_INTERVAL_MS = 145; // 11타 ≈ 1.6초
 export function samuraiPierceHitDamage(currentDamage: number) {
-  return Math.max(1, Math.round(finiteOr1(currentDamage) * 0.4));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * bal("samurai_pierce_pct", 0.4)));
 }
 
 // 월광베기(4스킬·4차 전직 해금): 주변 광역 3연격 × 공격력 220% = 합 6.6배 (전사 천검난무 7배보다 약간 아래)
 export const SAMURAI_MOONLIGHT_WAVES = 3;
 export const SAMURAI_MOONLIGHT_RADIUS = 6.8; // 전사 천검난무와 같은 광역 반경 (EARTH_CLEAVE_RADIUS 4 × 1.7)
 export function samuraiMoonlightDamage(currentDamage: number) {
-  return Math.max(1, Math.round(finiteOr1(currentDamage) * 2.2));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * bal("samurai_moonlight_pct", 2.2)));
 }
 
 // ===== 연격 틱 상태 (난도·무한 찌르기 공용 — 휘발, 저장 안 함) =====
@@ -178,7 +179,7 @@ export function performSamuraiDash(context: SecondSkillContext, damage: number):
     const t = pathLenSq > 1e-6 ? Math.max(0, Math.min(1, ((tx - startX) * pathX + (tz - startZ) * pathZ) / pathLenSq)) : 0;
     const closestX = startX + pathX * t;
     const closestZ = startZ + pathZ * t;
-    if (Math.hypot(tx - closestX, tz - closestZ) > SAMURAI_DASH_HIT_WIDTH + radius) continue;
+    if (Math.hypot(tx - closestX, tz - closestZ) > bal("samurai_dash_width", SAMURAI_DASH_HIT_WIDTH) + radius) continue;
     context.meleeEffects(target);
     if (!partyGuestAttackIntercept(target, damage, "melee")) context.applyDamage(target, damage);
     hits += 1;

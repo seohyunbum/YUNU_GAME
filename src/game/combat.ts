@@ -2,6 +2,7 @@ import type * as THREE from "three";
 import type { RewardSource } from "../operatorConfig";
 import { JAMMINI_MAX_HP, PREDATOR_RETALIATE_MS } from "./constants";
 import { DRAGON_AGGRO_MS } from "./dragonAi";
+import { bal } from "./balanceTuning";
 import { ITEM_NAMES } from "./items";
 import { predatorLootForKind } from "./monsters";
 import type { BossKind, CombatProjectile, ItemId, WorldObject } from "./types";
@@ -84,13 +85,13 @@ export function triangularRoll(min: number, mode: number, max: number, rng: () =
 // 고정 데미지 대신 매 타격마다 굴린다. base 가 유한·양수가 아니면 0, 그 외 최소 1 보장.
 export function varyPlayerDamage(base: number, rng: () => number = Math.random): number {
   if (!Number.isFinite(base) || base <= 0) return 0;
-  return Math.max(1, Math.round(base * triangularRoll(0.8, 1.0, 2.0, rng)));
+  return Math.max(1, Math.round(base * bal("player_damage_mult", 1) * triangularRoll(0.8, 1.0, 2.0, rng)));
 }
 
 // 몬스터(보스 포함) 공격 데미지 변동 — 80%~130%, 최빈 100%. 플레이어보다 변동폭이 좁다.
 export function varyMonsterDamage(base: number, rng: () => number = Math.random): number {
   if (!Number.isFinite(base) || base <= 0) return 0;
-  return Math.max(1, Math.round(base * triangularRoll(0.8, 1.0, 1.3, rng)));
+  return Math.max(1, Math.round(base * bal("monster_damage_mult", 1) * triangularRoll(0.8, 1.0, 1.3, rng)));
 }
 
 // 몬스터 → 플레이어 피해 전용: 방어가 아무리 높아도 공격의 15%(올림)는 들어온다.

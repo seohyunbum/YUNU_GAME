@@ -1,4 +1,5 @@
 import { BOW_DAMAGE, INTERACT_DISTANCE, MAGIC_WAND_DAMAGE, PISTOL_DAMAGE } from "./constants";
+import { bal } from "./balanceTuning";
 import { NECKLACE_IDS } from "./necklace";
 import { DRAGON_GEAR_IDS } from "./dragonGear";
 import type { ItemId, ObjectType } from "./types";
@@ -418,6 +419,7 @@ export function isDurableTool(item: ItemId | null) {
 }
 
 export function toolMaxDurability(item: ItemId): number {
+  if (item === "sharp_obsidian_shield") return Math.round(bal("shield_obsidian_durability", SHIELD_DURABILITY.sharp_obsidian_shield ?? 1000)); // 어드민 튜너블
   return TOOL_DURABILITY[item] ?? SHIELD_DURABILITY[item] ?? DEFAULT_TOOL_DURABILITY; // 방패도 수리 가능 — 최대 내구도(SHIELD_DURABILITY) 반영
 }
 
@@ -431,6 +433,7 @@ export function repairMaterialFor(item: ItemId): ItemId | null {
 
 // 수리 1회 = 최대 내구도의 50% 회복(올림) — 완전히 닳은 도구도 재료 2개로 완전 회복. 단 오버라이드(방패 등)는 고정값.
 export function repairPerMaterial(item: ItemId): number {
+  if (item === "sharp_obsidian_shield") return Math.round(bal("repair_obsidian_shield", REPAIR_PER_MATERIAL_OVERRIDE.sharp_obsidian_shield ?? 300)); // 어드민 튜너블
   return REPAIR_PER_MATERIAL_OVERRIDE[item] ?? Math.ceil(toolMaxDurability(item) * 0.5);
 }
 

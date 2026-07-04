@@ -293,7 +293,7 @@ import {
 import { SMITHING_PRODUCTS, smithingProductIcon } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { renderBookPanelMarkup } from "./ui/bookPanel";
-import { renderCheatPanelMarkup } from "./ui/cheatPanel";
+import { renderCheatPanelMarkup } from "./ui/cheatPanel"; import { renderAdminPanel } from "./ui/adminPanel"; import { bal, loadGlobalBalance } from "./game/balanceTuning"; // F8 어드민 밸런스
 import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
@@ -2007,7 +2007,7 @@ class WildernessGame {
       this.renderHud();
     });
     document.addEventListener("mousemove", (event) => this.handleMouseMove(event));
-    window.addEventListener("keydown", (event) => this.handleKeyDown(event), { capture: true });
+    window.addEventListener("keydown", (event) => this.handleKeyDown(event), { capture: true }); void loadGlobalBalance(); // 어드민 전역 밸런스 — 부팅 1회 fetch(3s 타임아웃, 실패 시 기본값)
     window.addEventListener("keyup", (event) => this.handleKeyUp(event), { capture: true });
     // 뒤로가기 이탈 차단 + 우클릭 메뉴 전역 차단 + 이탈 직전 자동저장 (전부 navigationGuard leaf 가 소유)
     this.navGuard = installNavigationGuard({ getGameStarted: () => this.gameStarted, autosave: () => this.flushAutosave(false), autosaveSync: () => this.flushAutosave(true), onBlockedBack: () => this.showMessage("뒤로가기로는 게임을 나갈 수 없습니다. 종료하려면 메뉴의 '새로시작'을 누르거나 탭을 닫으세요.") });
@@ -2155,7 +2155,7 @@ class WildernessGame {
   }
 
   private handleKeyDown(event: KeyboardEvent) {
-    if (event.altKey && event.code === "Enter" && !event.repeat) { event.preventDefault(); toggleFullscreen(); return; } if (this.handleMiniGameKeyDown(event)) return; // 앞: 데스크탑 전체화면 토글(게임 표준 Alt+Enter) — 타이틀/게임/검색 중 어디서든, 문자 입력 영향 없음
+    if (event.altKey && event.code === "Enter" && !event.repeat) { event.preventDefault(); toggleFullscreen(); return; } if (event.code === "F8" && !event.repeat) { event.preventDefault(); this.togglePanel("admin"); return; } if (this.handleMiniGameKeyDown(event)) return; // Alt+Enter=전체화면 · F8=숨김 어드민 밸런스 패널(조작 안내 미표기)
     if (this.handleLavaMiniGameKeyDown(event)) return;
     if (this.handleSmithingMiniGameKeyDown(event)) return;
     if (!this.gameStarted) {
@@ -4969,7 +4969,7 @@ class WildernessGame {
 
   // 처치 시 정령 소환권 드랍 롤 — 막타자(로컬 플레이어/펫 owner/파티 게스트)에게 귀속. wild=일반 사냥 1.2%, boss=+3%(난이도 드랍률 반영).
   private dropKillSpiritToken(wild: boolean, boss: boolean) {
-    const sc = (wild ? 0.012 : 0) + (boss ? 0.03 : 0);
+    const sc = (wild ? bal("spirit_drop_wild", 0.012) : 0) + (boss ? bal("spirit_drop_boss", 0.03) : 0);
     if (sc > 0 && Math.random() < sc * this.difficultyMods.dropChance && this.addItem("spirit_gacha_token", 1)) this.showMessage("✨ 정령 소환권을 발견했습니다! (전설 — 인벤에서 더블클릭 또는 핫바로 사용)");
   }
 
@@ -6923,7 +6923,7 @@ class WildernessGame {
     if (this.currentPanel === "shop") this.renderPointShopPanel();
     if (this.currentPanel === "sellShop") this.renderSellShopPanel();
     if (this.currentPanel === "loadGame") this.renderLoadGamePanel();
-    if (this.currentPanel === "cheat") this.renderCheatPanel();
+    if (this.currentPanel === "cheat") this.renderCheatPanel(); if (this.currentPanel === "admin") renderAdminPanel(this.panelEl, { onClose: () => this.closePanel(), showMessage: (text) => this.showMessage(text) }); // F8 밸런스 튜닝(leaf 자체 배선)
     if (this.currentPanel === "map") this.renderRegionMapPanel();
     if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel();
     if (this.currentPanel === "training") this.renderTrainingPanel();
@@ -7971,7 +7971,7 @@ class WildernessGame {
   private rollRewardChance(baseChance: number, source: RewardSource, item: ItemId) {
     const tuning = getRewardTuning(source, item);
     const combatRegionScale = source === "predator" || source === "jammini" || source === "boss" || source === "guard" ? regionLootChanceScale(regionAtPosition(this.playerPosition, this.activeRegions)) : 1;
-    const chance = THREE.MathUtils.clamp(baseChance * tuning.chanceMultiplier * combatRegionScale * this.difficultyMods.dropChance, 0, 1); // 난이도 드랍률 배율
+    const chance = THREE.MathUtils.clamp(baseChance * tuning.chanceMultiplier * combatRegionScale * this.difficultyMods.dropChance * bal("drop_chance_mult", 1), 0, 1); // 난이도 드랍률 배율 × 어드민 배율
     return Math.random() < chance;
   }
 
