@@ -1177,3 +1177,18 @@
 - 검증: verify 그린 + 골든(레지스트리 유효성·클램프/화이트리스트·우선순위·기본 동치·실함수 관통) + 실브라우저 E2E
   (부팅 GET+오염값 클램프(99999→3000)·F8 패널·슬라이더 즉시 반영(난도 1.5×100=150)·리로드 유지·PIN→PUT·로컬 승격).
 - main.ts 래칫 여유 0 유지(임포트 병합·인라인). ★def 는 코드 기본값과 일치 필수 — 코드 수치를 바꾸면 레지스트리 def 도 갱신(골든이 강제).
+
+## 2026-07-04 — 어드민 재설계: F8 제거 → 바탕화면 독립 관리자 + 직업별 레벨업 성장
+- 유저 요청: 게임 내 F8 방식 폐기. 이 PC 바탕화면의 별도 실행 파일(게임과 독립된 어드민 창)에서 조정해
+  전 기기 배포. 직업별 레벨업당 능력치 성장도 설정 가능하게.
+- **F8 완전 제거**: keydown·renderPanel 분기·PanelType "admin"·adminPanel.ts·CSS 삭제 — 게임(모든 기기)에
+  어드민 진입점 없음. balanceTuning.ts 의 부팅 전역 fetch(반영 경로)만 게임에 잔존.
+- **직업별 성장 21종 추가**(레지스트리 총 42개): levelup_{hp|attack|defense}_{7직업} — 레벨보너스 유입 3지점
+  (maxHealthForLevel ×2 / bodyMeleeAttackPower·currentRangedDamage +1 / currentArmor +1)에 bal 배수 주입,
+  레벨업 메시지도 동적화(오버라이드 시 거짓 표기 방지). 기본값 = 기존과 완전 동치.
+- **바탕화면 관리자**: scripts/build-admin-html.mjs 가 레지스트리(단일 진실)에서 admin/balance-admin.html 을
+  생성(자체 완결 HTML — Firebase REST 직접 GET/PUT/DELETE, 비기본값만 저장, 미등록 키 재저장 안 함).
+  npm run build:admin / check:admin(verify 편입 — 레지스트리 변경 후 재생성 안 하면 빨강).
+  바탕화면 사본 = C:\Users\서현범\Desktop\YUNU 밸런스 관리자.html (더블클릭 → 브라우저. 레지스트리 변경 시 재복사).
+- 검증: verify 그린(check:admin 포함) + E2E — 어드민 HTML(42개 렌더·GET 반영·PUT 비기본값만·미등록 키 폐기·
+  DELETE) + 게임(성장 오버라이드: 사무라이 lv11, 레벨당 체력 2→4 = 최대체력 +20 정확).

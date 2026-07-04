@@ -1,6 +1,7 @@
 import { FIREBASE_CONFIG } from "../onlineConfig";
 
-// 어드민 밸런스 튜닝 — 게임 내 숨김 패널(F8)에서 주요 수치를 코드 배포 없이 조정한다. leaf(main.ts import 금지).
+// 어드민 밸런스 튜닝 — 바탕화면 관리자 페이지(admin/balance-admin.html, build:admin 으로 생성)에서 조정해 전 기기에 배포한다.
+// 게임 내 진입점은 없다(F8 패널은 유저 요청으로 제거). leaf(main.ts import 금지).
 // 우선순위: 로컬 오버라이드(내 기기 실험, localStorage) > 전역 오버라이드(Firebase, 전체 적용) > 코드 기본값.
 // 방어: 레지스트리 화이트리스트 키만 수용 + [min,max] 클램프 — Firebase 가 공개 쓰기라도 게임을 망가뜨릴 수 없다
 // (범위 밖/비유한 값은 폐기. spirits/samurai NaN 하드닝과 같은 원칙). 읽기는 bal() 한 곳 — 조회만이라 핫패스 안전.
@@ -42,6 +43,12 @@ export const BALANCE_TUNABLES: readonly BalanceTunable[] = [
   // 내구도
   { key: "shield_obsidian_durability", label: "흑요석 방패 내구도", group: "내구도", def: 1000, min: 200, max: 3000, step: 50 },
   { key: "repair_obsidian_shield", label: "흑요석 방패 수리량(재료당)", group: "내구도", def: 300, min: 100, max: 1000, step: 25 },
+  // 레벨업 성장(직업별) — 레벨 1당 오르는 체력/공격/방어. 기본 = 전 직업 공통(체력 2·공격 1·방어 1, 기존과 동치)
+  ...([["warrior", "전사"], ["healer", "힐러"], ["mage", "마법사"], ["summoner", "소환사"], ["gunner", "거너"], ["tanker", "탱커"], ["samurai", "사무라이"]] as const).flatMap(([id, name]) => [
+    { key: `levelup_hp_${id}`, label: `${name} 레벨당 체력`, group: "레벨업 성장", def: 2, min: 0, max: 8, step: 0.5 },
+    { key: `levelup_attack_${id}`, label: `${name} 레벨당 공격`, group: "레벨업 성장", def: 1, min: 0, max: 5, step: 0.25 },
+    { key: `levelup_defense_${id}`, label: `${name} 레벨당 방어`, group: "레벨업 성장", def: 1, min: 0, max: 5, step: 0.25 },
+  ]),
 ];
 
 const LOCAL_KEY = "ai-game-lab:balance-overrides-v1";

@@ -63,7 +63,7 @@ export type ObjectType =
   | "extendedWorkbench"
   | "smelter"
   | "specialSmelter";
-export type PanelType = "inventory" | "book" | "homeStorage" | "training" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "admin" | "map" | "character" | null;
+export type PanelType = "inventory" | "book" | "homeStorage" | "training" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | "character" | null;
 export type TrainingKind = "hp" | "attack" | "armor" | "mana";
 
 export interface TrainingStats {

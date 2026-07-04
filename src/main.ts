@@ -293,7 +293,7 @@ import {
 import { SMITHING_PRODUCTS, smithingProductIcon } from "./game/smithing";
 import { HOUSE_BUILD_OPTIONS } from "./game/housing";
 import { renderBookPanelMarkup } from "./ui/bookPanel";
-import { renderCheatPanelMarkup } from "./ui/cheatPanel"; import { renderAdminPanel } from "./ui/adminPanel"; import { bal, loadGlobalBalance } from "./game/balanceTuning"; // F8 어드민 밸런스
+import { renderCheatPanelMarkup } from "./ui/cheatPanel"; import { bal, loadGlobalBalance } from "./game/balanceTuning"; // 밸런스는 바탕화면 관리자 페이지에서 조정(전역 fetch 만 게임에 존재)
 import { spawnObject, type SpawnContext } from "./game/spawnContext";
 import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
@@ -2155,7 +2155,7 @@ class WildernessGame {
   }
 
   private handleKeyDown(event: KeyboardEvent) {
-    if (event.altKey && event.code === "Enter" && !event.repeat) { event.preventDefault(); toggleFullscreen(); return; } if (event.code === "F8" && !event.repeat) { event.preventDefault(); this.togglePanel("admin"); return; } if (this.handleMiniGameKeyDown(event)) return; // Alt+Enter=전체화면 · F8=숨김 어드민 밸런스 패널(조작 안내 미표기)
+    if (event.altKey && event.code === "Enter" && !event.repeat) { event.preventDefault(); toggleFullscreen(); return; } if (this.handleMiniGameKeyDown(event)) return; // 앞: 데스크탑 전체화면 토글(게임 표준 Alt+Enter)
     if (this.handleLavaMiniGameKeyDown(event)) return;
     if (this.handleSmithingMiniGameKeyDown(event)) return;
     if (!this.gameStarted) {
@@ -5011,7 +5011,7 @@ class WildernessGame {
       const previousMaxHealth = this.maxHealth;
       this.maxHealth = Math.max(this.maxHealth, this.maxHealthForLevel());
       this.health = Math.min(this.maxHealth, this.health + Math.max(0, this.maxHealth - previousMaxHealth));
-      this.showMessage(`레벨업! Lv ${this.level}. 체력 +${levelUps * 2}, 방어/공격 +${levelUps}!`);
+      this.showMessage(`레벨업! Lv ${this.level}. 체력 +${Math.round(levelUps * bal(`levelup_hp_${this.playerClass}`, 2))}, 공격 +${Math.round(levelUps * bal(`levelup_attack_${this.playerClass}`, 1))}, 방어 +${Math.round(levelUps * bal(`levelup_defense_${this.playerClass}`, 1))}!`);
       celebrateLevelUp(this.juiceDeps, this.level);
     }
 
@@ -5125,7 +5125,7 @@ class WildernessGame {
   private bodyMeleeAttackPower() { // 본체 근접 공격력(무기+레벨+훈련+제작+목걸이 ×심판의빛) — 빙의 공격도 이를 사용
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한
-    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
+    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() * bal(`levelup_attack_${this.playerClass}`, 1) + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
   }
   private currentDamage() {
     if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE; // 빙의 박치기 = 본체 공격력 + 5
@@ -5134,7 +5134,7 @@ class WildernessGame {
 
   private currentRangedDamage(item: ItemId) {
     const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
-    return Math.max(1, Math.round((base + this.levelStatBonus() + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
+    return Math.max(1, Math.round((base + this.levelStatBonus() * bal(`levelup_attack_${this.playerClass}`, 1) + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
   }
 
   private eagleCombatTarget() {
@@ -5156,7 +5156,7 @@ class WildernessGame {
   }
 
   private maxHealthForLevel(level = this.level) {
-    return Math.round((BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * 2 + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2 + dragonGearMaxHpBonus(this.dragonGear)) * jobTierAllStatMult(this.playerClass, this.jobTier)); // +용의 부츠 최대 체력 ×4차 전능력치
+    return Math.round((BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * bal(`levelup_hp_${this.playerClass}`, 2) + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2 + dragonGearMaxHpBonus(this.dragonGear)) * jobTierAllStatMult(this.playerClass, this.jobTier)); // +용의 부츠 최대 체력 ×4차 전능력치
   }
 
   // 유효 최대 마나 = 기본(훈련 누적 포함) + 용의 부츠(+10). 저장값은 base 유지, 표시·회복 상한에만 가산.
@@ -5190,7 +5190,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + necklaceDefenseBonus(this.permanentNecklace) + spiritDefenseBonus(equippedSpirit(this.spirits)) + dragonGearDefenseBonus(this.dragonGear) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()) * jobTierAllStatMult(this.playerClass, this.jobTier));
+    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() * bal(`levelup_defense_${this.playerClass}`, 1) + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + necklaceDefenseBonus(this.permanentNecklace) + spiritDefenseBonus(equippedSpirit(this.spirits)) + dragonGearDefenseBonus(this.dragonGear) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()) * jobTierAllStatMult(this.playerClass, this.jobTier));
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -6923,7 +6923,7 @@ class WildernessGame {
     if (this.currentPanel === "shop") this.renderPointShopPanel();
     if (this.currentPanel === "sellShop") this.renderSellShopPanel();
     if (this.currentPanel === "loadGame") this.renderLoadGamePanel();
-    if (this.currentPanel === "cheat") this.renderCheatPanel(); if (this.currentPanel === "admin") renderAdminPanel(this.panelEl, { onClose: () => this.closePanel(), showMessage: (text) => this.showMessage(text) }); // F8 밸런스 튜닝(leaf 자체 배선)
+    if (this.currentPanel === "cheat") this.renderCheatPanel();
     if (this.currentPanel === "map") this.renderRegionMapPanel();
     if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel();
     if (this.currentPanel === "training") this.renderTrainingPanel();
