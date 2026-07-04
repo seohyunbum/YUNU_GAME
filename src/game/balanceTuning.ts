@@ -47,7 +47,8 @@ export const BALANCE_TUNABLES: readonly BalanceTunable[] = [
   { key: "illia_p1_hp", label: "일리아 1페이즈(봉인) 체력", group: "최종 보스", def: 3000, min: 800, max: 12000, step: 100 },
   { key: "illia_p2_hp", label: "일리아 2페이즈(절망) 체력", group: "최종 보스", def: 4200, min: 1000, max: 16000, step: 100 },
   { key: "illia_armor", label: "일리아 방어(공통 가산)", group: "최종 보스", def: 0, min: -60, max: 120, step: 5 },
-  { key: "illia_hit_pct", label: "일리아 피격 피해(최대체력 비율)", group: "최종 보스", def: 0.5, min: 0.1, max: 1, step: 0.05 },
+  { key: "illia_hit_pct", label: "일리아 피격 피해(최대체력 비율·방어무시)", group: "최종 보스", def: 0.2, min: 0, max: 1, step: 0.05 },
+  { key: "illia_hit_flat", label: "일리아 피격 공격력(랜덤·방어감소 적용)", group: "최종 보스", def: 100, min: 0, max: 500, step: 10 },
   { key: "illia_telegraph_scale", label: "일리아 예고 시간 배율(높을수록 쉬움)", group: "최종 보스", def: 1, min: 0.6, max: 2, step: 0.1 },
   // 레벨업 성장(직업별) — 레벨 1당 오르는 체력/공격/방어. 기본 = 전 직업 공통(체력 2·공격 1·방어 1, 기존과 동치)
   ...([["warrior", "전사"], ["healer", "힐러"], ["mage", "마법사"], ["summoner", "소환사"], ["gunner", "거너"], ["tanker", "탱커"], ["samurai", "사무라이"]] as const).flatMap(([id, name]) => [

@@ -57,3 +57,15 @@
 - **근접 막타 분기**: `applyMeleeDragonAttack` 도 일리아 전리품 생략(재도전 즉시 가능 → 파밍 루프 차단).
 - **자원 수명**: 텔레그래프 geometry+clone 재질 dispose, 일리아 모듈 공유 재질·아레나 공유 자산은 dispose-skip 레지스트리 등록(사망 재도전 GPU 재업로드 방지).
 - **보스바 회귀 보완**: 기본 드래곤 분모도 `bal("dragon_hp")` 반영.
+
+## 피격 데미지 혼합 (2026-07-05)
+
+순수 "최대체력 %"는 방어력을 무시해 고체력·고방어 직업(전사/탱커)이 불리했다. **혼합 공식**으로 전환:
+
+`피격 = (최대체력 × illia_hit_pct, 방어무시) + (illia_hit_flat 공격력 × 랜덤 80~130% → 방어감소)`
+
+- `illia_hit_pct` 기본 **0.5 → 0.2** (모든 직업 공통 고정 압박, 방어 무관)
+- `illia_hit_flat` 기본 **100** 신규 — 일반 몬스터 피격과 동일하게 `varyMonsterDamage`(삼각분포 80~130%) + `calculateIncomingPlayerDamage`(방어감소, 15% 하한) 적용
+- 두 부분을 합산 후 `damagePlayer(..., ignoreArmor=true)` 단일 호출(공격력 부분은 이미 방어 반영). 산식 = `main.ts` illiaContext.applyPlayerHit
+- 실측(maxHealth 500 기준): 방어 0 → ~214, 방어 220(엔드게임 탱커) → ~116. pct 고정분(100)은 항상 보존.
+- 어드민 튜너블 총 48종(illia_hit_flat 추가).
