@@ -103,9 +103,15 @@ function makeNameplate(nickname: string) {
   return sprite;
 }
 
-// HP바 — 어두운 배경 + 초록(→빨강) 막대. 캔버스 없이 scale/color 만 갱신해 핫패스 할당 0.
+// HP바 — 어두운 배경 + 초록(→빨강) 막대. 캔버스 없이 scale/center/color 만 갱신해 핫패스 할당 0.
 // 두 스프라이트를 회전축(local x=0) 위에 두어, 친구가 방향을 틀거나 내가 그 주위를 돌아도 흔들리지 않는다.
-// 막대는 중앙에서 양쪽으로 줄어든다(center depletion) — scale.x 만 줄이면 됨.
+// 막대는 좌측 고정·우측 소모(one-sided) — position 은 축 위에 둔 채 sprite.center.x 를 함께 움직여
+// 좌단을 화면상 고정한다(hpBarFillTransform). 종전 중앙 수축(양쪽 동시)은 유저 피드백으로 교체(2026-07-04).
+export function hpBarFillTransform(ratio: number, fullWidth: number): { scaleX: number; centerX: number } {
+  const scaleX = fullWidth * Math.max(0.0001, Math.min(1, ratio));
+  return { scaleX, centerX: fullWidth / 2 / scaleX }; // 좌단(-center·scale) = -fullWidth/2 로 항상 고정
+}
+
 function makeHpBar() {
   const group = new THREE.Group();
   const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x10201a, transparent: true, opacity: 0.78, depthWrite: false }));
@@ -127,7 +133,9 @@ function updateHpBar(remote: RemoteMember) {
   }
   const ratio = Math.max(0, Math.min(1, (remote.data.health ?? max) / max));
   remote.hpFill.visible = true;
-  remote.hpFill.scale.x = HP_BAR_WIDTH * 0.96 * Math.max(0.0001, ratio);
+  const t = hpBarFillTransform(ratio, HP_BAR_WIDTH * 0.96); // 좌측 고정·우측 소모
+  remote.hpFill.scale.x = t.scaleX;
+  remote.hpFill.center.x = t.centerX;
   remote.hpFill.material.color.setHSL(ratio * 0.33, 0.85, 0.5); // 빨강(0) → 초록(0.33)
 }
 

@@ -1034,3 +1034,13 @@
     전사 광역기와 동일한 기존 모델(의도된 상호작용). 관통 셋은 설계 명시대로 몬스터류 7종 한정.
   - save-roundtrip·visual-check 는 이 환경(Linux, Chrome/Edge 없음) 실행 불가(기지 제약) — 그 외
     node 스위트 13종 전부 녹색으로 대체 검증. 사용자 PC 에서 visual-check 1회 권장.
+
+## 2026-07-04 — 드래곤 잔여 HP 인지 + 파티 HP바 좌측 고정 소모
+- 신고 ①: 드래곤 류를 때릴 때 잔여 HP 를 알 수 없음. 원인 = 보스 HP바(updateBossBar)는 있었으나
+  DRAGON_BOSS_BAR_DISTANCE=1(충돌면 1칸, 사실상 밀착)이라 일반 전투 거리에선 절대 안 보였음(리팩터 체크포인트 잔재).
+  수정 = 30 으로 확대 + 어그로 중(angryUntil)엔 거리 무관 표시(도망치면서도 확인 가능).
+- 신고 ②: 파티 오버헤드 HP바가 중앙 수축(좌우 동시)이라 어색 → 좌측 고정·우측 소모로 교체.
+  스프라이트 position 은 회전축(x=0)에 둔 채(요동 방지 설계 유지) sprite.center.x 를 함께 움직여 좌단 고정 —
+  순수 헬퍼 hpBarFillTransform(ratio,width) 로 분리(partyPresence leaf).
+- 검증: verify 그린. 단위(좌단 고정 불변식 ratio 0~1 전 구간·풀피 center 0.5·절반 시 우단=중앙) +
+  실브라우저 E2E(20칸 표시 "용 400/1000"·60칸 숨김·어그로 시 거리 무관 표시).

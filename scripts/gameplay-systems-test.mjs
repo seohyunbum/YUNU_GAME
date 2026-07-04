@@ -904,6 +904,20 @@ try {
   }
 
   {
+    // 파티 오버헤드 HP바 — 좌측 고정·우측 소모(one-sided). position 은 회전축(x=0)에 둔 채 center.x 로 좌단 고정.
+    const { hpBarFillTransform } = partyPresence;
+    const W = 1.3 * 0.96;
+    for (const ratio of [1, 0.75, 0.5, 0.2, 0.01, 0]) {
+      const t = hpBarFillTransform(ratio, W);
+      almostEqual(-t.centerX * t.scaleX, -W / 2, `hp bar left edge stays fixed at ratio ${ratio} (one-sided depletion)`);
+      assert(t.scaleX <= W + 1e-9 && t.scaleX > 0, `hp bar width valid at ratio ${ratio}`);
+    }
+    almostEqual(hpBarFillTransform(1, W).scaleX, W, "full hp fills the whole bar");
+    almostEqual(hpBarFillTransform(1, W).centerX, 0.5, "full hp keeps default sprite center");
+    almostEqual(hpBarFillTransform(0.5, W).scaleX + (-hpBarFillTransform(0.5, W).centerX * hpBarFillTransform(0.5, W).scaleX), 0, "half hp: right edge lands at bar center (depletes rightward only)");
+  }
+
+  {
     // 파티 프레즌스 골든: 송신 주기, 같은 맵 아바타 스폰/보간, 다른 맵 분리, 지도 마커, stale 제거
     const { initPartyPresence, updatePartyPresence, resetPartyPresence, partyMapMarkers, remotePartyCount, PRESENCE_SEND_INTERVAL_MS } = partyPresence;
     const sceneAdds = [];
