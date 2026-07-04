@@ -5677,7 +5677,7 @@ class WildernessGame {
     if (!this.gameStarted) { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.21, fadeMs: 1500 }); return; } // 타이틀 (+30%)
     if (this.fortressSiege?.active) { this.musicPlayer.setTrack(T("fortress.ogg"), { volume: 0.22, fadeMs: 800 }); return; } // 몬스터 요새 — 전투 오버라이드보다 먼저 체크: 요새 고유 테마(일반 배틀 아님)
     if (this.combatMoodActive()) { this.musicPlayer.setTrack(T(this.combatTrack), { volume: 0.23, fadeMs: 450 }); return; } // 전투 — 빠른 페이드(타격 즉시). 곡은 enterCombatMood 가 전투 진입 시 풀에서 랜덤 선택
-    if (this.locationMode === "cave") { this.musicPlayer.setTrack(T("cave.ogg"), { volume: 0.22, fadeMs: 1200 }); return; } // 동굴 — 던전 루프(기존 dungeon.ogg 앰비언스는 너무 작아 무음처럼 느껴짐)
+    if (this.locationMode === "cave") { this.musicPlayer.setTrack(T("cave_crystal.mp3"), { volume: 0.22, fadeMs: 1200 }); return; } // 동굴 — 밝고 신비로운 '수정 동굴' 루프(아동 친화. 이전 Dark Shrine Loop 은 너무 무섭다는 피드백으로 교체)
     if (this.locationMode === "house") { this.musicPlayer.setTrack(T("town_theme.mp3"), { volume: 0.14, fadeMs: 1500 }); return; }
     this.musicPlayer.setTrack(T(this.mapMusic[this.currentWorldMapId] ?? "field.mp3"), { volume: 0.2, fadeMs: 1800 });
   }

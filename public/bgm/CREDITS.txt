@@ -11,7 +11,7 @@ battle.mp3      — "Battle Theme A" by cynicmusic 			               — OpenGam
 [맵별 추가 (2026-06-21)]
 bamboo.mp3      — "Hot Springs Town" by Kistol (코토 일본풍)                    — OpenGameArt, CC0  — 대나무 개척지
 swamp.ogg       — "A Wonderful Nightmare" by SpiderDave (으스스 멜로디)         — OpenGameArt, CC0  — 독늪 원정지
-cave.ogg        — "Dark Shrine Loop" by qubodup (orig. yd, 던전 루프)          — OpenGameArt, CC0  — 동굴
+cave_crystal.mp3 — "Crystal Cave (song18)" by cynicmusic (종·아르페지오, 밝고 신비) — OpenGameArt, CC0  — 동굴 (2026-07-04 교체: 이전 "Dark Shrine Loop" 이 아동에게 무섭다는 피드백)
 fortress.ogg    — "Ancient Power Of Serpents" by Kevin MacLeod (어둡고 웅장)    — OpenGameArt, CC0  — 몬스터 요새
 
 [전투 BGM 풀 (2026-06-21)] — 전투 진입마다 랜덤(battle.mp3 포함 4종)

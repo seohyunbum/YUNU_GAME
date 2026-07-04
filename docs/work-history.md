@@ -939,3 +939,12 @@
   입력(클릭/스페이스, 성공·실패 무관)이 있을 때만 인정. 순수 방치는 무득점으로 넘김. 활동하면 즉시 재개.
 - 검증: verify 그린 + 실브라우저 E2E 2종 — ①가짜 안 누르면 성공(armor 5→6). ②활동성 게이트(count=9 최악구간):
   활동 중 9→10→11, >12초 방치 시 11 동결, 입력 주입 후 11→12 재개.
+
+## 2026-07-04 — 동굴 BGM 교체: 무서운 곡 → 밝은 CC0 '수정 동굴'
+- 신고: "동굴 노래가 너무 무섭다. 아이들이 하는 게임인데 무서운 BGM 지양. CC0 에서 동굴 분위기는 나되 더 밝은 곡으로."
+- 교체: cave.ogg("Dark Shrine Loop" by qubodup, 어둡/공포) → cave_crystal.mp3("Crystal Cave (song18)" by cynicmusic,
+  종·아르페지오의 밝고 신비로운 루프, CC0). cynicmusic 은 이미 town_theme·battle 로 크레딧된 동일 출처.
+- 변경: public/bgm/cave_crystal.mp3 추가(OpenGameArt CC0, 534KB) + cave.ogg 삭제, main.ts updateMusic 참조 갱신,
+  CREDITS.txt 갱신(교체 사유 명기).
+- 검증: build 그린(dist/bgm/cave_crystal.mp3 포함) + 실브라우저 E2E — 동굴 진입 시 cave_crystal.mp3 요청(200)·
+  decodeAudioData 성공·isPlaying=true, 옛 cave.ogg 요청 없음(404 없음).
