@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { applyStylizedMeshDefaults } from "../visuals";
 import { ARENA_CENTER_Z, ARENA_HALF, CAVE_CENTER_Z, CAVE_END_Z, CAVE_LENGTH, CAVE_START_Z, CAVE_WIDTH, HOUSE_CENTER_Z } from "./constants";
 import { spawnGrinder, spawnSmelter, spawnWorkbench } from "./placeableSpawns";
+import { illiaSharedMaterials } from "./illiaVisuals";
 import type { SpawnContext } from "./spawnContext";
 import type { BedTier } from "./constants";
 import type { HouseKind, ItemId, WorldObject } from "./types";
@@ -58,10 +59,10 @@ const arenaFloorMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2024, rou
 // main 의 dispose-skip 등록용 — 동굴 셸은 모듈 공유 자산이라 채굴/퇴장 시 dispose 되면 다음 진입이 깨진다.
 // (현재 clearCaveObjects 는 scene.remove 만 하지만, 등록해 두면 실수로 dispose 경로를 타도 공유본이 보존된다.)
 export function caveSharedGeometries(): THREE.BufferGeometry[] {
-  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY, FORTRESS_BANNER_GEOMETRY, FORTRESS_BANNER_POLE_GEOMETRY, FORTRESS_BRAZIER_BOWL_GEOMETRY, FORTRESS_BRAZIER_LEG_GEOMETRY, FORTRESS_FLAME_GEOMETRY, FORTRESS_SKULL_GEOMETRY, FORTRESS_BONE_GEOMETRY, FORTRESS_SPIKE_GEOMETRY, FORTRESS_BAR_GEOMETRY, FORTRESS_ALTAR_BASE_GEOMETRY, FORTRESS_ALTAR_RING_GEOMETRY, ARENA_FLOOR_GEOMETRY, ARENA_WALL_SEG_GEOMETRY, ARENA_PLATFORM_GEOMETRY];
+  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY, FORTRESS_BANNER_GEOMETRY, FORTRESS_BANNER_POLE_GEOMETRY, FORTRESS_BRAZIER_BOWL_GEOMETRY, FORTRESS_BRAZIER_LEG_GEOMETRY, FORTRESS_FLAME_GEOMETRY, FORTRESS_SKULL_GEOMETRY, FORTRESS_BONE_GEOMETRY, FORTRESS_SPIKE_GEOMETRY, FORTRESS_BAR_GEOMETRY, FORTRESS_ALTAR_BASE_GEOMETRY, FORTRESS_ALTAR_RING_GEOMETRY, ARENA_FLOOR_GEOMETRY, ARENA_WALL_SEG_GEOMETRY, ARENA_PLATFORM_GEOMETRY, ILLIA_FLOOR_GEOMETRY, ILLIA_RING_GEOMETRY, ILLIA_RING_INNER_GEOMETRY, ILLIA_SHARD_GEOMETRY];
 }
-export function caveSharedMaterials(): THREE.MeshStandardMaterial[] {
-  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial, fortressBannerMaterial, fortressIronMaterial, fortressFlameMaterial, fortressBoneMaterial, fortressAltarMaterial, fortressRuneMaterial, arenaFloorMaterial];
+export function caveSharedMaterials(): THREE.Material[] {
+  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial, fortressBannerMaterial, fortressIronMaterial, fortressFlameMaterial, fortressBoneMaterial, fortressAltarMaterial, fortressRuneMaterial, arenaFloorMaterial, illiaFloorMaterial, illiaRuneMaterial, illiaVioletMaterial, illiaShardMaterial, ...illiaSharedMaterials()];
 }
 
 // 동굴/집 인테리어 빌더 — main.ts 에서 추출한 순수 장면 구성 로직.
@@ -386,6 +387,63 @@ export function createSiegeArenaInterior(context: InteriorContext) {
 
   // 나가기(포기) 출구 — 남쪽 통로 옆. 진행 중 사용 시 보상 보존하고 이탈.
   const exitId = context.addWorldObject("caveExit", "요새에서 나가기 (포기)", createExitPortal(new THREE.Vector3(half - 2.5, 0, cz + half - 2))).id;
+  context.trackCaveObjects(exitId);
+}
+
+// 최종 보스 '일리아' 차원 아레나 — 심연 위 부유 원형 제단. 봉인석/보스 스폰은 main 이 담당(여기는 셸·조명·출구만).
+const ILLIA_FLOOR_GEOMETRY = new THREE.CircleGeometry(ARENA_HALF + 2.5, 48);
+const ILLIA_RING_GEOMETRY = new THREE.TorusGeometry(ARENA_HALF - 1.5, 0.16, 10, 64);
+const ILLIA_RING_INNER_GEOMETRY = new THREE.TorusGeometry(6.5, 0.1, 8, 48);
+const ILLIA_SHARD_GEOMETRY = new THREE.OctahedronGeometry(1);
+const illiaFloorMaterial = new THREE.MeshStandardMaterial({ color: 0x120d1c, emissive: 0x1c1030, emissiveIntensity: 0.35, roughness: 0.9 });
+const illiaRuneMaterial = new THREE.MeshStandardMaterial({ color: 0xff2038, emissive: 0xff1f3d, emissiveIntensity: 1.1, roughness: 0.4 });
+const illiaVioletMaterial = new THREE.MeshStandardMaterial({ color: 0x7c3aed, emissive: 0x6d28d9, emissiveIntensity: 0.8, roughness: 0.5 });
+const illiaShardMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1426, emissive: 0x312050, emissiveIntensity: 0.5, roughness: 0.7, flatShading: true });
+
+export function createIlliaArenaInterior(context: InteriorContext) {
+  const cz = ARENA_CENTER_Z;
+  const half = ARENA_HALF;
+  const group = new THREE.Group();
+
+  const floor = new THREE.Mesh(ILLIA_FLOOR_GEOMETRY, illiaFloorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, 0, cz);
+  group.add(floor);
+
+  // 이중 룬 링 — 바깥(심홍) 경계 + 안쪽(보라) 제단 원.
+  const outer = new THREE.Mesh(ILLIA_RING_GEOMETRY, illiaRuneMaterial);
+  outer.rotation.x = Math.PI / 2;
+  outer.position.set(0, 0.1, cz);
+  const inner = new THREE.Mesh(ILLIA_RING_INNER_GEOMETRY, illiaVioletMaterial);
+  inner.rotation.x = Math.PI / 2;
+  inner.position.set(0, 0.08, cz);
+  group.add(outer, inner);
+
+  // 가장자리 부유 흑요석 파편 기둥 — 12방(높이·크기 변주). 심연 위에 떠 있는 폐허 느낌.
+  for (let i = 0; i < 12; i += 1) {
+    const a = (Math.PI * 2 * i) / 12;
+    const r = half + 3.5 + (i % 3) * 1.6;
+    const shard = new THREE.Mesh(ILLIA_SHARD_GEOMETRY, illiaShardMaterial);
+    shard.scale.set(0.9 + (i % 4) * 0.35, 2.2 + (i % 5) * 0.9, 0.9 + (i % 3) * 0.3);
+    shard.position.set(Math.cos(a) * r, 1.5 + (i % 4) * 1.2, cz + Math.sin(a) * r);
+    shard.rotation.set(0.3 * (i % 3), a, 0.2 * (i % 2));
+    group.add(shard);
+  }
+
+  // 조명 — 중앙 심홍 + 대각 보라 2 + 낮은 앰비언트(어둡고 차가운 차원).
+  const centerLight = new THREE.PointLight(0xff2d55, 2.0, 40, 1.6);
+  centerLight.position.set(0, 8, cz);
+  const violetA = new THREE.PointLight(0x7c3aed, 1.4, 34, 1.5);
+  violetA.position.set(-half + 3, 5, cz - half + 3);
+  const violetB = new THREE.PointLight(0x7c3aed, 1.4, 34, 1.5);
+  violetB.position.set(half - 3, 5, cz + half - 3);
+  group.add(centerLight, violetA, violetB, new THREE.AmbientLight(0x4c3575, 0.4));
+
+  context.scene.add(group);
+  context.trackCaveObjects(`loose-${group.uuid}`);
+
+  // 출구 — 남쪽 입구 옆. 언제든 이탈 가능(전투 상태는 main 의 leaveCave 경로가 정리).
+  const exitId = context.addWorldObject("caveExit", "차원에서 탈출하기", createExitPortal(new THREE.Vector3(half - 2.5, 0, cz + half - 2))).id;
   context.trackCaveObjects(exitId);
 }
 

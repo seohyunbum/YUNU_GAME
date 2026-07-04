@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { JAMMINI_MAX_HP } from "./constants";
 import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
 import { createDragonVisual, type DragonVisualStats } from "./bossVisuals";
+import { bal } from "./balanceTuning";
 import { createAnimalVisual, createJamminiVisual, createPredatorVisual } from "./creatureVisuals";
 import type {
   AnimalKind,
@@ -78,8 +79,8 @@ export function spawnDragon(context: EntitySpawnContext, position: THREE.Vector3
   const group = createDragonVisual(bossKind, stats);
   group.position.copy(position);
   const dragon = context.addWorldObject("dragon", stats.name, group, {
-    hp: stats.maxHp,
-    armor: stats.armor,
+    hp: bossKind === "dragon" ? bal("dragon_hp", stats.maxHp) : stats.maxHp, // 어드민 튜너블(기본 드래곤) — 상수 테이블 대신 스폰 시점 평가
+    armor: bossKind === "dragon" ? bal("dragon_armor", stats.armor) : stats.armor,
     collidable: true,
     collisionRadius: stats.collisionRadius,
     collisionHeight: stats.collisionHeight,

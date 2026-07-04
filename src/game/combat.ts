@@ -182,11 +182,15 @@ export function applyProjectileDamage(
       retaliate();
       return;
     }
-    const loot = context.rollDragonLoot();
-    const lootCount = context.grantRewardItem(loot, rollDragonLootCount(target.bossKind), "boss");
+    if (target.bossKind === "illia_sealed" || target.bossKind === "illia_desperate") { // 일리아: 전리품 없음(보상=진행·엔딩) + 전용 메시지 — 연출은 recordBossDefeat 가 담당
+      context.showMessage(`${stats.name}(이)가 무릎을 꿇습니다…`);
+    } else {
+      const loot = context.rollDragonLoot();
+      const lootCount = context.grantRewardItem(loot, rollDragonLootCount(target.bossKind), "boss");
+      context.showMessage(`용을 쓰러뜨렸습니다. ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
+    }
     context.removeObject(target.id);
     context.playTone(760, 0.24, "triangle", 0.045);
-    context.showMessage(`용을 쓰러뜨렸습니다. ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
     context.grantExperienceForTarget(target);
     context.partyKillNotify?.(target);
     context.recordBossDefeat(target.bossKind);
@@ -315,11 +319,15 @@ export function applyMeleeDragonAttack(context: ProjectileDamageContext, target:
     context.dragonCounterAttack(target);
     return;
   }
-  const loot = context.rollDragonLoot();
-  const lootCount = context.grantRewardItem(loot, rollDragonLootCount(target.bossKind), "boss");
+  if (target.bossKind === "illia_sealed" || target.bossKind === "illia_desperate") { // 근접 막타도 원거리와 동일 — 일리아는 전리품 없음(보상=진행·엔딩), 재도전 즉시 가능이라 반복 파밍 차단
+    context.showMessage(`${stats.name}(이)가 무릎을 꿇습니다…`);
+  } else {
+    const loot = context.rollDragonLoot();
+    const lootCount = context.grantRewardItem(loot, rollDragonLootCount(target.bossKind), "boss");
+    context.showMessage(`용을 쓰러뜨렸습니다! ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
+  }
   context.removeObject(target.id);
   context.playTone(760, 0.24, "triangle", 0.045);
-  context.showMessage(`용을 쓰러뜨렸습니다! ${ITEM_NAMES[loot] ?? loot} ${lootCount}개를 얻었습니다.`);
   context.grantExperienceForTarget(target);
   context.partyKillNotify?.(target);
   context.recordBossDefeat(target.bossKind);

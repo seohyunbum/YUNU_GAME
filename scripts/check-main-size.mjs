@@ -100,7 +100,9 @@ import { readFileSync } from "node:fs";
 //   syncSubquests 배선 메서드 1 + 이벤트 훅(kill/chest/supply/caveBoss 인라인)·save/load·setupUi 원소. +32 → 9371.
 // 2026-07-04: 마을 이장 NPC + 서브퀘스트 이장 방식 전환 — NPC 메시는 npcSpawns 리프. main 은 이장 상호작용/보상수령
 //   (claimSubquest)·spawnVillage 이장·restore·ensure 백필·주민수 하향 배선. +19 → 9390.
-const MAX_MAIN_LINES = 9390;
+// 2026-07-04: 최종 보스 일리아 — 상태 필드 1 + 컨텍스트/헬퍼 화살표 필드 6(엔진·컷씬·비주얼은 leaf illiaBoss/illiaVisuals) + recordBossDefeat 일리아 분기 + 사망 특례 블록. +38 → 9376.
+// 2026-07-05: 서브퀘스트(+51)·일리아(+38) 리베이스 합류 — 실측 재기준(아래 값).
+const MAX_MAIN_LINES = 9428;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

@@ -37,6 +37,8 @@ const DRAGON_PROFILES: Record<BossKind, { colors: number[]; cooldown: number; br
   laser_dragon: { colors: [0xd0ffff, 0x22d3ee, 0x0ea5e9], cooldown: 2.7, breathMul: 1.7 },
   dark_dragon: { colors: [0xe9d5ff, 0xa855f7, 0x6d28d9], cooldown: 2.5, breathMul: 1.7 },
   immortal: { colors: [0xfff7d6, 0xc7b3ff, 0x8b5cf6], cooldown: 2.3, breathMul: 1.9 },
+  illia_sealed: { colors: [0xffd0da, 0xff1f3d, 0x7f1d1d], cooldown: 3.0, breathMul: 1.0 }, // 미사용 — 일리아는 아레나(cave) 전용이라 dragonAi(오버월드) 를 타지 않음. Record 완전성용
+  illia_desperate: { colors: [0xffd0da, 0xff2d55, 0x7f1d1d], cooldown: 3.0, breathMul: 1.0 }, // 미사용 — 상동
 };
 
 const ATTACK_DURATION = 900; // ms — rear-up(예열) → 내리꽂기(강타). 크게 보이도록 길게.

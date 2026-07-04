@@ -68,6 +68,7 @@ export interface SaveDataSnapshot {
     worldTimeSeconds: number;
     worldMapId: WorldMapId;
     bossChapter: number;
+    illiaProgress: number; // 최종 보스 일리아 진행(0/1/2)
     defeatedFieldBosses: readonly string[];
     totalSteps: number;
     playSeconds: number;
@@ -263,6 +264,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       worldTimeSeconds: snapshot.player.worldTimeSeconds,
       worldMapId: snapshot.player.worldMapId,
       bossChapter: normalizeBossChapter(snapshot.player.bossChapter),
+      illiaProgress: Math.max(0, Math.min(2, Math.floor(snapshot.player.illiaProgress ?? 0))),
       defeatedFieldBosses: [...snapshot.player.defeatedFieldBosses],
       totalSteps: snapshot.player.totalSteps,
       playSeconds: snapshot.player.playSeconds,

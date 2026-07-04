@@ -298,6 +298,7 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       worldTimeSeconds: savedNumber(player.worldTimeSeconds, DEFAULT_WORLD_TIME, 0, DAY_LENGTH_SECONDS),
       worldMapId: migratedWorldMapId,
       bossChapter: normalizeBossChapter(player.bossChapter),
+      ...(typeof player.illiaProgress === "number" ? { illiaProgress: Math.max(0, Math.min(2, Math.floor(player.illiaProgress))) } : {}), // 일리아 진행 — 구세이브(필드 없음)는 0 취급
       defeatedFieldBosses: normalizeDefeatedFieldBosses(player.defeatedFieldBosses),
       totalSteps: savedNumber(player.totalSteps, 0, 0),
       playSeconds: savedNumber(player.playSeconds, 0, 0),
