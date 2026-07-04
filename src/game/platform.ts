@@ -41,6 +41,27 @@ function isRealMobileDevice(): boolean {
   return (navigator.maxTouchPoints ?? 0) > 0 && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent ?? "");
 }
 
+// 데스크탑 포함 전체화면 토글 — 타이틀 버튼·Alt+Enter 에서 호출(사용자 제스처 내 동기 호출 필수).
+// feature-detect + catch: 미지원(iPhone 등)·권한 거부 시 조용히 무시. F11(브라우저 네이티브)과는 독립.
+export function toggleFullscreen(): void {
+  if (typeof document === "undefined") return;
+  const doc = document as Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void };
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+  try {
+    if (doc.fullscreenElement ?? doc.webkitFullscreenElement) {
+      const exit = doc.exitFullscreen ?? doc.webkitExitFullscreen;
+      const p = typeof exit === "function" ? exit.call(doc) : undefined;
+      if (p && typeof (p as Promise<void>).catch === "function") (p as Promise<void>).catch(() => {});
+    } else {
+      const req = el.requestFullscreen ?? el.webkitRequestFullscreen;
+      const p = typeof req === "function" ? req.call(el) : undefined;
+      if (p && typeof (p as Promise<void>).catch === "function") (p as Promise<void>).catch(() => {});
+    }
+  } catch {
+    /* 미지원/거부 — 무시 */
+  }
+}
+
 // 모바일 게임 진입 시: 전체화면 요청 → (실제 모바일이면) 가로 잠금. 전부 feature-detect + catch 라 미지원/거부 시 조용히 무시(예외 없음).
 // ※ 반드시 사용자 제스처(클릭) 안에서 동기 호출해야 브라우저 정책을 충족한다. iOS Safari 는 두 API 모두 미제공 → no-op(가로 안내 오버레이로 폴백).
 export function enterLandscapeFullscreen(): void {

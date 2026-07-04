@@ -1,3 +1,4 @@
+import { toggleFullscreen } from "../game/platform";
 import { renderControlsGuide } from "./controlsGuide";
 import { renderSaveControls, renderTitleScreen, type TitlePlayerClassView } from "./titleScreen";
 
@@ -127,6 +128,7 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   bindButton(titleScreenEl, "[data-title-mini]", callbacks.onShowMiniGame);
   bindButton(titleScreenEl, "[data-title-lava]", callbacks.onShowLavaMiniGame);
   bindButton(titleScreenEl, "[data-title-smith]", callbacks.onShowSmithingMiniGame);
+  bindButton(titleScreenEl, "[data-title-fullscreen]", () => toggleFullscreen()); // 데스크탑 전체화면 — leaf 직접 배선(main 콜백 불필요), 클릭 제스처 내 동기 호출로 브라우저 정책 충족
   bindButton(titleScreenEl, "[data-mini-back]", callbacks.onHideMiniGame);
   bindButton(titleScreenEl, "[data-mini-start]", callbacks.onStartMiniGame);
   bindButton(titleScreenEl, "[data-mini-reset]", callbacks.onResetMiniGame);

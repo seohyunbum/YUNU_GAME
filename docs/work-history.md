@@ -1044,3 +1044,13 @@
   순수 헬퍼 hpBarFillTransform(ratio,width) 로 분리(partyPresence leaf).
 - 검증: verify 그린. 단위(좌단 고정 불변식 ratio 0~1 전 구간·풀피 center 0.5·절반 시 우단=중앙) +
   실브라우저 E2E(20칸 표시 "용 400/1000"·60칸 숨김·어그로 시 거리 무관 표시).
+
+## 2026-07-04 — 데스크탑 전체화면 모드
+- 유저 요청: 모바일(진입 시 자동 전체화면)처럼 데스크탑에도 전체화면 모드.
+- 구현: ①platform.ts(leaf)에 toggleFullscreen() — fullscreenElement 여부로 진입/해제, feature-detect+catch
+  (webkit 폴백 포함, 미지원·거부 시 무음). ②타이틀 화면 "🖥 전체화면" 버튼(title-actions) — setupUi 가
+  leaf→leaf 직접 배선(클릭 제스처 내 동기 호출로 브라우저 정책 충족, main 콜백 불필요).
+  ③게임 표준 단축키 Alt+Enter — handleKeyDown 최상단(입력 가드 앞: 검색/채팅 중에도 동작, 문자 입력 영향 없음).
+  ④조작 안내에 Alt+Enter 표기. main.ts 는 기존 줄 인라인(래칫 9339/480 여유 0 유지). F11(브라우저 네이티브)과 독립.
+- 검증: verify 그린 + 실브라우저 E2E(Fullscreen API 계측) — 버튼 클릭 진입→재클릭 해제,
+  게임 중 Alt+Enter 진입/해제 토글, 일반 Enter 미발동.
