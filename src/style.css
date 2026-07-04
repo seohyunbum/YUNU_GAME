@@ -801,6 +801,14 @@ body {
   letter-spacing: 0.06em;
 }
 
+/* 조작법 헤더 우측 버튼 묶음(전체화면 ⛶ + 접기 ▾) */
+.controls-guide-title-btns {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 5px;
+  pointer-events: auto;
+}
+
 /* 패널 접기/펼치기 토글 — 조작법·퀘스트 공용. 부모가 pointer-events:none 여도 버튼만 auto. */
 .panel-collapse-btn {
   flex: 0 0 auto;
@@ -817,14 +825,14 @@ body {
   text-align: center;
   cursor: pointer;
   pointer-events: auto;
-  transition: transform 0.12s ease, background 0.12s ease;
+  transition: background 0.12s ease; /* transform 은 즉시 — none↔rotate 보간 이슈 회피(접힘 셰브런 회전이 안 먹던 원인) */
 }
 .panel-collapse-btn:hover {
   background: rgba(30, 41, 59, 0.9);
 }
-/* 접힌 상태: 셰브런을 오른쪽(펼치기 유도)으로 회전 */
-.controls-guide.collapsed .panel-collapse-btn,
-.objective.collapsed .panel-collapse-btn {
+/* 접힌 상태: 접기 셰브런만 오른쪽(펼치기 유도)으로 회전 — 전체화면 ⛶ 아이콘은 회전 제외 */
+.controls-guide.collapsed [data-guide-collapse],
+.objective.collapsed [data-quest-collapse] {
   transform: rotate(-90deg);
 }
 /* 조작법 접힘: 키칩 그룹 숨김 — 퀵버튼(가방·캐릭터·파티) + 타이틀만 남겨 화면 가림 최소화 */

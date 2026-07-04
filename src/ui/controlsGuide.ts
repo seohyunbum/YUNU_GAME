@@ -49,7 +49,7 @@ export function renderControlsGuide(el: HTMLElement) {
         `<button type="button" class="quick-action-btn" data-quick-action="${a.action}" title="${escapeHtml(a.label)} 열기 (${escapeHtml(a.key)})"><span class="qa-key">${escapeHtml(a.key)}</span><span class="qa-icon">${a.icon}</span><span class="qa-label">${escapeHtml(a.label)}</span></button>`,
     ).join("") +
     `</div>` +
-    `<div class="controls-guide-title">🎮 조작법<button type="button" class="panel-collapse-btn" data-guide-collapse aria-label="조작법 접기/펼치기" title="조작법 접기/펼치기">▾</button></div>` +
+    `<div class="controls-guide-title">🎮 조작법<span class="controls-guide-title-btns"><button type="button" class="panel-collapse-btn" data-fullscreen-toggle aria-label="전체화면 켜기/끄기" title="전체화면 켜기/끄기 (Alt+Enter)">⛶</button><button type="button" class="panel-collapse-btn" data-guide-collapse aria-label="조작법 접기/펼치기" title="조작법 접기/펼치기">▾</button></span></div>` +
     GROUPS.map(
       (group) =>
         `<div class="controls-guide-group">` +
