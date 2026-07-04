@@ -115,6 +115,7 @@ try {
   const hitFeedback = await server.ssrLoadModule("/src/game/hitFeedback.ts");
   const classSkills = await server.ssrLoadModule("/src/game/classSkills.ts");
   const samuraiMod = await server.ssrLoadModule("/src/game/samurai.ts");
+  const balanceTuning = await server.ssrLoadModule("/src/game/balanceTuning.ts");
   const training = await server.ssrLoadModule("/src/game/training.ts");
   const nickname = await server.ssrLoadModule("/src/game/nickname.ts");
   const party = await server.ssrLoadModule("/src/game/party.ts");
@@ -2367,7 +2368,30 @@ try {
     for (const failure of failures) console.error(`SYSTEM TEST FAIL ${failure}`);
     process.exitCode = 1;
   } else {
-    console.log(JSON.stringify({
+    {
+    // F8 어드민 밸런스 튜닝(2026-07-04) — 레지스트리 유효성·클램프/화이트리스트·우선순위·기본 동치
+    const { BALANCE_TUNABLES, bal, sanitizeOverrides, __setOverridesForTest } = balanceTuning;
+    const keys = BALANCE_TUNABLES.map((t) => t.key);
+    assert(new Set(keys).size === keys.length && keys.length >= 20, `tunable keys unique & >=20 (got ${keys.length})`);
+    for (const t of BALANCE_TUNABLES) assert(t.min <= t.def && t.def <= t.max && t.step > 0, `tunable ${t.key} range sane (min<=def<=max)`);
+    // 오염 방어 — 화이트리스트 키만, 비유한/범위 밖은 폐기·클램프
+    const dirty = sanitizeOverrides({ samurai_swing: 0.01, dragon_hp: 99999, hack_key: 5, samurai_flurry_pct: NaN, monster_xp_mult: Infinity, drop_chance_mult: 2 });
+    assert(dirty.samurai_swing === 0.5 && dirty.dragon_hp === 3000 && dirty.drop_chance_mult === 2, "out-of-range values clamp to [min,max]");
+    assert(!("hack_key" in dirty) && !("samurai_flurry_pct" in dirty) && !("monster_xp_mult" in dirty), "unknown keys and non-finite values are dropped");
+    // 우선순위 — 로컬 > 전역 > 기본. 기본 상태에선 코드 기본값과 완전 동치(골든 안전).
+    __setOverridesForTest({}, {});
+    for (const t of BALANCE_TUNABLES) assert(bal(t.key, t.def) === t.def, `no-override bal(${t.key}) equals code default`);
+    __setOverridesForTest({}, { samurai_flurry_pct: 1.2 });
+    assert(bal("samurai_flurry_pct", 0.9) === 1.2, "global override applies when no local");
+    __setOverridesForTest({ samurai_flurry_pct: 0.5 }, { samurai_flurry_pct: 1.2 });
+    assert(bal("samurai_flurry_pct", 0.9) === 0.5, "local override beats global (기기 실험 우선)");
+    // 실제 게임 함수 반영 — 난도 계수 오버라이드가 samuraiFlurryHitDamage 에 관통
+    assert(samuraiMod.samuraiFlurryHitDamage(100) === 50, "override flows into live damage math (0.5 x 100)");
+    __setOverridesForTest({}, {});
+    assert(samuraiMod.samuraiFlurryHitDamage(100) === 90, "cleared overrides restore golden default (0.9 x 100)");
+  }
+
+  console.log(JSON.stringify({
       ok: true,
       checks: [
         "medkit heals, caps, consumes, and respects cooldown",

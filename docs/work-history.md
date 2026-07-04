@@ -1161,3 +1161,19 @@
   회전 대상에서 제외(`[data-guide-collapse]`/`[data-quest-collapse]` 로 한정).
 - 검증: 헤드리스(chromium, vite createServer 동일 프로세스)로 계측 — 새 게임 클릭이 requestFullscreen 호출(HTML),
   ⛶ present+hittable+클릭 시 requestFullscreen 호출, 접힘 시 셰브런 rotate(-90)·⛶ 미회전, 그룹 숨김. + verify 게이트 녹색.
+
+## 2026-07-04 — F8 어드민 밸런스 패널 (1단계 로컬 실험 + 2단계 Firebase 전체 적용)
+- 유저 승인 설계: 크레딧 소모 없이 주요 밸런스를 직접 조정. 게임 내 숨김 패널(F8, 조작 안내 미표기).
+- **balanceTuning.ts(leaf)**: 튜너블 레지스트리 21개(사무라이 8종·전투/성장 6종·보급/아이템 5종·내구도 2종) —
+  화이트리스트이자 UI 정의(label·min/max/step·def). 우선순위 = 로컬(localStorage 실험) > 전역(Firebase) > 코드 기본값.
+  sanitizeOverrides: 미등록 키 폐기 + [min,max] 클램프 + 비유한 폐기 — Firebase 공개 쓰기라도 게임 못 망가뜨림.
+  전역 경로 = users/__balance__/global.json(기존 공개 규칙 재사용 — /balance 경로는 401이라 이전. 규칙 변경 불필요).
+- **adminPanel.ts(leaf)**: 그룹별 슬라이더+숫자입력+개별 리셋, 이 기기 초기화 / 🌐전체 적용 / 🌐전역 초기화.
+  전체 적용·전역 초기화는 PIN(7777) 게이트 — 아이 오조작 방지용(보안 아님, 클램프가 안전망). 적용 시 로컬 실험값을
+  전역으로 승격 후 비움. 부팅 1회 fetch(3s 타임아웃, 실패=기본값).
+- **주입 지점**: bal(key, 기본값) — samurai.ts(스윙·카타나 공/공속·난도·도약 피해/폭·찌르기·월광), combat.ts(vary
+  Player/MonsterDamage 배율), monsters.ts(XP 배율·드래곤 hp/방어), homeBase.ts(보급 확률 3종), items.ts+tanker.ts
+  (흑요석 방패 내구도·수리량), main.ts(드랍률 배율·정령권 드랍률). 오버라이드 없으면 완전 동치(골든 안전).
+- 검증: verify 그린 + 골든(레지스트리 유효성·클램프/화이트리스트·우선순위·기본 동치·실함수 관통) + 실브라우저 E2E
+  (부팅 GET+오염값 클램프(99999→3000)·F8 패널·슬라이더 즉시 반영(난도 1.5×100=150)·리로드 유지·PIN→PUT·로컬 승격).
+- main.ts 래칫 여유 0 유지(임포트 병합·인라인). ★def 는 코드 기본값과 일치 필수 — 코드 수치를 바꾸면 레지스트리 def 도 갱신(골든이 강제).

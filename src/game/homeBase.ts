@@ -1,4 +1,5 @@
 import { capLootByGrade } from "./chestLoot";
+import { bal } from "./balanceTuning";
 import type { ItemId, Slot } from "./types";
 
 // 내 집 베이스캠프 — 플레이어가 지은 집(playerOwned)에만 주어지는 혜택 로직.
@@ -71,14 +72,14 @@ export function rollHomeSupply(level: number, random: () => number = Math.random
   if (tier >= 1) loot.push({ item: "copper", count: 8 + tier * 3 }, { item: "refined_iron", count: 2 + tier });
   if (tier >= 2) loot.push({ item: "iron", count: 8 + tier * 2 }, { item: "gold", count: 4 + tier });
   // 경험치병(레전더리) — tier≥2에서 35% 확률로만(종전 50%의 70%)
-  if (tier >= 2 && random() < 0.35) loot.push({ item: "xp_bottle", count: 1 });
+  if (tier >= 2 && random() < bal("supply_xp_bottle_chance", 0.35)) loot.push({ item: "xp_bottle", count: 1 });
   // 정령 소환권(전설) — tier≥2에서 낮은 확률로만. cap 에서 레전더리라 거의 항상 보존. (유저 요청 상향 2026-07-04: 6%→11%)
-  if (tier >= 2 && random() < 0.11) loot.push({ item: "spirit_gacha_token", count: 1 });
+  if (tier >= 2 && random() < bal("supply_spirit_chance", 0.11)) loot.push({ item: "spirit_gacha_token", count: 1 });
   if (tier >= 3) loot.push({ item: "diamond", count: 3 }, { item: "refined_diamond", count: 2 }, { item: "gold_powder", count: 3 }, { item: "diamond_powder", count: 2 });
   if (tier >= 4) loot.push({ item: "obsidian", count: 3 }, { item: "sharp_obsidian", count: 2 }, { item: "obsidian_powder", count: 2 }, { item: "dragon_scale", count: 2 });
   // 행운 보너스 1줄 — 등급별 상향(흑요석 베이스캠프는 용의 뿔까지)
   if (random() < 0.2) loot.push(tier >= 4 ? { item: "dragon_horn", count: 1 } : tier >= 3 ? { item: "refined_diamond", count: 2 } : tier >= 1 ? { item: "diamond", count: 1 } : { item: "gold", count: 2 });
   // 영웅(에픽)등급 이상 보너스 — 집(tier≥1)에서 낮은 확률로 1개. cap 에서 고등급이라 거의 항상 보존. (유저 요청 소폭 상향 2026-07-04: 15%→20%)
-  if (tier >= 1 && random() < 0.2) loot.push(pickEpicPlusSupply(random));
+  if (tier >= 1 && random() < bal("supply_epic_chance", 0.2)) loot.push(pickEpicPlusSupply(random));
   return capLootByGrade(loot, 6); // 모든 상자 공통 — 최대 6종류(등급·수량 우선)
 }

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { DRAGON_MAX_HP, DRAGON_ARMOR } from "./constants";
+import { bal } from "./balanceTuning";
 import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
 import type { PredatorKind, BossKind, WorldObject } from "./types";
 
@@ -28,6 +29,9 @@ export function predatorLootForKind(kind: PredatorKind | undefined): { item: "me
 
 // 처치 경험치 — main.grantExperienceForTarget 가 소비하는 단일 표 (이동: main.ts → leaf)
 export function experienceRewardForTarget(target: WorldObject): number {
+  return Math.max(1, Math.round(baseExperienceRewardForTarget(target) * bal("monster_xp_mult", 1))); // 어드민 배율 — 기본 1(동치)
+}
+function baseExperienceRewardForTarget(target: WorldObject): number {
   if (target.type === "animal") {
     if (target.animalKind === "chicken") return 4;
     if (target.animalKind === "pig" || target.animalKind === "cow") return 6;
@@ -260,8 +264,8 @@ export const BOSS_STATS: Record<
 > = {
   dragon: {
     name: "용",
-    maxHp: DRAGON_MAX_HP,
-    armor: DRAGON_ARMOR,
+    maxHp: bal("dragon_hp", DRAGON_MAX_HP),
+    armor: bal("dragon_armor", DRAGON_ARMOR),
     fireDamage: 12,
     clawDamage: 13,
     attackRange: 28,
