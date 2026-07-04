@@ -986,3 +986,51 @@
   1차 deploy-pages 에 continue-on-error, 실패 시 sleep 30 후 조건부 재시도 1회. 두 번 다 실패 시 job 실패(진짜 문제만 빨강).
   environment.url 은 1차∥재시도 출력 폴백.
 - 효과: 일시 인프라 실패는 자동 복구(수동 빈 커밋 불필요), 실제 문제는 여전히 드러남.
+
+## 2026-07-04 — 사무라이 적대적 QA 전수 감사: 오염 수치 방어 하드닝 + 전용 테스트 스위트
+
+- 배경: 사무라이+카타나(c2078af..a31e202 + 밸런스 후속 ffd55e0·a0e1827)를 치터·QA 관점으로 전수 공격
+  (도약 탈출·충돌 우회, 연격 수명주기, 카타나 리치 악용, 퍼징, 세이브/파티, 타 직업 회귀, 핫패스 예산).
+- **CONFIRMED-FIXED** (76b203b, 전부 game/samurai.ts 리프 한정·정상 입력 골든 불변):
+  ① 피해 헬퍼 4종(난도/도약/무한 찌르기/월광베기) — 비유한 currentDamage → NaN 피해 → target.hp NaN
+     → `hp <= 0` 영원히 false = **불사 몬스터** (samurai.ts finiteOr1 가드).
+  ② registerSamuraiFlurry — NaN 간격은 `now < nextHitAt` 전부 false = **매 프레임 타격**, NaN/∞ 타수는
+     `hitsLeft <= 0` 전부 false = **무한 연격 엔트리**. 비유한 인자 등록 거부 + 타수 ≥1 클램프.
+  ③ performSamuraiDash — 오염 방향(NaN/0벡터)·dashStep 위치 오염 시 playerPosition NaN 전파 +
+     NaN 경로/NaN 좌표/∞ 반경 개체는 hypot 비교 전부-false 로 **반경 22 내 전 후보 오폭**.
+     조기 종료·시작점 복원·오염 개체 판정 제외로 차단.
+  - 검증: scripts/samurai-test.mjs 신설(spirits-test 패턴, package.json verify 편입) — 헬퍼 퍼징(적대 6종
+    ×4 + LCG 200회 단조), 동일 프레임 중복 타격 금지, 중첩 시전(R+F) splice 경합, 리셋(로드/새게임) 후
+    틱 릭 방지, 도약 기하(전면 차단·과전진 dashStep 종료·경로 1회 타격·오염 개체 제외), 세이브 왕복
+    (isPlayerClassId)·파티 원격 모션 폴백. **고장 주입 확인**: git stash 로 하드닝 전 코드에서
+    `samuraiFlurryHitDamage(NaN) → NaN` 실패 재현 후 복원(테스트 파일은 untracked 라 checkout 사고 없음).
+- **CLEAN** (코드 경로 판독으로 확인, 수정 불요):
+  - 도약 탈출류: 월드 경계/동굴/요새 아레나는 dashStep 이 스텝마다 clampPlayerHorizontalPosition
+    (main.ts:3138·3429), 울타리 세그먼트·충돌체·buildingBlock 머리높이는 resolveCollisions 0.5스텝 +
+    BLOCK_RATIO 0.4 정지(main.ts:3522) — 도보와 동일 의미론. 안전구역은 몬스터 전용 제약이라 플레이어
+    도약 진입은 도보 진입과 동일하게 합법(safeZones.ts 주석·main.ts:3901 은 몬스터 이동에만 적용).
+  - 시전 게이트: 패널 열림 차단(trySpendSkill main.ts:3093 + 핸들러 게이트), 사망은 즉시 부활이라 지속
+    사망 상태 없음(main.ts:5534), 휴식 중 도약은 0.6칸 이탈 자동 기상(main.ts:3068), keydown !repeat +
+    동기 실행 + trySpend 내부 쿨 설정으로 이중 시전 불가, 마나 경계(==cost) 허용은 전 직업 공통 규칙.
+  - 연격: 대상 사망/소실 시 취소, 로드·새게임 시 resetSecondSkillEffects → resetSamuraiEffects
+    (main.ts:6337·6479), 직업 전환은 새게임/로드 외 경로 없음. 전직 게이트 F=tier1(main.ts:3144)·
+    G=tier4(main.ts:3150). 파티 게스트는 도약·연격 틱 모두 partyGuestAttackIntercept 경유.
+  - 카타나: 시너지는 samuraiKatanaAttackMult 의 클래스 가드로 사무라이 한정(전사+카타나 = 근접 +10%만,
+    골든 테스트 존재). 2배 리치 확장 탐색은 전투 대상 4종 한정(main.ts:4253) — 상자·NPC·제작대는 기본
+    사거리. +5% 공격은 classWeaponDamageMult 로 bodyMeleeAttackPower 에 합성 → 근접·스킬·HUD 일관,
+    스윙 두 계산 지점(main.ts:4069·4095) 동일식. 이속은 합연산 계층 1곳.
+  - 세이브/파티: isPlayerClassId 가 PLAYER_CLASSES 키 기반이라 samurai 왕복·구세이브 warrior 폴백
+    (saveMigration.ts:137·255), CLASS_APPEARANCE.samurai + 미지 직업 폴백(partyPresence.ts:143).
+  - 핫패스: updateSamuraiFlurries 무할당 유지 — check:hotpath 0/0·clone 6/6·set/map 2/2·innerHTML 3/3.
+- **DEFERRED** (판단 기록 — 수정하지 않기로 한 것과 이유):
+  - 연격 사거리 취소 없음(시전 후 대상이 멀어져도 잔여 ≤1.6초 타격 적중): 전사 화상 도트와 동일한
+    등록형 틱 계약. 취소 도입은 밸런스 골든 계약 변경 + 아동 플레이 좌절 요인이라 보류.
+  - 근접 조준에 가림(LOS) 판정 없음: nearbyObjectInView 는 순수 기하(각도+거리)라 기본 리치(6.4)부터
+    얇은 벽 너머 타격이 원래 가능 — 카타나(11.6)는 기존 모델의 증폭이지 신규 결함이 아님. 수정은
+    main.ts 조준부 레이캐스트 추가 = 브라우저 실검증이 필요한 동작 변경이라 보류(도약 경로 폭 3.0 의
+    측면 벽 너머 피해도 동일 모델). 다음 작업자: 고치려면 확장 탐색(4253)·lookCombatTarget 에만
+    가림 검사를 한정해 일반 전투 체감을 보존할 것.
+  - 도약이 마을 NPC(빌리저·경비)에 막힘 + 광역기의 빌리저 타격 가능: isCombatTarget 이 빌리저 포함 —
+    전사 광역기와 동일한 기존 모델(의도된 상호작용). 관통 셋은 설계 명시대로 몬스터류 7종 한정.
+  - save-roundtrip·visual-check 는 이 환경(Linux, Chrome/Edge 없음) 실행 불가(기지 제약) — 그 외
+    node 스위트 13종 전부 녹색으로 대체 검증. 사용자 PC 에서 visual-check 1회 권장.
