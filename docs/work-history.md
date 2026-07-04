@@ -977,3 +977,12 @@
   messageLockUntil 필드 추가·resetGameState 리셋. main.ts 전부 기존 줄 인라인(래칫 9339/480 여유 0 유지).
 - 검증: verify 그린 + 실브라우저 E2E — 실제 보상 경로 후 soft '대상 없음'이 보상을 안 덮음,
   중요 메시지는 표시, 잠금 해제 후 soft 정상 복귀.
+
+## 2026-07-04 — CI: Pages 배포 일시 실패 자동 재시도(네이티브 1회)
+- 배경: deploy-pages@v4 가 이전 배포 finalize 와 경합하면 몇 초 만에 일시 실패(2026-07-03~04 에만 4회,
+  매번 빌드는 성공·빈 커밋 수동 재시도 1회로 전부 해결). cancel-in-progress:false 는 워크플로 직렬화만 하고
+  환경 finalize 경합까지는 못 막음.
+- 수정(.github/workflows/deploy.yml): 외부 액션 의존 없이 네이티브 패턴 —
+  1차 deploy-pages 에 continue-on-error, 실패 시 sleep 30 후 조건부 재시도 1회. 두 번 다 실패 시 job 실패(진짜 문제만 빨강).
+  environment.url 은 1차∥재시도 출력 폴백.
+- 효과: 일시 인프라 실패는 자동 복구(수동 빈 커밋 불필요), 실제 문제는 여전히 드러남.

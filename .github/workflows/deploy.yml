@@ -32,12 +32,23 @@ jobs:
         with:
           path: dist
 
+  # deploy-pages 는 이전 배포 finalize 와 경합하면 몇 초 만에 일시 실패하는 일이 잦다
+  # (2026-07-03~04 에만 4회, 매번 빌드는 성공·재시도 1회로 전부 해결). 외부 액션 의존 없이
+  # 네이티브 continue-on-error + 조건부 재시도 1회로 자동 복구한다. 두 번 다 실패하면 job 실패(진짜 문제).
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Wait before retry (previous deployment finalize race)
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+      - id: deployment_retry
+        name: Retry deploy once
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
