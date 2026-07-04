@@ -119,6 +119,7 @@ import {
   BASE_BAG_SLOT_COUNT,
   BASE_MAX_MANA,
   BASE_PLAYER_MAX_HEALTH,
+  HOUSE_CHEST_COOLDOWN_MS,
   BOW_DAMAGE,
   BUILDING_BLOCK_REACH,
   BUILDING_BLOCK_SIZE,
@@ -708,6 +709,7 @@ class WildernessGame {
   private houseObjectIds: string[] = [];
   private readonly frameScratch = { titleFocus: new THREE.Vector3(58, 2.8, -76), moveDirection: new THREE.Vector3(), moveForward: new THREE.Vector3(), moveRight: new THREE.Vector3(), legoTarget: new THREE.Vector3() };
   private currentHouseOwned = false;
+  private currentHouseObject: WorldObject | null = null; // 현재 들어온 집/대장간 오브젝트 — 안 상자 20분 쿨타임 추적용
   private saveLoadInProgress = false;
   private saveInProgress = false; // 수동 저장(SAVE_LIST 기록) 직렬화 — 동시 saveGame/덮어쓰기의 read-modify-write 경쟁(저장 유실) 방지
   private lastSaveCompletedAt = 0; // 마지막 저장 완료 시각(ms) — SAVE_DEBOUNCE_MS 내 재요청 무시(같은-초 중복 슬롯 방지)
@@ -4713,6 +4715,7 @@ class WildernessGame {
     for (const entry of rollChestLoot(target.chestTier ?? 0)) if (this.addItem(entry.item, entry.count)) loot.push(ITEM_NAMES[entry.item] ?? entry.item);
     this.showMessage(loot.length > 0 ? `상자에서 ${loot.join(", ")}를 얻었습니다.` : "상자가 비어 있었습니다.");
     this.syncSubquests("chest"); // 서브퀘스트 — 보물상자 개봉 진행
+    if (this.locationMode === "house" && this.currentHouseObject) this.currentHouseObject.houseChestReadyAt = Date.now() + HOUSE_CHEST_COOLDOWN_MS; // 마을집·대장간 안 상자 20분 쿨타임 시작
     if (!isTouchDevice()) showChestContents(this.uiRoot, loot); // 데스크탑 상자 획득 카드(#14) — 모바일은 자체 UI라 제외
   }
 
@@ -4875,7 +4878,10 @@ class WildernessGame {
     this.currentHouseOwned = Boolean(target.playerOwned);
     this.currentHouseBedTier = target.bedTier ?? "wood";
     if (target.houseChestRich === undefined) target.houseChestRich = houseKind === "blacksmith" || Math.random() < 0.01;
-    createHouseInterior(this.interiorContext, target.houseChestRich, houseKind, this.currentHouseOwned, this.currentHouseBedTier);
+    this.currentHouseObject = target;
+    const chestReady = (target.houseChestReadyAt ?? 0) <= Date.now(); // 20분 쿨타임 지났으면 새 상자, 아니면 이미 연 상자로
+    createHouseInterior(this.interiorContext, target.houseChestRich, houseKind, this.currentHouseOwned, this.currentHouseBedTier, chestReady);
+    if (!this.currentHouseOwned && !chestReady) this.showMessage(`상자는 최근에 열어 비었습니다 — ${Math.ceil(((target.houseChestReadyAt ?? 0) - Date.now()) / 60000)}분 뒤 다시 채워집니다.`);
     precompileSceneShaders(this.renderer, this.scene, this.camera, "house:" + houseKind);
     this.playTransitionSound("enter");
     this.showMessage(

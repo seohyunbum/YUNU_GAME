@@ -170,6 +170,7 @@ export interface WorldObject {
   roamRadius?: number;
   enterable?: boolean;
   houseChestRich?: boolean;
+  houseChestReadyAt?: number; // 마을집·대장간 안 상자 재개봉 가능 시각(epoch ms). 세션 한정(미저장).
   houseKind?: HouseKind;
   playerOwned?: boolean;
   homeBed?: boolean;

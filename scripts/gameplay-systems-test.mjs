@@ -357,6 +357,27 @@ try {
       // canRefresh 경계: 정확히 쿨다운이면 허용
       assert(subquests.canRefreshSubquests(subquests.SUBQUEST_REFRESH_COOLDOWN_MS, 0) === true, "adv: 쿨다운 정각 새로고침 허용");
     }
+    // === 마을집·대장간 안 상자 20분 쿨타임 (createHouseInterior chestReady) ===
+    {
+      const interiors = await server.ssrLoadModule("/src/game/interiors.ts");
+      const makeCtx = () => {
+        let chest = null;
+        const ctx = {
+          scene: { add() {} },
+          addWorldObject: (type, name, root, extra) => ({ id: `o-${name}`, type, name, root, ...(extra || {}) }),
+          spawnChest: (position, mineRich) => { chest = { id: "house-chest", type: "chest", opened: false, mineRich, root: new THREE.Group() }; return chest; },
+          spawnOre: () => ({ id: "ore" }), spawnMiner: () => ({ id: "miner" }), spawnBlacksmithNpc: () => ({ id: "smith" }),
+          randomCavePoint: () => new THREE.Vector3(), rollMineMineral: () => "stone",
+          spawnFortressMonster: () => null, trackCaveObjects() {}, trackHouseObjects() {}, showMessage() {},
+        };
+        return { ctx, getChest: () => chest };
+      };
+      const ready = makeCtx(); interiors.createHouseInterior(ready.ctx, false, "home", false, "wood", true);
+      assert(ready.getChest() && ready.getChest().opened === false, "house chest: chestReady=true → 새 상자(미개봉)");
+      const cd = makeCtx(); interiors.createHouseInterior(cd.ctx, false, "home", false, "wood", false);
+      assert(cd.getChest() && cd.getChest().opened === true, "house chest: chestReady=false(쿨타임 중) → 이미 연 상자로 스폰(재약탈 차단)");
+      assert(constants.HOUSE_CHEST_COOLDOWN_MS === 20 * 60 * 1000, "house chest: 쿨타임 20분");
+    }
 
     // 연격 틱 (난도/무한 찌르기 공용) — 등록 → 간격마다 1타 → 완주 시 해제, 대상 사망 시 취소
     sam.resetSamuraiEffects();

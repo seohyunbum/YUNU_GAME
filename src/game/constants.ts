@@ -162,6 +162,7 @@ export const IRON_GUARD_DURATION_SECONDS = 100;
 export const IRON_GUARD_ARMOR = 15;
 export const PISTOL_DAMAGE = 4;
 export const BASE_PLAYER_MAX_HEALTH = 16; // 전 직업 공용 최초 체력(10→16, 2026-07-04 +6 상향). 레벨/훈련/장비 보너스는 이 위에 가산.
+export const HOUSE_CHEST_COOLDOWN_MS = 20 * 60 * 1000; // 마을집·대장간 안 상자 재개봉 쿨타임(20분) — 입장마다 재약탈 방지
 export const BUILDING_BLOCK_SIZE = 1;
 export const BUILDING_BLOCK_REACH = 6.2;
 export const VISIBILITY_CULL_INTERVAL = 0.35;
