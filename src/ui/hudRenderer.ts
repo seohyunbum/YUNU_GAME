@@ -172,7 +172,9 @@ function renderHotbarMarkup(view: HudViewModel) {
 function renderObjectiveMarkup(view: HudViewModel) {
   const objective = view.objective;
   const doneClass = objective.completed ? " objective-ready" : "";
+  // 접기 토글은 .objective-card(버튼) 바깥의 형제 — main 의 카드 클릭(보상 수령/가이드) 핸들러가 무시하도록.
   return `
+    <button type="button" class="panel-collapse-btn objective-collapse-btn" data-quest-collapse aria-label="퀘스트 접기/펼치기" title="퀘스트 접기/펼치기">▾</button>
     <button class="objective-card${doneClass}" type="button" title="${escapeHtml(objective.detail)}">
       <span class="objective-head">
         <span class="objective-kicker">${objective.completed ? "🎁 보상 준비 완료!" : "📜 현재 퀘스트"}</span>

@@ -1,5 +1,6 @@
 import { toggleFullscreen } from "../game/platform";
 import { renderControlsGuide } from "./controlsGuide";
+import { applyCollapseState, toggleCollapse } from "./collapsiblePanel";
 import { renderSaveControls, renderTitleScreen, type TitlePlayerClassView } from "./titleScreen";
 
 export type ClassChoiceViewModel = TitlePlayerClassView;
@@ -73,6 +74,10 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   uiRoot.className = "game-ui";
   statsEl.className = "stats";
   objectiveEl.className = "objective";
+  applyCollapseState(objectiveEl, "quest"); // 저장된 퀘스트 접힘 상태 복원 (카드 innerHTML 재렌더에도 컨테이너 클래스는 보존)
+  objectiveEl.addEventListener("click", (event) => { // 접기 토글 — .objective-card 바깥 형제라 main 의 보상/가이드 클릭과 분리
+    if ((event.target as HTMLElement).closest("[data-quest-collapse]")) toggleCollapse(objectiveEl, "quest");
+  });
   coachEl.className = "coach-beacon hidden";
   promptEl.className = "prompt";
   hotbarEl.className = "hotbar";
@@ -84,7 +89,9 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   const controlsGuideEl = document.createElement("div"); // 좌측 상단 조작법 가이드 (인게임 전용 — .title-active 시 CSS 로 숨김)
   controlsGuideEl.className = "controls-guide";
   renderControlsGuide(controlsGuideEl);
-  controlsGuideEl.addEventListener("click", (event) => { // 퀵버튼(가방/캐릭터/파티) 위임 처리
+  applyCollapseState(controlsGuideEl, "guide"); // 저장된 조작법 접힘 상태 복원
+  controlsGuideEl.addEventListener("click", (event) => { // 퀵버튼(가방/캐릭터/파티) + 접기 토글 위임 처리
+    if ((event.target as HTMLElement).closest("[data-guide-collapse]")) { toggleCollapse(controlsGuideEl, "guide"); return; }
     const btn = (event.target as HTMLElement).closest<HTMLElement>("[data-quick-action]");
     if (btn?.dataset.quickAction) callbacks.onQuickAction(btn.dataset.quickAction);
   });
