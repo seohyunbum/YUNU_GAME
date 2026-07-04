@@ -30,12 +30,18 @@ export function samuraiKatanaMoveBonus(playerClass: PlayerClassId, heldItem: Ite
   return playerClass === "samurai" && isKatanaWeapon(heldItem) ? SAMURAI_KATANA_MOVE_BONUS : 0;
 }
 
+// 손상 수치 방어 — currentDamage 등 입력이 NaN/±Infinity 로 오염돼도 피해 파이프라인에 퍼뜨리지 않는다.
+// (NaN 피해가 target.hp 에 들어가면 `hp <= 0` 이 영원히 false = 불사 몬스터. spirits.ts 세이브 방어와 같은 원칙.)
+function finiteOr1(value: number): number {
+  return Number.isFinite(value) ? value : 1;
+}
+
 // ===== 스킬 수치 =====
 // 난도(1스킬): 4연격 × 공격력 70% = 합 ≈ 2.8배 (55%→70% 상향 2026-07-04 — 전사 '불타는 공격' 2배보다 확실히 위, 짧은 쿨다운 유지)
 export const SAMURAI_FLURRY_HITS = 4;
 export const SAMURAI_FLURRY_INTERVAL_MS = 120;
 export function samuraiFlurryHitDamage(currentDamage: number) {
-  return Math.max(1, Math.round(currentDamage * 0.7));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * 0.7));
 }
 
 // 도약(2스킬): 최대 15칸 돌진, 경로 폭(중심선 좌/우 반폭) 3.0 안의 모든 적에게 1회씩 공격력 150% 피해.
@@ -48,21 +54,21 @@ export const SAMURAI_DASH_BLOCK_RATIO = 0.4; // 스텝 전진량이 이 비율 �
 // 도약이 관통하는 생명체 타입 — 건물·지형·설치물은 미포함(막힘 유지)
 export const SAMURAI_DASH_PASSTHROUGH_TYPES: ReadonlySet<string> = new Set(["wildPredator", "dragon", "jammini", "animal", "eagleSummon", "summonerPet", "graveHand"]);
 export function samuraiDashDamage(currentDamage: number) {
-  return Math.max(1, Math.round(currentDamage * 1.5));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * 1.5));
 }
 
 // 무한 찌르기(3스킬·1차 전직 해금): 11연속 찌르기 × 공격력 40% = 합 ≈ 4.4배 단일 대상 (약 1.6초 채널)
 export const SAMURAI_PIERCE_HITS = 11;
 export const SAMURAI_PIERCE_INTERVAL_MS = 145; // 11타 ≈ 1.6초
 export function samuraiPierceHitDamage(currentDamage: number) {
-  return Math.max(1, Math.round(currentDamage * 0.4));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * 0.4));
 }
 
 // 월광베기(4스킬·4차 전직 해금): 주변 광역 3연격 × 공격력 220% = 합 6.6배 (전사 천검난무 7배보다 약간 아래)
 export const SAMURAI_MOONLIGHT_WAVES = 3;
 export const SAMURAI_MOONLIGHT_RADIUS = 6.8; // 전사 천검난무와 같은 광역 반경 (EARTH_CLEAVE_RADIUS 4 × 1.7)
 export function samuraiMoonlightDamage(currentDamage: number) {
-  return Math.max(1, Math.round(currentDamage * 2.2));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * 2.2));
 }
 
 // ===== 연격 틱 상태 (난도·무한 찌르기 공용 — 휘발, 저장 안 함) =====
@@ -77,8 +83,11 @@ interface SamuraiFlurry {
 const activeFlurries: SamuraiFlurry[] = [];
 
 // 연격 등록 — 첫 타는 다음 updateSamuraiFlurries 틱(≈같은 프레임 직후)에 들어간다.
+// 오염 입력 방어: NaN hitsLeft 는 `hitsLeft <= 0` 이 영원히 false(무한 연격), NaN nextHitAt 은 `now < nextHitAt` 이
+// 영원히 false(매 프레임 타격 = 피해 소방호스)가 되므로 비유한 인자는 등록 자체를 거부한다.
 export function registerSamuraiFlurry(targetId: string, damage: number, hits: number, intervalMs: number, now: number) {
-  activeFlurries.push({ targetId, hitsLeft: hits, damage, intervalMs, nextHitAt: now });
+  if (!Number.isFinite(damage) || !Number.isFinite(hits) || !Number.isFinite(intervalMs) || !Number.isFinite(now)) return;
+  activeFlurries.push({ targetId, hitsLeft: Math.max(1, Math.floor(hits)), damage: Math.max(1, Math.round(damage)), intervalMs: Math.max(1, intervalMs), nextHitAt: now });
 }
 
 export function resetSamuraiEffects() {
@@ -127,7 +136,8 @@ export function useSamuraiPrimarySkill(context: SecondSkillContext, trySpendPrim
 // ===== 2스킬 '도약' — 전방 돌진. 이동은 main 이 주입한 dashStep(충돌 해석 포함)으로만 수행. =====
 export function performSamuraiDash(context: SecondSkillContext, damage: number): { distance: number; hits: number } {
   const dir = context.forwardXZ();
-  const dirLen = Math.hypot(dir.x, dir.z) || 1;
+  const dirLen = Math.hypot(dir.x, dir.z);
+  if (!Number.isFinite(dirLen) || dirLen < 1e-6) return { distance: 0, hits: 0 }; // 방향 오염(NaN)·0 벡터 — 이동 없이 종료(위치 NaN 전파 방지)
   const dx = dir.x / dirLen;
   const dz = dir.z / dirLen;
   const startX = context.playerPosition.x;
@@ -142,8 +152,15 @@ export function performSamuraiDash(context: SecondSkillContext, damage: number):
     const beforeZ = context.playerPosition.z;
     context.dashStep(dx * stepLen, dz * stepLen); // main: 이동 + 경계 클램프 + 충돌 해석(밀어내기)
     const advanced = (context.playerPosition.x - beforeX) * dx + (context.playerPosition.z - beforeZ) * dz;
-    if (advanced < stepLen * SAMURAI_DASH_BLOCK_RATIO) break; // 건물·충돌체에 막힘 — 그 자리에서 정지(관통 금지)
+    if (!Number.isFinite(advanced) || advanced < stepLen * SAMURAI_DASH_BLOCK_RATIO) break; // 건물·충돌체에 막힘/위치 오염 — 그 자리에서 정지(관통 금지)
     traveled += advanced;
+  }
+  if (!Number.isFinite(context.playerPosition.x + context.playerPosition.z)) {
+    // dashStep 이 위치를 오염시킨 극단 케이스 — 시작점 복원 + 판정 중단. (NaN 경로는 아래 hypot 비교가 전부 false 가 되어
+    // 반경 내 모든 후보를 오폭하므로 반드시 차단.)
+    context.playerPosition.x = startX;
+    context.playerPosition.z = startZ;
+    return { distance: 0, hits: 0 };
   }
 
   // 시작→도착 선분과의 수직 거리로 경로상의 적에게 1회씩 피해
@@ -154,10 +171,13 @@ export function performSamuraiDash(context: SecondSkillContext, damage: number):
   for (const target of candidates) {
     const tx = target.root.position.x;
     const tz = target.root.position.z;
+    if (!Number.isFinite(tx + tz)) continue; // 좌표 오염 개체 — 판정 제외
+    const rawRadius = target.collisionRadius ?? 0;
+    const radius = Number.isFinite(rawRadius) ? rawRadius : 0; // Infinity 반경이면 전 후보 명중이 되므로 0 취급
     const t = pathLenSq > 1e-6 ? Math.max(0, Math.min(1, ((tx - startX) * pathX + (tz - startZ) * pathZ) / pathLenSq)) : 0;
     const closestX = startX + pathX * t;
     const closestZ = startZ + pathZ * t;
-    if (Math.hypot(tx - closestX, tz - closestZ) > SAMURAI_DASH_HIT_WIDTH + (target.collisionRadius ?? 0)) continue;
+    if (Math.hypot(tx - closestX, tz - closestZ) > SAMURAI_DASH_HIT_WIDTH + radius) continue;
     context.meleeEffects(target);
     if (!partyGuestAttackIntercept(target, damage, "melee")) context.applyDamage(target, damage);
     hits += 1;
