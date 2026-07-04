@@ -14,6 +14,14 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-04 — 일리아 사망 = 무조건 차원 밖 이탈로 변경 (제자리 재시작 폐지)
+
+- 요청(설계 확정): 아이템 손실 없음·패턴 학습형 재도전 컨셉은 유지하되, **차원 안 제자리 재시작은 의도와 다름.** 죽으면 무조건 차원 밖으로 밀려나 유저가 차원의 문에 다시 들어가(재진입) 재도전하도록.
+- 변경: `damagePlayer` 사망 분기를 `illiaFight.active || illiaInArena` 단일 조건으로 통합 → `leaveCave()` 호출(illiaFight 리셋·보스/졸개 제거·illiaInArena 해제·문 앞 caveReturnPosition 이동·오버월드 복귀)로 정리하고, 체력/배고픔 회복 + 아이템 미손실 유지 + "차원의 문에 다시 들어가 재도전" 안내. 직전 커밋에서 일반 핸들러에 넣었던 `wasInIllia` 경로는 이제 도달 불가(죽은 코드)라 제거 → 순 −5줄(9444→9439).
+- 재도전 페이즈는 illiaProgress 로 자연 결정: P1 사망 시 progress 0 유지 → 재진입 시 P1(각성 컷씬은 illiaAwakenSeen 로 1회만), P2 사망 시 progress 1 → 재진입 시 P2 즉시 개전.
+- 다음 작업자: 보스 오브젝트는 spawnIlliaBoss 가 caveObjectIds 에 등록하므로 clearCaveObjects(=leaveCave 내부)가 확실히 제거한다. 별도 removeObject 루프 불필요.
+- 관련 파일/검증: src/main.ts(damagePlayer 사망 분기) · verify 그린(9439).
+
 ## 2026-07-04 — 일리아 차원 사망 처리 점검·수정 (illiaInArena 누수 + 이탈 메시지)
 
 - 시도: 사용자 보고 2건 점검 — ① 일리아 전투 사망 시 차원 밖 이동에 메시지가 없어 어색, ② 봉인된 일리아(P1)에서 죽은 것 같은데 밖으로 안 나가고 양쪽 풀피로 재시작된 적이 있음(버그인지 정확히 점검).
