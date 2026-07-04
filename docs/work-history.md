@@ -1054,3 +1054,14 @@
   ④조작 안내에 Alt+Enter 표기. main.ts 는 기존 줄 인라인(래칫 9339/480 여유 0 유지). F11(브라우저 네이티브)과 독립.
 - 검증: verify 그린 + 실브라우저 E2E(Fullscreen API 계측) — 버튼 클릭 진입→재클릭 해제,
   게임 중 Alt+Enter 진입/해제 토글, 일반 Enter 미발동.
+
+## 2026-07-04 — 사무라이 밸런스: 난도 상향 + 도약 쿨 하향
+- 유저 요청: 난도 공격력 상향 + 돌진(도약) 쿨타임 22초.
+- 변경: ①난도 1타 배수 0.7→0.9 (4연격 합 2.8배→3.6배) — samurai.ts samuraiFlurryHitDamage.
+  전사 '불타는 공격' 2배 대비 확실한 주력기로 세우되 짧은 쿨(16초·마나 30) 유지. finiteOr1 가드 보존.
+  ②도약 쿨 25→22초 — classSkills.ts SECOND_SKILLS.samurai.cooldown. 데미지/사거리(15칸·150%·관통·건물정지)는 불변.
+- 골든 동기화: samurai-test.mjs helper 배수 0.7→0.9, gameplay-systems-test.mjs 난도 어서션(70→90·합 3.6배)·
+  도약 쿨 어서션(25→22)·상단 스킬수치 주석·하단 계약 문자열 일괄 갱신.
+- 검증: 코드 관련 게이트 전부 녹색 — typecheck·check:size(9339)·check:methods(480)·check:architecture·
+  check:hotpath·test:samurai·test:systems·test:balance + 나머지 node 스위트. save-roundtrip 은 이 환경
+  (Linux, Windows Chrome/Edge 경로 하드코딩) 실행 불가 — clean HEAD 에서도 동일 실패 확인(내 변경 무관, 기지 제약).
