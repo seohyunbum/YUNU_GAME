@@ -1,4 +1,4 @@
-// 엔딩 피날레 — 불멸의 존재(마지막 챕터) 토벌 시 폭죽 연사 + 승리 팡파레 + 엔딩 크레딧.
+// 엔딩 피날레 — 절망의 군주 일리아(진 최종 보스) 토벌 시 폭죽 연사 + 승리 팡파레 + 엔딩 크레딧.
 // 상태기계는 순수 데이터, 모든 부수효과는 좁은 컨텍스트로 주입받는다.
 import * as THREE from "three";
 import { spawnFireworkBurst, type CombatEffectContext } from "./combatEffects";
@@ -72,7 +72,7 @@ export function startFinale(context: FinaleContext) {
   context.state.melodyIndex = 0;
   context.state.nextNoteAt = now + 220;
   context.state.creditsShown = false;
-  context.showMessage("🎆 불멸의 존재 토벌! 야생 마을의 전설이 되었습니다!");
+  context.showMessage("🎆 절망의 군주 일리아 토벌! 야생 마을의 전설이 되었습니다!");
 }
 
 // 중소규모 팡파레 — 맵 필드 보스 토벌용 (짧은 폭죽 + 팡파레 앞부분, 크레딧 없음)

@@ -371,8 +371,8 @@ export function currentObjective(snapshot: ObjectiveSnapshot): TutorialObjective
   }
   return {
     id: "final_complete",
-    title: "불멸의 존재를 쓰러뜨렸습니다",
-    detail: "최종 목표를 달성했습니다. 이제 마을과 세계를 자유롭게 확장해 보세요.",
+    title: "모든 여정을 완료했습니다",
+    detail: "차원의 문 너머 절망의 군주 일리아까지 — 최종 목표를 달성했습니다. 이제 마을과 세계를 자유롭게 확장해 보세요.",
     progress: "완료",
     reward: { experience: 0, label: "자유 플레이" },
     completed: true,
