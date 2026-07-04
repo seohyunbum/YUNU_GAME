@@ -36,7 +36,7 @@ export function isGuardType(type: string | undefined): boolean {
 
 // 7차 — 정적 공유 오브젝트 (동굴 입구·보물 상자). 이동·hp 없음 → 보간/판정 제외.
 export function isStaticShareType(type: string | undefined): boolean {
-  return type === "cave" || type === "chest" || type === "mineChest";
+  return type === "cave" || type === "chest" || type === "mineChest" || type === "villageHouse"; // villageHouse = 직접 지은 집 뷰(진입 불가·위치 고정)
 }
 
 // 8차 — 파티 공유 드롭 아이템·설치물(제련대·침대·제작대·분쇄기). 위치 고정·hp 없음 → 정적 취급, 줍기/회수는 pickupRequest.
@@ -79,7 +79,14 @@ export interface PartyWorldContext {
   sharedSupplyCooldownValue(): number; // 호스트: 공유 보급 쿨타임(초)
   hostStorageTake(index: number): { item: string; count: number }[] | null; // 호스트: 창고 슬롯 인출(제거 + 아이템 반환, 빈칸이면 null)
   hostStorageStore(item: string, count: number, durabilityUsed?: number): boolean; // 호스트: 창고 입고(transferSlot, 가득이면 false)
-  hostClaimSharedSupply(): boolean; // 호스트: 보급 준비됐으면 공유 창고에 입고 + 쿨타임, 성공 여부
+  dragons?(): Iterable<WorldObject>; // 드래곤(챕터 보스) — 스냅샷 편입·게스트 뷰 스폰·처치 공유용 (구 mock 호환 optional)
+  playerHouses?(): Iterable<WorldObject>; // 직접 지은 집(playerOwned, 뷰 제외) — 파티 공유 소스
+  spawnHouseView?(houseKind: string | undefined, owner: string, x: number, z: number): WorldObject; // "OO의 집" 뷰 스폰(진입 불가·비영속)
+  spawnDragonView?(bossKind: string, x: number, z: number): WorldObject; // 게스트: 호스트 드래곤의 뷰 스폰(spawnDragon 재사용)
+  isBossHuntable?(bossKind?: string): boolean; // 호스트: 봉인(챕터) 검사 — 게스트 타격 판정은 호스트 권위
+  rollDragonLootFor?(bossKind?: string): { item: string; count: number }; // 호스트: 드래곤 전리품 롤(처치 게스트에게 지급)
+  recordBossDefeat?(bossKind?: string): void; // 드래곤 처치 반영 — 리스폰 쿨다운 + 챕터 진행 + 팡파레(호스트/게스트 공용)
+  hostClaimSharedSupply(): { ok: boolean; reason?: string; items: { item: string; count: number }[]; leftover: { item: string; count: number }[] }; // 호스트: 보급 수령 — 입고 목록/창고가득 잔여분(요청자 인벤 반환용)/실패 사유. 0건 입고면 쿨타임 미소모
   applySharedStorage(slots: { item: string | null; count: number; durabilityUsed?: number }[], supplyCooldown: number): void; // 게스트: 동기화 수신 → 캐시·패널 갱신
   getObject(id: string): WorldObject | undefined;
   removeObject(id: string): void; // 리스폰 큐 정상 등록 (호스트 처치)
@@ -158,6 +165,9 @@ export function initPartyWorldSync(initArg: PartyWorldSyncInit) {
 }
 
 export function resetPartyWorldSync() {
+  for (const object of remoteHouseViews.values()) init?.world?.removeObjectSilent(object.id);
+  remoteHouseViews.clear();
+  houseViewsDirty = true;
   for (const object of syncedByHostId.values()) init?.world?.removeObjectSilent(object.id);
   syncedByHostId.clear();
   hostIdByLocalId.clear();
@@ -181,6 +191,68 @@ export function partyWorldGuestActive(): boolean {
 // 프레즌스 수신 훅 (partyPresence 가 호출) — 호스트는 게스트 위치를 몬스터 타게팅에 쓴다
 export function partyWorldSyncOnPresences(list: PresenceData[]) {
   knownPresences = list;
+  defeatedCacheDirty = true; // 파티원 토벌 기록이 바뀌었을 수 있음 — 교집합 캐시 무효화
+  houseViewsDirty = true; // 파티원 집 목록/맵이 바뀌었을 수 있음 — 호스트 뷰 재조정
+}
+
+// ── 게스트 로컬 보스(필드보스·챕터 드래곤·용암 드래곤) 스폰 억제 ─────────────────────
+// partyWorldGuestActive(스냅샷 신선도) 게이트는 호스트가 실내/백그라운드로 2초만 빠져도 풀려
+// 게스트 월드가 독립 보스를 스폰("각자 잡음"의 근본 원인). 호스트가 나와 같은 맵에 있는 한 억제를 유지한다.
+// 호스트 프레즌스 = 브로드캐스트 목록 첫 항목(party.ts 호스트-우선 정렬). 호스트가 다른 맵이면 로컬 월드 유지(설계).
+// ── 호스트: 같은 맵 게스트의 집을 프레즌스 기반으로 뷰 스폰(호스트는 자기 스냅샷을 소비하지 않으므로 별도 경로) ──
+const remoteHouseViews = new Map<string, WorldObject>();
+let houseViewsDirty = true;
+function ensureRemoteHouseViews() {
+  if (!houseViewsDirty || !init?.world || hookedSession?.role !== "host") return;
+  houseViewsDirty = false;
+  const me = init.localPresence();
+  const want = new Map<string, { x: number; z: number; houseKind?: string; owner: string }>();
+  for (const presence of knownPresences) {
+    if (presence.nickname === me.nickname || presence.mapId !== me.mapId || !presence.homes) continue;
+    let index = 0;
+    for (const home of presence.homes) want.set(`${presence.nickname}:${index++}`, { x: home.x, z: home.z, houseKind: home.houseKind, owner: presence.nickname });
+  }
+  for (const [key, object] of [...remoteHouseViews]) if (!want.has(key)) { init.world.removeObjectSilent(object.id); remoteHouseViews.delete(key); }
+  for (const [key, home] of want) if (!remoteHouseViews.has(key)) { const view = init.world.spawnHouseView?.(home.houseKind, home.owner, home.x, home.z); if (view) remoteHouseViews.set(key, view); }
+}
+
+export function partyGuestSuppressLocalBosses(): boolean {
+  const session = init?.session() ?? null;
+  if (!init?.world || !session || session.role !== "guest") return false;
+  const host = knownPresences[0];
+  return !!host && host.mapId === init.localPresence().mapId;
+}
+
+// ── 호스트: 필드보스 스폰 판단을 "같은 맵 파티원 전원이 잡은 보스"(교집합)로 확장 ─────────
+// 호스트(구 세이브)가 기처치한 보스도 미처치 파티원이 같은 맵에 있으면 다시 스폰 → 스냅샷으로 공유되어 함께 사냥.
+// 기처치자는 recordFieldBossDefeat 의 includes 가드로 중복 기록 없음. 매 프레임 호출이라 캐시(프레즌스 갱신 시 재계산).
+let defeatedCacheDirty = true;
+let defeatedCacheSourceLen = -1;
+let defeatedCache: readonly string[] = [];
+export function partyFilterDefeatedBosses(local: readonly string[]): readonly string[] {
+  const session = init?.session() ?? null;
+  if (!session || session.role !== "host" || knownPresences.length === 0) return local;
+  if (!defeatedCacheDirty && defeatedCacheSourceLen === local.length) return defeatedCache;
+  const me = init!.localPresence();
+  let result: readonly string[] = local;
+  for (const presence of knownPresences) {
+    if (presence.nickname === me.nickname || presence.mapId !== me.mapId || !presence.defeatedBosses) continue;
+    result = result.filter((id) => presence.defeatedBosses!.includes(id));
+  }
+  defeatedCache = result;
+  defeatedCacheSourceLen = local.length;
+  defeatedCacheDirty = false;
+  return defeatedCache;
+}
+
+// ── 게스트: 로컬에서 잡은 필드보스 토벌을 파티에 전파(호스트가 전원 릴레이) ─────────────
+// 호스트→게스트 단방향(partyHostNotifyKill)만 있어 게스트 단독 처치가 유실되던 갭을 메운다. XP/전리품은 이미
+// 로컬 지급됐으므로 xp 0·kind 생략(기록 공유 전용) — 수신측 recordFieldBossDefeat 는 includes 중복 가드로 안전.
+export function partyNotifyFieldBossDefeat(fieldBossId: string, name: string) {
+  const session = init?.session() ?? null;
+  if (!init?.world || !session || session.role !== "guest") return;
+  const me = init.localPresence();
+  session.sendGame({ type: "partyKill", name, xp: 0, killer: me.nickname, mapId: me.mapId, fieldBossId });
 }
 
 // 호스트 몬스터 AI 가 노릴 수 있는 파티원 좌표 (호스트와 같은 맵 + 인게임만, 패널 보호 플래그 포함)
@@ -284,7 +356,7 @@ export function sendSupplyClaim(): void { init?.session()?.sendGame({ type: "sup
 // 호스트 처치 알림 — combat.ts·summonerPet 의 처치 지점들이 호출한다 (호스트 역할일 때만 브로드캐스트).
 // 동기화 범위(wildPredator)와 XP 공유 범위를 일치시킨다 — 용·잼미니는 각자 로컬이므로 공유하면 이중 취득이 된다.
 export function partyHostNotifyKill(target: WorldObject) {
-  if (target.type !== "wildPredator" && !isGuardType(target.type)) return; // 야생 몬스터 + 마을 경비만 (용/잼미니는 추후)
+  if (target.type !== "wildPredator" && target.type !== "dragon" && !isGuardType(target.type)) return; // 야생 + 경비 + 드래곤(잼미니는 추후 — 로컬 이벤트성)
   if (!init?.world || hookedSession?.role !== "host") return;
   const me = init.localPresence();
   hookedSession.sendGame({
@@ -295,6 +367,7 @@ export function partyHostNotifyKill(target: WorldObject) {
     mapId: me.mapId,
     kind: target.predatorKind,
     fieldBossId: target.fieldBossId,
+    bossKind: target.type === "dragon" ? ((target.bossKind as string | undefined) ?? "dragon") : undefined,
   });
 }
 
@@ -318,6 +391,7 @@ export function partyWorldSyncTick(nowMs: number, delta: number) {
     return;
   }
   if (session.role === "host") {
+    ensureRemoteHouseViews(); // 같은 맵 게스트의 집 뷰 유지(프레즌스 dirty 시에만 재조정)
     if (nowMs - lastMobSendAt >= MOB_SYNC_INTERVAL_MS && init.localPresence().inGame) {
       lastMobSendAt = nowMs;
       session.sendGame(collectMobs(), MOB_SEND_MAX_BUFFERED);
@@ -397,6 +471,20 @@ function collectMobs(): PartyMessage {
     }
     list.push(snap);
   }
+  // 직접 지은 집 — 호스트 집 + 같은 맵 게스트 집(프레즌스 piggyback)을 정적 entry 로 에코해 전원 공유.
+  {
+    const me = init!.localPresence();
+    for (const house of world.playerHouses?.() ?? []) list.push({ id: house.id, name: house.name ?? "집", objType: "villageHouse", houseKind: house.houseKind as string | undefined, owner: me.nickname, x: Math.round(house.root.position.x * 10) / 10, z: Math.round(house.root.position.z * 10) / 10, yaw: Math.round(house.root.rotation.y * 100) / 100, hp: 1 });
+    for (const presence of knownPresences) {
+      if (presence.nickname === me.nickname || presence.mapId !== me.mapId || !presence.homes) continue;
+      let index = 0;
+      for (const home of presence.homes) list.push({ id: `house-${presence.nickname}-${index++}`, name: `${presence.nickname}의 집`, objType: "villageHouse", houseKind: home.houseKind, owner: presence.nickname, x: home.x, z: home.z, yaw: 0, hp: 1 });
+    }
+  }
+  // 드래곤(챕터 보스) — 파티 공유: bossKind 로 게스트가 드래곤 뷰 스폰. 공격모션은 호스트 이펙트 재현 생략(위치·hp 권위만).
+  for (const dragon of world.dragons?.() ?? []) {
+    list.push({ id: dragon.id, name: dragon.name ?? "용", bossKind: (dragon.bossKind as string | undefined) ?? "dragon", x: Math.round(dragon.root.position.x * 10) / 10, z: Math.round(dragon.root.position.z * 10) / 10, yaw: Math.round(dragon.root.rotation.y * 100) / 100, hp: Math.ceil(dragon.hp ?? 1), armor: dragon.armor || undefined });
+  }
   // 6차 — 마을 경비도 같은 스냅샷에 (정적 스탯이라 type/villageId/위치/hp 만, 공격모션은 미전송)
   for (const guard of world.guards()) {
     list.push({
@@ -473,12 +561,18 @@ function handleGameMessage(message: PartyMessage, from?: string) {
     if (!init.world.hostStorageStore(message.item, message.count, message.durabilityUsed)) hookedSession.sendGame({ type: "pickupGrant", nickname: from ?? "파티원", items: [{ item: message.item, count: message.count }] }); // 창고 가득(경쟁) → 요청자 인벤으로 되돌림(유실 방지)
     hookedSession.sendGame({ type: "storageSync", slots: init.world.homeStorageSlots(), supplyCooldown: init.world.sharedSupplyCooldownValue() });
   } else if (message.type === "supplyClaimReq" && hookedSession?.role === "host") {
-    init.world.hostClaimSharedSupply(); // 준비됐으면 공유 창고에 입고 + 쿨타임
+    const supply = init.world.hostClaimSharedSupply(); // 준비됐으면 공유 창고에 입고 + 쿨타임(0건 입고면 쿨타임 보존)
+    if (supply.leftover.length > 0 && from) hookedSession.sendGame({ type: "pickupGrant", nickname: from, items: supply.leftover }); // 창고 가득 잔여분 — 요청 게스트 인벤으로(레어 무음 드랍 방지)
+    if (from) hookedSession.sendGame({ type: "supplyResult", nickname: from, ok: supply.ok, reason: supply.reason, items: supply.items }); // 요청자에게 실수령 결과 회신(솔로와 같은 피드백)
     hookedSession.sendGame({ type: "storageSync", slots: init.world.homeStorageSlots(), supplyCooldown: init.world.sharedSupplyCooldownValue() });
   } else if (message.type === "storageSync") {
     init.world.applySharedStorage(message.slots, message.supplyCooldown);
+  } else if (message.type === "supplyResult") {
+    if (message.nickname !== init.localPresence().nickname) return; // 요청자 전용 회신
+    const listed = message.items.map((entry) => `${ITEM_NAMES[entry.item] ?? entry.item} ${entry.count}`).join(", ");
+    init.world.showMessage(message.ok ? `보급품을 공유 창고에 넣었습니다: ${listed}. 파티원과 함께 쓸 수 있어요.` : message.reason === "cooldown" ? "아직 보급이 차지 않았습니다. 잠시 뒤 다시 여세요." : "공유 창고가 가득 차서 보급품이 인벤토리로 왔습니다. 창고를 정리해 주세요.");
   } else if (message.type === "mobs") { if (message.hour != null) init!.world!.setSyncedHour?.(message.hour); applyMobsSnapshot(message.mapId, message.list); }
-  else if (message.type === "partyKill") onPartyKill(message);
+  else if (message.type === "partyKill") { onPartyKill(message); if (hookedSession?.role === "host" && from) hookedSession.sendGame(message); } // 게스트발 처치(필드보스 기록 전파)는 호스트가 전원에 릴레이 — 원 게스트 재수신은 중복 가드로 무해
   else if (message.type === "mobHit") onMobHit(message.nickname, message.amount, message.name, message.mapId);
 }
 
@@ -487,20 +581,24 @@ function hostApplyGuestAttack(targetId: string, power: number, killer: string) {
   const world = init!.world!;
   const target = world.getObject(targetId);
   const guard = isGuardType(target?.type);
-  if (!target || (target.type !== "wildPredator" && !guard)) return; // 이미 죽었거나 무효 — 무시 (스냅샷이 정정)
+  const dragon = target?.type === "dragon";
+  if (!target || (target.type !== "wildPredator" && !guard && !dragon)) return; // 이미 죽었거나 무효 — 무시 (스냅샷이 정정)
+  if (dragon && world.isBossHuntable && !world.isBossHuntable(target.bossKind as string | undefined)) return; // 봉인 챕터 — 호스트 권위로 무시(게스트 락 메시지는 스냅샷 hp 불변으로 체감)
   const nowMs = performance.now();
-  // combat.ts 본 경로와 동일 공식 — 경비는 방어 완전차단(0뎀) 허용, 야생/보스는 최소 1
+  // combat.ts 본 경로와 동일 공식 — 경비는 방어 완전차단(0뎀) 허용, 드래곤은 보스 공식(0뎀 가능), 야생은 최소 1
   const raw = target.armor ? calculateCombatDamage(power, target.armor) : Math.floor(power);
-  const damage = guard ? Math.max(0, raw) : Math.max(1, raw);
+  const damage = guard || dragon ? Math.max(0, raw) : Math.max(1, raw);
   target.hp = (target.hp ?? 10) - damage; // damage 0(완전차단)이면 불변
   // 경비: 마을 전체 각성(반격은 호스트 guardAi 가 다음 틱에). 단 이미 각성 중이면 추격만 연장 — 매 타격 enrageVillage 는
   // 메시지 폭주 + 전 경비 attackCooldown 0.5 리셋(공격 굶김)을 부른다. 야생은 보복 타이머.
   if (guard && target.villageId) {
     if (!target.angryUntil || target.angryUntil < nowMs) world.enrageVillage(target.villageId, `${killer} 님이 ${target.name}을(를) 공격하자`);
     else target.angryUntil = nowMs + 12_000;
-  } else if (!guard) target.angryUntil = nowMs + PREDATOR_RETALIATE_MS;
+  } else if (dragon) target.angryUntil = nowMs + 12_000; // 드래곤 어그로 — 호스트 dragonAi 가 추격·반격
+  else target.angryUntil = nowMs + PREDATOR_RETALIATE_MS;
   world.hitFeedback(target, damage, target.hp <= 0);
   if (target.hp > 0) return;
+  const dragonLoot = dragon ? world.rollDragonLootFor?.(target.bossKind as string | undefined) ?? null : null;
   const kill = {
     type: "partyKill" as const,
     name: target.name ?? "몬스터",
@@ -509,10 +607,12 @@ function hostApplyGuestAttack(targetId: string, power: number, killer: string) {
     mapId: init!.localPresence().mapId,
     kind: target.predatorKind,
     fieldBossId: target.fieldBossId,
-    lootItem: guard ? "iron" : undefined, // 경비 처치자(게스트)에게 철 지급
-    lootCount: guard ? 1 : undefined,
+    bossKind: dragon ? ((target.bossKind as string | undefined) ?? "dragon") : undefined, // 드래곤 처치 — 전원 리스폰 쿨다운·챕터 진행 반영
+    lootItem: guard ? "iron" : dragonLoot?.item, // 경비=철 / 드래곤=호스트가 롤한 전리품(처치 게스트에게 지급)
+    lootCount: guard ? 1 : dragonLoot?.count,
   };
   world.creditHostKill(target, killer === init!.localPresence().nickname); // 펫/플레이어 XP + 필드보스 기록. 사냥 카운터는 호스트가 직접 막타쳤을 때만 여기서 처리
+  if (dragon) world.recordBossDefeat?.(target.bossKind as string | undefined); // 호스트: 리스폰 쿨다운 + 챕터 진행(게스트는 partyKill.bossKind 로 반영)
   if (target.predatorKind) world.creditQuestKill(); // 파티 누적 사냥 — 게스트가 잡은 야생도 호스트 카운터에 +1(호스트는 자기 브로드캐스트를 받지 않으므로 onPartyKill 로는 합산 안 됨)
   world.removeObject(target.id);
   world.showMessage(`${killer} 님이 ${kill.name}을(를) 쓰러뜨렸습니다!`);
@@ -556,6 +656,11 @@ function applyMobsSnapshot(mapId: string, list: MobSnapshot[]) {
     if (hostIdByLocalId.has(predator.id)) continue; // 이미 동기화된 몬스터
     if (stored && !predator.fieldBossId) stored.push({ kind: predator.predatorKind, monsterId: predator.monsterId, regionId: predator.regionId, x: predator.root.position.x, z: predator.root.position.z });
     sweepScratch.push(predator.id);
+  }
+  // 드래곤 — 비동기화 로컬 드래곤 제거(겹침·"각자 잡음" 방지). 복원 스태시 미보관: 탈퇴 시 ensureChapterBoss/용암 스폰이 리스폰 쿨다운을 존중하며 재스폰.
+  for (const dragon of world.dragons?.() ?? []) {
+    if (hostIdByLocalId.has(dragon.id)) continue;
+    sweepScratch.push(dragon.id);
   }
   // 6차 — 비동기화 로컬 경비도 제거(겹침 방지). 탈퇴 후 자기 마을 복원을 위해 type/villageId/정위치 보관.
   for (const guard of world.guards()) {
@@ -632,8 +737,9 @@ function spawnSyncedMob(snap: MobSnapshot, now: number) {
   const world = init!.world!;
   let object: WorldObject;
   if (isStaticShareType(snap.objType)) {
-    // 7차 정적 오브젝트 — 동굴 입구·보물 상자. 호스트 위치 그대로 렌더.
-    object = snap.objType === "cave" ? world.spawnCave(snap.x, snap.z) : world.spawnChest(snap.x, snap.z, snap.objType === "mineChest", snap.opened === true, snap.chestTier ?? 0);
+    if (snap.objType === "villageHouse" && snap.owner === init!.localPresence().nickname) return; // 내 집 에코 — 로컬 실물이 있으니 뷰 미생성
+    // 7차 정적 오브젝트 — 동굴 입구·보물 상자·파티원의 집. 호스트 위치 그대로 렌더.
+    object = snap.objType === "villageHouse" ? (world.spawnHouseView ? world.spawnHouseView(snap.houseKind, snap.owner ?? "파티원", snap.x, snap.z) : world.spawnCave(snap.x, snap.z)) : snap.objType === "cave" ? world.spawnCave(snap.x, snap.z) : world.spawnChest(snap.x, snap.z, snap.objType === "mineChest", snap.opened === true, snap.chestTier ?? 0);
     object.partyTransient = true;
     object.collidable = false; // 위치 비결정 — 게스트 지형의 물·건물과 겹칠 수 있어 이동 충돌은 끔. 입구는 시각 참조·상호작용(개봉/진입)만.
     object.root.rotation.y = snap.yaw;
@@ -655,7 +761,11 @@ function spawnSyncedMob(snap: MobSnapshot, now: number) {
     hostIdByLocalId.set(object.id, snap.id);
     return;
   }
-  if (isGuardType(snap.type)) {
+  if (snap.bossKind) {
+    // 드래곤(챕터 보스) 뷰 — 호스트 권위 hp/위치. 게스트 dragonAi 는 partyWorldGuestActive 게이트로 정지, 보간은 mobTargets 공용.
+    if (!world.spawnDragonView) return; // 구 mock — 드래곤 뷰 미지원
+    object = world.spawnDragonView(snap.bossKind, snap.x, snap.z);
+  } else if (isGuardType(snap.type)) {
     // 마을 경비 — main 의 spawnKnight/Golem/RangedGuard 위임(정적 스탯·비주얼). spawnGuard 가 내부에서 접지.
     object = world.spawnGuard(snap.type!, snap.x, snap.z, snap.villageId ?? "party-guard");
   } else {
@@ -723,7 +833,7 @@ function guestLerpTick(delta: number) {
 }
 
 // ── 게스트: 처치/피격 이벤트 ───────────────────────────────────────────────
-function onPartyKill(message: { name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string; lootItem?: string; lootCount?: number }) {
+function onPartyKill(message: { name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string; lootItem?: string; lootCount?: number; bossKind?: string }) {
   const world = init!.world!;
   const me = init!.localPresence();
   const isKiller = message.killer === me.nickname;
@@ -732,6 +842,7 @@ function onPartyKill(message: { name: string; xp: number; killer: string; mapId:
     debugXpGained += message.xp;
     // 필드보스 토벌 기록도 같은 맵에서 함께 싸운 경우에만 공유 — 다른 맵 게스트의 보스 콘텐츠를 지우지 않는다
     if (message.fieldBossId) world.recordFieldBossDefeat(message.fieldBossId);
+    if (message.bossKind && message.killer !== me.nickname) world.recordBossDefeat?.(message.bossKind); // 드래곤 처치 공유 — 리스폰 쿨다운·챕터 진행(막타자는 자기 경로에서 이미 반영)
     // 파티 누적 사냥 — 같은 맵 파티원이 잡은 야생 처치도 내 카운터에 합산(경비=kind 없음 제외). 막타자/관전자 모두 +1.
     // 호스트는 자기 막타를 로컬에서, 게스트 막타를 hostApplyGuestAttack 에서 +1 하고 자기 브로드캐스트는 안 받으므로 이중집계 없음.
     if (message.kind) world.creditQuestKill();

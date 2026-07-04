@@ -51,6 +51,8 @@ export interface PresenceData {
   hasPet?: boolean; // 소환사 패시브 펫(독수리) 활성 — 파티원 화면에 원격 펫 렌더용
   jobTier?: number; // 전직 차수 — 원격 아바타 전직 코스튬용
   dragonGear?: { boots?: boolean; cloak?: boolean; crown?: boolean }; // 용 장비(부츠·망토·왕관) — 원격 아바타 표시용(장갑은 1인칭 전용이라 제외)
+  defeatedBosses?: readonly string[]; // 필드보스 토벌 기록(id 최대 8개) — 호스트가 같은 맵 파티원 교집합으로 보스 스폰 판단(호스트 기처치 보스도 미처치 파티원 있으면 유지)
+  homes?: { x: number; z: number; houseKind?: string }[]; // 직접 지은 집(playerOwned) 목록 — 파티 전원에게 "OO의 집" 뷰로 공유(진입 불가·시각/지도 참조)
 }
 
 // 프레즌스가 이 시간 이상 끊긴 게스트(백그라운드 탭 등)는 명단에서 제외 — 몬스터 타게팅·아바타에서 빠진다
@@ -85,6 +87,9 @@ export interface MobSnapshot {
   item?: string; // droppedItem 의 아이템 id
   count?: number; // droppedItem 수량
   bedTier?: string; // 침대 등급
+  bossKind?: string; // 드래곤(챕터 보스) 동기화 — 있으면 spawnSyncedMob 이 드래곤 뷰로 스폰
+  houseKind?: string; // 직접 지은 집 공유(objType villageHouse) — 뷰 스폰 시 외형 variant 결정
+  owner?: string; // 집 주인 닉네임 — 문패 라벨 + 자기 집 에코 스킵 판정
 }
 
 export type PartyMessage =
@@ -99,7 +104,7 @@ export type PartyMessage =
   // 5차 — 호스트 권위 월드 공유
   | { type: "mobs"; mapId: string; list: MobSnapshot[]; hour?: number }
   | { type: "attackRequest"; targetId: string; power: number; kind: string }
-  | { type: "partyKill"; name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string; lootItem?: string; lootCount?: number }
+  | { type: "partyKill"; name: string; xp: number; killer: string; mapId: string; kind?: string; fieldBossId?: string; lootItem?: string; lootCount?: number; bossKind?: string }
   | { type: "mobHit"; nickname: string; amount: number; name: string; mapId: string }
   // 5.1 — 원격 플레이어 표현
   | { type: "playerAttack"; nickname: string; mapId: string; kind: "melee" | "ranged" | "skill"; visual?: "arrow" | "magic" | "wind" | "tnt" | "fireball"; obsidian?: boolean; speed?: number; life?: number; ox?: number; oy?: number; oz?: number; dx?: number; dy?: number; dz?: number }
@@ -121,6 +126,7 @@ export type PartyMessage =
   | { type: "storageTake"; index: number } // 게스트→호스트: 창고 슬롯 인출(게스트가 인벤 공간 선검사 후)
   | { type: "storageStore"; item: string; count: number; durabilityUsed?: number } // 게스트→호스트: 창고 입고(게스트가 창고 공간 선검사 후)
   | { type: "supplyClaimReq" } // 게스트→호스트: 보급함 수령(호스트가 공유 창고에 입고 + 쿨타임)
+  | { type: "supplyResult"; nickname: string; ok: boolean; reason?: string; items: { item: string; count: number }[] } // 호스트→게스트: 보급 수령 결과(요청자 전용 — 실수령 목록/사유. 솔로와 같은 피드백)
   // 파티 채팅 — to 없으면 전체, 있으면 귓속말(호스트가 대상에게만 중계)
   | { type: "chat"; from: string; text: string; to?: string };
 
@@ -279,7 +285,7 @@ export class PartySession {
         link.presenceAt = performance.now();
       }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
-      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest" || message.type === "placeRequest" || message.type === "storageOpenReq" || message.type === "storageTake" || message.type === "storageStore" || message.type === "supplyClaimReq") && link.nickname) this.emitGame(message, link.nickname);
+      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest" || message.type === "placeRequest" || message.type === "storageOpenReq" || message.type === "storageTake" || message.type === "storageStore" || message.type === "supplyClaimReq" || message.type === "partyKill") && link.nickname) this.emitGame(message, link.nickname);
       // 5.1 — 게스트가 보낸 공격 연출·파티 힐·파티 버프(심판의 빛·불굴의 함성): 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
       if (message.type === "playerAttack" || message.type === "partyHeal" || message.type === "partyEmpower" || message.type === "partyRally") {
         this.emitGame(message, link.nickname ?? undefined);
@@ -346,7 +352,7 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
-        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "partyEmpower" || message.type === "partyRally" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "storageSync" || message.type === "chat") {
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "partyEmpower" || message.type === "partyRally" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "storageSync" || message.type === "supplyResult" || message.type === "chat") {
           this.emitGame(message);
           return;
         }
