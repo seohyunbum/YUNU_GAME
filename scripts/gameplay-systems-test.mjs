@@ -1112,8 +1112,11 @@ try {
     partyHostNotifyKill({ id: "x", type: "wildPredator", name: "들소", hp: 0, predatorKind: "wolf", monsterLevel: 3, root: { position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } } });
     const hostKill = host.sent.filter((message) => message.type === "partyKill").pop();
     assert(hostKill.killer === "아빠용사" && hostKill.xp > 0, "host kill is shared to the party via partyKillNotify");
-    partyHostNotifyKill({ id: "d", type: "dragon", name: "용", hp: 0, root: { position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } } });
-    assert(host.sent.filter((message) => message.type === "partyKill").length === 2, "non-synced kills (dragon/jammini) are NOT broadcast — XP share scope == sync scope");
+    partyHostNotifyKill({ id: "d", type: "dragon", name: "용", hp: 0, bossKind: "fire_dragon", root: { position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } } });
+    const dragonKill = host.sent.filter((message) => message.type === "partyKill").pop();
+    assert(host.sent.filter((message) => message.type === "partyKill").length === 3 && dragonKill.bossKind === "fire_dragon", "dragon kills ARE broadcast with bossKind (2026-07-04 드래곤 파티 동기화 — 게스트 리스폰 쿨다운·챕터 공유)");
+    partyHostNotifyKill({ id: "j", type: "jammini", name: "잼미니", hp: 0, root: { position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } } });
+    assert(host.sent.filter((message) => message.type === "partyKill").length === 3, "jammini kills are still NOT broadcast (로컬 이벤트성 — 동기화 밖)");
     partyWorldSync.partyDamageRemotePlayer("연우용사", 4, "늑대");
     const sentMobHit = host.sent.find((message) => message.type === "mobHit");
     assert(sentMobHit && sentMobHit.nickname === "연우용사" && sentMobHit.amount === 4 && sentMobHit.mapId === "starter_valley", "predator strike on a guest sends mobHit with mapId");
@@ -1199,6 +1202,81 @@ try {
     resetPartyWorldSync();
     initPartyWorldSync({ session: () => null, localPresence: () => guest.me, getGroundHeightAt: () => 0, world: null }); // 모듈 상태 완전 분리 — 이후 골든(predator AI)이 게스트 게이트에 걸리지 않게
     assert(partyWorldGuestActive() === false, "detached world sync leaves guest mode");
+  }
+
+  {
+    // 파티 공유 확장 골든(2026-07-04) — 드래곤·직접 지은 집 스냅샷 편입 + 게스트 뷰 + 보급 결과 회신 + 로컬 보스 억제/토벌 교집합
+    const { initPartyWorldSync, partyWorldSyncTick, partyWorldSyncOnPresences, partyGuestSuppressLocalBosses, partyFilterDefeatedBosses, resetPartyWorldSync, MOB_SYNC_INTERVAL_MS } = partyWorldSync;
+    const makeMini = (role, nickname) => {
+      const objects = new Map(); let nextId = 1; const sent = []; let gameCb = null;
+      const session = { role, sendGame: (m) => sent.push(m), onGame: (cb) => { gameCb = cb; }, onPresences: () => {} };
+      const me = { nickname, mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true };
+      const add = (type, extra = {}) => { const o = { id: `${role}2-${nextId++}`, type, name: type, root: { position: { x: 0, y: 0, z: 0 }, rotation: { y: 0 } }, ...extra }; objects.set(o.id, o); return o; };
+      const world = {
+        entityContext: {}, activeRegions: () => [], mapXpScale: () => 1,
+        predators: () => [...objects.values()].filter((o) => o.type === "wildPredator"),
+        guards: () => [], chests: () => [], caves: () => [],
+        dragons: () => [...objects.values()].filter((o) => o.type === "dragon" && !o.partyView),
+        playerHouses: () => [...objects.values()].filter((o) => o.type === "villageHouse" && o.playerOwned && !o.partyTransient),
+        spawnDragonView: (bossKind, x, z) => add("dragon", { bossKind, partyView: true, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }),
+        spawnHouseView: (houseKind, owner, x, z) => add("villageHouse", { houseKind, owner, partyView: true, enterable: false, root: { position: { x, y: 0, z }, rotation: { y: 0 } } }),
+        getObject: (id) => objects.get(id), removeObject: (id) => objects.delete(id), removeObjectSilent: (id) => objects.delete(id),
+        hitFeedback: () => {}, showMessage: (t) => sent.push({ type: "_msg", t }), gainExperience: () => {}, creditHostKill: () => {}, creditQuestKill: () => {},
+        rollLoot: () => 0, dropKillSpiritToken: () => {}, recordFieldBossDefeat: () => {}, recordBossDefeat: (k) => sent.push({ type: "_bossDefeat", k }),
+        isBossHuntable: () => true, rollDragonLootFor: () => ({ item: "dragon_scale", count: 2 }),
+        damageLocalPlayer: () => false, animateWalkCycle: () => {}, refreshSpatialObject: () => {},
+        spawnChest: () => add("chest"), spawnCave: () => add("cave"), markChestOpened: () => 0, grantChestLoot: () => {}, enrageVillage: () => {}, spawnGuard: () => add("villageKnight"),
+        homeStorageSlots: () => [], sharedSupplyCooldownValue: () => 123,
+        hostClaimSharedSupply: () => ({ ok: false, reason: "full", items: [], leftover: [{ item: "obsidian_sword", count: 1 }] }),
+      };
+      return { session, me, world, sent, objects, getGameCb: () => gameCb };
+    };
+
+    // ── 호스트: 스냅샷에 드래곤(bossKind)·집(호스트 실물 + 같은 맵 게스트 프레즌스 에코) + 게스트 집 뷰 + 보급 회신 ──
+    const host2 = makeMini("host", "아빠용사");
+    initPartyWorldSync({ session: () => host2.session, localPresence: () => host2.me, getGroundHeightAt: () => 0, world: host2.world });
+    host2.objects.set("d1", { id: "d1", type: "dragon", name: "용", bossKind: "fire_dragon", hp: 800, armor: 85, root: { position: { x: 5, y: 0, z: 5 }, rotation: { y: 0 } } });
+    host2.objects.set("h1", { id: "h1", type: "villageHouse", name: "통나무집", houseKind: "wood", playerOwned: true, root: { position: { x: -8, y: 0, z: 3 }, rotation: { y: 0 } } });
+    partyWorldSyncTick(100_000, 0.016); // 세션 훅 설치(reset 이 프레즌스를 비우므로 이후에 주입)
+    partyWorldSyncOnPresences([
+      { nickname: "아빠용사", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "warrior", inGame: true },
+      { nickname: "연우", mapId: "starter_valley", x: 9, z: 9, yaw: 0, playerClass: "samurai", inGame: true, homes: [{ x: 30, z: 40, houseKind: "twoStory" }], defeatedBosses: [] },
+    ]);
+    partyWorldSyncTick(100_000 + MOB_SYNC_INTERVAL_MS + 5, 0.016);
+    const snap2 = host2.sent.filter((m) => m.type === "mobs").pop();
+    assert(snap2 && snap2.list.some((e) => e.bossKind === "fire_dragon" && e.hp === 800), "host snapshot carries dragons with bossKind (드래곤 파티 공유)");
+    assert(snap2.list.some((e) => e.objType === "villageHouse" && e.owner === "아빠용사" && e.houseKind === "wood"), "host snapshot carries the host-built house");
+    assert(snap2.list.some((e) => e.objType === "villageHouse" && e.owner === "연우" && e.houseKind === "twoStory" && e.x === 30), "host echoes same-map guest homes from presence piggyback (양방향 집 공유)");
+    assert([...host2.objects.values()].some((o) => o.type === "villageHouse" && o.owner === "연우" && o.partyView), "host spawns a local view of the guest house");
+    host2.getGameCb()({ type: "supplyClaimReq" }, "연우");
+    assert(host2.sent.some((m) => m.type === "pickupGrant" && m.nickname === "연우" && m.items[0].item === "obsidian_sword"), "supply leftover returns to the requesting guest (창고 가득 무음 드랍 방지)");
+    const sres = host2.sent.find((m) => m.type === "supplyResult");
+    assert(sres && sres.nickname === "연우" && sres.ok === false && sres.reason === "full", "supplyResult replies to the requester with the exact outcome");
+    assert(host2.sent.filter((m) => m.type === "storageSync").length >= 1, "storage state still broadcast after a claim");
+    assert(partyFilterDefeatedBosses(["boar_king"]).length === 0, "defeated-boss list intersects with same-map guests — 미처치 파티원이 있으면 호스트 기처치 보스도 재스폰");
+
+    // ── 게스트: 드래곤·집 뷰 + 자기 집 에코 스킵 + 같은 맵 호스트 억제 + 드래곤 처치 공유 수신 ──
+    const guest2 = makeMini("guest", "연우");
+    initPartyWorldSync({ session: () => guest2.session, localPresence: () => guest2.me, getGroundHeightAt: () => 0, world: guest2.world });
+    partyWorldSyncTick(200_000, 0.016);
+    partyWorldSyncOnPresences([{ nickname: "아빠용사", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "healer", inGame: true }]);
+    assert(partyGuestSuppressLocalBosses() === true, "same-map host presence suppresses guest-local boss spawns (호스트 실내 체류 중에도 각자-잡음 차단)");
+    partyWorldSyncOnPresences([{ nickname: "아빠용사", mapId: "graveyard", x: 0, z: 0, yaw: 0, playerClass: "healer", inGame: true }]);
+    assert(partyGuestSuppressLocalBosses() === false, "different-map host releases suppression (게스트 로컬 월드 유지는 설계)");
+    partyWorldSyncOnPresences([{ nickname: "아빠용사", mapId: "starter_valley", x: 0, z: 0, yaw: 0, playerClass: "healer", inGame: true }]);
+    guest2.getGameCb()({ type: "mobs", mapId: "starter_valley", list: [
+      { id: "HD-1", name: "용", bossKind: "dragon", x: 12, z: -3, yaw: 0, hp: 700 },
+      { id: "HH-1", name: "아빠용사의 집", objType: "villageHouse", houseKind: "wood", owner: "아빠용사", x: 1, z: 2, yaw: 0, hp: 1 },
+      { id: "house-연우-0", name: "연우의 집", objType: "villageHouse", houseKind: "twoStory", owner: "연우", x: 30, z: 40, yaw: 0, hp: 1 },
+    ] });
+    const dview = [...guest2.objects.values()].find((o) => o.type === "dragon");
+    assert(dview && dview.bossKind === "dragon" && dview.partyTransient === true && dview.hp === 700, "guest spawns a transient dragon view with authoritative hp");
+    const hviews = [...guest2.objects.values()].filter((o) => o.type === "villageHouse");
+    assert(hviews.length === 1 && hviews[0].owner === "아빠용사", "guest spawns the host house view and SKIPS the echo of its own house");
+    guest2.getGameCb()({ type: "partyKill", name: "용", xp: 50, killer: "아빠용사", mapId: "starter_valley", bossKind: "dragon" });
+    assert(guest2.sent.some((m) => m.type === "_bossDefeat" && m.k === "dragon"), "guest applies shared dragon defeat (리스폰 쿨다운·챕터 공유)");
+    resetPartyWorldSync();
+    initPartyWorldSync({ session: () => null, localPresence: () => guest2.me, getGroundHeightAt: () => 0, world: null }); // 모듈 상태 분리
   }
 
   {

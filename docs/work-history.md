@@ -1114,3 +1114,25 @@
 - 보상 아이템은 인접 엔드게임 퀘스트와 동일 계열(제련된 다이아·고급 구급상자·날카로운 흑요석)만 사용(isItem 검증 통과).
 - 검증: typecheck·content(단조/라벨/아이템)·systems·balance 등 게이트 녹색 + tsx 로직 프로브 —
   순서(50~57위, 각 milestone 직전)·완주 게이팅(goal-1=미완/goal=완료)·진행 타이틀 표기 확인.
+
+## 2026-07-04 — 파티 공유 3계통 종합 수정: 필드보스/드래곤 공유 + 직접 지은 집 공유 + 보급 결과 회신
+- 신고: ①필드보스·드래곤이 파티에 공유 안 되고 각자 잡음 ②서로 지은 집이 안 보임(보급 쿨타임만 공유)
+  ③게스트 보급 수령품이 이상함(5종 미만·흑요석류만·레어 없음). 4갈래 병렬 진단 워크플로(17건 확정) 기반.
+- **필드보스**: (a)게이트 강화 — partyGuestSuppressLocalBosses 신설(게스트+호스트 같은 맵이면 스냅샷이 잠깐
+  끊겨도(호스트 실내 등 2초) 로컬 ensure 억제 → "각자 잡음" 근본 차단). (b)토벌 교집합 — 프레즌스에
+  defeatedBosses piggyback, 호스트 ensure 를 같은 맵 파티원 교집합으로(구 세이브 호스트가 기처치한 보스도
+  미처치 게스트 있으면 재스폰·공유). (c)게스트 단독 처치도 partyKill 로 전파(호스트 릴레이, 중복 가드 무해).
+- **드래곤(신설)**: wildPredator 패턴 확장 — 스냅샷 bossKind 편입(collectMobs)·게스트 드래곤 뷰(spawnDragonView)·
+  비동기 로컬 드래곤 스윕·combat 근접/원거리 인터셉트(봉인 검사보다 앞=호스트 권위)·hostApplyGuestAttack 드래곤
+  판정(방어 공식·어그로·처치 시 호스트가 전리품 롤→partyKill lootItem 지급)·partyKill.bossKind 로 전원 리스폰
+  쿨다운·챕터 진행 공유. 용암 드래곤 스폰도 게스트 게이트.
+- **집 공유(신설)**: 프레즌스에 homes piggyback(playerOwned 집 목록) → 호스트가 스냅샷에 자기 집+같은 맵 게스트
+  집을 정적 entry(villageHouse)로 에코 → 게스트는 "OO의 집" 뷰 스폰(자기 집 에코는 스킵), 호스트는 프레즌스
+  기반 직접 뷰(ensureRemoteHouseViews). 뷰=partyTransient·enterable=false(진입은 각자 자기 집만)·playerOwned=false
+  (부활/지도 마커 오인 방지)·비충돌. keepStatic 보존으로 호스트 실내 진입 시 깜빡임 없음.
+- **보급**: hostClaimSharedSupply 구조체화 — 창고 가득 잔여분은 pickupGrant 로 요청 게스트 인벤 반환(레어 무음
+  드랍 해소), 0건 입고 시 쿨타임 보존. supplyResult 회신으로 게스트도 솔로처럼 실수령 목록/사유 메시지.
+  게스트 선차단(sharedSupplyCd) + 로컬 감쇠(동결값 과차단 방지).
+- 신규 컨텍스트 함수는 optional(구 mock 호환). 골든 갱신 1건(드래곤 kill 은 이제 브로드캐스트) + 신규 골든 블록
+  (드래곤/집 스냅샷·게스트 뷰·자기 집 스킵·억제/해제·교집합·supplyResult/pickupGrant 회신·처치 공유 수신).
+- 검증: verify 전체 그린. main.ts 래칫 9339/480 여유 0 유지(전부 기존 줄 인라인).

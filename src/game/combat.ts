@@ -159,6 +159,7 @@ export function applyProjectileDamage(
   }
 
   if (target.type === "dragon") {
+    if (context.partyAttackIntercept?.(target, attackPower, kind)) return; // 파티 게스트의 동기화 드래곤 — 호스트가 판정(봉인 검사도 호스트 권위라 락 검사보다 앞)
     const lockMessage = context.bossLockMessage(target.bossKind);
     if (lockMessage) {
       context.showMessage(lockMessage);
@@ -291,6 +292,7 @@ export function applyMeleePredatorAttack(context: ProjectileDamageContext, targe
 
 export function applyMeleeDragonAttack(context: ProjectileDamageContext, target: WorldObject, attackPower: number) {
   if (target.type !== "dragon") return;
+  if (context.partyAttackIntercept?.(target, attackPower, "melee")) return; // 파티 게스트의 동기화 드래곤 — 호스트가 판정
   const lockMessage = context.bossLockMessage(target.bossKind);
   if (lockMessage) {
     context.showMessage(lockMessage);
