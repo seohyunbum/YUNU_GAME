@@ -10,7 +10,8 @@ const CREDITS: readonly { role: string; name: string }[] = [
   { role: "AI 프로그래머", name: "Codex" },
   { role: "특별 출연", name: "잼미니 · 새끼용들 · 마을 기사단" },
   { role: "몬스터 연기", name: "좀비 · 묘지귀신 · 불곰 · 바위전갈" },
-  { role: "최종 보스", name: "불멸의 존재" },
+  { role: "차원의 문 관문", name: "불멸의 존재" },
+  { role: "최종 보스", name: "절망의 군주 일리아" },
   { role: "플레이테스트", name: "연우" },
 ];
 
@@ -22,7 +23,7 @@ export function showEndingScreen(host: HTMLElement, onClose: () => void) {
   overlay.innerHTML = `
     <div class="ending-scroll">
       <div class="ending-roll">
-        <h1>🎆 불멸의 존재 토벌 🎆</h1>
+        <h1>🎆 절망의 군주 일리아 토벌 🎆</h1>
         <p class="ending-subtitle">1인칭 야생 마을 — 모든 챕터 클리어</p>
         <h2>만든 사람들</h2>
         ${rows}
