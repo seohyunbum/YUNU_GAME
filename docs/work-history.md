@@ -1136,3 +1136,12 @@
 - 신규 컨텍스트 함수는 optional(구 mock 호환). 골든 갱신 1건(드래곤 kill 은 이제 브로드캐스트) + 신규 골든 블록
   (드래곤/집 스냅샷·게스트 뷰·자기 집 스킵·억제/해제·교집합·supplyResult/pickupGrant 회신·처치 공유 수신).
 - 검증: verify 전체 그린. main.ts 래칫 9339/480 여유 0 유지(전부 기존 줄 인라인).
+
+## 2026-07-04 — 전 직업 최초 HP +6 (10→16)
+- 유저 요청: 모든 직업의 최초 hp +6.
+- 변경: `BASE_PLAYER_MAX_HEALTH` 10→16 한 줄. 이 상수는 직업 무관 공용 base 라(HP 를 직업별로 나누는
+  필드 없음) 7직업 전부 +6 균등 적용. 레벨(+2/lv)·훈련·장비 보너스는 이 위에 가산되어 전 레벨 +6 시프트.
+- ⚠️ 마이그레이션 불필요(다음 작업자용): 로드 시 `maxHealth = max(save.maxHealth, maxHealthForLevel())`
+  (main.ts:6327)라 기존 세이브도 재계산값(+6)이 더 커서 자동 상향되고, 절대 낮아지지 않음. 별도 SAVE_VERSION
+  올릴 필요 없음. save-migration-test 도 리터럴이 아니라 `maxHealthForLevel` 함수로 기대값을 잡아 자동 정합.
+- 검증: typecheck·save-migration·content·systems·balance·combat 등 녹색 + tsx 프로브(Lv1 10→16, 전 레벨 +6 시프트).
