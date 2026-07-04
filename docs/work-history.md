@@ -948,3 +948,12 @@
   CREDITS.txt 갱신(교체 사유 명기).
 - 검증: build 그린(dist/bgm/cave_crystal.mp3 포함) + 실브라우저 E2E — 동굴 진입 시 cave_crystal.mp3 요청(200)·
   decodeAudioData 성공·isPlaying=true, 옛 cave.ogg 요청 없음(404 없음).
+
+## 2026-07-04 — 집 보급상자 고등급 확률 소폭 상향 (정령소환권·흑요석방패 더)
+- 유저 요청: 직접 지은 집 보급상자에서 높은 등급 템 확률 소폭 상향, 특히 정령소환권·날카로운흑요석방패는 조금 더.
+- 수정(src/game/homeBase.ts, leaf 순수함수):
+  ① 에픽+ 보너스 풀 발동 15%→20%(전체 고등급 소폭 상향).
+  ② 정령소환권 전용 롤 6%→11%(tier≥2).
+  ③ EPIC_PLUS_SUPPLY 가중치: sharp_obsidian_shield 3→6, spirit_gacha_token 2→4.
+- 실측(몬테카를로 N=200k, lv100): 정령소환권 6.3%→11.7%(≈2배), 흑요석방패 0.45%→1.15%(≈2.6배).
+- 테스트 경계(무보너스 0.99 / 전보너스 0.01)를 넘지 않아 기존 골든 유지. 검증: systems·content·verify 전체 그린.
