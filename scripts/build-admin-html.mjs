@@ -37,7 +37,11 @@ try {
   button { padding: 9px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.07); color: #f3ead6; cursor: pointer; font-size: 13px; }
   button.primary { background: #f4d488; color: #1a2b1f; font-weight: 700; }
   .row button { padding: 2px 9px; }
-  .actions { display: flex; gap: 10px; flex-wrap: wrap; position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(transparent, #16211b 30%); }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(transparent, #16211b 30%); }
+  .actions .bottom-status { flex-basis: 100%; padding: 8px 12px; border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.06); min-height: 18px; }
+  .actions .bottom-status.ok { background: rgba(90, 200, 120, 0.2); }
+  .actions .bottom-status.err { background: rgba(220, 90, 90, 0.22); }
+  button:disabled { opacity: 0.5; cursor: wait; }
 </style>
 </head>
 <body>
@@ -47,6 +51,7 @@ try {
   <div class="status" id="status">전역 밸런스를 불러오는 중…</div>
   <div id="groups"></div>
   <div class="actions">
+    <div class="bottom-status" id="statusBottom">버튼을 누르면 여기와 상단에 결과가 표시됩니다.</div>
     <button id="reload">↻ 현재 전역값 다시 불러오기</button>
     <button id="resetAll">모든 항목 기본값으로(화면만)</button>
     <button class="primary" id="publish">🌐 전체 적용 (모든 기기)</button>
@@ -61,7 +66,11 @@ const byKey = new Map(TUNABLES.map((t) => [t.key, t]));
 const values = new Map(TUNABLES.map((t) => [t.key, t.def]));
 
 function clampVal(t, v) { return Math.min(t.max, Math.max(t.min, v)); }
-function setStatus(text, cls) { const el = document.getElementById("status"); el.textContent = text; el.className = "status" + (cls ? " " + cls : ""); }
+function setStatus(text, cls) {
+  const top = document.getElementById("status"); top.textContent = text; top.className = "status" + (cls ? " " + cls : "");
+  const bottom = document.getElementById("statusBottom"); bottom.textContent = text; bottom.className = "bottom-status" + (cls ? " " + cls : "");
+}
+function setBusy(busy) { for (const id of ["reload", "resetAll", "publish", "wipe"]) document.getElementById(id).disabled = busy; }
 
 function render() {
   const groups = new Map();
@@ -98,6 +107,7 @@ function syncRow(key) {
 
 async function loadGlobal() {
   setStatus("전역 밸런스를 불러오는 중…");
+  setBusy(true);
   try {
     const res = await fetch(BAL_PATH);
     const data = res.ok ? await res.json() : null;
@@ -110,7 +120,7 @@ async function loadGlobal() {
     setStatus(overridden > 0 ? \`불러오기 완료 — 현재 전역 오버라이드 \${overridden}개 적용 중.\` : "불러오기 완료 — 현재 전 기기가 코드 기본값을 사용 중입니다.", "ok");
   } catch (e) {
     setStatus("불러오기 실패 — 인터넷 연결을 확인해 주세요. (기본값으로 표시됨)", "err");
-  }
+  } finally { setBusy(false); }
 }
 
 document.getElementById("reload").addEventListener("click", loadGlobal);
@@ -119,25 +129,27 @@ document.getElementById("publish").addEventListener("click", async () => {
   const payload = {};
   for (const t of TUNABLES) { const v = values.get(t.key); if (Math.abs(v - t.def) > 1e-9) payload[t.key] = v; }
   setStatus("전체 적용 중…");
+  setBusy(true);
   try {
     const res = await fetch(BAL_PATH, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (!res.ok) throw new Error(String(res.status));
-    setStatus(\`🌐 전체 적용 완료 — 오버라이드 \${Object.keys(payload).length}개. 모든 기기가 다음 접속(새로고침)부터 반영됩니다.\`, "ok");
+    setStatus(\`✅ 전체 적용 완료 — 오버라이드 \${Object.keys(payload).length}개 저장. 모든 기기가 다음 접속(새로고침)부터 이 밸런스를 사용합니다.\`, "ok");
   } catch (e) {
-    setStatus("전체 적용 실패 — 인터넷 연결을 확인해 주세요.", "err");
-  }
+    setStatus("❌ 전체 적용 실패 — 인터넷 연결을 확인해 주세요.", "err");
+  } finally { setBusy(false); }
 });
 document.getElementById("wipe").addEventListener("click", async () => {
   if (!confirm("전역 밸런스를 초기화할까요? 모든 기기가 코드 기본값으로 돌아갑니다.")) return;
   setStatus("전역 초기화 중…");
+  setBusy(true);
   try {
     const res = await fetch(BAL_PATH, { method: "DELETE" });
     if (!res.ok) throw new Error(String(res.status));
     for (const t of TUNABLES) { values.set(t.key, t.def); syncRow(t.key); }
-    setStatus("🌐 전역 초기화 완료 — 모든 기기가 코드 기본값으로 복귀합니다.", "ok");
+    setStatus("✅ 전역 초기화 완료 — 모든 기기가 코드 기본값으로 복귀합니다.", "ok");
   } catch (e) {
-    setStatus("전역 초기화 실패 — 인터넷 연결을 확인해 주세요.", "err");
-  }
+    setStatus("❌ 전역 초기화 실패 — 인터넷 연결을 확인해 주세요.", "err");
+  } finally { setBusy(false); }
 });
 
 render();
