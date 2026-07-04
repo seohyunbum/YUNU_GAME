@@ -75,6 +75,7 @@ export function samuraiMoonlightDamage(currentDamage: number) {
 interface SamuraiFlurry {
   targetId: string;
   hitsLeft: number;
+  hitsTotal: number; // 연격 총 타격 수 — 방어를 스킬 1회당 1번만 부담시키는 armorScale(1/N) 계산용
   damage: number; // 타격당 피해(시전 시점 스냅샷)
   intervalMs: number;
   nextHitAt: number;
@@ -87,7 +88,7 @@ const activeFlurries: SamuraiFlurry[] = [];
 // 영원히 false(매 프레임 타격 = 피해 소방호스)가 되므로 비유한 인자는 등록 자체를 거부한다.
 export function registerSamuraiFlurry(targetId: string, damage: number, hits: number, intervalMs: number, now: number) {
   if (!Number.isFinite(damage) || !Number.isFinite(hits) || !Number.isFinite(intervalMs) || !Number.isFinite(now)) return;
-  activeFlurries.push({ targetId, hitsLeft: Math.max(1, Math.floor(hits)), damage: Math.max(1, Math.round(damage)), intervalMs: Math.max(1, intervalMs), nextHitAt: now });
+  activeFlurries.push({ targetId, hitsLeft: Math.max(1, Math.floor(hits)), hitsTotal: Math.max(1, Math.floor(hits)), damage: Math.max(1, Math.round(damage)), intervalMs: Math.max(1, intervalMs), nextHitAt: now });
 }
 
 export function resetSamuraiEffects() {
@@ -110,7 +111,7 @@ export function updateSamuraiFlurries(context: SkillEffectsContext) {
       continue;
     }
     context.meleeEffects(target);
-    if (!partyGuestAttackIntercept(target, flurry.damage, "melee")) context.applyDamage(target, flurry.damage); // 파티 게스트의 동기화 몬스터는 호스트가 판정
+    if (!partyGuestAttackIntercept(target, flurry.damage, "melee")) context.applyDamage(target, flurry.damage, { armorScale: 1 / flurry.hitsTotal, counter: flurry.hitsLeft <= 1 }); // 조각은 방어 1/N 부담 + 즉시반격은 마지막 조각 1회만(용 11연속 반격 방지). 파티 게스트 동기화 몬스터는 호스트가 판정
     flurry.hitsLeft -= 1;
     flurry.nextHitAt = now + flurry.intervalMs;
     if (flurry.hitsLeft <= 0) activeFlurries.splice(index, 1);

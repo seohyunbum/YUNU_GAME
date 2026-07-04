@@ -1,6 +1,7 @@
 import type * as THREE from "three";
 import type { RewardSource } from "../operatorConfig";
 import { JAMMINI_MAX_HP, PREDATOR_RETALIATE_MS } from "./constants";
+import { DRAGON_AGGRO_MS } from "./dragonAi";
 import { ITEM_NAMES } from "./items";
 import { predatorLootForKind } from "./monsters";
 import type { BossKind, CombatProjectile, ItemId, WorldObject } from "./types";
@@ -101,11 +102,20 @@ export function calculateIncomingPlayerDamage(attackPower: number, defense: numb
   return Math.max(calculateCombatDamage(attack, defense), Math.ceil(attack * 0.15));
 }
 
+// 다단히트(연격) 스킬 조각용 옵션 — armorScale: 방어를 조각 수만큼 나눠 스킬 1회당 방어가 총 1번만 적용되게
+// (조각당 전액 적용 시 40% 조각이 용 방어 85 하드게이트(gap≤-20→0)에 전부 막혀 "무한 찌르기가 용에게 노딜"이 됨).
+// counter:false = 용 즉시반격 억제(연격당 1회만) — 대신 어그로는 걸어 AI 가 자연 반격.
+export interface ProjectileDamageOptions {
+  armorScale?: number;
+  counter?: boolean;
+}
+
 export function applyProjectileDamage(
   context: ProjectileDamageContext,
   target: WorldObject,
   attackPower: number,
   kind: CombatProjectile["kind"],
+  options?: ProjectileDamageOptions,
 ) {
   const label = kind === "magic" ? "\uB9C8\uBC95" : kind === "tnt" ? "\uD3ED\uBC1C" : kind === "wind" ? "\uC708\uB4DC\uCEE4\uD130" : "\uD22C\uC0AC\uCCB4";
   context.playImpactSound(kind);
@@ -128,7 +138,7 @@ export function applyProjectileDamage(
   if (target.type === "wildPredator") {
     if (context.partyAttackIntercept?.(target, attackPower, kind)) return; // 파티 게스트 — 호스트가 판정
     // 필드 보스만 방어력을 가진다 — 항상 최소 1 피해는 보장
-    const predatorDamage = target.armor ? Math.max(1, calculateCombatDamage(attackPower, target.armor)) : attackPower;
+    const predatorDamage = target.armor ? Math.max(1, calculateCombatDamage(attackPower, Math.round(target.armor * (options?.armorScale ?? 1)))) : attackPower;
     target.hp = (target.hp ?? 10) - predatorDamage;
     context.hitFeedback?.(target, predatorDamage, target.hp <= 0);
     target.angryUntil = context.now() + PREDATOR_RETALIATE_MS;
@@ -155,18 +165,19 @@ export function applyProjectileDamage(
       return;
     }
     const stats = context.bossStats(target.bossKind);
-    const defense = target.armor ?? stats.armor;
+    const defense = Math.round((target.armor ?? stats.armor) * (options?.armorScale ?? 1)); // 연격 조각은 방어를 1/타격수 만 부담
     const damage = calculateCombatDamage(attackPower, defense);
+    const retaliate = () => { if (options?.counter !== false) context.dragonCounterAttack(target); else target.angryUntil = context.now() + DRAGON_AGGRO_MS; }; // 연격 중간 조각은 즉시반격 대신 어그로만
     if (damage <= 0) {
       context.showMessage(`용의 방어력 ${defense}이 ${label} 공격 ${attackPower}을 막았습니다. 용이 반격합니다.`);
-      context.dragonCounterAttack(target);
+      retaliate();
       return;
     }
     target.hp = (target.hp ?? stats.maxHp) - damage;
     context.hitFeedback?.(target, damage, target.hp <= 0);
     if (target.hp > 0) {
-      context.showMessage(`${stats.name}에게 ${label} ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${stats.maxHp}. ${stats.name}이 반격합니다.`);
-      context.dragonCounterAttack(target);
+      context.showMessage(`${stats.name}에게 ${label} ${damage} 피해. 남은 체력 ${Math.max(0, Math.ceil(target.hp))}/${stats.maxHp}.`);
+      retaliate();
       return;
     }
     const loot = context.rollDragonLoot();

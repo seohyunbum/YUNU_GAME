@@ -163,7 +163,7 @@ export interface SecondSkillContext {
   trySpend(skill: SecondSkillDef): boolean;
   lookCombatTarget(): WorldObject | null;
   fireSkillProjectile(kind: "tnt" | "wind" | "arrow", visual: "magic" | "wind" | "fireball" | "arrow", damage: number, speed: number, radius: number, explosionRadius?: number, dirYaw?: number): void;
-  applyDamage(target: WorldObject, damage: number): void;
+  applyDamage(target: WorldObject, damage: number, options?: { armorScale?: number; counter?: boolean }): void; // options: 다단히트 조각용(combat.ProjectileDamageOptions) — 방어 1/N 부담·즉시반격 억제
   meleeEffects(target: WorldObject): void;
   playHandAction(kind: "melee" | "magic"): void;
   playTone(frequency: number, duration?: number, type?: OscillatorType, volume?: number): void;
@@ -304,7 +304,7 @@ export interface SkillEffectsContext {
   skillDamageMult(): number; // 4차 전직 스킬 +10% — 지속 피해(불타는 방패·정령 폭풍)에도 적용. 미전직 1.0.
   getObject(id: string): WorldObject | undefined;
   nearbyCombatTargets(radius: number): WorldObject[];
-  applyDamage(target: WorldObject, damage: number): void;
+  applyDamage(target: WorldObject, damage: number, options?: { armorScale?: number; counter?: boolean }): void; // options: 다단히트 조각용(combat.ProjectileDamageOptions) — 방어 1/N 부담·즉시반격 억제
   meleeEffects(target: WorldObject): void; // 사무라이 연격 틱의 타격 연출 (SecondSkillContext.meleeEffects 와 동일 배선)
   heal(amount: number): void;
   healingRain(): void; // 치유의 비 지속 연출(틱마다 떨어지는 빗방울)
