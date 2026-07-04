@@ -234,16 +234,16 @@ try {
     assert(samuraiBaseDps / warriorDps > 1.0 && samuraiBaseDps / warriorDps < 1.25, "samurai DPS above warrior but bounded (non-katana)");
     assert(samuraiKatanaDps > samuraiBaseDps && samuraiKatanaDps / warriorDps < 1.35, "samurai+katana DPS above base (synergy reward), bounded");
 
-    // 스킬 수치 — 난도(4연격 합 2.8배, 55%→70% 상향)·도약(15칸·150%·쿨 25초)·무한 찌르기(11연격 ≈1.6초·합 4.4배)·월광베기(3연격 합 6.6배)
+    // 스킬 수치 — 난도(4연격 합 3.6배, 70%→90% 상향)·도약(15칸·150%·쿨 22초)·무한 찌르기(11연격 ≈1.6초·합 4.4배)·월광베기(3연격 합 6.6배)
     const sam = samuraiMod;
-    assert(sam.SAMURAI_FLURRY_HITS === 4 && sam.samuraiFlurryHitDamage(100) === 70, "난도: 4 hits × 70% (합 2.8배)");
+    assert(sam.SAMURAI_FLURRY_HITS === 4 && sam.samuraiFlurryHitDamage(100) === 90, "난도: 4 hits × 90% (합 3.6배)");
     assert(sam.SAMURAI_DASH_RANGE === 15 && sam.samuraiDashDamage(100) === 150, "도약: 15칸 돌진 × 공격력 150%");
     assert(sam.SAMURAI_PIERCE_HITS === 11 && sam.samuraiPierceHitDamage(100) === 40, "무한 찌르기: 11 hits × 40% (합 4.4배)");
     assert(sam.SAMURAI_PIERCE_HITS * sam.SAMURAI_PIERCE_INTERVAL_MS >= 1400 && sam.SAMURAI_PIERCE_HITS * sam.SAMURAI_PIERCE_INTERVAL_MS <= 1800, "무한 찌르기 채널 ≈1.6초");
     assert(sam.SAMURAI_MOONLIGHT_WAVES === 3 && sam.samuraiMoonlightDamage(100) === 220, "월광베기: 3연격 × 220% (합 6.6배 < 전사 천검난무 7배)");
     const { SECOND_SKILLS, THIRD_SKILLS, FOURTH_SKILLS } = classSkills;
     assert(classes.PLAYER_CLASSES.samurai.skillName === "난도" && SECOND_SKILLS.samurai.name === "도약" && THIRD_SKILLS.samurai.name === "무한 찌르기" && FOURTH_SKILLS.samurai.name === "월광베기", "samurai skill names R/T/F/G");
-    assert(SECOND_SKILLS.samurai.cooldown === 25, "도약 쿨다운 25초 (30→25 하향 2026-07-04)");
+    assert(SECOND_SKILLS.samurai.cooldown === 22, "도약 쿨다운 22초 (25→22 하향 2026-07-04)");
     assert(SECOND_SKILLS.samurai.summary.includes("관통"), "도약 요약에 몬스터 관통 명시");
     assert(sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("wildPredator") && sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("dragon") && !sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("buildingBlock") && !sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("villageHouse"), "도약 관통 대상 = 생명체만(건물류 제외)");
     assert(classes.PLAYER_CLASSES.samurai.starterItem === "katana", "samurai starts with a katana");
@@ -2341,7 +2341,7 @@ try {
         "progress publish: PATCH users/{nick}.json (merge), integer-floored fields, skip/error-safe",
         "treasure chest tiers: roll boundaries (74/20/5/1) + higher tier = rarer loot (monotonic)",
         "ultimate weapons: sharp obsidian shield/staff/gun exceed top of category, correct ranged/projectile class, epic, extended-workbench recipes with valid ingredients",
-        "samurai: passives below warrior with +25% attack speed (DPS ≈ warrior), katana synergy +5% atk/speed/move, skill numbers (난도 4×55%, 도약 15u×150% stop-on-block, 무한 찌르기 11×40% ≈1.6s, 월광베기 3×220%), flurry tick lifecycle, dash path damage/blocking, job titles 검객~검선",
+        "samurai: passives below warrior with +25% attack speed (DPS ≈ warrior), katana synergy +5% atk/speed/move, skill numbers (난도 4×90%, 도약 15u×150% stop-on-block cd22s, 무한 찌르기 11×40% ≈1.6s, 월광베기 3×220%), flurry tick lifecycle, dash path damage/blocking, job titles 검객~검선",
         "chapter boss respawn: killed dragon does not instantly respawn; re-spawns only after 10-minute cooldown",
         "safe zones: villages + training block monster spawn (isInSafeZone) and movement (clampOutOfSafeZones pushes to boundary); all boss coords clear of safe zones",
       ],

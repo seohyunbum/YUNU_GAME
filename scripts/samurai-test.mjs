@@ -29,7 +29,7 @@ try {
   // ── 1) 피해 헬퍼 퍼징 — 항상 유한 정수 ≥ 1 ──
   {
     const helpers = [
-      ["samuraiFlurryHitDamage", sam.samuraiFlurryHitDamage, 0.7],
+      ["samuraiFlurryHitDamage", sam.samuraiFlurryHitDamage, 0.9],
       ["samuraiDashDamage", sam.samuraiDashDamage, 1.5],
       ["samuraiPierceHitDamage", sam.samuraiPierceHitDamage, 0.4],
       ["samuraiMoonlightDamage", sam.samuraiMoonlightDamage, 2.2],

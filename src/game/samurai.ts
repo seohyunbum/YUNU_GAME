@@ -37,11 +37,11 @@ function finiteOr1(value: number): number {
 }
 
 // ===== 스킬 수치 =====
-// 난도(1스킬): 4연격 × 공격력 70% = 합 ≈ 2.8배 (55%→70% 상향 2026-07-04 — 전사 '불타는 공격' 2배보다 확실히 위, 짧은 쿨다운 유지)
+// 난도(1스킬): 4연격 × 공격력 90% = 합 ≈ 3.6배 (70%→90% 상향 2026-07-04 2차 — 전사 '불타는 공격' 2배 대비 확실한 주력기, 짧은 쿨다운 유지)
 export const SAMURAI_FLURRY_HITS = 4;
 export const SAMURAI_FLURRY_INTERVAL_MS = 120;
 export function samuraiFlurryHitDamage(currentDamage: number) {
-  return Math.max(1, Math.round(finiteOr1(currentDamage) * 0.7));
+  return Math.max(1, Math.round(finiteOr1(currentDamage) * 0.9));
 }
 
 // 도약(2스킬): 최대 15칸 돌진, 경로 폭(중심선 좌/우 반폭) 3.0 안의 모든 적에게 1회씩 공격력 150% 피해.
