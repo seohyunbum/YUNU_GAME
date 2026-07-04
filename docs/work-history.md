@@ -1083,3 +1083,20 @@
 - 검증: verify 그린 + combat-test 회귀 가드 5건(비스케일 조각 차단 유지·스케일 조각 피해·중간 반격 억제+어그로·
   마지막 반격 1회·필드보스 스케일) + 실브라우저 E2E(용 hp 1000→991 실피해(이전 정확히 0)·즉시반격 스팸 없음·
   일반 몬스터 회귀 없음).
+
+## 2026-07-04 — 조작법·퀘스트 패널 접기/펼치기 (화면 가림 완화)
+- 유저 요청: 좌상단 조작법 가이드와 우상단 퀘스트 카드가 화면을 많이 가림 → 접기/펼치기 토글.
+  (전체화면은 동작 확인됨 — 이번 작업 대상 아님.)
+- 구현(전부 leaf UI + CSS, main.ts 0 변경 — 라인 예산 9339/9339 여유 0 이라 의도적으로 회피):
+  ①`ui/collapsiblePanel.ts`(신규 leaf) — 컨테이너에 `.collapsed` 토글 + localStorage 영속(`yunu:collapse:*`),
+    try/catch 로 사생활 모드 무시. ②조작법: `controlsGuide.ts` 타이틀에 토글 버튼, `setupUi` 기존 위임 클릭에
+    분기 추가. 접힘 시 키칩 그룹만 숨기고 퀵버튼(가방·캐릭터·파티)+타이틀 유지. ③퀘스트: `hudRenderer` 가
+    토글을 **`.objective-card`(버튼) 바깥 형제**로 렌더 → main 의 카드 클릭(보상 수령/가이드) 핸들러가
+    `closest(".objective-card")` 로 자연히 무시. `setupUi` 가 objectiveEl 에 별도 위임 리스너 + 초기 상태 복원.
+    접힘 시 상세·보상·행동힌트 숨기고 헤더(제목·진행도) 유지.
+- 왜 형제 배치인가: 카드가 `<button>` 이라 내부 중첩 버튼은 무효 HTML + 클릭이 보상 수령과 충돌. 형제로 빼서
+  main.ts 수정 없이(예산 0) 충돌도 원천 차단. `.collapsed` 클래스는 컨테이너에 있어 카드 innerHTML 재렌더에도 보존.
+- 검증: 헤드리스 브라우저(chromium) 실게임 진입 후 계측 — 두 토글 present+hittable(canvas 위 pointer-events
+  정상), 조작법 그룹 표시→접힘/퀵버튼 유지/재펼침, 퀘스트 상세 접힘/제목 유지, **접기 클릭이 보상 모달을 열지
+  않음**(rewardModalOpened=false), 새로고침 후 접힘 상태 복원. + verify 게이트(typecheck·size·methods·
+  architecture·hotpath·systems 등) 녹색. save-roundtrip 은 여전히 기지 제약으로 스킵.

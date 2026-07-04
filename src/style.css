@@ -549,6 +549,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding-right: 26px; /* 우상단 접기 토글과 진행도 배지가 겹치지 않도록 여유 */
 }
 .objective-reward {
   color: rgba(253, 230, 138, 0.66); /* 방법 안내가 1순위 — 보상은 한 단계 낮춰 보조 정보로 */
@@ -789,11 +790,63 @@ body {
 
 .controls-guide-title {
   flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 3px;
   color: #cfe0f5;
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.06em;
+}
+
+/* 패널 접기/펼치기 토글 — 조작법·퀘스트 공용. 부모가 pointer-events:none 여도 버튼만 auto. */
+.panel-collapse-btn {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(232, 240, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  color: #dbe6f7;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.panel-collapse-btn:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+/* 접힌 상태: 셰브런을 오른쪽(펼치기 유도)으로 회전 */
+.controls-guide.collapsed .panel-collapse-btn,
+.objective.collapsed .panel-collapse-btn {
+  transform: rotate(-90deg);
+}
+/* 조작법 접힘: 키칩 그룹 숨김 — 퀵버튼(가방·캐릭터·파티) + 타이틀만 남겨 화면 가림 최소화 */
+.controls-guide.collapsed .controls-guide-group {
+  display: none;
+}
+/* 퀘스트 접기 토글 — 카드 우상단에 겹쳐 배치(카드 버튼 바깥 형제). .objective 는 이미 position:absolute. */
+.objective-collapse-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+/* 퀘스트 접힘: 상세·보상·행동힌트 숨김 — 헤더(제목·진행도)만 남긴다. */
+.objective.collapsed .objective-detail,
+.objective.collapsed .objective-reward,
+.objective.collapsed .objective-action {
+  display: none;
+}
+.objective.collapsed .objective-card {
+  gap: 4px;
+  padding-bottom: 12px;
 }
 .controls-guide-group {
   flex: 0 0 100%;
