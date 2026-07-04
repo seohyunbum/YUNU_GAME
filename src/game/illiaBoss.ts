@@ -355,7 +355,7 @@ export function updateIlliaFight(state: IlliaFightState, ctx: IlliaContext, delt
   }
   for (const telegraph of exploded) {
     if (!telegraphContains(telegraph.spec, ctx.playerPosition.x, ctx.playerPosition.z)) continue;
-    const died = ctx.applyPlayerHit(bal("illia_hit_pct", 0.5), state.phase === 1 ? "봉인된 군주 일리아의 일격" : "절망의 군주 일리아의 일격");
+    const died = ctx.applyPlayerHit(bal("illia_hit_pct", 0.2), state.phase === 1 ? "봉인된 군주 일리아의 일격" : "절망의 군주 일리아의 일격");
     if (died) return; // 사망 특례가 전투를 풀피로 재개하므로 이 볼리의 잔여 폭발은 새 판에 이월하지 않는다
   }
 

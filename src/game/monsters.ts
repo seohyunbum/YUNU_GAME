@@ -345,7 +345,7 @@ export const BOSS_STATS: Record<
     name: "봉인된 군주 일리아",
     maxHp: 3000, // 스폰 시 bal("illia_p1_hp") 적용
     armor: 90,
-    fireDamage: 0, // 패턴 엔진(illiaBoss)이 공격 — 접촉/브레스 미사용
+    fireDamage: 0, // 패턴 엔진(illiaBoss)이 공격 — 접촉/브레스 미사용. 피격 데미지=튜너블 illia_hit_pct(최대체력%)+illia_hit_flat(공격력)
     clawDamage: 0,
     attackRange: 0,
     collisionRadius: 2.1,

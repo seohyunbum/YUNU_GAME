@@ -81,7 +81,7 @@ try {
     assert.ok(scene.children.length >= 3, "텔레그래프가 씬에 추가됨");
     setT(2600 + 620 * 2 + 1 + 1400); illia.updateIlliaFight(state, ctx, 0.016);
     assert.ok(calls.hits.length >= 1, "제자리(원 중심)면 적중");
-    assert.equal(calls.hits[0].pct, 0.5, "피격 = 최대체력 50%(기본 튜너블)");
+    assert.equal(calls.hits[0].pct, 0.2, "피격 최대체력 비율 부분 = 20%(기본 튜너블, 나머지는 공격력 혼합)");
     assert.ok(calls.hits[0].label.includes("봉인된 군주"), "P1 피격 라벨");
     assert.equal(state.telegraphs.length, 0, "폭발한 텔레그래프는 제거");
     // 회피: 다음 낙인 스폰 후 플레이어 이동 → 미적중
@@ -200,7 +200,7 @@ try {
     assert.equal(monsters.experienceRewardForTarget({ type: "dragon", bossKind: "illia_sealed" }), 5000, "P1 처치 XP");
     assert.equal(monsters.experienceRewardForTarget({ type: "dragon", bossKind: "illia_desperate" }), 8000, "P2 처치 XP");
     const defs = Object.fromEntries(tuning.BALANCE_TUNABLES.map((d) => [d.key, d]));
-    for (const [key, def] of [["illia_p1_hp", 3000], ["illia_p2_hp", 4200], ["illia_armor", 0], ["illia_hit_pct", 0.5], ["illia_telegraph_scale", 1]]) {
+    for (const [key, def] of [["illia_p1_hp", 3000], ["illia_p2_hp", 4200], ["illia_armor", 0], ["illia_hit_pct", 0.2], ["illia_hit_flat", 100], ["illia_telegraph_scale", 1]]) {
       assert.ok(defs[key], `튜너블 ${key} 등록`);
       assert.equal(defs[key].def, def, `튜너블 ${key} 기본값 골든(BOSS_STATS·엔진 fallback 과 동기)`);
     }
