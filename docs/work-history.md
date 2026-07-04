@@ -1192,3 +1192,16 @@
   바탕화면 사본 = C:\Users\서현범\Desktop\YUNU 밸런스 관리자.html (더블클릭 → 브라우저. 레지스트리 변경 시 재복사).
 - 검증: verify 그린(check:admin 포함) + E2E — 어드민 HTML(42개 렌더·GET 반영·PUT 비기본값만·미등록 키 폐기·
   DELETE) + 게임(성장 오버라이드: 사무라이 lv11, 레벨당 체력 2→4 = 최대체력 +20 정확).
+
+## 2026-07-04 — 정령(펫) 파티 선물 기능
+- 유저 요청: 펫을 친구한테 줄 수 있게. 대상 = 정령(SpiritData, 소환권 가챠로 얻는 펫).
+- UI: 캐릭터창(K) 정령 보관함 — 파티 중이면 비장착 정령 카드에 🎁 버튼. 파티원 1명이면 즉시(확인창),
+  여럿이면 닉네임 입력. 장착 정령은 선물 불가(버튼 미표시+가드).
+- 프로토콜: spiritGift 메시지(to/from/spirit) + PARTY_PROTOCOL_VERSION 3→4(구버전 접속 차단 — 양쪽 새로고침 필요).
+  게스트→게스트는 호스트 릴레이(partyKill 패턴). 수신자만 적용(to 필터).
+- 수신 방어: sanitizeGiftedSpirit(spirits.ts) — 등급 화이트리스트·스탯 등급범위 클램프·비유한 폐기·id 충돌 시 재발급.
+- ★복제 차단(원장): 합성 키 `__spirit__:{JSON}` 로 partyLedger 에 양도(-1)/수령(+1) 기록 —
+  reconcile add/remove 가 접두사 분기로 정령 컬렉션에 재적용. 선물 후 옛 세이브 로드해도 준 정령은
+  안 돌아오고(복제 0), 받은 정령은 유지(유실 0). 장착 중이던 선물 정령 제거 시 equippedId 해제.
+- 검증: verify 그린 + 골든(수신자 필터·호스트 릴레이·from 스탬프·partyMemberNames·v4) +
+  spirits-test(정규화 5종) + 실브라우저 E2E(원장 재적용: sp-give 미복귀·sp-recv 유지).

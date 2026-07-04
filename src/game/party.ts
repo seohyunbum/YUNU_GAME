@@ -4,7 +4,8 @@ import Peer, { type DataConnection } from "peerjs";
 // 호스트-게스트 WebRTC P2P. 시그널링은 PeerJS 퍼블릭 브로커(악수만 중개, 게임 데이터는 P2P).
 // 이 파일이 연결 기술을 전부 격리한다 — 시그널링을 갈아타도 UI/게임 코드는 그대로.
 
-export const PARTY_PROTOCOL_VERSION = 3; // v3: 아이템·설치물·집 공유 신규 메시지(pickupRequest/pickupGrant/dropRequest/placeRequest/storage*·supplyClaimReq) 추가. 구버전(v2)은 같은 버전이라 접속은 되지만 새 메시지를 무시→기능 조용히 실패했으므로 버전 분리: 이제 버전 불일치 시 접속 단계에서 명확히 거부("새로고침" 안내).
+export const PARTY_PROTOCOL_VERSION = 4; // v4: 정령 선물(spiritGift) 추가. (v3: 아이템·설치물·집 공유)
+// v3 기록: // v3: 아이템·설치물·집 공유 신규 메시지(pickupRequest/pickupGrant/dropRequest/placeRequest/storage*·supplyClaimReq) 추가. 구버전(v2)은 같은 버전이라 접속은 되지만 새 메시지를 무시→기능 조용히 실패했으므로 버전 분리: 이제 버전 불일치 시 접속 단계에서 명확히 거부("새로고침" 안내).
 export const PARTY_MAX_MEMBERS = 4; // 호스트 포함
 
 // 혼동 글자(0/O/1/I) 제외 32자 — 6자리 초대 코드
@@ -126,7 +127,8 @@ export type PartyMessage =
   | { type: "storageTake"; index: number } // 게스트→호스트: 창고 슬롯 인출(게스트가 인벤 공간 선검사 후)
   | { type: "storageStore"; item: string; count: number; durabilityUsed?: number } // 게스트→호스트: 창고 입고(게스트가 창고 공간 선검사 후)
   | { type: "supplyClaimReq" } // 게스트→호스트: 보급함 수령(호스트가 공유 창고에 입고 + 쿨타임)
-  | { type: "supplyResult"; nickname: string; ok: boolean; reason?: string; items: { item: string; count: number }[] } // 호스트→게스트: 보급 수령 결과(요청자 전용 — 실수령 목록/사유. 솔로와 같은 피드백)
+  | { type: "supplyResult"; nickname: string; ok: boolean; reason?: string; items: { item: string; count: number }[] }
+  | { type: "spiritGift"; to: string; from: string; spirit: { id: string; grade: string; baseAttack: number; baseDefense: number; level: number; experience: number } } // 정령 선물 — 발신자가 소유 제거 후 전송, 수신자만 적용(호스트가 게스트→게스트 릴레이) // 호스트→게스트: 보급 수령 결과(요청자 전용 — 실수령 목록/사유. 솔로와 같은 피드백)
   // 파티 채팅 — to 없으면 전체, 있으면 귓속말(호스트가 대상에게만 중계)
   | { type: "chat"; from: string; text: string; to?: string };
 
@@ -285,7 +287,7 @@ export class PartySession {
         link.presenceAt = performance.now();
       }
       if (message.type === "ping") connection.send(encodePartyMessage({ type: "pong", t: message.t }));
-      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest" || message.type === "placeRequest" || message.type === "storageOpenReq" || message.type === "storageTake" || message.type === "storageStore" || message.type === "supplyClaimReq" || message.type === "partyKill") && link.nickname) this.emitGame(message, link.nickname);
+      if ((message.type === "attackRequest" || message.type === "openRequest" || message.type === "pickupRequest" || message.type === "dropRequest" || message.type === "placeRequest" || message.type === "storageOpenReq" || message.type === "storageTake" || message.type === "storageStore" || message.type === "supplyClaimReq" || message.type === "partyKill" || message.type === "spiritGift") && link.nickname) this.emitGame(message, link.nickname);
       // 5.1 — 게스트가 보낸 공격 연출·파티 힐·파티 버프(심판의 빛·불굴의 함성): 호스트가 처리(자기 화면 반영) + 다른 게스트에 중계
       if (message.type === "playerAttack" || message.type === "partyHeal" || message.type === "partyEmpower" || message.type === "partyRally") {
         this.emitGame(message, link.nickname ?? undefined);
@@ -352,7 +354,7 @@ export class PartySession {
           this.emitPresences(message.list.filter((entry) => entry.nickname !== this.nickname));
           return;
         }
-        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "partyEmpower" || message.type === "partyRally" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "storageSync" || message.type === "supplyResult" || message.type === "chat") {
+        if (message.type === "mobs" || message.type === "partyKill" || message.type === "mobHit" || message.type === "playerAttack" || message.type === "partyHeal" || message.type === "partyEmpower" || message.type === "partyRally" || message.type === "chestLoot" || message.type === "pickupGrant" || message.type === "storageSync" || message.type === "supplyResult" || message.type === "spiritGift" || message.type === "chat") {
           this.emitGame(message);
           return;
         }

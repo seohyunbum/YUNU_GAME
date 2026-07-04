@@ -134,6 +134,22 @@ export function createSpiritCollection(): SpiritCollection {
 }
 
 // 세이브 복원 — 손상·구버전 값 방어. 알 수 없는 등급은 common, 음수·NaN 정리.
+// 파티 선물 수신 정령 정규화 — 네트워크 페이로드 오염 방어(등급 화이트리스트·스탯 클램프·비유한 폐기).
+export function sanitizeGiftedSpirit(raw: unknown): SpiritData | null {
+  const s = raw as Partial<SpiritData> | null;
+  if (!s || typeof s.id !== "string" || s.id.length === 0 || s.id.length > 80) return null;
+  const grade = isSpiritGrade(s.grade) ? s.grade : null;
+  if (!grade) return null;
+  return {
+    id: s.id,
+    grade,
+    baseAttack: clampStat(s.baseAttack, grade),
+    baseDefense: clampStat(s.baseDefense, grade),
+    level: Math.min(999, Math.max(1, Math.floor(Number(s.level ?? 1)) || 1)),
+    experience: Math.max(0, Math.floor(Number(s.experience ?? 0)) || 0),
+  };
+}
+
 export function normalizeSpiritCollection(saved?: Partial<SpiritCollection> | null): SpiritCollection {
   const ownedRaw = Array.isArray(saved?.owned) ? saved!.owned : [];
   const owned: SpiritData[] = [];
