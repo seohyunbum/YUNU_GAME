@@ -26,6 +26,7 @@ export interface CharacterPanelView {
   equippedSpiritGradeIndex: number; // 장착 정령 등급 인덱스(-1=없음) — 낮은 등급 일괄먹이기 기준
   spirits: { id: string; label: string; emoji: string; color: string; grade: string; gradeIndex: number; attack: number; defense: number; level: number; equipped: boolean }[]; // 보유 정령(등급 높은 순 정렬, 보관함 팝업에서 관리)
   spiritManagerOpen: boolean; // 정령 보관함 팝업(팝업내 팝업) 열림 상태
+  canGiftSpirits: boolean; // 파티 중(다른 파티원 존재) — 정령 카드에 🎁 선물 버튼 표시
   dragonGear: { item: string; name: string }[]; // 보유=자동 착용 중인 용 장비(최고등급)
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
@@ -41,6 +42,7 @@ export interface CharacterPanelCallbacks {
   onEquipNecklace(item: string | null): void;
   onEquipSpirit(id: string | null): void;
   onFeedSpirit(id: string): void;
+  onGiftSpirit(id: string): void; // 파티원에게 정령 선물(비장착만)
   onOpenSpiritManager(): void;
   onCloseSpiritManager(): void;
   onFeedAllBelowEquipped(): void;
@@ -60,7 +62,7 @@ function renderSpiritModal(view: CharacterPanelView): string {
         <div class="spirit-card-actions">${
           s.equipped
             ? `<span class="spirit-card-tag">장착중 ✓</span>`
-            : `<button class="spirit-card-equip" data-equip-spirit="${escapeHtml(s.id)}">장착</button>${hasEquipped ? `<button class="spirit-card-feed" data-feed-spirit="${escapeHtml(s.id)}" title="장착 정령에게 먹여 경험치(이 정령은 사라집니다)">🍽️</button>` : ""}`
+            : `<button class="spirit-card-equip" data-equip-spirit="${escapeHtml(s.id)}">장착</button>${hasEquipped ? `<button class="spirit-card-feed" data-feed-spirit="${escapeHtml(s.id)}" title="장착 정령에게 먹여 경험치(이 정령은 사라집니다)">🍽️</button>` : ""}${view.canGiftSpirits ? `<button class="spirit-card-feed" data-gift-spirit="${escapeHtml(s.id)}" title="파티원에게 선물(내 목록에서 사라집니다)">🎁</button>` : ""}`
         }</div>
       </div>`,
     )
@@ -203,6 +205,9 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
   });
   panelEl.querySelectorAll<HTMLButtonElement>("[data-feed-spirit]").forEach((button) => {
     button.addEventListener("click", () => { if (button.dataset.feedSpirit) callbacks.onFeedSpirit(button.dataset.feedSpirit); });
+  });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-gift-spirit]").forEach((button) => {
+    button.addEventListener("click", () => { if (button.dataset.giftSpirit) callbacks.onGiftSpirit(button.dataset.giftSpirit); });
   });
   panelEl.querySelector<HTMLButtonElement>("[data-open-spirit-modal]")?.addEventListener("click", callbacks.onOpenSpiritManager);
   panelEl.querySelectorAll<HTMLElement>("[data-close-spirit-modal]").forEach((el) => el.addEventListener("click", callbacks.onCloseSpiritManager));

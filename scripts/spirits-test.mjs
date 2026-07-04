@@ -195,6 +195,17 @@ try {
     assert.equal(S.equippedSpirit({ owned: [], equippedId: null }), null);
   }
 
+    {
+    // 파티 선물 수신 정규화(2026-07-04) — 오염 페이로드 방어
+    const { sanitizeGiftedSpirit } = S;
+    const ok = sanitizeGiftedSpirit({ id: "g1", grade: "rare", baseAttack: 999, baseDefense: -5, level: 2.7, experience: -3 });
+    assert(ok && ok.grade === "rare" && ok.level === 2 && ok.experience === 0, "gifted spirit sanitizes level/exp");
+    assert(ok.baseAttack <= 100 && ok.baseDefense >= 0, "gifted spirit clamps stats to grade range");
+    assert(sanitizeGiftedSpirit({ id: "g2", grade: "hacker" }) === null, "unknown grade is rejected");
+    assert(sanitizeGiftedSpirit({ grade: "rare" }) === null, "missing id is rejected");
+    assert(sanitizeGiftedSpirit(null) === null, "null payload is rejected");
+  }
+
   console.log("spirits-test: OK (7 grades, adversarial)");
 } finally {
   await server.close();

@@ -86,6 +86,7 @@ export interface PartyWorldContext {
   isBossHuntable?(bossKind?: string): boolean; // 호스트: 봉인(챕터) 검사 — 게스트 타격 판정은 호스트 권위
   rollDragonLootFor?(bossKind?: string): { item: string; count: number }; // 호스트: 드래곤 전리품 롤(처치 게스트에게 지급)
   recordBossDefeat?(bossKind?: string): void; // 드래곤 처치 반영 — 리스폰 쿨다운 + 챕터 진행 + 팡파레(호스트/게스트 공용)
+  receiveSpiritGift?(from: string, spirit: unknown): void; // 정령 선물 수신 — main 이 정규화·컬렉션 추가·원장 기록 // 드래곤 처치 반영 — 리스폰 쿨다운 + 챕터 진행 + 팡파레(호스트/게스트 공용)
   hostClaimSharedSupply(): { ok: boolean; reason?: string; items: { item: string; count: number }[]; leftover: { item: string; count: number }[] }; // 호스트: 보급 수령 — 입고 목록/창고가득 잔여분(요청자 인벤 반환용)/실패 사유. 0건 입고면 쿨타임 미소모
   applySharedStorage(slots: { item: string | null; count: number; durabilityUsed?: number }[], supplyCooldown: number): void; // 게스트: 동기화 수신 → 캐시·패널 갱신
   getObject(id: string): WorldObject | undefined;
@@ -243,6 +244,19 @@ export function partyFilterDefeatedBosses(local: readonly string[]): readonly st
   defeatedCacheSourceLen = local.length;
   defeatedCacheDirty = false;
   return defeatedCache;
+}
+
+// ── 정령 선물 — 파티원 닉네임 목록(자기 제외) + 송신. 수신·릴레이는 handleGameMessage 의 spiritGift 분기. ──
+export function partyMemberNames(): string[] {
+  const me = init?.localPresence();
+  if (!me) return [];
+  return knownPresences.filter((presence) => presence.nickname !== me.nickname).map((presence) => presence.nickname);
+}
+export function sendSpiritGift(to: string, spirit: { id: string; grade: string; baseAttack: number; baseDefense: number; level: number; experience: number }): boolean {
+  const session = init?.session() ?? null;
+  if (!init?.world || !session) return false;
+  session.sendGame({ type: "spiritGift", to, from: init.localPresence().nickname, spirit });
+  return true;
 }
 
 // ── 게스트: 로컬에서 잡은 필드보스 토벌을 파티에 전파(호스트가 전원 릴레이) ─────────────
@@ -567,6 +581,9 @@ function handleGameMessage(message: PartyMessage, from?: string) {
     hookedSession.sendGame({ type: "storageSync", slots: init.world.homeStorageSlots(), supplyCooldown: init.world.sharedSupplyCooldownValue() });
   } else if (message.type === "storageSync") {
     init.world.applySharedStorage(message.slots, message.supplyCooldown);
+  } else if (message.type === "spiritGift") {
+    if (message.to === init.localPresence().nickname) init.world.receiveSpiritGift?.(message.from, message.spirit); // 수신자만 적용
+    else if (hookedSession?.role === "host" && from) hookedSession.sendGame(message); // 게스트→게스트 선물은 호스트가 릴레이(발신 게스트는 to 불일치로 무시)
   } else if (message.type === "supplyResult") {
     if (message.nickname !== init.localPresence().nickname) return; // 요청자 전용 회신
     const listed = message.items.map((entry) => `${ITEM_NAMES[entry.item] ?? entry.item} ${entry.count}`).join(", ");

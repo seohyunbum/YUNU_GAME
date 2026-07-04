@@ -1029,7 +1029,7 @@ try {
     const { initPartyWorldSync, partyWorldSyncTick, partyWorldSyncOnPresences, partyGuestAttackIntercept, partyHostNotifyKill, partyWorldGuestActive, resetPartyWorldSync, MOB_SYNC_INTERVAL_MS, MOB_SYNC_STALE_MS } = partyWorldSync;
     const { decodePartyMessage, encodePartyMessage, PARTY_PROTOCOL_VERSION } = party;
     const { calculateCombatDamage } = combat;
-    assert(PARTY_PROTOCOL_VERSION === 3, "item/station/home sharing bumps the protocol to v3 (구버전 접속 차단)");
+    assert(PARTY_PROTOCOL_VERSION === 4, "spirit gifting bumps the protocol to v4 (구버전 접속 차단)");
     const mobsMessage = { type: "mobs", mapId: "starter_valley", list: [{ id: "h1", name: "늑대", kind: "wolf", x: 10, z: 4, yaw: 0.5, hp: 30 }] };
     assert(JSON.stringify(decodePartyMessage(encodePartyMessage(mobsMessage))) === JSON.stringify(mobsMessage), "mobs message roundtrips");
 
@@ -1224,7 +1224,7 @@ try {
         getObject: (id) => objects.get(id), removeObject: (id) => objects.delete(id), removeObjectSilent: (id) => objects.delete(id),
         hitFeedback: () => {}, showMessage: (t) => sent.push({ type: "_msg", t }), gainExperience: () => {}, creditHostKill: () => {}, creditQuestKill: () => {},
         rollLoot: () => 0, dropKillSpiritToken: () => {}, recordFieldBossDefeat: () => {}, recordBossDefeat: (k) => sent.push({ type: "_bossDefeat", k }),
-        isBossHuntable: () => true, rollDragonLootFor: () => ({ item: "dragon_scale", count: 2 }),
+        isBossHuntable: () => true, rollDragonLootFor: () => ({ item: "dragon_scale", count: 2 }), receiveSpiritGift: (from, spirit) => sent.push({ type: "_spiritGift", from, spirit }),
         damageLocalPlayer: () => false, animateWalkCycle: () => {}, refreshSpatialObject: () => {},
         spawnChest: () => add("chest"), spawnCave: () => add("cave"), markChestOpened: () => 0, grantChestLoot: () => {}, enrageVillage: () => {}, spawnGuard: () => add("villageKnight"),
         homeStorageSlots: () => [], sharedSupplyCooldownValue: () => 123,
@@ -1255,6 +1255,12 @@ try {
     assert(sres && sres.nickname === "연우" && sres.ok === false && sres.reason === "full", "supplyResult replies to the requester with the exact outcome");
     assert(host2.sent.filter((m) => m.type === "storageSync").length >= 1, "storage state still broadcast after a claim");
     assert(partyFilterDefeatedBosses(["boar_king"]).length === 0, "defeated-boss list intersects with same-map guests — 미처치 파티원이 있으면 호스트 기처치 보스도 재스폰");
+    // 정령 선물 릴레이 — 호스트 수신: 자기 것이면 적용, 남의 것이면 전원 재브로드캐스트
+    const giftForHost = { type: "spiritGift", to: "아빠용사", from: "연우", spirit: { id: "sp-h", grade: "epic", baseAttack: 8, baseDefense: 6, level: 3, experience: 0 } };
+    host2.getGameCb()(giftForHost, "연우");
+    assert(host2.sent.some((m) => m.type === "_spiritGift" && m.from === "연우"), "host applies a gift addressed to itself");
+    host2.getGameCb()({ ...giftForHost, to: "셋째게스트" }, "연우");
+    assert(host2.sent.some((m) => m.type === "spiritGift" && m.to === "셋째게스트"), "host relays guest→guest gifts to the party");
 
     // ── 게스트: 드래곤·집 뷰 + 자기 집 에코 스킵 + 같은 맵 호스트 억제 + 드래곤 처치 공유 수신 ──
     const guest2 = makeMini("guest", "연우");
@@ -1276,6 +1282,15 @@ try {
     assert(hviews.length === 1 && hviews[0].owner === "아빠용사", "guest spawns the host house view and SKIPS the echo of its own house");
     guest2.getGameCb()({ type: "partyKill", name: "용", xp: 50, killer: "아빠용사", mapId: "starter_valley", bossKind: "dragon" });
     assert(guest2.sent.some((m) => m.type === "_bossDefeat" && m.k === "dragon"), "guest applies shared dragon defeat (리스폰 쿨다운·챕터 공유)");
+    // 정령 선물 — 수신자만 적용, 남의 선물은 무시
+    const spirit = { id: "sp-1", grade: "rare", baseAttack: 5, baseDefense: 3, level: 2, experience: 10 };
+    guest2.getGameCb()({ type: "spiritGift", to: "연우", from: "아빠용사", spirit });
+    assert(guest2.sent.some((m) => m.type === "_spiritGift" && m.from === "아빠용사" && m.spirit.id === "sp-1"), "spirit gift addressed to me is applied");
+    guest2.getGameCb()({ type: "spiritGift", to: "다른게스트", from: "아빠용사", spirit });
+    assert(guest2.sent.filter((m) => m.type === "_spiritGift").length === 1, "spirit gift addressed to someone else is ignored by guests");
+    // 파티원 목록 + 송신 게이트
+    assert(JSON.stringify(partyWorldSync.partyMemberNames()) === JSON.stringify(["아빠용사"]), "partyMemberNames excludes self");
+    assert(partyWorldSync.sendSpiritGift("아빠용사", spirit) === true && guest2.sent.some((m) => m.type === "spiritGift" && m.to === "아빠용사" && m.from === "연우"), "sendSpiritGift stamps from=me and sends");
     resetPartyWorldSync();
     initPartyWorldSync({ session: () => null, localPresence: () => guest2.me, getGroundHeightAt: () => 0, world: null }); // 모듈 상태 분리
   }
