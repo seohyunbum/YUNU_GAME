@@ -116,6 +116,7 @@ try {
   const classSkills = await server.ssrLoadModule("/src/game/classSkills.ts");
   const samuraiMod = await server.ssrLoadModule("/src/game/samurai.ts");
   const balanceTuning = await server.ssrLoadModule("/src/game/balanceTuning.ts");
+  const platform = await server.ssrLoadModule("/src/game/platform.ts");
   const training = await server.ssrLoadModule("/src/game/training.ts");
   const nickname = await server.ssrLoadModule("/src/game/nickname.ts");
   const party = await server.ssrLoadModule("/src/game/party.ts");
@@ -249,6 +250,10 @@ try {
     assert(sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("wildPredator") && sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("dragon") && !sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("buildingBlock") && !sam.SAMURAI_DASH_PASSTHROUGH_TYPES.has("villageHouse"), "도약 관통 대상 = 생명체만(건물류 제외)");
     assert(classes.PLAYER_CLASSES.samurai.starterItem === "katana", "samurai starts with a katana");
     assert(objectives.CLASS_WEAPON_QUESTS.samurai.items.includes("obsidian_katana"), "samurai weapon quest targets obsidian katana");
+
+    // F4 치트(아이템 소환) 게이트 — 서버 PC 직접 실행 URL(localhost·사설 LAN·.local·file://)에서만 허용, 공개 배포는 차단
+    assert(platform.isLocalGameHost("localhost") === true && platform.isLocalGameHost("127.0.0.1") === true && platform.isLocalGameHost("192.168.0.7") === true && platform.isLocalGameHost("10.0.0.5") === true && platform.isLocalGameHost("172.16.3.4") === true && platform.isLocalGameHost("") === true && platform.isLocalGameHost("myserver.local") === true, "isLocalGameHost: localhost/사설 LAN/.local/file 는 개발자 기능 허용");
+    assert(platform.isLocalGameHost("seohyunbum.github.io") === false && platform.isLocalGameHost("example.com") === false && platform.isLocalGameHost("172.15.0.1") === false && platform.isLocalGameHost("11.0.0.1") === false, "isLocalGameHost: 공개 배포/공인 IP 는 치트 차단");
 
     // 연격 틱 (난도/무한 찌르기 공용) — 등록 → 간격마다 1타 → 완주 시 해제, 대상 사망 시 취소
     sam.resetSamuraiEffects();

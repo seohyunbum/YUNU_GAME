@@ -1212,3 +1212,15 @@
 - 수정(build-admin-html.mjs 생성기): 스티키 액션 바 안에 하단 상태줄 추가(상/하단 동시 갱신, ✅/❌ + 색상),
   처리 중 전 버튼 disabled(중복 클릭 방지·진행 시각화). 재생성 + 바탕화면 사본 갱신.
 - 검증: E2E — 전체 적용 클릭 → 하단에 "✅ 전체 적용 완료 — 오버라이드 1개 저장…"(ok 스타일) 표시.
+
+## 2026-07-04 — F4 치트 아이템 소환을 서버 PC 직접 실행 URL에서만 허용
+- 유저 요청: F4 아이템 소환을 공개 배포 URL 접속 시에는 불가, 서버 PC 직접 실행 URL에서만 유지.
+- `platform.ts` 에 `isLocalGameHost(hostname?)` leaf 헬퍼 추가 — localhost/127.0.0.1/::1/""(file://)/.local/
+  사설 LAN(10.·192.168.·172.16~31.)이면 true, 그 외(공개 배포 *.github.io·공인 IP·커스텀 도메인)는 false.
+  hostname 인자는 테스트용(미지정 시 window.location.hostname).
+- main.ts F4 핸들러 게이트: `if (event.code === "F4" && isLocalGameHost())` — 배포에선 패널이 아예 안 열려
+  소환 버튼 접근 불가(방어 충분). import·조건 모두 기존 줄 인라인 수정이라 라쳇 9339/480 여유 0 유지.
+- 설계 판단: 차단 방식이 아니라 **허용 리스트(local/LAN)** 로 — 커스텀 도메인 배포까지 자동 차단. file://("")
+  는 서버 PC 직접 파일 실행에 해당해 허용.
+- 검증: systems 테스트에 isLocalGameHost 양/음성 케이스(localhost·LAN·.local·file ↔ github.io·공인IP) 추가 녹색
+  + 헤드리스 E2E(localhost 에서 F4→cheat-panel 오픈 확인). verify 게이트 녹색.
