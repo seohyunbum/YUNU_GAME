@@ -25,11 +25,12 @@ const sealCrystalMaterial = new THREE.MeshStandardMaterial({ color: 0x241a3f, ro
 const crackMaterial = new THREE.MeshBasicMaterial({ color: 0xff3050, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const portalCoreMaterial = new THREE.MeshBasicMaterial({ color: 0x7c3aed, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const portalRimMaterial = new THREE.MeshStandardMaterial({ color: 0x2a1c4d, roughness: 0.35, metalness: 0.5, emissive: 0x7c3aed, emissiveIntensity: 0.8 });
+const sealShardMaterial = new THREE.MeshStandardMaterial({ color: 0x3d2960, roughness: 0.3, emissive: 0xff2545, emissiveIntensity: 1.3 }); // 파열 파편 — 어둠 속에서도 또렷한 심홍 발광
 
 // dispose-skip 등록용 — 위 재질들은 모듈 싱글턴이라 보스 removeObject(disposeObject3D)·컷씬 소품 정리 시
 // dispose 되면 다음 스폰(사망 재도전·재입장)마다 GPU 재업로드가 반복된다. interiors 의 caveSharedMaterials 로 합류.
 export function illiaSharedMaterials(): THREE.Material[] {
-  return [hairMaterial, skinMaterial, dressMaterial, frillMaterial, featherMaterial, bladeMaterial, goldMaterial, eyeMaterial, roseMaterial, chainMaterial, auraMaterial, sealCrystalMaterial, crackMaterial, portalCoreMaterial, portalRimMaterial];
+  return [hairMaterial, skinMaterial, dressMaterial, frillMaterial, featherMaterial, bladeMaterial, goldMaterial, eyeMaterial, roseMaterial, chainMaterial, auraMaterial, sealCrystalMaterial, sealShardMaterial, crackMaterial, portalCoreMaterial, portalRimMaterial];
 }
 
 // 깃털 날개 한 쪽 — 겹층 깃털 플레인을 부채 배열. side 1(오른쪽)/-1(왼쪽).
@@ -169,7 +170,7 @@ export function createIlliaModel(phase: 1 | 2): THREE.Group {
 // 봉인석 — 컷씬 1 의 주인공. 크랙 플레인은 illiaBoss 컷씬이 opacity 를 올려 "금이 가는" 연출.
 export function createSealStone(): THREE.Group {
   const root = new THREE.Group();
-  const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(2.4, 0), sealCrystalMaterial);
+  const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(2.4, 0), sealCrystalMaterial.clone()); // clone — 컷씬이 균열 진행에 맞춰 emissiveIntensity 를 올림(내부 발광)
   crystal.position.y = 2.6;
   crystal.scale.set(0.72, 1.25, 0.72);
   crystal.name = "seal-crystal";
@@ -198,6 +199,30 @@ export function createSealStone(): THREE.Group {
   const glow = new THREE.PointLight(0x7c3aed, 1.4, 20, 1.5);
   glow.position.y = 3;
   root.add(glow);
+  // 균열 내부 광원 — 컷씬이 균열 진행에 맞춰 intensity 0→강렬로 올림(빛이 새어나오는 연출)
+  const innerLight = new THREE.PointLight(0xff2545, 0, 26, 1.4);
+  innerLight.position.y = 2.6;
+  innerLight.name = "seal-light";
+  root.add(innerLight);
+  // 균열에서 뻗는 광선 6줄(가산 혼합 평면) — 컷씬이 opacity·scale.y 로 성장 연출
+  for (let i = 0; i < 6; i += 1) {
+    const ray = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 5.5), crackMaterial.clone());
+    ray.position.set(Math.cos(i * 1.05) * 0.5, 2.6, Math.sin(i * 1.05) * 0.4);
+    ray.rotation.set(0.35 + (i % 3) * 0.5, i * 1.05, (i % 2) * 0.6 - 0.3);
+    ray.userData.sealRay = true;
+    (ray.material as THREE.MeshBasicMaterial).opacity = 0;
+    root.add(ray);
+  }
+  // 파열 파편 10조각 — 평소 숨김, 컷씬 6s 에 방사 비산(방향·회전 시드는 인덱스 기반 결정적)
+  for (let i = 0; i < 10; i += 1) {
+    const a = (i / 10) * Math.PI * 2;
+    const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.34 + (i % 3) * 0.14, 0), sealShardMaterial);
+    const homeY = 2 + (i % 4) * 0.4;
+    shard.position.set(Math.cos(a) * 0.6, homeY, Math.sin(a) * 0.6);
+    shard.visible = false;
+    shard.userData.sealShard = { dx: Math.cos(a) * (1 + (i % 3) * 0.4), dy: 0.9 + (i % 4) * 0.35, dz: Math.sin(a) * (1 + (i % 2) * 0.5), spin: 1 + (i % 5) * 0.6, homeX: Math.cos(a) * 0.6, homeY, homeZ: Math.sin(a) * 0.6 };
+    root.add(shard);
+  }
   return root;
 }
 

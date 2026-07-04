@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { applyStylizedMeshDefaults } from "../visuals";
-import { ARENA_CENTER_Z, ARENA_HALF, CAVE_CENTER_Z, CAVE_END_Z, CAVE_LENGTH, CAVE_START_Z, CAVE_WIDTH, HOUSE_CENTER_Z } from "./constants";
+import { ARENA_CENTER_Z, ARENA_HALF, CAVE_CENTER_Z, CAVE_END_Z, CAVE_LENGTH, CAVE_START_Z, CAVE_WIDTH, HOUSE_CENTER_Z, ILLIA_CENTER_Z } from "./constants";
 import { spawnGrinder, spawnSmelter, spawnWorkbench } from "./placeableSpawns";
 import { illiaSharedMaterials } from "./illiaVisuals";
 import type { SpawnContext } from "./spawnContext";
@@ -59,10 +59,10 @@ const arenaFloorMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2024, rou
 // main 의 dispose-skip 등록용 — 동굴 셸은 모듈 공유 자산이라 채굴/퇴장 시 dispose 되면 다음 진입이 깨진다.
 // (현재 clearCaveObjects 는 scene.remove 만 하지만, 등록해 두면 실수로 dispose 경로를 타도 공유본이 보존된다.)
 export function caveSharedGeometries(): THREE.BufferGeometry[] {
-  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY, FORTRESS_BANNER_GEOMETRY, FORTRESS_BANNER_POLE_GEOMETRY, FORTRESS_BRAZIER_BOWL_GEOMETRY, FORTRESS_BRAZIER_LEG_GEOMETRY, FORTRESS_FLAME_GEOMETRY, FORTRESS_SKULL_GEOMETRY, FORTRESS_BONE_GEOMETRY, FORTRESS_SPIKE_GEOMETRY, FORTRESS_BAR_GEOMETRY, FORTRESS_ALTAR_BASE_GEOMETRY, FORTRESS_ALTAR_RING_GEOMETRY, ARENA_FLOOR_GEOMETRY, ARENA_WALL_SEG_GEOMETRY, ARENA_PLATFORM_GEOMETRY, ILLIA_FLOOR_GEOMETRY, ILLIA_RING_GEOMETRY, ILLIA_RING_INNER_GEOMETRY, ILLIA_SHARD_GEOMETRY];
+  return [CAVE_FLOOR_GEOMETRY, CAVE_CEILING_GEOMETRY, CAVE_UNIT_ROCK_GEOMETRY, CAVE_UNIT_DIRT_GEOMETRY, CAVE_TORCH_BRACKET_GEOMETRY, CAVE_TORCH_FLAME_GEOMETRY, CAVE_UNIT_CRYSTAL_GEOMETRY, FORTRESS_BANNER_GEOMETRY, FORTRESS_BANNER_POLE_GEOMETRY, FORTRESS_BRAZIER_BOWL_GEOMETRY, FORTRESS_BRAZIER_LEG_GEOMETRY, FORTRESS_FLAME_GEOMETRY, FORTRESS_SKULL_GEOMETRY, FORTRESS_BONE_GEOMETRY, FORTRESS_SPIKE_GEOMETRY, FORTRESS_BAR_GEOMETRY, FORTRESS_ALTAR_BASE_GEOMETRY, FORTRESS_ALTAR_RING_GEOMETRY, ARENA_FLOOR_GEOMETRY, ARENA_WALL_SEG_GEOMETRY, ARENA_PLATFORM_GEOMETRY, ILLIA_FLOOR_GEOMETRY, ILLIA_RING_GEOMETRY, ILLIA_RING_INNER_GEOMETRY, ILLIA_SHARD_GEOMETRY, ILLIA_WALL_GEOMETRY, ILLIA_WALL_TOP_GEOMETRY, ILLIA_VOID_GEOMETRY, ILLIA_DOME_GEOMETRY];
 }
 export function caveSharedMaterials(): THREE.Material[] {
-  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial, fortressBannerMaterial, fortressIronMaterial, fortressFlameMaterial, fortressBoneMaterial, fortressAltarMaterial, fortressRuneMaterial, arenaFloorMaterial, illiaFloorMaterial, illiaRuneMaterial, illiaVioletMaterial, illiaShardMaterial, ...illiaSharedMaterials()];
+  return [caveFloorMaterial, caveCeilingMaterial, caveDirtMaterial, ...caveRockMaterials, caveOverheadMaterial, caveTorchWoodMaterial, caveTorchFlameMaterial, caveCrystalMaterial, fortressBannerMaterial, fortressIronMaterial, fortressFlameMaterial, fortressBoneMaterial, fortressAltarMaterial, fortressRuneMaterial, arenaFloorMaterial, illiaFloorMaterial, illiaRuneMaterial, illiaVioletMaterial, illiaShardMaterial, illiaWallMaterial, illiaVoidMaterial, illiaDomeMaterial, ...illiaSharedMaterials()];
 }
 
 // 동굴/집 인테리어 빌더 — main.ts 에서 추출한 순수 장면 구성 로직.
@@ -395,20 +395,33 @@ const ILLIA_FLOOR_GEOMETRY = new THREE.CircleGeometry(ARENA_HALF + 2.5, 48);
 const ILLIA_RING_GEOMETRY = new THREE.TorusGeometry(ARENA_HALF - 1.5, 0.16, 10, 64);
 const ILLIA_RING_INNER_GEOMETRY = new THREE.TorusGeometry(6.5, 0.1, 8, 48);
 const ILLIA_SHARD_GEOMETRY = new THREE.OctahedronGeometry(1);
+const ILLIA_WALL_GEOMETRY = new THREE.CylinderGeometry(16.6, 16.6, 7, 48, 1, true); // 원형 결계벽 — illiaBoss.ILLIA_ARENA_RADIUS(16) 클램프와 짝(시각 16.6)
+const ILLIA_VOID_GEOMETRY = new THREE.CircleGeometry(90, 40); // 아레나 밖 심연 바닥 — 같은 좌표대의 오버월드 지형 노출 차단
+const ILLIA_DOME_GEOMETRY = new THREE.SphereGeometry(52, 28, 18); // 심연 돔(BackSide) — 바닥 위로 솟은 오버월드 나무·구조물까지 완전 차폐
+const illiaVoidMaterial = new THREE.MeshBasicMaterial({ color: 0x07050c });
+const illiaDomeMaterial = new THREE.MeshBasicMaterial({ color: 0x07050c, side: THREE.BackSide });
+const ILLIA_WALL_TOP_GEOMETRY = new THREE.TorusGeometry(16.6, 0.18, 8, 64);
+const illiaWallMaterial = new THREE.MeshBasicMaterial({ color: 0xff2038, transparent: true, opacity: 0.09, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
 const illiaFloorMaterial = new THREE.MeshStandardMaterial({ color: 0x120d1c, emissive: 0x1c1030, emissiveIntensity: 0.35, roughness: 0.9 });
 const illiaRuneMaterial = new THREE.MeshStandardMaterial({ color: 0xff2038, emissive: 0xff1f3d, emissiveIntensity: 1.1, roughness: 0.4 });
 const illiaVioletMaterial = new THREE.MeshStandardMaterial({ color: 0x7c3aed, emissive: 0x6d28d9, emissiveIntensity: 0.8, roughness: 0.5 });
 const illiaShardMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1426, emissive: 0x312050, emissiveIntensity: 0.5, roughness: 0.7, flatShading: true });
 
 export function createIlliaArenaInterior(context: InteriorContext) {
-  const cz = ARENA_CENTER_Z;
+  const cz = ILLIA_CENTER_Z; // 오버월드 밖 전용 좌표 — 요새 아레나(ARENA_CENTER_Z=-875)와 분리
   const half = ARENA_HALF;
   const group = new THREE.Group();
 
+  const dome = new THREE.Mesh(ILLIA_DOME_GEOMETRY, illiaDomeMaterial);
+  dome.position.set(0, 2, cz);
+  group.add(dome);
+  const voidFloor = new THREE.Mesh(ILLIA_VOID_GEOMETRY, illiaVoidMaterial);
+  voidFloor.rotation.x = -Math.PI / 2;
+  voidFloor.position.set(0, -0.03, cz);
   const floor = new THREE.Mesh(ILLIA_FLOOR_GEOMETRY, illiaFloorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, 0, cz);
-  group.add(floor);
+  group.add(voidFloor, floor);
 
   // 이중 룬 링 — 바깥(심홍) 경계 + 안쪽(보라) 제단 원.
   const outer = new THREE.Mesh(ILLIA_RING_GEOMETRY, illiaRuneMaterial);
@@ -430,6 +443,14 @@ export function createIlliaArenaInterior(context: InteriorContext) {
     group.add(shard);
   }
 
+  // 원형 결계벽 — 플레이어 클램프(반경 16)의 시각 근거. 반투명 가산 원통 + 상단 룬 링.
+  const wall = new THREE.Mesh(ILLIA_WALL_GEOMETRY, illiaWallMaterial);
+  wall.position.set(0, 3.5, cz);
+  const wallTop = new THREE.Mesh(ILLIA_WALL_TOP_GEOMETRY, illiaRuneMaterial);
+  wallTop.rotation.x = Math.PI / 2;
+  wallTop.position.set(0, 6.8, cz);
+  group.add(wall, wallTop);
+
   // 조명 — 중앙 심홍 + 대각 보라 2 + 낮은 앰비언트(어둡고 차가운 차원).
   const centerLight = new THREE.PointLight(0xff2d55, 2.0, 40, 1.6);
   centerLight.position.set(0, 8, cz);
@@ -442,8 +463,8 @@ export function createIlliaArenaInterior(context: InteriorContext) {
   context.scene.add(group);
   context.trackCaveObjects(`loose-${group.uuid}`);
 
-  // 출구 — 남쪽 입구 옆. 언제든 이탈 가능(전투 상태는 main 의 leaveCave 경로가 정리).
-  const exitId = context.addWorldObject("caveExit", "차원에서 탈출하기", createExitPortal(new THREE.Vector3(half - 2.5, 0, cz + half - 2))).id;
+  // 출구 — 남쪽 입구 옆, 결계(반경 16) 안쪽(r≈14.9)이라 전투 중에도 이탈 가능.
+  const exitId = context.addWorldObject("caveExit", "차원에서 탈출하기", createExitPortal(new THREE.Vector3(6.5, 0, cz + half - 4))).id; // 부활 지점(0, cz+14) 대각 — 오발 이탈 방지 거리(r≈14.5, 결계 16 안)
   context.trackCaveObjects(exitId);
 }
 
