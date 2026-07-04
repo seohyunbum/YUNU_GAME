@@ -965,3 +965,15 @@
   classSkills 도약 요약도 "넓은 경로를 휩쓸며 좌·우의 적까지"로 갱신.
 - 검증: verify 그린. 도약 기하 단위테스트 갱신(near 0.6·wide 2.6 히트 / far 6·behind 제외 — wide 는 옛 1.5폭이면 miss라
   상향 회귀가드). 실엔진 E2E: 좌/우 2.5칸 적 모두 피해, 폭 밖 6칸 제외.
+
+## 2026-07-04 — 동굴의 주인 처치 보상 메시지 인지 강화(빈 칼질에 안 덮이게)
+- 신고: 몬스터 동굴에서 동굴의 주인(fortressBoss) 처치 보상 메시지가 너무 빨리 사라지거나,
+  직후 빈 칼질의 "가까이 보고 있는 대상이 없습니다"로 덮여 뭘 얻었는지 인지가 약함.
+- 원인: 킬 흐름상 🏰 보상 메시지(grantExperienceForTarget)가 마지막에 뜨지만, showMessage 는
+  textContent 를 무조건 덮어써서 직후 빈 칼질 '대상 없음' 메시지(저가치)가 즉시 클로버.
+- 수정(src/main.ts): showMessage 에 lockSeconds(표시 잠금)·soft(저우선) 옵션 추가.
+  ① 보스 보상 = durationSeconds 9 + lockSeconds 8(8초간 soft 메시지로부터 보호, 더 오래 표시).
+  ② 빈 칼질 '대상 없음' = { soft:true } → 잠금 중엔 스킵. 중요(비-soft) 메시지는 잠금 중에도 정상 표시.
+  messageLockUntil 필드 추가·resetGameState 리셋. main.ts 전부 기존 줄 인라인(래칫 9339/480 여유 0 유지).
+- 검증: verify 그린 + 실브라우저 E2E — 실제 보상 경로 후 soft '대상 없음'이 보상을 안 덮음,
+  중요 메시지는 표시, 잠금 해제 후 soft 정상 복귀.

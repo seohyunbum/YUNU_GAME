@@ -692,7 +692,7 @@ class WildernessGame {
   private homeSupplyCooldowns: Record<string, number> = {}; // 집 종류(currentHouseBedTier)별 보급 쿨타임 — 같은 종류끼리만 공유
   private ridingTrainId: string | null = null;
   private readonly toolUses: Record<ItemId, number> = {};
-  private messageTimer = 0;
+  private messageTimer = 0; private messageLockUntil = 0; // 중요 알림(보스 보상 등) 표시 잠금 만료 시각(ms) — 이 시각 전엔 soft(저우선) 메시지가 덮어쓰지 못함
   private lastTargetId: string | null = null;
   private promptRefreshTimer = 0;
   private actionTimer = 0;
@@ -4267,7 +4267,7 @@ class WildernessGame {
         this.pickUpDroppedItem(droppedItem);
         return;
       }
-      this.showMessage("가까이 보고 있는 대상이 없습니다.");
+      this.showMessage("가까이 보고 있는 대상이 없습니다.", { soft: true }); // 저우선 — 보스 보상 등 중요 알림 잠금 중엔 덮지 않음
       return;
     }
 
@@ -4985,7 +4985,7 @@ class WildernessGame {
       const obsidianCount = THREE.MathUtils.randInt(2, 4) + Math.floor(level / 30), tomeCount = THREE.MathUtils.randInt(1, 2) + Math.floor(level / 45);
       this.addItem("obsidian", obsidianCount); this.addItem("job_change_tome", tomeCount);
       startMiniFanfare(this.finaleContext); celebrateLevelUp(this.juiceDeps, this.level); this.sample("victory.mp3", 0.45, () => {}); // 요새 보스 처치
-      this.showMessage(`🏰 동굴의 주인을 처치했습니다! 흑요석 ${obsidianCount}개 + 전직의서 ${tomeCount}개를 획득했습니다.`);
+      this.showMessage(`🏰 동굴의 주인을 처치했습니다! 흑요석 ${obsidianCount}개 + 전직의서 ${tomeCount}개를 획득했습니다.`, { durationSeconds: 9, lockSeconds: 8 }); // 오래 표시 + soft 메시지(빈 칼질 '대상 없음')로부터 8초 보호 — 무엇을 얻었는지 확실히 인지
     }
     if (target.fieldBossId && !this.defeatedFieldBosses.includes(target.fieldBossId)) {
       this.defeatedFieldBosses.push(target.fieldBossId);
@@ -6502,7 +6502,7 @@ class WildernessGame {
     this.houseReturnPosition = null;
     this.ridingTrainId = null;
     Object.keys(this.toolUses).forEach((item) => delete this.toolUses[item]);
-    this.messageTimer = 0;
+    this.messageTimer = 0; this.messageLockUntil = 0;
     this.lastTargetId = null;
     this.promptRefreshTimer = 0;
     this.actionTimer = 0;
@@ -8142,13 +8142,13 @@ class WildernessGame {
     return this.allStorageSlots().find((slot) => slot.item === item) ?? null;
   }
 
-  private showMessage(text: string, options?: { durationSeconds?: number; danger?: boolean }) {
-    this.messageEl.textContent = text;
+  private showMessage(text: string, options?: { durationSeconds?: number; danger?: boolean; lockSeconds?: number; soft?: boolean }) {
+    if (options?.soft && performance.now() < this.messageLockUntil) return; this.messageEl.textContent = text; // soft: 중요 알림 잠금 중엔 스킵(보스 보상이 빈 칼질 '대상 없음'에 덮이던 문제)
     this.messageEl.classList.remove("message-pop");
     this.messageEl.classList.toggle("message-danger", options?.danger ?? false);
     void this.messageEl.offsetWidth;
     this.messageEl.classList.add("message-pop");
-    this.messageTimer = options?.durationSeconds ?? 5.2;
+    this.messageTimer = options?.durationSeconds ?? 5.2; if (options?.lockSeconds) this.messageLockUntil = performance.now() + options.lockSeconds * 1000; // lockSeconds: 그 시간 동안 soft 메시지로부터 보호
   }
 
   private spawnMountain(position: THREE.Vector3, radius: number, height: number) {
