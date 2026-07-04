@@ -62,10 +62,11 @@ export function toggleFullscreen(): void {
   }
 }
 
-// 모바일 게임 진입 시: 전체화면 요청 → (실제 모바일이면) 가로 잠금. 전부 feature-detect + catch 라 미지원/거부 시 조용히 무시(예외 없음).
-// ※ 반드시 사용자 제스처(클릭) 안에서 동기 호출해야 브라우저 정책을 충족한다. iOS Safari 는 두 API 모두 미제공 → no-op(가로 안내 오버레이로 폴백).
+// 게임 진입 시(데스크톱·모바일 공통): 전체화면 요청 → (실제 모바일이면) 가로 잠금. 전부 feature-detect + catch 라 미지원/거부 시 조용히 무시(예외 없음).
+// ※ 반드시 사용자 제스처(클릭) 안에서 동기 호출해야 브라우저 정책을 충족한다(새로시작/불러오기 버튼 클릭에서 호출). iOS Safari 는 두 API 모두 미제공 → no-op(가로 안내 오버레이로 폴백).
+// 데스크톱도 기본 전체화면(2026-07-04) — 브라우저 정책상 ESC/F11 로 나가는 건 웹에서 막을 수 없으므로, 재진입은 Alt+Enter·HUD 전체화면 아이콘으로 안내.
 export function enterLandscapeFullscreen(): void {
-  if (typeof document === "undefined" || !isTouchDevice()) return;
+  if (typeof document === "undefined") return;
   const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
   const lockLandscape = () => {
     if (!isRealMobileDevice()) return; // 데스크톱 터치모드: 전체화면만, lock 생략

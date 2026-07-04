@@ -90,7 +90,8 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
   controlsGuideEl.className = "controls-guide";
   renderControlsGuide(controlsGuideEl);
   applyCollapseState(controlsGuideEl, "guide"); // 저장된 조작법 접힘 상태 복원
-  controlsGuideEl.addEventListener("click", (event) => { // 퀵버튼(가방/캐릭터/파티) + 접기 토글 위임 처리
+  controlsGuideEl.addEventListener("click", (event) => { // 퀵버튼(가방/캐릭터/파티) + 접기 토글 + 전체화면 토글 위임 처리
+    if ((event.target as HTMLElement).closest("[data-fullscreen-toggle]")) { toggleFullscreen(); return; } // 클릭 제스처 내 동기 호출로 브라우저 정책 충족
     if ((event.target as HTMLElement).closest("[data-guide-collapse]")) { toggleCollapse(controlsGuideEl, "guide"); return; }
     const btn = (event.target as HTMLElement).closest<HTMLElement>("[data-quick-action]");
     if (btn?.dataset.quickAction) callbacks.onQuickAction(btn.dataset.quickAction);

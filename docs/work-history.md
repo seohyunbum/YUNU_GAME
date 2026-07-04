@@ -1145,3 +1145,19 @@
   (main.ts:6327)라 기존 세이브도 재계산값(+6)이 더 커서 자동 상향되고, 절대 낮아지지 않음. 별도 SAVE_VERSION
   올릴 필요 없음. save-migration-test 도 리터럴이 아니라 `maxHealthForLevel` 함수로 기대값을 잡아 자동 정합.
 - 검증: typecheck·save-migration·content·systems·balance·combat 등 녹색 + tsx 프로브(Lv1 10→16, 전 레벨 +6 시프트).
+
+## 2026-07-04 — 데스크톱 기본 전체화면 + 인게임 전체화면 아이콘
+- 유저 요청: ①데스크톱 게임 시작 시 기본 전체화면 ②ESC 로 전체화면이 풀리지 않게, Alt+Enter·아이콘으로만 전환.
+- ①: `enterLandscapeFullscreen` 의 `!isTouchDevice()` 조기 반환 제거 → 데스크톱도 requestFullscreen(가로잠금은
+  여전히 실제 모바일만). 호출부(main.ts onTitleNew/onTitleLoad)는 그대로라 main.ts 0 변경(leaf만).
+- ②아이콘: 조작법 헤더에 ⛶ 버튼(`data-fullscreen-toggle`) 추가 → setupUi 위임 클릭에서 toggleFullscreen()
+  (클릭 제스처 내 동기 호출). Alt+Enter 는 기존 유지.
+- ⚠️ 브라우저 제약(다음 작업자용): **웹은 ESC/F11 로 브라우저 전체화면이 풀리는 걸 API 로 막을 수 없다**(보안/UX
+  하드 가드). preventDefault 불가, fullscreenchange 에서 자동 재요청도 제스처 없으면 차단. 대신 게임은
+  pointer lock 을 쓰므로 Chrome 에서 인게임 ESC 는 마우스만 풀고 전체화면은 유지되는 경우가 많다. 재진입 경로를
+  ⛶·Alt+Enter 로 제공하는 게 현실적 최선. "ESC 완전 차단"은 불가하다고 유저에게 명확히 안내함.
+- ⚠️ CSS 함정: 접힘 셰브런 회전(`rotate(-90deg)`)이 `transition: transform` 때문에 `none↔rotate` 보간이
+  안 먹어 identity 로 남던 버그 — transform 트랜지션 제거(배경만 트랜지션)해 즉시 회전으로 수정. ⛶ 아이콘은
+  회전 대상에서 제외(`[data-guide-collapse]`/`[data-quest-collapse]` 로 한정).
+- 검증: 헤드리스(chromium, vite createServer 동일 프로세스)로 계측 — 새 게임 클릭이 requestFullscreen 호출(HTML),
+  ⛶ present+hittable+클릭 시 requestFullscreen 호출, 접힘 시 셰브런 rotate(-90)·⛶ 미회전, 그룹 숨김. + verify 게이트 녹색.
