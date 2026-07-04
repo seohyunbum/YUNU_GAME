@@ -38,12 +38,12 @@ export function samuraiFlurryHitDamage(currentDamage: number) {
   return Math.max(1, Math.round(currentDamage * 0.7));
 }
 
-// 도약(2스킬): 최대 15칸 돌진, 경로 폭 1.5 안의 모든 적에게 1회씩 공격력 150% 피해.
+// 도약(2스킬): 최대 15칸 돌진, 경로 폭(중심선 좌/우 반폭) 3.0 안의 모든 적에게 1회씩 공격력 150% 피해.
 // 건물·지형 충돌체에 막히면 정지하되, 몬스터·보스 등 생명체는 **관통**한다(2026-07-04) — main 의 dashStep 이
 // SAMURAI_DASH_PASSTHROUGH_TYPES 를 충돌 해석에서 제외해 보장. 관통한 적도 경로 선분 판정으로 피해를 입는다.
 export const SAMURAI_DASH_RANGE = 15;
 export const SAMURAI_DASH_STEP = 0.5; // 충돌 해석 스텝 — MOVEMENT_COLLISION_STEP 보다 약간 크게(동기 일괄 처리)
-export const SAMURAI_DASH_HIT_WIDTH = 1.5;
+export const SAMURAI_DASH_HIT_WIDTH = 3.0; // 경로 중심선 좌/우 수직 반폭 — 휩쓰는 광역기 느낌 강화(유저 요청 2026-07-04: 1.5→3.0, 좌·우 각 +1.5칸)
 export const SAMURAI_DASH_BLOCK_RATIO = 0.4; // 스텝 전진량이 이 비율 미만이면 막힌 것으로 보고 정지
 // 도약이 관통하는 생명체 타입 — 건물·지형·설치물은 미포함(막힘 유지)
 export const SAMURAI_DASH_PASSTHROUGH_TYPES: ReadonlySet<string> = new Set(["wildPredator", "dragon", "jammini", "animal", "eagleSummon", "summonerPet", "graveHand"]);

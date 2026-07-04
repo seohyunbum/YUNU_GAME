@@ -267,16 +267,17 @@ try {
     sam.updateSamuraiFlurries(tickCtx(2000));
     assert(sam.activeSamuraiFlurryCount() === 0 && flurry.dealt.length === 4, "flurry cancels when target is gone");
 
-    // 도약 기하 — 막힘 없으면 15칸 완주, 경로 폭 1.5+반경 안의 적만 1회씩 타격. 막히면 그 지점에서 정지.
+    // 도약 기하 — 막힘 없으면 15칸 완주, 경로 폭 3.0+반경 안의 적을 1회씩 타격(좌·우 광역). 막히면 그 지점에서 정지.
     const dashState = (blockAt) => {
       const st = { pos: { x: 0, y: 0, z: 0 }, hit: [], melee: 0 };
       st.ctx = {
         playerPosition: st.pos,
         forwardXZ: () => ({ x: 0, z: -1 }),
         nearbyCombatTargets: () => [
-          { id: "near", root: { position: { x: 0.6, z: -4 } }, collisionRadius: 0.4, hp: 50 },
-          { id: "far", root: { position: { x: 6, z: -4 } }, collisionRadius: 0.4, hp: 50 },
-          { id: "behind", root: { position: { x: 0, z: 3 } }, collisionRadius: 0.4, hp: 50 },
+          { id: "near", root: { position: { x: 0.6, z: -4 } }, collisionRadius: 0.4, hp: 50 }, // 경로 바로 옆
+          { id: "wide", root: { position: { x: 2.6, z: -8 } }, collisionRadius: 0.4, hp: 50 }, // 좌/우 확장 폭(3.0)에만 잡히는 적 — 옛 1.5폭이면 miss
+          { id: "far", root: { position: { x: 6, z: -4 } }, collisionRadius: 0.4, hp: 50 }, // 폭 밖 — 여전히 안 맞음
+          { id: "behind", root: { position: { x: 0, z: 5 } }, collisionRadius: 0.4, hp: 50 }, // 시작점 뒤 — 안 맞음
         ],
         dashStep: (dx, dz) => { const nz = st.pos.z + dz; if (blockAt !== null && nz < -blockAt) return; st.pos.x += dx; st.pos.z = nz; }, // blockAt 가상 벽 — 넘어가는 스텝은 이동 0 (main resolveCollisions 밀어내기 모사)
         meleeEffects: () => { st.melee += 1; },
@@ -287,7 +288,8 @@ try {
     const open = dashState(null);
     const openResult = sam.performSamuraiDash(open.ctx, 30);
     almostEqual(openResult.distance, 15, "unblocked dash travels the full 15 units");
-    assert(open.hit.length === 1 && open.hit[0] === "near" && openResult.hits === 1, "dash damages only enemies within the path width, once each");
+    assert(open.hit.sort().join(",") === "near,wide" && openResult.hits === 2, "dash sweeps the widened path (3.0) hitting near+wide but not far/behind, once each");
+    assert(!open.hit.includes("far") && !open.hit.includes("behind"), "dash still excludes enemies beyond the width or behind the start");
     const blocked = dashState(5);
     const blockedResult = sam.performSamuraiDash(blocked.ctx, 30);
     assert(blockedResult.distance < 5.6 && Math.abs(blocked.ctx.playerPosition.z) < 5.6, "blocked dash stops at the obstacle (no clipping)");
