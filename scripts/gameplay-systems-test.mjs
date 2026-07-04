@@ -117,6 +117,8 @@ try {
   const samuraiMod = await server.ssrLoadModule("/src/game/samurai.ts");
   const balanceTuning = await server.ssrLoadModule("/src/game/balanceTuning.ts");
   const platform = await server.ssrLoadModule("/src/game/platform.ts");
+  const subquests = await server.ssrLoadModule("/src/game/subquests.ts");
+  const subquestPanel = await server.ssrLoadModule("/src/ui/subquestPanel.ts");
   const training = await server.ssrLoadModule("/src/game/training.ts");
   const nickname = await server.ssrLoadModule("/src/game/nickname.ts");
   const party = await server.ssrLoadModule("/src/game/party.ts");
@@ -254,6 +256,58 @@ try {
     // F4 치트(아이템 소환) 게이트 — 서버 PC 직접 실행 URL(localhost·사설 LAN·.local·file://)에서만 허용, 공개 배포는 차단
     assert(platform.isLocalGameHost("localhost") === true && platform.isLocalGameHost("127.0.0.1") === true && platform.isLocalGameHost("192.168.0.7") === true && platform.isLocalGameHost("10.0.0.5") === true && platform.isLocalGameHost("172.16.3.4") === true && platform.isLocalGameHost("") === true && platform.isLocalGameHost("myserver.local") === true, "isLocalGameHost: localhost/사설 LAN/.local/file 는 개발자 기능 허용");
     assert(platform.isLocalGameHost("seohyunbum.github.io") === false && platform.isLocalGameHost("example.com") === false && platform.isLocalGameHost("172.15.0.1") === false && platform.isLocalGameHost("11.0.0.1") === false, "isLocalGameHost: 공개 배포/공인 IP 는 치트 차단");
+
+    // 서브퀘스트 — 오퍼 생성/진행/보상/새로고침/정규화
+    const names = { wood: "나무", iron: "철" };
+    const choices = subquests.rollSubquestChoices(names);
+    assert(choices.length === subquests.SUBQUEST_OFFER_COUNT && choices.every((c) => c.target > 0 && subquests.RARITY_ORDER.includes(c.rarity) && ["kill", "gather", "chest", "supply", "caveBoss"].includes(c.kind) && c.reward && typeof c.reward.experience === "number" && typeof c.reward.label === "string"), "subquest: 오퍼 3개 구조 유효(종류·희귀도·목표·보상)");
+    assert(subquests.SUBQUEST_MIN_LEVEL === 20, "subquest: 레벨 20 게이트");
+    // kill 진행: 선택 후 이벤트 bump → target 에서 완료
+    {
+      const st = subquests.defaultSubquestState();
+      st.choices = [{ id: "k1", kind: "kill", rarity: "common", target: 3, reward: { experience: 100, items: {}, label: "경험치 100" } }];
+      st.selected = st.choices[0];
+      subquests.bumpSubquestOnEvent(st, "kill"); subquests.bumpSubquestOnEvent(st, "chest"); // chest 는 무시(종류 불일치)
+      assert(st.progress === 1, "subquest kill: 일치 이벤트만 진행(+1), 불일치 무시");
+      subquests.bumpSubquestOnEvent(st, "kill"); subquests.bumpSubquestOnEvent(st, "kill"); subquests.bumpSubquestOnEvent(st, "kill");
+      assert(st.progress === 3 && subquests.isSubquestComplete(st), "subquest kill: target 에서 완료(초과 없음)");
+    }
+    // gather 진행: 수락 후 추가 채집분(현재-기준)의 최댓값, 되돌아가지 않음
+    {
+      const st = subquests.defaultSubquestState();
+      st.choices = [{ id: "g1", kind: "gather", rarity: "common", target: 5, item: "wood", reward: { experience: 100, items: {}, label: "경험치 100" } }];
+      st.selected = st.choices[0]; st.gatherBaseline = 10; // 수락 시 10개 보유
+      subquests.pollSubquestGather(st, 13); assert(st.progress === 3, "subquest gather: 수락 후 +3");
+      subquests.pollSubquestGather(st, 11); assert(st.progress === 3, "subquest gather: 소비해도 진행 감소 없음(최댓값 유지)");
+      subquests.pollSubquestGather(st, 16); assert(st.progress === 5 && subquests.isSubquestComplete(st), "subquest gather: target 도달 완료");
+    }
+    // 새로고침 쿨다운
+    assert(subquests.canRefreshSubquests(subquests.SUBQUEST_REFRESH_COOLDOWN_MS + 1, 0) === true && subquests.canRefreshSubquests(1000, 0) === false, "subquest: 새로고침 5분 쿨다운");
+    // 정규화 — 손상/구세이브 안전
+    assert(subquests.sanitizeSubquestState(null).choices === null && subquests.sanitizeSubquestState(undefined).selected === null, "subquest sanitize: 빈/구세이브 → 기본값");
+    {
+      const bad = { choices: [{ kind: "kill", rarity: "common", target: 3, reward: { experience: 100, items: { wood: 2 }, label: "x" } }, { kind: "BOGUS" }, {}], selected: { kind: "kill", rarity: "common", target: 3, reward: { experience: 100, items: {}, label: "x" }, id: "zzz" }, progress: 999 };
+      const clean = subquests.sanitizeSubquestState(bad);
+      assert(clean.choices === null, "subquest sanitize: 오퍼 3개 미충족(손상) → null");
+      assert(clean.selected === null && clean.progress === 0, "subquest sanitize: 현재 오퍼에 없는 selected 는 무효화");
+    }
+    // UI 렌더 — 레벨 게이트/선택 화면/진행 화면(스텁 el 로 markup 검증)
+    {
+      const stub = () => ({ innerHTML: "", classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); } } });
+      const st = subquests.defaultSubquestState();
+      st.choices = [
+        { id: "a", kind: "kill", rarity: "legendary", target: 50, reward: { experience: 2800, items: {}, label: "경험치 2800" } },
+        { id: "b", kind: "gather", rarity: "common", target: 10, item: "wood", reward: { experience: 300, items: {}, label: "경험치 300" } },
+        { id: "c", kind: "chest", rarity: "rare", target: 3, reward: { experience: 700, items: {}, label: "경험치 700" } },
+      ];
+      let el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 10);
+      assert(el.classList._s.has("hidden") && el.innerHTML === "", "subquest UI: 레벨 20 미만이면 숨김");
+      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25);
+      assert(!el.classList._s.has("hidden") && (el.innerHTML.match(/data-subquest-pick=/g) || []).length === 3 && el.innerHTML.includes("data-subquest-refresh") && el.innerHTML.includes("전설") && el.innerHTML.includes("fbbf24"), "subquest UI: 레벨 20+ 오퍼 3개·새로고침·희귀도 배경색 렌더");
+      st.selected = st.choices[0]; st.progress = 20;
+      el = stub(); subquestPanel.renderSubquestPanel(el, st, names, 999999999, 25);
+      assert(el.innerHTML.includes("data-subquest-abandon") && el.innerHTML.includes("20/50") && !el.innerHTML.includes("data-subquest-pick="), "subquest UI: 선택 중이면 진행/포기 카드(선택 버튼 없음)");
+    }
 
     // 연격 틱 (난도/무한 찌르기 공용) — 등록 → 간격마다 1타 → 완주 시 해제, 대상 사망 시 취소
     sam.resetSamuraiEffects();

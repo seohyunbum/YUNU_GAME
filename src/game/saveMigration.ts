@@ -23,6 +23,7 @@ import { DEFAULT_WORLD_MAP_ID, isWorldMapId } from "./worldMaps";
 import { normalizeBossChapter } from "./bossChapters";
 import { HOME_STORAGE_SLOTS, HOME_SUPPLY_COOLDOWN_SECONDS } from "./homeBase";
 import { normalizeTrainingStats } from "./training";
+import { sanitizeSubquestState } from "./subquests";
 import { normalizeSpiritCollection } from "./spirits";
 import { normalizeCraftStatAlloc } from "./craftLevel";
 import { normalizeDefeatedFieldBosses } from "./fieldBosses";
@@ -324,6 +325,8 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       // 누적 처치 — 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 완료 퀘스트 기반으로 백필
       ...(typeof player.predatorKills === "number" ? { predatorKills: savedInteger(player.predatorKills, 0, 0, Number.POSITIVE_INFINITY) } : {}),
       ...(typeof player.fortressBossKills === "number" ? { fortressBossKills: savedInteger(player.fortressBossKills, 0, 0, Number.POSITIVE_INFINITY) } : {}),
+      // 서브퀘스트 상태(v15) — 있으면 정규화해 보존, 없으면(구세이브) 생략(로드 시 기본값)
+      ...(player.subquests && typeof player.subquests === "object" ? { subquests: sanitizeSubquestState(player.subquests) } : {}),
       // 맵별 요새 최고 클리어 단계 — 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 localStorage 로 백필
       ...(player.fortressStageByMap && typeof player.fortressStageByMap === "object" ? { fortressStageByMap: normalizeFortressStageByMap(player.fortressStageByMap) } : {}),
       // 상점 판매/구매 누적·개미굴 걸음 뱅크 — 있으면 보존, 없으면(구세이브) 생략해 restoreSaveData 가 완료 퀘스트 임계로 백필

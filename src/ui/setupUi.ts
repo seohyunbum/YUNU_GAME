@@ -10,6 +10,7 @@ export interface GameUiElements {
   uiRoot: HTMLElement;
   statsEl: HTMLElement;
   objectiveEl: HTMLElement;
+  subquestEl: HTMLElement;
   coachEl: HTMLElement;
   promptEl: HTMLElement;
   hotbarEl: HTMLElement;
@@ -28,6 +29,9 @@ export interface GameUiSetupOptions {
 export interface GameUiCallbacks {
   onNewGame(): void;
   onQuickAction(action: string): void; // 좌상단 퀵버튼(가방/캐릭터/파티)
+  onSubquestPick(index: number): void; // 서브퀘스트 3개 중 선택
+  onSubquestAbandon(): void; // 선택 미션 포기 → 오퍼 목록 재노출
+  onSubquestRefresh(): void; // 오퍼 새로고침(5분 쿨다운)
   onSaveGame(): void;
   onLoadGame(): void;
   onTitleNew(): void;
@@ -61,6 +65,7 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
     uiRoot,
     statsEl,
     objectiveEl,
+    subquestEl,
     coachEl,
     promptEl,
     hotbarEl,
@@ -96,11 +101,22 @@ export function setupGameUi(elements: GameUiElements, options: GameUiSetupOption
     const btn = (event.target as HTMLElement).closest<HTMLElement>("[data-quick-action]");
     if (btn?.dataset.quickAction) callbacks.onQuickAction(btn.dataset.quickAction);
   });
+  subquestEl.className = "subquest-panel hidden"; // 레벨 20+ 에서만 노출(렌더가 hidden 토글)
+  subquestEl.addEventListener("click", (event) => { // 선택/포기/새로고침 위임 — 상태는 main 이 소유
+    const target = event.target as HTMLElement;
+    const pick = target.closest<HTMLElement>("[data-subquest-pick]");
+    if (pick?.dataset.subquestPick) { callbacks.onSubquestPick(Number(pick.dataset.subquestPick)); return; }
+    if (target.closest("[data-subquest-abandon]")) { callbacks.onSubquestAbandon(); return; }
+    if (target.closest("[data-subquest-refresh]")) callbacks.onSubquestRefresh();
+  });
+  const rightHudColumn = document.createElement("div"); // 퀘스트 카드 + 서브퀘스트 세로 스택
+  rightHudColumn.className = "right-hud-column";
+  rightHudColumn.append(objectiveEl, subquestEl);
   titleScreenEl.className = "title-screen";
   renderTitleScreen(titleScreenEl, options);
   uiRoot.innerHTML = '<div class="crosshair"></div>';
   uiRoot.classList.add("title-active");
-  uiRoot.append(bossBarEl, objectiveEl, coachEl, statsEl, saveControlsEl, controlsGuideEl, promptEl, hotbarEl, messageEl, panelEl, titleScreenEl);
+  uiRoot.append(bossBarEl, rightHudColumn, coachEl, statsEl, saveControlsEl, controlsGuideEl, promptEl, hotbarEl, messageEl, panelEl, titleScreenEl);
   container.appendChild(uiRoot);
 
   const bindButton = (root: HTMLElement, selector: string, callback: (event: MouseEvent) => void) => {

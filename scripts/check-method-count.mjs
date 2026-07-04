@@ -32,7 +32,8 @@ import { readFileSync } from "node:fs";
 // 2026-06-27: 정령 소환권 막타자 귀속 — dropKillSpiritToken 1개(중앙화, grantExp/파티/펫 공용) → 495.
 // 2026-07-03: spawn* 추출로 9개 메서드+헬퍼 리프 이동 → 494→481. 방패수리(repairEquippedShield) 리베이스 합류 +1 → 482.
 // 2026-07-03: villageSpawns 추출로 2개 메서드 리프 이동 → 482→480.
-const MAX_METHODS = 480;
+// 2026-07-04: 서브퀘스트 배선 메서드 1개(syncSubquests — 로직은 game/subquests 리프, 이건 진행/보상/렌더 오케스트레이션만) → 481.
+const MAX_METHODS = 481;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const text = readFileSync(file, "utf8");

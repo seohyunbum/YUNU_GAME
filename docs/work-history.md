@@ -1240,3 +1240,21 @@
   재측정 후, 의도된 콘텐츠 증량이므로 초과 시 field 예산을 측정값+마진으로 재기준(2026-06-20 마을 대형화 때와 동일 패턴).
 - 검증: typecheck·size·methods·architecture·hotpath·systems·content·combat·balance 녹색 + tsx 프로브
   (맵별 목표 216/281·타맵 187 불변·×1.5 비율·버퍼 true<70/false≥70·일반마을 제외).
+
+## 2026-07-04 — 서브퀘스트 시스템 신규 도입 (레벨 20+)
+- 유저 요청: 퀘스트창 아래 서브퀘스트 창(레벨 20+). 3개 랜덤 오퍼 중 택1, 5분 쿨 새로고침, 포기 시 오퍼 재노출.
+  종류(몬스터 처치·재료 채집·보물상자·보급상자·동굴의 주인)·수치·난이도(희귀도)별 보상 차등 + 배경색.
+- 아키텍처(리프 우선): `game/subquests.ts`(로직·데이터·정규화)+`ui/subquestPanel.ts`(렌더). main.ts 는 상태 필드 +
+  `syncSubquests` 오케스트레이션 1메서드 + 이벤트 훅(kill/chest/supply/caveBoss 인라인)·save/load·setupUi 배선만.
+- 진행 판정: kill/chest/supply/caveBoss = 선택 중 일치 이벤트 발생 시 진행+1(SubquestState.progress 에 직접, 세이브 보존).
+  gather = 수락 시점 보유량(gatherBaseline) 기준 "추가 채집분"의 **최댓값**(만들어 쓰거나 버려도 감소 안 함) — 유저 결정.
+- 희귀도 4단(일반/희귀/영웅/전설) — 가중치·목표·보상·배경 그라디언트/테두리색. 전설일수록 목표↑·보상↑(경험치+아이템).
+- 세이브: SAVE_VERSION 14→15, player.subquests 추가(types+saveManager 스냅샷+saveMigration 조건부 정규화).
+  sanitizeSubquestState 로 손상/구세이브 방어(오퍼 3개 미충족→null, 현재 오퍼에 없는 selected→무효). 구세이브는 기본값.
+- 렌더 성능: renderHud 에서 syncSubquests 호출하되 시그니처 캐시로 **변경 시에만 innerHTML**(매 renderHud 재렌더 방지).
+  패널은 퀘스트 카드와 `.right-hud-column` 플렉스로 묶어 카드 높이(접힘 등) 무관하게 아래로 스택.
+- ⚠️ 라쳇 상향(정당): 새 기능 배선으로 main.ts 9339→9371(+32)·메서드 480→481. 로직·UI 는 전부 리프라 §1(추출 후 배선만) 준수.
+  MAX_MAIN_LINES·MAX_METHODS 를 실측값으로 갱신하고 근거 주석 남김.
+- 검증: 전 게이트 녹색 + systems 유닛(오퍼 구조·kill/gather 진행·완료·쿨다운·sanitize·UI 렌더 3상태) +
+  실브라우저 E2E(right-hud-column 이 퀘스트+서브퀘 포함·레벨1 숨김·퀘스트 카드 정상·무에러). save-roundtrip/visual-check/
+  perf-check 는 이 환경(Windows 전용) 실행 불가 — PC 에서 확인 권장(특히 save-roundtrip 로 v15 왕복).

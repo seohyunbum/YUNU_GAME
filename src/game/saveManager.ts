@@ -1,6 +1,7 @@
 import { SAVE_BUILD_ID, SAVE_VERSION } from "./constants";
 import type { BedTier } from "./constants";
 import { normalizeBossChapter } from "./bossChapters";
+import type { SubquestState } from "./subquests";
 import type {
   DifficultyMode,
   SpiritCollection,
@@ -61,6 +62,7 @@ export interface SaveDataSnapshot {
     fourthSkillCooldownUntil: number;
     companionProgress: CompanionProgress;
     tutorial: TutorialProgress;
+    subquests: SubquestState;
     hunger: number;
     hungerTimer: number;
     worldTimeSeconds: number;
@@ -255,6 +257,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
         summoner: { ...snapshot.player.companionProgress.summoner },
       },
       tutorial: { completedStepIds: [...snapshot.player.tutorial.completedStepIds], achievedStepIds: [...snapshot.player.tutorial.achievedStepIds] },
+      subquests: snapshot.player.subquests,
       hunger: snapshot.player.hunger,
       hungerTimer: snapshot.player.hungerTimer,
       worldTimeSeconds: snapshot.player.worldTimeSeconds,
