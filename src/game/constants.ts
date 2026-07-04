@@ -85,9 +85,16 @@ export const CAVE_MAX_ENTRIES = 5; // 동굴 입장 가능 횟수 — 이만큼 
 // 야생 몹 밀도 배수 — 초기 시딩·로드 탑업·런타임 야간 캡이 공유(드리프트 방지).
 export const WILDLIFE_DENSITY_MUL_HIGH = 2.4; // 고품질/보통 (구 2.0)
 export const WILDLIFE_DENSITY_MUL_PERF = 0.85; // 저사양 — 1.5→0.85 하향(포식자 1마리 ~27 메시=27 draw call 이라 저사양 렉 주범). 시작맵 60×0.85≈51마리.
-// 맵별 목표 포식자 수(시딩=로드 탑업 공통 기준). 시작맵 60 / 그 외 78 에 밀도 배수.
-export function wildlifePredatorTarget(isDefaultMap: boolean, performanceMode: boolean): number {
-  return Math.round((isDefaultMap ? 60 : 78) * (performanceMode ? WILDLIFE_DENSITY_MUL_PERF : WILDLIFE_DENSITY_MUL_HIGH));
+// 맵별 목표 포식자 수(시딩=로드 탑업 공통 기준). 기본 시작맵 60 / 그 외 78 에 밀도 배수.
+// 2026-07-04: 시작 초원(starter_valley)·용용평원(dragon_plains) 만 ×1.5 상향(60→90, 78→117). 나머지 맵은 불변.
+// 증량분은 randomPredatorSpawnPoint 의 isNearHeavyVillage 버퍼로 렉 심한 큰 마을 인접을 피해 저부하 지역에 분포된다.
+const PREDATOR_TARGET_BY_MAP: Record<string, number> = {
+  starter_valley: 90,
+  dragon_plains: 117,
+};
+export function wildlifePredatorTarget(mapId: string, performanceMode: boolean): number {
+  const base = PREDATOR_TARGET_BY_MAP[mapId] ?? (mapId === "starter_valley" ? 60 : 78);
+  return Math.round(base * (performanceMode ? WILDLIFE_DENSITY_MUL_PERF : WILDLIFE_DENSITY_MUL_HIGH));
 }
 export const FIELD_ANIMAL_COUNT = 40;
 export const JAMMINI_FIELD_COUNT = 4;

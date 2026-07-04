@@ -334,7 +334,7 @@ import { createHudRenderCache, renderHudView } from "./ui/hudRenderer";
 import { renderLavaMiniGameUI } from "./ui/lavaMiniGame";
 import { publishProgress, fetchFortressLeaderboards, fetchTrainingLeaderboard, type FortressLeaderboards, type ProgressUpdate } from "./game/progressSync";
 import { installNavigationGuard, type NavigationGuardHandle } from "./game/navigationGuard";
-import { isInSafeZone, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
+import { isInSafeZone, isNearHeavyVillage, clampOutOfSafeZones, VILLAGE_CENTERS } from "./game/safeZones";
 import { updateDragons, DRAGON_AGGRO_MS, type DragonAiContext } from "./game/dragonAi";
 import { tickMinimap, type MinimapContext } from "./ui/minimap";
 import { buildSkillSlots } from "./ui/skillBar";
@@ -2065,7 +2065,7 @@ class WildernessGame {
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? FIELD_ANIMAL_COUNT : Math.ceil(FIELD_ANIMAL_COUNT * 0.45)); i += 1) spawnAnimalEntity(this.entitySpawnContext, this.randomGroundPoint());
     if (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID) this.spawnStarterAnimalHerds();
     for (let i = 0; i < (this.currentWorldMapId === DEFAULT_WORLD_MAP_ID ? JAMMINI_FIELD_COUNT : Math.ceil(JAMMINI_FIELD_COUNT * 0.4)); i += 1) spawnJamminiEntity(this.entitySpawnContext, this.randomGroundPoint());
-    this.seedPredators(wildlifePredatorTarget(this.currentWorldMapId === DEFAULT_WORLD_MAP_ID, this.qualityMode === "performance")); // 밀도 상향 + 리전 밖 평원까지 균등 분포(빈 지역 제거)
+    this.seedPredators(wildlifePredatorTarget(this.currentWorldMapId, this.qualityMode === "performance")); // 맵별 밀도(초원·용용평원 ×1.5) + 리전 밖 평원까지 균등 분포(빈 지역 제거)
     for (const v of VILLAGE_CENTERS) this.spawnVillage(new THREE.Vector3(v.x, 0, v.z), v.special ? (isTouchDevice() ? 10 : 16) : 5, v.special); // 안전구역(safeZones)과 단일 진실원천 · 모바일은 특별마을 집 16→10(드로우콜 절감)
   }
 
@@ -2084,7 +2084,7 @@ class WildernessGame {
   private ensureWildlifeDensity() {
     if (this.locationMode !== "overworld" || partyWorldGuestActive()) return;
     let have = 0; for (const _p of this.objectsOfType("wildPredator")) have += 1;
-    const deficit = wildlifePredatorTarget(this.currentWorldMapId === DEFAULT_WORLD_MAP_ID, this.qualityMode === "performance") - have;
+    const deficit = wildlifePredatorTarget(this.currentWorldMapId, this.qualityMode === "performance") - have;
     if (deficit > 0) this.seedPredators(deficit);
   }
 
@@ -9234,7 +9234,7 @@ class WildernessGame {
       point.y = this.getGroundHeightAt(point.x, point.z);
       const minDistance = region ? Math.min(NIGHT_PREDATOR_MIN_PLAYER_DISTANCE, Math.max(28, region.radius * 0.52)) : NIGHT_PREDATOR_MIN_PLAYER_DISTANCE;
       if (point.distanceTo(this.playerPosition) < minDistance) continue;
-      if ((region ? this.isNearWater(point, 8) || this.isPointInLava(point, 2) : this.isNaturalSpawnBlocked(point, 8)) || isInSafeZone(point.x, point.z, 8)) continue; // 마을·훈련장 제외
+      if ((region ? this.isNearWater(point, 8) || this.isPointInLava(point, 2) : this.isNaturalSpawnBlocked(point, 8)) || isInSafeZone(point.x, point.z, 8) || isNearHeavyVillage(point.x, point.z)) continue; // 마을·훈련장 제외 + 렉 심한 큰 마을 인접 버퍼(70) 제외 → 저부하 지역에 분포
       if (Math.hypot(point.x - mapSpawn.x, point.z - mapSpawn.z) < 15) continue; // 맵 도착 지점 15칸 안 — 텔레포트 직후 옆에서 쳐맞는 현상 방지(초기 시딩·리스폰 공통)
       let blocked = false;
       for (const object of this.objectsNear(point, 12)) {
