@@ -133,6 +133,33 @@ try {
   }
 
   {
+    // 다단히트(연격) 조각 옵션 — 무한 찌르기가 용에게 노딜이던 버그의 회귀 가드.
+    // armorScale=1/N: 방어를 조각당 1/N 만 부담(스킬 1회당 방어 총 1번). counter:false: 즉시반격 대신 어그로만.
+    const context = createProjectileContext();
+    const dragon = { id: "dragon-3", type: "dragon", name: "용", root: createRoot(), hp: 100, bossKind: "dragon" };
+    applyProjectileDamage(context, dragon, 10, "magic"); // 옵션 없음(기존 동작): 10 vs 방어 50 → gap -40 ≤ -20 → 0 피해 + 즉시반격
+    assert.equal(dragon.hp, 100, "un-scaled weak fragment is fully blocked by boss armor (legacy behavior preserved)");
+    assert.ok(context.calls.some((call) => call[0] === "dragonCounter"), "un-scaled blocked hit still counterattacks");
+
+    const midContext = createProjectileContext();
+    applyProjectileDamage(midContext, dragon, 10, "magic", { armorScale: 1 / 11, counter: false }); // 연격 중간 조각
+    assert.equal(dragon.hp, 90, "fragment with armorScale 1/11 lands damage (10 vs armor 50/11≈5 → 10)");
+    assert.ok(!midContext.calls.some((call) => call[0] === "dragonCounter"), "mid-flurry fragment suppresses instant counterattack");
+    assert.ok(dragon.angryUntil > 1_000, "mid-flurry fragment still aggros the dragon (AI retaliates naturally)");
+
+    const lastContext = createProjectileContext();
+    applyProjectileDamage(lastContext, dragon, 10, "magic", { armorScale: 1 / 11, counter: true }); // 마지막 조각
+    assert.equal(dragon.hp, 80, "last fragment also lands damage");
+    assert.ok(lastContext.calls.some((call) => call[0] === "dragonCounter"), "last flurry fragment triggers exactly the one counterattack");
+
+    // 필드 보스(방어 보유 wildPredator) 조각도 동일 원칙
+    const bossPredContext = createProjectileContext();
+    const fieldBoss = { id: "fboss-1", type: "wildPredator", name: "필드보스", root: createRoot(), hp: 100, armor: 30, predatorKind: "bear" };
+    applyProjectileDamage(bossPredContext, fieldBoss, 5, "magic", { armorScale: 1 / 11 });
+    assert.equal(fieldBoss.hp, 95, "field-boss fragment pays scaled armor (5 vs 30/11≈3 → 5)");
+  }
+
+  {
     const context = createProjectileContext();
     const dragon = { id: "dragon-3", type: "dragon", name: "용", root: createRoot(), hp: 10, bossKind: "dragon" };
     applyMeleeDragonAttack(context, dragon, 40);
@@ -208,6 +235,7 @@ try {
       "projectile guard counterattack behavior",
       "melee dragon attack behavior",
       "sealed boss blocks melee and projectile damage",
+      "multi-hit fragment options: scaled armor + single counterattack (pierce-vs-dragon no-damage regression guard)",
       "damage variance: triangular boundaries + player 80-200% + monster 80-130% + skew",
     ],
   }, null, 2));
