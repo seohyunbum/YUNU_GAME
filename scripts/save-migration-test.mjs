@@ -30,7 +30,28 @@ try {
   } = constants;
   const { DEFAULT_WORLD_MAP_ID } = worldMaps;
 
+  const tuning = await server.ssrLoadModule("/src/game/balanceTuning.ts");
   assert.equal(experienceForNextLevel(10), 503, "level 10 xp requirement should stay stable");
+
+  // 고레벨 경험치 가중(xp_hardcap) — 100 미만 불변 / 100 이상 복리 가중 / 단조 증가(레벨업 while 안전) / factor 클램프
+  {
+    const base = (lvl) => Math.floor(22.5 * Math.pow(lvl, 1.35));
+    // 기본(default factor 1.035, start 100)
+    for (const lvl of [1, 50, 99]) assert.equal(experienceForNextLevel(lvl), base(lvl), `L${lvl}(<시작) 곡선 불변`);
+    assert.ok(experienceForNextLevel(120) > base(120) * 1.5, "L120(>시작) 기본 가중으로 유의미하게 상승");
+    assert.ok(experienceForNextLevel(200) > experienceForNextLevel(150), "고레벨 단조 증가(레벨업 루프 종료 보장)");
+    // 튜너블 조정 — start 150 로 올리면 120 은 불변
+    tuning.__setOverridesForTest({ xp_hardcap_level: 150 }, {});
+    assert.equal(experienceForNextLevel(120), base(120), "시작 레벨 150 → L120 불변");
+    assert.ok(experienceForNextLevel(160) > base(160), "시작 레벨 150 → L160 가중");
+    // factor 1.0 → 가중 없음(전 구간 base)
+    tuning.__setOverridesForTest({ xp_hardcap_level: 100, xp_hardcap_factor: 1 }, {});
+    assert.equal(experienceForNextLevel(200), base(200), "factor 1.0 → 가중 없음(레거시 곡선)");
+    // ★안전: factor 0/음수(패널 min 우회 가정) 클램프 → required>0, 무한루프 방지
+    tuning.__setOverridesForTest({ xp_hardcap_factor: 0 }, {});
+    assert.ok(experienceForNextLevel(150) > 0, "factor 0 클램프 → required>0(레벨업 while 무한루프 방지)");
+    tuning.__setOverridesForTest({}, {});
+  }
 
   const legacy = migrateSaveData({
     version: 1,

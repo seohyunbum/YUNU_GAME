@@ -31,6 +31,8 @@ export const BALANCE_TUNABLES: readonly BalanceTunable[] = [
   { key: "player_damage_mult", label: "플레이어 공격력 배율(전체)", group: "전투·성장", def: 1, min: 0.5, max: 3, step: 0.05 },
   { key: "monster_damage_mult", label: "몬스터 공격력 배율(전체)", group: "전투·성장", def: 1, min: 0.3, max: 3, step: 0.05 },
   { key: "monster_xp_mult", label: "몬스터 경험치 배율", group: "전투·성장", def: 1, min: 0.5, max: 3, step: 0.05 },
+  { key: "xp_hardcap_level", label: "고레벨 경험치 가중 시작 레벨", group: "레벨업 성장", def: 100, min: 1, max: 300, step: 5 },
+  { key: "xp_hardcap_factor", label: "고레벨 레벨당 경험치 가중(복리, 1=없음)", group: "레벨업 성장", def: 1.035, min: 1, max: 1.1, step: 0.005 },
   { key: "drop_chance_mult", label: "드랍 확률 배율", group: "전투·성장", def: 1, min: 0.5, max: 3, step: 0.05 },
   { key: "dragon_hp", label: "드래곤 기본 최대 체력", group: "전투·성장", def: 1000, min: 300, max: 3000, step: 50 },
   { key: "dragon_armor", label: "드래곤 기본 방어", group: "전투·성장", def: 85, min: 20, max: 200, step: 5 },

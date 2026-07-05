@@ -21,6 +21,7 @@ import { normalizeJobTier } from "./jobAdvancement";
 import { DEFAULT_SUMMONER_PET_PROGRESS } from "./classPassives";
 import { DEFAULT_WORLD_MAP_ID, isWorldMapId } from "./worldMaps";
 import { normalizeBossChapter } from "./bossChapters";
+import { bal } from "./balanceTuning";
 import { HOME_STORAGE_SLOTS, HOME_SUPPLY_COOLDOWN_SECONDS } from "./homeBase";
 import { normalizeTrainingStats } from "./training";
 import { sanitizeSubquestState } from "./subquests";
@@ -35,7 +36,14 @@ const DEFAULT_WORLD_TIME = DAY_LENGTH_SECONDS * (8 / 24);
 const MAX_CLASS_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 export function experienceForNextLevel(level: number) {
-  return Math.floor(22.5 * Math.pow(Math.max(1, Math.floor(level)), 1.35));
+  const lvl = Math.max(1, Math.floor(level));
+  let required = 22.5 * Math.pow(lvl, 1.35);
+  const hardStart = Math.max(1, Math.floor(bal("xp_hardcap_level", 100))); // 이 레벨 이상부터 고레벨 가중 적용
+  if (lvl >= hardStart) {
+    const factor = Math.max(1, bal("xp_hardcap_factor", 1.035)); // 레벨당 복리 가중 계수(1=변화 없음). ★max(1,·)로 <1 방지 — 0/음수면 required 0→레벨업 while 무한루프
+    required *= Math.pow(factor, lvl - hardStart + 1);
+  }
+  return Math.floor(required);
 }
 
 // 현재 레벨/경험치에서 levelUps 만큼 레벨을 올리는 데 필요한 총 경험치 (경험치병 등 즉시 레벨업용)
