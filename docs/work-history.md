@@ -14,6 +14,18 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 텔레그래프 가독성 강화 (수직 경고 벽 + 밝기) — 근접/1인칭 회피 인지
+
+- 요청: 사무라이(근접)로 불멸의 존재 싸울 때 바닥 붉은 원이 안 보여 못 피하고 죽음. 시전 중·범위를 명확히 인지해 피하게. 용들도 같으면 함께.
+- 원인: 텔레그래프가 **바닥 평면(원/링/직선)**뿐이라 보스를 올려다보는 근접 시야에서는 발밑 원이 시야 밖. 공용 telegraph 엔진을 쓰는 일리아·불멸의 존재·모든 용/필드보스가 공통으로 겪음.
+- 수정(telegraph 리프 1곳 → 전 보스/용 공통 적용):
+  - **수직 경고 벽 추가**: 위험 경계를 따라 바닥에서 솟는 반투명 기둥(circle/ring=원통, cone=호 세그먼트, line=박스). 시전 진행도(progress)에 비례해 높이가 0→3.6까지 **자라올라** "시전 중"과 "범위"를 3D로 동시에 전달. 폭발 직전 명멸.
+  - **바닥 가독성 강화**: fill 기본 불투명도 0.22→0.3, 테두리 링 두께 0.14→0.35·밝기 ↑, 펄스 불투명도 상향.
+  - 무할당 유지(animateTelegraphMeshes 에 wall 파라미터 추가, scale.y·색·투명도만 변경) — check:hotpath 그린.
+- 적용 범위: illiaBoss(아레나)·dragonAi(브레스)·predatorAi(슬램) 전부 telegraphMesh/animateTelegraphMeshes 공유라 자동 반영. main.ts 무변경.
+- 검증: typecheck·telegraph-test(경고 벽 생성·솟음 assert 추가)·illia-test(동작 보존)·size/methods/hotpath/architecture 그린. build 성공. 시각 최종 확인(visual-check)은 Windows 전용이라 PC 권장.
+- 관련 파일: src/game/telegraph.ts · src/game/illiaBoss.ts(Telegraph.wall 배선) · scripts/telegraph-test.mjs.
+
 ## 2026-07-05 — 마법봉 스플래시 범위 소폭 축소 + 스플래시 데미지 50%
 
 - 요청: 마법봉 스플래시 범위를 소폭 줄이고, 스플래시 데미지는 50%만.

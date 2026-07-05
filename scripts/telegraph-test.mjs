@@ -40,11 +40,17 @@ try {
     assert.equal(scene.children.length, 1, "스폰 → 씬에 메시 그룹 추가");
     assert.ok(Math.abs(scene.children[0].position.y - 2.08) < 1e-6, "groundY+0.08 로 지형 보정");
 
-    // 폭발 전: 유지 + 펄스(무할당) — onDetonate 미발화
+    // 수직 경고 벽 — 근접/1인칭 가독성용. 스폰 직후엔 거의 0, 진행할수록 솟는다.
+    const wall = field.list[0].meshes.wall;
+    assert.ok(wall, "circle 텔레그래프에 수직 경고 벽 생성");
+    assert.ok(wall.scale.y <= 0.01, "스폰 직후 벽 높이 ≈ 0");
+
+    // 폭발 전: 유지 + 펄스(무할당) — onDetonate 미발화, 경고 벽은 솟아오른다
     clock = 1450; tg.updateTelegraphField(field, vfx, true);
     assert.equal(field.list.length, 1, "폭발 전엔 유지");
     assert.equal(detonated, 0, "폭발 전 onDetonate 미발화");
     assert.equal(scene.children.length, 1, "폭발 전 씬 유지");
+    assert.ok(wall.scale.y > 0.5, `진행 중 경고 벽이 솟음 (${wall.scale.y.toFixed(2)})`);
 
     // 폭발 시각 경과: 제거 + onDetonate 1회 + groundBurst + 폭음
     clock = 1901; tg.updateTelegraphField(field, vfx, true);
