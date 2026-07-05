@@ -14,6 +14,13 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 마법봉 스플래시 범위 소폭 축소 + 스플래시 데미지 50%
+
+- 요청: 마법봉 스플래시 범위를 소폭 줄이고, 스플래시 데미지는 50%만.
+- 구현(leaf 데이터 + 배선 in-place): ① constants MAGIC_AOE_RADIUS 1.8→1.5(소폭). ② MAGIC_AOE_DAMAGE_FRACTION=0.5 신설. ③ main.ts 명중 처리 — 마법 투사체 착탄 시 applyAreaDamage 에 넘기는 스플래시 데미지를 projectile.damage → Math.max(1, round(projectile.damage×0.5)). 주 대상은 여전히 applyProjectileDamage 로 직격(풀뎀), 주변 추가타(excludeSet 로 주 대상 제외)만 50%.
+- 검증: typecheck·size(줄 수 불변)·combat·content(MAGIC_AOE_RADIUS>0)·systems·balance 그린.
+- 관련 파일: src/game/constants.ts · src/main.ts(마법 착탄 스플래시).
+
 ## 2026-07-05 — 파티 서브퀘스트 몬스터 처치 카운트 공유 수정
 
 - 요청: 파티 플레이에서 이장 서브퀘스트 몬스터 처치 마리수 공유가 이상함(같은 맵인데 안 오르는 듯). 파티원이 잡은 것도 공유되고 내 것도 카운팅되게.
