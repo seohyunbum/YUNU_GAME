@@ -3,7 +3,8 @@ import { WORLD_SIZE } from "./constants";
 import { partyDamageRemotePlayer, partyHostCombatTargets, partyWorldGuestActive } from "./partyWorldSync";
 import { clampPointToRegion, getRegionById, regionAtPosition, type Region } from "./regions";
 import { clampOutOfSafeZones } from "./safeZones";
-import { spawnBossRoar, spawnGroundShockwave, type CombatEffectContext } from "./combatEffects";
+import { spawnBossRoar, type CombatEffectContext } from "./combatEffects";
+import { TELEGRAPH_DAMAGE_MULT, telegraphContains, type TelegraphSpec } from "./telegraph";
 import type { MonsterId } from "./monsters";
 import type { LocationMode, PredatorKind, WorldObject } from "./types";
 
@@ -23,31 +24,29 @@ export interface PredatorAiContext {
   damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   effects(): CombatEffectContext; // 보스 강타/충격파 VFX
   showMessage(text: string): void; // 보스 궁극기 텔레그래프 안내
+  spawnTelegraph(spec: TelegraphSpec, detonateAt: number, groundY: number, onDetonate: () => void): void; // 일리아식 범위 예고(중앙 필드 소유)
 }
 
 const BOSS_SLAM_COOLDOWN_MS = 9000;
-const BOSS_SLAM_TELEGRAPH_MS = 750;
+const BOSS_SLAM_TELEGRAPH_MS = 900; // 예열→착탄 — 바닥 범위 예고를 보고 피할 시간(750→900, 일리아식 회피 여유)
 const BOSS_SLAM_RADIUS = 5.5;
 const BOSS_SLAM_COLOR = 0xffb703;
 
-// 보스 시그니처 슬램 — 예열(포효 텔레그래프) 예약. (비-update 이름 → VFX 허용)
+// 보스 시그니처 슬램 — 착탄점을 시전 시점 위치로 고정하고 바닥에 범위 원(텔레그래프)을 그린다. 원 밖으로 나가면 회피, 맞으면 ×2 데미지.
 function castBossSlam(context: PredatorAiContext, predator: WorldObject, now: number) {
-  predator.root.userData.slamAt = now + BOSS_SLAM_TELEGRAPH_MS;
-  predator.root.userData.slamCdUntil = now + BOSS_SLAM_COOLDOWN_MS;
+  predator.root.userData.slamCdUntil = now + BOSS_SLAM_COOLDOWN_MS; // 쿨다운이 예열 중 재시전을 막는다(별도 slamAt 플래그 불필요)
   spawnBossRoar(context.effects(), predator.root.position, BOSS_SLAM_COLOR);
-  context.showMessage(`${predator.name ?? "보스"}가 강력한 내려찍기를 준비합니다! 빠르게 벗어나세요.`);
-}
-
-// 슬램 착탄 — 텔레그래프 후 충격파 + 반경 안이면 데미지. (비-update 이름 → VFX 허용)
-function resolveBossSlam(context: PredatorAiContext, predator: WorldObject, now: number) {
-  const at = Number(predator.root.userData.slamAt ?? 0);
-  if (at <= 0 || now < at) return;
-  predator.root.userData.slamAt = 0;
-  spawnGroundShockwave(context.effects(), predator.root.position, BOSS_SLAM_COLOR);
-  const dmg = Math.round((predator.attackDamage ?? 8) * 1.8);
-  if (Math.hypot(context.playerPosition.x - predator.root.position.x, context.playerPosition.z - predator.root.position.z) <= BOSS_SLAM_RADIUS) {
-    context.damagePlayer(dmg, true, `${predator.name ?? "보스"}의 내려찍기에 맞아 체력이 모두 떨어졌습니다.`, predator);
-  }
+  const tx = predator.root.position.x, tz = predator.root.position.z;
+  const groundY = context.getGroundHeightAt(tx, tz);
+  const spec: TelegraphSpec = { kind: "circle", x: tx, z: tz, r: BOSS_SLAM_RADIUS, delayMs: BOSS_SLAM_TELEGRAPH_MS };
+  const dmg = Math.round((predator.attackDamage ?? 8) * 1.8 * TELEGRAPH_DAMAGE_MULT);
+  const name = predator.name ?? "보스";
+  context.spawnTelegraph(spec, now + BOSS_SLAM_TELEGRAPH_MS, groundY, () => {
+    if (telegraphContains(spec, context.playerPosition.x, context.playerPosition.z)) {
+      context.damagePlayer(dmg, true, `${name}의 내려찍기에 맞아 체력이 모두 떨어졌습니다.`, predator);
+    }
+  });
+  context.showMessage(`${name}가 강력한 내려찍기를 준비합니다! 붉은 범위에서 벗어나세요.`);
 }
 
 const nextPosition = new THREE.Vector3();
@@ -256,12 +255,11 @@ export function updatePredatorAi(context: PredatorAiContext, delta: number) {
     context.refreshSpatialObject(predator);
     context.animateWalkCycle(predator, delta, aggroed ? 0.82 : 0.28);
     predator.attackCooldown = Math.max(0, (predator.attackCooldown ?? 0) - delta);
-    if (predator.fieldBossId) resolveBossSlam(context, predator, now); // 예약된 슬램 착탄
     // 인벤토리/제작창 등을 보는 동안에는 공격하지 않는다 — 패널 중엔 이동도 못 하므로 불공정한 피격을 막는다
     // (원격 게스트도 프레즌스의 panelOpen 플래그로 같은 보호를 받는다)
     const canAct = aggroed && (remoteTarget !== null ? !remotePanelOpen : !context.isPanelOpen());
     // 보스 시그니처 슬램(궁극기) — 쿨다운마다 텔레그래프 후 광역 내려찍기
-    if (predator.fieldBossId && canAct && distance < 13 && Number(predator.root.userData.slamCdUntil ?? 0) <= now && Number(predator.root.userData.slamAt ?? 0) <= 0) {
+    if (predator.fieldBossId && canAct && distance < 13 && Number(predator.root.userData.slamCdUntil ?? 0) <= now) {
       castBossSlam(context, predator, now);
     }
     if (canAct && distance <= reach && (predator.attackCooldown ?? 0) <= 0) {

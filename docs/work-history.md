@@ -14,6 +14,20 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 오버월드 보스/용을 일리아식 텔레그래프(범위 예고) 패턴으로 전환
+
+- 요청: 일리아 패턴 피하기가 마지막에만 나와 컨트롤 연습이 안 됨 → 모든 보스·용 스킬을 일리아처럼 바닥에 범위 표시되는 회피형으로. 맞으면 데미지 ↑.
+- 확정 스코프(AskUserQuestion): **원거리/광역 시그니처 스킬만** 텔레그래프화(근접 접촉타 유지), 피격 데미지 **약 2배**.
+- 설계: 일리아 전투에 갇혀 있던 텔레그래프 엔진을 공용 leaf `telegraph.ts` 로 추출(TelegraphSpec·telegraphMesh·telegraphContains·telegraphBurstPoint·disposeTelegraphGroup·animateTelegraphMeshes + 중앙 필드 매니저 createTelegraphField/spawnFieldTelegraph/updateTelegraphField/clearTelegraphField + TELEGRAPH_DAMAGE_MULT=2). illiaBoss 는 재-import(동작 보존 — illia-test 그대로 통과, telegraphContains 재노출로 호환).
+- 적용:
+  - **용 브레스**(dragonAi): 은밀한 지연착탄(620ms·메시지) → 착탄점 고정 + 바닥 붉은 원 텔레그래프(900ms) + 원 밖이면 회피. 데미지 ×2. 발톱(근접 즉시타)은 스코프대로 유지.
+  - **필드 보스 슬램**(predatorAi): 시전 위치 고정 + 범위 원(900ms). 데미지 1.8×→×2(=3.6× 기본공격). 근접 도약 접촉타 유지. slamAt 플래그 제거(쿨다운이 재시전 차단).
+  - 요새 보스(caveMonsters)는 지연 스킬 없이 근접 접촉타뿐 → 스코프상 미변경.
+- 아키텍처: 오버월드 보스/용은 main 소유 단일 `overworldTelegraphs` 필드 공유(일리아는 IlliaFightState 자체 관리). main 배선 +4(필드·vfx·컨텍스트 spawnTelegraph×2·update 호출·맵전환 clear). 로직·시각·판정은 전부 leaf. 모드 이탈 시 update 가드가 자동 청소, 맵 전환은 clearWorld 직후 명시 clear → 보스 사망/이동 중 잔재·오펀 없음.
+- 검증: typecheck·check:size(9443)·methods·architecture·hotpath(할당 카운트 불변)·admin + 전체 node 테스트 그린. 신규 telegraph-test(필드 수명주기·판정 기하·청소·데미지배수) 추가, illia-test 동작보존 통과. 프로덕션 build 성공. 헤드리스 부팅 스모크: gameStarted=true·필드 존재·치명 에러 0.
+- 미검증/다음: 라이브 용 텔레그래프 발생→회피/피격까지의 E2E 는 디버그 스폰 훅이 없어 스크립트화 못 함(로직은 telegraph-test·illia-test 로 커버). save-roundtrip·visual-check·perf-check 는 Windows 전용이라 이 컨테이너 미실행 — 사용자 PC 권장. 텔레그래프 메시가 draw call 을 늘리므로 perf-check 를 PC 에서 확인 권장(보스 소수·단명이라 영향 경미 예상).
+- 관련 파일: src/game/telegraph.ts(신규) · illiaBoss.ts · dragonAi.ts · predatorAi.ts · main.ts · scripts/telegraph-test.mjs(신규) · package.json.
+
 ## 2026-07-04 — 엔딩 크레딧/피날레 최종 보스명 정정 (불멸의 존재 → 절망의 군주 일리아)
 
 - 요청: 일리아를 깨고 나오는 엔딩 크레딧 자막에 일리아 도입 이전의 옛 최종 보스명 '불멸의 존재'가 나옴 → 정정.
