@@ -2239,7 +2239,7 @@ class WildernessGame {
     if (event.code === "KeyB") this.togglePanel("book");
     if (event.code === "KeyM") this.togglePanel("map");
     if (event.code === "KeyK") this.togglePanel("character");
-    if (event.code === "KeyE") this.interact();
+    if (event.code === "KeyE") { if (this.subquestDialog && isSubquestComplete(this.subquests)) this.claimSubquest(); else this.interact(); } // 이장 대화중 완료 서브퀘스트면 E 로 보상 수령, 아니면 일반 상호작용
     if (event.code === "KeyR" && !event.repeat) this.useClassSkill();
     if (event.code === "KeyT" && !event.repeat) this.useSecondSkill();
     if (event.code === "KeyF" && !event.repeat) this.useThirdSkill();
@@ -4331,6 +4331,7 @@ class WildernessGame {
     }
     if (target.type === "villageChief") { // 마을 이장 — 서브퀘스트 받기/보상 수령(레벨 20+)
       if (this.level < SUBQUEST_MIN_LEVEL) { this.showMessage(`마을 이장: 아직 여행 초보로군. 레벨 ${SUBQUEST_MIN_LEVEL}이 되면 부탁할 일이 있네.`); return; }
+      if (isSubquestComplete(this.subquests)) { this.claimSubquest(); return; } // 완료한 서브퀘스트가 있으면 E 한 번에 바로 보상 수령(대화창 없이)
       this.subquestDialog = true; this.subquestSig = ""; document.exitPointerLock?.(); this.syncSubquests();
       return;
     }

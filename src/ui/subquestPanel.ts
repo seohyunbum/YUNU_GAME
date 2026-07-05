@@ -44,11 +44,11 @@ function activeCard(state: SubquestState, names: Record<string, string>, dialogO
   const done = state.progress >= def.target;
   const pct = Math.round((Math.min(state.progress, def.target) / def.target) * 100);
   const progressLine = done
-    ? (dialogOpen ? "✅ 완료! 아래 버튼으로 보상 수령" : "✅ 완료 — 마을 이장에게 보상 받기")
+    ? (dialogOpen ? "✅ 완료! E키 또는 아래 버튼으로 보상 수령" : "✅ 완료 — 마을 이장에게 E키로 보상 받기")
     : `진행 ${Math.min(state.progress, def.target)}/${def.target}`;
   const action = dialogOpen
     ? (done
-        ? `<button type="button" class="subquest-claim" data-subquest-claim>🎁 보상 받기</button>`
+        ? `<button type="button" class="subquest-claim" data-subquest-claim>🎁 보상 받기 (E)</button>`
         : "") + `<button type="button" class="subquest-abandon" data-subquest-abandon>선택 미션 포기</button>`
     : "";
   return (
