@@ -193,6 +193,28 @@ try {
     assert.equal(scene.children.length, 0, "리셋 후 씬 완전 청소(기둥 포함)");
   }
 
+  // ── 3d) 난이도 예고 배율(setIlliaTelegraphDifficultyMul) — 첫 텔레그래프 딜레이가 배율에 비례 ──
+  {
+    const firstDelay = (mul) => {
+      illia.setIlliaTelegraphDifficultyMul(mul);
+      const scene = new THREE.Scene();
+      const player = new THREE.Vector3(999, 0, 999); // 회피(피격 무관 — 딜레이만 관측)
+      const { ctx, setT } = makeCtx(scene, player);
+      const state = illia.createIlliaFightState();
+      illia.startIlliaFight(state, 1, 0);
+      setT(2600); illia.updateIlliaFight(state, ctx, 0.016); // 패턴 발화(pending 적재)
+      let delay = null;
+      for (let t = 2650; t <= 8000 && delay === null; t += 50) { setT(t); illia.updateIlliaFight(state, ctx, 0.016); if (state.telegraphs.length > 0) delay = state.telegraphs[0].detonateAt - t; }
+      illia.resetIlliaFight(state, scene);
+      return delay;
+    };
+    const d1 = firstDelay(1);
+    const dHalf = firstDelay(0.5);
+    illia.setIlliaTelegraphDifficultyMul(1); // ★모듈 전역 — 반드시 복원(후속 타이밍 테스트 오염 방지)
+    assert.ok(d1 && d1 > 0, "기본 예고 딜레이 관측");
+    assert.ok(Math.abs(dHalf - d1 * 0.5) <= 2, `예고 배율 0.5 → 딜레이 절반(${d1} → ${dHalf}) = 어려움 bossTelegraph 반응시간 단축 메커니즘`);
+  }
+
   // ── 4) 컷씬 시퀀서 — 완주/스킵 onFinish 1회 ──
   {
     const scene = new THREE.Scene();

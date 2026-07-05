@@ -29,6 +29,7 @@ try {
   assert.equal(hard.monsterAttack, 1.3, "공격 +30%");
   assert.equal(hard.monsterDefense, 1.3, "방어 +30%");
   assert.equal(hard.monsterChaseSpeed, 1.3, "추격속도 +30%");
+  assert.equal(hard.bossTelegraph, 0.85, "보스 예고 시간 −15%(×0.85, 반응시간 단축)");
   assert.equal(hard.questExp, 0.6, "퀘스트 경험치 −40%");
   assert.equal(hard.dropChance, 0.5, "드랍률 −50%");
   assert.equal(hard.xpPotion, 0.5, "경험치병 −50%");

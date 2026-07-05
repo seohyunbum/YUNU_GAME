@@ -25,6 +25,7 @@ export interface DragonAiContext {
   bossStats(kind?: BossKind): DragonStats;
   isBossUnlocked(kind: BossKind): boolean;
   monsterChaseSpeedMul(): number; // 난이도 추격속도 배율(쉬움=1)
+  monsterAttackMul(): number; // 난이도 공격력 배율(쉬움=1, 어려움 1.3) — 발톱/브레스 데미지에 적용(스탯 테이블은 raw)
   damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   showMessage(text: string): void;
   playTone(frequency: number, duration?: number, type?: OscillatorType, volume?: number): void;
@@ -77,7 +78,7 @@ function castDragonAttack(context: DragonAiContext, dragon: WorldObject, kind: B
     dragon.attackCooldown = 1.8;
     spawnDragonClawBurst(context.effects(), dragon.root.position);
     context.playTone(150, 0.16, "sawtooth", 0.03);
-    context.damagePlayer(stats.clawDamage, true, `${stats.name}의 발톱에 당해 체력이 모두 떨어졌습니다.`, dragon);
+    context.damagePlayer(stats.clawDamage * context.monsterAttackMul(), true, `${stats.name}의 발톱에 당해 체력이 모두 떨어졌습니다.`, dragon);
     return;
   }
   dragon.attackCooldown = profile.cooldown;
@@ -90,7 +91,7 @@ function castDragonAttack(context: DragonAiContext, dragon: WorldObject, kind: B
   const tx = context.playerPosition.x, tz = context.playerPosition.z;
   const groundY = context.getGroundHeightAt(tx, tz);
   const spec: TelegraphSpec = { kind: "circle", x: tx, z: tz, r: BREATH_RADIUS, delayMs: BREATH_DELAY_MS };
-  const dmg = Math.round(stats.fireDamage * profile.breathMul * TELEGRAPH_DAMAGE_MULT);
+  const dmg = Math.round(stats.fireDamage * profile.breathMul * TELEGRAPH_DAMAGE_MULT * context.monsterAttackMul());
   const name = stats.name;
   context.spawnTelegraph(spec, now + BREATH_DELAY_MS, groundY, () => {
     spawnDragonFireBurst(context.effects(), new THREE.Vector3(tx, groundY, tz));

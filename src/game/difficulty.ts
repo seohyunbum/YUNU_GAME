@@ -12,6 +12,7 @@ export interface DifficultyModifiers {
   monsterAttack: number; // 몬스터 공격력 (스폰 시 attackDamage 에 적용)
   monsterDefense: number; // 몬스터 방어력 (armor)
   monsterChaseSpeed: number; // 몬스터 추격 속도
+  bossTelegraph: number; // 보스 예고(텔레그래프) 시간 배율 — 낮을수록 반응시간 짧아 어려움(쉬움=1, 어려움<1). 현재 일리아 전용
   questExp: number; // 퀘스트 보상 경험치
   dropChance: number; // 아이템 드랍 확률
   xpPotion: number; // 경험치병 획득량
@@ -19,10 +20,10 @@ export interface DifficultyModifiers {
 }
 
 export const DIFFICULTY_MODIFIERS: Record<DifficultyMode, DifficultyModifiers> = {
-  easy: { monsterHp: 1, monsterAttack: 1, monsterDefense: 1, monsterChaseSpeed: 1, questExp: 1, dropChance: 1, xpPotion: 1, shopPrice: 1 },
+  easy: { monsterHp: 1, monsterAttack: 1, monsterDefense: 1, monsterChaseSpeed: 1, bossTelegraph: 1, questExp: 1, dropChance: 1, xpPotion: 1, shopPrice: 1 },
   // 어려움: 몬스터 공·방·추격 +30%(×1.3), 체력 +50%(×1.5), 퀘스트 경험치 −40%(×0.6),
   // 드랍률 −50%(×0.5), 경험치병 −50%(×0.5), 상점 가격 +200%(×3.0). 몬스터 처치 경험치는 변경 없음.
-  hard: { monsterHp: 1.5, monsterAttack: 1.3, monsterDefense: 1.3, monsterChaseSpeed: 1.3, questExp: 0.6, dropChance: 0.5, xpPotion: 0.5, shopPrice: 3 },
+  hard: { monsterHp: 1.5, monsterAttack: 1.3, monsterDefense: 1.3, monsterChaseSpeed: 1.3, bossTelegraph: 0.85, questExp: 0.6, dropChance: 0.5, xpPotion: 0.5, shopPrice: 3 },
 };
 
 export function isDifficultyMode(value: unknown): value is DifficultyMode {

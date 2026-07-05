@@ -1401,3 +1401,8 @@
   ②텔레그래프 수축 링+색 램프+스트로브, 폭발 빛기둥+볼리 폭음+피격 비네트 ③컷씬 화면 진동·균열
   발광(내부 광원+광선+크리스탈 emissive)·파열 파편 비산·섬광 + 시네마 모드(HUD/1인칭 손 숨김).
   illia-test 결계·기둥 수명 회귀 추가, E2E(연출·결계·회귀)·실화면 스샷 검증, verify 녹색(라쳇 9436).
+- 난이도 배율 확충(사용자 요청, Codex 텔레그래프 리팩터 55b5217 위 재적용): ①일리아 4항목 쉬움→어려움
+  자동 배율(armor×monsterDefense, hit_pct·hit_flat×monsterAttack, telegraph_scale×bossTelegraph 0.85
+  [신설 필드]). 기존 HP만 ×1.5였음. ②드래곤 공격 난이도 미반영 死코드 수정 — AI/반격 발톱·브레스 전
+  지점 ×monsterAttack(불멸 포함). 실측 E2E: 일리아 HP 3000→4500·방어 90→117·피격 212→280, 드래곤
+  14→18(×1.3). difficulty-test bossTelegraph + illia-test 예고배율(딜레이 비율) 골든, verify 녹색.
