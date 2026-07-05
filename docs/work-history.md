@@ -14,6 +14,15 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 파티 서브퀘스트 몬스터 처치 카운트 공유 수정
+
+- 요청: 파티 플레이에서 이장 서브퀘스트 몬스터 처치 마리수 공유가 이상함(같은 맵인데 안 오르는 듯). 파티원이 잡은 것도 공유되고 내 것도 카운팅되게.
+- 점검 결과(정확한 원인): 파티 공유 킬 콜백 `creditQuestKill`(main.ts initPartyPresence 컨텍스트)이 **누적 사냥 카운터(predatorKills)만 +1 하고 `syncSubquests("kill")`은 호출하지 않았다.** 이 콜백은 (a) 호스트가 게스트 막타를 처리하는 hostApplyGuestAttack, (b) 같은 맵 파티원 킬 브로드캐스트를 받는 onPartyKill(막타자·관전자 모두), (c) 호스트 자기 킬의 partyHostNotifyKill 브로드캐스트를 받는 게스트 — 세 경로에서 불린다. 그래서 튜토리얼 누적 마리수는 공유됐지만 **서브퀘스트 킬 진행만 공유가 빠져** "마리수가 안 오르는" 현상이 됐다. (솔로/호스트 자기 막타는 grantExperienceForTarget(creditQuest=true)에서 이미 syncSubquests("kill") 호출 → 정상이었음.)
+- 수정: `creditQuestKill` 에 `this.syncSubquests("kill")` 추가(1줄, 기존 라인에 병합 — 줄 수 불변). 이제 내 막타·파티원 막타(같은 맵) 모두 내 서브퀘스트 몬스터 처치에 반영.
+- 이중집계 없음 검증: 호스트는 자기 브로드캐스트를 수신하지 않으므로(자기 막타=grant 경로, 게스트 막타=hostApplyGuestAttack 경로) 각 킬당 정확히 +1. 솔로는 creditQuestKill 미호출(grant 경로만).
+- 함정(재발 방지): initPartyPresence 컨텍스트는 **거대 단일 라인**이라 줄 끝에 `//` 주석을 붙이면 나머지 객체·닫는 `})`까지 통째로 주석 처리돼 파싱 폭발한다(실제로 1차 시도에서 발생). 이 라인엔 인라인 주석 금지 — 설명은 별도 위치에.
+- 관련 파일/검증: src/main.ts(creditQuestKill) · verify 그린(줄 수·메서드 불변).
+
 ## 2026-07-05 — 이장 서브퀘스트 보상 E키 수령
 
 - 요청: 마을 이장에게 말 걸고 퀘스트 보상 획득을 단축키(E)로 가능하게.
