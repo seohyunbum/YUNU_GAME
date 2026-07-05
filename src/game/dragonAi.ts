@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { WORLD_SIZE } from "./constants";
 import { clampOutOfSafeZones, isInSafeZone } from "./safeZones";
 import { partyWorldGuestActive } from "./partyWorldSync";
-import { spawnBossBreathStream, spawnBossRoar, spawnDragonClawBurst, spawnDragonFireBurst, spawnGroundShockwave, type CombatEffectContext } from "./combatEffects";
+import { spawnBossBreathStream, spawnBossRoar, spawnDragonClawBurst, spawnDragonFireBurst, type CombatEffectContext } from "./combatEffects";
+import { TELEGRAPH_DAMAGE_MULT, telegraphContains, type TelegraphSpec } from "./telegraph";
 import type { BossKind, LocationMode, WorldObject } from "./types";
 
 // leaf: main.ts 를 import 하지 않는다. 용/드래곤의 부유·방향 + 능동 공격(발톱 / 시그니처 브레스)을 담당.
@@ -27,6 +28,7 @@ export interface DragonAiContext {
   damagePlayer(amount: number, showParticles: boolean, deathReason: string, attacker?: WorldObject): boolean;
   showMessage(text: string): void;
   playTone(frequency: number, duration?: number, type?: OscillatorType, volume?: number): void;
+  spawnTelegraph(spec: TelegraphSpec, detonateAt: number, groundY: number, onDetonate: () => void): void; // 일리아식 범위 예고(중앙 필드 소유). 폭발 시 onDetonate 로 판정.
 }
 
 // 종류별 브레스 색/쿨다운/배율 — monsters.ts 는 순수 데이터로 두고 전투 튜너블은 여기 집중.
@@ -43,7 +45,7 @@ const DRAGON_PROFILES: Record<BossKind, { colors: number[]; cooldown: number; br
 
 const ATTACK_DURATION = 900; // ms — rear-up(예열) → 내리꽂기(강타). 크게 보이도록 길게.
 const WINDUP = 0.4;
-const BREATH_DELAY_MS = 620; // 예열 후 브레스 착탄까지(텔레그래프로 회피 가능)
+const BREATH_DELAY_MS = 900; // 예열 후 브레스 착탄까지 — 바닥 범위 예고를 보고 피할 시간(일리아식). 620→900 로 회피 여유 확보.
 const BREATH_RADIUS = 3.7;
 const DRAGON_CHASE_SPEED = 10.9; // 보스 추격 +15% (9.5→10.9). 걷기(7) < 추격 < 달리기(14): 걸으면 따라잡히고 달려야 도망칠 수 있다
 const DRAGON_CHASE_STOP = 7; // 덩치가 커서 더 멀리서 멈춰야 시야에 들어오고 타게팅 가능(4.6→7). 발톱은 ≤8 이라 여전히 닿음
@@ -66,22 +68,6 @@ function dragonAttackBoost(dragon: WorldObject, now: number): number {
   return windup + strike;
 }
 
-// 예약된 브레스 착탄 — 텔레그래프 시간이 지나면 충격파+화염 + (착탄점 안에 있으면) 데미지. (비-update 이름 → 할당 허용)
-function resolveDragonBreath(context: DragonAiContext, dragon: WorldObject, now: number) {
-  const at = Number(dragon.root.userData.breathHitAt ?? 0);
-  if (at <= 0 || now < at) return;
-  dragon.root.userData.breathHitAt = 0;
-  const tx = Number(dragon.root.userData.breathTX ?? 0);
-  const tz = Number(dragon.root.userData.breathTZ ?? 0);
-  const color = Number(dragon.root.userData.breathColor ?? 0xff7a1a);
-  const impact = new THREE.Vector3(tx, context.getGroundHeightAt(tx, tz), tz);
-  spawnGroundShockwave(context.effects(), impact, color);
-  spawnDragonFireBurst(context.effects(), impact);
-  if (Math.hypot(context.playerPosition.x - tx, context.playerPosition.z - tz) <= BREATH_RADIUS) {
-    context.damagePlayer(Number(dragon.root.userData.breathDmg ?? 12), true, `${String(dragon.root.userData.breathName ?? "용")}의 브레스에 휩싸여 체력이 모두 떨어졌습니다.`, dragon);
-  }
-}
-
 // 공격 시전 — 근접 발톱(즉시) 또는 시그니처 브레스(텔레그래프 예약). (비-update 이름 → VFX/할당 허용)
 function castDragonAttack(context: DragonAiContext, dragon: WorldObject, kind: BossKind, distance: number, now: number) {
   const stats = context.bossStats(kind);
@@ -100,13 +86,19 @@ function castDragonAttack(context: DragonAiContext, dragon: WorldObject, kind: B
   spawnBossRoar(context.effects(), new THREE.Vector3(dragon.root.position.x, context.getGroundHeightAt(dragon.root.position.x, dragon.root.position.z), dragon.root.position.z), profile.colors[1]);
   spawnBossBreathStream(context.effects(), mouth, context.playerPosition, profile.colors);
   context.playTone(90, 0.4, "sawtooth", 0.035);
-  dragon.root.userData.breathHitAt = now + BREATH_DELAY_MS;
-  dragon.root.userData.breathTX = context.playerPosition.x;
-  dragon.root.userData.breathTZ = context.playerPosition.z;
-  dragon.root.userData.breathDmg = Math.round(stats.fireDamage * profile.breathMul);
-  dragon.root.userData.breathColor = profile.colors[1];
-  dragon.root.userData.breathName = stats.name;
-  context.showMessage(`${stats.name}이(가) 브레스를 내뿜습니다! 착탄 지점에서 벗어나세요.`);
+  // 착탄 지점을 시전 시점 플레이어 위치로 고정하고 바닥에 붉은 범위 원(텔레그래프)을 그린다 — 원 밖으로 나가면 회피. 맞으면 ×2 데미지.
+  const tx = context.playerPosition.x, tz = context.playerPosition.z;
+  const groundY = context.getGroundHeightAt(tx, tz);
+  const spec: TelegraphSpec = { kind: "circle", x: tx, z: tz, r: BREATH_RADIUS, delayMs: BREATH_DELAY_MS };
+  const dmg = Math.round(stats.fireDamage * profile.breathMul * TELEGRAPH_DAMAGE_MULT);
+  const name = stats.name;
+  context.spawnTelegraph(spec, now + BREATH_DELAY_MS, groundY, () => {
+    spawnDragonFireBurst(context.effects(), new THREE.Vector3(tx, groundY, tz));
+    if (telegraphContains(spec, context.playerPosition.x, context.playerPosition.z)) {
+      context.damagePlayer(dmg, true, `${name}의 브레스에 휩싸여 체력이 모두 떨어졌습니다.`, dragon);
+    }
+  });
+  context.showMessage(`${stats.name}이(가) 브레스를 내뿜습니다! 붉은 범위에서 벗어나세요.`);
 }
 
 export function updateDragons(context: DragonAiContext, delta: number) {
@@ -150,7 +142,6 @@ export function updateDragons(context: DragonAiContext, delta: number) {
       else if (child.userData.dragonTail) child.rotation.y = Math.sin(t * 2.2) * (0.18 + boost * 0.4);
     }
     context.refreshSpatialObject(dragon);
-    resolveDragonBreath(context, dragon, now);
     dragon.attackCooldown = Math.max(0, (dragon.attackCooldown ?? 0) - delta);
     if (panelOpen || !unlocked || (dragon.root.userData.dragonAttackAt ?? 0) > 0 || (dragon.attackCooldown ?? 0) > 0) continue;
     if (distance <= attackRange && !isInSafeZone(context.playerPosition.x, context.playerPosition.z)) castDragonAttack(context, dragon, kind, distance, now); // 마을 안 플레이어는 공격 못 함

@@ -108,7 +108,8 @@ import { readFileSync } from "node:fs";
 // 2026-07-04: 차원의 문 개방 트레일러(gateOpen 컷씬) — 시퀀서·연출은 illiaBoss/illiaVisuals 리프. main 은 기존 라인 확장(처치 훅·onFinish 분기·평시애니 제외·anchor 정리) + 컷씬 무적 가드 1줄 = +1 → 9441.
 // 2026-07-04: 일리아 차원 사망 처리 수정 — 전투 밖 사망(승리 후 배회·굶주림 등)이 일반 핸들러를 타면 illiaInArena 플래그가 남아 저장이 영구 차단되던 누수 수정 + 차원 이탈 안내 메시지 + 제자리 재대결 메시지 명확화. +3 → 9444.
 // 2026-07-04: 일리아 사망 = 무조건 차원 밖 이탈로 변경(제자리 재시작 폐지 — 유저가 문 재진입으로 재도전). illiaFight.active||illiaInArena 단일 분기가 leaveCave 로 정리, 일반 핸들러의 wasInIllia 죽은코드 제거. 순 −5 → 9439.
-const MAX_MAIN_LINES = 9439;
+// 2026-07-05: 오버월드 보스/용 텔레그래프(일리아식 범위 예고) — 엔진·필드는 telegraph 리프. main 은 필드 소유(1)+vfx(1)+dragon/predator 컨텍스트 spawnTelegraph(2)+update 호출/맵전환 clear. 순 +4 → 9443.
+const MAX_MAIN_LINES = 9443;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

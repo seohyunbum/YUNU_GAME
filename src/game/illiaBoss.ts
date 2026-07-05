@@ -2,7 +2,11 @@ import * as THREE from "three";
 import { ARENA_HALF, ILLIA_CENTER_Z } from "./constants";
 import { bal } from "./balanceTuning";
 import { animateGateOpening, resetGateVisual } from "./illiaVisuals";
+import { animateTelegraphMeshes, disposeTelegraphGroup, telegraphBurstPoint, telegraphContains, telegraphMesh, type TelegraphSpec } from "./telegraph";
 import type { WorldObject } from "./types";
+
+// 판정 기하는 telegraph 리프로 이관됨 — 골든 테스트(illia-test)가 illia.telegraphContains 로 참조하므로 재노출 유지.
+export { telegraphContains } from "./telegraph";
 
 // 최종 보스 '일리아' 전투 엔진 — 텔레그래프(사전 표시 붉은 영역) 기반 패턴 보스. leaf(main.ts import 금지).
 // P1(봉인된 군주): 중앙 고정(사슬) + 조준/기하 패턴 6종(졸개 소환 포함).
@@ -26,13 +30,7 @@ export function clampToIlliaArena(position: THREE.Vector3): void {
 }
 export const ILLIA_ENTRY_POS = { x: 0, z: ILLIA_CENTER_Z + ARENA_HALF - 3 }; // 아레나 남쪽 입구(사망 부활 지점)
 
-// ── 텔레그래프 ──────────────────────────────────────────────────────────────
-export type TelegraphSpec =
-  | { kind: "circle"; x: number; z: number; r: number; delayMs: number }
-  | { kind: "ring"; x: number; z: number; inner: number; r: number; delayMs: number }
-  | { kind: "line"; x: number; z: number; dirX: number; dirZ: number; len: number; width: number; delayMs: number }
-  | { kind: "cone"; x: number; z: number; angle: number; arc: number; r: number; delayMs: number };
-
+// ── 텔레그래프 ── (엔진은 telegraph 리프로 이관 — 여기선 일리아 전용 런타임 래퍼 + 폭발 빛기둥만)
 interface Telegraph {
   spec: TelegraphSpec;
   detonateAt: number;
@@ -42,67 +40,8 @@ interface Telegraph {
   shrink: THREE.Mesh | null; // 바깥에서 영역 경계로 수축하는 경고 링 — 남은 시간을 직관적으로 보여준다
 }
 
-const fillMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff1f3d, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
-const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0xff5566, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide });
-const shrinkMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff8090, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
-const TELEGRAPH_COLOR_FAR = new THREE.Color(0x99101f); // 예고 시작(어두운 핏빛)
-const TELEGRAPH_COLOR_NEAR = new THREE.Color(0xff4050); // 폭발 직전(밝은 진홍) — lerpColors 로 무할당 보간
 const PILLAR_GEOMETRY = new THREE.CylinderGeometry(1, 1.3, 1, 12, 1, true); // 폭발 빛기둥(단위 — per-burst 스케일)
 const pillarMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff3048, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
-
-function telegraphMesh(spec: TelegraphSpec): { group: THREE.Group; fill: THREE.Mesh; edge: THREE.Mesh | null; shrink: THREE.Mesh | null } {
-  const group = new THREE.Group();
-  let fillGeometry: THREE.BufferGeometry;
-  let edgeGeometry: THREE.BufferGeometry | null = null;
-  if (spec.kind === "circle") {
-    fillGeometry = new THREE.CircleGeometry(spec.r, 30);
-    edgeGeometry = new THREE.RingGeometry(spec.r - 0.14, spec.r, 30);
-  } else if (spec.kind === "ring") {
-    fillGeometry = new THREE.RingGeometry(spec.inner, spec.r, 36);
-    edgeGeometry = new THREE.RingGeometry(spec.r - 0.14, spec.r, 36);
-  } else if (spec.kind === "cone") {
-    fillGeometry = new THREE.CircleGeometry(spec.r, 24, spec.angle - spec.arc / 2, spec.arc);
-    edgeGeometry = new THREE.RingGeometry(spec.r - 0.14, spec.r, 24, 1, spec.angle - spec.arc / 2, spec.arc);
-  } else {
-    fillGeometry = new THREE.PlaneGeometry(spec.width, spec.len);
-    edgeGeometry = null;
-  }
-  const fill = new THREE.Mesh(fillGeometry, fillMaterialBase.clone());
-  fill.rotation.x = -Math.PI / 2;
-  if (spec.kind === "line") {
-    // 라인은 시작점에서 dir 방향으로 len 만큼 — 평면 중심을 절반 지점으로 이동 후 진행각 회전.
-    const yaw = Math.atan2(spec.dirX, spec.dirZ);
-    group.rotation.y = yaw;
-    fill.position.z = spec.len / 2;
-  }
-  group.add(fill);
-  let edge: THREE.Mesh | null = null;
-  if (edgeGeometry) {
-    edge = new THREE.Mesh(edgeGeometry, edgeMaterial.clone());
-    edge.rotation.x = -Math.PI / 2;
-    edge.position.y = 0.012;
-    group.add(edge);
-  }
-  // 수축 경고 링 — 영역 바깥(×1.55)에서 경계까지 조여든다(원/링/부채꼴). 직선은 채움 스트로브만.
-  let shrink: THREE.Mesh | null = null;
-  if (spec.kind !== "line") {
-    const outerR = spec.r;
-    shrink = new THREE.Mesh(new THREE.RingGeometry(Math.max(0.2, outerR - 0.22), outerR, 40), shrinkMaterialBase.clone());
-    shrink.rotation.x = -Math.PI / 2;
-    shrink.position.y = 0.02;
-    shrink.scale.setScalar(1.55);
-    group.add(shrink);
-  }
-  group.position.set(spec.x, 0.07, spec.z);
-  return { group, fill, edge, shrink };
-}
-
-// 폭발 연출 기준점 — 직선은 시작점이 아니라 경로 중앙에서 터져야 자연스럽다.
-function telegraphBurstPoint(spec: TelegraphSpec): { x: number; z: number } {
-  if (spec.kind === "line") return { x: spec.x + spec.dirX * spec.len * 0.5, z: spec.z + spec.dirZ * spec.len * 0.5 };
-  if (spec.kind === "cone") return { x: spec.x + Math.sin(spec.angle) * spec.r * 0.5, z: spec.z + Math.cos(spec.angle) * spec.r * 0.5 };
-  return { x: spec.x, z: spec.z };
-}
 
 // 폭발 빛기둥 — 형태별 스케일로 영역 위에 수직 섬광 기둥을 세운다(수명 0.45s, update 가 소멸 관리).
 function spawnDetonationPillar(state: IlliaFightState, ctx: IlliaContext, spec: TelegraphSpec): void {
@@ -119,26 +58,6 @@ function spawnDetonationPillar(state: IlliaFightState, ctx: IlliaContext, spec: 
   pillar.position.set(p.x, 4, p.z);
   ctx.scene.add(pillar);
   state.bursts.push({ mesh: pillar, bornAt: ctx.now() });
-}
-
-export function telegraphContains(spec: TelegraphSpec, px: number, pz: number): boolean { // export: 골든 테스트(판정 기하)용
-  const dx = px - spec.x;
-  const dz = pz - spec.z;
-  if (spec.kind === "circle") return dx * dx + dz * dz <= spec.r * spec.r;
-  if (spec.kind === "ring") { const d2 = dx * dx + dz * dz; return d2 >= spec.inner * spec.inner && d2 <= spec.r * spec.r; }
-  if (spec.kind === "cone") {
-    const d2 = dx * dx + dz * dz;
-    if (d2 > spec.r * spec.r) return false;
-    let diff = Math.atan2(dx, dz) - spec.angle;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    return Math.abs(diff) <= spec.arc / 2;
-  }
-  // line: 진행 방향 투영 0..len, 수직 거리 ≤ width/2
-  const along = dx * spec.dirX + dz * spec.dirZ;
-  if (along < 0 || along > spec.len) return false;
-  const perp = Math.abs(dx * spec.dirZ - dz * spec.dirX);
-  return perp <= spec.width / 2;
 }
 
 // ── 전투 상태 ──────────────────────────────────────────────────────────────
@@ -175,7 +94,7 @@ export interface IlliaContext {
 }
 
 export function resetIlliaFight(state: IlliaFightState, scene: THREE.Scene): void {
-  for (const telegraph of state.telegraphs) { scene.remove(telegraph.group); disposeTelegraph(telegraph); }
+  for (const telegraph of state.telegraphs) { scene.remove(telegraph.group); disposeTelegraphGroup(telegraph.group); }
   for (const burst of state.bursts) { scene.remove(burst.mesh); (burst.mesh.material as THREE.Material).dispose(); }
   state.bursts.length = 0;
   state.telegraphs.length = 0;
@@ -196,17 +115,6 @@ export function startIlliaFight(state: IlliaFightState, phase: 1 | 2, now: numbe
   state.pending.length = 0;
   state.minionIds.length = 0;
   state.move = null;
-}
-
-// 텔레그래프 자산 해제 — 지오메트리는 매번 신규 생성이라 폭발/리셋 시 dispose(전투 내내 GPU 누적 방지).
-// fill 재질은 clone(펄스 개별 제어용)이라 함께 해제, 공유 edgeMaterial 은 보존.
-function disposeTelegraph(telegraph: Telegraph): void {
-  telegraph.group.traverse((child) => {
-    const mesh = child as THREE.Mesh;
-    if (!(mesh as { isMesh?: boolean }).isMesh) return;
-    mesh.geometry.dispose();
-    if (mesh.material !== edgeMaterial) (mesh.material as THREE.Material).dispose();
-  });
 }
 
 function addTelegraph(state: IlliaFightState, ctx: IlliaContext, spec: TelegraphSpec): void {
@@ -420,12 +328,7 @@ export function updateIlliaFight(state: IlliaFightState, ctx: IlliaContext, delt
     const telegraph = state.telegraphs[i];
     const remain = telegraph.detonateAt - now;
     if (remain > 0) {
-      const progress = 1 - remain / telegraph.spec.delayMs;
-      const fillMaterial = telegraph.fill.material as THREE.MeshBasicMaterial;
-      fillMaterial.color.lerpColors(TELEGRAPH_COLOR_FAR, TELEGRAPH_COLOR_NEAR, progress); // 어두운 핏빛 → 밝은 진홍(무할당 보간)
-      fillMaterial.opacity = remain < 350 ? 0.5 + Math.sin(now * 0.055) * 0.28 : 0.18 + progress * 0.4; // 마지막 0.35s 스트로브 점멸
-      if (telegraph.edge) (telegraph.edge.material as THREE.MeshBasicMaterial).opacity = remain < 350 ? 0.55 + Math.sin(now * 0.06) * 0.45 : 0.85;
-      if (telegraph.shrink) { const s = 1.55 - progress * 0.55; telegraph.shrink.scale.set(s, s, s); (telegraph.shrink.material as THREE.MeshBasicMaterial).opacity = 0.45 + progress * 0.4; }
+      animateTelegraphMeshes(telegraph.fill, telegraph.edge, telegraph.shrink, telegraph.spec, remain, now); // 공용 펄스(핏빛→진홍·스트로브·수축링)
       continue;
     }
     state.telegraphs.splice(i, 1);
@@ -434,7 +337,7 @@ export function updateIlliaFight(state: IlliaFightState, ctx: IlliaContext, delt
   if (exploded.length > 0) { ctx.playTone(42, 0.42, "sawtooth", 0.085); ctx.playTone(300, 0.1, "square", 0.05); } // 볼리당 1회 저역 폭음(다발 스팸 방지)
   for (const telegraph of exploded) {
     ctx.scene.remove(telegraph.group);
-    disposeTelegraph(telegraph);
+    disposeTelegraphGroup(telegraph.group);
     const burstAt = telegraphBurstPoint(telegraph.spec);
     ctx.groundBurst(burstAt.x, burstAt.z);
     spawnDetonationPillar(state, ctx, telegraph.spec);
