@@ -183,7 +183,7 @@ import {
   PLAYER_RADIUS,
   PRONE_HEIGHT,
   PROJECTILE_MAX_LIFE,
-  RANGED_ATTACK_COOLDOWN, GUN_FIRE_RATE_SCALE, MAGIC_AOE_RADIUS,
+  RANGED_ATTACK_COOLDOWN, GUN_FIRE_RATE_SCALE, MAGIC_AOE_RADIUS, MAGIC_AOE_DAMAGE_FRACTION,
   RUN_MULTIPLIER,
   MAX_SAVE_SLOTS,
   SAVE_DEBOUNCE_MS,
@@ -5468,7 +5468,7 @@ class WildernessGame {
           spawnEnemyHitParticles(this.combatEffectContext, target, projectile.mesh.position);
           spawnProjectileImpact(this.combatEffectContext, projectile.mesh.position, projectile.kind);
           this.applyProjectileDamage(target, projectile.damage, projectile.kind);
-          if (projectile.kind === "magic") this.applyAreaDamage(projectile.mesh.position, MAGIC_AOE_RADIUS, projectile.damage, new Set([target.id]), "magic"); // 마법 소형 범위 피해 — 주 대상 주변 추가타
+          if (projectile.kind === "magic") this.applyAreaDamage(projectile.mesh.position, MAGIC_AOE_RADIUS, Math.max(1, Math.round(projectile.damage * MAGIC_AOE_DAMAGE_FRACTION)), new Set([target.id]), "magic"); // 마법 소형 범위 피해 — 주 대상은 직격(풀뎀), 주변 추가타는 50%
         }
         this.removeProjectile(index);
         continue;
