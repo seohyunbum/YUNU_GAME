@@ -130,7 +130,9 @@ function clampArenaZ(z: number, margin = 1.5): number {
   return Math.max(ILLIA_CENTER_Z - ARENA_HALF + margin, Math.min(ILLIA_CENTER_Z + ARENA_HALF - margin, z));
 }
 
-const telegraphMsScale = () => bal("illia_telegraph_scale", 1); // 텔레그래프 시간 배율(높을수록 쉬움)
+let illiaTelegraphDifficultyMul = 1; // 난이도별 예고 시간 배율(어려움<1 → 반응시간 짧음). main 이 스폰 시 difficultyMods.bossTelegraph 로 설정.
+export function setIlliaTelegraphDifficultyMul(mul: number): void { illiaTelegraphDifficultyMul = Number.isFinite(mul) && mul > 0 ? mul : 1; }
+const telegraphMsScale = () => bal("illia_telegraph_scale", 1) * illiaTelegraphDifficultyMul; // 관리자 배율 × 난이도 배율(높을수록 쉬움)
 // 결계 원판 내부 균등 랜덤 지점(sqrt 로 면적 균등) — 사각 스프레드는 모서리가 결계 밖이라 낭비된다.
 function randomArenaPoint(maxR: number): { x: number; z: number } {
   const a = Math.random() * Math.PI * 2;

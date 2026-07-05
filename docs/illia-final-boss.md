@@ -85,3 +85,17 @@
 - 화면 진동(`cutsceneShake` — 고주파 사인 합성, 균열 진행 점증→파열 대진동→잔진동 / 해방은 사슬 파단마다 펄스).
 - 봉인석: 균열 맥동 발광 + 내부 광원(`seal-light`) 점증 + 광선 6줄 성장 + 크리스탈 자체 emissive 램프(실루엣 보존) → 파열 시 발광 파편 10조각 방사 비산 + 3연 충격파 + 화면 섬광(`.illia-flash`).
 - **시네마 모드**: 컷씬 동안 HUD·패널·1인칭 손 전부 숨김(`.illia-cinema` + handGroup 토글) — 레터박스·타이틀·연출만 표시.
+
+## 난이도(쉬움/어려움) 배율 (2026-07-05)
+
+일리아 어드민 튜너블은 **쉬움 모드 기준값**이며, 어려움 모드에서 자동 배율이 곱해진다. 배율 SSOT = `difficulty.ts`의 `DIFFICULTY_MODIFIERS`.
+
+| 튜너블 | 어려움 배율 | 근거 필드 |
+| --- | --- | --- |
+| `illia_p1_hp`·`illia_p2_hp` | ×1.5 | `monsterHp` (spawnIlliaBoss + 보스바 분모 동일 산식) |
+| `illia_armor` | ×1.3 | `monsterDefense` |
+| `illia_hit_pct`·`illia_hit_flat` | ×1.3 | `monsterAttack` (applyPlayerHit — pct·flat 둘 다) |
+| `illia_telegraph_scale` | ×0.85 | `bossTelegraph`(신설 필드, 예고 15%↓ → 반응시간 단축). illiaBoss `setIlliaTelegraphDifficultyMul` 로 주입 |
+
+- 드래곤류(불멸의 존재 포함) **공격력도 어려움에서 ×1.3**(`monsterAttack`). 기존엔 AI(`dragonAi.castDragonAttack`)·반격(`dragonCounterAttack`)이 raw `BOSS_STATS.clawDamage/fireDamage`를 읽어 난이도 미반영이었음(스폰 시 scaled `attackDamage` 필드는 死코드). 발톱·브레스 전 지점에 `monsterAttack` 곱함(이중 스케일링 없음). ※ 브레스는 Codex 텔레그래프 전환(55b5217) 후 `TELEGRAPH_DAMAGE_MULT`(×2, 회피가능)와 별개로 난이도 배율을 추가 곱.
+- ★주의: `illia_hit_pct` 관리자값을 크게(예: 0.8) 두면 어려움 ×1.3=1.04 → 최대체력 초과(원샷) 가능 — 관리자 재량.
