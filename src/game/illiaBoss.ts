@@ -38,6 +38,7 @@ interface Telegraph {
   fill: THREE.Mesh;
   edge: THREE.Mesh | null;
   shrink: THREE.Mesh | null; // 바깥에서 영역 경계로 수축하는 경고 링 — 남은 시간을 직관적으로 보여준다
+  wall: THREE.Mesh | null; // 바닥에서 솟는 수직 경고 벽 — 근접·1인칭 시야에서도 범위·시전 인지
 }
 
 const PILLAR_GEOMETRY = new THREE.CylinderGeometry(1, 1.3, 1, 12, 1, true); // 폭발 빛기둥(단위 — per-burst 스케일)
@@ -118,9 +119,9 @@ export function startIlliaFight(state: IlliaFightState, phase: 1 | 2, now: numbe
 }
 
 function addTelegraph(state: IlliaFightState, ctx: IlliaContext, spec: TelegraphSpec): void {
-  const { group, fill, edge, shrink } = telegraphMesh(spec);
+  const { group, fill, edge, shrink, wall } = telegraphMesh(spec);
   ctx.scene.add(group);
-  state.telegraphs.push({ spec, detonateAt: ctx.now() + spec.delayMs, group, fill, edge, shrink });
+  state.telegraphs.push({ spec, detonateAt: ctx.now() + spec.delayMs, group, fill, edge, shrink, wall });
 }
 
 function clampArena(v: number, margin = 1.5): number {
@@ -330,7 +331,7 @@ export function updateIlliaFight(state: IlliaFightState, ctx: IlliaContext, delt
     const telegraph = state.telegraphs[i];
     const remain = telegraph.detonateAt - now;
     if (remain > 0) {
-      animateTelegraphMeshes(telegraph.fill, telegraph.edge, telegraph.shrink, telegraph.spec, remain, now); // 공용 펄스(핏빛→진홍·스트로브·수축링)
+      animateTelegraphMeshes(telegraph.fill, telegraph.edge, telegraph.shrink, telegraph.wall, telegraph.spec, remain, now); // 공용 펄스(핏빛→진홍·스트로브·수축링·솟는 경고벽)
       continue;
     }
     state.telegraphs.splice(i, 1);

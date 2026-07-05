@@ -13,13 +13,16 @@ export type TelegraphSpec =
   | { kind: "line"; x: number; z: number; dirX: number; dirZ: number; len: number; width: number; delayMs: number }
   | { kind: "cone"; x: number; z: number; angle: number; arc: number; r: number; delayMs: number };
 
-const fillMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff1f3d, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide });
-const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0xff5566, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide });
+const fillMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff1f3d, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide });
+const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0xff6677, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide });
 const shrinkMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff8090, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+// 수직 경고 벽 — 근접(위를 보는 1인칭) 시야에서도 위험 범위가 보이도록 바닥 위로 솟는 반투명 기둥/벽.
+const wallMaterialBase = new THREE.MeshBasicMaterial({ color: 0xff2a44, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+const WALL_HEIGHT = 3.6; // 경고 벽 최대 높이(월드 단위) — 예고가 무르익을수록 이 높이까지 솟는다
 export const TELEGRAPH_COLOR_FAR = new THREE.Color(0x99101f); // 예고 시작(어두운 핏빛)
 export const TELEGRAPH_COLOR_NEAR = new THREE.Color(0xff4050); // 폭발 직전(밝은 진홍) — lerpColors 로 무할당 보간
 
-export interface TelegraphMeshes { group: THREE.Group; fill: THREE.Mesh; edge: THREE.Mesh | null; shrink: THREE.Mesh | null }
+export interface TelegraphMeshes { group: THREE.Group; fill: THREE.Mesh; edge: THREE.Mesh | null; shrink: THREE.Mesh | null; wall: THREE.Mesh | null }
 
 export function telegraphMesh(spec: TelegraphSpec): TelegraphMeshes {
   const group = new THREE.Group();
@@ -27,13 +30,13 @@ export function telegraphMesh(spec: TelegraphSpec): TelegraphMeshes {
   let edgeGeometry: THREE.BufferGeometry | null = null;
   if (spec.kind === "circle") {
     fillGeometry = new THREE.CircleGeometry(spec.r, 30);
-    edgeGeometry = new THREE.RingGeometry(spec.r - 0.14, spec.r, 30);
+    edgeGeometry = new THREE.RingGeometry(spec.r - 0.35, spec.r, 30); // 굵은 밝은 테두리(바닥 가독성)
   } else if (spec.kind === "ring") {
     fillGeometry = new THREE.RingGeometry(spec.inner, spec.r, 36);
-    edgeGeometry = new THREE.RingGeometry(spec.r - 0.14, spec.r, 36);
+    edgeGeometry = new THREE.RingGeometry(spec.r - 0.35, spec.r, 36);
   } else if (spec.kind === "cone") {
     fillGeometry = new THREE.CircleGeometry(spec.r, 24, spec.angle - spec.arc / 2, spec.arc);
-    edgeGeometry = new THREE.RingGeometry(spec.r - 0.14, spec.r, 24, 1, spec.angle - spec.arc / 2, spec.arc);
+    edgeGeometry = new THREE.RingGeometry(spec.r - 0.35, spec.r, 24, 1, spec.angle - spec.arc / 2, spec.arc);
   } else {
     fillGeometry = new THREE.PlaneGeometry(spec.width, spec.len);
     edgeGeometry = null;
@@ -64,8 +67,25 @@ export function telegraphMesh(spec: TelegraphSpec): TelegraphMeshes {
     shrink.scale.setScalar(1.55);
     group.add(shrink);
   }
+  // 수직 경고 벽 — 위험 경계를 따라 바닥에서 솟는 반투명 기둥(근접·1인칭에서도 범위·시전 인지). 단위높이 1 지오메트리를 scale.y 로 키운다.
+  let wall: THREE.Mesh | null = null;
+  if (spec.kind === "circle" || spec.kind === "ring") {
+    const wallGeo = new THREE.CylinderGeometry(spec.r, spec.r, 1, 30, 1, true); // 경계 원통(open-ended 껍데기)
+    wallGeo.translate(0, 0.5, 0); // 바닥(y=0) 기준으로 위로만 자라게
+    wall = new THREE.Mesh(wallGeo, wallMaterialBase.clone());
+  } else if (spec.kind === "cone") {
+    const wallGeo = new THREE.CylinderGeometry(spec.r, spec.r, 1, 20, 1, true, spec.angle - spec.arc / 2, spec.arc); // 부채꼴 호에 맞춘 벽 세그먼트
+    wallGeo.translate(0, 0.5, 0);
+    wall = new THREE.Mesh(wallGeo, wallMaterialBase.clone());
+  } else {
+    const wallGeo = new THREE.BoxGeometry(spec.width, 1, spec.len); // 직선 경로를 감싸는 얇은 벽
+    wallGeo.translate(0, 0.5, spec.len / 2);
+    wall = new THREE.Mesh(wallGeo, wallMaterialBase.clone());
+  }
+  wall.scale.y = 0.001; // 시전 시작 = 거의 0, animateTelegraphMeshes 가 진행도에 따라 세운다
+  group.add(wall);
   group.position.set(spec.x, 0.07, spec.z);
-  return { group, fill, edge, shrink };
+  return { group, fill, edge, shrink, wall };
 }
 
 // 폭발 연출 기준점 — 직선은 시작점이 아니라 경로 중앙에서 터져야 자연스럽다.
@@ -105,15 +125,21 @@ export function disposeTelegraphGroup(group: THREE.Object3D): void {
   });
 }
 
-// 텔레그래프 펄스 애니메이션(무할당) — 어두운 핏빛→진홍 보간 + 마지막 0.35s 스트로브 + 수축 경고 링.
+// 텔레그래프 펄스 애니메이션(무할당) — 어두운 핏빛→진홍 보간 + 마지막 0.35s 스트로브 + 수축 경고 링 + 솟는 경고 벽.
 // illiaBoss·중앙필드 공용. remain = 폭발까지 남은 ms(>0).
-export function animateTelegraphMeshes(fill: THREE.Mesh, edge: THREE.Mesh | null, shrink: THREE.Mesh | null, spec: TelegraphSpec, remain: number, now: number): void {
+export function animateTelegraphMeshes(fill: THREE.Mesh, edge: THREE.Mesh | null, shrink: THREE.Mesh | null, wall: THREE.Mesh | null, spec: TelegraphSpec, remain: number, now: number): void {
   const progress = 1 - remain / spec.delayMs;
   const fillMaterial = fill.material as THREE.MeshBasicMaterial;
   fillMaterial.color.lerpColors(TELEGRAPH_COLOR_FAR, TELEGRAPH_COLOR_NEAR, progress);
-  fillMaterial.opacity = remain < 350 ? 0.5 + Math.sin(now * 0.055) * 0.28 : 0.18 + progress * 0.4;
-  if (edge) (edge.material as THREE.MeshBasicMaterial).opacity = remain < 350 ? 0.55 + Math.sin(now * 0.06) * 0.45 : 0.85;
+  fillMaterial.opacity = remain < 350 ? 0.55 + Math.sin(now * 0.055) * 0.3 : 0.28 + progress * 0.4;
+  if (edge) (edge.material as THREE.MeshBasicMaterial).opacity = remain < 350 ? 0.6 + Math.sin(now * 0.06) * 0.4 : 0.9;
   if (shrink) { const s = 1.55 - progress * 0.55; shrink.scale.set(s, s, s); (shrink.material as THREE.MeshBasicMaterial).opacity = 0.45 + progress * 0.4; }
+  if (wall) { // 진행도에 따라 바닥에서 솟아오름(시전 진행 = 벽 높이) + 폭발 직전 밝게 명멸
+    wall.scale.y = WALL_HEIGHT * (0.18 + progress * 0.82);
+    const wallMaterial = wall.material as THREE.MeshBasicMaterial;
+    wallMaterial.color.lerpColors(TELEGRAPH_COLOR_FAR, TELEGRAPH_COLOR_NEAR, progress);
+    wallMaterial.opacity = remain < 350 ? 0.4 + Math.sin(now * 0.05) * 0.22 : 0.24 + progress * 0.22;
+  }
 }
 
 // ── 중앙 텔레그래프 필드 — 오버월드 보스/용 공유(일리아는 IlliaFightState 로 자체 관리). ──
@@ -154,7 +180,7 @@ export function updateTelegraphField(field: TelegraphField, vfx: TelegraphFieldV
   for (let i = field.list.length - 1; i >= 0; i -= 1) {
     const t = field.list[i];
     const remain = t.detonateAt - now;
-    if (remain > 0) { animateTelegraphMeshes(t.meshes.fill, t.meshes.edge, t.meshes.shrink, t.spec, remain, now); continue; }
+    if (remain > 0) { animateTelegraphMeshes(t.meshes.fill, t.meshes.edge, t.meshes.shrink, t.meshes.wall, t.spec, remain, now); continue; }
     field.list.splice(i, 1);
     vfx.scene.remove(t.meshes.group);
     disposeTelegraphGroup(t.meshes.group);
