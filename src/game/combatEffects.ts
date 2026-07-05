@@ -340,6 +340,26 @@ function getSlashTrailTexture() {
   return slashTrailTexture;
 }
 
+// 데미지 파티클 전역 상한 — 사무라이 도약처럼 한 번에 수십 대상을 타격하면 대상당 26개(비풀링)가 폭발적으로
+// 스폰돼 씬 메시가 수천 개로 불어나고, updateDamageParticles 의 프레임당 O(N) 순회+렌더가 프레임을 붕괴시켜
+// 밀집 던전에서 프리징을 유발했다. 스폰(예산 가드)·프레임(하드 컬링) 양쪽에서 이 상한으로 bound 한다.
+export const DAMAGE_PARTICLE_CAP = 700;
+
+// 하드 상한 컬링 — 스폰 예산을 우회한 폭발(여러 소스 동시)도 프레임당 O(N) 렌더/갱신이 폭주하지 않게
+// 가장 오래된(먼저 만료 예정) 초과분을 즉시 제거·정리한다. updateDamageParticles 초입에서 매 프레임 호출.
+export function cullExcessDamageParticles(context: CombatEffectContext, cap = DAMAGE_PARTICLE_CAP): void {
+  if (context.damageParticles.length <= cap) return;
+  const excess = context.damageParticles.length - cap;
+  for (let i = 0; i < excess; i += 1) {
+    const particle = context.damageParticles[i];
+    context.scene.remove(particle.mesh);
+    if (!particle.pooled && particle.mesh.geometry) particle.mesh.geometry.dispose();
+    const material = particle.mesh.material;
+    if (material instanceof THREE.Material) { if (particle.pooledMaterial) releasePooledTrailMaterial(material); else material.dispose(); }
+  }
+  context.damageParticles.splice(0, excess);
+}
+
 export function spawnEnemyHitParticles(context: CombatEffectContext, target: WorldObject, hitPosition?: THREE.Vector3) {
   const base = hitPosition?.clone() ?? target.root.position.clone();
   if (!hitPosition) {
@@ -350,7 +370,9 @@ export function spawnEnemyHitParticles(context: CombatEffectContext, target: Wor
     }
     base.y += target.type === "dragon" ? Math.min((target.collisionHeight ?? 5.4) * 0.42, 3.4) : target.type === "villageGolem" ? 1.55 : 1.0;
   }
-  for (let i = 0; i < 26; i += 1) {
+  const budget = Math.max(0, DAMAGE_PARTICLE_CAP - context.damageParticles.length);
+  const count = Math.min(26, budget); // 상한 근처면 스폰 축소 — 도약 다중 타격 시 파티클 폭발 차단(데미지는 영향 없음)
+  for (let i = 0; i < count; i += 1) {
     const color = i % 4 === 0 ? 0xfff1f2 : i % 3 === 0 ? 0xff7a1f : 0xef233c;
     const particle = new THREE.Mesh(
       new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.035, 0.09), 8, 6),

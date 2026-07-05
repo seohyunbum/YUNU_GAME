@@ -101,7 +101,7 @@ import {
   OBSIDIAN_PROJECTILE,
   spawnProjectileImpact,
   spawnSkillCastImpact,
-  releasePooledTrailMaterial, spawnTntTrail,
+  cullExcessDamageParticles, releasePooledTrailMaterial, spawnTntTrail,
   spawnWindCutterTrail,
   type CombatEffectContext, type CombatEffectParticle,
 } from "./game/combatEffects";
@@ -5697,6 +5697,7 @@ class WildernessGame {
 
 
   private updateDamageParticles(delta: number) {
+    cullExcessDamageParticles(this.combatEffectContext); // 하드 상한 — 도약 등 다중 타격 파티클 폭발이 프레임을 붕괴(프리징)시키지 않게 초과분 컬링(정본 = combatEffects)
     for (let index = this.damageParticles.length - 1; index >= 0; index -= 1) {
       const particle = this.damageParticles[index];
       particle.life -= delta;

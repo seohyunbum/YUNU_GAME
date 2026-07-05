@@ -1422,4 +1422,11 @@
   자동 배율(armor×monsterDefense, hit_pct·hit_flat×monsterAttack, telegraph_scale×bossTelegraph 0.85
   [신설 필드]). 기존 HP만 ×1.5였음. ②드래곤 공격 난이도 미반영 死코드 수정 — AI/반격 발톱·브레스 전
   지점 ×monsterAttack(불멸 포함). 실측 E2E: 일리아 HP 3000→4500·방어 90→117·피격 212→280, 드래곤
-  14→18(×1.3). difficulty-test bossTelegraph + illia-test 예고배율(딜레이 비율) 골든, verify 녹색.
+  14→18(×1.3). difficulty-test bossTelegraph + illia-test 예고배율(딜레이 비율) 골든, verify 녹색.- 몬스터 던전 도약 프리징 근본 수정(사용자 신고: 요새에서 도약 쓸 때마다 끊김·완전 정지→브라우저
+  강제종료·세이브 유실): 원인 = damageParticles 무제한. spawnEnemyHitParticles 가 대상당 26개(비풀링)
+  스폰 → 도약이 밀집팩 수십 대상 동시 타격 시 한 번에 1700+ 파티클, updateDamageParticles 의 프레임당
+  O(N) 순회+렌더가 폭주. 여러 번 도약하면 15,556개+ 누적 → 프레임 붕괴=프리징. 수정 3중:
+  ①combatEffects DAMAGE_PARTICLE_CAP(700) 하드 상한 — cullExcessDamageParticles(leaf)가 매 프레임
+  초과분 컬링(정본, main 은 1줄 호출) ②spawnEnemyHitParticles 예산 가드(상한 근처면 스폰 축소)
+  ③도약 스윕 이펙트 SAMURAI_DASH_EFFECT_CAP(8) — 앞 8대상만 이펙트, 피해는 전원. 실측: 3000 주입
+  →700 컬링, 15회 연속 도약 매번 ~700 안정(이전 15556 무한증가). samurai/combat 골든 + verify 녹색.
