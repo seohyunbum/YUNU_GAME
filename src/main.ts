@@ -306,7 +306,7 @@ import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmor
 import { NECKLACE_IDS, necklaceAttackBonus, necklaceDefenseBonus, necklaceManaRegenBonus } from "./game/necklace";
 import { DRAGON_GEAR_IDS, NO_DRAGON_GEAR, resolveDragonGear, accessoryAttackSpeedMult, accessorySkillCooldownMult, additiveMoveSpeedMult, dragonGearAttackBonus, dragonGearDefenseBonus, dragonGearMaxHpBonus, dragonGearMaxManaBonus, dragonGearHealthRegenBonus, dragonGearManaRegenBonus, type DragonGearWorn } from "./game/dragonGear";
 import { createDragonGauntletFirstPerson } from "./game/accessoryVisuals";
-import { experienceForLevelUps, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
+import { experienceForLevelUps, experienceForNextLevel as xpForNextLevelCurve, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
 import {
   copySavedSlot,
@@ -5238,7 +5238,7 @@ class WildernessGame {
   }
 
   private experienceForNextLevel(level = this.level) {
-    return Math.floor(22.5 * Math.pow(Math.max(1, Math.floor(level)), 1.35));
+    return xpForNextLevelCurve(level); // 정본 = saveMigration(고레벨 가중 튜너블 포함) — main·XP포션 경로가 동일 곡선 사용
   }
 
   private equipmentArmorValue() {

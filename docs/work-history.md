@@ -1437,3 +1437,11 @@
   초과분 컬링(정본, main 은 1줄 호출) ②spawnEnemyHitParticles 예산 가드(상한 근처면 스폰 축소)
   ③도약 스윕 이펙트 SAMURAI_DASH_EFFECT_CAP(8) — 앞 8대상만 이펙트, 피해는 전원. 실측: 3000 주입
   →700 컬링, 15회 연속 도약 매번 ~700 안정(이전 15556 무한증가). samurai/combat 골든 + verify 녹색.
+- 고레벨 경험치 가중(사용자 요청: 100레벨+ 레벨업 어렵게, 어드민 조절): 기존 XP 곡선
+  22.5·level^1.35 는 레벨대 가중 없었음. XP 곡선이 main.ts·saveMigration.ts 두 곳 중복 →
+  saveMigration 정본으로 통합(main 은 위임, XP포션 경로도 동일 곡선). 튜너블 2종:
+  xp_hardcap_level(기본 100) + xp_hardcap_factor(기본 1.035, 시작 레벨 이상 레벨당 복리 가중,
+  1=없음). 기본 곡선: L99 불변 → L100 ×1.04 → L130 ×2.9 → L150 ×5.8 → L200 ×32. ★안전:
+  factor max(1,·) 클램프 — 0/음수면 required 0→레벨업 while 무한루프라 코드에서 하드가드.
+  어드민 튜너블 50개(바탕화면 사본 갱신). save-migration 골든(불변/가중/단조/클램프) + E2E
+  (1e12 XP 4ms 유한종료·튜너블 실효) + verify 녹색.
