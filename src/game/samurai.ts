@@ -51,7 +51,8 @@ export function samuraiFlurryHitDamage(currentDamage: number) {
 export const SAMURAI_DASH_RANGE = 15;
 export const SAMURAI_DASH_STEP = 0.5; // 충돌 해석 스텝 — MOVEMENT_COLLISION_STEP 보다 약간 크게(동기 일괄 처리)
 export const SAMURAI_DASH_HIT_WIDTH = 3.0; // 경로 중심선 좌/우 수직 반폭 — 휩쓰는 광역기 느낌 강화(유저 요청 2026-07-04: 1.5→3.0, 좌·우 각 +1.5칸)
-export const SAMURAI_DASH_BLOCK_RATIO = 0.4; // 스텝 전진량이 이 비율 미만이면 막힌 것으로 보고 정지
+export const SAMURAI_DASH_BLOCK_RATIO = 0.4;
+export const SAMURAI_DASH_EFFECT_CAP = 8; // 도약 타격 이펙트(슬래시·파티클·오디오) 스폰 상한 — 그 이상 대상은 피해만(밀집 팩 프리징 방지) // 스텝 전진량이 이 비율 미만이면 막힌 것으로 보고 정지
 // 도약이 관통하는 생명체 타입 — 건물·지형·설치물은 미포함(막힘 유지)
 export const SAMURAI_DASH_PASSTHROUGH_TYPES: ReadonlySet<string> = new Set(["wildPredator", "dragon", "jammini", "animal", "eagleSummon", "summonerPet", "graveHand"]);
 export function samuraiDashDamage(currentDamage: number) {
@@ -180,7 +181,7 @@ export function performSamuraiDash(context: SecondSkillContext, damage: number):
     const closestX = startX + pathX * t;
     const closestZ = startZ + pathZ * t;
     if (Math.hypot(tx - closestX, tz - closestZ) > bal("samurai_dash_width", SAMURAI_DASH_HIT_WIDTH) + radius) continue;
-    context.meleeEffects(target);
+    if (hits < SAMURAI_DASH_EFFECT_CAP) context.meleeEffects(target); // 스윕 타격감 이펙트는 앞쪽 대상에만 — 밀집 팩에서 수십 대상×26 파티클 동시 스폰으로 프레임이 붕괴(프리징)하던 것 방지. 피해는 전 대상 적용.
     if (!partyGuestAttackIntercept(target, damage, "melee")) context.applyDamage(target, damage);
     hits += 1;
   }

@@ -11,6 +11,7 @@ try {
   const THREE = await import("three");
   const { applyMeleeDragonAttack, applyProjectileDamage, calculateCombatDamage, triangularRoll, varyPlayerDamage, varyMonsterDamage } = await server.ssrLoadModule("/src/game/combat.ts");
   const { PREDATOR_RETALIATE_MS } = await server.ssrLoadModule("/src/game/constants.ts");
+  const { spawnEnemyHitParticles, DAMAGE_PARTICLE_CAP } = await server.ssrLoadModule("/src/game/combatEffects.ts");
 
   const cases = [
     { attack: 8, defense: 0, expected: 8, label: "unarmored target takes base damage" },
@@ -234,6 +235,15 @@ try {
     // 삼각분포 기대 평균 = (min+mode+max)/3 → player 1.267, monster 1.033. 우편향이라 mode(1.0)보다 큼.
     assert.ok(pMean > 1.18 && pMean < 1.36, `player mean ~1.27 right-skewed (got ${pMean.toFixed(3)})`);
     assert.ok(mMean > 1.0 && mMean < 1.07, `monster mean ~1.03 right-skewed (got ${mMean.toFixed(3)})`);
+  }
+
+  // 파티클 전역 상한 — 도약 등 다중 타격 폭발 시 프레임 O(N) 렌더/갱신 폭주(프리징) 방지. 상한 근처면 spawnEnemyHitParticles 가 스폰을 축소.
+  {
+    const mkCtx = (n) => ({ scene: { add() {} }, camera: { quaternion: {} }, playerPosition: new THREE.Vector3(0, 0, 0), damageParticles: Array.from({ length: n }, () => ({ mesh: { position: new THREE.Vector3() }, velocity: new THREE.Vector3(), life: 1, maxLife: 1 })) });
+    const target = { root: { position: new THREE.Vector3(0, 0, 3) }, type: "wildPredator", collisionRadius: 0.6 };
+    const empty = mkCtx(0); spawnEnemyHitParticles(empty, target); assert.ok(empty.damageParticles.length > 0 && empty.damageParticles.length <= DAMAGE_PARTICLE_CAP, "여유 있을 때 정상 스폰");
+    const nearCap = mkCtx(DAMAGE_PARTICLE_CAP - 5); spawnEnemyHitParticles(nearCap, target); assert.ok(nearCap.damageParticles.length <= DAMAGE_PARTICLE_CAP, `상한 근처 → 예산만큼만(${nearCap.damageParticles.length} ≤ ${DAMAGE_PARTICLE_CAP})`);
+    const atCap = mkCtx(DAMAGE_PARTICLE_CAP); spawnEnemyHitParticles(atCap, target); assert.equal(atCap.damageParticles.length, DAMAGE_PARTICLE_CAP, "상한 도달 → 추가 스폰 0(다중 타격 파티클 폭발 차단)");
   }
 
   console.log(JSON.stringify({

@@ -141,6 +141,17 @@ try {
       return st;
     };
 
+    // 밀집 팩 이펙트 캡 — 수십 대상을 타격해도 meleeEffects(파티클/오디오) 는 SAMURAI_DASH_EFFECT_CAP 회 이하로만 스폰(피해는 전원). 프리징(파티클 폭발) 회귀 가드.
+    {
+      let effects = 0;
+      const many = [];
+      for (let i = 0; i < 60; i += 1) many.push({ id: `pack${i}`, root: { position: { x: 0, z: -0.5 - i * 0.2 } }, collisionRadius: 0.5, hp: 50 });
+      const st = makeDashCtx({ nearbyCombatTargets: () => many, meleeEffects: () => { effects += 1; }, applyDamage: (t) => { st.hit.push(t.id); } });
+      const r = sam.performSamuraiDash(st.ctx, 30);
+      assert.ok(r.hits > 10, `밀집 팩 다수 명중 (hits=${r.hits})`);
+      assert.ok(effects <= sam.SAMURAI_DASH_EFFECT_CAP, `이펙트 스폰 캡 준수 — ${effects} ≤ ${sam.SAMURAI_DASH_EFFECT_CAP} (파티클 폭발 방지)`);
+      assert.equal(st.hit.length, r.hits, "이펙트 캡과 무관하게 피해는 전 명중 대상에 적용");
+    }
     // 방향 0 벡터 — 이동·판정 없이 안전 종료
     {
       const st = makeDashCtx({ forwardXZ: () => ({ x: 0, z: 0 }) });
