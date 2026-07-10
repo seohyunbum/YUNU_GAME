@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { attachBossAura } from "./auraVisuals";
 
 // 최종 보스 '일리아' 비주얼 — 백발·붉은 눈·검은 고딕 드레스·대형 흑익(레퍼런스: 수은등풍 타천사).
 // 순수 모델 팩토리 leaf(main.ts import 금지). 애니메이션은 illiaBoss.update 가 userData 참조로 구동.
@@ -163,6 +164,7 @@ export function createIlliaModel(phase: 1 | 2): THREE.Group {
   const glow = new THREE.PointLight(phase === 1 ? 0x7c3aed : 0xff2d55, phase === 1 ? 1.1 : 1.8, 26, 1.6);
   glow.position.y = 2.4;
   root.add(glow);
+  attachBossAura(root, phase === 1 ? "illia_sealed" : "illia_desperate", 2.0, 4.6); // 심연빛 넘실거리는 아우라(셰이더)
   root.userData.illiaPhase = phase;
   return root;
 }

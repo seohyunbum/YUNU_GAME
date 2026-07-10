@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createMirrorModel } from "../avatar";
+import { attachWeaponAura } from "./auraVisuals";
 import { createBucketVisual } from "./bucketVisuals";
 import { createGunnerPistolModel, createGunnerRifleModel, createIronShieldModel, createObsidianGunModel, createObsidianShieldModel, createObsidianStaffModel, createOrnateStaffModel } from "./weaponVisuals";
 import { AXE_POWER, PICKAXE_POWER, PLACEABLE_TYPES, SHOVEL_POWER } from "./items";
@@ -359,6 +360,7 @@ export function createHeldItemModel(item: ItemId) {
     }
   }
 
+  attachWeaponAura(group, item); // 에픽+ 무기엔 티어별 넘실거리는 아우라(1인칭 손·바닥 드랍 공통 — 등급이 한눈에)
   group.rotation.set(0.15, -0.35, -0.22);
   group.scale.setScalar(0.78);
   return group;

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { attachBossAura } from "./auraVisuals";
 import {
   ASSET_PALETTE,
   makeGlowMaterial,
@@ -232,6 +233,7 @@ export function createDragonVisual(bossKind: BossKind, stats: DragonVisualStats)
   const glow = new THREE.PointLight(stats.glow, bossKind === "immortal" ? 2.6 : 1.3, bossKind === "immortal" ? 20 : 12, 1.8);
   glow.position.set(1.6, 3.1, 0);
   group.add(glow);
+  attachBossAura(group, bossKind, 2.6, 4.2); // 브레스 속성 색으로 몸을 감싸며 넘실거리는 아우라(셰이더 — draw call +1)
   group.scale.setScalar(stats.scale);
   return group;
 }
