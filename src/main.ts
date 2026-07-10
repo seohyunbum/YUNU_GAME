@@ -5529,7 +5529,7 @@ class WildernessGame {
 
   private playMeleeAttackEffects(target: WorldObject) {
     this.playHandAction("melee");
-    spawnMeleeSlashTrail(this.combatEffectContext, this.hotbar[this.selectedHotbarIndex]?.item === "sharp_obsidian_shield"); // 날카로운 흑요석 방패(궁극) = 붉고 넓은 휘두르기 궤적
+    spawnMeleeSlashTrail(this.combatEffectContext, this.hotbar[this.selectedHotbarIndex]?.item ?? null); // 무기 티어색 스윙 아크(궁극 방패=진홍 광폭은 내부 판정)
     spawnEnemyHitParticles(this.combatEffectContext, target);
     this.playMeleeWhoosh();
     this.sample(["creature_hurt_01", "creature_hurt_02"], 0.34, () => this.kit((c, d) => kitImpact(c, d, 230, 0.032, 1.2))); // 명중 시 몬스터 반응(CC0), 폴백=thunk
