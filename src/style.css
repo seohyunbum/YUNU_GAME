@@ -5058,14 +5058,24 @@ body.touch-mode .skill-bar {
 .death-banner-sub { font-size: 14px; font-weight: 700; color: #e7b8b8; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95); }
 
 
-/* 일리아 컷씬 오버레이 — 레터박스 + 타이틀 + 스킵 안내 (illiaBoss.ts DOM 헬퍼가 생성) */
+/* 일리아 컷씬 오버레이 — 시네마틱(디아블로풍): 레터박스 + 비네트 + 필름 그레인 + 컬러 그레이드 + 세리프 타이틀 */
 .illia-cutscene { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
-.illia-cutscene .illia-bar { position: absolute; left: 0; right: 0; height: 11vh; background: #000; }
+.illia-cutscene .illia-bar { position: absolute; left: 0; right: 0; height: 12.5vh; background: #000; box-shadow: 0 0 26px 10px rgba(0, 0, 0, 0.85); }
 .illia-cutscene .illia-bar.top { top: 0; }
 .illia-cutscene .illia-bar.bottom { bottom: 0; }
-.illia-cutscene .illia-title { position: absolute; left: 0; right: 0; bottom: 13vh; text-align: center; color: #f5f0f7; font-size: 30px; font-weight: 700; letter-spacing: 0.35em; text-shadow: 0 0 18px rgba(255, 31, 61, 0.85), 0 2px 6px #000; animation: illia-title-in 2.4s ease-out; }
-.illia-cutscene .illia-skip { position: absolute; right: 18px; bottom: 3.2vh; color: rgba(245, 240, 247, 0.75); font-size: 13px; letter-spacing: 0.08em; }
-@keyframes illia-title-in { from { opacity: 0; transform: translateY(12px); } 40% { opacity: 0; } to { opacity: 1; transform: none; } }
+/* 컬러 그레이드 — 하이라이트를 죽이고 그림자에 냉혈청·핏빛을 깐다(어둡고 무거운 톤) */
+.illia-cutscene .illia-grade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8, 6, 14, 0.34) 0%, rgba(4, 4, 10, 0.12) 40%, rgba(24, 4, 10, 0.3) 100%); mix-blend-mode: multiply; }
+/* 비네트 — 가장자리를 깊게 잠식 */
+.illia-cutscene .illia-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 72% 62% at 50% 46%, transparent 52%, rgba(0, 0, 0, 0.55) 86%, rgba(0, 0, 0, 0.82) 100%); }
+/* 필름 그레인 — SVG 노이즈 + 미세 플리커 */
+.illia-cutscene .illia-grain { position: absolute; inset: 0; opacity: 0.1; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E"); animation: illia-grain-flicker 0.9s steps(3) infinite; }
+@keyframes illia-grain-flicker { 0% { opacity: 0.09; transform: translate(0, 0); } 50% { opacity: 0.12; transform: translate(-18px, 12px); } 100% { opacity: 0.09; transform: translate(14px, -10px); } }
+/* 타이틀 — 세리프 대문자 트래킹, 핏빛 글로우 + 금테 그라데이션, 장식 디바이더와 함께 느리게 떠오름 */
+.illia-cutscene .illia-title { position: absolute; left: 0; right: 0; bottom: 15vh; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; animation: illia-title-in 3.2s cubic-bezier(0.22, 0.8, 0.3, 1); }
+.illia-cutscene .illia-title-orn { color: rgba(214, 178, 110, 0.85); font-size: 15px; letter-spacing: 0.6em; text-shadow: 0 0 12px rgba(214, 158, 80, 0.6); }
+.illia-cutscene .illia-title-text { font-family: "Songmyung", "Nanum Myeongjo", "Noto Serif KR", Batang, serif; font-size: 40px; font-weight: 800; letter-spacing: 0.42em; padding-left: 0.42em; background: linear-gradient(180deg, #fdf3e3 8%, #e8c990 45%, #b98a4a 78%, #8a5a28 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 22px rgba(255, 31, 61, 0.55)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.9)); }
+.illia-cutscene .illia-skip { position: absolute; right: 20px; bottom: 3.6vh; color: rgba(232, 214, 180, 0.6); font-size: 12px; letter-spacing: 0.22em; }
+@keyframes illia-title-in { from { opacity: 0; transform: translateY(22px) scale(0.985); filter: blur(6px); } 42% { opacity: 0; } to { opacity: 1; transform: none; filter: blur(0); } }
 
 /* 일리아 컷씬 파열 섬광 — .illia-flash 에 .on 토글로 재생 */
 .illia-cutscene .illia-flash { position: absolute; inset: 0; background: radial-gradient(circle, rgba(255, 240, 245, 0.95) 0%, rgba(255, 32, 56, 0.55) 55%, transparent 100%); opacity: 0; pointer-events: none; }
