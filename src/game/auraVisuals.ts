@@ -85,6 +85,7 @@ function makeAuraMesh(geometry: THREE.BufferGeometry, preset: AuraPreset): THREE
   const mesh = new THREE.Mesh(geometry, material);
   mesh.onBeforeRender = () => tickAuraTime(material);
   mesh.raycast = () => {}; // 아우라는 조준/타게팅 대상 아님
+  mesh.userData.sharedAsset = true; // 지오메트리/머티리얼이 전역 공유 캐시 — disposeObject3D 가 스킵(무기 교체·아바타 재생성 시 dispose→재업로드 히컵 방지)
   return mesh;
 }
 
@@ -156,6 +157,7 @@ function makeSpinRing(radius: number, color: number, speed: number): THREE.Group
   ring.scale.setScalar(radius);
   ring.raycast = () => {};
   ring.onBeforeRender = () => { ring.rotation.z = performance.now() * 0.001 * speed; };
+  ring.userData.sharedAsset = true; // 공유 지오메트리/색별 캐시 머티리얼 — dispose 보호
   flat.add(ring);
   return flat;
 }

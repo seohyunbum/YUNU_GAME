@@ -6678,7 +6678,7 @@ class WildernessGame {
 
   private disposeObject3D(root: THREE.Object3D) {
     root.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
+      if (!(child instanceof THREE.Mesh) || child.userData.sharedAsset) return; // sharedAsset(아우라 등 전역 공유 캐시)은 dispose 금지 — 무기 교체마다 재업로드 히컵 방지
       if (!this.sharedGeometries.has(child.geometry)) child.geometry.dispose();
       const materials = Array.isArray(child.material) ? child.material : [child.material];
       for (const material of materials) {

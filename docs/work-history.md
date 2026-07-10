@@ -14,6 +14,17 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 적대적 테스트 2차: 오늘 변경의 기존 플레이 영향 — 1건 수리·3각도 검증
+
+- 요청: 방금(불러오기 먹통) 같은 기존 플레이 회귀를 오늘 변경 전반에 대해 빡시게.
+- **수리 — 공유 아우라 자산 dispose 오염**: `disposeObject3D` 는 sharedGeometries/Materials 레지스트리 밖 재료를 전부 dispose 한다. 아우라의 전역 공유 캐시(프리셋 ShaderMaterial·셸/링 지오메트리)는 미등록 → **핫바 무기 교체(heldItemGroup 교체)·거울 아바타 재생성 때마다 공유 자산이 dispose 되어 다음 프레임 GPU 재업로드 히컵**(교체 연타 시 반복 렉 각도). 수정: 아우라 메시에 `userData.sharedAsset=true` 플래그(leaf) + disposeObject3D 첫 가드에서 스킵(main 기존 라인 병합, +0줄). 검증: 무기 교체 30연타 후에도 아우라 정상 렌더·에러 0.
+- 검증(회귀 없음 확인):
+  - **인트로 중 게임 시작(파티 딥링크 등)**: startGame→resetGameState 의 컷씬 수동 해제가 intro 도 커버 — active=false·오버레이 제거·정상 시작 실측(10초 카메라 잠김 위험 없음).
+  - **아바타 걷기 애니메이션**: cycle.parts(명시 등록 팔다리)만 순회 — 아우라 자식 추가가 오염시키지 않음(인덱스/전체 children 순회 아님).
+  - **타이틀 불러오기**: 수정 후 재실측 grid ✓. `.title-active >` child 계열 override 는 panel-layer 뿐(전수 스캔) — 다른 피해자 없음.
+  - removeObject 는 dispose 를 안 하므로(전수 확인) 드랍템/보스 제거 경로는 무관.
+- 관련 파일: src/game/auraVisuals.ts(sharedAsset 플래그) · src/main.ts(disposeObject3D 가드).
+
 ## 2026-07-05 — 긴급수정: 타이틀 불러오기 먹통 (CSS 특이도 회귀)
 
 - 보고: 오늘 수정 후 타이틀에서 불러오기 동작 안 함.
