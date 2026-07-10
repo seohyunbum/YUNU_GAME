@@ -14,6 +14,19 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 셰이더 아우라 시스템 1차 (무기·보스 넘실거리는 아우라, 렉 최소)
+
+- 요청: 렉 거의 없이 캐릭터·무기·이펙트를 더 화려하게(넘실거리는 아우라, 스킬 차별화). "그래픽 엔진을 새로 도입해야 하나?"
+- **판단: 엔진 교체 불필요.** 병목은 엔진이 아니라 이펙트 콘텐츠. Three.js ShaderMaterial 로 GPU 가 그리는 아우라는 엔티티당 draw call +1 뿐. 엔진 교체는 수개월 재작업 + 동일 GPU 예산이라 손해. (기존 PC high 의 selective bloom 이 밝은 아우라를 자동 증폭.)
+- 구현(`game/auraVisuals.ts` 신규 leaf, main.ts 무변경):
+  - GLSL 셰이더: 가로 파동(넘실거림) + 위로 흐르는 2중 화염 밴드 + 상/하단 페이드. additive·depthWrite off.
+  - **렉 최소 설계**: 지오메트리 2종·머티리얼 프리셋당 1개를 모듈 스코프 캐시로 전부 공유. 애니메이션은 uTime 유니폼 1개(GPU 계산) — JS 프레임 비용 = onBeforeRender 숫자 대입 1회(할당 0, 컬링되면 0). raycast no-op(조준 방해 없음).
+  - **무기 아우라**(heldItemVisuals 팩토리 내부 → 1인칭 손+바닥 드랍 공통): epic=보랏빛 잔불 / legendary=진홍 화염 / mythic=푸른 다이아. WEAPON_DAMAGE 등재 무기만(에픽 구급상자 등 제외).
+  - **보스 아우라**: 용 6종 = 브레스 속성색(gold/flame/frost/venom/mythic), 일리아 P1/P2 = 심연(abyss). bossVisuals·illiaVisuals 팩토리에서 부착 — 스폰 경로 전부 자동 적용.
+- 검증: typecheck·전 게이트·전 node 테스트·build 그린. **헤드리스 스크린샷으로 흑요석 카타나 아우라 실제 렌더 확인**(셰이더 컴파일 에러 0). perf-check(Windows) 는 PC 확인 권장 — 시작 지역엔 아우라 대상이 없어 예산 영향 없을 것으로 예상.
+- 다음 후보(사용자 피드백 후): ② 스킬별(R/T/F/G) 전용 이펙트 차별화 패스(현재는 직업별 캐스트 임팩트만 차별화) ③ 파티 아바타·3인칭 전신 아우라(잡 티어별) ④ 무기 궤적(trail) 셰이더.
+- 관련 파일: src/game/auraVisuals.ts(신규) · heldItemVisuals.ts · bossVisuals.ts · illiaVisuals.ts.
+
 ## 2026-07-05 — 적대적 테스트(최근 변경·주요 기능·렉) — 3건 수리 + 렉 각도 검증
 
 - 범위: 텔레그래프 전환/경고벽·서브퀘스트(E키·파티 공유)·마법봉 스플래시·일리아 사망 이탈 + 렉 유발 관점.
