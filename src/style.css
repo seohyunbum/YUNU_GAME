@@ -1370,8 +1370,15 @@ body {
   transform: translateY(-1px);
 }
 
-.game-ui.title-active > :not(.title-screen):not(.illia-cutscene) {
-  display: none; /* 부팅 인트로 컷씬 오버레이는 예외 — 타이틀 전 트레일러가 레터박스·타이틀을 표시해야 함 */
+.game-ui.title-active > :not(.title-screen) {
+  display: none;
+}
+
+/* 부팅 인트로 컷씬 오버레이는 예외 — 별도 후행 규칙으로 되살린다.
+   주의: 위 숨김 셀렉터에 :not() 을 추가하는 방식은 특이도가 올라가 아래쪽 `.title-active > .panel-layer`(불러오기 패널)
+   재표시 규칙을 이겨버려 타이틀 불러오기가 먹통이 된다(2026-07-05 실사고). 예외는 항상 이 패턴으로. */
+.game-ui.title-active > .illia-cutscene {
+  display: block;
 }
 
 .title-screen {
