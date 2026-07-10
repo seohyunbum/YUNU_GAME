@@ -84,7 +84,52 @@ try {
     assert.equal(scene.children.length, 0, "clear → 씬 정리");
   }
 
-  // ── 4) 데미지 배수 골든 ──
+  // ── 4) 시각↔판정 정렬 — 그려진 곳이 곧 맞는 곳(cone +90° 어긋남 실사고 재발 방지) ──
+  {
+    const norm = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+    const spec = { kind: "cone", x: 10, z: -20, angle: 0.7, arc: 1.0, r: 8, delayMs: 900 };
+    const m = tg.telegraphMesh(spec);
+    m.group.updateMatrixWorld(true);
+    const checkMesh = (mesh, label, skipCenter) => {
+      const pos = mesh.geometry.getAttribute("position");
+      for (let i = 0; i < pos.count; i += 1) {
+        const v = new THREE.Vector3().fromBufferAttribute(pos, i);
+        if (skipCenter && v.lengthSq() < 1e-9) continue;
+        v.applyMatrix4(mesh.matrixWorld);
+        const diff = norm(Math.atan2(v.x - spec.x, v.z - spec.z) - spec.angle);
+        assert.ok(Math.abs(diff) <= spec.arc / 2 + 1e-6, `cone ${label} 정점이 판정 호 안 (φ오차 ${diff.toFixed(3)})`);
+      }
+    };
+    checkMesh(m.fill, "fill", true);
+    checkMesh(m.edge, "edge", false);
+    checkMesh(m.wall, "wall", false);
+    // line 회귀 — 경로 중앙 정점이 판정 안
+    const line = { kind: "line", x: 0, z: 0, dirX: Math.SQRT1_2, dirZ: Math.SQRT1_2, len: 10, width: 3, delayMs: 900 };
+    const lm = tg.telegraphMesh(line);
+    lm.group.updateMatrixWorld(true);
+    const center = new THREE.Vector3(0, 0, 0).applyMatrix4(lm.fill.matrixWorld);
+    assert.ok(tg.telegraphContains(line, center.x, center.z), "line fill 중앙이 판정 안(회전 회귀)");
+  }
+
+  // ── 5) 패널 일시정지 — 열림 동안 폭발 타이머 밀림(닫아도 몰아치지 않음) ──
+  {
+    const scene = new THREE.Scene();
+    let clock = 1000, bursts = 0;
+    const vfx = { scene, now: () => clock, groundBurst: () => { bursts += 1; }, playTone: () => {} };
+    const field = tg.createTelegraphField();
+    let fired = 0;
+    tg.updateTelegraphField(field, vfx, true); // lastNow 시드
+    tg.spawnFieldTelegraph(field, scene, { kind: "circle", x: 0, z: 0, r: 3, delayMs: 900 }, clock + 900, 0, () => { fired += 1; });
+    for (let dt = 100; dt <= 5000; dt += 100) { clock = 1000 + dt; tg.updateTelegraphField(field, vfx, true, true); } // 5초 패널 열림
+    assert.equal(fired, 0, "패널 열림 동안 폭발 없음(일시정지)");
+    assert.equal(field.list.length, 1, "패널 열림 동안 텔레그래프 유지");
+    clock = 6100; tg.updateTelegraphField(field, vfx, true, false); // 닫은 직후
+    assert.equal(fired, 0, "패널 닫은 직후 밀린 폭발이 몰아치지 않음(타이머 시프트)");
+    clock = 6000 + 900; tg.updateTelegraphField(field, vfx, true, false); // 잔여 예고 시간 경과
+    assert.equal(fired, 1, "재개 후 잔여 시간이 지나면 정상 폭발");
+  }
+
+  // ── 6) 데미지 배수 골든 ──
   assert.equal(tg.TELEGRAPH_DAMAGE_MULT, 2, "텔레그래프 피격 데미지 배수 = 2");
 
   console.log("✓ telegraph-test: 판정 기하 · 중앙 필드 수명주기 · 청소 · 데미지 배수 전부 통과");

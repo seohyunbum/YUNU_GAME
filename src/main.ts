@@ -2812,7 +2812,7 @@ class WildernessGame {
     updateFinale(this.finaleContext);
     if (!partyWorldGuestActive() && !partyGuestSuppressLocalBosses()) updateFieldBosses(this.fieldBossContext); // 파티 게스트 — 보스는 호스트 스냅샷으로. 호스트가 같은 맵이면 스냅샷이 잠깐 끊겨도(실내 등) 로컬 보스 스폰 억제("각자 잡음" 방지)
     if (!partyWorldGuestActive() && !partyGuestSuppressLocalBosses()) ensureChapterBoss(this.chapterBossContext); // 게스트는 호스트 스냅샷 — 자기 드래곤 분기 스폰 방지(같은 맵이면 단절 창에도 억제)
-    updateDragons(this.dragonAiContext, delta); updateTelegraphField(this.overworldTelegraphs, this.telegraphFieldVfx, this.locationMode === "overworld"); if (this.illiaCutscene.active) { this.handGroup.visible = false; updateIlliaCutscene(this.illiaCutscene, this.illiaCutsceneContext); } else if (this.illiaFight.active) { updateIlliaFight(this.illiaFight, this.illiaContext, delta); this.updateBossBar(); } if (this.locationMode === "overworld") for (const gate of this.objectsOfType("dimensionGate")) if (gate.root !== this.illiaCutscene.anchor) animateIlliaProps(gate.root, this.worldTimeSeconds); // 일리아: 컷씬 중엔 전투 정지(카메라 연출), 전투 중 매 프레임 패턴 틱+보스바(HTML diff 라 저렴). 개방 트레일러 중인 게이트는 컷씬이 변형 소유
+    updateDragons(this.dragonAiContext, delta); updateTelegraphField(this.overworldTelegraphs, this.telegraphFieldVfx, this.locationMode === "overworld", this.currentPanel !== null); if (this.illiaCutscene.active) { this.handGroup.visible = false; updateIlliaCutscene(this.illiaCutscene, this.illiaCutsceneContext); } else if (this.illiaFight.active) { updateIlliaFight(this.illiaFight, this.illiaContext, delta); this.updateBossBar(); } if (this.locationMode === "overworld") for (const gate of this.objectsOfType("dimensionGate")) if (gate.root !== this.illiaCutscene.anchor) animateIlliaProps(gate.root, this.worldTimeSeconds); // 일리아: 컷씬 중엔 전투 정지(카메라 연출), 전투 중 매 프레임 패턴 틱+보스바(HTML diff 라 저렴). 개방 트레일러 중인 게이트는 컷씬이 변형 소유
     this.updateJamminis(delta);
     this.updateLegoHazards(delta);
     this.updateNightSpawns(delta); this.expirySweepTimer += delta; if (this.expirySweepTimer >= 1) { const now = performance.now(); this.expirySweepTimer = 0; for (const object of [...this.objects.values()]) if (object.expiresAt !== undefined && !object.partyTransient && object.expiresAt <= now && (object.type === "chest" || object.type === "mineChest" || object.type === "cave")) this.removeObject(object.id); }
@@ -6851,9 +6851,9 @@ class WildernessGame {
     const submit = subquestSubmission(def);
     if (submit) { if (this.countItem(submit.item) < submit.count) { this.showMessage(`이장: 아직 ${ITEM_NAMES[submit.item] ?? submit.item} ${submit.count}개가 부족하구나.`); return; } this.removeItem(submit.item, submit.count); }
     this.gainExperience(def.reward.experience);
-    const got: string[] = [];
-    for (const [item, count] of Object.entries(def.reward.items)) if (this.addItem(item as ItemId, count as number)) got.push(`${ITEM_NAMES[item as ItemId] ?? item} ${count}`);
-    this.showMessage(`🏘️ 이장: 수고했네! 경험치 ${def.reward.experience}${got.length ? " + " + got.join(", ") : ""}`);
+    const got: string[] = []; let droppedAny = false;
+    for (const [item, count] of Object.entries(def.reward.items)) if (this.addItem(item as ItemId, count as number)) got.push(`${ITEM_NAMES[item as ItemId] ?? item} ${count}`); else { spawnDroppedItem(this.worldSpawnContext, item as ItemId, count as number, new THREE.Vector3(this.playerPosition.x + 1.2, 0, this.playerPosition.z + 1.2)); droppedAny = true; } // 인벤 풀 — 보상 증발 대신 발밑 드랍(회수 가능)
+    this.showMessage(`🏘️ 이장: 수고했네! 경험치 ${def.reward.experience}${got.length ? " + " + got.join(", ") : ""}${droppedAny ? " (가방이 가득 차 일부 보상은 바닥에 떨어졌습니다)" : ""}`);
     this.subquests.selected = null; this.subquests.progress = 0; this.subquests.choices = rollSubquestChoices(ITEM_NAMES);
     this.subquestDialog = false; this.syncSubquests();
   }
