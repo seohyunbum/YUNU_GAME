@@ -260,6 +260,15 @@ try {
     for (const child of gate.children) assert.ok(Math.abs(child.scale.x - 1) < 1e-9, "gateOpen: 종료 시 스케일 원상복구");
     const light = gate.children.find((c) => c.isLight);
     assert.ok(light && Math.abs(light.intensity - 1.8) < 1e-9, "gateOpen: 종료 시 광량 평시(1.8) 복구");
+    // intro(부팅 트레일러): 완주 시 onFinish 1회 + 앰비언스(props 경유) 자동 정리(시작 전후 씬 수 불변) + 카메라 연출 지속
+    const preIntroChildren = scene.children.length; // 직전 gateOpen 테스트의 게이트(월드 소유)가 남아있을 수 있어 전후 비교
+    finished = 0; cameraSets = 0; t = 0;
+    illia.startIlliaCutscene(state, "intro", 0, []);
+    for (t = 0; t <= illia.ILLIA_CUTSCENE_MS + 200; t += 100) illia.updateIlliaCutscene(state, cutCtx);
+    assert.equal(finished, 1, "intro: 완주 시 onFinish 정확히 1회");
+    assert.ok(cameraSets > 50, "intro: 컷씬 동안 카메라 연출 지속");
+    assert.equal(scene.children.length, preIntroChildren, "intro: 종료 시 앰비언스 자동 정리(씬 수 원복)");
+
     // 중간 스킵도 동일 복구 — 부유석 정위치·스케일 복귀
     const shard = gate.children.find((c) => c.userData.gateShard);
     const homeX = shard.position.x, homeZ = shard.position.z;
