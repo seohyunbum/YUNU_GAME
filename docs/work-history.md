@@ -14,6 +14,20 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 부팅 인트로 트레일러 (타이틀 전, 목가적 오프닝, 스킵 가능)
+
+- 요청: 게임 실행 시 타이틀 화면 전에 트레일러 1개 — 고퀄 동일하되 평화롭지만 모험이 기대되는 인트로(택틱스풍). 스킵 동일.
+- 구현: 기존 컷씬 엔진에 4번째 kind **"intro"** 추가(illiaBoss leaf) — 타이틀 배경 월드(마을, titleFocus)가 이미 렌더되므로 그 위에서 촬영.
+  - 타임라인 10s: 마을 상공 슬로우 원호 드리프트(0–4.5s) → 마을을 스치는 낮은 스윕(4.5–8s) → 상승하며 시선을 지평선 너머로(8–10s, 모험 기대). 셰이크 없음, easeCine 전 구간, 따뜻한 차임 2회(오디오 제스처 전이면 무음).
+  - **warm 그레이딩 변형**: showIlliaCutsceneOverlay(host, title, warm) → `.illia-cutscene.intro` — 핏빛 대신 새벽 금빛 그레이드·부드러운 비네트·금빛 타이틀 글로우. 앰비언스도 금빛 엠버(반딧불).
+  - main 배선(+1): pre-game update 분기에서 1회 킥(introPlayed) + 컷씬 active 면 updateTitleCamera 대신 컷씬이 카메라 소유. onFinish "intro" 분기 no-op(cinema 해제로 타이틀 자연 노출). titleFocus 정본은 INTRO_FOCUS(leaf) 로 일원화.
+  - 스킵: 기존 컷씬 스킵(Space/ESC/Enter/클릭)이 pre-game 에서도 동작(가드 순서 확인) — 스킵 후 타이틀 즉시 복귀 실측.
+- **함정 2건(재발 방지)**:
+  - `.game-ui.title-active > :not(.title-screen){display:none}` 이 컷씬 오버레이까지 숨겼다 → `:not(.illia-cutscene)` 예외 추가. 타이틀 전 오버레이를 띄울 땐 title-active 숨김 규칙을 반드시 확인.
+  - **자동화(E2E) 호환**: 부팅 인트로가 타이틀 버튼을 10초 가리면 visual-check·save-roundtrip 등 기존 E2E 가 첫 클릭에서 전멸 → `navigator.webdriver` 감지 시 인트로 스킵(Playwright/Selenium 은 타이틀 즉시). 수동 검증은 evaluate 로 강제 시작.
+- 검증: 전 게이트·전 node 테스트(illia-test 에 intro 완주/정리 케이스 추가)·build 그린. 헤드리스 강제 발동 스크린샷 — 레터박스·warm 비네트·금박 타이틀·마을 스윕 렌더 + Space 스킵 → 타이틀 visible 확인.
+- 관련 파일: src/game/illiaBoss.ts · src/style.css · src/main.ts(+1) · scripts/illia-test.mjs.
+
 ## 2026-07-05 — 컷씬(트레일러) 시네마틱 업그레이드 — 디아블로4 시네마틱 추구미
 
 - 요청: 트레일러 영상들(일리아 각성/해방·차원의 문 개방 컷씬 3종)을 훨씬 고퀄리티로. 추구미 = 디아블로4 시네마틱.

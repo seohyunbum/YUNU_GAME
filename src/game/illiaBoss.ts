@@ -394,7 +394,10 @@ export interface IlliaCutsceneContext {
   onFinish(): void;
 }
 
-export type IlliaCutsceneKind = "awaken" | "unseal" | "gateOpen";
+export type IlliaCutsceneKind = "awaken" | "unseal" | "gateOpen" | "intro";
+
+// 부팅 인트로 컷씬의 마을 포커스(타이틀 배경 카메라 focus 와 동일 정본 — main 이 이 값을 titleFocus 초기값으로 사용).
+export const INTRO_FOCUS = { x: 58, y: 2.8, z: -76 };
 
 export interface IlliaCutsceneState {
   active: boolean;
@@ -459,13 +462,36 @@ export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
 
   // 시네마틱 앰비언스(부유 엠버 + 갓레이) — 1회 생성 후 props 에 등록(종료/수동정리 시 자동 제거), 매 프레임 무할당 애니.
   if (!state.ambience) {
-    const amb = createCinematicAmbience(state.kind === "gateOpen" ? 0x8b5cf6 : 0xff2d55);
-    amb.position.set(state.kind === "gateOpen" && state.anchor ? state.anchor.position.x : 0, 0, state.kind === "gateOpen" && state.anchor ? state.anchor.position.z : cz);
+    const amb = createCinematicAmbience(state.kind === "gateOpen" ? 0x8b5cf6 : state.kind === "intro" ? 0xffdf9e : 0xff2d55); // 인트로=아침 햇살 금빛(반딧불·꽃가루 느낌)
+    if (state.kind === "gateOpen" && state.anchor) amb.position.set(state.anchor.position.x, 0, state.anchor.position.z);
+    else if (state.kind === "intro") amb.position.set(INTRO_FOCUS.x, 0, INTRO_FOCUS.z);
+    else amb.position.set(0, 0, cz);
     ctx.scene.add(amb);
     state.props.push(amb);
     state.ambience = amb;
   }
   animateCinematicAmbience(state.ambience, t);
+
+  if (state.kind === "intro") {
+    // 부팅 인트로(택틱스풍 목가 오프닝) — 셰이크 없음. 마을 상공 슬로우 드리프트 → 낮은 스윕 → 지평선을 향해 상승(모험 기대).
+    const fx = INTRO_FOCUS.x, fz = INTRO_FOCUS.z;
+    if (t < 4.5) {
+      const k = easeCine(t / 4.5);
+      const a = 2.9 - k * 0.5; // 아주 느린 원호 드리프트
+      ctx.setCamera(fx + Math.sin(a) * 40, 12 - k * 3.5, fz + Math.cos(a) * 40, fx, 3.4, fz);
+    } else if (t < 8) {
+      const k = easeCine((t - 4.5) / 3.5);
+      const a = 2.4 - k * 0.9;
+      ctx.setCamera(fx + Math.sin(a) * (26 - k * 8), 8.5 - k * 4.2, fz + Math.cos(a) * (26 - k * 8), fx, 2.6 + k * 0.8, fz); // 마을을 스치듯 낮게
+    } else {
+      const k = easeCine((t - 8) / 2);
+      const a = 1.5;
+      ctx.setCamera(fx + Math.sin(a) * 18, 4.3 + k * 6.5, fz + Math.cos(a) * 18, fx - Math.sin(a) * 30 * k, 3.4 + k * 9, fz - Math.cos(a) * 30 * k); // 상승하며 시선을 지평선 너머로
+    }
+    if (state.firedSteps === 0 && t >= 1.2) { state.firedSteps = 1; ctx.playTone(523.25, 0.9, "sine", 0.028); ctx.playTone(659.25, 1.2, "sine", 0.02); } // 따뜻한 차임(제스처 전이면 무음)
+    if (state.firedSteps === 1 && t >= 6) { state.firedSteps = 2; ctx.playTone(783.99, 1.1, "sine", 0.026); ctx.playTone(987.77, 1.4, "sine", 0.018); }
+    return;
+  }
 
   if (state.kind === "awaken") {
     // 진동: 균열 진행(1.2s~)과 함께 점증 → 파열(6s) 대폭발 → 등장부 잔진동
@@ -572,10 +598,10 @@ export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
 }
 
 // ── 컷씬 오버레이(레터박스 + 타이틀 + 건너뛰기 안내) — DOM 헬퍼(main 라인 절약용 leaf) ──
-export function showIlliaCutsceneOverlay(host: HTMLElement, title: string): void {
+export function showIlliaCutsceneOverlay(host: HTMLElement, title: string, warm = false): void {
   hideIlliaCutsceneOverlay(host);
   const overlay = document.createElement("div");
-  overlay.className = "illia-cutscene";
+  overlay.className = warm ? "illia-cutscene intro" : "illia-cutscene"; // warm=인트로(새벽 금빛 그레이딩) — 기본은 핏빛 다크
   // 시네마틱 그레이딩(디아블로풍): 비네트 + 필름 그레인 + 컬러 그레이드 + 세리프 타이틀(장식 디바이더)
   overlay.innerHTML = `<div class="illia-grade"></div><div class="illia-vignette"></div><div class="illia-grain"></div><div class="illia-bar top"></div><div class="illia-flash"></div><div class="illia-title"><span class="illia-title-orn">— ✦ —</span><span class="illia-title-text">${title}</span></div><div class="illia-skip">Space / 클릭: 건너뛰기</div><div class="illia-bar bottom"></div>`;
   host.appendChild(overlay);

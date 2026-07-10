@@ -1370,8 +1370,8 @@ body {
   transform: translateY(-1px);
 }
 
-.game-ui.title-active > :not(.title-screen) {
-  display: none;
+.game-ui.title-active > :not(.title-screen):not(.illia-cutscene) {
+  display: none; /* 부팅 인트로 컷씬 오버레이는 예외 — 타이틀 전 트레일러가 레터박스·타이틀을 표시해야 함 */
 }
 
 .title-screen {
@@ -5076,6 +5076,12 @@ body.touch-mode .skill-bar {
 .illia-cutscene .illia-title-text { font-family: "Songmyung", "Nanum Myeongjo", "Noto Serif KR", Batang, serif; font-size: 40px; font-weight: 800; letter-spacing: 0.42em; padding-left: 0.42em; background: linear-gradient(180deg, #fdf3e3 8%, #e8c990 45%, #b98a4a 78%, #8a5a28 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 22px rgba(255, 31, 61, 0.55)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.9)); }
 .illia-cutscene .illia-skip { position: absolute; right: 20px; bottom: 3.6vh; color: rgba(232, 214, 180, 0.6); font-size: 12px; letter-spacing: 0.22em; }
 @keyframes illia-title-in { from { opacity: 0; transform: translateY(22px) scale(0.985); filter: blur(6px); } 42% { opacity: 0; } to { opacity: 1; transform: none; filter: blur(0); } }
+
+/* 인트로(부팅 트레일러) warm 변형 — 새벽 금빛: 핏빛 그레이드 대신 아침 햇살 톤, 비네트 부드럽게, 타이틀 글로우 금색 */
+.illia-cutscene.intro .illia-grade { background: linear-gradient(180deg, rgba(120, 150, 200, 0.16) 0%, rgba(255, 214, 140, 0.1) 55%, rgba(90, 60, 20, 0.2) 100%); }
+.illia-cutscene.intro .illia-vignette { background: radial-gradient(ellipse 78% 68% at 50% 46%, transparent 58%, rgba(20, 12, 4, 0.4) 88%, rgba(10, 6, 2, 0.66) 100%); }
+.illia-cutscene.intro .illia-title-text { filter: drop-shadow(0 0 22px rgba(255, 196, 92, 0.6)) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.85)); }
+.illia-cutscene.intro .illia-grain { opacity: 0.07; }
 
 /* 일리아 컷씬 파열 섬광 — .illia-flash 에 .on 토글로 재생 */
 .illia-cutscene .illia-flash { position: absolute; inset: 0; background: radial-gradient(circle, rgba(255, 240, 245, 0.95) 0%, rgba(255, 32, 56, 0.55) 55%, transparent 100%); opacity: 0; pointer-events: none; }
