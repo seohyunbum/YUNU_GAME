@@ -14,6 +14,17 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 스킬 슬롯(R/T/F/G)별 시전 이펙트 차별화
+
+- 요청: 스킬마다 이펙트가 확실히 차별화되어 멋지게 발현(화려함 패스 2차).
+- 현황: 시전 임팩트가 직업별 1종뿐 — R/T/F/G 가 모두 같은 연출을 재사용(3·4스킬 컨텍스트가 secondSkillContext 를 spread 해 castImpact 까지 상속).
+- 구현(combatEffects leaf + main 배선 3곳, 줄 수 불변):
+  - `spawnSkillCastImpact` 에 `slot: SkillFxSlot("primary"|"second"|"third"|"fourth")` 추가. **슬롯 형태 × 직업 2톤 색 = 28종 조합 전부 구분**: R=기존 직업 고유 연출 유지 / **T=전방 ±55° 부채 러시 + 발밑 충격파**(돌진·발동기로 읽힘) / **F=발밑 마법진 + 나선 상승 기둥**(강력 시전) / **G=대형 마법진 + 충격파 + 360° 2단 노바**(궁극 — 자체가 초월 연출이라 별도 오버레이 없음). T/F 는 4차 전직 시 푸른 다이아 입자 가산.
+  - 신규 파라메트릭 입자 `spawnSignatureParticles(arc|spiral|nova)` — **공용 damageParticles 풀 + 전역 상한(DAMAGE_PARTICLE_CAP 예산 가드) + lowFx 50% 감량** 그대로 준수. 시전은 쿨다운 게이트(수 초~70초)라 파티클 부담 미미(도약 실측 37개).
+  - main 배선: secondSkillContext castImpact 에 "second", third/fourth 컨텍스트에 슬롯별 castImpact 오버라이드(기존 줄에 병합 — main.ts 9445 불변).
+- 검증: typecheck·전 게이트·전 node 테스트·build 그린. 헤드리스에서 사무라이 T(도약) 실발동 — 파티클 37개 스폰·에러 0(돌진기라 시전 지점 이펙트는 카메라 뒤). 시각 최종 확인은 PC 권장.
+- 관련 파일: src/game/combatEffects.ts · src/main.ts(castImpact 3곳).
+
 ## 2026-07-05 — 셰이더 아우라 시스템 1차 (무기·보스 넘실거리는 아우라, 렉 최소)
 
 - 요청: 렉 거의 없이 캐릭터·무기·이펙트를 더 화려하게(넘실거리는 아우라, 스킬 차별화). "그래픽 엔진을 새로 도입해야 하나?"
