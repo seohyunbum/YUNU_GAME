@@ -288,6 +288,44 @@ export function animateGateOpening(root: THREE.Object3D, t: number): void {
   }
 }
 
+// ── 시네마틱 앰비언스(컷씬 전용) — 디아블로풍: 부유 엠버 + 갓레이 광선. props 로 등록돼 컷씬 종료 시 자동 제거. ──
+const EMBER_GEO = new THREE.SphereGeometry(0.05, 6, 4); // 공유(컷씬당 1회 생성물이라 dispose 없이 유지)
+export function createCinematicAmbience(color: number): THREE.Group {
+  const group = new THREE.Group();
+  const emberMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
+  const emberMat2 = new THREE.MeshBasicMaterial({ color: 0xffd9a0, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (let i = 0; i < 34; i += 1) {
+    const ember = new THREE.Mesh(EMBER_GEO, i % 3 === 0 ? emberMat2 : emberMat);
+    ember.userData.ember = { phase: i * 0.61, r: 2.5 + (i % 7) * 1.3, rise: 0.35 + (i % 5) * 0.14, sway: 0.4 + (i % 4) * 0.22 };
+    ember.raycast = () => {};
+    group.add(ember);
+  }
+  const shaftMat = new THREE.MeshBasicMaterial({ color: 0xfff3d8, transparent: true, opacity: 0.06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  for (let i = 0; i < 3; i += 1) {
+    const shaft = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 14), shaftMat);
+    shaft.position.set(Math.cos(i * 2.1) * 4.5, 6.5, Math.sin(i * 2.1) * 4.5);
+    shaft.rotation.z = 0.22 + i * 0.1; // 비스듬히 내려꽂는 광선
+    shaft.userData.shaft = { speed: 0.05 + i * 0.03 };
+    shaft.raycast = () => {};
+    group.add(shaft);
+  }
+  return group;
+}
+
+// 매 프레임(컷씬 중에만) — 엠버 나선 상승 루프 + 광선 슬로우 회전. 할당 0.
+export function animateCinematicAmbience(group: THREE.Object3D, t: number): void {
+  for (const child of group.children) {
+    const ember = child.userData.ember as { phase: number; r: number; rise: number; sway: number } | undefined;
+    if (ember) {
+      const a = ember.phase + t * ember.sway * 0.35;
+      child.position.set(Math.cos(a) * ember.r, 0.4 + ((t * ember.rise + ember.phase) % 6.5), Math.sin(a) * ember.r * 0.7);
+      continue;
+    }
+    const shaft = child.userData.shaft as { speed: number } | undefined;
+    if (shaft) child.rotation.y = t * shaft.speed;
+  }
+}
+
 // 컷씬 종료/스킵 시 게이트를 평시 상태로 원상복구 — 이후엔 animateIlliaProps 가 스월/부유석을 이어받는다.
 export function resetGateVisual(root: THREE.Object3D): void {
   for (const child of root.children) {

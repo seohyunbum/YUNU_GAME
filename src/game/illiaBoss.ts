@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { ARENA_HALF, ILLIA_CENTER_Z } from "./constants";
 import { bal } from "./balanceTuning";
-import { animateGateOpening, resetGateVisual } from "./illiaVisuals";
+import { animateCinematicAmbience, animateGateOpening, createCinematicAmbience, resetGateVisual } from "./illiaVisuals";
 import { animateTelegraphMeshes, disposeTelegraphGroup, telegraphBurstPoint, telegraphContains, telegraphMesh, type TelegraphSpec } from "./telegraph";
 import type { WorldObject } from "./types";
 
@@ -402,13 +402,14 @@ export interface IlliaCutsceneState {
   startedAt: number;
   props: THREE.Object3D[]; // 컷씬 전용 소품(봉인석 등) — 종료 시 제거
   anchor: THREE.Object3D | null; // 월드 소유 오브젝트 참조(gateOpen 의 차원의 문) — 종료 시 제거하지 않고 원상복구만
+  ambience: THREE.Object3D | null; // 시네마틱 앰비언스(엠버·갓레이) — props 에도 등록돼 종료/수동정리 시 자동 제거
   firedSteps: number; // 원샷 스텝 진행 인덱스
 }
 
 export const ILLIA_CUTSCENE_MS = 10_000;
 
 export function createIlliaCutsceneState(): IlliaCutsceneState {
-  return { active: false, kind: "awaken", startedAt: 0, props: [], anchor: null, firedSteps: 0 };
+  return { active: false, kind: "awaken", startedAt: 0, props: [], anchor: null, ambience: null, firedSteps: 0 };
 }
 
 export function startIlliaCutscene(state: IlliaCutsceneState, kind: IlliaCutsceneKind, now: number, props: THREE.Object3D[], anchor: THREE.Object3D | null = null): void {
@@ -417,6 +418,7 @@ export function startIlliaCutscene(state: IlliaCutsceneState, kind: IlliaCutscen
   state.startedAt = now;
   state.props = props;
   state.anchor = anchor;
+  state.ambience = null;
   state.firedSteps = 0;
 }
 
@@ -425,9 +427,13 @@ export function finishIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
   state.active = false;
   for (const prop of state.props) ctx.scene.remove(prop);
   state.props = [];
+  state.ambience = null; // 씬 제거는 props 경유(위)로 이미 처리
   if (state.anchor) { resetGateVisual(state.anchor); state.anchor = null; } // 게이트는 월드 소유 — 씬에서 빼지 않고 평시 상태로만 복귀
   ctx.onFinish();
 }
+
+// 시네마틱 카메라 이징(smoothstep) — 선형 돌리의 기계적 느낌을 죽이고 묵직한 푸시인으로.
+const easeCine = (k: number) => k * k * (3 - 2 * k);
 
 // 매 프레임 — 카메라 연출 + 소품 타임라인. t(초) 기반 연속 파라미터 + 원샷 스텝.
 // 컷씬 화면 진동 오프셋 — 고주파 사인 합성(결정적, 프레임레이트 무관 부드러움)
@@ -451,13 +457,23 @@ export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
   const cz = ILLIA_CENTER_Z;
   if (t >= ILLIA_CUTSCENE_MS / 1000) { finishIlliaCutscene(state, ctx); return; }
 
+  // 시네마틱 앰비언스(부유 엠버 + 갓레이) — 1회 생성 후 props 에 등록(종료/수동정리 시 자동 제거), 매 프레임 무할당 애니.
+  if (!state.ambience) {
+    const amb = createCinematicAmbience(state.kind === "gateOpen" ? 0x8b5cf6 : 0xff2d55);
+    amb.position.set(state.kind === "gateOpen" && state.anchor ? state.anchor.position.x : 0, 0, state.kind === "gateOpen" && state.anchor ? state.anchor.position.z : cz);
+    ctx.scene.add(amb);
+    state.props.push(amb);
+    state.ambience = amb;
+  }
+  animateCinematicAmbience(state.ambience, t);
+
   if (state.kind === "awaken") {
     // 진동: 균열 진행(1.2s~)과 함께 점증 → 파열(6s) 대폭발 → 등장부 잔진동
     const amplitude = t < 1.2 ? 0 : t < 6 ? 0.04 + ((t - 1.2) / 4.8) * 0.3 : t < 7 ? 0.95 * (1 - (t - 6) * 0.72) : 0.1;
     const shake = cutsceneShake(t, amplitude);
     // 카메라: 남쪽 원경 → 봉인석 근접 저각 → 파열 순간 뒤로 밀림 → 보스 로우앵글
     if (t < 6) {
-      const k = t / 6;
+      const k = easeCine(t / 6); // 묵직한 시네마틱 푸시인(가속→감속)
       ctx.setCamera(shake.x, 3.4 - k * 1.4 + shake.y, cz + 14 - k * 9.6, 0, 2.4, cz); // 봉인석 코앞(cz+4.4)까지 줌인 — 균열 발광 클로즈업
     } else if (t < 7) {
       const k = (t - 6);
@@ -511,8 +527,8 @@ export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
     const amplitude = t < 1 ? 0 : t < 6 ? 0.03 + ((t - 1) / 5) * 0.22 : t < 7 ? 0.8 * (1 - (t - 6) * 0.75) : 0.06;
     const shake = cutsceneShake(t, amplitude);
     if (t < 6) {
-      const k = t / 6; const ang = 2.6 - k * 1.1; const r = 16 - k * 9.5;
-      ctx.setCamera(gx + Math.sin(ang) * r + shake.x, 7.5 - k * 5.3 + shake.y, gz + Math.cos(ang) * r, gx, 2.2, gz); // 하이앵글 원경 → 반원 아크로 접근
+      const k = easeCine(t / 6); const ang = 2.6 - k * 1.1; const r = 16 - k * 9.5;
+      ctx.setCamera(gx + Math.sin(ang) * r + shake.x, 7.5 - k * 5.3 + shake.y, gz + Math.cos(ang) * r, gx, 2.2, gz); // 하이앵글 원경 → 반원 아크로 시네마틱 접근(easeCine)
     } else if (t < 7) {
       const k = t - 6;
       ctx.setCamera(gx + shake.x, 2.0 + k * 0.3 + shake.y, gz + 6.5 + k * 2.2, gx, 2.4, gz); // 점화 반동 — 뒤로 밀림
@@ -560,7 +576,8 @@ export function showIlliaCutsceneOverlay(host: HTMLElement, title: string): void
   hideIlliaCutsceneOverlay(host);
   const overlay = document.createElement("div");
   overlay.className = "illia-cutscene";
-  overlay.innerHTML = `<div class="illia-bar top"></div><div class="illia-flash"></div><div class="illia-title">${title}</div><div class="illia-skip">Space / 클릭: 건너뛰기</div><div class="illia-bar bottom"></div>`;
+  // 시네마틱 그레이딩(디아블로풍): 비네트 + 필름 그레인 + 컬러 그레이드 + 세리프 타이틀(장식 디바이더)
+  overlay.innerHTML = `<div class="illia-grade"></div><div class="illia-vignette"></div><div class="illia-grain"></div><div class="illia-bar top"></div><div class="illia-flash"></div><div class="illia-title"><span class="illia-title-orn">— ✦ —</span><span class="illia-title-text">${title}</span></div><div class="illia-skip">Space / 클릭: 건너뛰기</div><div class="illia-bar bottom"></div>`;
   host.appendChild(overlay);
   host.classList.add("illia-cinema"); // 시네마 모드 — HUD·패널 숨김(오버레이만 표시), CSS 가 처리
 }
