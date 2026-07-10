@@ -35,9 +35,10 @@ const AURA_FRAG = /* glsl */ `
   }
 `;
 
-export type AuraPreset = "ember" | "flame" | "mythic" | "abyss" | "gold" | "frost" | "venom";
+export type AuraPreset = "ember" | "flame" | "mythic" | "abyss" | "gold" | "frost" | "venom" | "goldSoft" | "flameSoft" | "radiant";
 
 // 프리셋 → 색상 2톤 + 세기. epic=보랏빛 잔불, legendary=진홍 화염, mythic=푸른 다이아, abyss=일리아 심연, 용 계열은 브레스 색과 톤 일치.
+// *Soft/radiant 는 아바타 전신용(전직 차수 차등 — 몸을 가리지 않게 은은하게, 4차 외곽은 radiant).
 const PRESET_DEFS: Record<AuraPreset, { c1: number; c2: number; intensity: number }> = {
   ember: { c1: 0x7c3aed, c2: 0xc4b5fd, intensity: 0.5 },
   flame: { c1: 0xff3d1f, c2: 0xffc46b, intensity: 0.62 },
@@ -46,6 +47,9 @@ const PRESET_DEFS: Record<AuraPreset, { c1: number; c2: number; intensity: numbe
   gold: { c1: 0xffa612, c2: 0xfff3b0, intensity: 0.55 },
   frost: { c1: 0x1fb6d9, c2: 0xcffcff, intensity: 0.55 },
   venom: { c1: 0x5b21b6, c2: 0xa855f7, intensity: 0.55 },
+  goldSoft: { c1: 0xffa612, c2: 0xfff3b0, intensity: 0.3 },
+  flameSoft: { c1: 0xff3d1f, c2: 0xffc46b, intensity: 0.38 },
+  radiant: { c1: 0x7fd0ff, c2: 0xffffff, intensity: 0.3 },
 };
 
 // 공유 자산 — 프리셋당 머티리얼 1개, 지오메트리 2종(무기 셸·보스 셸). lazy 생성 후 영구 공유(dispose 금지).
@@ -125,4 +129,62 @@ export function attachBossAura(root: THREE.Object3D, bossKind: BossKind, radius 
   const shell = makeAuraMesh(bossShellGeometry, preset);
   shell.scale.set(radius, height, radius);
   root.add(shell);
+}
+
+// ── 아바타(파티원 3인칭·거울) 전신 아우라 — 전직 차수 차등 ─────────────────────
+// 1차=은은한 금빛 / 2차=화염 / 3차=보랏빛 에픽 + 발밑 링 / 4차=푸른 다이아 2겹 셸 + 역회전 이중 룬 링(임팩트).
+let avatarShellGeometry: THREE.CylinderGeometry | null = null;
+let groundRingGeometry: THREE.RingGeometry | null = null;
+const ringMaterialCache = new Map<number, THREE.MeshBasicMaterial>();
+
+function ringMaterial(color: number): THREE.MeshBasicMaterial {
+  let material = ringMaterialCache.get(color);
+  if (!material) {
+    material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    ringMaterialCache.set(color, material);
+  }
+  return material;
+}
+
+// 발밑 회전 룬 링 — 공유 지오메트리/머티리얼, 회전은 onBeforeRender 에서 시간 기반 절대각(할당 0, 컬링 시 0 비용).
+function makeSpinRing(radius: number, color: number, speed: number): THREE.Group {
+  if (!groundRingGeometry) groundRingGeometry = new THREE.RingGeometry(0.82, 1, 36, 1);
+  const flat = new THREE.Group();
+  flat.rotation.x = -Math.PI / 2;
+  flat.position.y = 0.06;
+  const ring = new THREE.Mesh(groundRingGeometry, ringMaterial(color));
+  ring.scale.setScalar(radius);
+  ring.raycast = () => {};
+  ring.onBeforeRender = () => { ring.rotation.z = performance.now() * 0.001 * speed; };
+  flat.add(ring);
+  return flat;
+}
+
+export function attachAvatarAura(root: THREE.Object3D, jobTier: number): void {
+  if (jobTier <= 0) return;
+  if (!avatarShellGeometry) { avatarShellGeometry = new THREE.CylinderGeometry(0.66, 0.92, 1, 14, 6, true); avatarShellGeometry.translate(0, 0.5, 0); }
+  if (jobTier === 1) {
+    const shell = makeAuraMesh(avatarShellGeometry, "goldSoft");
+    shell.scale.set(0.62, 1.95, 0.62);
+    root.add(shell);
+    return;
+  }
+  if (jobTier === 2) {
+    const shell = makeAuraMesh(avatarShellGeometry, "flameSoft");
+    shell.scale.set(0.66, 2.05, 0.66);
+    root.add(shell);
+    return;
+  }
+  if (jobTier === 3) {
+    const shell = makeAuraMesh(avatarShellGeometry, "ember");
+    shell.scale.set(0.7, 2.15, 0.7);
+    root.add(shell, makeSpinRing(0.85, 0xa855f7, 0.9));
+    return;
+  }
+  // 4차(초월) — 압도적 푸른 다이아: 안쪽 진한 셸 + 바깥 은은한 대형 셸 + 역방향 이중 룬 링.
+  const inner = makeAuraMesh(avatarShellGeometry, "mythic");
+  inner.scale.set(0.68, 2.25, 0.68);
+  const outer = makeAuraMesh(avatarShellGeometry, "radiant");
+  outer.scale.set(1.05, 2.6, 1.05);
+  root.add(inner, outer, makeSpinRing(0.95, 0x38bdf8, 1.1), makeSpinRing(1.25, 0x9fdcff, -0.7));
 }

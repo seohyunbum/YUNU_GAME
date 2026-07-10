@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createIronShieldModel } from "./game/weaponVisuals";
 import { addLegendaryArmor } from "./game/legendaryArmor";
 import { createJobTierCosmetic } from "./game/jobTierVisuals";
+import { attachAvatarAura } from "./game/auraVisuals";
 import { createDragonGearModel } from "./game/accessoryVisuals";
 import { TIER_VISUALS, tierBladeMaterial, tierGemMaterial, type TierId } from "./game/tierVisuals";
 import { ASSET_PALETTE, makeGlowMaterial, makeMetalMaterial, makeToonMaterial } from "./visuals";
@@ -131,6 +132,7 @@ export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_
     if (dragonGear.cloak) { const c = createDragonGearModel("dragon_cloak"); c.scale.setScalar(0.92); c.position.set(0, 1.12, -0.3); group.add(c); }
     if (dragonGear.crown) { const cr = createDragonGearModel("dragon_crown"); cr.scale.setScalar(0.78); cr.position.set(0, 2.12, 0); group.add(cr); }
   }
+  attachAvatarAura(group, jobTier); // 전직 차수별 전신 아우라 — 1차 금빛/2차 화염/3차 에픽+룬링/4차 푸른 다이아 이중 셸+역회전 이중 룬링
   return group;
 }
 
