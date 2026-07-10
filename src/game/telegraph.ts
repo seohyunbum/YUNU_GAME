@@ -35,8 +35,11 @@ export function telegraphMesh(spec: TelegraphSpec): TelegraphMeshes {
     fillGeometry = new THREE.RingGeometry(spec.inner, spec.r, 36);
     edgeGeometry = new THREE.RingGeometry(spec.r - 0.35, spec.r, 36);
   } else if (spec.kind === "cone") {
-    fillGeometry = new THREE.CircleGeometry(spec.r, 24, spec.angle - spec.arc / 2, spec.arc);
-    edgeGeometry = new THREE.RingGeometry(spec.r - 0.35, spec.r, 24, 1, spec.angle - spec.arc / 2, spec.arc);
+    // Circle/Ring 은 XY 평면(θ: +X→+Y) → rotation.x=-90° 후 바닥 방위각 φ = θ+90°. 판정(telegraphContains)은 φ=atan2(dx,dz) 기준이라
+    // -90° 보정 없이는 부채꼴이 판정 영역에서 +90° 돌아간 곳에 그려진다(실측 +1.571 rad 어긋남 — 시각≠피격 버그).
+    const thetaStart = spec.angle - Math.PI / 2 - spec.arc / 2;
+    fillGeometry = new THREE.CircleGeometry(spec.r, 24, thetaStart, spec.arc);
+    edgeGeometry = new THREE.RingGeometry(spec.r - 0.35, spec.r, 24, 1, thetaStart, spec.arc);
   } else {
     fillGeometry = new THREE.PlaneGeometry(spec.width, spec.len);
     edgeGeometry = null;
@@ -150,10 +153,10 @@ export interface ActiveTelegraph {
   onDetonate(): void; // 폭발 시 데미지 판정·전용 VFX(스폰 시 클로저로 캡처)
 }
 
-export interface TelegraphField { list: ActiveTelegraph[] }
+export interface TelegraphField { list: ActiveTelegraph[]; lastNow: number }
 
 export function createTelegraphField(): TelegraphField {
-  return { list: [] };
+  return { list: [], lastNow: 0 };
 }
 
 // 텔레그래프 1개 스폰 — spec 위치에 메시를 씬에 추가하고 detonateAt 에 폭발 예약. groundY 로 지형 높이 보정.
@@ -172,10 +175,14 @@ export interface TelegraphFieldVfx {
 }
 
 // 매 프레임 — 살아있는 텔레그래프는 펄스, 시간이 된 것은 폭발(충격파+onDetonate)시키고 제거. active=false 면 전부 청소.
+// paused(패널 열림) 동안은 폭발 타이머를 경과분만큼 밀어 일시정지 — 이동 불가 상태의 불공정 피격 방지(illia 와 동일 정책).
 // update* 접두사(hotpath 스캐너 대상): 본문에 new THREE/clone/Set/Map/innerHTML 금지 — 준수(splice·animate 호출뿐).
-export function updateTelegraphField(field: TelegraphField, vfx: TelegraphFieldVfx, active: boolean): void {
-  if (!active) { if (field.list.length) clearTelegraphField(field, vfx.scene); return; }
+export function updateTelegraphField(field: TelegraphField, vfx: TelegraphFieldVfx, active: boolean, paused = false): void {
   const now = vfx.now();
+  const elapsedMs = field.lastNow > 0 ? now - field.lastNow : 0;
+  field.lastNow = now;
+  if (!active) { if (field.list.length) clearTelegraphField(field, vfx.scene); return; }
+  if (paused) { for (const t of field.list) t.detonateAt += elapsedMs; return; }
   let detonated = false;
   for (let i = field.list.length - 1; i >= 0; i -= 1) {
     const t = field.list[i];
