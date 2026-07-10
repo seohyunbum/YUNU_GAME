@@ -14,6 +14,15 @@
 - 관련 파일/검증:
 ```
 
+## 2026-07-05 — 긴급수정: 타이틀 불러오기 먹통 (CSS 특이도 회귀)
+
+- 보고: 오늘 수정 후 타이틀에서 불러오기 동작 안 함.
+- 원인: 부팅 인트로 작업에서 `.game-ui.title-active > :not(.title-screen)` 숨김 셀렉터에 `:not(.illia-cutscene)` 을 **인라인으로 추가**하면서 특이도가 0,3,0→0,4,0 으로 상승 → 뒤쪽의 `.game-ui.title-active > .panel-layer { display: grid }`(불러오기 패널 재표시, 0,3,0) 를 이겨버려 패널이 열려도 display:none 유지.
+- 수정: 숨김 셀렉터를 원래 특이도로 되돌리고, 컷씬 예외는 **동일 특이도의 별도 후행 규칙**(`.game-ui.title-active > .illia-cutscene { display: block }`)으로 분리.
+- 재발 방지 원칙: **재표시(override) 규칙이 딸린 광역 숨김 셀렉터에 :not() 예외를 인라인 추가하지 말 것** — 특이도가 올라가 기존 override 를 전부 무력화한다. 예외는 항상 별도 후행 규칙으로.
+- 검증(헤드리스 실측): [data-title-load] 클릭 → panel-layer computed display=grid(패널 열림 스크린샷 확인) + 인트로 오버레이 display=block 유지(양쪽 동시 성립). build 그린.
+- 관련 파일: src/style.css.
+
 ## 2026-07-05 — 부팅 인트로 트레일러 (타이틀 전, 목가적 오프닝, 스킵 가능)
 
 - 요청: 게임 실행 시 타이틀 화면 전에 트레일러 1개 — 고퀄 동일하되 평화롭지만 모험이 기대되는 인트로(택틱스풍). 스킵 동일.
