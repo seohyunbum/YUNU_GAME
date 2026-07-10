@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { applyStylizedMeshDefaults } from "../visuals";
-import type { CombatProjectile, PlayerClassId, WorldObject } from "./types";
+import { itemTier } from "./items";
+import type { CombatProjectile, ItemId, PlayerClassId, WorldObject } from "./types";
 
 export interface CombatEffectParticle {
   mesh: THREE.Mesh;
@@ -281,17 +282,51 @@ export function spawnTntTrail(context: CombatEffectContext, position: THREE.Vect
   spawnPooledTrail(context, position, Math.random() > 0.45 ? 0xfff3a1 : 0xff7a1a, 0.58, THREE.MathUtils.randFloat(0.035, 0.085), 0.16, 0.16, TRAIL_FALL, 0.22);
 }
 
-export function spawnMeleeSlashTrail(context: CombatEffectContext, obsidian = false) {
+// 스윙 아크 공유 지오메트리(풀링) — 휘두름마다 new 하지 않는다. 일반/광폭(궁극 방패) 2종.
+let SLASH_ARC_GEO: THREE.RingGeometry | null = null;
+let SLASH_ARC_GEO_WIDE: THREE.RingGeometry | null = null;
+function slashArcGeo(wide: boolean): THREE.RingGeometry {
+  if (wide) return SLASH_ARC_GEO_WIDE ?? (SLASH_ARC_GEO_WIDE = new THREE.RingGeometry(0.62, 1.08, 26, 1, -0.5, 2.5));
+  return SLASH_ARC_GEO ?? (SLASH_ARC_GEO = new THREE.RingGeometry(0.52, 0.84, 26, 1, -0.4, 2.1));
+}
+
+// 무기 티어 → 궤적 색(아우라 정체성과 동일 톤). 일반/고급=강철백, 희귀=다이아 시안, 에픽=보라, 레전더리=화염 주황, 신화=푸른 다이아.
+function slashColorFor(item: ItemId | null): number {
+  if (!item) return 0xf3f6ff;
+  const tier = itemTier(item);
+  if (tier === "mythic") return 0x7fc4ff;
+  if (tier === "legendary") return 0xff7a3d;
+  if (tier === "epic") return 0xc084fc;
+  if (tier === "rare") return 0x9ff2ff;
+  return 0xf3f6ff;
+}
+
+// 휘두름 궤적 — 2겹: ① 무기 티어색 대형 스윙 아크(검이 그린 원호 잔상) ② 백색 코어 스트릭(기존 텍스처).
+// 베기 각도(roll)를 랜덤 변주해 대각/횡/역베기로 다양하게 읽힌다. 날카로운 흑요석 방패(궁극)는 광폭+진홍 고정.
+export function spawnMeleeSlashTrail(context: CombatEffectContext, item: ItemId | null = null) {
+  const wide = item === "sharp_obsidian_shield";
+  const color = wide ? 0xff3a2a : slashColorFor(item);
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(context.camera.quaternion).normalize();
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(context.camera.quaternion).normalize();
   const up = new THREE.Vector3(0, 1, 0).applyQuaternion(context.camera.quaternion).normalize();
+  const roll = THREE.MathUtils.randFloat(-1.0, 0.55); // 베기 방향 변주
+  const arc = new THREE.Mesh(
+    slashArcGeo(wide),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  arc.position.copy(context.camera.position).addScaledVector(forward, 1.05).addScaledVector(up, -0.04);
+  arc.quaternion.copy(context.camera.quaternion);
+  arc.rotation.z += roll;
+  arc.renderOrder = 24;
+  context.scene.add(arc);
+  context.damageParticles.push({ mesh: arc, velocity: forward.clone().multiplyScalar(0.95), life: 0.17, maxLife: 0.17, pooled: true }); // 공유 지오메트리 — dispose 스킵
   const slash = new THREE.Mesh(
-    new THREE.PlaneGeometry(obsidian ? 1.4 : 0.92, obsidian ? 0.58 : 0.38), // 날카로운 흑요석 방패(궁극) = 더 넓은 궤적
+    new THREE.PlaneGeometry(wide ? 1.4 : 0.92, wide ? 0.58 : 0.38),
     new THREE.MeshBasicMaterial({
       map: getSlashTrailTexture(),
-      color: obsidian ? 0xff3a2a : 0xffffff, // 붉은 기운 — 가산블렌딩이라 흰 텍스처×붉은색=붉은 궤적
+      color: 0xffffff, // 백색 코어 — 가산블렌딩으로 티어색 아크 위에 하이라이트
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.85,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.DoubleSide,
@@ -303,8 +338,8 @@ export function spawnMeleeSlashTrail(context: CombatEffectContext, obsidian = fa
     .addScaledVector(right, 0.15)
     .addScaledVector(up, -0.08);
   slash.quaternion.copy(context.camera.quaternion);
-  slash.rotation.z += THREE.MathUtils.randFloat(-0.32, 0.32);
-  slash.renderOrder = 24;
+  slash.rotation.z += roll * 0.85; // 아크와 같은 결의 베기
+  slash.renderOrder = 25;
   context.scene.add(slash);
   context.damageParticles.push({ mesh: slash, velocity: forward.multiplyScalar(0.32), life: 0.2, maxLife: 0.2 });
 }
