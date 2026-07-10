@@ -784,7 +784,84 @@ function spawnIronBarrier(context: CombatEffectContext, color: number) {
 }
 
 // 직업별 캐스팅 임팩트 디스패치 — 1차/2차 스킬 시전 시 호출.
-export function spawnSkillCastImpact(context: CombatEffectContext, classId: PlayerClassId, transcended = false) {
+// 스킬 슬롯(R/T/F/G)별 시전 시그니처 — 같은 직업이라도 스킬마다 이펙트가 확실히 다르게 읽히도록.
+// R(primary)=기존 직업 고유 연출 / T(second)=전방 부채 러시 / F(third)=나선 상승 기둥 / G(fourth)=궁극 대형 마법진+노바.
+export type SkillFxSlot = "primary" | "second" | "third" | "fourth";
+
+// 직업 정체성 2톤 — 슬롯 형태 × 직업 색으로 28종 조합이 전부 구분된다.
+const CLASS_FX_COLORS: Record<PlayerClassId, { c1: number; c2: number }> = {
+  warrior: { c1: 0xff5a2a, c2: 0xffc46b },
+  mage: { c1: 0x7c5bff, c2: 0x5eead4 },
+  healer: { c1: 0xffe9a3, c2: 0x9bffb0 },
+  gunner: { c1: 0xfff0a3, c2: 0xffd23e },
+  summoner: { c1: 0x8fe3ff, c2: 0xe9fbff },
+  tanker: { c1: 0x9fb4c9, c2: 0xdbe7f5 },
+  samurai: { c1: 0xff3b52, c2: 0xffd166 },
+};
+
+// 파라메트릭 시그니처 입자 — 공용 damageParticles 풀·전역 상한(DAMAGE_PARTICLE_CAP)·lowFx 감량을 그대로 따른다.
+// arc=전방 ±55° 부채 러시(허리 높이) / spiral=원형 배치 후 접선+상승(나선 기둥) / nova=360° 방사.
+function spawnSignatureParticles(context: CombatEffectContext, c1: number, c2: number, pattern: "arc" | "spiral" | "nova", baseCount: number) {
+  const budget = Math.max(0, DAMAGE_PARTICLE_CAP - context.damageParticles.length);
+  const count = Math.min(context.lowFx?.() ? Math.ceil(baseCount * 0.5) : baseCount, budget);
+  const forward = flatForward(context);
+  const baseYaw = Math.atan2(forward.x, forward.z);
+  for (let i = 0; i < count; i += 1) {
+    const color = i % 3 === 0 ? c2 : c1;
+    const particle = new THREE.Mesh(
+      new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.05, 0.11), 7, 5),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: THREE.MathUtils.randFloat(0.75, 0.95), blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    particle.renderOrder = 23;
+    const velocity = new THREE.Vector3();
+    if (pattern === "arc") {
+      const yaw = baseYaw + THREE.MathUtils.randFloatSpread(1.9); // ±55° 부채
+      const speed = THREE.MathUtils.randFloat(2.4, 4.2);
+      velocity.set(Math.sin(yaw) * speed, THREE.MathUtils.randFloat(0.4, 1.3), Math.cos(yaw) * speed);
+      particle.position.copy(context.playerPosition).add(new THREE.Vector3(Math.sin(yaw) * 0.5, THREE.MathUtils.randFloat(-0.5, 0.3), Math.cos(yaw) * 0.5));
+    } else if (pattern === "spiral") {
+      const a = (i / Math.max(1, count)) * Math.PI * 4; // 두 바퀴 나선 배치
+      const r = 0.75 + (i / Math.max(1, count)) * 0.5;
+      particle.position.copy(context.playerPosition).add(new THREE.Vector3(Math.sin(a) * r, -0.9 + (i / Math.max(1, count)) * 1.3, Math.cos(a) * r));
+      velocity.set(Math.cos(a) * 1.5, THREE.MathUtils.randFloat(1.6, 2.6), -Math.sin(a) * 1.5); // 접선 + 상승 = 감아 올라감
+    } else {
+      const a = (i / Math.max(1, count)) * Math.PI * 2;
+      const speed = THREE.MathUtils.randFloat(2.6, 4.4);
+      velocity.set(Math.sin(a) * speed, THREE.MathUtils.randFloat(0.5, 1.6), Math.cos(a) * speed);
+      particle.position.copy(context.playerPosition).add(new THREE.Vector3(Math.sin(a) * 0.4, THREE.MathUtils.randFloat(-0.6, 0.2), Math.cos(a) * 0.4));
+    }
+    context.scene.add(particle);
+    context.damageParticles.push({ mesh: particle, velocity, life: THREE.MathUtils.randFloat(0.4, 0.72), maxLife: 0.72 });
+  }
+}
+
+export function spawnSkillCastImpact(context: CombatEffectContext, classId: PlayerClassId, transcended = false, slot: SkillFxSlot = "primary") {
+  const { c1, c2 } = CLASS_FX_COLORS[classId];
+  if (slot === "second") { // T — 전방 부채 러시 + 소형 발밑 충격파: "돌진/발동기" 로 읽힌다
+    spawnSignatureParticles(context, c1, c2, "arc", 18);
+    const feet = context.playerPosition.clone();
+    feet.y = context.getGroundHeightAt(feet.x, feet.z) + 0.05;
+    spawnGroundShockwave(context, feet, c1);
+    if (transcended) spawnSignatureParticles(context, 0x7dd3fc, 0xe0f2ff, "arc", 10); // 4차 — 다이아 입자 가산
+    return;
+  }
+  if (slot === "third") { // F — 발밑 마법진 + 나선 상승 기둥: "강력 시전" 무게감
+    const feet = context.playerPosition.clone();
+    feet.y = context.getGroundHeightAt(feet.x, feet.z) + 0.06;
+    spawnMagicCircle(context, feet, c1, c2, 1.7);
+    spawnSignatureParticles(context, c1, c2, "spiral", 24);
+    if (transcended) spawnSignatureParticles(context, 0x7dd3fc, 0xe0f2ff, "spiral", 12);
+    return;
+  }
+  if (slot === "fourth") { // G — 궁극: 대형 마법진 + 충격파 + 360° 2단 노바(자체가 초월 연출이라 별도 오버레이 없음)
+    const feet = context.playerPosition.clone();
+    feet.y = context.getGroundHeightAt(feet.x, feet.z) + 0.06;
+    spawnMagicCircle(context, feet, c1, c2, 2.6);
+    spawnGroundShockwave(context, feet, c1);
+    spawnSignatureParticles(context, c1, c2, "nova", 26);
+    spawnSignatureParticles(context, 0x7dd3fc, 0xe0f2ff, "nova", 14); // 푸른 다이아 2단 노바(4차 전용 스킬)
+    return;
+  }
   switch (classId) {
     case "mage":
       spawnMagicCircle(context, groundPointInFront(context, 2.6), 0x7c5bff, 0x5eead4, 1.65);
