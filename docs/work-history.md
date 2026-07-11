@@ -1558,3 +1558,18 @@
   factor max(1,·) 클램프 — 0/음수면 required 0→레벨업 while 무한루프라 코드에서 하드가드.
   어드민 튜너블 50개(바탕화면 사본 갱신). save-migration 골든(불변/가중/단조/클램프) + E2E
   (1e12 XP 4ms 유한종료·튜너블 실효) + verify 녹색.
+- 부팅 인트로 트레일러 v2 + 인게임 원근 헤이즈(사용자 요청: AAA 레퍼런스 이미지 2장 수준, 블룸 과금지·렉 0):
+  ①인게임 — timeOfDay TIME_OF_DAY_STOPS 에 fogNear 키프레임 신설(기존 near=70 하드코딩 제거). 새벽/황혼
+  38~46(근거리 헤이즈=원경 레이어감), 한낮 92(시야 확보). 무드는 fogFarScale 로 near 도 비례 축소(비율 유지).
+  ②트레일러 — illiaVisuals createIntroVista/animateIntroVista(leaf): 원경 산맥 실루엣 2겹 링(공유 ConeGeometry,
+  결정적 의사난수 높이), 역광 태양 세트(디스크+글로우 2겹+갓레이 팬 9+구름 실루엣 저불투명 2겹 밴드),
+  활공 독수리(createEagleAvatarModel 재사용, 글라이딩=날갯짓 불필요·무할당 뱅킹). illiaBoss intro 분기 재작성:
+  vista 는 props 등록(자동 정리), 매 프레임 안개/배경 오버라이드(금빛 헤이즈 near44/far560, 숫자 대입만)+
+  Sky 돔 숨김(updateTimeOfDay 가 매 프레임 되켜므로 참조 잡고 재차 끔 → 종료 후 자동 복원, 별도 정리 코드 0).
+  카메라 3막: 하이에어리얼 태양 응시 푸시인(컷)마을 로우 스윕(컷)상승 크레인. 전부 컷씬 10초 한정 소품이라
+  게임플레이 프레임 예산 무관. 모든 게이트+illia-test+fogNear 보간 실측(0~24h·무드) 녹색.
+  ★검증 함정(재발 주의): swiftshader 헤드리스에서 page.screenshot 이 수 초 걸려 10초 컷씬 검증 스샷이 전부
+  종료 후에 찍힘 — "컷씬이 안 나온다"로 오진해 CSS/카메라를 한참 뒤짐. 컷씬 시각 검증은 반드시
+  ①모듈 import 로 강제 발동 ②startedAt 을 setInterval 로 핀(원하는 t 고정) 후 캡처(scripts/_tmp_intro_shots.mjs
+  패턴). 자동 킥 경로는 navigator.webdriver 게이트라 E2E 에선 안 돎(의도) — Navigator.prototype
+  defineProperty 스푸핑으로만 우회 가능하나 저FPS 부팅 레이스로 관측이 불안정하니 강제 발동을 쓸 것.

@@ -9,6 +9,7 @@ interface TimeOfDayStop {
   sun: number;
   cloud: number;
   opacity: number;
+  fogNear: number; // 근거리 헤이즈 시작 — 새벽·황혼은 가깝게(원경 레이어감), 한낮은 멀리(시야 확보)
   fogFar: number;
 }
 
@@ -43,14 +44,14 @@ export interface TimeOfDayContext {
 }
 
 const TIME_OF_DAY_STOPS: TimeOfDayStop[] = [
-  { hour: 0, sky: 0x06101f, fog: 0x050814, ambient: 0.36, sun: 0.02, cloud: 0x8695b6, opacity: 0.45, fogFar: 310 },
-  { hour: 4.6, sky: 0x233659, fog: 0x182944, ambient: 0.64, sun: 0.12, cloud: 0xaab7d6, opacity: 0.58, fogFar: 340 },
-  { hour: 6.2, sky: 0xf0a269, fog: 0xb7816b, ambient: 1.4, sun: 1.15, cloud: 0xffd5aa, opacity: 0.76, fogFar: 410 },
-  { hour: 8.5, sky: 0x9fd8ff, fog: 0x9fd8ff, ambient: 2.0, sun: 2.25, cloud: 0xffffff, opacity: 0.84, fogFar: 465 },
-  { hour: 13.0, sky: 0xaed8ff, fog: 0xaed8ff, ambient: 2.25, sun: 2.7, cloud: 0xffffff, opacity: 0.86, fogFar: 480 },
-  { hour: 17.8, sky: 0xf19a65, fog: 0xa86f68, ambient: 1.45, sun: 1.05, cloud: 0xffc49d, opacity: 0.74, fogFar: 405 },
-  { hour: 20.4, sky: 0x14213d, fog: 0x101827, ambient: 0.56, sun: 0.07, cloud: 0x8796b7, opacity: 0.5, fogFar: 320 },
-  { hour: 24, sky: 0x06101f, fog: 0x050814, ambient: 0.36, sun: 0.02, cloud: 0x8695b6, opacity: 0.45, fogFar: 310 },
+  { hour: 0, sky: 0x06101f, fog: 0x050814, ambient: 0.36, sun: 0.02, cloud: 0x8695b6, opacity: 0.45, fogNear: 38, fogFar: 310 },
+  { hour: 4.6, sky: 0x233659, fog: 0x182944, ambient: 0.64, sun: 0.12, cloud: 0xaab7d6, opacity: 0.58, fogNear: 40, fogFar: 340 },
+  { hour: 6.2, sky: 0xf0a269, fog: 0xb7816b, ambient: 1.4, sun: 1.15, cloud: 0xffd5aa, opacity: 0.76, fogNear: 44, fogFar: 410 },
+  { hour: 8.5, sky: 0x9fd8ff, fog: 0x9fd8ff, ambient: 2.0, sun: 2.25, cloud: 0xffffff, opacity: 0.84, fogNear: 74, fogFar: 465 },
+  { hour: 13.0, sky: 0xaed8ff, fog: 0xaed8ff, ambient: 2.25, sun: 2.7, cloud: 0xffffff, opacity: 0.86, fogNear: 92, fogFar: 480 },
+  { hour: 17.8, sky: 0xf19a65, fog: 0xa86f68, ambient: 1.45, sun: 1.05, cloud: 0xffc49d, opacity: 0.74, fogNear: 46, fogFar: 405 },
+  { hour: 20.4, sky: 0x14213d, fog: 0x101827, ambient: 0.56, sun: 0.07, cloud: 0x8796b7, opacity: 0.5, fogNear: 38, fogFar: 320 },
+  { hour: 24, sky: 0x06101f, fog: 0x050814, ambient: 0.36, sun: 0.02, cloud: 0x8695b6, opacity: 0.45, fogNear: 38, fogFar: 310 },
 ];
 
 const skyColor = new THREE.Color();
@@ -120,6 +121,7 @@ export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   const ambientIntensity = THREE.MathUtils.lerp(before.ambient, after.ambient, t);
   let ambientScaled = ambientIntensity;
   let sunIntensity = THREE.MathUtils.lerp(before.sun, after.sun, t);
+  let fogNear = THREE.MathUtils.lerp(before.fogNear, after.fogNear, t);
   let fogFar = THREE.MathUtils.lerp(before.fogFar, after.fogFar, t);
   const tint = context.mood && context.mood !== "default" ? MOOD_TINTS[context.mood] : null;
   if (tint) {
@@ -128,13 +130,14 @@ export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
     cloudColor.lerp(graveyardFogColor, tint.cloudBlend);
     ambientScaled = ambientIntensity * tint.ambient;
     sunIntensity *= tint.sun;
+    fogNear *= tint.fogFarScale; // 짙은 무드일수록 헤이즈도 가깝게 — near/far 비율 유지
     fogFar = Math.min(fogFar * tint.fogFarScale, tint.fogFarCap ?? Number.POSITIVE_INFINITY);
   }
 
   context.scene.background = skyColor;
   if (!(context.scene.fog instanceof THREE.Fog)) context.scene.fog = fallbackFog;
   context.scene.fog.color.copy(fogColor);
-  context.scene.fog.near = 70;
+  context.scene.fog.near = fogNear;
   context.scene.fog.far = fogFar;
   context.sky.visible = !tint?.hideSky; // 짙은 무드(묘지 등)는 하늘 돔을 끄고 배경색을 그대로 드러낸다
   context.ambientLight.intensity = ambientScaled;
