@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createEagleAvatarModel } from "../avatar";
 import { attachBossAura } from "./auraVisuals";
 
 // 최종 보스 '일리아' 비주얼 — 백발·붉은 눈·검은 고딕 드레스·대형 흑익(레퍼런스: 수은등풍 타천사).
@@ -323,6 +324,100 @@ export function animateCinematicAmbience(group: THREE.Object3D, t: number): void
     }
     const shaft = child.userData.shaft as { speed: number } | undefined;
     if (shaft) child.rotation.y = t * shaft.speed;
+  }
+}
+
+// ── 부팅 인트로 비스타(컷씬 전용) — AAA 시네마틱 레퍼런스(역광 태양 + 산맥 원경 레이어 + 갓레이) 지향. ──
+// 원경 산맥 2겹(안개가 겹 사이 원근을 만든다) + 역광 태양 세트(디스크·글로우·갓레이 팬·구름 실루엣) + 활공 독수리.
+// 컷씬 10초 한정 소품(props 등록 → 종료/스킵 시 자동 제거)이라 게임플레이 프레임 예산과 무관.
+// 지오메트리·머티리얼은 모듈 싱글턴 공유 — 재부팅 인트로에서도 재업로드 없음.
+const MOUNTAIN_GEO = new THREE.ConeGeometry(1, 1, 5);
+const mountainFarMaterial = new THREE.MeshBasicMaterial({ color: 0x97a9c6 }); // 뒤 겹 — 연무에 잠긴 밝은 청회
+const mountainNearMaterial = new THREE.MeshBasicMaterial({ color: 0x4f6488 }); // 앞 겹 — 짙은 청회(역광 실루엣)
+const sunDiscMaterial = new THREE.MeshBasicMaterial({ color: 0xfff6da, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const sunGlowMaterial = new THREE.MeshBasicMaterial({ color: 0xffd9a0, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const sunGlowWideMaterial = new THREE.MeshBasicMaterial({ color: 0xffc98d, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const sunRayMaterial = new THREE.MeshBasicMaterial({ color: 0xffe9bd, transparent: true, opacity: 0.09, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide });
+const sunCloudMaterial = new THREE.MeshBasicMaterial({ color: 0x6b5a72, transparent: true, opacity: 0.42, depthWrite: false, fog: false });
+
+export function createIntroVista(): THREE.Group {
+  const group = new THREE.Group();
+  // 산맥 실루엣 2겹 — 봉우리 높이/폭은 인덱스 기반 결정적 의사난수(재부팅마다 같은 지평선).
+  const rings = [
+    { r: 470, n: 14, mat: mountainFarMaterial, hMin: 95, hMax: 165, phase: 0.22 },
+    { r: 330, n: 11, mat: mountainNearMaterial, hMin: 55, hMax: 110, phase: 0 },
+  ];
+  for (const ring of rings) {
+    for (let i = 0; i < ring.n; i += 1) {
+      const a = (i / ring.n) * Math.PI * 2 + ring.phase;
+      const h = ring.hMin + (((i * 7919) % 100) / 100) * (ring.hMax - ring.hMin);
+      const w = h * (1.9 + (((i * 104729) % 60) / 100));
+      const mountain = new THREE.Mesh(MOUNTAIN_GEO, ring.mat);
+      mountain.scale.set(w, h, w);
+      mountain.position.set(Math.cos(a) * ring.r, h * 0.5 - 16, Math.sin(a) * ring.r);
+      mountain.rotation.y = a * 2.3;
+      mountain.raycast = () => {};
+      group.add(mountain);
+    }
+  }
+  // 역광 태양 세트 — 1막 카메라가 응시하는 북서 하늘. 빌보드는 생성 시 1회 lookAt(카메라 이동각 ±5° 이내라 충분).
+  const sun = new THREE.Group();
+  sun.position.set(-190, 96, 350);
+  sun.userData.introSun = true;
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(26, 40), sunDiscMaterial);
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(54, 40), sunGlowMaterial);
+  glow.position.z = -1;
+  glow.userData.sunGlow = true;
+  const glowWide = new THREE.Mesh(new THREE.CircleGeometry(110, 40), sunGlowWideMaterial);
+  glowWide.position.z = -2;
+  sun.add(disc, glow, glowWide);
+  for (let i = 0; i < 9; i += 1) { // 갓레이 팬 — 태양에서 아래로 퍼지는 부챗살
+    const ray = new THREE.Mesh(new THREE.PlaneGeometry(7 + (i % 3) * 4, 260), sunRayMaterial);
+    const spread = (i / 8 - 0.5) * 1.5;
+    ray.position.set(Math.sin(spread) * 80, -Math.cos(spread) * 80 - 30, 1);
+    ray.userData.sunRay = { base: spread, wobble: 0.35 + (i % 4) * 0.22 };
+    ray.rotation.z = spread;
+    sun.add(ray);
+  }
+  for (let i = 0; i < 4; i += 1) { // 태양을 가로지르는 어두운 구름 실루엣 — 저불투명 얇은 층 2겹씩 겹쳐 부드러운 밴드로(딱딱한 막대 방지)
+    const baseX = (i - 1.5) * 42;
+    const cloud = new THREE.Mesh(new THREE.PlaneGeometry(190 - i * 22, 5 + (i % 2) * 3), sunCloudMaterial);
+    cloud.position.set(baseX, -16 + i * 18, 3 + i);
+    cloud.userData.introCloud = { baseX, speed: 1.2 + i * 0.5 };
+    const wisp = new THREE.Mesh(new THREE.PlaneGeometry(120 - i * 14, 3.4), sunCloudMaterial);
+    wisp.position.set(baseX + 24 - i * 12, -12.6 + i * 18, 3.4 + i);
+    wisp.userData.introCloud = { baseX: baseX + 24 - i * 12, speed: 1.6 + i * 0.4 };
+    sun.add(cloud, wisp);
+  }
+  for (const part of sun.children) part.raycast = () => {};
+  sun.lookAt(34, 12, -66); // 그룹 로컬(씬 편입 전 = 월드와 동일) — 1막 카메라 평균 위치를 향해 빌보드 고정
+  group.add(sun);
+  // 활공 독수리 — 태양을 가로지르는 역광 실루엣(글라이딩이라 날갯짓 불필요·무할당).
+  const eagle = createEagleAvatarModel();
+  eagle.scale.setScalar(2.6);
+  eagle.userData.introEagle = true;
+  group.add(eagle);
+  return group;
+}
+
+// 매 프레임(인트로 컷씬 중에만) — 독수리 활공 경로·뱅킹 + 갓레이 미세 요동 + 구름 드리프트 + 글로우 맥동. 할당 0.
+export function animateIntroVista(group: THREE.Object3D, t: number): void {
+  for (const child of group.children) {
+    if (child.userData.introEagle) {
+      const a = 2.05 - t * 0.14; // 시계 방향 완만한 원호 활공
+      child.position.set(Math.cos(a) * 130, 30 + Math.sin(t * 0.8) * 2.5, Math.sin(a) * 130);
+      child.rotation.y = Math.atan2(Math.sin(a), -Math.cos(a)); // 진행 접선 방향
+      child.rotation.z = 0.22 + Math.sin(t * 0.9) * 0.06; // 뱅킹
+      continue;
+    }
+    if (!child.userData.introSun) continue;
+    for (const part of child.children) {
+      const ray = part.userData.sunRay as { base: number; wobble: number } | undefined;
+      if (ray) { part.rotation.z = ray.base + Math.sin(t * ray.wobble) * 0.025; continue; }
+      const cloud = part.userData.introCloud as { baseX: number; speed: number } | undefined;
+      if (cloud) { part.position.x = cloud.baseX + t * cloud.speed; continue; }
+      if (part.userData.sunGlow) part.scale.setScalar(1 + Math.sin(t * 1.3) * 0.04);
+    }
   }
 }
 

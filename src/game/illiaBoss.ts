@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { ARENA_HALF, ILLIA_CENTER_Z } from "./constants";
 import { bal } from "./balanceTuning";
-import { animateCinematicAmbience, animateGateOpening, createCinematicAmbience, resetGateVisual } from "./illiaVisuals";
+import { Sky } from "three/examples/jsm/objects/Sky.js";
+import { animateCinematicAmbience, animateGateOpening, animateIntroVista, createCinematicAmbience, createIntroVista, resetGateVisual } from "./illiaVisuals";
 import { animateTelegraphMeshes, disposeTelegraphGroup, telegraphBurstPoint, telegraphContains, telegraphMesh, type TelegraphSpec } from "./telegraph";
 import type { WorldObject } from "./types";
 
@@ -406,13 +407,14 @@ export interface IlliaCutsceneState {
   props: THREE.Object3D[]; // 컷씬 전용 소품(봉인석 등) — 종료 시 제거
   anchor: THREE.Object3D | null; // 월드 소유 오브젝트 참조(gateOpen 의 차원의 문) — 종료 시 제거하지 않고 원상복구만
   ambience: THREE.Object3D | null; // 시네마틱 앰비언스(엠버·갓레이) — props 에도 등록돼 종료/수동정리 시 자동 제거
+  vista: THREE.Object3D | null; // 인트로 전용 원경 세트(산맥·태양·독수리) — props 에도 등록돼 자동 제거
   firedSteps: number; // 원샷 스텝 진행 인덱스
 }
 
 export const ILLIA_CUTSCENE_MS = 10_000;
 
 export function createIlliaCutsceneState(): IlliaCutsceneState {
-  return { active: false, kind: "awaken", startedAt: 0, props: [], anchor: null, ambience: null, firedSteps: 0 };
+  return { active: false, kind: "awaken", startedAt: 0, props: [], anchor: null, ambience: null, vista: null, firedSteps: 0 };
 }
 
 export function startIlliaCutscene(state: IlliaCutsceneState, kind: IlliaCutsceneKind, now: number, props: THREE.Object3D[], anchor: THREE.Object3D | null = null): void {
@@ -422,6 +424,7 @@ export function startIlliaCutscene(state: IlliaCutsceneState, kind: IlliaCutscen
   state.props = props;
   state.anchor = anchor;
   state.ambience = null;
+  state.vista = null;
   state.firedSteps = 0;
 }
 
@@ -431,6 +434,7 @@ export function finishIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
   for (const prop of state.props) ctx.scene.remove(prop);
   state.props = [];
   state.ambience = null; // 씬 제거는 props 경유(위)로 이미 처리
+  state.vista = null; // 동일 — props 경유 제거. 안개/하늘 오버라이드는 다음 프레임 updateTimeOfDay 가 자동 복원
   if (state.anchor) { resetGateVisual(state.anchor); state.anchor = null; } // 게이트는 월드 소유 — 씬에서 빼지 않고 평시 상태로만 복귀
   ctx.onFinish();
 }
@@ -473,20 +477,43 @@ export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
   animateCinematicAmbience(state.ambience, t);
 
   if (state.kind === "intro") {
-    // 부팅 인트로(택틱스풍 목가 오프닝) — 셰이크 없음. 마을 상공 슬로우 드리프트 → 낮은 스윕 → 지평선을 향해 상승(모험 기대).
+    // 부팅 인트로(AAA 시네마틱 오프닝) — 셰이크 없음. 3막: ① 역광 태양·산맥 원경을 응시하는 하이 에어리얼 푸시인
+    // ② (컷) 마을을 스치는 로우 스윕 + 갓레이 ③ (컷) 상승 크레인 — 시선을 태양 지평선 너머로(모험 기대).
     const fx = INTRO_FOCUS.x, fz = INTRO_FOCUS.z;
+    if (!state.vista) {
+      const vista = createIntroVista();
+      vista.position.set(fx, 0, fz);
+      ctx.scene.add(vista);
+      state.props.push(vista);
+      state.vista = vista;
+      // 하늘 돔은 인트로 동안 숨긴다(새벽 그레이딩과 충돌하는 한낮 산란 하늘) — updateTimeOfDay 가 매 프레임
+      // visible 을 되켜므로 참조를 잡아 매 프레임 다시 끈다. 종료 후엔 자동 복원(별도 정리 불필요).
+      for (const child of ctx.scene.children) if (child instanceof Sky) { vista.userData.skyRef = child; break; }
+    }
+    animateIntroVista(state.vista, t);
+    const skyDome = state.vista.userData.skyRef as THREE.Object3D | undefined;
+    if (skyDome) skyDome.visible = false;
+    // 시네마틱 안개/하늘 오버라이드(무할당 — 숫자·색 대입만): 새벽 금빛 헤이즈 + 원경 산맥이 겹겹이 잠기도록 far 확장.
+    // updateTimeOfDay 가 매 프레임 먼저 돌므로 컷씬 값이 이기고, 종료/스킵 후 다음 프레임에 평시로 자동 복원된다.
+    if (ctx.scene.fog instanceof THREE.Fog) {
+      ctx.scene.fog.color.setHex(0xe9b98e);
+      ctx.scene.fog.near = 44;
+      ctx.scene.fog.far = 560;
+    }
+    if (ctx.scene.background instanceof THREE.Color) ctx.scene.background.setHex(0xf2c48b); // 역광 하늘 — 지평선 금빛(안개색과 한 톤)
     if (t < 4.5) {
+      // 1막 — 레퍼런스 구도: 상공에서 태양(-190,96,+350 로컬)과 산맥 레이어를 응시하며 느리게 전진 하강.
       const k = easeCine(t / 4.5);
-      const a = 2.9 - k * 0.5; // 아주 느린 원호 드리프트
-      ctx.setCamera(fx + Math.sin(a) * 40, 12 - k * 3.5, fz + Math.cos(a) * 40, fx, 3.4, fz);
+      ctx.setCamera(fx + 42 - k * 12, 26 - k * 7, fz - 74 + k * 20, fx - 120 + k * 10, 52 - k * 6, fz + 250);
     } else if (t < 8) {
+      // 2막(컷) — 마을을 스치는 낮은 원호 스윕. 금빛 갓레이(앰비언스)가 지붕 사이로 떨어진다.
       const k = easeCine((t - 4.5) / 3.5);
       const a = 2.4 - k * 0.9;
-      ctx.setCamera(fx + Math.sin(a) * (26 - k * 8), 8.5 - k * 4.2, fz + Math.cos(a) * (26 - k * 8), fx, 2.6 + k * 0.8, fz); // 마을을 스치듯 낮게
+      ctx.setCamera(fx + Math.sin(a) * (26 - k * 8), 8.5 - k * 4.2, fz + Math.cos(a) * (26 - k * 8), fx, 2.6 + k * 0.8, fz);
     } else {
+      // 3막(컷) — 마을 뒤에서 상승 크레인, 시선은 태양 지평선으로 들어올린다.
       const k = easeCine((t - 8) / 2);
-      const a = 1.5;
-      ctx.setCamera(fx + Math.sin(a) * 18, 4.3 + k * 6.5, fz + Math.cos(a) * 18, fx - Math.sin(a) * 30 * k, 3.4 + k * 9, fz - Math.cos(a) * 30 * k); // 상승하며 시선을 지평선 너머로
+      ctx.setCamera(fx + 10 - k * 6, 5 + k * 15, fz - 28 - k * 8, fx - 40 - k * 90, 20 + k * 42, fz + 120 + k * 160);
     }
     if (state.firedSteps === 0 && t >= 1.2) { state.firedSteps = 1; ctx.playTone(523.25, 0.9, "sine", 0.028); ctx.playTone(659.25, 1.2, "sine", 0.02); } // 따뜻한 차임(제스처 전이면 무음)
     if (state.firedSteps === 1 && t >= 6) { state.firedSteps = 2; ctx.playTone(783.99, 1.1, "sine", 0.026); ctx.playTone(987.77, 1.4, "sine", 0.018); }
