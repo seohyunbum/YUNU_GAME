@@ -1,4 +1,5 @@
 import { ARENA_CENTER_Z, ARENA_HALF, SIEGE_MAX_ALIVE, SIEGE_SPAWN_STAGGER, SIEGE_WAVE_CLEAR_DELAY } from "./constants";
+import { createFortressBossRuntime, fortressBossConceptForStage, fortressBossStats, isFortressBossStage, updateFortressBossPatterns, type FortressBossPatternContext, type FortressBossRuntime } from "./fortressBoss";
 import type { ItemId } from "./types";
 
 // 몬스터 요새 디펜스 — 무한 점증 웨이브 상태머신(순수 로직). main.ts import 금지(leaf).
@@ -15,7 +16,7 @@ export function levelForStage(baseLevel: number, stage: number): number {
   return Math.max(1, baseLevel + stage * 3);
 }
 export function tomesForStage(stage: number): number {
-  return 1 + Math.floor((stage - 1) / 3); // 1~3단계 1개, 4~6 2개, 7~9 3개 …
+  return 1 + Math.floor((stage - 1) / 3) + (isFortressBossStage(stage) ? 2 : 0); // 1~3단계 1개, 4~6 2개, 7~9 3개 … + 보스 단계(5의 배수) 보너스 2개
 }
 // 단계가 오를수록 정예(강화) 비율↑ — 3단계 급증 절벽 완화(0.08+0.04→0.05+0.025, 상한 0.5→0.4, #3)
 export function eliteChance(stage: number): number {
@@ -28,6 +29,11 @@ export function itemsForStage(stage: number): Partial<Record<ItemId, number>> {
   if (stage >= 5) items.refined_diamond = 1 + Math.floor((stage - 5) / 3);
   if (stage >= 7) items.sharp_obsidian = 1 + Math.floor((stage - 7) / 3);
   if (stage % 3 === 0) items.advanced_medkit = 1;
+  if (isFortressBossStage(stage)) { // 보스 단계 처치 보너스 — 단계가 깊을수록 두둑하게
+    items.diamond = (items.diamond ?? 0) + 2 + Math.floor(stage / 10);
+    items.refined_diamond = (items.refined_diamond ?? 0) + 1 + Math.floor(stage / 15);
+    items.advanced_medkit = (items.advanced_medkit ?? 0) + 1;
+  }
   return items;
 }
 
@@ -42,6 +48,8 @@ export interface SiegeState {
   aliveIds: string[]; // 스폰된 생존 몬스터 id
   baseLevel: number;
   spawnCursor: number; // 통로 라운드로빈 — 진입마다 리셋(모듈 전역 누적 방지)
+  bossPhase: "none" | "pending" | "trailer" | "fight"; // 5단계 보스 스테이지 흐름: 트레일러 → 스폰 → 전투
+  bossRuntime: FortressBossRuntime | null; // 텔레그래프 패턴 엔진 상태(전투 중에만)
 }
 
 // 맵별 몬스터 요새 최고 클리어 단계 — 재입장 시 이어서 시작. SSOT=세이브(player.fortressStageByMap, 로드 시 복원);
@@ -63,17 +71,20 @@ export function restoreFortressStageByMap(fromSave: Record<string, number> | und
 
 export function createSiegeState(baseLevel: number, startStage = 1): SiegeState {
   const stage = Math.max(1, Math.floor(startStage));
+  const boss = isFortressBossStage(stage); // 보스 단계로 직행(재입장 이어서)이어도 트레일러부터
   return {
     active: true,
     stage,
     waveIndex: 0,
-    wavesInStage: wavesForStage(stage),
-    toSpawn: monstersForWave(stage),
+    wavesInStage: boss ? 1 : wavesForStage(stage),
+    toSpawn: boss ? 0 : monstersForWave(stage),
     spawnTimer: 0.8, // 진입 직후 약간의 준비 시간
-    clearTimer: 0,
+    clearTimer: boss ? 1.6 : 0, // 보스 단계는 짧은 정적 후 트레일러
     aliveIds: [],
     baseLevel: Math.max(1, Math.floor(baseLevel)),
     spawnCursor: 0,
+    bossPhase: boss ? "pending" : "none",
+    bossRuntime: null,
   };
 }
 
@@ -83,6 +94,11 @@ export interface SiegeContext {
   grantStageReward(stage: number, tomes: number, items: Partial<Record<ItemId, number>>): void;
   showMessage(text: string): void;
   renderHud(): void;
+  startBossTrailer(stage: number): void; // 보스 등장 트레일러(컷씬) 시작 — 소품·오버레이는 main 이 배선
+  spawnSiegeBoss(stage: number): string | null; // 보스 몬스터 스폰 → id
+  isCutsceneActive(): boolean; // 트레일러 재생 중 여부(끝나면 보스 스폰)
+  isPanelOpen(): boolean; // 패널 열림 = 보스 패턴 일시정지
+  bossPattern: FortressBossPatternContext; // 텔레그래프 패턴 시전 컨텍스트(중앙 필드로 연결)
 }
 
 // 4 갈래 가장자리 스폰 지점(중앙 플레이어로 수렴). 스폰 순번으로 통로를 돌려 고르게.
@@ -113,6 +129,26 @@ export function updateSiege(state: SiegeState, context: SiegeContext, delta: num
     return;
   }
 
+  // ── 5단계 보스 스테이지 흐름: pending(트레일러 시작) → trailer(컷씬 대기) → fight(패턴 전투) ──
+  if (state.bossPhase === "pending") {
+    context.startBossTrailer(state.stage);
+    state.bossPhase = "trailer";
+    return;
+  }
+  if (state.bossPhase === "trailer") {
+    if (context.isCutsceneActive()) return; // 트레일러(스킵 포함) 종료를 기다렸다가 스폰
+    const id = context.spawnSiegeBoss(state.stage);
+    if (!id) { state.bossPhase = "none"; return; } // 스폰 실패 안전망 — 일반 단계로 강등(멈춤 방지)
+    state.aliveIds.push(id);
+    state.bossRuntime = createFortressBossRuntime(id, state.stage, fortressBossStats(state.baseLevel, state.stage).attackBase);
+    state.bossPhase = "fight";
+    context.renderHud();
+    return;
+  }
+  if (state.bossPhase === "fight" && state.bossRuntime && state.aliveIds.length > 0) {
+    updateFortressBossPatterns(state.bossRuntime, context.bossPattern, delta, context.isPanelOpen());
+  }
+
   // 스폰 진행
   if (state.toSpawn > 0) {
     state.spawnTimer -= delta;
@@ -135,11 +171,16 @@ export function updateSiege(state: SiegeState, context: SiegeContext, delta: num
     if (lastWave) {
       // 단계 클리어 → 보상 + 다음 단계
       const tomes = tomesForStage(state.stage);
+      const bossDown = state.bossPhase === "fight";
       context.grantStageReward(state.stage, tomes, itemsForStage(state.stage));
-      context.showMessage(`🏰 ${state.stage}단계 클리어! 전직의서 ${tomes}개 + 보상 획득. 잠시 후 더 강한 다음 단계가 시작됩니다…`);
+      context.showMessage(bossDown
+        ? `👑 ${fortressBossConceptForStage(state.stage).name} 격파! ${state.stage}단계 클리어 — 전직의서 ${tomes}개 + 보스 보상 획득. 잠시 후 다음 단계…`
+        : `🏰 ${state.stage}단계 클리어! 전직의서 ${tomes}개 + 보상 획득. 잠시 후 더 강한 다음 단계가 시작됩니다…`);
       state.stage += 1;
       state.waveIndex = 0;
-      state.wavesInStage = wavesForStage(state.stage);
+      state.wavesInStage = isFortressBossStage(state.stage) ? 1 : wavesForStage(state.stage);
+      state.bossPhase = isFortressBossStage(state.stage) ? "pending" : "none";
+      state.bossRuntime = null;
       state.clearTimer = SIEGE_WAVE_CLEAR_DELAY + 2;
     } else {
       context.showMessage(`웨이브 클리어! (${state.waveIndex + 1}/${state.wavesInStage}) 다음 웨이브 대비…`);
@@ -151,6 +192,12 @@ export function updateSiege(state: SiegeState, context: SiegeContext, delta: num
 }
 
 function beginNextWave(state: SiegeState, context: SiegeContext) {
+  if (state.bossPhase !== "none") { // 보스 단계 — 웨이브 스폰 대신 트레일러 흐름(pending 핸들러)으로
+    state.toSpawn = 0;
+    context.showMessage(`👑 ${state.stage}단계 — ${fortressBossConceptForStage(state.stage).name}이(가) 요새에 강림합니다!`);
+    context.renderHud();
+    return;
+  }
   state.toSpawn = monstersForWave(state.stage);
   state.spawnTimer = 0.3;
   if (state.waveIndex === 0) context.showMessage(`🏰 ${state.stage}단계 도전 시작! (웨이브 ${state.wavesInStage}개 · 정예 ${Math.round(eliteChance(state.stage) * 100)}%) 중앙을 사수하세요.`); // 새 단계 알림 + 정예 출현률 텔레그래프(#3)

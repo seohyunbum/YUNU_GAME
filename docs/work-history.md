@@ -1573,3 +1573,18 @@
   ①모듈 import 로 강제 발동 ②startedAt 을 setInterval 로 핀(원하는 t 고정) 후 캡처(scripts/_tmp_intro_shots.mjs
   패턴). 자동 킥 경로는 navigator.webdriver 게이트라 E2E 에선 안 돎(의도) — Navigator.prototype
   defineProperty 스푸핑으로만 우회 가능하나 저FPS 부팅 레이스로 관측이 불안정하니 강제 발동을 쓸 것.
+- 몬스터 요새 5단계 보스 시스템(사용자 요청: 5단계마다 일리아식 텔레그래프 패턴 보스 + 단계 비례 능력치 +
+  보스별 트레일러 후 등장): 컨셉 6종 순환(5=전쟁군주 오크·10=삼두 히드라·15=파괴왕 오우거·20=죽음의 기사·
+  25=그림자 어쌔신·30=대주술사, 35부터 2주차 가중). 리프 우선 설계로 main 은 배선만(9444줄 — 오히려 2줄 감소):
+  ①fortressBossVisuals(신규 leaf) — 모델 팩토리 6종+공유 머티리얼+idle 애니(무할당, userData 계약), sharedAsset
+  태그로 dispose 보호 ②fortressBoss(신규 leaf) — 컨셉 데이터·능력치 스케일(monsterStatsFromLevel×배율×주차)·
+  패턴 엔진(컨셉당 3패턴, pending 다단 스텝, 패널 일시정지 시 타이머 시프트) ③fortressSiege — bossPhase
+  상태기(pending→trailer→fight), 보스 단계=웨이브 1개·스폰 실패 시 일반 강등 안전망, 보상 보너스(전직의서+2·
+  다이아 등) ④illiaBoss — 컷씬 kind "fortressBoss"(8s, themeColor 파라미터, 컨셉 색 앰비언스, 3박자 카메라)
+  ⑤보스 실체는 기존 요새 몬스터 위에 오버레이(베이스 파츠 숨김+보스 모델 add — 전투/사망/드랍/kill카운트
+  경로 재사용, walkCycle 은 헛돌지만 무해) ⑥텔레그래프는 중앙 필드 재사용(active 조건에 fortressSiege 추가,
+  예고시간·데미지에 난이도 배율, leaveCave 공통 경로에 필드 청소 추가) ⑦보스바 — siegeBossMaxHp 분모,
+  숨김 분기 no-op 가드(요새 매 프레임 호출 대비). fortress-boss-test 신설(컨셉 순환·스케일·상태기 흐름·
+  패턴 spec 유효성·보상 골든) + verify 체인 등록. 전 테스트 스위트 녹색, 보스 6종 그리드·트레일러 헤드리스
+  실측(startedAt 핀 패턴 재사용). 주의: main onFinish 의 else 폴백은 unseal(저장 confirm) — 새 컷씬 kind 는
+  반드시 no-op 분기에 명시하지 않으면 요새에서 일리아 저장 다이얼로그가 뜬다(이번에 intro 분기에 합류시킴).

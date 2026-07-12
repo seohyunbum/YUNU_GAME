@@ -1,8 +1,10 @@
 import * as THREE from "three";
-import { CAVE_END_Z, CAVE_START_Z, CAVE_WIDTH } from "./constants";
+import { ARENA_CENTER_Z, ARENA_HALF, CAVE_END_Z, CAVE_START_Z, CAVE_WIDTH } from "./constants";
 import { spawnGroundShockwave, type CombatEffectContext } from "./combatEffects";
 import { animatePredatorAttackMotion, triggerPredatorAttackMotion } from "./predatorAi";
 import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
+import { fortressBossStats } from "./fortressBoss";
+import { createFortressBossModel } from "./fortressBossVisuals";
 import { monsterStatsFromLevel, type MonsterId } from "./monsters";
 import type { Region } from "./regions";
 import type { PredatorKind, WorldObject } from "./types";
@@ -38,6 +40,29 @@ export function spawnFortressMonster(deps: FortressSpawnDeps, position: THREE.Ve
     monster.root.scale.multiplyScalar(2);
     applyMonsterDifficulty(monster, deps.monsterDifficulty()); // 보스 raw 오버라이드 위에 난이도 1회 적용(비보스는 applyMonsterDef 가 이미 보정)
   }
+  deps.refreshSpatialObject(monster);
+  return monster;
+}
+
+// 시즈 5단계 보스 스폰 — 요새 몬스터를 베이스로 능력치·외형을 보스 컨셉으로 덧씌운다(전투/사망/보상 경로는 기존 몬스터와 동일).
+// 기존 저폴리 모델 파츠는 숨김(walkCycle 은 보존돼 무해하게 헛돎), 보스 모델은 자체 idle 애니(animateFortressBossModel — 시즈 틱이 구동).
+export function spawnSiegeBossMonster(deps: FortressSpawnDeps, stage: number, baseLevel: number): WorldObject | null {
+  const monster = spawnFortressMonster(deps, new THREE.Vector3(0, 0, ARENA_CENTER_Z - ARENA_HALF + 4.5), false); // 북쪽 게이트 앞 등장
+  if (!monster) return null;
+  const { level, hp, armor, attackBase, concept } = fortressBossStats(baseLevel, stage);
+  for (const child of monster.root.children) child.visible = false; // 베이스 몬스터 외형 숨김
+  const model = createFortressBossModel(concept.key);
+  model.scale.setScalar(concept.scale / Math.max(0.001, monster.root.scale.x)); // 베이스 스케일 상쇄 — 컨셉 스케일 절대값 유지
+  monster.root.add(model);
+  monster.root.userData.fortressBossOverlay = model; // 프레임 idle 애니 참조(시즈 보스 패턴 틱이 구동)
+  monster.name = concept.name;
+  monster.hp = hp; monster.armor = armor; monster.attackDamage = attackBase;
+  monster.monsterLevel = level; monster.fortressBoss = true; monster.fortressLevel = level;
+  monster.attackRange = 44; // 아레나 전역 어그로
+  monster.collisionRadius = Math.max(monster.collisionRadius ?? 1, 1.6 * concept.scale);
+  monster.collisionHeight = Math.max(monster.collisionHeight ?? 1.5, 2.6 * concept.scale);
+  applyMonsterDifficulty(monster, deps.monsterDifficulty()); // raw 오버라이드 뒤 난이도 1회 보정
+  monster.siegeBossMaxHp = monster.hp; // 체력바 분모 — 난이도 반영 최종값 고정
   deps.refreshSpatialObject(monster);
   return monster;
 }
