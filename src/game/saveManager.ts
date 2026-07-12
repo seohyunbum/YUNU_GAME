@@ -81,6 +81,7 @@ export interface SaveDataSnapshot {
     spirits: SpiritCollection;
     runeSlots: number;
     equippedRunes: (ItemId | null)[];
+    equippedDragonGear: { gloves: boolean; boots: boolean; cloak: boolean; crown: boolean };
     shieldDurabilityUsed: number;
     ironGuardUntil: number;
     locationMode: LocationMode;
@@ -279,6 +280,7 @@ export function createSaveData(snapshot: SaveDataSnapshot): SavedGame {
       spirits: { owned: snapshot.player.spirits.owned.map((s) => ({ ...s })), equippedId: snapshot.player.spirits.equippedId },
       runeSlots: snapshot.player.runeSlots,
       equippedRunes: [...snapshot.player.equippedRunes],
+      equippedDragonGear: { ...snapshot.player.equippedDragonGear },
       shieldDurabilityUsed: snapshot.player.shieldDurabilityUsed,
       ironGuardRemainingMs: Math.max(0, snapshot.player.ironGuardUntil - snapshot.nowMs),
       locationMode: snapshot.player.locationMode,

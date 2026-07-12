@@ -18,7 +18,7 @@ export interface DragonGearWorn {
 
 export const NO_DRAGON_GEAR: DragonGearWorn = { gloves: false, boots: false, cloak: false, crown: false };
 
-// 보유 여부 → 착용 상태로 해석(자동 착용).
+// 보유 여부 → 착용 상태로 해석. 구세이브 마이그레이션 백필 전용(보유=착용, 기존 버프 유실 방지).
 export function resolveDragonGear(has: (item: ItemId) => boolean): DragonGearWorn {
   return {
     gloves: has("dragon_gloves"),
@@ -27,6 +27,24 @@ export function resolveDragonGear(has: (item: ItemId) => boolean): DragonGearWor
     crown: has("dragon_crown"),
   };
 }
+
+// 착용 의도(equipped) ∩ 보유(has) → 실제 착용(worn). 목걸이처럼 K창에서 부위별로 켜고 끄되, 보유하지 않으면 벗겨진다.
+export function resolveWornDragonGear(equipped: DragonGearWorn, has: (item: ItemId) => boolean): DragonGearWorn {
+  return {
+    gloves: equipped.gloves && has("dragon_gloves"),
+    boots: equipped.boots && has("dragon_boots"),
+    cloak: equipped.cloak && has("dragon_cloak"),
+    crown: equipped.crown && has("dragon_crown"),
+  };
+}
+
+// 부위 id ↔ DragonGearWorn 키 매핑 — 캐릭터 창 토글 콜백이 사용.
+export const DRAGON_GEAR_SLOT: Record<string, keyof DragonGearWorn> = {
+  dragon_gloves: "gloves",
+  dragon_boots: "boots",
+  dragon_cloak: "cloak",
+  dragon_crown: "crown",
+};
 
 // ── 평탄(flat) 보너스 — 이미 합연산이라 그대로 더하면 됨 ──
 export function dragonGearAttackBonus(w: DragonGearWorn): number { return w.gloves ? 10 : 0; }

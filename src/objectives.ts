@@ -49,6 +49,9 @@ export interface ObjectiveSnapshot {
   classWeaponCount: number;
   jobTier: number;
   hasBasicArmor: boolean;
+  hasArmorEquipped: boolean; // 방어구(갑옷) 착용 여부 — 갑옷 착용 퀘스트 판정
+  hasShieldEquipped: boolean; // 방패 착용 여부 — 방패 착용 퀘스트 판정
+  dragonGearEquippedCount: number; // 실제 착용 중인 용 장비 부위 수(0~4) — 용 장비 착용 퀘스트 판정
   hasSmelter: boolean;
   trainingTotal: number;
   trainingKindsDone: number;
@@ -124,7 +127,7 @@ function checkQuest(id: string, done: (snapshot: ObjectiveSnapshot) => boolean, 
 }
 
 const SHOVEL_ITEMS: ItemId[] = ["wood_shovel", "stone_shovel", "copper_shovel", "iron_shovel", "gold_shovel", "diamond_shovel"];
-const DRAGON_GEAR_ITEMS: ItemId[] = ["dragon_gloves", "dragon_boots", "dragon_cloak", "dragon_crown"];
+const SHIELD_ITEMS: ItemId[] = ["iron_shield", "sharp_obsidian_shield"];
 
 // 25단계 초보자 가이드 — 이동·채집·제작·사냥·광질·동굴·제련·전투·회복·지도·저장·마을·성장·직업무기 순.
 const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
@@ -176,6 +179,8 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   countQuest("hunt_predators", 3, (s) => s.predatorKills, "야생 몬스터 3마리 처치하기", "거미나 늑대 같은 야생 몬스터가 부르르 떨면 공격 신호입니다. 옆으로 피했다가 반격해 보세요.", { experience: 240, items: { meat: 6 }, label: "경험치 240 + 고기 6개" }),
   countQuest("hunt_30", 30, (s) => s.predatorKills, "누적 몬스터 30마리 처치", "야생 몬스터를 꾸준히 사냥해 누적 30마리를 처치하세요. 사냥은 경험치와 재료를 함께 줍니다.", { experience: 250, items: { medkit: 2 }, label: "경험치 250 + 구급상자 2개" }),
   checkQuest("craft_basic_armor", (s) => s.hasBasicArmor, "초급 방어구 만들기", "제작대에서 가죽 8개로 가죽 갑옷을 만들 수 있습니다. 방어력이 오르면 거미나 늑대의 피해를 더 잘 버팁니다.", { experience: 270, items: { leather: 6, iron: 3 }, label: "경험치 270 + 가죽 6개 + 철 3개" }),
+  checkQuest("equip_armor", (s) => s.hasArmorEquipped, "방어구 착용하기", "만든 갑옷은 자동으로 입혀지지 않아요 — K로 캐릭터 창을 열고 '방어구' 칸에서 갑옷을 골라 착용하세요. 착용해야 방어력이 실제로 오릅니다. 더 좋은 갑옷을 만들면 다시 골라 바꿀 수 있어요.", { experience: 275, items: { iron: 4, medkit: 2 }, label: "경험치 275 + 철 4개 + 구급상자 2개" }),
+  { ...checkQuest("equip_shield", (s) => s.hasShieldEquipped, "방패 착용하기", "방패는 방어력을 더 올려주고, 탱커는 공격을 흘려막습니다. K로 캐릭터 창을 열고 '방패' 칸에서 방패를 골라 착용하세요. 철 방패는 제작대에서 만들거나 마을 상점에서 구할 수 있어요.", { experience: 278, items: { iron: 5, medkit: 2 }, label: "경험치 278 + 철 5개 + 구급상자 2개" }), available: (s) => s.hasShieldEquipped || SHIELD_ITEMS.some((i) => s.countItem(i) > 0) }, // 방패를 보유(또는 이미 착용)했을 때만 노출 — 방패 없는 직업은 구했을 때 등장
   countQuest("craft_bed", 1, (s) => s.countItem("bed"), "침대 만들기", "제작대에서 가죽 3 + 나무 3 + 막대기 3으로 침대를 만드세요. 설치한 침대에서 우클릭으로 자면 체력이 회복됩니다.", { experience: 280, items: { leather: 4 }, label: "경험치 280 + 가죽 4개" }),
   // ── 5장. 세상 익히기 ──
   checkQuest("open_map", (s) => s.mapOpened, "지도 열어보기", "M 키로 지역 지도를 엽니다. 지역별 권장 레벨, 보스 위치, 원정 맵 텔레포트를 확인할 수 있습니다.", { experience: 290, items: { meat: 4 }, label: "경험치 290 + 고기 4개" }),
@@ -228,12 +233,12 @@ const RAW_TUTORIAL_STEPS: readonly TutorialStep[] = [
   countQuest("hunt_fortress_boss_3", 3, (s) => s.fortressBossKills, "몬스터 동굴 보스 3회 처치", "동굴 보스는 흑요석과 전직의서를 떨굽니다. 3번 처치해 최상급 장비 재료와 전직 재료를 든든히 모으세요.", { experience: 1850, items: { advanced_medkit: 4, refined_diamond: 2 }, label: "경험치 1850 + 고급 구급상자 4개 + 제련된 다이아몬드 2개" }),
   countQuest("hunt_300", 300, (s) => s.predatorKills, "누적 몬스터 300마리 처치", "200마리를 넘어 300마리! 60레벨대 베테랑 사냥꾼의 길입니다. 요새·동굴·들판 어디서 잡든 누적됩니다.", { experience: 1900, items: { refined_diamond: 3, advanced_medkit: 3 }, label: "경험치 1900 + 제련된 다이아몬드 3개 + 고급 구급상자 3개" }),
   // ── 65 레벨대 — 용 장비 입문(용 보스 사냥으로 용 재료 확보) ──
-  checkQuest("craft_dragon_gear_one", (s) => DRAGON_GEAR_ITEMS.some((i) => s.countItem(i) > 0), "용 장비 하나 만들기 (권장 Lv 65)", "용 장비(용의 장갑·부츠·망토·왕관, 최고등급)는 각각 용 뿔 1 + 용의 꼬리 3 + 용의 비늘 6으로 확장 제작대에서만 만듭니다. 용 재료는 용 보스를 잡아 모으세요. 먼저 한 부위를 완성해 보세요 — 가방에 있으면 자동으로 착용됩니다.", { experience: 1950, items: { advanced_medkit: 3, refined_diamond: 2 }, label: "경험치 1950 + 고급 구급상자 3개 + 제련된 다이아몬드 2개" }),
+  checkQuest("craft_dragon_gear_one", (s) => s.dragonGearEquippedCount > 0, "용 장비 하나 만들어 착용하기 (권장 Lv 65)", "용 장비(용의 장갑·부츠·망토·왕관, 최고등급)는 각각 용 뿔 1 + 용의 꼬리 3 + 용의 비늘 6으로 확장 제작대에서만 만듭니다. 용 재료는 용 보스를 잡아 모으세요. 먼저 한 부위를 완성한 뒤, K로 캐릭터 창을 열어 '용 장비'에서 그 부위를 눌러 착용하세요 — 착용해야 완료됩니다.", { experience: 1950, items: { advanced_medkit: 3, refined_diamond: 2 }, label: "경험치 1950 + 고급 구급상자 3개 + 제련된 다이아몬드 2개" }),
   countQuest("hunt_400", 400, (s) => s.predatorKills, "누적 몬스터 400마리 처치", "누적 400마리 — 용의 땅을 넘보는 사냥꾼입니다(권장 Lv 65). 원정 맵의 강한 몬스터도 꾸준히 잡아 누적하세요.", { experience: 1975, items: { refined_diamond: 3, advanced_medkit: 3, sharp_obsidian: 1 }, label: "경험치 1975 + 제련된 다이아몬드 3개 + 고급 구급상자 3개 + 날카로운 흑요석 1개" }),
   checkQuest("advance_job_tier3", (s) => s.jobTier >= 3, "3차 전직 달성", "'상급 전직의 각서'(전직의 표식 5 + 전직의 각서 1 + 용의 꼬리 1 + 흑요석 7)를 만들고, 레벨 70 이상에서 들고 사용하면 3차 전직합니다. 용의 꼬리는 용 보스가 떨어뜨립니다. 최고 칭호와 최강의 스탯·쿨다운, 가장 멋진 외형을 얻습니다!", { experience: 2000, items: { sharp_obsidian: 2, advanced_medkit: 5 }, label: "경험치 2000 + 날카로운 흑요석 2개 + 고급 구급상자 5개" }),
   countQuest("hunt_500", 500, (s) => s.predatorKills, "누적 몬스터 500마리 처치", "누적 500마리! 3차 전직 전후의 정예 사냥꾼입니다(권장 Lv 70). 고레벨 필드·요새 몬스터가 경험치를 크게 줍니다.", { experience: 2200, items: { sharp_obsidian: 2, advanced_medkit: 4 }, label: "경험치 2200 + 날카로운 흑요석 2개 + 고급 구급상자 4개" }),
   // ── 75 레벨대 — 용 장비 풀세트(최종 졸업 과제) ──
-  countQuest("craft_dragon_gear_all", 4, (s) => DRAGON_GEAR_ITEMS.filter((i) => s.countItem(i) > 0).length, "용 장비 4종 모두 만들기 (권장 Lv 75)", "용의 장갑·부츠·망토·왕관 4종을 모두 제작하세요(각 용 뿔 1 + 꼬리 3 + 비늘 6). 4부위를 전부 갖추면 공격·공속·이동·방어·체력/마나·회복·쿨다운까지 모든 면에서 최강이 됩니다. 진정한 용살자의 증표입니다!", { experience: 2400, items: { sharp_obsidian: 4, advanced_medkit: 6 }, label: "경험치 2400 + 날카로운 흑요석 4개 + 고급 구급상자 6개" }),
+  countQuest("craft_dragon_gear_all", 4, (s) => s.dragonGearEquippedCount, "용 장비 4종 모두 착용하기 (권장 Lv 75)", "용의 장갑·부츠·망토·왕관 4종을 모두 제작하고(각 용 뿔 1 + 꼬리 3 + 비늘 6), K로 캐릭터 창을 열어 '용 장비'에서 네 부위를 모두 착용하세요. 4부위를 전부 착용하면 공격·공속·이동·방어·체력/마나·회복·쿨다운까지 모든 면에서 최강이 됩니다. 진정한 용살자의 증표입니다!", { experience: 2400, items: { sharp_obsidian: 4, advanced_medkit: 6 }, label: "경험치 2400 + 날카로운 흑요석 4개 + 고급 구급상자 6개" }),
   countQuest("hunt_600", 600, (s) => s.predatorKills, "누적 몬스터 600마리 처치", "누적 600마리 — 용살자에 버금가는 사냥 경력입니다(권장 Lv 75). 용 보스·원정 몬스터를 잡으며 누적하세요.", { experience: 2600, items: { sharp_obsidian: 2, refined_diamond: 3, advanced_medkit: 4 }, label: "경험치 2600 + 날카로운 흑요석 2개 + 제련된 다이아몬드 3개 + 고급 구급상자 4개" }),
   // ── 100 레벨 — 4차(초월) 전직: 진정한 정점 ──
   countQuest("hunt_700", 700, (s) => s.predatorKills, "누적 몬스터 700마리 처치", "누적 700마리! 전설의 사냥꾼입니다(권장 Lv 90+). 여기까지 왔다면 이 세계의 어떤 몬스터도 두렵지 않습니다.", { experience: 2900, items: { sharp_obsidian: 3, refined_diamond: 4, advanced_medkit: 5 }, label: "경험치 2900 + 날카로운 흑요석 3개 + 제련된 다이아몬드 4개 + 고급 구급상자 5개" }),

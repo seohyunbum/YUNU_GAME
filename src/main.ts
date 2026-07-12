@@ -303,9 +303,9 @@ import { useHotbarItem, type HotbarUseContext } from "./game/hotbarUse";
 import { isStorageSlotSource } from "./game/inventoryCapacity";
 import { canReceiveRecipeOutput } from "./game/inventoryCapacity";
 import { buildRecipeGuideEntriesForStations, ingredientCounts, itemsUsing, maxCraftable } from "./game/recipeGuide";
-import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
+import { consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
 import { NECKLACE_IDS, necklaceAttackBonus, necklaceDefenseBonus, necklaceManaRegenBonus } from "./game/necklace";
-import { DRAGON_GEAR_IDS, NO_DRAGON_GEAR, resolveDragonGear, accessoryAttackSpeedMult, accessorySkillCooldownMult, additiveMoveSpeedMult, dragonGearAttackBonus, dragonGearDefenseBonus, dragonGearMaxHpBonus, dragonGearMaxManaBonus, dragonGearHealthRegenBonus, dragonGearManaRegenBonus, type DragonGearWorn } from "./game/dragonGear";
+import { DRAGON_GEAR_IDS, DRAGON_GEAR_SLOT, NO_DRAGON_GEAR, resolveDragonGear, resolveWornDragonGear, accessoryAttackSpeedMult, accessorySkillCooldownMult, additiveMoveSpeedMult, dragonGearAttackBonus, dragonGearDefenseBonus, dragonGearMaxHpBonus, dragonGearMaxManaBonus, dragonGearHealthRegenBonus, dragonGearManaRegenBonus, type DragonGearWorn } from "./game/dragonGear";
 import { aggregateRuneBonuses, allRuneStoneEntries, clampRuneSlotCount, normalizeEquippedRunes, runeCombineOutput, runeHexColor, runeNextUnlockCost, runeShortLabel, runeTierOf, runeTypeOf, RUNE_BASE_SLOTS, RUNE_COMBINE_COST, RUNE_KEY, RUNE_MAX_SLOTS, NO_RUNE_BONUSES, type RuneBonuses } from "./game/runeStones";
 import { renderRunestonePanelView } from "./ui/runestonePanel";
 import { createDragonGauntletFirstPerson } from "./game/accessoryVisuals";
@@ -696,7 +696,8 @@ class WildernessGame {
   private spiritManagerOpen = false; // 캐릭터창 정령 보관함 팝업(팝업내 팝업) 열림 — 패널 재렌더에도 유지
   private spiritCompanion: THREE.Group | null = null; // 장착 정령 동행체(왼쪽 어깨 페어리 3D). 장착 시 생성, 해제/등급변경 시 재생성.
   private spiritCompanionGrade: SpiritGrade | null = null;
-  private dragonGear: DragonGearWorn = NO_DRAGON_GEAR; // 용 장비 4종 착용 상태(보유=착용). refreshDragonGear() 로 인벤토리에서 동기화.
+  private dragonGear: DragonGearWorn = NO_DRAGON_GEAR; // 실제 착용(= 착용 의도 ∩ 보유). refreshDragonGear() 로 동기화 — 스탯·비주얼·파티는 이것만 읽는다.
+  private dragonGearEquipped: DragonGearWorn = NO_DRAGON_GEAR; // 부위별 착용 의도(K창 토글, 세이브 영속). 보유하지 않으면 벗겨진다.
   private runeSlots = RUNE_BASE_SLOTS; // 마석 해금 슬롯 수(기본 2, 최대 14). 열쇠로 해금.
   private equippedRunes: (ItemId | null)[] = new Array(RUNE_MAX_SLOTS).fill(null); // 마석 슬롯별 장착(길이 14 고정, 잠긴/빈칸 null)
   private runeBonuses: RuneBonuses = NO_RUNE_BONUSES; // 장착 마석 합산 버프 캐시 — refreshRuneBonuses 로 갱신, 스탯식이 1항씩 읽음
@@ -5248,7 +5249,7 @@ class WildernessGame {
 
   // 인벤토리 변동/로드 시 용 장비 착용 상태 동기화 + 최대 체력 재계산 + (변경 시에만) 외관 갱신.
   private refreshDragonGear() {
-    const next = resolveDragonGear((id) => this.countItem(id) > 0);
+    const next = resolveWornDragonGear(this.dragonGearEquipped, (id) => this.countItem(id) > 0);
     const changed = next.gloves !== this.dragonGear.gloves || next.boots !== this.dragonGear.boots || next.cloak !== this.dragonGear.cloak || next.crown !== this.dragonGear.crown;
     this.dragonGear = next;
     this.maxHealth = Math.max(this.maxHealth, this.maxHealthForLevel()); // 부츠 +10 반영. max 로 합산 — 저장된 더 높은 maxHealth(로드 복원값)를 덮어쓰지 않음(세이브 라운드트립 보존)
@@ -6348,6 +6349,7 @@ class WildernessGame {
         spirits: this.spirits,
         runeSlots: this.runeSlots,
         equippedRunes: this.equippedRunes,
+        equippedDragonGear: this.dragonGearEquipped,
         permanentNecklace: this.permanentNecklace,
         shieldDurabilityUsed: this.shieldDurabilityUsed,
         ironGuardUntil: this.ironGuardUntil,
@@ -6431,7 +6433,8 @@ class WildernessGame {
     this.refreshHandColor();
     this.maxMana = save.player.maxMana ?? BASE_MAX_MANA;
     this.mana = Math.min(save.player.mana ?? this.maxMana, this.maxMana);
-    this.refreshDragonGear(); // 인벤토리 복원 후 용 장비 착용 동기화(maxHealth·manaCap 반영)
+    this.dragonGearEquipped = save.player.equippedDragonGear ?? resolveDragonGear((id) => this.countItem(id) > 0); // 착용 의도 복원. 구세이브(필드 없음)는 보유=착용으로 백필 — 기존 버프 유실 방지
+    this.refreshDragonGear(); // 인벤토리·착용 의도 복원 후 용 장비 실착용 동기화(maxHealth·manaCap 반영)
     this.classSkillCooldownUntil = performance.now() + (save.player.classSkillCooldownRemainingMs ?? 0);
     this.secondSkillCooldownUntil = performance.now() + (save.player.secondSkillCooldownRemainingMs ?? 0); resetSecondSkillEffects(this.skillBuffs);
     this.thirdSkillCooldownUntil = performance.now() + (save.player.thirdSkillCooldownRemainingMs ?? 0);
@@ -6576,7 +6579,7 @@ class WildernessGame {
     this.maxHealth = BASE_PLAYER_MAX_HEALTH;
     this.maxMana = BASE_MAX_MANA;
     this.mana = this.maxMana;
-    this.dragonGear = NO_DRAGON_GEAR; this.refreshDragonGearVisuals(); // 신규 게임: 용 장비 미보유 — 1인칭 건틀릿 숨김(이전 세션 잔상 방지)
+    this.dragonGear = NO_DRAGON_GEAR; this.dragonGearEquipped = NO_DRAGON_GEAR; this.refreshDragonGearVisuals(); // 신규 게임: 용 장비 미보유·착용의도 초기화 — 1인칭 건틀릿 숨김(이전 세션 잔상 방지)
     this.jobTier = 0;
     this.classSkillCooldownUntil = 0;
     this.secondSkillCooldownUntil = 0; this.thirdSkillCooldownUntil = 0; this.fourthSkillCooldownUntil = 0; resetSecondSkillEffects(this.skillBuffs);
@@ -7025,6 +7028,7 @@ class WildernessGame {
       ownedSpiritCount: this.spirits.owned.length, hasSpiritEquipped: Boolean(equippedSpirit(this.spirits)), // 정령 소환·장착 퀘스트 판정
       classWeaponCount: CLASS_WEAPON_QUESTS[this.playerClass].items.reduce((sum, item) => sum + this.countItem(item), 0),
       hasBasicArmor: Boolean(this.equippedArmor) || ["leather_armor", "copper_armor", "iron_armor"].some((item) => this.countItem(item as ItemId) > 0),
+      hasArmorEquipped: Boolean(this.equippedArmor), hasShieldEquipped: Boolean(this.equippedShield), dragonGearEquippedCount: [this.dragonGear.gloves, this.dragonGear.boots, this.dragonGear.cloak, this.dragonGear.crown].filter(Boolean).length, // 착용 퀘스트 판정(용 장비는 실제 착용 수)
       hasSmelter: this.locationMode === "overworld" && this.hasWorldObjectType("smelter", "specialSmelter"), // 내가 설치한 제련대만 인정 — 대장간 내부 무료 제련대(house)는 제외해 '입장만으로 완료' 방지. 인벤토리 보유는 quest 의 countItem("smelter") 가 따로 인정(교환 즉시 완료)
       trainingTotal: this.trainingStats.hp + this.trainingStats.attack + this.trainingStats.armor + this.trainingStats.mana,
       trainingKindsDone: [this.trainingStats.hp, this.trainingStats.attack, this.trainingStats.armor, this.trainingStats.mana].filter((count) => count > 0).length,
@@ -7074,11 +7078,13 @@ class WildernessGame {
         weaponItem: selected && WEAPON_DAMAGE[selected] !== undefined ? selected : null,
         armorItem: this.equippedArmor, shieldItem: this.equippedShield, necklaceItem: this.equippedNecklace,
         ownedNecklaces: NECKLACE_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedNecklace === id })),
+        ownedArmors: Object.keys(ARMOR_VALUE).filter((id) => this.countItem(id as ItemId) > 0).sort((a, b) => (ARMOR_VALUE[b] ?? 0) - (ARMOR_VALUE[a] ?? 0)).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedArmor === id })),
+        ownedShields: Object.keys(this.itemCounts()).filter((id) => isShieldItem(id as ItemId)).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.equippedShield === id })),
         equippedSpiritLabel: (() => { const e = equippedSpirit(this.spirits); return e ? `${spiritGradeDef(e.grade).emoji} ${spiritGradeDef(e.grade).label} Lv${e.level} (공+${spiritAttackBonus(e)}/방+${spiritDefenseBonus(e)})` : "없음"; })(),
         equippedSpiritGradeIndex: (() => { const e = equippedSpirit(this.spirits); return e ? spiritGradeIndex(e.grade) : -1; })(),
         spirits: this.spirits.owned.map((s) => ({ id: s.id, label: spiritGradeDef(s.grade).label, emoji: spiritGradeDef(s.grade).emoji, color: spiritGradeDef(s.grade).color, grade: s.grade, gradeIndex: spiritGradeIndex(s.grade), attack: spiritAttackBonus(s), defense: spiritDefenseBonus(s), level: s.level, equipped: this.spirits.equippedId === s.id })).sort((a, b) => (b.equipped ? 1 : 0) - (a.equipped ? 1 : 0) || b.gradeIndex - a.gradeIndex || b.level - a.level), // 장착 정령 먼저, 다음 등급↓·레벨↓ 순
         spiritManagerOpen: this.spiritManagerOpen, canGiftSpirits: partyMemberNames().length > 0,
-        dragonGear: DRAGON_GEAR_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id })),
+        dragonGear: DRAGON_GEAR_IDS.filter((id) => this.countItem(id) > 0).map((id) => ({ item: id, name: ITEM_NAMES[id] ?? id, equipped: this.dragonGear[DRAGON_GEAR_SLOT[id]] })),
         craftStatPoints: this.craftStatPoints, alloc: { ...this.craftStatAlloc },
         monstersKilled: this.tutorialSignals.predatorKills, bestFortressStageEasy: this.bestFortress.easy.stage, bestFortressStageHard: this.bestFortress.hard.stage,
         leaderboards: this.leaderboards, myNickname: this.nickname,
@@ -7094,6 +7100,9 @@ class WildernessGame {
           this.renderPanel();
         },
         onEquipNecklace: (item) => { this.equippedNecklace = (item as ItemId | null) ?? null; this.playTone(880, 0.1, "triangle", 0.03); this.renderHud(); this.renderPanel(); },
+        onEquipArmor: (item) => { this.equippedArmor = (item as ItemId | null) ?? null; if (this.mirrorAvatar) this.refreshMirrorAvatar(); this.playTone(760, 0.1, "triangle", 0.03); this.renderHud(); this.renderPanel(); }, // 방어구 티어가 3인칭 아바타 외형을 바꿈
+        onEquipShield: (item) => { const next = (item as ItemId | null) ?? null; if (next !== this.equippedShield) this.shieldDurabilityUsed = 0; this.equippedShield = next; this.playTone(700, 0.1, "triangle", 0.03); this.renderHud(); this.renderPanel(); },
+        onEquipDragonGear: (item) => { const slot = DRAGON_GEAR_SLOT[item]; if (!slot) return; this.dragonGearEquipped = { ...this.dragonGearEquipped, [slot]: !this.dragonGearEquipped[slot] }; this.refreshDragonGear(); this.maxHealth = Math.max(1, this.maxHealthForLevel()); this.health = Math.min(this.health, this.maxHealth); this.mana = Math.min(this.mana, this.manaCap()); this.playTone(820, 0.12, "triangle", 0.035); this.renderHud(); this.renderPanel(); }, // 부위 토글 — 부츠 해제 시 최대 체력도 정확히 재계산(applyRuneChange 패턴)
         onEquipSpirit: (id) => { this.spirits.equippedId = id && this.spirits.owned.some((s) => s.id === id) ? id : null; this.playTone(740, 0.12, "triangle", 0.035); this.renderHud(); this.renderPanel(); },
         onFeedSpirit: (id) => { const target = equippedSpirit(this.spirits); const mat = this.spirits.owned.find((s) => s.id === id); if (!target || !mat || mat.id === target.id) return; if (!window.confirm(`${spiritGradeDef(mat.grade).label} 정령(Lv${mat.level})을 먹이로 줍니다. 이 정령은 영구히 사라집니다. 계속할까요?`)) return; const exp = spiritFeedExperience(mat); this.spirits.owned = this.spirits.owned.filter((s) => s.id !== id); const ups = gainSpiritExperience(target, exp); this.playTone(660, 0.12, "triangle", 0.04); this.showMessage(ups > 0 ? `정령에게 먹이를 줬습니다 — 레벨업! Lv ${target.level} (공+${spiritAttackBonus(target)}/방+${spiritDefenseBonus(target)})` : `정령에게 먹이를 줬습니다 (+${exp} 경험치)`); this.renderHud(); this.renderPanel(); }, onGiftSpirit: (id) => { const gifted = this.spirits.owned.find((s) => s.id === id); if (!gifted || this.spirits.equippedId === id) return; const members = partyMemberNames(); if (members.length === 0) { this.showMessage("파티 중에만 정령을 선물할 수 있어요."); return; } const to = members.length === 1 ? members[0] : window.prompt(`누구에게 선물할까요? (${members.join(", ")})`); if (!to || !members.includes(to)) { if (to !== null) this.showMessage("그 이름의 파티원이 없어요."); return; } if (!window.confirm(`${spiritGradeDef(gifted.grade).label} 정령(Lv${gifted.level})을 ${to} 님에게 선물합니다. 내 목록에서 사라져요. 계속할까요?`)) return; this.spirits.owned = this.spirits.owned.filter((s) => s.id !== id); this.appendPartyLedger(`__spirit__:${JSON.stringify(gifted)}` as ItemId, -1); sendSpiritGift(to, gifted); this.playTone(880, 0.12, "triangle", 0.035); this.showMessage(`🎁 정령을 ${to} 님에게 선물했어요!`); this.renderHud(); this.renderPanel(); },
         onOpenSpiritManager: () => { this.spiritManagerOpen = true; this.renderPanel(); },
@@ -7870,7 +7879,7 @@ class WildernessGame {
       this.expandBagTo(MEGA_BAG_SLOT_COUNT, "확장 가방 완성! 가방 공간이 64칸으로 늘었습니다 (+24칸).");
     } else {
       if (!this.addItem(recipe.output, recipe.count)) return false;
-      this.autoEquip(recipe.output);
+      this.refreshDragonGear(); // 재획득한 용 장비 재착용 동기화(방어구·방패는 자동착용 안 함 — K창 수동)
       if (NECKLACE_IDS.includes(recipe.output)) this.tutorialSignals.craftedNecklace = true; // 목걸이 '제작' 퀘스트 신호(상자 드랍과 구분)
       if (recipe.output === "advanced_medkit") this.tutorialSignals.craftedAdvancedMedkit = true; // 고급 구급상자 '제작' 퀘스트 신호(드랍과 구분)
     }
@@ -8063,7 +8072,7 @@ class WildernessGame {
     for (const slot of this.allStorageSlots()) {
       if (slot.item === item) {
         slot.count += remaining;
-        this.autoEquip(item);
+        this.refreshDragonGear();
         this.renderHud();
         return true;
       }
@@ -8074,7 +8083,7 @@ class WildernessGame {
         slot.item = item;
         slot.count = remaining;
         slot.durabilityUsed = undefined;
-        this.autoEquip(item);
+        this.refreshDragonGear();
         this.renderHud();
         return true;
       }
@@ -8171,29 +8180,17 @@ class WildernessGame {
     }
   }
 
-  private autoEquip(item: ItemId) {
-    if (ARMOR_VALUE[item]) {
-      const current = this.equippedArmor ? ARMOR_VALUE[this.equippedArmor] ?? 0 : 0;
-      if (ARMOR_VALUE[item] > current) this.equippedArmor = item;
-    }
-    if (shouldAutoEquipShield(item, this.equippedShield)) { this.equippedShield = item; this.shieldDurabilityUsed = 0; }
-    this.refreshDragonGear(); // 용 장비: 보유=자동 착용 동기화
-  }
-
+  // 착용 장비(방어구·방패·목걸이·용 장비)는 K창에서 수동으로 착용한다. 여기서는 소진/드롭으로 보유가 끊기면 '해제'만 한다(자동 재착용 없음).
   private syncEquippedArmor(removedItem: ItemId) {
-    this.refreshDragonGear(); // 용 장비: 소진/드롭 시 착용 해제 동기화(방어구 조기 return 전에 실행)
-    if (this.equippedNecklace === removedItem && this.countItem(removedItem) <= 0) this.equippedNecklace = null; // 목걸이도 소진 시 자동 해제
-    if (this.equippedArmor !== removedItem || this.countItem(removedItem) > 0) return;
-    this.equippedArmor = Object.keys(this.itemCounts()).reduce<ItemId | null>((best, item) => {
-      if (!ARMOR_VALUE[item]) return best;
-      if (!best || ARMOR_VALUE[item] > (ARMOR_VALUE[best] ?? 0)) return item;
-      return best;
-    }, null);
+    this.refreshDragonGear(); // 용 장비: 소진/드롭 시 착용 해제 동기화(조기 return 전에 실행)
+    if (this.countItem(removedItem) > 0) return; // 아직 보유 → 착용 유지
+    if (this.equippedNecklace === removedItem) this.equippedNecklace = null; // 목걸이 소진 → 해제
+    if (this.equippedArmor === removedItem) this.equippedArmor = null; // 방어구 소진 → 해제(더 낮은 것으로 자동 교체하지 않음)
   }
 
   private syncEquippedShield(removedItem: ItemId) {
     if (this.equippedShield !== removedItem || this.countItem(removedItem) > 0) return;
-    this.equippedShield = bestShieldItem(this.itemCounts());
+    this.equippedShield = null; // 방패 소진 → 해제(자동 재착용 없음)
     this.shieldDurabilityUsed = 0;
   }
 

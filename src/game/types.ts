@@ -324,6 +324,7 @@ export interface SavedGame {
     spirits?: SpiritCollection; // 정령 보유 목록 + 장착 id. 구세이브엔 없음 → 빈 컬렉션.
     runeSlots?: number; // 마석 해금 슬롯 수(기본 2, 최대 14). 구세이브엔 없음 → 2.
     equippedRunes?: (ItemId | null)[]; // 마석 슬롯별 장착(길이 14, 잠긴/빈칸 null). 구세이브엔 없음 → 전부 null.
+    equippedDragonGear?: { gloves: boolean; boots: boolean; cloak: boolean; crown: boolean }; // 용 장비 4종 부위별 착용 의도(K창 토글). 구세이브엔 없음 → 보유=착용 백필.
     shieldDurabilityUsed?: number;
     ironGuardRemainingMs?: number;
     locationMode: LocationMode;
