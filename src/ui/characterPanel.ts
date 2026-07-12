@@ -22,12 +22,14 @@ export interface CharacterPanelView {
   shieldItem: string | null;
   necklaceItem: string | null;
   ownedNecklaces: { item: string; name: string; equipped: boolean }[];
+  ownedArmors: { item: string; name: string; equipped: boolean }[]; // 보유 방어구(갑옷) — K창에서 골라 착용(목걸이와 동일)
+  ownedShields: { item: string; name: string; equipped: boolean }[]; // 보유 방패 — K창에서 골라 착용
   equippedSpiritLabel: string; // 장착 정령 표시명("없음" 가능)
   equippedSpiritGradeIndex: number; // 장착 정령 등급 인덱스(-1=없음) — 낮은 등급 일괄먹이기 기준
   spirits: { id: string; label: string; emoji: string; color: string; grade: string; gradeIndex: number; attack: number; defense: number; level: number; equipped: boolean }[]; // 보유 정령(등급 높은 순 정렬, 보관함 팝업에서 관리)
   spiritManagerOpen: boolean; // 정령 보관함 팝업(팝업내 팝업) 열림 상태
   canGiftSpirits: boolean; // 파티 중(다른 파티원 존재) — 정령 카드에 🎁 선물 버튼 표시
-  dragonGear: { item: string; name: string }[]; // 보유=자동 착용 중인 용 장비(최고등급)
+  dragonGear: { item: string; name: string; equipped: boolean }[]; // 보유 용 장비 + 부위별 착용 여부(K창에서 토글)
   craftStatPoints: number;
   alloc: { hp: number; mana: number; attack: number; defense: number };
   monstersKilled: number; // 누적 처치 몬스터 수(기록)
@@ -40,6 +42,9 @@ export interface CharacterPanelView {
 export interface CharacterPanelCallbacks {
   onSpend(kind: "hp" | "mana" | "attack" | "defense"): void;
   onEquipNecklace(item: string | null): void;
+  onEquipArmor(item: string | null): void; // 방어구 착용/해제("" = 해제)
+  onEquipShield(item: string | null): void; // 방패 착용/해제("" = 해제)
+  onEquipDragonGear(item: string): void; // 용 장비 부위 토글(켜짐↔꺼짐)
   onEquipSpirit(id: string | null): void;
   onFeedSpirit(id: string): void;
   onGiftSpirit(id: string): void; // 파티원에게 정령 선물(비장착만)
@@ -95,6 +100,18 @@ function gearInfoAttr(item: string | null) {
   return item ? ` data-item="${escapeHtml(item)}"` : "";
 }
 
+// 목걸이·방어구·방패 공통 — 한 번에 하나만 착용하는 장비의 선택 버튼 행(현재 착용 표시 + 보유 목록 + 해제).
+// attr = data 속성명(data-equip-necklace / data-equip-armor / data-equip-shield). 빈 문자열 버튼 = 해제.
+function gearChoiceRow(emoji: string, label: string, currentItem: string | null, currentLabel: string, owned: { item: string; name: string; equipped: boolean }[], attr: string, emptyMsg: string): string {
+  const choices =
+    owned.length > 0
+      ? `<div class="character-necklace-choices">${owned
+          .map((n) => `<button class="character-necklace-choice${n.equipped ? " equipped" : ""}" ${attr}="${escapeHtml(n.item)}" data-item="${escapeHtml(n.item)}">${escapeHtml(n.name)}${n.equipped ? " ✓" : ""}</button>`)
+          .join("")}${owned.some((n) => n.equipped) ? `<button class="character-necklace-choice" ${attr}="">해제</button>` : ""}</div>`
+      : `<div class="character-necklace-empty">${escapeHtml(emptyMsg)}</div>`;
+  return `<div class="character-gear-row"${gearInfoAttr(currentItem)}><span>${emoji} ${escapeHtml(label)}</span><strong>${escapeHtml(currentLabel)}</strong></div>${choices}`;
+}
+
 const RANK_MEDALS = ["🥇", "🥈", "🥉"];
 const DRAGON_GEAR_ICONS: Record<string, string> = { dragon_gloves: "🧤", dragon_boots: "🥾", dragon_cloak: "🧥", dragon_crown: "👑" };
 
@@ -138,26 +155,16 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
           <div class="character-gear">
             <div class="inventory-label">착용 장비</div>
             <div class="character-gear-row"${gearInfoAttr(view.weaponItem)}><span>🗡️ 무기</span><strong>${escapeHtml(view.weapon)}</strong></div>
-            <div class="character-gear-row"${gearInfoAttr(view.armorItem)}><span>🛡️ 방어구</span><strong>${escapeHtml(view.armor)}</strong></div>
-            <div class="character-gear-row"${gearInfoAttr(view.shieldItem)}><span>🔰 방패</span><strong>${escapeHtml(view.shield)}</strong></div>
-            <div class="character-gear-row"${gearInfoAttr(view.necklaceItem)}><span>📿 목걸이</span><strong>${escapeHtml(view.necklace)}</strong></div>
-            ${
-              view.ownedNecklaces.length > 0
-                ? `<div class="character-necklace-choices">${view.ownedNecklaces
-                    .map(
-                      (n) =>
-                        `<button class="character-necklace-choice${n.equipped ? " equipped" : ""}" data-equip-necklace="${escapeHtml(n.item)}" data-item="${escapeHtml(n.item)}">${escapeHtml(n.name)}${n.equipped ? " ✓" : ""}</button>`,
-                    )
-                    .join("")}${view.ownedNecklaces.some((n) => n.equipped) ? `<button class="character-necklace-choice" data-equip-necklace="">해제</button>` : ""}</div>`
-                : `<div class="character-necklace-empty">보유한 목걸이가 없습니다. 확장 제작대에서 만들거나 흑요석 상자에서 얻으세요.</div>`
-            }
-            <div class="character-gear-row"><span>🐉 용 장비</span><strong>${view.dragonGear.length > 0 ? `${view.dragonGear.length}/4 착용 중` : "없음"}</strong></div>
+            ${gearChoiceRow("🛡️", "방어구", view.armorItem, view.armor, view.ownedArmors, "data-equip-armor", "보유한 방어구가 없습니다. 제작대에서 가죽 갑옷부터 만들어 보세요.")}
+            ${gearChoiceRow("🔰", "방패", view.shieldItem, view.shield, view.ownedShields, "data-equip-shield", "보유한 방패가 없습니다. 제작대에서 철 방패를 만들거나 상점에서 구하세요.")}
+            ${gearChoiceRow("📿", "목걸이", view.necklaceItem, view.necklace, view.ownedNecklaces, "data-equip-necklace", "보유한 목걸이가 없습니다. 확장 제작대에서 만들거나 흑요석 상자에서 얻으세요.")}
+            <div class="character-gear-row"><span>🐉 용 장비</span><strong>${view.dragonGear.length > 0 ? `${view.dragonGear.filter((g) => g.equipped).length}/4 착용 중` : "없음"}</strong></div>
             ${
               view.dragonGear.length > 0
                 ? `<div class="character-necklace-choices">${view.dragonGear
-                    .map((g) => `<button class="character-necklace-choice equipped" data-item="${escapeHtml(g.item)}">${escapeHtml(DRAGON_GEAR_ICONS[g.item] ?? "🐉")} ${escapeHtml(g.name)} ✓</button>`)
+                    .map((g) => `<button class="character-necklace-choice${g.equipped ? " equipped" : ""}" data-toggle-dragon="${escapeHtml(g.item)}" data-item="${escapeHtml(g.item)}">${escapeHtml(DRAGON_GEAR_ICONS[g.item] ?? "🐉")} ${escapeHtml(g.name)}${g.equipped ? " ✓" : ""}</button>`)
                     .join("")}</div>`
-                : `<div class="character-necklace-empty">용 장비(장갑·부츠·망토·왕관)는 확장 제작대에서 용 재료로 제작하면 가방에 있는 것만으로 자동 착용됩니다.</div>`
+                : `<div class="character-necklace-empty">용 장비(장갑·부츠·망토·왕관)는 확장 제작대에서 용 재료로 제작한 뒤, 여기서 부위를 눌러 착용/해제하세요.</div>`
             }
             <div class="character-gear-row"><span>✨ 정령</span><strong>${escapeHtml(view.equippedSpiritLabel)}</strong></div>
             ${
@@ -214,6 +221,15 @@ export function renderCharacterPanelView(panelEl: HTMLElement, view: CharacterPa
   panelEl.querySelector<HTMLButtonElement>("[data-feed-below]")?.addEventListener("click", callbacks.onFeedAllBelowEquipped);
   panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-necklace]").forEach((button) => {
     button.addEventListener("click", () => callbacks.onEquipNecklace(button.dataset.equipNecklace ? button.dataset.equipNecklace : null));
+  });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-armor]").forEach((button) => {
+    button.addEventListener("click", () => callbacks.onEquipArmor(button.dataset.equipArmor ? button.dataset.equipArmor : null));
+  });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-equip-shield]").forEach((button) => {
+    button.addEventListener("click", () => callbacks.onEquipShield(button.dataset.equipShield ? button.dataset.equipShield : null));
+  });
+  panelEl.querySelectorAll<HTMLButtonElement>("[data-toggle-dragon]").forEach((button) => {
+    button.addEventListener("click", () => { if (button.dataset.toggleDragon) callbacks.onEquipDragonGear(button.dataset.toggleDragon); });
   });
   initItemTooltips();
 }

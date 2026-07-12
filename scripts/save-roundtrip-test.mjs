@@ -59,6 +59,7 @@ function stableSaveShape(save) {
       equippedArmor: save.player.equippedArmor,
       equippedShield: save.player.equippedShield,
       equippedNecklace: save.player.equippedNecklace,
+      equippedDragonGear: save.player.equippedDragonGear,
       shieldDurabilityUsed: save.player.shieldDurabilityUsed,
       ironGuardRemainingSeconds: Math.round((save.player.ironGuardRemainingMs ?? 0) / 1000),
       secondSkillCooldownRemainingSeconds: Math.round((save.player.secondSkillCooldownRemainingMs ?? 0) / 1000),
@@ -172,6 +173,7 @@ try {
     game.equippedArmor = "diamond_armor";
     game.equippedShield = "iron_shield";
     game.equippedNecklace = "swift_necklace";
+    game.dragonGearEquipped = { gloves: true, boots: false, cloak: true, crown: false };
     game.shieldDurabilityUsed = 12;
     game.ironGuardUntil = performance.now() + 43_000;
     game.secondSkillCooldownUntil = performance.now() + 27_000;

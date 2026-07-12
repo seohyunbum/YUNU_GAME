@@ -321,6 +321,10 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       spirits: normalizeSpiritCollection(player.spirits),
       runeSlots: migratedRuneSlots,
       equippedRunes: migratedEquippedRunes,
+      // 용 장비 착용 의도: 있으면 정규화해 보존, 없으면(구세이브) 생략 → 로드 시 main 이 보유=착용으로 백필(버프 유실 방지).
+      ...(player.equippedDragonGear && typeof player.equippedDragonGear === "object"
+        ? { equippedDragonGear: { gloves: player.equippedDragonGear.gloves === true, boots: player.equippedDragonGear.boots === true, cloak: player.equippedDragonGear.cloak === true, crown: player.equippedDragonGear.crown === true } }
+        : {}),
       shieldDurabilityUsed: migratedShieldDurability,
       ironGuardRemainingMs: savedNumber(player.ironGuardRemainingMs, 0, 0, IRON_GUARD_DURATION_SECONDS * 1000),
       locationMode: savedLocationMode(player.locationMode),
