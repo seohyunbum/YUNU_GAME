@@ -28,6 +28,7 @@ import { sanitizeSubquestState } from "./subquests";
 import { normalizeSpiritCollection } from "./spirits";
 import { normalizeCraftStatAlloc } from "./craftLevel";
 import { normalizeDefeatedFieldBosses } from "./fieldBosses";
+import { clampRuneSlotCount, normalizeEquippedRunes, RUNE_BASE_SLOTS } from "./runeStones";
 import type { BedTier } from "./constants";
 import type { CompanionProgress, HouseKind, ItemId, LocationMode, PartialSavedGame, PlayerClassId, SavedGame, SavedObject, SavedVector, SavedWorldState, Slot, TutorialProgress, WorldMapId } from "./types";
 
@@ -269,6 +270,8 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
   const migratedShield = player.equippedShield && SHIELD_DEFENSE[player.equippedShield] ? player.equippedShield : null;
   const migratedShieldDurability = migratedShield ? savedInteger(player.shieldDurabilityUsed, 0, 0, SHIELD_DURABILITY[migratedShield] ?? 0) : 0;
   const migratedNecklace = isNecklace(player.equippedNecklace) ? player.equippedNecklace ?? null : null;
+  const migratedRuneSlots = clampRuneSlotCount(typeof player.runeSlots === "number" ? player.runeSlots : RUNE_BASE_SLOTS); // 구세이브 없음 → 기본 2칸
+  const migratedEquippedRunes = normalizeEquippedRunes(player.equippedRunes, migratedRuneSlots); // 잠긴/비마석 칸 정리, 길이 14 고정
   const playerPosition = savedVector(player.position, DEFAULT_POSITION);
   const migratedWorldMapId = isWorldMapId(player.worldMapId) ? player.worldMapId : DEFAULT_WORLD_MAP_ID;
   const migratedMountains = normalizeSavedMountains(save.mountains);
@@ -316,6 +319,8 @@ export function migrateSaveData(save: PartialSavedGame): SavedGame {
       equippedShield: migratedShield,
       equippedNecklace: migratedNecklace,
       spirits: normalizeSpiritCollection(player.spirits),
+      runeSlots: migratedRuneSlots,
+      equippedRunes: migratedEquippedRunes,
       shieldDurabilityUsed: migratedShieldDurability,
       ironGuardRemainingMs: savedNumber(player.ironGuardRemainingMs, 0, 0, IRON_GUARD_DURATION_SECONDS * 1000),
       locationMode: savedLocationMode(player.locationMode),

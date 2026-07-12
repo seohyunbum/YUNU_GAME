@@ -306,6 +306,8 @@ import { buildRecipeGuideEntriesForStations, ingredientCounts, itemsUsing, maxCr
 import { bestShieldItem, consumeShieldHit, equipmentArmorValue as equipmentArmorValueWithShield, ironGuardMessage, ironGuardUntil as activateIronGuardUntil, isShieldItem, shouldAutoEquipShield, tankerHudStatus, TANKER_SKILL_COOLDOWN, TANKER_SKILL_COST } from "./game/tanker";
 import { NECKLACE_IDS, necklaceAttackBonus, necklaceDefenseBonus, necklaceManaRegenBonus } from "./game/necklace";
 import { DRAGON_GEAR_IDS, NO_DRAGON_GEAR, resolveDragonGear, accessoryAttackSpeedMult, accessorySkillCooldownMult, additiveMoveSpeedMult, dragonGearAttackBonus, dragonGearDefenseBonus, dragonGearMaxHpBonus, dragonGearMaxManaBonus, dragonGearHealthRegenBonus, dragonGearManaRegenBonus, type DragonGearWorn } from "./game/dragonGear";
+import { aggregateRuneBonuses, allRuneStoneEntries, clampRuneSlotCount, normalizeEquippedRunes, runeCombineOutput, runeHexColor, runeNextUnlockCost, runeShortLabel, runeTierOf, runeTypeOf, RUNE_BASE_SLOTS, RUNE_COMBINE_COST, RUNE_KEY, RUNE_MAX_SLOTS, NO_RUNE_BONUSES, type RuneBonuses } from "./game/runeStones";
+import { renderRunestonePanelView } from "./ui/runestonePanel";
 import { createDragonGauntletFirstPerson } from "./game/accessoryVisuals";
 import { experienceForLevelUps, experienceForNextLevel as xpForNextLevelCurve, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
@@ -695,6 +697,27 @@ class WildernessGame {
   private spiritCompanion: THREE.Group | null = null; // 장착 정령 동행체(왼쪽 어깨 페어리 3D). 장착 시 생성, 해제/등급변경 시 재생성.
   private spiritCompanionGrade: SpiritGrade | null = null;
   private dragonGear: DragonGearWorn = NO_DRAGON_GEAR; // 용 장비 4종 착용 상태(보유=착용). refreshDragonGear() 로 인벤토리에서 동기화.
+  private runeSlots = RUNE_BASE_SLOTS; // 마석 해금 슬롯 수(기본 2, 최대 14). 열쇠로 해금.
+  private equippedRunes: (ItemId | null)[] = new Array(RUNE_MAX_SLOTS).fill(null); // 마석 슬롯별 장착(길이 14 고정, 잠긴/빈칸 null)
+  private runeBonuses: RuneBonuses = NO_RUNE_BONUSES; // 장착 마석 합산 버프 캐시 — refreshRuneBonuses 로 갱신, 스탯식이 1항씩 읽음
+  private readonly refreshRuneBonuses = () => { this.runeBonuses = aggregateRuneBonuses(this.equippedRunes); }; // arrow 필드(메서드 카운트 제외) — 장착/해제/조합/로드 후 호출
+  private readonly applyRuneChange = () => { this.refreshRuneBonuses(); this.maxHealth = Math.max(1, this.maxHealthForLevel()); this.health = Math.min(this.health, this.maxHealth); this.mana = Math.min(this.mana, this.manaCap()); this.renderHud(); this.renderPanel(); }; // 장착/해제/조합/해금 후 버프+최대체력 재계산(활력 마석 반영)
+  private readonly renderRunestonePanel = () => { // 전용 마석 창(arrow 필드 — 메서드 카운트 제외)
+    const b = this.runeBonuses; const bonusLines: string[] = [];
+    if (b.attack) bonusLines.push(`공격력 +${b.attack}`); if (b.defense) bonusLines.push(`방어력 +${b.defense}`); if (b.maxHp) bonusLines.push(`최대 체력 +${b.maxHp}`);
+    if (b.maxMana) bonusLines.push(`최대 마나 +${b.maxMana}`); if (b.movePct) bonusLines.push(`이동·공격속도 +${Math.round(b.movePct * 100)}%`); if (b.xpPct) bonusLines.push(`경험치 +${Math.round(b.xpPct * 100)}%`);
+    const keys = this.countItem(RUNE_KEY); const nextCost = runeNextUnlockCost(this.runeSlots); const firstEmpty = this.equippedRunes.findIndex((x, i) => i < this.runeSlots && x === null);
+    const slots = this.equippedRunes.map((item, index) => { const type = item ? runeTypeOf(item) : null; const nextLocked = index === this.runeSlots; return { index, unlocked: index < this.runeSlots, item, itemName: item ? (ITEM_NAMES[item] ?? item) : "", itemDesc: item ? runeShortLabel(item) : "", color: type ? runeHexColor(type) : "#6b7280", unlockCost: nextLocked ? nextCost : null, canUnlock: nextLocked && nextCost !== null && keys >= nextCost }; });
+    const owned = allRuneStoneEntries().map((e) => ({ e, count: this.countItem(e.id) })).filter((o) => o.count > 0).map(({ e, count }) => ({ item: e.id, name: e.name, desc: runeShortLabel(e.id), color: runeHexColor(e.type), count, canEquip: firstEmpty >= 0 }));
+    const combos = allRuneStoneEntries().filter((e) => e.tier < 4).map((e) => ({ e, count: this.countItem(e.id) })).filter((o) => o.count >= RUNE_COMBINE_COST).map(({ e, count }) => { const out = runeCombineOutput(e.type, e.tier); return { item: e.id, name: e.name, outputName: out ? (ITEM_NAMES[out] ?? out) : "", color: runeHexColor(e.type), have: count, need: RUNE_COMBINE_COST }; });
+    renderRunestonePanelView(this.panelEl, { slots, keys, unlockedCount: this.runeSlots, maxSlots: RUNE_MAX_SLOTS, owned, combos, bonusLines }, {
+      onUnlockSlot: () => { const cost = runeNextUnlockCost(this.runeSlots); if (cost === null || this.countItem(RUNE_KEY) < cost) return; this.removeItem(RUNE_KEY, cost); this.runeSlots = clampRuneSlotCount(this.runeSlots + 1); this.playTone(880, 0.14, "triangle", 0.045); this.showMessage(`🔮 마석 슬롯 해금! (${this.runeSlots}/${RUNE_MAX_SLOTS})`); this.renderHud(); this.renderPanel(); },
+      onEquip: (item) => { const slot = this.equippedRunes.findIndex((x, i) => i < this.runeSlots && x === null); if (slot < 0 || this.countItem(item as ItemId) <= 0) return; this.removeItem(item as ItemId, 1); this.equippedRunes[slot] = item as ItemId; this.playTone(760, 0.12, "triangle", 0.04); this.applyRuneChange(); },
+      onUnequip: (slotIndex) => { const item = this.equippedRunes[slotIndex]; if (!item) return; if (!this.addItem(item, 1)) { this.showMessage("가방이 가득 차 마석을 해제할 수 없어요."); return; } this.equippedRunes[slotIndex] = null; this.playTone(520, 0.12, "triangle", 0.035); this.applyRuneChange(); },
+      onCombine: (item) => { const type = runeTypeOf(item as ItemId); const tier = runeTierOf(item as ItemId); if (!type || !tier || this.countItem(item as ItemId) < RUNE_COMBINE_COST) return; const out = runeCombineOutput(type, tier); if (!out) return; this.removeItem(item as ItemId, RUNE_COMBINE_COST); if (!this.addItem(out, 1)) { this.addItem(item as ItemId, RUNE_COMBINE_COST); this.showMessage("가방이 가득 차 조합할 수 없어요."); return; } this.playTone(980, 0.16, "triangle", 0.05); this.showMessage(`✨ ${ITEM_NAMES[out] ?? out} 조합 완료!`); this.renderHud(); this.renderPanel(); },
+      onClose: () => this.closePanel(),
+    });
+  };
   private locationMode: LocationMode = "overworld";
   private currentHouseKind: HouseKind = "home"; private currentHouseBedTier: keyof typeof BED_REST_PROFILE = "wood";
   private caveReturnPosition: THREE.Vector3 | null = null;
@@ -2242,6 +2265,7 @@ class WildernessGame {
     if (event.code === "KeyB") this.togglePanel("book");
     if (event.code === "KeyM") this.togglePanel("map");
     if (event.code === "KeyK") this.togglePanel("character");
+    if (event.code === "KeyJ") this.togglePanel("runestone"); // 마석 창
     if (event.code === "KeyE") { if (this.subquestDialog && isSubquestComplete(this.subquests)) this.claimSubquest(); else this.interact(); } // 이장 대화중 완료 서브퀘스트면 E 로 보상 수령, 아니면 일반 상호작용
     if (event.code === "KeyR" && !event.repeat) this.useClassSkill();
     if (event.code === "KeyT" && !event.repeat) this.useSecondSkill();
@@ -3399,7 +3423,7 @@ class WildernessGame {
     if (movingHorizontally) {
       direction.normalize();
       sprinting = this.isSprinting();
-      let speed = WALK_SPEED * (sprinting ? RUN_MULTIPLIER : 1) * additiveMoveSpeedMult(classMoveSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), this.dragonGear); // 거너 +10% + 사무라이 카타나 +5% + 용의 부츠 +15%(합연산)
+      let speed = WALK_SPEED * (sprinting ? RUN_MULTIPLIER : 1) * additiveMoveSpeedMult(classMoveSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null), this.dragonGear) * (1 + this.runeBonuses.movePct); // 거너 +10% + 사무라이 카타나 +5% + 용의 부츠 +15%(합연산) + 신속의 마석 %
       if (this.keys.has("KeyC")) speed *= 0.38;
       else if (this.isShiftDown() && !sprinting) speed *= 0.62;
       const horizontalDistance = speed * delta;
@@ -4110,7 +4134,7 @@ class WildernessGame {
     this.actionTimer = Math.max(0, this.actionTimer - delta);
     this.rangedCooldown = Math.max(0, this.rangedCooldown - delta);
 
-    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * classAttackSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 쾌속 목걸이(착용/영구) + 용장갑(공속 합연산) + 사무라이 공속(×0.8, 카타나 시 추가 ×1/1.05)
+    const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * classAttackSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null) / (1 + this.runeBonuses.movePct)); // 쾌속 목걸이(착용/영구) + 용장갑(공속 합연산) + 사무라이 공속 + 신속의 마석 %
     const progress = this.actionTimer > 0 ? THREE.MathUtils.clamp(1 - this.actionTimer / duration, 0, 1) : 1;
     const swing = this.actionTimer > 0 ? Math.sin(progress * Math.PI) : 0;
 
@@ -4136,7 +4160,7 @@ class WildernessGame {
 
   private playHandAction(mode: HandActionMode = "use") {
     this.actionMode = mode;
-    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * classAttackSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null)); // 사무라이: 스윙(=기본공격 쿨다운) ×0.75 → 공속 +33%
+    this.actionTimer = (mode === "melee" ? 0.42 : 0.34) * (mode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * classAttackSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null) / (1 + this.runeBonuses.movePct)); // 사무라이 공속 + 신속의 마석 %
   }
 
   private updateHeldItem() {
@@ -5054,7 +5078,7 @@ class WildernessGame {
   }
 
   private gainExperience(amount: number) {
-    const gained = Math.max(0, Math.floor(amount));
+    const gained = Math.max(0, Math.floor(amount * (1 + this.runeBonuses.xpPct))); // 경험의 마석 — 모든 경험치 획득에 % 가산
     if (gained <= 0) return;
 
     this.experience += gained;
@@ -5183,7 +5207,7 @@ class WildernessGame {
   private bodyMeleeAttackPower() { // 본체 근접 공격력(무기+레벨+훈련+제작+목걸이 ×심판의빛) — 빙의 공격도 이를 사용
     const selectedItem = this.hotbar[this.selectedHotbarIndex]?.item;
     const selectedMelee = selectedItem && !this.isRangedWeapon(selectedItem) ? (WEAPON_DAMAGE[selectedItem] ?? 0) : 0; // 보유 최고 근접을 하한
-    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() * bal(`levelup_attack_${this.playerClass}`, 1) + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
+    return Math.max(1, Math.round((Math.max(1, selectedMelee, this.bestPower(MELEE_WEAPON_DAMAGE)) + this.levelStatBonus() * bal(`levelup_attack_${this.playerClass}`, 1) + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + this.runeBonuses.attack + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, selectedItem ?? null) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이/힘의마석 ×직업배수 ×4차 전능력치
   }
   private currentDamage() {
     if (this.possessedEagleId) return this.bodyMeleeAttackPower() + EAGLE_RAM_DAMAGE; // 빙의 박치기 = 본체 공격력 + 5
@@ -5192,7 +5216,7 @@ class WildernessGame {
 
   private currentRangedDamage(item: ItemId) {
     const base = Math.max(WEAPON_DAMAGE[item] ?? BOW_DAMAGE, this.bestPower(MELEE_WEAPON_DAMAGE)); // 보유 최고 근접을 하한으로 (무기가 맨손보다 약해지는 역전 방지)
-    return Math.max(1, Math.round((base + this.levelStatBonus() * bal(`levelup_attack_${this.playerClass}`, 1) + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이 ×직업배수 ×4차 전능력치
+    return Math.max(1, Math.round((base + this.levelStatBonus() * bal(`levelup_attack_${this.playerClass}`, 1) + this.trainingStats.attack + this.craftStatAlloc.attack + necklaceAttackBonus(this.equippedNecklace) + necklaceAttackBonus(this.permanentNecklace) + spiritAttackBonus(equippedSpirit(this.spirits)) + dragonGearAttackBonus(this.dragonGear) + this.runeBonuses.attack + stewAttackBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * classWeaponDamageMult(this.playerClass, item) * CLASS_PASSIVES[this.playerClass].basicAttackMult * jobTierAllStatMult(this.playerClass, this.jobTier))); // +용장갑/영구목걸이/힘의마석 ×직업배수 ×4차 전능력치
   }
 
   private eagleCombatTarget() {
@@ -5214,12 +5238,12 @@ class WildernessGame {
   }
 
   private maxHealthForLevel(level = this.level) {
-    return Math.round((BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * bal(`levelup_hp_${this.playerClass}`, 2) + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2 + dragonGearMaxHpBonus(this.dragonGear)) * jobTierAllStatMult(this.playerClass, this.jobTier)); // +용의 부츠 최대 체력 ×4차 전능력치
+    return Math.round((BASE_PLAYER_MAX_HEALTH + this.levelStatBonus(level) * bal(`levelup_hp_${this.playerClass}`, 2) + this.trainingStats.hp * TRAINING_REWARDS.hp + this.craftStatAlloc.hp * 2 + dragonGearMaxHpBonus(this.dragonGear) + this.runeBonuses.maxHp) * jobTierAllStatMult(this.playerClass, this.jobTier)); // +용의 부츠/활력의마석 최대 체력 ×4차 전능력치
   }
 
   // 유효 최대 마나 = 기본(훈련 누적 포함) + 용의 부츠(+10). 저장값은 base 유지, 표시·회복 상한에만 가산.
   private manaCap() {
-    return this.maxMana + dragonGearMaxManaBonus(this.dragonGear);
+    return this.maxMana + dragonGearMaxManaBonus(this.dragonGear) + this.runeBonuses.maxMana;
   }
 
   // 인벤토리 변동/로드 시 용 장비 착용 상태 동기화 + 최대 체력 재계산 + (변경 시에만) 외관 갱신.
@@ -5248,7 +5272,7 @@ class WildernessGame {
   }
 
   private equippedArmorValue() {
-    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() * bal(`levelup_defense_${this.playerClass}`, 1) + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + necklaceDefenseBonus(this.permanentNecklace) + spiritDefenseBonus(equippedSpirit(this.spirits)) + dragonGearDefenseBonus(this.dragonGear) + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()) * jobTierAllStatMult(this.playerClass, this.jobTier));
+    return Math.round((this.equipmentArmorValue() + CLASS_PASSIVES[this.playerClass].armorPerLevel * Math.max(0, Math.floor(this.level) - 1) + this.levelStatBonus() * bal(`levelup_defense_${this.playerClass}`, 1) + this.trainingStats.armor + this.craftStatAlloc.defense + burningShieldArmorBonus(this.skillBuffs, performance.now()) + unbreakableArmorBonus(this.skillBuffs, performance.now()) + necklaceDefenseBonus(this.equippedNecklace) + necklaceDefenseBonus(this.permanentNecklace) + spiritDefenseBonus(equippedSpirit(this.spirits)) + dragonGearDefenseBonus(this.dragonGear) + this.runeBonuses.defense + stewDefenseBonus(this.skillBuffs, performance.now())) * empowerMultiplier(this.skillBuffs, performance.now()) * rallyDefenseMultiplier(this.skillBuffs, performance.now()) * jobTierAllStatMult(this.playerClass, this.jobTier));
   }
 
   private calculateCombatDamage(attackPower: number, defense: number) {
@@ -5257,7 +5281,7 @@ class WildernessGame {
 
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
-    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * (CLASS_PASSIVES[this.playerClass].gunOnlyRangedCooldown && !GUN_WEAPONS.has(item) ? 1 : CLASS_PASSIVES[this.playerClass].rangedCooldownScale) * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace); // 거너 총기 쿨감 + 장신구 공속(목걸이 착용/영구+용장갑 합연산)
+    this.rangedCooldown = RANGED_ATTACK_COOLDOWN * (CLASS_PASSIVES[this.playerClass].gunOnlyRangedCooldown && !GUN_WEAPONS.has(item) ? 1 : CLASS_PASSIVES[this.playerClass].rangedCooldownScale) * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) / (1 + this.runeBonuses.movePct); // 거너 총기 쿨감 + 장신구 공속 + 신속의 마석 %
     const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion).normalize();
@@ -6322,6 +6346,8 @@ class WildernessGame {
         equippedShield: this.equippedShield,
         equippedNecklace: this.equippedNecklace,
         spirits: this.spirits,
+        runeSlots: this.runeSlots,
+        equippedRunes: this.equippedRunes,
         permanentNecklace: this.permanentNecklace,
         shieldDurabilityUsed: this.shieldDurabilityUsed,
         ironGuardUntil: this.ironGuardUntil,
@@ -6440,6 +6466,7 @@ class WildernessGame {
     this.equippedArmor = save.player.equippedArmor;
     this.equippedShield = save.player.equippedShield ?? null; this.equippedNecklace = save.player.equippedNecklace ?? null; this.permanentNecklace = save.player.permanentNecklace ?? null;
     this.spirits = normalizeSpiritCollection(save.player.spirits);
+    this.runeSlots = clampRuneSlotCount(save.player.runeSlots ?? RUNE_BASE_SLOTS); this.equippedRunes = normalizeEquippedRunes(save.player.equippedRunes, this.runeSlots); this.refreshRuneBonuses();
     this.shieldDurabilityUsed = save.player.shieldDurabilityUsed ?? 0;
     this.ironGuardUntil = performance.now() + (save.player.ironGuardRemainingMs ?? 0);
     this.locationMode = save.player.locationMode;
@@ -6572,6 +6599,7 @@ class WildernessGame {
     this.starvationNoticeTimer = 0;
     this.equippedArmor = null;
     this.equippedShield = null; this.shieldDurabilityUsed = 0; this.ironGuardUntil = 0; this.equippedNecklace = null; this.permanentNecklace = null; this.spirits = createSpiritCollection();
+    this.runeSlots = RUNE_BASE_SLOTS; this.equippedRunes = new Array(RUNE_MAX_SLOTS).fill(null); this.refreshRuneBonuses(); // 신규 게임: 마석 초기화(기본 2슬롯, 장착 없음)
     this.locationMode = "overworld";
     this.currentHouseKind = "home";
     this.caveReturnPosition = null;
@@ -6936,8 +6964,9 @@ class WildernessGame {
         })),
         buffs: [
           ...(equippedSpirit(this.spirits) ? [(() => { const e = equippedSpirit(this.spirits)!; const d = spiritGradeDef(e.grade); return { icon: d.emoji, name: `${d.label} 정령 Lv${e.level} — 공격 +${spiritAttackBonus(e)} · 방어 +${spiritDefenseBonus(e)}`, secs: 0, expiring: false, value: `+${spiritAttackBonus(e)}/+${spiritDefenseBonus(e)}` }; })()] : []),
+          ...(this.equippedRunes.some((r) => r) ? [(() => { const b = this.runeBonuses; const parts = [b.attack ? `공+${b.attack}` : "", b.defense ? `방+${b.defense}` : "", b.maxHp ? `체+${b.maxHp}` : "", b.maxMana ? `마+${b.maxMana}` : "", b.movePct ? `속+${Math.round(b.movePct * 100)}%` : "", b.xpPct ? `경+${Math.round(b.xpPct * 100)}%` : ""].filter(Boolean); return { icon: "🔮", name: `마석 — ${parts.join(" · ")}`, secs: 0, expiring: false, value: `${this.equippedRunes.filter((r) => r).length}개` }; })()] : []),
           ...activeBuffs(this.skillBuffs, performance.now()).map((b) => ({ icon: b.icon, name: b.name, secs: Math.ceil(b.remainingMs / 1000), expiring: b.remainingMs < 15_000 })),
-        ], // 좌측하단 상태창 — 장착 정령(상시) + 스킬 버프(만료 15초 전 깜빡)
+        ], // 좌측하단 상태창 — 장착 정령·마석(상시) + 스킬 버프(만료 15초 전 깜빡)
       },
       (index) => {
         this.selectedHotbarIndex = index;
@@ -7029,6 +7058,7 @@ class WildernessGame {
     if (this.currentPanel === "loadGame") this.renderLoadGamePanel();
     if (this.currentPanel === "cheat") this.renderCheatPanel();
     if (this.currentPanel === "map") this.renderRegionMapPanel();
+    if (this.currentPanel === "runestone") this.renderRunestonePanel();
     if (this.currentPanel === "homeStorage") this.renderHomeStoragePanel();
     if (this.currentPanel === "training") this.renderTrainingPanel();
     if (this.currentPanel === "character") {

@@ -112,7 +112,8 @@ import { readFileSync } from "node:fs";
 // 2026-07-05: 이장 서브퀘스트 보상 E키 수령 — 완료 퀘스트면 이장 상호작용(E)이 대화창 없이 즉시 claimSubquest. 배선 +1 → 9444.
 // 2026-07-05: 파티클 폭발 프리징 수정 — updateDamageParticles 하드 상한 컬링 호출 1줄(로직은 combatEffects leaf). +1 → 9445.
 // 2026-07-05: 부팅 인트로 트레일러 배선 — 컷씬 엔진은 illiaBoss 리프. main 은 1회 킥+카메라 양보 분기(+1). → 9446.
-const MAX_MAIN_LINES = 9446;
+// 2026-07-12: 마석 시스템 배선(runeStones/runestonePanel 리프) — 필드 3 + arrow 필드(refreshRuneBonuses·applyRuneChange·renderRunestonePanel 뷰모델/콜백) + 스탯식 6곳 1항 주입 + 세이브 직렬화/복원 + 패널 dispatch + KeyJ + HUD 칩 → 9446→9474. 로직·UI·데이터는 전부 리프(game/runeStones·ui/runestonePanel), main 은 지휘자 배선만(메서드 수 482 불변 — 신규는 arrow 필드).
+const MAX_MAIN_LINES = 9474;
 
 const file = new URL("../src/main.ts", import.meta.url);
 const lines = readFileSync(file, "utf8").split("\n").length;

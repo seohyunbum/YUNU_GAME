@@ -66,7 +66,7 @@ export type ObjectType =
   | "extendedWorkbench"
   | "smelter"
   | "specialSmelter";
-export type PanelType = "inventory" | "book" | "homeStorage" | "training" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | "character" | null;
+export type PanelType = "inventory" | "book" | "homeStorage" | "training" | "workbench" | "smelter" | "grinder" | "trade" | "shop" | "sellShop" | "loadGame" | "saveOverwrite" | "cheat" | "map" | "character" | "runestone" | null;
 export type TrainingKind = "hp" | "attack" | "armor" | "mana";
 
 export interface TrainingStats {
@@ -322,6 +322,8 @@ export interface SavedGame {
     equippedNecklace?: ItemId | null;
     permanentNecklace?: ItemId | null; // 4차 전직 시 소비한 목걸이(효과 영구 부여). 구세이브엔 없음 → null.
     spirits?: SpiritCollection; // 정령 보유 목록 + 장착 id. 구세이브엔 없음 → 빈 컬렉션.
+    runeSlots?: number; // 마석 해금 슬롯 수(기본 2, 최대 14). 구세이브엔 없음 → 2.
+    equippedRunes?: (ItemId | null)[]; // 마석 슬롯별 장착(길이 14, 잠긴/빈칸 null). 구세이브엔 없음 → 전부 null.
     shieldDurabilityUsed?: number;
     ironGuardRemainingMs?: number;
     locationMode: LocationMode;

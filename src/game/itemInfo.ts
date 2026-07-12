@@ -19,6 +19,7 @@ import {
 } from "./items";
 import { isNecklace, necklaceAttackBonus, necklaceDefenseBonus } from "./necklace";
 import { MINI_RECIPES, WORKBENCH_RECIPES } from "./recipes";
+import { isRuneStone, runeStoneValue, runeTierOf, runeTypeOf, RUNE_TIER_LABELS, RUNE_TYPE_META, RUNE_KEY } from "./runeStones";
 import type { ItemId } from "./types";
 
 export interface ItemInfo {
@@ -82,6 +83,24 @@ const EXTRA_NOTES: Partial<Record<ItemId, string>> = {
 
 function statLines(item: ItemId): string[] {
   const lines: string[] = [];
+
+  if (item === RUNE_KEY) {
+    lines.push("마석 슬롯 1칸 해금에 사용");
+    return lines;
+  }
+  if (isRuneStone(item)) {
+    const type = runeTypeOf(item);
+    const tier = runeTierOf(item);
+    if (type && tier) {
+      const meta = RUNE_TYPE_META[type];
+      const v = runeStoneValue(item);
+      const desc = meta.stat === "attack" ? `공격력 +${v}` : meta.stat === "defense" ? `방어력 +${v}` : meta.stat === "maxHp" ? `최대 체력 +${v}` : meta.stat === "maxMana" ? `최대 마나 +${v}` : meta.stat === "movePct" ? `이동·공격속도 +${Math.round(v * 100)}%` : `경험치 획득 +${Math.round(v * 100)}%`;
+      lines.push(`${meta.name}의 마석 (${RUNE_TIER_LABELS[tier]})`);
+      lines.push(desc);
+      lines.push("마석 창(J)에서 장착 · 같은 종류 3개로 상위 등급 조합");
+    }
+    return lines;
+  }
 
   if (isNecklace(item)) {
     const effect = NECKLACE_EFFECT[item];

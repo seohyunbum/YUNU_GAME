@@ -8,6 +8,7 @@ import { createAdvancedMedkitModel, createArmorModel, createBigBagModel, createD
 import { DRAGON_GEAR_IDS } from "./dragonGear";
 const DRAGON_GEAR_ID_SET = new Set<string>(DRAGON_GEAR_IDS);
 import { createMaterialModel } from "./materialVisuals";
+import { isRuneStone, runeTierOf, runeTypeOf, RUNE_KEY, RUNE_TYPE_META } from "./runeStones";
 import { addLegendaryWeapon } from "./legendaryWeapon";
 import { tierBladeMaterial, tierEdgeMaterial, tierGemMaterial, tierOf, tierVisual } from "./tierVisuals";
 import {
@@ -345,6 +346,23 @@ export function createHeldItemModel(item: ItemId) {
     const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), new THREE.MeshStandardMaterial({ color: 0x0b1020, emissive: 0x1e3a8a, emissiveIntensity: 0.5 }));
     pupil.position.set(0, 0.22, 0.062);
     group.add(tablet, eyeWhite, pupil);
+  } else if (item === RUNE_KEY) {
+    // 마석열쇠 — 보랏빛 발광 열쇠(고리+대+톱니)
+    const keyMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, metalness: 0.55, roughness: 0.3, emissive: 0x6d28d9, emissiveIntensity: 0.6 });
+    const bow = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.025, 8, 18), keyMat); bow.position.y = 0.36;
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.26, 8), keyMat); shaft.position.y = 0.18;
+    const tooth1 = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, 0.03), keyMat); tooth1.position.set(0.04, 0.09, 0);
+    const tooth2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.03), keyMat); tooth2.position.set(0.03, 0.15, 0);
+    group.add(bow, shaft, tooth1, tooth2);
+  } else if (isRuneStone(item)) {
+    // 마석 — 종류 색 발광 보석 + 대좌. 등급 높을수록 크고 룬 링 추가.
+    const type = runeTypeOf(item); const tier = runeTierOf(item) ?? 1;
+    const color = type ? RUNE_TYPE_META[type].color : 0x9ca3af;
+    const gemMat = new THREE.MeshStandardMaterial({ color, metalness: 0.35, roughness: 0.18, emissive: color, emissiveIntensity: 0.35 + tier * 0.15 });
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.1 + tier * 0.022, 0), gemMat); gem.position.y = 0.24;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.06, 6), new THREE.MeshStandardMaterial({ color: 0x2a2f3a, roughness: 0.7 })); base.position.y = 0.1;
+    group.add(gem, base);
+    if (tier >= 3) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.012, 6, 20), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.24; group.add(ring); }
   } else if (PLACEABLE_TYPES[item]) {
     const block = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.28), headMaterial);
     block.position.y = 0.16;

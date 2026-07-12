@@ -1588,3 +1588,29 @@
   패턴 spec 유효성·보상 골든) + verify 체인 등록. 전 테스트 스위트 녹색, 보스 6종 그리드·트레일러 헤드리스
   실측(startedAt 핀 패턴 재사용). 주의: main onFinish 의 else 폴백은 unseal(저장 confirm) — 새 컷씬 kind 는
   반드시 no-op 분기에 명시하지 않으면 요새에서 일리아 저장 다이얼로그가 뜬다(이번에 intro 분기에 합류시킴).
+- 마석(rune stone) 시스템 도입(사용자 요청: 전용 장착창·14슬롯 열쇠 해금·6종×4등급·조합·저확률 드롭):
+  ★핵심 제약 = main.ts 예산(줄 9446·메서드 482, 둘 다 여유 0). 탐사(Explore 서브에이전트)로 dragonGear
+  "장착=패시브 버프" 모델이 템플릿, ItemId=string(union 편집 불필요) 확인. 메서드 카운터 정규식이
+  `식별자(` 만 잡고 `식별자 = (` (arrow 필드)·컨텍스트 객체는 제외 → 전용 패널 렌더러/콜백/refresh 를
+  전부 arrow 필드로 두어 메서드 수 482 불변 유지(신규 메서드 0). 줄은 리프에 로직 몰아 배선만 남겨
+  9446→9474(사유 ledger 기록, 역대 시스템 배선과 동일 관행).
+  ▪리프: game/runeStones(종류·등급·버프합산·슬롯비용·정규화·조합·드롭롤, 순수) + ui/runestonePanel
+  (뷰모델+콜백, main import 금지). 6종(힘=공/수호=방/활력=체/지능=마나/신속=이속·공속%/경험=xp%) ×
+  4등급(마석결정→마석→마나석→마정석) = 24 아이템 + 마석열쇠. 등급배율 [1·2.2·4.5·9].
+  ▪슬롯 14칸(기본 2), 다음칸 해금 열쇠 = index-1(3번째 1개 … 14번째 12개, 완전해금 78개).
+  ▪버프 주입: aggregateRuneBonuses 를 refreshRuneBonuses(arrow)로 캐시, 스탯식 6곳에 1항씩
+  (bodyMelee/rangedDamage attack, armorValue defense, maxHealthForLevel maxHp, manaCap maxMana,
+  이동속도 ×(1+movePct), 공속/원거리쿨 ÷(1+movePct), gainExperience ×(1+xpPct)). 활력 장착/해제
+  시 applyRuneChange 가 maxHealth 재계산.
+  ▪드롭(저확률): chestLoot 등급별(황금 열쇠4%·마석6% … 흑요석 15%·22%, 광산 5%·10%), combat
+  grantRarePredatorEpicDrop(사냥 열쇠0.8%·마석1.5%), fortressSiege itemsForStage(보스단계 확정 열쇠1
+  +마석1, 컨셉 순환·15/30단계 등급↑). cap 이 고티어 마석에 밀려 핵심재료 누락 → CHEST_PROTECT 로
+  등급별 핵심(gold/diamond/obsidian+dragon_scale) 보존(systems 테스트 회귀 수리).
+  ▪세이브: SavedGame.player.runeSlots·equippedRunes 추가, SAVE_VERSION 15→16, migrate 기본값
+  (구세이브 2슬롯·장착없음)+정규화, saveManager 스냅샷 필드, main 직렬화/복원(복원 시 refresh).
+  ▪content 골든: 마석은 등급 자동 티어라 legendary 큐레이션 골든에서 제외(id prefix "rune_"),
+  held-item 비주얼(마석=종류색 발광 보석+T3↑ 룬링, 열쇠=보랏빛 열쇠) 추가로 "돌덩이 폴백" 회귀 수리.
+  ▪전용창 KeyJ. rune-stones-test 신설(파싱·합산·슬롯곡선·정규화·조합·엔트리24·마이그레이션왕복) +
+  verify 체인 등록. 전 게이트·빌드 녹색(save-roundtrip 은 컨테이너 Chrome 부재로 PC 검증 — 대신
+  migrate 왕복을 rune-stones-test 로 커버). 헤드리스 실측: 게임시작→마석지급→장착→패널 스샷으로
+  슬롯/해금/조합/버프요약 확인, 버프 합산 수치 검증(힘T2 +9·활력T4 +126·신속T3 +13.5%).

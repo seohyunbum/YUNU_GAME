@@ -5101,3 +5101,36 @@ body.touch-mode .skill-bar {
 
 /* 일리아 시네마 모드 — 컷씬 동안 HUD·패널 전부 숨김(오버레이만 표시). showIlliaCutsceneOverlay 가 토글 */
 .game-ui.illia-cinema > *:not(.illia-cutscene) { visibility: hidden !important; }
+
+/* ── 마석 창(runestone-panel) — 전용 장착/조합 UI ── */
+.runestone-panel { min-width: min(760px, 94vw); display: flex; flex-direction: column; gap: 12px; }
+.rune-body { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+.rune-slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 6px 0; }
+.rune-slot { aspect-ratio: 1 / 1; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; }
+.rune-slot.empty { border-style: dashed; color: rgba(255,255,255,.35); }
+.rune-slot-plus { font-size: 22px; }
+.rune-slot.filled { flex-direction: column; gap: 2px; cursor: pointer; border-color: var(--rc, #888); background: color-mix(in srgb, var(--rc, #888) 22%, rgba(20,24,34,.9)); padding: 4px; }
+.rune-slot.filled:hover { background: color-mix(in srgb, var(--rc, #888) 34%, rgba(20,24,34,.9)); }
+.rune-slot-gem { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--rc, #888)); box-shadow: 0 0 8px var(--rc, #888); }
+.rune-slot-name { font-size: 11px; font-weight: 700; line-height: 1.1; }
+.rune-slot-desc { font-size: 10px; opacity: .85; }
+.rune-slot.locked { color: rgba(255,255,255,.5); }
+.rune-slot-lockedfar { font-size: 20px; opacity: .4; }
+.rune-slot-unlock { width: 100%; height: 100%; border: 0; background: rgba(255,255,255,.04); color: rgba(255,255,255,.6); border-radius: 8px; cursor: not-allowed; font-size: 12px; line-height: 1.3; }
+.rune-slot-unlock.ready { background: rgba(255,213,74,.18); color: #ffe9a8; border: 1px solid rgba(255,213,74,.5); cursor: pointer; }
+.rune-slot-unlock.ready:hover { background: rgba(255,213,74,.3); }
+.rune-slot-unlock span { font-size: 10px; }
+.rune-bonus-summary { margin-top: 8px; font-size: 13px; font-weight: 700; color: #ffe9a8; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.rune-bonus-summary.muted { color: rgba(255,255,255,.45); font-weight: 500; }
+.rune-owned-grid, .rune-combo-grid { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.rune-owned { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px; border-radius: 9px; border: 1px solid var(--rc, #888); background: color-mix(in srgb, var(--rc, #888) 16%, rgba(20,24,34,.9)); color: #f3ead6; cursor: pointer; min-width: 92px; }
+.rune-owned:hover:not(.full) { background: color-mix(in srgb, var(--rc, #888) 30%, rgba(20,24,34,.9)); }
+.rune-owned.full { opacity: .5; cursor: not-allowed; }
+.rune-owned-gem { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--rc, #888)); box-shadow: 0 0 6px var(--rc, #888); }
+.rune-owned-name { font-size: 12px; font-weight: 700; }
+.rune-owned-desc { font-size: 10px; opacity: .85; }
+.rune-combo { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--rc, #888); background: color-mix(in srgb, var(--rc, #888) 14%, rgba(20,24,34,.9)); color: #f3ead6; cursor: pointer; }
+.rune-combo:hover { background: color-mix(in srgb, var(--rc, #888) 28%, rgba(20,24,34,.9)); }
+.rune-combo-arrow { font-size: 10px; opacity: .85; }
+.rune-empty-note { font-size: 12px; opacity: .6; margin: 6px 0; }
+@media (max-width: 640px) { .rune-body { grid-template-columns: 1fr; } .rune-slot-grid { grid-template-columns: repeat(4, 1fr); } }
