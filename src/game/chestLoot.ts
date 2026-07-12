@@ -1,4 +1,5 @@
 import { itemTier, type ItemTier } from "./items";
+import { rollRuneStoneDrop, RUNE_KEY } from "./runeStones";
 import type { ItemId } from "./types";
 
 const LOOT_TIER_RANK: Record<ItemTier, number> = { mythic: 5, legendary: 4, epic: 3, rare: 2, uncommon: 1, common: 0 };
@@ -14,7 +15,12 @@ export function capLootByGrade<T extends { item: ItemId; count: number }>(loot: 
   return [...kept, ...rest].slice(0, max); // 보호 아이템 우선 확보 후 나머지를 등급순으로 max 까지
 }
 
-const OBSIDIAN_CHEST_PROTECT: ReadonlySet<ItemId> = new Set<ItemId>(["dragon_scale"]); // 흑요석 상자(tier3)는 드래곤 재료(dragon_scale) 1종을 cap 에서 보호(잭팟이어도 밀리지 않게)
+// 상자 등급별 cap 보호 재료 — 고티어 마석/열쇠(신규)가 cap 상위를 밀어내도 그 등급의 핵심 재료는 반드시 남게.
+const CHEST_PROTECT: Record<number, ReadonlySet<ItemId>> = {
+  1: new Set<ItemId>(["gold"]),
+  2: new Set<ItemId>(["diamond"]),
+  3: new Set<ItemId>(["dragon_scale", "obsidian"]),
+};
 
 // 보물 상자 전리품 롤 — main.openChest 에서 추출. 파티에선 호스트가 1회 롤해 개봉자에게 전달(이중 지급 방지).
 // 등급(chestTier) 0 일반 / 1 황금 / 2 다이아몬드 / 3 흑요석 — 고급일수록 희귀 재료·제작템·무기/방어구.
@@ -60,6 +66,8 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.18)) add(pick(["strength_necklace", "guardian_necklace", "swift_necklace", "sage_necklace"] as const, rng), 1); // 에픽 목걸이 4종 중 하나
     if (chance(0.2)) add("advanced_medkit", 1); // 에픽 소모품 — 드물게
     if (chance(0.12)) add("spirit_gacha_token", 1); // 정령 소환권(전설) — 잭팟 상자에서 드물게
+    if (chance(0.15)) add(RUNE_KEY, 1); // 마석열쇠 — 잭팟 상자에서 드물게
+    if (chance(0.22)) add(rollRuneStoneDrop(rng, 3), 1); // 마석 — 흑요석 상자는 상위 등급까지
     add("medkit", ri(2, 3, rng));
   } else if (tier === 2) {
     // 다이아몬드 — 희귀 재료 + 다이아 장비
@@ -73,6 +81,8 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.06)) add(pick(["strength_necklace", "guardian_necklace", "swift_necklace", "sage_necklace"] as const, rng), 1); // 에픽 목걸이(드물게)
     if (chance(0.08)) add("advanced_medkit", 1); // 에픽 소모품(드물게)
     if (chance(0.04)) add("spirit_gacha_token", 1); // 정령 소환권(전설) — 다이아 상자에서 매우 드물게
+    if (chance(0.08)) add(RUNE_KEY, 1); // 마석열쇠(드물게)
+    if (chance(0.12)) add(rollRuneStoneDrop(rng, 2), 1); // 마석(드물게)
     add("medkit", ri(1, 2, rng));
   } else if (tier === 1) {
     // 황금 — 좋은 재료 + 철/금 장비·제작템 가능
@@ -82,6 +92,8 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.35)) add(pick(["iron_sword", "gold_sword", "iron_dagger"] as const, rng), 1);
     if (chance(0.25)) add(pick(["iron_armor", "gold_armor"] as const, rng), 1);
     if (chance(0.3)) add(pick(["smelter", "grinder"] as const, rng), 1);
+    if (chance(0.04)) add(RUNE_KEY, 1); // 마석열쇠(매우 드물게)
+    if (chance(0.06)) add(rollRuneStoneDrop(rng, 1), 1); // 마석결정(낮은 등급, 드물게)
     add("medkit", 1);
     if (chance(0.3)) add("leather", ri(2, 3, rng));
   } else {
@@ -93,7 +105,7 @@ export function rollChestLoot(tier: number = 0, rng: () => number = Math.random)
     if (chance(0.38)) add("stone", ri(1, 3, rng));
     if (chance(0.15)) add("leather", 1);
   }
-  return capLootByGrade(loot, 6, tier >= 3 ? OBSIDIAN_CHEST_PROTECT : undefined); // 흑요석 상자는 dragon_scale 보호
+  return capLootByGrade(loot, 6, CHEST_PROTECT[Math.max(0, Math.min(3, Math.floor(tier)))]); // 등급별 핵심 재료 보호(마석/열쇠가 cap 밀어내도 보존)
 }
 
 // 광산 상자 — 어렵게 찾은 광산인 만큼 풍족한 광물. 흑요석 30%(운 좋으면 2~3개), 다이아·금은 더 흔하게.
@@ -110,6 +122,8 @@ export function rollMineChestLoot(rng: () => number = Math.random): ChestLootEnt
   if (chance(0.22)) add("refined_diamond", 1);
   if (chance(0.2)) add("diamond_powder", ri(1, 2, rng));
   if (chance(0.3)) add("obsidian", chance(0.35) ? ri(2, 3, rng) : 1); // 흑요석 — 30%, 가끔 2~3개
+  if (chance(0.05)) add(RUNE_KEY, 1); // 마석열쇠(드물게)
+  if (chance(0.1)) add(rollRuneStoneDrop(rng, 2), 1); // 마석(드물게)
   if (chance(0.3)) add("medkit", 1); // 회복 보너스
   return capLootByGrade(loot, 6);
 }

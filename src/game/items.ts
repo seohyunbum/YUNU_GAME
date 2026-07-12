@@ -2,6 +2,7 @@ import { BOW_DAMAGE, INTERACT_DISTANCE, MAGIC_WAND_DAMAGE, PISTOL_DAMAGE } from 
 import { bal } from "./balanceTuning";
 import { NECKLACE_IDS } from "./necklace";
 import { DRAGON_GEAR_IDS } from "./dragonGear";
+import { allRuneStoneEntries, isRuneStone, RUNE_KEY, type RuneTier } from "./runeStones";
 import type { ItemId, ObjectType } from "./types";
 
 export const ITEM_NAMES: Record<ItemId, string> = {
@@ -127,7 +128,9 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   dragon_boots: "용의 부츠",
   dragon_cloak: "용의 망토",
   dragon_crown: "용의 왕관",
+  rune_key: "마석열쇠",
 };
+for (const entry of allRuneStoneEntries()) ITEM_NAMES[entry.id] = entry.name; // 마석 24종(6종×4등급) 이름 등록
 
 export const RAW_MATERIALS: ItemId[] = ["wood", "stone", "copper", "iron", "gold", "diamond"];
 export const SPECIAL_SMELTER_MATERIALS: ItemId[] = [...RAW_MATERIALS, "obsidian"];
@@ -316,7 +319,10 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   dragon_gloves: "legendary", dragon_boots: "legendary", dragon_cloak: "legendary", dragon_crown: "legendary",
   // 신화(mythic) — 레전더리 위 최상위 등급(은은한 푸른빛 다이아몬드 아우라). 4차 전직 각서 4종.
   job_decree_ultimate_strength: "mythic", job_decree_ultimate_guardian: "mythic", job_decree_ultimate_swift: "mythic", job_decree_ultimate_sage: "mythic",
+  rune_key: "epic", // 마석열쇠 — 슬롯 해금용 고급 아이템
 };
+const RUNE_TIER_TO_ITEM_TIER: Record<RuneTier, ItemTier> = { 1: "rare", 2: "epic", 3: "legendary", 4: "mythic" }; // 마석 등급 → 로트 등급(상자 캡·슬롯 배경색)
+for (const entry of allRuneStoneEntries()) ITEM_TIER[entry.id] = RUNE_TIER_TO_ITEM_TIER[entry.tier];
 export function itemTier(item: ItemId): ItemTier {
   return ITEM_TIER[item] ?? "common";
 }
@@ -460,6 +466,7 @@ const SORT_TOOLS = new Set<ItemId>(["hammer", "bucket", "water_bucket", "lava_bu
 const SORT_MISC = new Set<ItemId>(["tutorial_book", "bag", "big_bag", "mirror"]);
 const NECKLACE_SORT_SET = new Set<ItemId>([...NECKLACE_IDS, ...DRAGON_GEAR_IDS]);
 export function itemSortCategory(item: ItemId): number {
+  if (isRuneStone(item) || item === RUNE_KEY) return 1; // 마석·마석열쇠 — 장신구 묶음
   if (ARMOR_VALUE[item] !== undefined || SHIELD_DEFENSE[item] !== undefined || NECKLACE_SORT_SET.has(item)) return 1; // 방어구·장신구
   if (AXE_POWER[item] !== undefined || PICKAXE_POWER[item] !== undefined || SHOVEL_POWER[item] !== undefined || SORT_TOOLS.has(item)) return 2; // 도구
   if (WEAPON_DAMAGE[item] !== undefined || RANGED_WEAPONS.has(item)) return 0; // 무기

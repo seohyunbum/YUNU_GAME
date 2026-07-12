@@ -5,6 +5,7 @@ import { DRAGON_AGGRO_MS } from "./dragonAi";
 import { bal } from "./balanceTuning";
 import { ITEM_NAMES } from "./items";
 import { predatorLootForKind } from "./monsters";
+import { rollRuneStoneDrop, RUNE_KEY } from "./runeStones";
 import type { BossKind, CombatProjectile, ItemId, WorldObject } from "./types";
 
 interface ProjectileDamageBossStats {
@@ -268,6 +269,10 @@ export function applyProjectileDamage(
 
 // 에픽 전리품 — 야생 포식자 처치 시 드물게(≈2%) 고급 구급상자가 추가로 떨어진다(에픽 등급답게 희귀).
 function grantRarePredatorEpicDrop(context: ProjectileDamageContext) {
+  // 마석열쇠(0.8%) · 마석(1.5%) — 고급 아이템이라 사냥에서 낮은 확률로. (독립 판정 — 에픽 구급상자와 별개)
+  if (context.rollRewardChance(0.008, "predator", RUNE_KEY)) { const n = context.grantRewardItem(RUNE_KEY, 1, "predator"); if (n > 0) context.showMessage(`🔑 마석열쇠를 얻었습니다! (마석 슬롯 해금 · J)`); }
+  const runeId = rollRuneStoneDrop(Math.random, 2);
+  if (context.rollRewardChance(0.015, "predator", runeId)) { const n = context.grantRewardItem(runeId, 1, "predator"); if (n > 0) context.showMessage(`🔮 ${ITEM_NAMES[runeId] ?? "마석"}을(를) 얻었습니다! (마석 창 J)`); }
   if (!context.rollRewardChance(0.02, "predator", "advanced_medkit")) return;
   const count = context.grantRewardItem("advanced_medkit", 1, "predator");
   if (count > 0) context.showMessage(`✨ 에픽 전리품! ${ITEM_NAMES["advanced_medkit"] ?? "고급 구급상자"} ${count}개를 추가로 얻었습니다.`);

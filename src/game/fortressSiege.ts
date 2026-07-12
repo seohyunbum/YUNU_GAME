@@ -1,5 +1,6 @@
 import { ARENA_CENTER_Z, ARENA_HALF, SIEGE_MAX_ALIVE, SIEGE_SPAWN_STAGGER, SIEGE_WAVE_CLEAR_DELAY } from "./constants";
 import { createFortressBossRuntime, fortressBossConceptForStage, fortressBossStats, isFortressBossStage, updateFortressBossPatterns, type FortressBossPatternContext, type FortressBossRuntime } from "./fortressBoss";
+import { runeItemId, RUNE_KEY, RUNE_TYPES, type RuneTier } from "./runeStones";
 import type { ItemId } from "./types";
 
 // 몬스터 요새 디펜스 — 무한 점증 웨이브 상태머신(순수 로직). main.ts import 금지(leaf).
@@ -29,10 +30,14 @@ export function itemsForStage(stage: number): Partial<Record<ItemId, number>> {
   if (stage >= 5) items.refined_diamond = 1 + Math.floor((stage - 5) / 3);
   if (stage >= 7) items.sharp_obsidian = 1 + Math.floor((stage - 7) / 3);
   if (stage % 3 === 0) items.advanced_medkit = 1;
-  if (isFortressBossStage(stage)) { // 보스 단계 처치 보너스 — 단계가 깊을수록 두둑하게
+  if (isFortressBossStage(stage)) { // 보스 단계 처치 보너스 — 단계가 깊을수록 두둑하게 + 마석 시스템 확정 보상(고급 아이템이라 여기서 보장)
     items.diamond = (items.diamond ?? 0) + 2 + Math.floor(stage / 10);
     items.refined_diamond = (items.refined_diamond ?? 0) + 1 + Math.floor(stage / 15);
     items.advanced_medkit = (items.advanced_medkit ?? 0) + 1;
+    items[RUNE_KEY] = (items[RUNE_KEY] ?? 0) + 1; // 마석열쇠 1개(슬롯 해금 페이싱)
+    const runeType = RUNE_TYPES[(Math.floor(stage / 5) - 1) % RUNE_TYPES.length]; // 보스 컨셉과 짝맞춰 순환
+    const runeTier = Math.min(4, 1 + Math.floor(stage / 15)) as RuneTier; // 15·30단계마다 등급↑
+    items[runeItemId(runeType, runeTier)] = (items[runeItemId(runeType, runeTier)] ?? 0) + 1;
   }
   return items;
 }
