@@ -1,0 +1,12 @@
+import { chromium } from "playwright-core";
+import { createServer } from "vite";
+const server = await createServer({ logLevel: "silent", server: { host: "127.0.0.1", port: 5198, strictPort: true } });
+await server.listen();
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--no-sandbox", "--use-gl=swiftshader"] });
+const page = await browser.newPage({ viewport: { width: 1260, height: 1040 } });
+page.on("pageerror", (e) => { console.error("pageerror:", String(e).slice(0, 300)); process.exitCode = 1; });
+await page.goto("http://127.0.0.1:5198/scripts/_tmp_boss_preview/index.html", { waitUntil: "networkidle" });
+await page.waitForFunction(() => window.bossPreviewReady === true, undefined, { timeout: 20000 });
+await page.locator("canvas").screenshot({ path: "scripts/_tmp_boss_grid.png" });
+console.log("captured boss grid");
+await browser.close(); await server.close(); process.exit(process.exitCode ?? 0);
