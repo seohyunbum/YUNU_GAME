@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { ARENA_HALF, ILLIA_CENTER_Z } from "./constants";
+import { ARENA_CENTER_Z, ARENA_HALF, ILLIA_CENTER_Z } from "./constants";
+import { animateFortressBossModel } from "./fortressBossVisuals";
 import { bal } from "./balanceTuning";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { animateCinematicAmbience, animateGateOpening, animateIntroVista, createCinematicAmbience, createIntroVista, resetGateVisual } from "./illiaVisuals";
@@ -395,7 +396,7 @@ export interface IlliaCutsceneContext {
   onFinish(): void;
 }
 
-export type IlliaCutsceneKind = "awaken" | "unseal" | "gateOpen" | "intro";
+export type IlliaCutsceneKind = "awaken" | "unseal" | "gateOpen" | "intro" | "fortressBoss";
 
 // 부팅 인트로 컷씬의 마을 포커스(타이틀 배경 카메라 focus 와 동일 정본 — main 이 이 값을 titleFocus 초기값으로 사용).
 export const INTRO_FOCUS = { x: 58, y: 2.8, z: -76 };
@@ -408,16 +409,22 @@ export interface IlliaCutsceneState {
   anchor: THREE.Object3D | null; // 월드 소유 오브젝트 참조(gateOpen 의 차원의 문) — 종료 시 제거하지 않고 원상복구만
   ambience: THREE.Object3D | null; // 시네마틱 앰비언스(엠버·갓레이) — props 에도 등록돼 종료/수동정리 시 자동 제거
   vista: THREE.Object3D | null; // 인트로 전용 원경 세트(산맥·태양·독수리) — props 에도 등록돼 자동 제거
+  themeColor: number; // 앰비언스/연출 톤(fortressBoss 트레일러가 보스 컨셉 색으로 지정, 기본 심홍)
   firedSteps: number; // 원샷 스텝 진행 인덱스
 }
 
 export const ILLIA_CUTSCENE_MS = 10_000;
+export const FORTRESS_TRAILER_MS = 8_000; // 요새 보스 등장 트레일러 — 5단계마다라 일리아보다 짧게
 
-export function createIlliaCutsceneState(): IlliaCutsceneState {
-  return { active: false, kind: "awaken", startedAt: 0, props: [], anchor: null, ambience: null, vista: null, firedSteps: 0 };
+export function cutsceneDurationMs(kind: IlliaCutsceneKind): number {
+  return kind === "fortressBoss" ? FORTRESS_TRAILER_MS : ILLIA_CUTSCENE_MS;
 }
 
-export function startIlliaCutscene(state: IlliaCutsceneState, kind: IlliaCutsceneKind, now: number, props: THREE.Object3D[], anchor: THREE.Object3D | null = null): void {
+export function createIlliaCutsceneState(): IlliaCutsceneState {
+  return { active: false, kind: "awaken", startedAt: 0, props: [], anchor: null, ambience: null, vista: null, themeColor: 0xff2d55, firedSteps: 0 };
+}
+
+export function startIlliaCutscene(state: IlliaCutsceneState, kind: IlliaCutsceneKind, now: number, props: THREE.Object3D[], anchor: THREE.Object3D | null = null, themeColor = 0xff2d55): void {
   state.active = true;
   state.kind = kind;
   state.startedAt = now;
@@ -425,6 +432,7 @@ export function startIlliaCutscene(state: IlliaCutsceneState, kind: IlliaCutscen
   state.anchor = anchor;
   state.ambience = null;
   state.vista = null;
+  state.themeColor = themeColor;
   state.firedSteps = 0;
 }
 
@@ -462,19 +470,44 @@ export function updateIlliaCutscene(state: IlliaCutsceneState, ctx: IlliaCutscen
   if (!state.active) return;
   const t = (ctx.now() - state.startedAt) / 1000;
   const cz = ILLIA_CENTER_Z;
-  if (t >= ILLIA_CUTSCENE_MS / 1000) { finishIlliaCutscene(state, ctx); return; }
+  if (t >= cutsceneDurationMs(state.kind) / 1000) { finishIlliaCutscene(state, ctx); return; }
 
   // 시네마틱 앰비언스(부유 엠버 + 갓레이) — 1회 생성 후 props 에 등록(종료/수동정리 시 자동 제거), 매 프레임 무할당 애니.
   if (!state.ambience) {
-    const amb = createCinematicAmbience(state.kind === "gateOpen" ? 0x8b5cf6 : state.kind === "intro" ? 0xffdf9e : 0xff2d55); // 인트로=아침 햇살 금빛(반딧불·꽃가루 느낌)
+    const amb = createCinematicAmbience(state.kind === "gateOpen" ? 0x8b5cf6 : state.kind === "intro" ? 0xffdf9e : state.themeColor); // 인트로=아침 햇살 금빛, 요새 보스=컨셉 색
     if (state.kind === "gateOpen" && state.anchor) amb.position.set(state.anchor.position.x, 0, state.anchor.position.z);
     else if (state.kind === "intro") amb.position.set(INTRO_FOCUS.x, 0, INTRO_FOCUS.z);
+    else if (state.kind === "fortressBoss") amb.position.set(0, 0, ARENA_CENTER_Z);
     else amb.position.set(0, 0, cz);
     ctx.scene.add(amb);
     state.props.push(amb);
     state.ambience = amb;
   }
   animateCinematicAmbience(state.ambience, t);
+
+  if (state.kind === "fortressBoss") {
+    // 요새 보스 등장 트레일러(8s) — 소품 props[0] = 보스 모델(아레나 중앙). 3박자: 로우 정면 푸시인 → 반원 아크 → 로우앵글 위용+포효.
+    const bz = ARENA_CENTER_Z;
+    const boss = state.props[0];
+    if (boss) animateFortressBossModel(boss, t);
+    const amplitude = t < 5.2 ? 0.03 : t < 6.2 ? 0.55 * (1 - (t - 5.2) * 0.8) : 0.05; // 포효(5.2s) 진동
+    const shake = cutsceneShake(t, amplitude);
+    if (t < 3.2) {
+      const k = easeCine(t / 3.2);
+      ctx.setCamera(shake.x, 5.5 - k * 3.6, bz + 15 - k * 6.5, 0, 2.6, bz); // 하이앵글 원경 → 정면 푸시인
+    } else if (t < 5.2) {
+      const k = easeCine((t - 3.2) / 2);
+      const a = 0.6 + k * 1.9;
+      ctx.setCamera(Math.sin(a) * 7.5 + shake.x, 1.9 + k * 0.6, bz + Math.cos(a) * 7.5, 0, 2.8, bz); // 반원 아크(무기·실루엣 훑기)
+    } else {
+      const k = easeCine((t - 5.2) / 2.8);
+      ctx.setCamera(shake.x, 1.2 + k * 2.2, bz + 5.6 + k * 5.4, 0, 3.0 - k * 0.4, bz); // 포효 로우앵글 → 풀백(전투 준비)
+    }
+    if (state.firedSteps === 0 && t >= 0.8) { state.firedSteps = 1; ctx.playTone(55, 1.4, "sawtooth", 0.06); } // 저역 혼(전조)
+    if (state.firedSteps === 1 && t >= 3.2) { state.firedSteps = 2; ctx.playTone(48, 1.2, "sawtooth", 0.05); ctx.playTone(660, 0.25, "triangle", 0.03); }
+    if (state.firedSteps === 2 && t >= 5.2) { state.firedSteps = 3; flashCutsceneScreen(); ctx.groundBurst(0, bz); ctx.groundBurst(-2, bz + 1.5); ctx.groundBurst(2, bz - 1.5); ctx.playTone(40, 1.6, "sawtooth", 0.1); ctx.playTone(90, 0.8, "square", 0.06); } // 포효 — 섬광+충격파
+    return;
+  }
 
   if (state.kind === "intro") {
     // 부팅 인트로(AAA 시네마틱 오프닝) — 셰이크 없음. 3막: ① 역광 태양·산맥 원경을 응시하는 하이 에어리얼 푸시인
