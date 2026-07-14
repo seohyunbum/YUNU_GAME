@@ -308,6 +308,7 @@ import { NECKLACE_IDS, necklaceAttackBonus, necklaceDefenseBonus, necklaceManaRe
 import { DRAGON_GEAR_IDS, DRAGON_GEAR_SLOT, NO_DRAGON_GEAR, resolveDragonGear, resolveWornDragonGear, accessoryAttackSpeedMult, accessorySkillCooldownMult, additiveMoveSpeedMult, dragonGearAttackBonus, dragonGearDefenseBonus, dragonGearMaxHpBonus, dragonGearMaxManaBonus, dragonGearHealthRegenBonus, dragonGearManaRegenBonus, type DragonGearWorn } from "./game/dragonGear";
 import { aggregateRuneBonuses, allRuneStoneEntries, clampRuneSlotCount, normalizeEquippedRunes, runeCombineOutput, runeHexColor, runeNextUnlockCost, runeShortLabel, runeTierOf, runeTypeOf, RUNE_BASE_SLOTS, RUNE_COMBINE_COST, RUNE_KEY, RUNE_MAX_SLOTS, NO_RUNE_BONUSES, type RuneBonuses } from "./game/runeStones";
 import { renderRunestonePanelView } from "./ui/runestonePanel";
+import { ammoInGun, beginReload, consumeGunShot, createReloadState, gunMagazineSize, isReloadableGun, isReloading, resetReloadState, tickReload } from "./game/gunReload";
 import { createDragonGauntletFirstPerson } from "./game/accessoryVisuals";
 import { experienceForLevelUps, experienceForNextLevel as xpForNextLevelCurve, migrateSaveData as migratePartialSaveData } from "./game/saveMigration";
 import { createSaveData as createSaveDataFromSnapshot } from "./game/saveManager";
@@ -947,6 +948,8 @@ class WildernessGame {
   private readonly areaSkillEffects: AreaSkillEffect[] = [];
   private actionMode: HandActionMode = "use";
   private rangedCooldown = 0;
+  private readonly reload = createReloadState(); // 거너 총기 장전 상태(탄창·장전 타이머) — 세션 내, 세이브 미지속(로드 시 만탄)
+  private readonly startReload = (item: ItemId) => { if (beginReload(this.reload, item, performance.now())) { this.playTone(150, 0.09, "square", 0.05); this.playTone(90, 0.14, "sawtooth", 0.04); this.showMessage(`🔫 재장전 중… (${(1.5).toFixed(1)}초)`); this.renderHud(); } }; // 장전 시작(자동/수동 공용) — 철컥음 + 안내. arrow 필드(메서드 카운트 제외)
   private gameStarted = false; private introPlayed = false; private navGuard?: NavigationGuardHandle; // introPlayed: 부팅 인트로 트레일러 1회 게이트
   private nightSpawnTimer = 0; private expirySweepTimer = 0; private autosaveTimer = 0;
   // 자동저장 flush — 별도 슬롯(SAVE_AUTOSAVE_KEY)에만 기록, 수동 저장 절대 미덮어쓰기. sync=true 는 이탈 직전 동기 저장.
@@ -2267,6 +2270,7 @@ class WildernessGame {
     if (event.code === "KeyM") this.togglePanel("map");
     if (event.code === "KeyK") this.togglePanel("character");
     if (event.code === "KeyJ") this.togglePanel("runestone"); // 마석 창
+    if (event.code === "KeyV" && !event.repeat) { const sel = this.hotbar[this.selectedHotbarIndex]?.item; if (isReloadableGun(sel)) this.startReload(sel); } // V: 수동 재장전(발수 안 써도 가능)
     if (event.code === "KeyE") { if (this.subquestDialog && isSubquestComplete(this.subquests)) this.claimSubquest(); else this.interact(); } // 이장 대화중 완료 서브퀘스트면 E 로 보상 수령, 아니면 일반 상호작용
     if (event.code === "KeyR" && !event.repeat) this.useClassSkill();
     if (event.code === "KeyT" && !event.repeat) this.useSecondSkill();
@@ -4134,6 +4138,7 @@ class WildernessGame {
     this.updateHeldItem();
     this.actionTimer = Math.max(0, this.actionTimer - delta);
     this.rangedCooldown = Math.max(0, this.rangedCooldown - delta);
+    if (tickReload(this.reload, performance.now())) { this.playTone(320, 0.06, "square", 0.05); this.playTone(150, 0.1, "sawtooth", 0.04); this.showMessage("🔫 장전 완료!"); this.renderHud(); } // 장전 완료 프레임: 철컥 완료음 + 만탄
 
     const duration = (this.actionMode === "melee" ? 0.42 : 0.34) * (this.actionMode === "use" ? 1 : accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) * classAttackSpeedMult(this.playerClass, this.hotbar[this.selectedHotbarIndex]?.item ?? null) / (1 + this.runeBonuses.movePct)); // 쾌속 목걸이(착용/영구) + 용장갑(공속 합연산) + 사무라이 공속 + 신속의 마석 %
     const progress = this.actionTimer > 0 ? THREE.MathUtils.clamp(1 - this.actionTimer / duration, 0, 1) : 1;
@@ -5282,6 +5287,10 @@ class WildernessGame {
 
   private fireRangedWeapon(item: ItemId) {
     if (this.rangedCooldown > 0) return;
+    if (isReloadableGun(item)) { // 장전 중이면 발사 불가, 탄 없으면 자동 장전 후 대기
+      if (isReloading(this.reload, performance.now())) return;
+      if (ammoInGun(this.reload, item) <= 0) { this.startReload(item); return; }
+    }
     this.rangedCooldown = RANGED_ATTACK_COOLDOWN * (CLASS_PASSIVES[this.playerClass].gunOnlyRangedCooldown && !GUN_WEAPONS.has(item) ? 1 : CLASS_PASSIVES[this.playerClass].rangedCooldownScale) * rapidFireCooldownScale(this.skillBuffs, performance.now()) * (GUN_WEAPONS.has(item) ? GUN_FIRE_RATE_SCALE : 1) * accessoryAttackSpeedMult(this.equippedNecklace, this.dragonGear, this.permanentNecklace) / (1 + this.runeBonuses.movePct); // 거너 총기 쿨감 + 장신구 공속 + 신속의 마석 %
     const kind: CombatProjectile["kind"] = RANGED_PROJECTILE[item] ?? "arrow";
     const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
@@ -5307,6 +5316,7 @@ class WildernessGame {
     this.playHandAction(kind === "magic" ? "magic" : "bow"); notifyPartyAttack("ranged", origin, direction, kind === "magic" ? "magic" : "arrow", speed, PROJECTILE_MAX_LIFE * CLASS_PASSIVES[this.playerClass].rangedRangeScale, item === "sharp_obsidian_staff" || item === "sharp_obsidian_gun"); // 흑요석 궁극은 파티원에게도 붉게
     if (kind === "magic") this.playMagicShotSound();
     else this.playBowShotSound();
+    if (isReloadableGun(item)) { const left = consumeGunShot(this.reload, item); if (left <= 0) this.startReload(item); else this.renderHud(); } // 탄약 1발 소비 → 소진 시 자동 장전, 아니면 HUD 갱신
   }
 
 
@@ -6615,6 +6625,7 @@ class WildernessGame {
     this.actionTimer = 0;
     this.actionMode = "use";
     this.rangedCooldown = 0;
+    resetReloadState(this.reload); // 총기 탄창 만탄·장전 해제(새 게임/로드 — 세션 내 상태)
     this.footstepDistance = 0;
     this.movementHudTimer = 0;
     this.lastHudStepCount = 0;
@@ -6968,6 +6979,7 @@ class WildernessGame {
         buffs: [
           ...(equippedSpirit(this.spirits) ? [(() => { const e = equippedSpirit(this.spirits)!; const d = spiritGradeDef(e.grade); return { icon: d.emoji, name: `${d.label} 정령 Lv${e.level} — 공격 +${spiritAttackBonus(e)} · 방어 +${spiritDefenseBonus(e)}`, secs: 0, expiring: false, value: `+${spiritAttackBonus(e)}/+${spiritDefenseBonus(e)}` }; })()] : []),
           ...(this.equippedRunes.some((r) => r) ? [(() => { const b = this.runeBonuses; const parts = [b.attack ? `공+${b.attack}` : "", b.defense ? `방+${b.defense}` : "", b.maxHp ? `체+${b.maxHp}` : "", b.maxMana ? `마+${b.maxMana}` : "", b.movePct ? `속+${Math.round(b.movePct * 100)}%` : "", b.xpPct ? `경+${Math.round(b.xpPct * 100)}%` : ""].filter(Boolean); return { icon: "🔮", name: `마석 — ${parts.join(" · ")}`, secs: 0, expiring: false, value: `${this.equippedRunes.filter((r) => r).length}개` }; })()] : []),
+          ...(isReloadableGun(this.hotbar[this.selectedHotbarIndex]?.item) ? [(() => { const g = this.hotbar[this.selectedHotbarIndex]!.item!; const rl = isReloading(this.reload, performance.now()); return { icon: "🔫", name: rl ? "재장전 중… (V)" : "탄창 (V로 재장전)", secs: 0, expiring: rl, value: rl ? "장전…" : `${ammoInGun(this.reload, g)}/${gunMagazineSize(g)}` }; })()] : []),
           ...activeBuffs(this.skillBuffs, performance.now()).map((b) => ({ icon: b.icon, name: b.name, secs: Math.ceil(b.remainingMs / 1000), expiring: b.remainingMs < 15_000 })),
         ], // 좌측하단 상태창 — 장착 정령·마석(상시) + 스킬 버프(만료 15초 전 깜빡)
       },

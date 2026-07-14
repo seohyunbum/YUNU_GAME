@@ -1614,3 +1614,14 @@
   verify 체인 등록. 전 게이트·빌드 녹색(save-roundtrip 은 컨테이너 Chrome 부재로 PC 검증 — 대신
   migrate 왕복을 rune-stones-test 로 커버). 헤드리스 실측: 게임시작→마석지급→장착→패널 스샷으로
   슬롯/해금/조합/버프요약 확인, 버프 합산 수치 검증(힘T2 +9·활력T4 +126·신속T3 +13.5%).
+- 거너 총기 장전 시스템(사용자 요청: 소총 8발마다 장전·등급↑ 탄창↑·흑요석권총 40발·장전음+1.5초·수동장전 단축키):
+  리프 game/gunReload(순수) — GUN_MAGAZINE{pistol 6·rifle 8·sharp_obsidian_gun 40}, GUN_RELOAD_MS 1500,
+  ReloadState{ammoByGun·reloadingGun·reloadingUntil}, ammoInGun(미기록=만탄)·consumeGunShot·beginReload
+  (만탄/중복 거부)·tickReload(완료 시 만탄)·isReloading·canFireGun. 탄약은 세션 상태(세이브 미지속 —
+  로드/새게임 시 resetReloadState 로 만탄). main 배선(메서드 수 482 불변 — reload 필드 + startReload arrow
+  필드): fireRangedWeapon 상단 게이트(장전 중 무시·빈총 자동장전) + 발사 후 consumeGunShot(소진 시 자동장전),
+  updateHand 에서 tickReload(완료음+만탄), KeyV 수동장전(발수 안 써도), HUD buffs 에 🔫 탄창 칩(장전 중 "장전…").
+  장전음 = playTone 철컥(시작 150→90, 완료 320→150). gun-reload-test 신설(탄창 단조·소비/소진·장전 1.5s·
+  수동장전·발사판정·리셋) + verify 체인. 헤드리스 실측: 소총 8발 7→0 자동장전·9번째 차단(투사체 8개 고정)·
+  부분소비 후 V 수동장전·흑요석권총 40발 확인(전부 통과). 줄 9474→9486(ledger), 전 게이트·빌드 녹색.
+  주의: 활·석궁 등 비총기는 isReloadableGun=false 로 장전 개념 없음(기존 발사 경로 그대로).
