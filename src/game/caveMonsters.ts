@@ -56,6 +56,7 @@ export function spawnSiegeBossMonster(deps: FortressSpawnDeps, stage: number, ba
   monster.root.add(model);
   monster.root.userData.fortressBossOverlay = model; // 프레임 idle 애니 참조(시즈 보스 패턴 틱·추격 루프가 구동)
   monster.root.userData.attackArms = model.userData.attackArms; // 공격 시 팔 내려치기(predatorAi 공용 모션)
+  if (model.userData.headMesh) monster.root.userData.headMesh = model.userData.headMesh; // 공격 시 머리 물기 — 숨긴 베이스 머리가 아닌 가시 보스 머리를 내지른다
   monster.name = concept.name;
   monster.hp = hp; monster.armor = armor; monster.attackDamage = attackBase;
   monster.monsterLevel = level; monster.fortressBoss = true; monster.fortressLevel = level;

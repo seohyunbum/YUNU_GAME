@@ -233,10 +233,20 @@ function addClassAccessories(group: THREE.Group, classId: AvatarClassId, pal: Av
     hoodTrim.position.y = 1.98;
     hoodTrim.rotation.x = Math.PI / 2;
     const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 1.5, 8), makeToonMaterial(ASSET_PALETTE.woodDark, { roughness: 0.8 }));
-    staff.position.set(0.62, 1.0, 0.18);
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), accentGlow);
-    orb.position.set(0.62, 1.82, 0.18);
-    group.add(hood, hoodTrim, staff, orb);
+    group.add(hood, hoodTrim);
+    // 지팡이·오브는 오른팔(어깨 피벗)에 매달아 공격 시 팔과 함께 뻗게 한다 — group 직속이면 팔만 휘두르고 소품은 제자리에 남아 손에서 분리돼 보인다.
+    const arms = group.userData.attackArms as THREE.Object3D[] | undefined;
+    const rightArm = arms?.find((pivot) => pivot.userData.armSide === 1);
+    if (rightArm) {
+      staff.position.set(0.62 - rightArm.position.x, 1.0 - rightArm.position.y, 0.18 - rightArm.position.z);
+      orb.position.set(0.62 - rightArm.position.x, 1.82 - rightArm.position.y, 0.18 - rightArm.position.z);
+      rightArm.add(staff, orb);
+    } else {
+      staff.position.set(0.62, 1.0, 0.18);
+      orb.position.set(0.62, 1.82, 0.18);
+      group.add(staff, orb);
+    }
     return;
   }
 

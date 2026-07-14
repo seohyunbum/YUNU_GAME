@@ -6,9 +6,11 @@ import { chromium } from "playwright-core";
 import { createServer } from "vite";
 
 const chromeCandidates = [
+  process.env.PLAYWRIGHT_CHROMIUM_PATH, // 명시 오버라이드 최우선
+  "/opt/pw-browsers/chromium", // 리눅스 원격 세션 프리인스톨 Chromium(심링크)
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-];
+].filter(Boolean);
 
 async function findBrowserPath() {
   for (const candidate of chromeCandidates) {
@@ -27,7 +29,7 @@ await server.listen();
 
 let browser = null;
 try {
-  browser = await chromium.launch({ executablePath: await findBrowserPath() });
+  browser = await chromium.launch({ args: ["--no-sandbox"], /* 컨테이너 루트 헤드리스 필수 · 윈도우선 무해 */ executablePath: await findBrowserPath() });
   const page = await browser.newPage({ viewport: { width: 1280, height: 920 } });
   await page.addInitScript(() => localStorage.setItem("ai-game-lab:nickname-v1", "테스터"));
   await page.goto("http://127.0.0.1:5199/scripts/weapon-preview/index.html", { waitUntil: "networkidle" });

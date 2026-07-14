@@ -2,9 +2,11 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright-core";
 
 const chromeCandidates = [
+  process.env.PLAYWRIGHT_CHROMIUM_PATH, // 명시 오버라이드 최우선
+  "/opt/pw-browsers/chromium", // 리눅스 원격 세션 프리인스톨 Chromium(심링크)
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-];
+].filter(Boolean);
 
 async function findBrowserPath() {
   const { access } = await import("node:fs/promises");
@@ -614,7 +616,7 @@ async function inspectNewSystems(page) {
 }
 
 const browserPath = await findBrowserPath();
-const browser = await chromium.launch({
+const browser = await chromium.launch({ args: ["--no-sandbox"], /* 컨테이너 루트 헤드리스 필수 · 윈도우선 무해 */
   executablePath: browserPath,
   headless: true,
 });

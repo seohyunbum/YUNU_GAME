@@ -11,6 +11,7 @@ const server = await createServer({ appType: "custom", logLevel: "silent", serve
 try {
   const THREE = await server.ssrLoadModule("three"); // predatorAi 와 동일 지정자 → instanceof 일치
   const ai = await server.ssrLoadModule("/src/game/predatorAi.ts");
+  const avatar = await server.ssrLoadModule("/src/avatar.ts");
 
   function makePredator(withParts) {
     const root = new THREE.Group();
@@ -55,7 +56,31 @@ try {
   ai.animatePredatorAttackMotion(bare, Number(bare.root.userData.attackDuration) + 10);
   assert.ok(Math.abs(bare.head.position.x - 0.98) < 1e-6, "미태깅 머리는 안 건드림");
 
-  console.log("✓ monster-motion-test: 머리 물기 · 팔 후려치기 · 몸통 도약 절제 · 원복 · 미태깅 안전 전부 통과");
+  // ── 5) 파티 원격 아바타 리깅 — 다리 스윙·팔 뻗기 피벗 + 힐러 소품 손 고정 ──
+  // 파티원 이동/공격 모션은 walkLegs(2)·attackArms(2) 피벗을 흔든다. 이 배선이 없으면 통짜 슬라이드로 회귀한다.
+  {
+    const warrior = avatar.createAvatarModel(undefined, "warrior");
+    assert.ok(Array.isArray(warrior.userData.walkLegs) && warrior.userData.walkLegs.length === 2, "walkLegs 2개(양 다리 고관절 피벗)");
+    assert.ok(Array.isArray(warrior.userData.attackArms) && warrior.userData.attackArms.length === 2, "attackArms 2개(양 어깨 피벗)");
+    const sides = warrior.userData.attackArms.map((p) => p.userData.armSide).sort();
+    assert.deepEqual(sides, [-1, 1], "어깨 피벗 좌우 armSide 태그");
+    for (const pivot of warrior.userData.attackArms) assert.equal(pivot.children.length, 5, "비힐러 팔 피벗 = 사지 5파츠(소품 없음)");
+
+    // 힐러 지팡이·오브는 오른팔(armSide=1) 피벗에 매달려 공격 스윙에 손과 함께 움직인다(group 직속이면 분리).
+    const healer = avatar.createAvatarModel(undefined, "healer");
+    const rightArm = healer.userData.attackArms.find((p) => p.userData.armSide === 1);
+    assert.ok(rightArm, "힐러 오른팔 피벗 존재");
+    assert.equal(rightArm.children.length, 7, "힐러 오른팔 = 사지 5 + 지팡이 + 오브(손에 소품 부착)");
+    const staff = rightArm.children[5]; // 사지 5개 뒤 첫 소품
+    healer.updateMatrixWorld(true);
+    const restPos = new THREE.Vector3(); staff.getWorldPosition(restPos);
+    rightArm.rotation.x = 1.2; // 공격 스윙 흉내
+    healer.updateMatrixWorld(true);
+    const swungPos = new THREE.Vector3(); staff.getWorldPosition(swungPos);
+    assert.ok(restPos.distanceTo(swungPos) > 0.1, `팔 스윙 시 지팡이가 손 따라 이동(Δ${restPos.distanceTo(swungPos).toFixed(2)}) — 손에서 분리 안 됨`);
+  }
+
+  console.log("✓ monster-motion-test: 머리 물기 · 팔 후려치기 · 몸통 도약 절제 · 원복 · 미태깅 안전 · 파티 아바타 리깅 전부 통과");
 } finally {
   await server.close();
 }
