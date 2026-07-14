@@ -15,8 +15,10 @@ try {
   // ── 1) 탄창 크기 ──
   assert.equal(gun.gunMagazineSize("rifle"), 8, "소총 8발");
   assert.equal(gun.gunMagazineSize("sharp_obsidian_gun"), 40, "날카로운 흑요석 권총 40발");
+  assert.equal(gun.gunMagazineSize("minigun"), 60, "미니건 60발(거너 레전더리)");
   assert.ok(gun.gunMagazineSize("pistol") < gun.gunMagazineSize("rifle"), "권총 < 소총");
   assert.ok(gun.gunMagazineSize("rifle") < gun.gunMagazineSize("sharp_obsidian_gun"), "소총 < 흑요석권총(등급 단조)");
+  assert.ok(gun.gunMagazineSize("sharp_obsidian_gun") < gun.gunMagazineSize("minigun"), "흑요석권총 < 미니건");
   assert.equal(gun.isReloadableGun("rifle"), true);
   assert.equal(gun.isReloadableGun("bow"), false, "활은 장전 대상 아님");
   assert.equal(gun.isReloadableGun(null), false);

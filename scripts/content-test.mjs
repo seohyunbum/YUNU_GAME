@@ -294,7 +294,7 @@ try {
     }
     // 레전더리 = 최종 흑요석 무기 3종 + 상급 전직의 각서 + 경험치병 + 용 장비 4종(최고등급)
     const legendary = Object.keys(ITEM_NAMES).filter((id) => itemTier(id) === "legendary" && !id.startsWith("rune_")).sort(); // 마석(등급별 자동 티어)은 큐레이션 골든에서 제외
-    const expectedLegendary = ["dragon_boots", "dragon_cloak", "dragon_crown", "dragon_gloves", "job_decree_high", "job_seal", "sharp_obsidian_gun", "sharp_obsidian_shield", "sharp_obsidian_staff", "spirit_gacha_token", "xp_bottle"];
+    const expectedLegendary = ["archmage_wand", "bushido_blade", "dawn_greatsword", "dragon_boots", "dragon_cloak", "dragon_crown", "dragon_gloves", "guardian_bulwark", "job_decree_high", "job_seal", "lifebloom_staff", "minigun", "sharp_obsidian_gun", "sharp_obsidian_shield", "sharp_obsidian_staff", "spirit_gacha_token", "storm_staff", "xp_bottle"]; // + 직업별 레전더리 무기 7종
     if (JSON.stringify(legendary) !== JSON.stringify(expectedLegendary)) problems.push(`legendary set mismatch: ${JSON.stringify(legendary)}`);
     // 에픽·레전더리 무기 공격력 상향(기본 ×1.3 반올림) — 최고등급 위상 보장
     const boosted = { obsidian_dagger: 7, obsidian_sword: 13, arcane_staff: 12, sharp_obsidian_staff: 16, sharp_obsidian_gun: 14, sharp_obsidian_shield: 10 };
@@ -307,6 +307,14 @@ try {
     if (!(WEAPON_DAMAGE.arcane_staff > WEAPON_DAMAGE.crystal_staff)) problems.push("arcane_staff should exceed crystal_staff");
     if (!(WEAPON_DAMAGE.sharp_obsidian_staff > WEAPON_DAMAGE.arcane_staff)) problems.push("legendary staff should exceed epic arcane_staff");
     if (!(WEAPON_DAMAGE.sharp_obsidian_gun > WEAPON_DAMAGE.rifle)) problems.push("legendary gun should exceed rifle");
+    // 직업별 레전더리 무기 — 각 계열 직전 최강을 초과(정점 위상)
+    if (!(WEAPON_DAMAGE.dawn_greatsword > WEAPON_DAMAGE.obsidian_sword)) problems.push("dawn_greatsword should exceed obsidian_sword");
+    if (!(WEAPON_DAMAGE.bushido_blade > WEAPON_DAMAGE.obsidian_katana)) problems.push("bushido_blade should exceed obsidian_katana");
+    if (!(WEAPON_DAMAGE.archmage_wand > WEAPON_DAMAGE.sharp_obsidian_staff)) problems.push("archmage_wand should exceed sharp_obsidian_staff");
+    if (!(WEAPON_DAMAGE.storm_staff >= WEAPON_DAMAGE.sharp_obsidian_staff)) problems.push("storm_staff should be >= sharp_obsidian_staff");
+    for (const legendaryWeapon of ["dawn_greatsword", "bushido_blade", "archmage_wand", "lifebloom_staff", "storm_staff", "minigun", "guardian_bulwark"]) {
+      if (itemTier(legendaryWeapon) !== "legendary") problems.push(`${legendaryWeapon} should be legendary`);
+    }
     // 재료비 대비 밸런스 보정: 금 무기/도구 역전 해소(금은 철보다 비싼 재료)
     if (!(WEAPON_DAMAGE.gold_sword > WEAPON_DAMAGE.iron_sword)) problems.push("gold_sword should exceed iron_sword (pricier material)");
     if (!(WEAPON_DAMAGE.gold_dagger > WEAPON_DAMAGE.iron_dagger)) problems.push("gold_dagger should exceed iron_dagger");
@@ -332,7 +340,7 @@ try {
     if (recById.obsidian_dagger?.ingredients?.sharp_obsidian !== 2) problems.push(`obsidian_dagger should use 2 sharp_obsidian, got ${recById.obsidian_dagger?.ingredients?.sharp_obsidian}`);
     // 총 계열 연사 보정 세트 + 쿨다운 스케일(<1)
     const guns = [...items.GUN_WEAPONS].sort();
-    if (JSON.stringify(guns) !== JSON.stringify(["pistol", "rifle", "sharp_obsidian_gun"])) problems.push(`GUN_WEAPONS mismatch: ${JSON.stringify(guns)}`);
+    if (JSON.stringify(guns) !== JSON.stringify(["minigun", "pistol", "rifle", "sharp_obsidian_gun"])) problems.push(`GUN_WEAPONS mismatch: ${JSON.stringify(guns)}`);
     if (!(constants.GUN_FIRE_RATE_SCALE > 0 && constants.GUN_FIRE_RATE_SCALE < 1)) problems.push(`GUN_FIRE_RATE_SCALE should be in (0,1), got ${constants.GUN_FIRE_RATE_SCALE}`);
     if (!(constants.MAGIC_AOE_RADIUS > 0)) problems.push(`MAGIC_AOE_RADIUS should be > 0, got ${constants.MAGIC_AOE_RADIUS}`);
   }

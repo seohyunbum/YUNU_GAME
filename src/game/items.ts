@@ -39,6 +39,13 @@ export const ITEM_NAMES: Record<ItemId, string> = {
   sharp_obsidian_shield: "날카로운 흑요석 방패",
   sharp_obsidian_staff: "날카로운 흑요석 지팡이",
   sharp_obsidian_gun: "날카로운 흑요석 총",
+  dawn_greatsword: "여명의 대검", // 전사 레전더리
+  bushido_blade: "싸울아비 장검", // 사무라이 레전더리(카타나)
+  archmage_wand: "대주술사의 마법봉", // 마법사 레전더리
+  lifebloom_staff: "생명의 지팡이", // 힐러 레전더리
+  storm_staff: "폭풍 정령의 지팡이", // 소환사 레전더리
+  minigun: "미니건", // 거너 레전더리(60발)
+  guardian_bulwark: "수호자의 대방패", // 탱커 레전더리
   bucket: "양동이",
   water_bucket: "물 양동이",
   lava_bucket: "용암 양동이",
@@ -191,6 +198,14 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
   sharp_obsidian_shield: 10, // 레전더리 ×1.3 (기본 8). 방패 강타(iron_shield 3 초과)
   sharp_obsidian_staff: 16, // 레전더리 ×1.3 (기본 12). 최상급 마법(arcane_staff 12 초과)
   sharp_obsidian_gun: 14, // 레전더리 ×1.3 (기본 11). 최상급 총(rifle 7 초과)
+  // ── 직업별 레전더리 무기(각 직업 정점 — 흑요석 궁극 이상, dragon 재료) ──
+  dawn_greatsword: 18, // 전사 — 최상급 근접(obsidian_sword 13 초과)
+  bushido_blade: 16, // 사무라이 — 카타나(리치 2배·시너지, obsidian_katana 12 초과)
+  archmage_wand: 20, // 마법사 — 최상급 마법(sharp_obsidian_staff 16 초과)
+  lifebloom_staff: 14, // 힐러 — 치유 특화 지팡이(힐 시너지, 데미지는 절제)
+  storm_staff: 17, // 소환사 — 바람 정령 지팡이
+  minigun: 12, // 거너 — 연사·60발(한 방은 흑요석총 14보다 낮지만 탄창·연사로 폭딜)
+  guardian_bulwark: 14, // 탱커 — 대방패 강타(sharp_obsidian_shield 10 초과)
   weak_wood_axe: 2,
   sharp_wood_axe: 4,
   stone_axe: 5,
@@ -202,32 +217,36 @@ export const WEAPON_DAMAGE: Record<ItemId, number> = {
 export const RANGED_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>([
   "bow", "magic_wand", "pistol", "iron_bow", "diamond_bow", "rifle", "crystal_staff", "arcane_staff",
   "sharp_obsidian_staff", "sharp_obsidian_gun",
+  "archmage_wand", "lifebloom_staff", "storm_staff", "minigun", // 직업 레전더리(마법 지팡이 3 + 미니건)
 ]);
 // 총 계열 — 활과 같은 arrow 투사체지만 연사 보정(GUN_FIRE_RATE_SCALE)을 받는다.
-export const GUN_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["pistol", "rifle", "sharp_obsidian_gun"]);
+export const GUN_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["pistol", "rifle", "sharp_obsidian_gun", "minigun"]);
 export const RANGED_PROJECTILE: Record<ItemId, "arrow" | "magic"> = {
   magic_wand: "magic",
   crystal_staff: "magic",
   arcane_staff: "magic",
   sharp_obsidian_staff: "magic", // 흑요석 총은 미등재 → arrow 발사
+  archmage_wand: "magic",
+  lifebloom_staff: "magic",
+  storm_staff: "magic", // 미니건은 미등재 → arrow(총알)
 };
 export const MELEE_WEAPON_DAMAGE = Object.fromEntries(Object.entries(WEAPON_DAMAGE).filter(([item]) => !RANGED_WEAPONS.has(item))) as Record<ItemId, number>;
 // 지팡이류(마법 투사체 무기) — 직업 패시브 "지팡이 장착 데미지" 판정용.
-export const STAFF_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["magic_wand", "crystal_staff", "arcane_staff", "sharp_obsidian_staff"]);
+export const STAFF_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["magic_wand", "crystal_staff", "arcane_staff", "sharp_obsidian_staff", "archmage_wand", "lifebloom_staff", "storm_staff"]);
 export function isStaffWeapon(item: ItemId | null | undefined): boolean {
   return Boolean(item && STAFF_WEAPONS.has(item));
 }
 // 근접무기 — WEAPON_DAMAGE 보유 && 원거리 아님 && 방패 아님(도끼 포함). 전사 패시브 판정용.
 export function isMeleeWeapon(item: ItemId | null | undefined): boolean {
-  return Boolean(item && WEAPON_DAMAGE[item] !== undefined && !RANGED_WEAPONS.has(item) && item !== "iron_shield" && item !== "sharp_obsidian_shield");
+  return Boolean(item && WEAPON_DAMAGE[item] !== undefined && !RANGED_WEAPONS.has(item) && item !== "iron_shield" && item !== "sharp_obsidian_shield" && item !== "guardian_bulwark");
 }
 // 카타나 계열 — 사무라이 시너지(공·공속·이속 +5%, game/samurai.ts) + 리치 2배 판정용.
-export const KATANA_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["katana", "obsidian_katana"]);
+export const KATANA_WEAPONS: ReadonlySet<ItemId> = new Set<ItemId>(["katana", "obsidian_katana", "bushido_blade"]);
 export function isKatanaWeapon(item: ItemId | null | undefined): boolean {
   return Boolean(item && KATANA_WEAPONS.has(item));
 }
 // 무기별 근접 리치 배수 — 미등재 무기는 1(기본 리치). 카타나는 일반 근접무기의 2배.
-export const WEAPON_REACH_MULT: Partial<Record<ItemId, number>> = { katana: 2, obsidian_katana: 2 };
+export const WEAPON_REACH_MULT: Partial<Record<ItemId, number>> = { katana: 2, obsidian_katana: 2, bushido_blade: 2 };
 export function weaponReachMult(item: ItemId | null | undefined): number {
   return (item && WEAPON_REACH_MULT[item]) || 1;
 }
@@ -267,6 +286,7 @@ export const ITEM_RARITY: Record<ItemId, "rare" | "epic"> = {
   sharp_obsidian_shield: "epic",
   sharp_obsidian_staff: "epic",
   sharp_obsidian_gun: "epic",
+  dawn_greatsword: "epic", bushido_blade: "epic", archmage_wand: "epic", lifebloom_staff: "epic", storm_staff: "epic", minigun: "epic", guardian_bulwark: "epic", // 직업 레전더리(제작 juice 가중용 rarity — 등급 자체는 ITEM_TIER=legendary)
   strength_necklace: "epic",
   guardian_necklace: "epic",
   swift_necklace: "epic",
@@ -316,6 +336,7 @@ export const ITEM_TIER: Partial<Record<ItemId, ItemTier>> = {
   advanced_medkit: "epic", big_bag: "epic", job_change_tome: "epic", job_decree: "epic",
   // 레전더리(legendary) — 최종 흑요석 무기 3종 + 전직의 표식·상급 전직의 각서 + 경험치병(매우 희귀) + 용 장비 4종
   sharp_obsidian_staff: "legendary", sharp_obsidian_gun: "legendary", sharp_obsidian_shield: "legendary", job_seal: "legendary", job_decree_high: "legendary", xp_bottle: "legendary", spirit_gacha_token: "legendary",
+  dawn_greatsword: "legendary", bushido_blade: "legendary", archmage_wand: "legendary", lifebloom_staff: "legendary", storm_staff: "legendary", minigun: "legendary", guardian_bulwark: "legendary", // 직업별 레전더리 무기 7종
   dragon_gloves: "legendary", dragon_boots: "legendary", dragon_cloak: "legendary", dragon_crown: "legendary",
   // 신화(mythic) — 레전더리 위 최상위 등급(은은한 푸른빛 다이아몬드 아우라). 4차 전직 각서 4종.
   job_decree_ultimate_strength: "mythic", job_decree_ultimate_guardian: "mythic", job_decree_ultimate_swift: "mythic", job_decree_ultimate_sage: "mythic",
@@ -339,22 +360,26 @@ export const ARMOR_VALUE: Record<ItemId, number> = {
 export const SHIELD_DEFENSE: Record<ItemId, number> = {
   iron_shield: 5,
   sharp_obsidian_shield: 10, // 최상급 방패(iron 5 초과)
+  guardian_bulwark: 13, // 탱커 레전더리 대방패(sharp_obsidian_shield 10 초과)
 };
 
 export const SHIELD_DURABILITY: Record<ItemId, number> = {
   iron_shield: 200,
   sharp_obsidian_shield: 1000, // 궁극의 방패 — 매우 단단(피격 1000회)
+  guardian_bulwark: 1500, // 수호자의 대방패 — 가장 단단(피격 1500회)
 };
 
 // 수리 1회 회복량 오버라이드 — 기본은 최대의 50%(repairPerMaterial). 방패 등 예외만 고정값.
 export const REPAIR_PER_MATERIAL_OVERRIDE: Partial<Record<ItemId, number>> = {
   sharp_obsidian_shield: 300, // 내구도 1000, 수리 1회 +300(재료 4개로 완전 회복)
+  guardian_bulwark: 375, // 내구도 1500, 수리 1회 +375(재료 4개로 완전 회복)
 };
 
 // 방패 수리 재료 — 방패는 도구 테이블 밖(장착형, shieldDurabilityUsed 로 별도 관리)이라 수리 재료를 여기 명시한다.
 export const SHIELD_REPAIR_MATERIAL: Partial<Record<ItemId, ItemId>> = {
   iron_shield: "refined_iron",
   sharp_obsidian_shield: "sharp_obsidian",
+  guardian_bulwark: "sharp_obsidian",
 };
 
 export const AXE_POWER: Record<ItemId, number> = {

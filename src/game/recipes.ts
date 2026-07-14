@@ -417,6 +417,14 @@ export const WORKBENCH_RECIPES: Recipe[] = [
     note: "데미지 14의 궁극 총입니다.",
     extendedOnly: true,
   },
+  // ── 직업별 레전더리 무기(각 직업 정점 — 드래곤 재료 필요) ──
+  { id: "dawn_greatsword", name: "여명의 대검", output: "dawn_greatsword", count: 1, ingredients: { sharp_obsidian: 6, refined_diamond: 3, dragon_scale: 2, gold_powder: 3 }, note: "전사 레전더리 — 데미지 18의 최상급 근접 대검.", extendedOnly: true },
+  { id: "bushido_blade", name: "싸울아비 장검", output: "bushido_blade", count: 1, ingredients: { sharp_obsidian: 6, refined_iron: 5, dragon_tail: 1, diamond_powder: 3 }, note: "사무라이 레전더리 — 데미지 16, 리치 2배·사무라이 시너지.", extendedOnly: true },
+  { id: "archmage_wand", name: "대주술사의 마법봉", output: "archmage_wand", count: 1, ingredients: { sharp_obsidian: 5, obsidian_powder: 4, diamond_powder: 4, dragon_horn: 1 }, note: "마법사 레전더리 — 데미지 20의 최상급 마법봉.", extendedOnly: true },
+  { id: "lifebloom_staff", name: "생명의 지팡이", output: "lifebloom_staff", count: 1, ingredients: { sharp_obsidian: 4, refined_diamond: 3, gold_powder: 3, refined_wood: 2 }, note: "힐러 레전더리 — 데미지 14 + 지팡이 힐 시너지.", extendedOnly: true },
+  { id: "storm_staff", name: "폭풍 정령의 지팡이", output: "storm_staff", count: 1, ingredients: { sharp_obsidian: 5, diamond_powder: 4, gold_powder: 3, dragon_scale: 1 }, note: "소환사 레전더리 — 데미지 17의 바람 정령 지팡이.", extendedOnly: true },
+  { id: "minigun", name: "미니건", output: "minigun", count: 1, ingredients: { sharp_obsidian: 6, refined_iron: 12, gold_powder: 4, coal: 8 }, note: "거너 레전더리 — 최대 60발 연사(한 발 데미지 12).", extendedOnly: true },
+  { id: "guardian_bulwark", name: "수호자의 대방패", output: "guardian_bulwark", count: 1, ingredients: { sharp_obsidian: 7, refined_iron: 6, refined_diamond: 2, dragon_scale: 2 }, note: "탱커 레전더리 — 방어 +13, 강타 14, 피격 1500회(제작대에서 수리).", extendedOnly: true },
   {
     id: "strength_necklace",
     name: "힘의 목걸이",

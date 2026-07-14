@@ -1625,3 +1625,20 @@
   수동장전·발사판정·리셋) + verify 체인. 헤드리스 실측: 소총 8발 7→0 자동장전·9번째 차단(투사체 8개 고정)·
   부분소비 후 V 수동장전·흑요석권총 40발 확인(전부 통과). 줄 9474→9486(ledger), 전 게이트·빌드 녹색.
   주의: 활·석궁 등 비총기는 isReloadableGun=false 로 장전 개념 없음(기존 발사 경로 그대로).
+- 직업별 레전더리 무기 7종(사용자 요청: 각 직업 정점 무기 + 예: 미니건 60발·대주술사 마법봉·싸울아비 장검):
+  전부 데이터/리프/비주얼/레시피만 — main.ts 무변경(예산 불변). 매핑(직업 시작무기 기준):
+  전사 여명의 대검(dawn_greatsword 근접 18) · 사무라이 싸울아비 장검(bushido_blade 카타나 16·리치2·시너지) ·
+  마법사 대주술사의 마법봉(archmage_wand 마법 20) · 힐러 생명의 지팡이(lifebloom_staff 14·힐 시너지) ·
+  소환사 폭풍 정령의 지팡이(storm_staff 17) · 거너 미니건(minigun 총 12·탄창 60) · 탱커 수호자의 대방패
+  (guardian_bulwark 방어 13·강타 14·내구 1500). 각 계열 직전 최강(흑요석 궁극/에픽) 초과로 위상 확보.
+  ▪items.ts: ITEM_NAMES·WEAPON_DAMAGE·RANGED_WEAPONS·GUN_WEAPONS(+minigun)·RANGED_PROJECTILE(지팡이3=magic)·
+  STAFF_WEAPONS·KATANA_WEAPONS(+bushido)·WEAPON_REACH_MULT(bushido=2)·isMeleeWeapon(대방패 제외)·ITEM_RARITY·
+  ITEM_TIER(legendary)·SHIELD_DEFENSE/DURABILITY/REPAIR(대방패). 직업 시너지는 기존 group 로직(melee/staff/
+  katana/gun)으로 자동 적용 — 신규 클래스 코드 0.
+  ▪gunReload.ts: GUN_MAGAZINE.minigun=60(장전 시스템과 연동).
+  ▪recipes.ts: extendedOnly 7종 — sharp_obsidian + dragon 재료(scale/tail/horn)로 게이팅(정점 위상).
+  ▪heldItemVisuals: 지팡이3=createOrnateStaffModel(색 차등), 카타나 브랜치에 bushido(진홍·금), 미니건=다총열
+  회전체, 대방패=흑요석방패 확대, 대검=금빛 발광 블레이드. 전부 non-fallback(content 폴백 게이트 통과).
+  ▪content-test 골든 갱신(legendary 세트 +7·GUN_WEAPONS +minigun) + 레전더리 위상 ordering asserts.
+  gun-reload-test 에 미니건 60 추가. 세이브 변경 없음(무기는 기존 인벤토리 슬롯 지속 — SAVE_VERSION 불변).
+  전 게이트·빌드 녹색, held 모델 7종 그리드 헤드리스 실측(뚜렷·구분됨).

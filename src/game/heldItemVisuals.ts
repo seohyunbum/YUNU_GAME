@@ -119,6 +119,39 @@ export function createHeldItemModel(item: ItemId) {
     gun.rotation.set(-0.05, 0.7, 0);
     gun.scale.setScalar(1.12);
     group.add(gun);
+  } else if (item === "archmage_wand") {
+    group.add(createOrnateStaffModel({ gem: 0xc77dff, glow: 0x7c3aed, wingsPerSide: 2, flames: 8, scale: 1.1 })); // 대주술사의 마법봉 — 최상급 보라 마법봉
+  } else if (item === "storm_staff") {
+    group.add(createOrnateStaffModel({ gem: 0x8fe9ff, glow: 0x38bdf8, wingsPerSide: 2, flames: 5, scale: 1.02 })); // 폭풍 정령의 지팡이 — 청록 폭풍
+  } else if (item === "lifebloom_staff") {
+    group.add(createOrnateStaffModel({ gem: 0x7dffa6, glow: 0x22c55e, wingsPerSide: 1, flames: 4, scale: 1.0 })); // 생명의 지팡이 — 초록 생명
+  } else if (item === "minigun") {
+    // 미니건 — 다총열 회전체 + 몸체(레전더리 거너)
+    const metal = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, metalness: 0.7, roughness: 0.35 });
+    const accent = new THREE.MeshStandardMaterial({ color: 0xffb020, metalness: 0.6, roughness: 0.3, emissive: 0x5a3000, emissiveIntensity: 0.4 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.34), metal); body.position.set(0.05, 0.42, 0.05);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.12, 12), accent); hub.rotation.x = Math.PI / 2; hub.position.set(0.05, 0.44, 0.3);
+    for (let i = 0; i < 6; i += 1) { const a = (i / 6) * Math.PI * 2; const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.5, 8), metal); barrel.rotation.x = Math.PI / 2; barrel.position.set(0.05 + Math.cos(a) * 0.05, 0.44 + Math.sin(a) * 0.05, 0.5); group.add(barrel); }
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.08), metal); grip.position.set(0.05, 0.3, -0.02); grip.rotation.x = 0.2;
+    group.add(body, hub, grip);
+    group.rotation.set(-0.05, 0.7, 0);
+  } else if (item === "guardian_bulwark") {
+    const shield = createObsidianShieldModel();
+    shield.scale.setScalar(1.28); // 대방패 — 흑요석 방패보다 크게
+    shield.position.set(0.06, 0.38, 0);
+    shield.rotation.set(0, 0.25, 0);
+    group.add(shield);
+  } else if (item === "dawn_greatsword") {
+    // 여명의 대검 — 넓고 긴 금빛 발광 대검(전사 레전더리)
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0xfff1c4, metalness: 0.7, roughness: 0.18, emissive: 0xffb020, emissiveIntensity: 0.4 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xe0a93a, metalness: 0.75, roughness: 0.28 });
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.28, 8), new THREE.MeshStandardMaterial({ color: 0x5b3a1a, roughness: 0.8 })); grip.position.y = 0.14;
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.06, 0.08), goldMat); guard.position.y = 0.3;
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.0, 0.03), bladeMat); blade.position.y = 0.82;
+    const fuller = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.9, 0.04), goldMat); fuller.position.y = 0.8;
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 4), bladeMat); tip.position.y = 1.4;
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.05), new THREE.MeshStandardMaterial({ color: 0xfff3b0, emissive: 0xffd54a, emissiveIntensity: 0.9 })); gem.position.y = 0.3;
+    group.add(grip, guard, blade, fuller, tip, gem);
   } else if (item === "pistol") {
     // 총신이 화면 전방(-Z)을 향하도록 카메라 공간 보정 회전 (계산값)
     const pistol = createGunnerPistolModel();
@@ -206,12 +239,13 @@ export function createHeldItemModel(item: ItemId) {
         }
       }
     }
-  } else if (item === "katana" || item === "obsidian_katana") {
-    // 카타나 — 길고 가는 외날 검. 3분절로 살짝 휜 곡률 + 밝은 날(하몬) 스트립 + 둥근 츠바(코등이).
+  } else if (item === "katana" || item === "obsidian_katana" || item === "bushido_blade") {
+    // 카타나 — 길고 가는 외날 검. 3분절로 살짝 휜 곡률 + 밝은 날(하몬) 스트립 + 둥근 츠바(코등이). 싸울아비 장검(레전더리)=진홍·금.
     const obsidian = item === "obsidian_katana";
-    const bladeMat = new THREE.MeshStandardMaterial({ color: obsidian ? 0x2a1136 : 0xdfe5ec, metalness: 0.58, roughness: 0.22, emissive: obsidian ? 0x14051d : 0x000000, emissiveIntensity: obsidian ? 0.4 : 0 });
-    const edgeMat = new THREE.MeshStandardMaterial({ color: obsidian ? 0xc084fc : 0xf8fafc, metalness: 0.6, roughness: 0.16, emissive: obsidian ? 0x7c3aed : 0x93c5fd, emissiveIntensity: obsidian ? 0.65 : 0.18 });
-    const wrapMat = new THREE.MeshStandardMaterial({ color: obsidian ? 0x3b0764 : 0x1e293b, roughness: 0.85 });
+    const bushido = item === "bushido_blade";
+    const bladeMat = new THREE.MeshStandardMaterial({ color: bushido ? 0x3a0e12 : obsidian ? 0x2a1136 : 0xdfe5ec, metalness: 0.6, roughness: 0.2, emissive: bushido ? 0x7f1020 : obsidian ? 0x14051d : 0x000000, emissiveIntensity: bushido ? 0.5 : obsidian ? 0.4 : 0 });
+    const edgeMat = new THREE.MeshStandardMaterial({ color: bushido ? 0xffd54a : obsidian ? 0xc084fc : 0xf8fafc, metalness: 0.7, roughness: 0.14, emissive: bushido ? 0xff3b2f : obsidian ? 0x7c3aed : 0x93c5fd, emissiveIntensity: bushido ? 0.7 : obsidian ? 0.65 : 0.18 });
+    const wrapMat = new THREE.MeshStandardMaterial({ color: bushido ? 0x7f1d1d : obsidian ? 0x3b0764 : 0x1e293b, roughness: 0.85 });
     const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.037, 0.3, 8), wrapMat); // 츠카(긴 양손 손잡이)
     grip.position.y = 0.13;
     for (const yy of [0.06, 0.13, 0.2]) { const knot = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.008, 6, 10), obsidian ? edgeMat : bladeMat); knot.position.y = yy; knot.rotation.x = Math.PI / 2; group.add(knot); } // 그립 감기 매듭

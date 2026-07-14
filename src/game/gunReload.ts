@@ -11,6 +11,7 @@ export const GUN_MAGAZINE: Record<ItemId, number> = {
   pistol: 6,
   rifle: 8,
   sharp_obsidian_gun: 40,
+  minigun: 60, // 거너 레전더리 — 최대 탄창
 };
 
 export function isReloadableGun(item: ItemId | null | undefined): item is ItemId {
