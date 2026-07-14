@@ -1679,3 +1679,31 @@
   실측(팔 어깨에서 뻗음 확인). main.ts 무변경. 핫패스 할당 0.
   판단: applyAttackMotion 시그니처를 body 객체로 바꾸면 samurai/systems 테스트가 rotation 객체를 넘겨 깨짐 →
   별도 함수 추가가 정답(기존 상체 모션 + 신규 팔 모션 합성).
+
+- 방금 모션 극대화 작업(efe353f·fc34f28·36338c4)에 대한 적대적 테스트 → 확정 결함 수정:
+  워크플로우 어드버서리 리뷰가 세션 한도로 중단(9/11 에이전트 실패)돼 완료된 2개 finder 결과를 수동 재판정.
+  확정 4건(전부 코스메틱/기능, 크래시·성능·정합 회귀 아님) 중 3건 수정, 1건은 의도적 보류:
+  ▪#1(medium) 시즈 보스 "머리 물기"가 무동작 — caveMonsters 가 attackArms 만 root 로 승계하고 headMesh 는
+    누락. predatorAi 물기는 숨긴 베이스 몬스터 머리를 움직여 가시 오버레이는 통짜였음.
+    → fortressBossVisuals 6종 빌더에 g.userData.headMesh 태깅(오크 head·히드라 중앙목 head(ix0)·오우거 head·
+      죽음기사 helm·어쌔신 hood·주술사 mask) + caveMonsters spawnSiegeBossMonster 가 headMesh 를 root 로 승계.
+  ▪#2(low) 주술사·죽음기사 공격 팔 빈약 — attackArms=bossSway 파츠 수집인데 주술사는 팔 메시가 없고(=[])
+    죽음기사는 망토만. → 죽음기사 팔 메시 + 주술사 지팡이에 userData.bossSway 부여(idle 스웨이 겸 공격 후려치기).
+  ▪#4(low) 파티 힐러 지팡이·오브가 group 직속이라 공격 팔 스윙 시 손에서 분리 → avatar.ts 힐러 분기에서
+    지팡이·오브를 오른팔(armSide=1) 어깨 피벗에 부착(피벗 위치만큼 오프셋 보정). 다른 직업 소품은 등/허리
+    장착이라 무관, 거너 총·사무라이 칼집도 영향 없음.
+  ▪#3(low, 보류) 요새 보스 오버레이 idle 이 패널(일시정지) 중에도 흔들림 + 이중 구동(updateSiege→animateBoss,
+    updateCaveMonsters→animateFortressBossModel). 판정: 이중 구동은 무해(cave 루프가 항상 마지막에 이겨 결정적,
+    지터 없음). 패널 중 흔들림에 !panelOpen 게이트를 걸려다 중단 — update() 는 패널 중에도 전량 실행되고
+    몬스터 이동 자체가 패널 게이트가 없어(오버월드 predatorAi 포함 게임 전역), 오버레이만 얼리면 "몸통은
+    미끄러지는데 호흡만 정지"라 오히려 부정합(회귀)이 됨. 기존 동작이 일관되므로 무변경이 정답.
+  ▪회귀 가드 신설: fortress-boss-test §6(6종 전 컨셉이 headMesh + attackArms≥1 노출 + 공격 시 실제 이동·원복
+    스모크), monster-motion-test §5(아바타 walkLegs2·attackArms2·armSide 태그 + 힐러 지팡이 팔 부착 월드좌표
+    추적). 둘 다 ssrLoadModule("three")로 predatorAi 와 THREE 인스턴스 일치.
+  ▪테스트 인프라(원격 리눅스 세션): visual/perf/save-roundtrip 등 5개 브라우저 스크립트가 Windows chrome 경로만
+    하드코딩 → PLAYWRIGHT_CHROMIUM_PATH 오버라이드 + /opt/pw-browsers/chromium(심링크) 폴백 추가, launch 에
+    --no-sandbox(컨테이너 루트 필수, 윈도우선 무해). 이로써 헤드리스 부팅·렌더 검증 가능.
+    ※ 이 원격 샌드박스는 프록시가 Firebase(파티) websocket·외부 리소스를 차단해 save-roundtrip 의 "브라우저
+      콘솔 에러 0" 단언은 네트워크 사유로 실패함 — 코드 회귀 아님, 사용자 Windows PC 게이트에서는 정상.
+      코드 레벨 게이트(typecheck·check:size/methods/architecture/hotpath·전 노드 단위 테스트)는 전부 녹색.
+  헤드리스 부팅(힐러 직업 진입) 코드 레벨 에러 0(네트워크 에러만 필터). main.ts 무변경.

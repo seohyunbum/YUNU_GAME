@@ -10,9 +10,12 @@ import { createServer } from "vite";
 const server = await createServer({ appType: "custom", logLevel: "silent", server: { middlewareMode: true } });
 
 try {
+  const THREE = await server.ssrLoadModule("three"); // predatorAi 와 동일 지정자 → instanceof 일치
   const boss = await server.ssrLoadModule("/src/game/fortressBoss.ts");
   const siege = await server.ssrLoadModule("/src/game/fortressSiege.ts");
   const telegraph = await server.ssrLoadModule("/src/game/telegraph.ts");
+  const visuals = await server.ssrLoadModule("/src/game/fortressBossVisuals.ts");
+  const predatorAi = await server.ssrLoadModule("/src/game/predatorAi.ts");
   const constants = await server.ssrLoadModule("/src/game/constants.ts");
   const { ARENA_CENTER_Z, ARENA_HALF } = constants;
 
@@ -162,7 +165,39 @@ try {
   assert.equal(items4.refined_diamond, undefined, "4단계 비보스 — 기존 보상 그대로");
   assert.ok((items5.diamond ?? 0) >= 4 && (items5.refined_diamond ?? 0) >= 2 && (items5.advanced_medkit ?? 0) >= 1, "보스 단계 아이템 보너스");
 
-  console.log("✓ fortress-boss-test: 컨셉 순환 · 능력치 스케일 · 시즈 보스 흐름 · 패턴 유효성 · 보상 골든 전부 통과");
+  // ── 6) 보스 외형 모션 계약 — 물기(headMesh)·후려치기(attackArms) 배선 골든 ──────────
+  // 시즈 보스는 베이스 몬스터 외형을 숨기고 이 오버레이를 쓴다. predatorAi 공용 공격 모션이
+  // root.userData.headMesh(머리 물기)·attackArms(팔 내려치기)를 구동하므로, 6종 전 컨셉이 둘 다
+  // 노출하지 않으면 "가시 보스는 통짜로 미끄러지고 숨은 베이스만 문다"는 회귀가 난다(적대적 테스트 확인).
+  {
+    for (const concept of boss.FORTRESS_BOSS_CONCEPTS) {
+      const model = visuals.createFortressBossModel(concept.key);
+      assert.ok(model.userData.headMesh instanceof THREE.Object3D, `${concept.key} — 물기 대상 headMesh 노출`);
+      assert.ok(Array.isArray(model.userData.attackArms) && model.userData.attackArms.length >= 1, `${concept.key} — 후려칠 attackArms ≥1 (실측 ${model.userData.attackArms?.length})`);
+      for (const arm of model.userData.attackArms) assert.ok(arm instanceof THREE.Object3D, `${concept.key} — attackArms 원소는 Object3D`);
+
+      // predatorAi 공격 모션이 이 오버레이의 머리·팔을 실제로 움직였다가 원복하는지(통짜 아님) 스모크
+      const carrier = { root: new THREE.Group(), predatorKind: "wolf", monsterLevel: 60 };
+      carrier.root.add(model);
+      carrier.root.userData.headMesh = model.userData.headMesh;
+      carrier.root.userData.attackArms = model.userData.attackArms;
+      const head = model.userData.headMesh;
+      const armBaseZ = model.userData.attackArms.map((a) => a.rotation.z);
+      const headBase = { x: head.position.x, y: head.position.y, z: head.rotation.z };
+      predatorAi.triggerPredatorAttackMotion(carrier, 0, 1, 0);
+      const dur = Number(carrier.root.userData.attackDuration);
+      predatorAi.animatePredatorAttackMotion(carrier, dur * 0.7); // 도약 구간
+      const headMoved = Math.abs(head.position.x - headBase.x) > 0.05 || Math.abs(head.rotation.z - headBase.z) > 0.05;
+      assert.ok(headMoved, `${concept.key} — 공격 시 머리가 실제로 움직임(물기)`);
+      const armMoved = model.userData.attackArms.some((a, i) => Math.abs(a.rotation.z - armBaseZ[i]) > 0.1);
+      assert.ok(armMoved, `${concept.key} — 공격 시 팔/사지가 실제로 후려침`);
+      predatorAi.animatePredatorAttackMotion(carrier, dur + 10); // 종료 원복
+      assert.ok(Math.abs(head.position.x - headBase.x) < 1e-6 && Math.abs(head.rotation.z - headBase.z) < 1e-6, `${concept.key} — 머리 원복(누적 없음)`);
+      model.userData.attackArms.forEach((a, i) => assert.ok(Math.abs(a.rotation.z - armBaseZ[i]) < 1e-6, `${concept.key} — 팔 원복(누적 없음)`));
+    }
+  }
+
+  console.log("✓ fortress-boss-test: 컨셉 순환 · 능력치 스케일 · 시즈 보스 흐름 · 패턴 유효성 · 보상 골든 · 물기/후려치기 배선 전부 통과");
 } finally {
   await server.close();
 }

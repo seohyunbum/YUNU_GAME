@@ -51,6 +51,7 @@ function createOrcWarlord(): THREE.Group {
   const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.24, 0.5), orcSkin);
   jaw.position.set(0, 2.5, 0.12);
   body.add(torso, belly, head, jaw);
+  g.userData.headMesh = head; // 공격 시 머리 물기(predatorAi) — 가시 보스 머리를 내지른다
   eyes(body, redEye, 2.82, 0.34, 0.19);
   for (const side of [-1, 1]) { // 엄니 + 강철 견갑 + 팔
     const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.3, 6), shamanBone);
@@ -111,6 +112,7 @@ function createHydra(): THREE.Group {
     neck.position.set(side * 0.62, 1.5, 0.45);
     neck.rotation.z = side * -0.35;
     neck.userData.bossSway = { phase: ix * 2.1 };
+    if (ix === 0) g.userData.headMesh = head; // 중앙 목의 머리 = 물기 대상(predatorAi)
     body.add(neck);
   }
   g.add(body);
@@ -134,6 +136,7 @@ function createOgreBoss(): THREE.Group {
   const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.46, 0.3, 6), knightTrim);
   crown.position.y = 3.7;
   body.add(belly, chest, cloth, head, crown);
+  g.userData.headMesh = head; // 물기 대상(predatorAi)
   const eye = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), redEye); // 외눈
   eye.position.set(0, 3.35, 0.45);
   body.add(eye);
@@ -184,6 +187,7 @@ function createDeathKnight(): THREE.Group {
   hornR.position.x = 0.32;
   hornR.rotation.z = -0.5;
   body.add(torso, plate, skirt, helm, hornL, hornR);
+  g.userData.headMesh = helm; // 투구 = 물기 대상(predatorAi)
   eyes(body, blueEye, 2.88, 0.28, 0.13, 0.07); // 투구 틈 냉광
   const cape = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.7), assassinCloth);
   cape.position.set(0, 1.9, -0.4);
@@ -194,6 +198,7 @@ function createDeathKnight(): THREE.Group {
     pauldron.position.set(side * 0.62, 2.42, 0);
     const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 1.0, 8), knightArmor);
     arm.position.set(side * 0.68, 1.75, 0.05);
+    arm.userData.bossSway = { phase: side * 1.6 }; // 팔 = idle 스웨이 + 공격 내려치기(predatorAi attackArms)
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.85, 8), knightArmor);
     leg.position.set(side * 0.3, 0.42, 0);
     body.add(pauldron, arm);
@@ -227,6 +232,7 @@ function createAssassin(): THREE.Group {
   const hood = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.7, 8), assassinCloth);
   hood.position.y = 2.85;
   body.add(robe, chest, sash, hood);
+  g.userData.headMesh = hood; // 후드 = 물기 대상(predatorAi)
   eyes(body, redEye, 2.62, 0.24, 0.11, 0.06); // 후드 속 안광
   for (const side of [-1, 1]) { // 쌍단검(역수) + 팔
     const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.85, 6), assassinCloth);
@@ -265,6 +271,7 @@ function createShaman(): THREE.Group {
   hornR.position.x = 0.26;
   hornR.rotation.z = -0.6;
   body.add(robe, shoulders, mask, hornL, hornR);
+  g.userData.headMesh = mask; // 뼈 가면 = 물기 대상(predatorAi)
   eyes(body, runeGlow, 2.8, 0.3, 0.12, 0.07);
   const staff = new THREE.Group(); // 룬 지팡이 — 정점 발광 크리스탈
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.4, 6), ogreCloth);
@@ -273,6 +280,7 @@ function createShaman(): THREE.Group {
   staff.add(pole, crystal);
   staff.position.set(0.75, 1.5, 0.2);
   staff.rotation.z = -0.12;
+  staff.userData.bossSway = { phase: 0.8 }; // 지팡이 = idle 스웨이 + 공격 시 후려치기(주술사 근접 공격 모션)
   body.add(staff);
   for (let i = 0; i < 3; i += 1) { // 부유 토템 3개 — 회전 링
     const totem = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.5, 0.22), shamanBone);
