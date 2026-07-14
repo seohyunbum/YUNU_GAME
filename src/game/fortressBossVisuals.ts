@@ -301,6 +301,10 @@ export function createFortressBossModel(key: FortressBossConceptKey): THREE.Grou
   const group = FACTORIES[key]();
   group.traverse((child) => { child.userData.sharedAsset = true; });
   group.userData.fortressBossModel = key;
+  // 공격 시 후려칠 팔·사지 = 이미 idle 스웨이(bossSway)를 가진 파츠. predatorAi 가 rotation.z 로 내려치기(idle x 스웨이와 축이 달라 공존).
+  const arms: THREE.Object3D[] = [];
+  group.traverse((child) => { if (child.userData.bossSway) arms.push(child); });
+  group.userData.attackArms = arms;
   return group;
 }
 

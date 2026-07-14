@@ -4,7 +4,7 @@ import { spawnGroundShockwave, type CombatEffectContext } from "./combatEffects"
 import { animatePredatorAttackMotion, triggerPredatorAttackMotion } from "./predatorAi";
 import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
 import { fortressBossStats } from "./fortressBoss";
-import { createFortressBossModel } from "./fortressBossVisuals";
+import { animateFortressBossModel, createFortressBossModel } from "./fortressBossVisuals";
 import { monsterStatsFromLevel, type MonsterId } from "./monsters";
 import type { Region } from "./regions";
 import type { PredatorKind, WorldObject } from "./types";
@@ -54,7 +54,8 @@ export function spawnSiegeBossMonster(deps: FortressSpawnDeps, stage: number, ba
   const model = createFortressBossModel(concept.key);
   model.scale.setScalar(concept.scale / Math.max(0.001, monster.root.scale.x)); // 베이스 스케일 상쇄 — 컨셉 스케일 절대값 유지
   monster.root.add(model);
-  monster.root.userData.fortressBossOverlay = model; // 프레임 idle 애니 참조(시즈 보스 패턴 틱이 구동)
+  monster.root.userData.fortressBossOverlay = model; // 프레임 idle 애니 참조(시즈 보스 패턴 틱·추격 루프가 구동)
+  monster.root.userData.attackArms = model.userData.attackArms; // 공격 시 팔 내려치기(predatorAi 공용 모션)
   monster.name = concept.name;
   monster.hp = hp; monster.armor = armor; monster.attackDamage = attackBase;
   monster.monsterLevel = level; monster.fortressBoss = true; monster.fortressLevel = level;
@@ -135,6 +136,8 @@ export function updateCaveMonsters(context: CaveMonsterContext, delta: number) {
     }
     context.refreshSpatialObject(monster);
     context.animateWalkCycle(monster, delta, aggroed ? 0.82 : 0.3);
+    const bossOverlay = monster.root.userData.fortressBossOverlay; // 요새 보스 오버레이 — 추격 중에도 호흡·사지 스웨이(통짜 슬라이드 방지)
+    if (bossOverlay instanceof THREE.Object3D) animateFortressBossModel(bossOverlay, now * 0.001);
 
     monster.attackCooldown = Math.max(0, (monster.attackCooldown ?? 0) - delta);
     const canAct = aggroed && !panelOpen;

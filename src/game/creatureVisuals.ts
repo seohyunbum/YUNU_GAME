@@ -198,6 +198,7 @@ export function createPredatorVisual(preferredType?: PredatorKind): PredatorVisu
   );
   head.position.set(isSpider ? 0.72 : 0.98, isSpider ? 0.46 : 0.95, 0);
   group.add(body, head);
+  group.userData.headMesh = head; // 물기 모션(predatorAi) — 늑대·사자·거미 공용
 
   const legCount = isSpider ? 8 : 4;
   for (let index = 0; index < legCount; index += 1) {

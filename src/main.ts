@@ -4116,6 +4116,9 @@ class WildernessGame {
       else part.object.rotation.z = THREE.MathUtils.lerp(part.object.rotation.z, targetRotation, 0.45);
       part.object.position.y = THREE.MathUtils.lerp(part.object.position.y, part.baseY + stepLift, 0.35);
     }
+    // 유기적 걸음 — 머리 끄덕임(rotation.x). 공격 물기(predatorAi)는 z·위치라 축이 달라 공존한다.
+    const head = object.root.userData.headMesh as THREE.Object3D | undefined;
+    if (head) { const hb = head.userData as { nodBase?: number }; if (hb.nodBase === undefined) hb.nodBase = head.rotation.x; head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, hb.nodBase + (moving ? Math.sin(cycle.phase * 2) * 0.12 : 0), 0.4); }
   }
 
   private isVillageGuard(object: WorldObject) {

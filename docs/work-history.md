@@ -1642,3 +1642,19 @@
   ▪content-test 골든 갱신(legendary 세트 +7·GUN_WEAPONS +minigun) + 레전더리 위상 ordering asserts.
   gun-reload-test 에 미니건 60 추가. 세이브 변경 없음(무기는 기존 인벤토리 슬롯 지속 — SAVE_VERSION 불변).
   전 게이트·빌드 녹색, held 모델 7종 그리드 헤드리스 실측(뚜렷·구분됨).
+- 몬스터·보스 모션 유기화(사용자: 팔다리가 안 움직이고 몸통 통짜로 이동·공격이 박치기 → 빡시게 수정):
+  원인 = 공격이 root(몸통 전체)를 플레이어 쪽으로 전진 이동시켜 "박치기", 부위(머리·팔)는 정지. 걷기는 다리만 회전.
+  해결(전부 leaf + main 미세):
+  ▪predatorAi animatePredatorAttackMotion 일반화 — 몸통 도약(advance) ×0.5 축소 + 공용 부위 모션 2종 추가:
+    ①머리 물기(userData.headMesh) 예열에 젖혔다가 도약에 앞·아래로 스냅(position.x/y + rotation.z 델타)
+    ②팔·사지 후려치기(userData.attackArms) 예열에 치켜들었다 도약에 rotation.z 로 내려침.
+    baseNum 헬퍼로 기준값 1회 캡처 → 걷기·idle 과 축이 달라 공존, 종료 시 원복(누적 0). 기존 scorpion/zombie/ghost 유지.
+  ▪부위 태깅: creatureVisuals(늑대·사자·거미) + monsterVisuals 8종(boar/snake/bat/bear/zombie/ghost/drake/scorpion)
+    에 group.userData.headMesh. fortressBossVisuals createFortressBossModel 이 bossSway 파츠를 attackArms 로 수집.
+  ▪요새 보스: caveMonsters 가 오버레이를 추격 중에도 animateFortressBossModel(호흡·사지 스웨이)로 구동(통짜 슬라이드
+    방지) + attackArms 를 root 로 승계해 공용 공격이 팔 후려치기 적용.
+  ▪걷기 유기화: main animateWalkCycle 에 머리 끄덕임(headMesh rotation.x, 물기 z·위치와 축 분리) 추가(2줄, 예산 내 9486).
+  ▪dragons(날갯짓·꼬리)·illia(6익·부유·머리칼)는 이미 애니가 풍부해 범위 제외.
+  monster-motion-test 신설(머리 물기·팔 후려치기·몸통 도약 절제·원복·미태깅 안전) + verify 체인. THREE 인스턴스 주의:
+  테스트는 ssrLoadModule("three")로 predatorAi 와 동일 지정자를 써야 instanceof 일치("/node_modules/three/..."는 불일치).
+  전 게이트·빌드 녹색, idle vs strike 포즈 헤드리스 실측(곰=물기 자세·오크=팔/상체 역동).

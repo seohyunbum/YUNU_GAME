@@ -82,6 +82,12 @@ const WINDUP_END = 0.42;
 const GHOST_BASE_OPACITY = 0.52;
 const ZOMBIE_ARM_REST = -0.08;
 
+// 부위 로컬 기준값(첫 참조 시 1회 캡처) — 물기/휘두름은 이 기준으로부터의 델타라, 걷기·idle 과 섞여도 원위치로 복귀한다.
+function baseNum(obj: THREE.Object3D, key: string, value: number): number {
+  const ud = obj.userData as Record<string, number>;
+  if (ud[key] === undefined) ud[key] = value;
+  return ud[key];
+}
 function resetAttackExtras(predator: WorldObject) {
   const tail = predator.root.userData.scorpionTail;
   if (tail instanceof THREE.Object3D) tail.rotation.z = 0;
@@ -93,6 +99,12 @@ function resetAttackExtras(predator: WorldObject) {
   if (Array.isArray(ghostMaterials)) {
     for (const material of ghostMaterials) if (material instanceof THREE.MeshStandardMaterial) material.opacity = GHOST_BASE_OPACITY;
   }
+  // 물기(머리) 원복
+  const head = predator.root.userData.headMesh;
+  if (head instanceof THREE.Object3D) { head.position.x = baseNum(head, "biteBaseX", head.position.x); head.position.y = baseNum(head, "biteBaseY", head.position.y); head.rotation.z = baseNum(head, "biteBaseRotZ", head.rotation.z); }
+  // 내려치기(팔) 원복 — 모델 정면(+x)을 향해 휘두르는 앞다리·팔
+  const strikeArms = predator.root.userData.attackArms;
+  if (Array.isArray(strikeArms)) { for (const arm of strikeArms) if (arm instanceof THREE.Object3D) arm.rotation.z = baseNum(arm, "swingBaseRotZ", arm.rotation.z); }
 }
 
 export function triggerPredatorAttackMotion(predator: WorldObject, now: number, forwardX = 0, forwardZ = 0) {
@@ -129,7 +141,8 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
   const shake = windup * Math.sin(phase * 46) * 0.085 * bf; // 예열 떨림 — "곧 덤빈다"는 신호
   const forwardX = Number(predator.root.userData.attackForwardX ?? 0);
   const forwardZ = Number(predator.root.userData.attackForwardZ ?? 0);
-  const advance = (strike * profile.lunge - windup * profile.pullBack) * (predator.fieldBossId ? 1.25 : 1);
+  // 몸통 전진(도약)은 절반으로 — "몸통 박치기" 대신 제자리에서 상체를 내지르는 느낌. 나머지 리치는 머리(물기)·앞발(휘두름)이 만든다.
+  const advance = (strike * profile.lunge - windup * profile.pullBack) * (predator.fieldBossId ? 1.25 : 1) * 0.5;
 
   // 도약은 '누적'이 아니라 현재 오프셋으로 적용 — 이전 프레임 오프셋을 빼고 새 오프셋을 더한다(델타).
   // 종전엔 매 프레임 += 라 추격 루프가 도약분을 그대로 이어받아 플레이어를 향해 끝없이 파고들었고(겹침/시야이탈), 이제 도약은 최대 lunge 거리만큼만 튀었다 돌아온다.
@@ -146,6 +159,27 @@ export function animatePredatorAttackMotion(predator: WorldObject, now: number) 
     baseScale.y * (1 + (-windup * profile.crouch + strike * 0.06 + windup * (profile.rise > 0.3 ? 0.16 : 0)) * bf),
     baseScale.z * (1 + strike * profile.stretch * 0.4 * bf),
   );
+
+  // ── 부위 단위 공격(공용) — 통짜 이동이 아닌 유기적 모션. 모델 정면 = +x. ──
+  // 머리 물기: 예열에 뒤로 젖혔다가 도약에 앞·아래로 내지른다(스냅).
+  const headMesh = predator.root.userData.headMesh;
+  if (headMesh instanceof THREE.Object3D) {
+    const bx = baseNum(headMesh, "biteBaseX", headMesh.position.x);
+    const by = baseNum(headMesh, "biteBaseY", headMesh.position.y);
+    const br = baseNum(headMesh, "biteBaseRotZ", headMesh.rotation.z);
+    headMesh.position.x = bx + (strike * 0.34 - windup * 0.12) * bf;
+    headMesh.position.y = by + (windup * 0.14 - strike * 0.14) * bf;
+    headMesh.rotation.z = br + (windup * 0.35 - strike * 0.7) * bf; // 젖힘 → 내려물기
+  }
+  // 앞발·팔 내려치기: 예열에 치켜들었다가 도약에 앞으로 후려친다.
+  const strikeArms = predator.root.userData.attackArms;
+  if (Array.isArray(strikeArms)) {
+    for (const arm of strikeArms) {
+      if (!(arm instanceof THREE.Object3D)) continue;
+      const base = baseNum(arm, "swingBaseRotZ", arm.rotation.z);
+      arm.rotation.z = base + (windup * 0.9 - strike * 1.7) * bf;
+    }
+  }
 
   if (kind === "scorpion") {
     // 꼬리를 더 치켜들었다가 머리 위로 강하게 내려찍는다
