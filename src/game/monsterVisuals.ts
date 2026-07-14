@@ -28,6 +28,7 @@ function createBoarVisual(): PredatorVisual {
   ridge.position.set(-0.12, 1.1, 0);
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.52, 0.6), hide);
   head.position.set(0.95, 0.62, 0);
+  group.userData.headMesh = head;
   const snout = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.28, 0.36), gameMaterial(0x6d4426, { roughness: 0.9 }));
   snout.position.set(1.32, 0.5, 0);
   const nose = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.26), gameMaterial(0xc4836a, { roughness: 0.8 }));
@@ -99,6 +100,7 @@ function createSnakeVisual(): PredatorVisual {
   hood.rotation.z = -0.3;
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.24, 0.32), gameMaterial(0x3f6212, { roughness: 0.68 }));
   head.position.set(0.62, 1.02, 0);
+  group.userData.headMesh = head;
   const chin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.26), belly);
   chin.position.set(0.6, 0.88, 0);
   group.add(neck, hood, head, chin);
@@ -131,6 +133,7 @@ function createBatVisual(): PredatorVisual {
   body.scale.set(1.15, 1, 0.9);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), fur);
   head.position.set(0.3, 1.66, 0);
+  group.userData.headMesh = head;
   group.add(body, head);
 
   for (const z of [-1, 1]) {
@@ -178,6 +181,7 @@ function createScorpionVisual(): PredatorVisual {
   back.position.set(-0.1, 0.52, 0);
   const headPlate = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.2, 0.6), plate);
   headPlate.position.set(0.62, 0.4, 0);
+  group.userData.headMesh = headPlate;
   group.add(body, back, headPlate);
   group.add(eye(0xfbbf24, 0xb45309, 0.84, 0.5, -0.12, 0.04), eye(0xfbbf24, 0xb45309, 0.84, 0.5, 0.12, 0.04));
 
@@ -248,6 +252,7 @@ function createBearVisual(): PredatorVisual {
   hump.position.set(-0.35, 1.5, 0);
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.56, 0.6), fur);
   head.position.set(1.05, 1.35, 0);
+  group.userData.headMesh = head;
   const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.3), dark);
   muzzle.position.set(1.42, 1.24, 0);
   const nose = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.14), gameMaterial(0x1c1917));
@@ -301,6 +306,7 @@ function createZombieVisual(): PredatorVisual {
   rip.position.set(0.12, 1.0, 0.15);
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.36, 0.32), skin);
   head.position.set(0, 1.62, 0);
+  group.userData.headMesh = head;
   head.rotation.z = -0.14;
   const wound = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.05), gameMaterial(0x3f6212, { roughness: 0.9 }));
   wound.position.set(0.1, 1.74, 0.14);
@@ -353,6 +359,7 @@ function createGhostVisual(): PredatorVisual {
 
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10), shroudMaterial);
   head.position.y = 1.7;
+  group.userData.headMesh = head;
   const robe = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.16, 1.15, 10), shroudMaterial);
   robe.position.y = 1.05;
   group.add(head, robe);
@@ -413,6 +420,7 @@ function createDrakeVisual(): PredatorVisual {
   neck.rotation.z = -0.35;
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.32, 0.36), scaleHide);
   head.position.set(0.92, 1.24, 0);
+  group.userData.headMesh = head;
   const snout = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 0.26), bellyHide);
   snout.position.set(1.22, 1.18, 0);
   group.add(body, belly, neck, head, snout);
