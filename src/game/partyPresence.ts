@@ -311,6 +311,22 @@ export function applyAttackMotion(rotation: { x: number; y: number; z: number },
   }
 }
 
+// 팔을 어깨에서 정면(+z)으로 뻗는 공격 모션 — 상체 회전(applyAttackMotion)과 합성돼 "팔 뻗어 후려침/시전"으로 읽힌다.
+// arms = createAvatarModel 이 노출한 어깨 피벗 2개(userData.armSide ±1). 주 손(+1) 크게, 반대 손 작게. 할당 없음(핫패스 안전).
+export function applyAttackArms(arms: THREE.Object3D[] | undefined, playerClass: string, p: number) {
+  if (!arms) return;
+  const swing = Math.sin(p * Math.PI); // 0 → 1 → 0 봉우리
+  const melee = playerClass === "warrior" || playerClass === "samurai" || playerClass === "tanker";
+  const caster = playerClass === "healer" || playerClass === "mage" || playerClass === "summoner";
+  const mainAmp = melee ? 1.75 : caster ? 1.15 : 1.4; // 주 손이 앞으로 뻗는 정도(근접=크게 후려침, 시전=지팡이 내밀기, 거너=조준)
+  const offAmp = melee ? 0.55 : 0.3;
+  for (const arm of arms) {
+    const side = Number(arm.userData.armSide) || 1;
+    arm.rotation.x = -swing * (side === 1 ? mainAmp : offAmp); // 음수 = 모델 정면(+z)으로 뻗음
+    arm.rotation.z = melee ? side * swing * 0.35 : 0; // 근접은 대각선 휘두름
+  }
+}
+
 export function updatePartyPresence(nowMs: number, delta: number) {
   if (!context) return;
   partyWorldSyncTick(nowMs, delta); // 5차 — 세션 유무/역할 판단은 내부에서
@@ -371,10 +387,14 @@ export function updatePartyPresence(nowMs: number, delta: number) {
       const walkLegs = remote.body.userData.walkLegs as THREE.Object3D[] | undefined;
       if (walkLegs) for (const legPivot of walkLegs) legPivot.rotation.x = THREE.MathUtils.lerp(legPivot.rotation.x, stride * 0.5 * (Number(legPivot.userData.walkSide) || 1), 0.4);
       remote.body.position.y = THREE.MathUtils.lerp(remote.body.position.y, moving ? Math.abs(Math.sin(remote.walkPhase)) * 0.06 : 0, 0.35); // 걸음 바운스
+      const arms = remote.body.userData.attackArms as THREE.Object3D[] | undefined;
       if (remote.actionUntil > nowMs) {
-        applyAttackMotion(remote.body.rotation, remote.data.playerClass, 1 - (remote.actionUntil - nowMs) / ATTACK_MOTION_MS); // 직업별 공격 모션
-      } else if (remote.body.rotation.x !== 0 || remote.body.rotation.y !== 0 || remote.body.rotation.z !== 0) {
-        remote.body.rotation.set(0, 0, 0); // 모션 종료 — 자세 복귀
+        const p = 1 - (remote.actionUntil - nowMs) / ATTACK_MOTION_MS;
+        applyAttackMotion(remote.body.rotation, remote.data.playerClass, p); // 상체 자세(직업별)
+        applyAttackArms(arms, remote.data.playerClass, p); // 팔 뻗기(어깨 피벗) — 상체와 합성
+      } else {
+        if (remote.body.rotation.x !== 0 || remote.body.rotation.y !== 0 || remote.body.rotation.z !== 0) remote.body.rotation.set(0, 0, 0); // 공격 종료 — 상체 복귀
+        if (arms) for (const arm of arms) { arm.rotation.x = THREE.MathUtils.lerp(arm.rotation.x, -stride * 0.32 * (Number(arm.userData.armSide) || 1), 0.4); arm.rotation.z = THREE.MathUtils.lerp(arm.rotation.z, 0, 0.3); } // 걷기 팔 counter-swing(다리 반대) + 공격 z 복귀
       }
     }
     // 소환사 친구의 패시브 펫 — hasPet 변화에 생성/제거 + 아바타를 살짝 뒤·위에서 호버하며 따라감(로컬 시뮬, 동기화 비용 0)

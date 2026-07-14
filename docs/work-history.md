@@ -1668,3 +1668,14 @@
   ▪공격 모션(applyAttackMotion, 직업별 상체 스윙)은 통짜 이동(박치기) 아니라 상체 회전이라 유지 — 다리 스윙과 합성.
   전 게이트·빌드 녹색, 아바타 idle vs 스트라이드 3포즈 헤드리스 실측(다리 앞뒤 갈라짐 확인). main.ts 무변경.
   참고: 원격은 속도 패킷이 없어(프레즌스=위치/yaw만) 이동감을 목표까지 거리로 추정 — 8Hz 보간이라 충분.
+- 파티 원격 아바타 공격 모션 = 팔 뻗기(사용자 요청: 공격도 팔 뻗는 식으로):
+  기존 applyAttackMotion 은 body(상체) 회전만 — 팔이 안 뻗음. 팔이 makeLimb 쿼터니언 배치라 직접 회전 불가 →
+  ▪avatar.ts: 팔 5파츠(상완·전완·팔꿈치·소맷단·손)를 어깨 피벗 그룹에 담고 오프셋 빼 rest 포즈 동일 유지,
+    group.userData.attackArms(피벗2, armSide ±1) 노출. 어깨에서 회전 가능.
+  ▪partyPresence: applyAttackArms(arms, class, p) 신설 — 주 손 크게(근접 1.75·시전 1.15·거너 1.4) 정면(+z)으로
+    뻗고 반대 손 작게, 근접은 대각선(z) 휘두름. 기존 applyAttackMotion(상체)은 그대로 두고 합성(테스트 골든 보존).
+    걷을 때는 팔이 다리 반대로 counter-swing(공격 아닐 때), 공격 시 override.
+  전 게이트·빌드 녹색(applyAttackMotion 골든 테스트 무영향 — 시그니처 불변). 전사/마법사/거너 공격 포즈 헤드리스
+  실측(팔 어깨에서 뻗음 확인). main.ts 무변경. 핫패스 할당 0.
+  판단: applyAttackMotion 시그니처를 body 객체로 바꾸면 samurai/systems 테스트가 rotation 객체를 넘겨 깨짐 →
+  별도 함수 추가가 정답(기존 상체 모션 + 신규 팔 모션 합성).
