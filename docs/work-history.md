@@ -1658,3 +1658,13 @@
   monster-motion-test 신설(머리 물기·팔 후려치기·몸통 도약 절제·원복·미태깅 안전) + verify 체인. THREE 인스턴스 주의:
   테스트는 ssrLoadModule("three")로 predatorAi 와 동일 지정자를 써야 instanceof 일치("/node_modules/three/..."는 불일치).
   전 게이트·빌드 녹색, idle vs strike 포즈 헤드리스 실측(곰=물기 자세·오크=팔/상체 역동).
+- 파티 원격 아바타 이동·자세 유기화(사용자 확인 질문: 파티 3인칭 파티원 모션도 개선됐나? → 아니오였음):
+  원격 아바타(partyPresence)는 몬스터와 별개 경로 — 이동 시 root 를 위치 보간+yaw 만, 다리 스윙 없어 통짜 슬라이드.
+  ▪avatar.ts createAvatarModel: 다리+장화를 고관절(y≈0.6) 피벗 그룹에 담아 group.userData.walkLegs 로 노출(rest
+    포즈 좌표는 기존과 동일 — 거울 아바타 무영향). 대퇴부터 스윙(중심 회전 아님).
+  ▪partyPresence updatePartyPresence: RemoteMember.walkPhase 추가, 이동감(목표까지 거리)으로 위상 전진 →
+    다리 좌우 반대 스윙 + 상하 바운스(body.position.y). 정지 시 lerp 로 복귀. 공격(body.rotation 회전)과
+    축이 달라 공존. 핫패스 할당 0(THREE.MathUtils.lerp·sin 만).
+  ▪공격 모션(applyAttackMotion, 직업별 상체 스윙)은 통짜 이동(박치기) 아니라 상체 회전이라 유지 — 다리 스윙과 합성.
+  전 게이트·빌드 녹색, 아바타 idle vs 스트라이드 3포즈 헤드리스 실측(다리 앞뒤 갈라짐 확인). main.ts 무변경.
+  참고: 원격은 속도 패킷이 없어(프레즌스=위치/yaw만) 이동감을 목표까지 거리로 추정 — 8Hz 보간이라 충분.

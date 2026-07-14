@@ -47,6 +47,7 @@ interface RemoteMember {
   lastSeenAt: number;
   onLocalMap: boolean;
   actionUntil: number; // 공격 모션 종료 시각
+  walkPhase: number; // 걷기 사이클 위상 — 이동 중 다리 스윙·상하 바운스(통짜 슬라이드 방지)
   pet: THREE.Group | null; // 소환사 친구의 패시브 펫(독수리) — hasPet 일 때 로컬에서 따라다니게 렌더
 }
 
@@ -162,7 +163,7 @@ function spawnRemote(data: PresenceData, nowMs: number): RemoteMember {
   root.position.set(data.x, context!.getGroundHeightAt(data.x, data.z), data.z);
   root.rotation.y = data.yaw + Math.PI; // 아바타 모델은 +Z(앞면)로 만들어졌고 플레이어 forward 규약은 -Z → 180° 보정(목 역전 방지)
   context!.scene.add(root);
-  const remote: RemoteMember = { data, root, body, hpFill, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: true, actionUntil: 0, pet: null };
+  const remote: RemoteMember = { data, root, body, hpFill, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: true, actionUntil: 0, walkPhase: 0, pet: null };
   updateHpBar(remote);
   return remote;
 }
@@ -215,7 +216,7 @@ function receivePresences(list: PresenceData[], nowMs: number) {
           existing.onLocalMap = false;
         }
       } else {
-        remotes.set(data.nickname, { data, root: new THREE.Group(), body: null, hpFill: null, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: false, actionUntil: 0, pet: null });
+        remotes.set(data.nickname, { data, root: new THREE.Group(), body: null, hpFill: null, targetX: data.x, targetZ: data.z, targetYaw: data.yaw, lastSeenAt: nowMs, onLocalMap: false, actionUntil: 0, walkPhase: 0, pet: null });
       }
       continue;
     }
@@ -362,6 +363,14 @@ export function updatePartyPresence(nowMs: number, delta: number) {
     yawDelta = ((yawDelta + Math.PI) % (Math.PI * 2)) - Math.PI;
     root.rotation.y += yawDelta * alpha;
     if (remote.body) {
+      // 걷기 사이클 — 이동 중 다리 스윙 + 상하 바운스(원격은 속도 패킷이 없어 목표까지 거리로 이동감 추정). 통짜 슬라이드 방지.
+      const speed = Math.hypot(dx, dz);
+      const moving = speed > 0.02;
+      if (moving) remote.walkPhase += delta * 9 * Math.min(2.6, 0.6 + speed * 3);
+      const stride = moving ? Math.sin(remote.walkPhase) : 0;
+      const walkLegs = remote.body.userData.walkLegs as THREE.Object3D[] | undefined;
+      if (walkLegs) for (const legPivot of walkLegs) legPivot.rotation.x = THREE.MathUtils.lerp(legPivot.rotation.x, stride * 0.5 * (Number(legPivot.userData.walkSide) || 1), 0.4);
+      remote.body.position.y = THREE.MathUtils.lerp(remote.body.position.y, moving ? Math.abs(Math.sin(remote.walkPhase)) * 0.06 : 0, 0.35); // 걸음 바운스
       if (remote.actionUntil > nowMs) {
         applyAttackMotion(remote.body.rotation, remote.data.playerClass, 1 - (remote.actionUntil - nowMs) / ATTACK_MOTION_MS); // 직업별 공격 모션
       } else if (remote.body.rotation.x !== 0 || remote.body.rotation.y !== 0 || remote.body.rotation.z !== 0) {
