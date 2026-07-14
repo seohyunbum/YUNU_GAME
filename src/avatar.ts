@@ -88,6 +88,7 @@ export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_
     return limb;
   };
 
+  const walkLegs: THREE.Object3D[] = []; // 걷기 사이클(파티 원격 아바타·거울)이 흔드는 다리(+장화) 피벗
   for (const side of [-1, 1]) {
     const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 6), shirt);
     shoulder.position.set(side * 0.52, 1.43, 0);
@@ -104,12 +105,19 @@ export function createAvatarModel(appearance: AvatarAppearance = DEFAULT_AVATAR_
     cuff.quaternion.copy(forearm.quaternion);
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), skin);
     hand.position.copy(wristPoint).add(new THREE.Vector3(side * 0.015, -0.035, 0.015));
+    // 다리+장화를 고관절(y≈0.6) 피벗 그룹에 담아 대퇴부터 자연스럽게 스윙(중심 회전 아님)
+    const legPivot = new THREE.Group();
+    legPivot.position.set(side * 0.22, 0.6, 0);
     const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.62, 10), pants);
-    leg.position.set(side * 0.22, 0.28, 0);
+    leg.position.set(0, -0.32, 0);
     const boot = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.14, 0.32), boots);
-    boot.position.set(side * 0.22, 0.04, 0.05);
-    group.add(shoulder, upperArm, forearm, elbow, cuff, hand, leg, boot);
+    boot.position.set(0, -0.56, 0.05);
+    legPivot.add(leg, boot);
+    legPivot.userData.walkSide = side;
+    walkLegs.push(legPivot);
+    group.add(shoulder, upperArm, forearm, elbow, cuff, hand, legPivot);
   }
+  group.userData.walkLegs = walkLegs;
 
   const backPack = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.72, 0.16), makeToonMaterial(ASSET_PALETTE.leather, { roughness: 0.88 }));
   backPack.position.set(0, 1.08, -0.33);
