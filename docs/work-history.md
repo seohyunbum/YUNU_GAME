@@ -49,3 +49,11 @@
 - **이유**: 세이브·전투가 붙기 전 데이터 계약을 정수로 굳혀야 Phase 1 마이그레이션이 없음(§4.4).
 - **핵심 판단**: Grow 는 `floor(L*g)-floor((L-1)*g)` 라 정수 나눗셈(rate≥0)이 floor 와 동일 → 성장 결과 등가 보존(테스트 51 유지). 스케일은 ×100 일관(100=×1.0).
 - **다음**: Phase 1 = 세이브 시스템 design-doc → GameState(Load=새 객체) → 턴 루프. `aliases` id 리매핑은 Normalize 도입 시.
+
+## 2026-07-16 — Phase 1 완주 (§7 작업 전량 + DoD 3종)
+
+- **시도/상황**: 스펙 §7 Phase 1 "글로벌 맵·내정 시뮬레이터(전투 제외)" 구현.
+- **결과**: §7 작업 전량 완료 — 세이브 시스템(Pcg32·RngStreams·GameState·fail-soft·load 이어하기)·턴 루프(TurnSystem)·수입·시설(데이터 주도 facilities+생산 보너스)·징병(Recruit)·A* 이동(Pathfinding+MoveArmy)·무혈 점령·핫시트 콘솔(PlaySession). DoD 3종 충족: 2인 플레이·50턴 스모크·세이브 재기동 왕복(실증). test 93.
+- **핵심 판단**: GameState additive 확장(Armies·Provinces)은 SaveVersion 유지(구세이브=빈 리스트, B-3). 부대·영지·병종 정의 참조는 로드 시 fail-soft(D9)로 삭제 대응. 시설 정의는 game_rules.json 데이터 주도(§5).
+- **다음 작업자**: Phase 2(전투·스킬·외교·AI)는 §7 새 페이즈 — §0.3 클래스 목록 제시부터. Phase 2 완주(부자 공동 승리 1회) 후 UE5 강행/축소 게이트 리뷰. 잔여 Phase 1 세부(함대·상륙전·인구 감소)는 Phase 2와 함께.
+- **관련 커밋**: e4c6da3~9b83d8f (세이브·게임루프·부대·시설).
