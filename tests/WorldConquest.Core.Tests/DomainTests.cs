@@ -5,7 +5,7 @@ namespace WorldConquest.Core.Tests;
 public class CharacterTests
 {
     private static Character NewCharacter(
-        int ldr = 50, double growthAll = 1.2, int statMax = 120, int levelCap = 50, int expBase = 100) =>
+        int ldr = 50, int growthAll = 120, int statMax = 120, int levelCap = 50, int expBase = 100) =>
         new(
             "test_char", "테스트", "history_korea", 3,
             new CharacterStats(ldr, 50, 50, 50, 50, 50),
@@ -25,8 +25,8 @@ public class CharacterTests
     [Fact]
     public void 성장률_1_2는_레벨2에서_스탯_1_상승()
     {
-        // floor(2*1.2) - floor(1*1.2) = 2 - 1 = 1
-        var c = NewCharacter(ldr: 50, growthAll: 1.2);
+        // (2*120)/100 - (1*120)/100 = 2 - 1 = 1  (정수 스케일 ×100)
+        var c = NewCharacter(ldr: 50, growthAll: 120);
         c.GainExp(100);
         Assert.Equal(51, c.Stats.Ldr);
     }
@@ -56,7 +56,7 @@ public class CharacterTests
     [Fact]
     public void 스탯은_상한에서_클램프된다()
     {
-        var c = NewCharacter(ldr: 119, growthAll: 3.0);
+        var c = NewCharacter(ldr: 119, growthAll: 300);
         c.GainExp(100);
         Assert.Equal(120, c.Stats.Ldr);
         c.GainExp(200);
@@ -85,7 +85,7 @@ public class CharacterTests
 public class FactionTests
 {
     private static Faction NewFaction(string id = "joseon") =>
-        new(id, "조선", "#1E5AA8", true, "defensive", null, 1000, 800, 1, 1.0, 1.0, new[] { "hanseong" });
+        new(id, "조선", "#1E5AA8", true, "defensive", null, 1000, 800, 1, 100, 100, new[] { "hanseong" });
 
     [Fact]
     public void 기본_관계는_중립()

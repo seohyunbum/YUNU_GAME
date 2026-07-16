@@ -15,12 +15,13 @@ internal sealed class StatsDto
 
 internal sealed class GrowthRatesDto
 {
-    public double? Ldr { get; set; }
-    public double? Str { get; set; }
-    public double? Int { get; set; }
-    public double? Pol { get; set; }
-    public double? Cha { get; set; }
-    public double? Nav { get; set; }
+    // 정수 스케일 ×100 (120 = ×1.2). 부동소수 금지 §4.4.
+    public int? Ldr { get; set; }
+    public int? Str { get; set; }
+    public int? Int { get; set; }
+    public int? Pol { get; set; }
+    public int? Cha { get; set; }
+    public int? Nav { get; set; }
 }
 
 internal sealed class CharacterDto
@@ -88,8 +89,8 @@ internal sealed class TerrainModifierDto
 {
     public string? Id { get; set; }
     public string? NameKo { get; set; }
-    public double? AtkMod { get; set; }
-    public double? DefMod { get; set; }
+    public int? AtkMod { get; set; }   // 정수 스케일 ×100
+    public int? DefMod { get; set; }
     public int? MoveCost { get; set; }
 }
 
@@ -131,8 +132,8 @@ internal sealed class WorldMapDto
 
 internal sealed class DifficultyModifierDto
 {
-    public double? ResourceBonus { get; set; }
-    public double? AiAggression { get; set; }
+    public int? ResourceBonus { get; set; }   // 정수 스케일 ×100
+    public int? AiAggression { get; set; }
 }
 
 internal sealed class FactionDto
@@ -160,16 +161,16 @@ internal sealed class GameRulesDto
     public int? LoyaltyMin { get; set; }
     public int? LoyaltyMax { get; set; }
     public int? MoraleMax { get; set; }
-    public double? GrowthRateMin { get; set; }
-    public double? GrowthRateMax { get; set; }
+    public int? GrowthRateMin { get; set; }   // 정수 스케일 ×100
+    public int? GrowthRateMax { get; set; }
     public int? UltimateGaugeMax { get; set; }
     public int? GaugeChargeOnAttack { get; set; }
     public int? GaugeChargeOnDamaged { get; set; }
-    public double? LandingAttackModifier { get; set; }
+    public int? LandingAttackModifier { get; set; }   // 정수 스케일 ×100 (-25)
     public int? LandingDebuffTurns { get; set; }
     public ResourceAmountDto? AllianceTransferCapPerTurn { get; set; }
-    public double? BaseTaxRate { get; set; }
-    public Dictionary<string, Dictionary<string, double>>? UnitClassAdvantage { get; set; }
+    public int? BaseTaxRate { get; set; }   // 정수 스케일 ×100 (10)
+    public Dictionary<string, Dictionary<string, int>>? UnitClassAdvantage { get; set; }   // 배율 ×100
     public List<string>? ValidTerrains { get; set; }
     public List<string>? ValidClimates { get; set; }
     public List<string>? ValidRegions { get; set; }

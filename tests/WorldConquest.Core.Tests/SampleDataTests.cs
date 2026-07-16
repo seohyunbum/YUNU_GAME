@@ -109,11 +109,12 @@ public class SampleDataTests
     public void 병종상성_배율_조회()
     {
         var rules = Load().Rules;
-        Assert.Equal(1.5, rules.GetClassAdvantage("spear", "cavalry"));
-        Assert.Equal(1.5, rules.GetClassAdvantage("cavalry", "archer"));
-        Assert.Equal(1.5, rules.GetClassAdvantage("archer", "spear"));
-        Assert.Equal(1.0, rules.GetClassAdvantage("cavalry", "spear"));
-        Assert.Equal(1.0, rules.GetClassAdvantage("special", "spear"));
+        // 정수 스케일 ×100 (150 = ×1.5, 100 = ×1.0)
+        Assert.Equal(150, rules.GetClassAdvantage("spear", "cavalry"));
+        Assert.Equal(150, rules.GetClassAdvantage("cavalry", "archer"));
+        Assert.Equal(150, rules.GetClassAdvantage("archer", "spear"));
+        Assert.Equal(100, rules.GetClassAdvantage("cavalry", "spear"));
+        Assert.Equal(100, rules.GetClassAdvantage("special", "spear"));
     }
 
     [Fact]

@@ -17,8 +17,8 @@ public sealed class Faction
     public int Treasury { get; set; }
     public int Food { get; set; }
     public int TechLevel { get; set; }
-    public double ResourceBonus { get; }
-    public double AiAggression { get; }
+    public int ResourceBonus { get; }   // 정수 스케일 ×100 (100 = ×1.0). §4.4
+    public int AiAggression { get; }    // 정수 스케일 ×100
 
     private readonly List<string> _ownedProvinceIds;
     public IReadOnlyList<string> OwnedProvinceIds => _ownedProvinceIds;
@@ -30,7 +30,7 @@ public sealed class Faction
         string id, string nameKo, string color, bool isPlayerSelectable,
         string aiDisposition, string? leaderCharacterId,
         int treasury, int food, int techLevel,
-        double resourceBonus, double aiAggression,
+        int resourceBonus, int aiAggression,
         IEnumerable<string> startProvinceIds)
     {
         Id = id;

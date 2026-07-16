@@ -148,12 +148,12 @@ public sealed class DataLoader
         Check(dto.LevelCap!.Value >= 1, "level_cap", "1 이상이어야 합니다.");
         Check(dto.ExpCurveBase!.Value >= 1, "exp_curve_base", "1 이상이어야 합니다.");
         Check(dto.GrowthRateMin!.Value >= 0 && dto.GrowthRateMin.Value <= dto.GrowthRateMax!.Value, "growth_rate_min/max", "0 <= min <= max 이어야 합니다.");
-        Check(dto.LandingAttackModifier!.Value is >= -1.0 and <= 0.0, "landing_attack_modifier", "-1.0 ~ 0.0 범위여야 합니다.");
+        Check(dto.LandingAttackModifier!.Value is >= -100 and <= 0, "landing_attack_modifier", "-100 ~ 0 범위여야 합니다 (정수 스케일 ×100).");
         Check(dto.LandingDebuffTurns!.Value >= 0, "landing_debuff_turns", "0 이상이어야 합니다.");
         Check(dto.UltimateGaugeMax!.Value >= 1, "ultimate_gauge_max", "1 이상이어야 합니다.");
         Check(dto.AllianceTransferCapPerTurn!.Gold is >= 0 && dto.AllianceTransferCapPerTurn.Food is >= 0,
             "alliance_transfer_cap_per_turn", "gold/food는 0 이상 필수입니다.");
-        Check(dto.BaseTaxRate!.Value is >= 0.0 and <= 1.0, "base_tax_rate", "0.0 ~ 1.0 범위여야 합니다.");
+        Check(dto.BaseTaxRate!.Value is >= 0 and <= 100, "base_tax_rate", "0 ~ 100 범위여야 합니다 (정수 스케일 ×100).");
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
             foreach (var (def, mult) in row)
                 Check(mult > 0, "unit_class_advantage", $"{atk}->{def} 배율은 0보다 커야 합니다.");
@@ -191,7 +191,7 @@ public sealed class DataLoader
                 dto.AllianceTransferCapPerTurn.Gold!.Value, dto.AllianceTransferCapPerTurn.Food!.Value),
             BaseTaxRate = dto.BaseTaxRate.Value,
             UnitClassAdvantage = dto.UnitClassAdvantage.ToDictionary(
-                kv => kv.Key, kv => (IReadOnlyDictionary<string, double>)kv.Value),
+                kv => kv.Key, kv => (IReadOnlyDictionary<string, int>)kv.Value),
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),
@@ -221,8 +221,8 @@ public sealed class DataLoader
             if (string.IsNullOrWhiteSpace(t.Id)) { errors.Add(new(TerrainFile, entry, "필수 필드 누락: id")); continue; }
             if (!seen.Add(t.Id)) errors.Add(new(TerrainFile, entry, "중복 id"));
             if (string.IsNullOrWhiteSpace(t.NameKo)) errors.Add(new(TerrainFile, entry, "필수 필드 누락: name_ko"));
-            if (t.AtkMod is null || t.AtkMod is < -1.0 or > 1.0) errors.Add(new(TerrainFile, entry, "atk_mod는 -1.0 ~ 1.0 범위 필수입니다."));
-            if (t.DefMod is null || t.DefMod is < -1.0 or > 1.0) errors.Add(new(TerrainFile, entry, "def_mod는 -1.0 ~ 1.0 범위 필수입니다."));
+            if (t.AtkMod is null || t.AtkMod is < -100 or > 100) errors.Add(new(TerrainFile, entry, "atk_mod는 -100 ~ 100 범위 필수입니다 (정수 스케일 ×100)."));
+            if (t.DefMod is null || t.DefMod is < -100 or > 100) errors.Add(new(TerrainFile, entry, "def_mod는 -100 ~ 100 범위 필수입니다 (정수 스케일 ×100)."));
             if (t.MoveCost is null or < 1) errors.Add(new(TerrainFile, entry, "move_cost는 1 이상 필수입니다."));
         }
         foreach (var required in rules.ValidTerrains)
@@ -419,7 +419,7 @@ public sealed class DataLoader
     private static void ValidateGrowth(GrowthRatesDto? growth, string entry, GameRules rules, List<ValidationError> errors)
     {
         if (growth is null) { errors.Add(new(CharactersFile, entry, "필수 필드 누락: growth_rates")); return; }
-        foreach (var (value, name) in new (double?, string)[]
+        foreach (var (value, name) in new (int?, string)[]
                  { (growth.Ldr, "ldr"), (growth.Str, "str"), (growth.Int, "int"), (growth.Pol, "pol"), (growth.Cha, "cha"), (growth.Nav, "nav") })
         {
             if (value is null)

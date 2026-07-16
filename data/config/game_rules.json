@@ -8,23 +8,52 @@
   "loyalty_min": 0,
   "loyalty_max": 100,
   "morale_max": 100,
-  "growth_rate_min": 0.0,
-  "growth_rate_max": 3.0,
+  "growth_rate_min": 0,
+  "growth_rate_max": 300,
   "ultimate_gauge_max": 100,
   "gauge_charge_on_attack": 15,
   "gauge_charge_on_damaged": 10,
-  "landing_attack_modifier": -0.25,
+  "landing_attack_modifier": -25,
   "landing_debuff_turns": 2,
-  "alliance_transfer_cap_per_turn": { "gold": 500, "food": 500 },
-  "base_tax_rate": 0.1,
-  "unit_class_advantage": {
-    "spear": { "cavalry": 1.5 },
-    "cavalry": { "archer": 1.5 },
-    "archer": { "spear": 1.5 }
+  "alliance_transfer_cap_per_turn": {
+    "gold": 500,
+    "food": 500
   },
-  "valid_terrains": ["plains", "mountain", "forest", "urban", "desert"],
-  "valid_climates": ["temperate", "desert", "tropical", "snow", "oceanic"],
-  "valid_regions": ["east_asia", "europe", "middle_east", "africa", "america", "oceania", "ocean"],
+  "base_tax_rate": 10,
+  "unit_class_advantage": {
+    "spear": {
+      "cavalry": 150
+    },
+    "cavalry": {
+      "archer": 150
+    },
+    "archer": {
+      "spear": 150
+    }
+  },
+  "valid_terrains": [
+    "plains",
+    "mountain",
+    "forest",
+    "urban",
+    "desert"
+  ],
+  "valid_climates": [
+    "temperate",
+    "desert",
+    "tropical",
+    "snow",
+    "oceanic"
+  ],
+  "valid_regions": [
+    "east_asia",
+    "europe",
+    "middle_east",
+    "africa",
+    "america",
+    "oceania",
+    "ocean"
+  ],
   "valid_origins": [
     "history_korea",
     "history_china",
@@ -71,11 +100,48 @@
     "land_atk",
     "morale_regen"
   ],
-  "valid_condition_types": ["battle_domain", "terrain_is"],
-  "valid_battle_domains": ["land", "naval"],
-  "valid_scaling_stats": ["ldr", "str", "int", "pol", "cha", "nav"],
-  "valid_unit_classes_land": ["spear", "cavalry", "archer", "siege", "special"],
-  "valid_unit_classes_naval": ["small", "medium", "large", "special"],
-  "valid_ai_dispositions": ["aggressive", "defensive", "expansionist"],
-  "valid_current_directions": ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+  "valid_condition_types": [
+    "battle_domain",
+    "terrain_is"
+  ],
+  "valid_battle_domains": [
+    "land",
+    "naval"
+  ],
+  "valid_scaling_stats": [
+    "ldr",
+    "str",
+    "int",
+    "pol",
+    "cha",
+    "nav"
+  ],
+  "valid_unit_classes_land": [
+    "spear",
+    "cavalry",
+    "archer",
+    "siege",
+    "special"
+  ],
+  "valid_unit_classes_naval": [
+    "small",
+    "medium",
+    "large",
+    "special"
+  ],
+  "valid_ai_dispositions": [
+    "aggressive",
+    "defensive",
+    "expansionist"
+  ],
+  "valid_current_directions": [
+    "N",
+    "NE",
+    "E",
+    "SE",
+    "S",
+    "SW",
+    "W",
+    "NW"
+  ]
 }

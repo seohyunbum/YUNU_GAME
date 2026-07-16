@@ -82,9 +82,11 @@ public sealed class Character
         Stats.Nav = Grow(Stats.Nav, Growth.Nav, newLevel);
     }
 
-    private int Grow(int current, double rate, int newLevel)
+    // rate100 = 성장률 정수 스케일 ×100 (120 = ×1.2). 정수 나눗셈은 rate100 ≥ 0 에서 floor 와 동일하므로
+    // 부동소수 없이 floor(L*g) - floor((L-1)*g) 를 그대로 재현한다 (설계문서 §4.4 결정론).
+    private int Grow(int current, int rate100, int newLevel)
     {
-        var gain = (int)(Math.Floor(newLevel * rate) - Math.Floor((newLevel - 1) * rate));
+        var gain = (int)((long)newLevel * rate100 / 100 - (long)(newLevel - 1) * rate100 / 100);
         return Math.Min(current + gain, _statMax);
     }
 }
