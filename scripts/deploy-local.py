@@ -70,8 +70,13 @@ def make_shortcuts() -> None:
         'Set l = s.CreateShortcut(desk & "\\세계정복 게임.lnk")',
         f'l.TargetPath = "{DEPLOY}\\WorldConquest.bat"',
         f'l.WorkingDirectory = "{DEPLOY}"',
-        'l.Description = "World Conquest - 부자 2인 세계 정복 대전략"',
+        'l.Description = "World Conquest - 부자 2인 핫시트 co-op"',
         "l.Save",
+        'Set l3 = s.CreateShortcut(desk & "\\세계정복 1인플레이.lnk")',
+        f'l3.TargetPath = "{DEPLOY}\\SoloPlay.bat"',
+        f'l3.WorkingDirectory = "{DEPLOY}"',
+        'l3.Description = "World Conquest - 1인 vs AI (혼자 플레이)"',
+        "l3.Save",
         'Set l2 = s.CreateShortcut(desk & "\\세계정복 밸런스관리.lnk")',
         f'l2.TargetPath = "{DEPLOY}\\BalancePanel.bat"',
         f'l2.WorkingDirectory = "{DEPLOY}"',
@@ -98,6 +103,7 @@ def main() -> int:
     print("data:", dst)
 
     write_bat(DEPLOY / "WorldConquest.bat", "play", "World Conquest")
+    write_bat(DEPLOY / "SoloPlay.bat", "solo", "World Conquest - Solo")
     write_bat(DEPLOY / "BalancePanel.bat", "panel", "World Conquest - Balance Panel")
     make_shortcuts()
     print("\n배포 완료 — 바탕화면 [세계정복 게임] / [세계정복 밸런스관리] 로 실행하십시오.")

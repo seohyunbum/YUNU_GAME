@@ -6,10 +6,11 @@ Console.OutputEncoding = Encoding.UTF8;
 try { Console.InputEncoding = Encoding.UTF8; } catch { /* 입력이 리다이렉트(파이프)면 무시 */ }
 
 var playMode = args.Length > 0 && args[0] == "play";
+var soloMode = args.Length > 0 && args[0] == "solo";
 var loadMode = args.Length > 0 && args[0] == "load";
 var simMode = args.Length > 0 && args[0] == "simulate";
 var panelMode = args.Length > 0 && args[0] == "panel";
-var dataDir = playMode || loadMode || simMode || panelMode || args.Length == 0 ? FindDataDir() : args[0];
+var dataDir = playMode || soloMode || loadMode || simMode || panelMode || args.Length == 0 ? FindDataDir() : args[0];
 if (dataDir is null)
 {
     Console.Error.WriteLine("data/ 폴더를 찾을 수 없습니다. 인자로 경로를 지정하십시오: dotnet run --project src/WorldConquest.ConsoleHost -- <data 경로>");
@@ -94,18 +95,23 @@ if (loadMode)
     return 0;
 }
 
-if (playMode)
+if (playMode || soloMode)
 {
-    // 핫시트 2인 플레이 (§1.2). 플레이어 세력은 인자 또는 player_selectable 우선.
-    if (db.Factions.Count < 2) { Console.Error.WriteLine("2인 핫시트에는 세력이 2개 이상 필요합니다."); return 1; }
+    // play = 부자 핫시트 2인 (§1.2) · solo = 1인 vs AI (조작 세력 1개, 나머지 전부 AI 구동).
+    var minFactions = soloMode ? 2 : 2;   // solo 도 상대(AI) 세력이 최소 1개 있어야 판이 됨
+    if (db.Factions.Count < minFactions) { Console.Error.WriteLine("플레이에는 세력이 2개 이상 필요합니다."); return 1; }
     var selectable = db.Factions.Values.Where(f => f.IsPlayerSelectable).Select(f => f.Id).ToList();
     var p1 = args.Length > 1 ? args[1] : selectable.ElementAtOrDefault(0) ?? db.Factions.Keys.First();
-    var p2 = args.Length > 2 ? args[2] : selectable.FirstOrDefault(id => id != p1) ?? db.Factions.Keys.First(id => id != p1);
+    // solo: p2 = null → GameSetup 이 나머지를 전부 AI 로. play: 인자 또는 다음 선택 가능 세력.
+    var p2 = soloMode ? null
+           : args.Length > 2 ? args[2]
+           : selectable.FirstOrDefault(id => id != p1) ?? db.Factions.Keys.First(id => id != p1);
     try
     {
         var seed = (ulong)DateTime.Now.Ticks;   // 실제 플레이는 무작위 시드 (Presentation — 결정론 무관)
         var gm = new GameManager(GameSetup.NewCampaign(db, seed, p1, p2), db);
         gm.CollectIncome();   // 새 캠페인 첫 턴 수입
+        if (soloMode) Console.WriteLine($"── 1인 플레이: {db.Factions[p1].NameKo} (조작) · 나머지 {db.Factions.Count - 1}개 세력 AI ──");
         new PlaySession(gm, db, Console.In, Console.Out).Run();
     }
     catch (ArgumentException ex) { Console.Error.WriteLine($"플레이 시작 실패: {ex.Message}"); return 1; }

@@ -39,13 +39,18 @@ public static class GameSetup
             .Where(f => f.LeaderCharacterId is not null)
             .ToDictionary(f => f.LeaderCharacterId!, f => f.Id);
 
-    public static GameState NewCampaign(GameDatabase db, ulong seed, string player1FactionId, string player2FactionId)
+    /// <summary>
+    /// 새 캠페인. <paramref name="player2FactionId"/> 가 null 이면 1인 플레이(조작자 1명, 나머지 전부 AI).
+    /// 지정하면 부자 핫시트 2인. 미지정 세력은 항상 AI 라 <see cref="AIController"/> 가 AiAction 페이즈에서 구동하고,
+    /// human_p2 부재 시 Player2Command 페이즈는 <see cref="PlaySession"/> 이 Actor 부재로 자동 스킵한다.
+    /// </summary>
+    public static GameState NewCampaign(GameDatabase db, ulong seed, string player1FactionId, string? player2FactionId = null)
     {
         if (!db.Factions.ContainsKey(player1FactionId))
             throw new ArgumentException($"존재하지 않는 세력: {player1FactionId}", nameof(player1FactionId));
-        if (!db.Factions.ContainsKey(player2FactionId))
+        if (player2FactionId is not null && !db.Factions.ContainsKey(player2FactionId))
             throw new ArgumentException($"존재하지 않는 세력: {player2FactionId}", nameof(player2FactionId));
-        if (player1FactionId == player2FactionId)
+        if (player2FactionId == player1FactionId)
             throw new ArgumentException("두 플레이어는 서로 다른 세력이어야 합니다.");
 
         var factions = db.Factions.Values.Select(f => new FactionState

@@ -88,4 +88,31 @@ public class PlaySessionTests
         var (_, output) = RunScript("", db);   // 즉시 EOF
         Assert.Contains("게임을 종료합니다", output);
     }
+
+    [Fact]
+    public void 솔로_캠페인은_조작자_1명_나머지_전부_AI()   // 1인 플레이: p2=null
+    {
+        var db = Db();
+        var state = GameSetup.NewCampaign(db, 1, "joseon");   // p2 미지정
+        Assert.Single(state.Factions, f => f.Controller == "human_p1");
+        Assert.DoesNotContain(state.Factions, f => f.Controller == "human_p2");
+        Assert.Equal(db.Factions.Count - 1, state.Factions.Count(f => f.Controller == "ai"));
+    }
+
+    [Fact]
+    public void 솔로_플레이는_P2페이즈_자동스킵하고_AI가_행동한다()   // 엔진이 1인 플레이 완주 가능
+    {
+        var db = Db();
+        var state = GameSetup.NewCampaign(db, 1, "joseon");   // 조선만 사람, 나머지 6 AI
+        var gm = new GameManager(state, db);
+        gm.CollectIncome();
+        var output = new StringWriter();
+        // 조작자는 조선 턴만 입력한다(P2 프롬프트는 오지 않아야 정상) — 3턴 넘기고 종료
+        new PlaySession(gm, db, new StringReader("end\nend\nquit\n"), output).Run();
+
+        var text = output.ToString();
+        Assert.DoesNotContain("human_p2", text);          // P2 프롬프트 없음(자동 스킵)
+        Assert.True(state.Turn >= 2, "사람 입력 없이도 AI 페이즈 거쳐 턴 진행");
+        Assert.Contains("게임을 종료합니다", text);        // 크래시 없이 정상 종료
+    }
 }
