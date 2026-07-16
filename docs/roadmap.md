@@ -3,7 +3,18 @@
 > 상세 파이프라인·DoD 는 스펙 §7. 이 문서는 **현재 초점과 대기 작업**의 얇은 트래커다.
 > 아들 테스트(§8) 백로그·Phase 2 게이트 리뷰 결정도 여기에 수렴한다.
 
-## NOW — Phase 2 (전투·스킬·외교·AI) 착수
+## NOW — Phase 3 (UE5 그래픽화) 착수 (2026-07-17, U2 앞당김 결정)
+
+설계 정본: `docs/designs/ue5-client-design.md` — **C안**(UE5 표현 클라이언트 + C# 권위 시뮬, 판정 패널 3:0 + 적대 검증). 마일스톤 M0→Day-0→M1→M2→M3.
+- [x] 맵 보드지도 좌표(map_pos) 데이터+로더 검증+테스트 (163 통과) — 그래픽 배치 전제
+- [ ] **M0** — SessionDriver Core 추출 + ApiServer(`server` 모드: 상태 스냅샷·이벤트 저널·명령 seq 멱등·핸드셰이크) + 계약 테스트. **UE 설치 없이 헤드리스 완결**
+- [ ] **Day-0 (사용자 U6)** — 디스크 확보 + UE5.5 + VS2022 C++ 설치 → AI 가 CLI 빌드·오프스크린 스크린샷 왕복 검증
+- [ ] **M1** — 수직 슬라이스: 절차 생성 지도 렌더 + 소유 색 + end turn + 세이브/로드 (스크린샷 QA 하네스 포함)
+- [ ] **M2** — 명령 UI 전체 + 이벤트 로그 연출 (콘솔과 기능 동등)
+- [ ] **M3** — 전투 씬·가챠 리빌·컷씬 T1 승격
+- [ ] self-contained 단일 파일 publish 전환 (deploy-local.py 개정, DOTNET_ROOT 의존 제거)
+
+## Phase 2 — 전투·스킬·외교·AI (구현 전량 완료 · U1 재미검증만 대기)
 
 설계: `docs/designs/combat-system-design.md` (클래스 목록·C1~C8). 단계: DamageCalculator(순수함수) → CombatManager(자동계산) → SkillSystem(EffectType) → 해상/상륙전 → DiplomacyManager → AIController.
 - [x] DamageCalculator (순수 함수, 상성·지형 정수 합성). `2d55c90`
@@ -19,7 +30,7 @@
 - [x] **밸런스 패널(§5.6)** — PanelServer(localhost:8377, HttpListener)·폼은 데이터 JSON 재귀 자동생성(수기 필드 목록 없음)·저장=§5.5 DataLoader 단일 검증 경로 통과 후 atomic write [MUST]. 실검증: 음수 상성 → HTTP 422 §5.5 포맷 거부, 유효값 → 저장·반영.
 - [x] **로컬 배포 + 바탕화면 바로가기** — `scripts/deploy-local.py`(publish→`~/WorldConquest/app`+data 사본+실행 배치 3종 CP949+바탕화면 lnk 3개: 게임·1인플레이·밸런스관리). 바로가기→배치→exe 전 체인 실증. 재배포 = 이 스크립트 재실행.
 - [x] **1인 플레이(solo 모드)** — `solo [faction]`: 조작 세력 1개·나머지 전부 AI. 엔진은 무개조 지원(human_p2 부재 시 Player2Command 자동 스킵·AiAction 이 상대 구동) — 진입점만 추가. test 161. ⚠ 현 밸런스에서 즉사(아들 테스트 백로그 참조).
-- [ ] Phase 2 DoD 잔여: 부자 완주 게이트(U1— 사용자) · ★게이트 리뷰(U2~U4)
+- [ ] Phase 2 DoD 잔여: 부자 완주 게이트(U1— 사용자). ~~★게이트 리뷰 U2~~ → 07-17 "UE5 강행"으로 해소(decisions-pending 참조)
 
 ## Phase 1 (완료 ✅) — §7 전량
 

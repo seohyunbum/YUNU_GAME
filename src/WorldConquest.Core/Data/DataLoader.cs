@@ -691,6 +691,7 @@ public sealed class DataLoader
         }
 
         var seen = new HashSet<string>();
+        var seenPos = new Dictionary<(int, int), string>();   // 좌표 중복 = 렌더 겹침 → 오류
         foreach (var n in nodes)
         {
             var entry = n.Id ?? "(id 없음)";
@@ -701,6 +702,14 @@ public sealed class DataLoader
                 errors.Add(new(MapFile, entry, $"region '{n.Region}'는 허용 목록에 없습니다."));
             if (n.Adjacent is null || n.Adjacent.Count == 0)
                 errors.Add(new(MapFile, entry, "adjacent는 1건 이상 필수입니다 (고립 노드 금지)."));
+
+            // 보드지도 좌표 — 그래픽 클라이언트 배치용 (규칙 계산 미사용, Province.MapPos 참조)
+            if (n.MapPos?.X is null || n.MapPos.Y is null)
+                errors.Add(new(MapFile, entry, "필수 필드 누락: map_pos { x, y }"));
+            else if (n.MapPos.X < 0 || n.MapPos.Y < 0)
+                errors.Add(new(MapFile, entry, "map_pos의 x/y는 0 이상이어야 합니다."));
+            else if (!seenPos.TryAdd((n.MapPos.X.Value, n.MapPos.Y.Value), n.Id))
+                errors.Add(new(MapFile, entry, $"map_pos ({n.MapPos.X},{n.MapPos.Y})가 '{seenPos[(n.MapPos.X.Value, n.MapPos.Y.Value)]}'와 중복됩니다 (렌더 겹침)."));
 
             switch (n.Type)
             {
@@ -956,7 +965,9 @@ public sealed class DataLoader
                 n.Terrain!, n.Population!.Value,
                 new ResourceYield(n.BaseProduction!.Gold!.Value, n.BaseProduction.Food!.Value),
                 n.FacilitySlots!.Value, n.DefenseLevel!.Value, n.Port!.Value, n.Climate!)
-            : new SeaZone(n.Id!, n.NameKo!, n.Region!, n.Adjacent!, n.CurrentDirection!)).ToList();
+                { MapPos = new MapPos(n.MapPos!.X!.Value, n.MapPos.Y!.Value) }
+            : new SeaZone(n.Id!, n.NameKo!, n.Region!, n.Adjacent!, n.CurrentDirection!)
+                { MapPos = new MapPos(n.MapPos!.X!.Value, n.MapPos.Y!.Value) }).ToList();
 
         var edges = edgeDtos.Select(e => new MapEdge(e.From!, e.To!, e.Type switch
         {

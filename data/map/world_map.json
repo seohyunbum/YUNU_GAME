@@ -7,12 +7,23 @@
       "region": "east_asia",
       "terrain": "urban",
       "population": 180000,
-      "base_production": { "gold": 120, "food": 90 },
+      "base_production": {
+        "gold": 120,
+        "food": 90
+      },
       "facility_slots": 4,
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
-      "adjacent": ["pyongyang", "busan", "sea_east_asia"]
+      "adjacent": [
+        "pyongyang",
+        "busan",
+        "sea_east_asia"
+      ],
+      "map_pos": {
+        "x": 800,
+        "y": 265
+      }
     },
     {
       "id": "pyongyang",
@@ -21,12 +32,22 @@
       "region": "east_asia",
       "terrain": "plains",
       "population": 90000,
-      "base_production": { "gold": 60, "food": 120 },
+      "base_production": {
+        "gold": 60,
+        "food": 120
+      },
       "facility_slots": 4,
       "defense_level": 2,
       "port": false,
       "climate": "temperate",
-      "adjacent": ["hanseong", "beijing"]
+      "adjacent": [
+        "hanseong",
+        "beijing"
+      ],
+      "map_pos": {
+        "x": 785,
+        "y": 235
+      }
     },
     {
       "id": "busan",
@@ -35,12 +56,22 @@
       "region": "east_asia",
       "terrain": "urban",
       "population": 110000,
-      "base_production": { "gold": 100, "food": 70 },
+      "base_production": {
+        "gold": 100,
+        "food": 70
+      },
       "facility_slots": 4,
       "defense_level": 2,
       "port": true,
       "climate": "temperate",
-      "adjacent": ["hanseong", "sea_east_asia"]
+      "adjacent": [
+        "hanseong",
+        "sea_east_asia"
+      ],
+      "map_pos": {
+        "x": 830,
+        "y": 290
+      }
     },
     {
       "id": "beijing",
@@ -49,12 +80,22 @@
       "region": "east_asia",
       "terrain": "plains",
       "population": 300000,
-      "base_production": { "gold": 140, "food": 150 },
+      "base_production": {
+        "gold": 140,
+        "food": 150
+      },
       "facility_slots": 4,
       "defense_level": 4,
       "port": true,
       "climate": "temperate",
-      "adjacent": ["pyongyang", "sea_east_asia"]
+      "adjacent": [
+        "pyongyang",
+        "sea_east_asia"
+      ],
+      "map_pos": {
+        "x": 740,
+        "y": 245
+      }
     },
     {
       "id": "tokyo",
@@ -63,12 +104,22 @@
       "region": "east_asia",
       "terrain": "urban",
       "population": 250000,
-      "base_production": { "gold": 150, "food": 80 },
+      "base_production": {
+        "gold": 150,
+        "food": 80
+      },
       "facility_slots": 4,
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
-      "adjacent": ["kyoto", "sea_pacific"]
+      "adjacent": [
+        "kyoto",
+        "sea_pacific"
+      ],
+      "map_pos": {
+        "x": 890,
+        "y": 270
+      }
     },
     {
       "id": "kyoto",
@@ -77,12 +128,21 @@
       "region": "east_asia",
       "terrain": "mountain",
       "population": 80000,
-      "base_production": { "gold": 70, "food": 60 },
+      "base_production": {
+        "gold": 70,
+        "food": 60
+      },
       "facility_slots": 4,
       "defense_level": 3,
       "port": false,
       "climate": "temperate",
-      "adjacent": ["tokyo"]
+      "adjacent": [
+        "tokyo"
+      ],
+      "map_pos": {
+        "x": 865,
+        "y": 285
+      }
     },
     {
       "id": "paris",
@@ -91,12 +151,21 @@
       "region": "europe",
       "terrain": "urban",
       "population": 220000,
-      "base_production": { "gold": 130, "food": 100 },
+      "base_production": {
+        "gold": 130,
+        "food": 100
+      },
       "facility_slots": 4,
       "defense_level": 3,
       "port": false,
       "climate": "temperate",
-      "adjacent": ["rome"]
+      "adjacent": [
+        "rome"
+      ],
+      "map_pos": {
+        "x": 450,
+        "y": 200
+      }
     },
     {
       "id": "rome",
@@ -105,12 +174,23 @@
       "region": "europe",
       "terrain": "urban",
       "population": 190000,
-      "base_production": { "gold": 120, "food": 90 },
+      "base_production": {
+        "gold": 120,
+        "food": 90
+      },
       "facility_slots": 4,
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
-      "adjacent": ["paris", "baghdad", "sea_atlantic"]
+      "adjacent": [
+        "paris",
+        "baghdad",
+        "sea_atlantic"
+      ],
+      "map_pos": {
+        "x": 490,
+        "y": 265
+      }
     },
     {
       "id": "baghdad",
@@ -119,12 +199,22 @@
       "region": "middle_east",
       "terrain": "desert",
       "population": 130000,
-      "base_production": { "gold": 110, "food": 60 },
+      "base_production": {
+        "gold": 110,
+        "food": 60
+      },
       "facility_slots": 4,
       "defense_level": 2,
       "port": false,
       "climate": "desert",
-      "adjacent": ["rome", "cairo"]
+      "adjacent": [
+        "rome",
+        "cairo"
+      ],
+      "map_pos": {
+        "x": 625,
+        "y": 300
+      }
     },
     {
       "id": "cairo",
@@ -133,12 +223,22 @@
       "region": "africa",
       "terrain": "desert",
       "population": 140000,
-      "base_production": { "gold": 90, "food": 80 },
+      "base_production": {
+        "gold": 90,
+        "food": 80
+      },
       "facility_slots": 4,
       "defense_level": 2,
       "port": true,
       "climate": "desert",
-      "adjacent": ["baghdad", "sea_atlantic"]
+      "adjacent": [
+        "baghdad",
+        "sea_atlantic"
+      ],
+      "map_pos": {
+        "x": 555,
+        "y": 360
+      }
     },
     {
       "id": "new_york",
@@ -147,12 +247,21 @@
       "region": "america",
       "terrain": "urban",
       "population": 280000,
-      "base_production": { "gold": 160, "food": 90 },
+      "base_production": {
+        "gold": 160,
+        "food": 90
+      },
       "facility_slots": 4,
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
-      "adjacent": ["sea_atlantic"]
+      "adjacent": [
+        "sea_atlantic"
+      ],
+      "map_pos": {
+        "x": 140,
+        "y": 270
+      }
     },
     {
       "id": "sydney",
@@ -161,12 +270,21 @@
       "region": "oceania",
       "terrain": "plains",
       "population": 100000,
-      "base_production": { "gold": 80, "food": 110 },
+      "base_production": {
+        "gold": 80,
+        "food": 110
+      },
       "facility_slots": 4,
       "defense_level": 1,
       "port": true,
       "climate": "oceanic",
-      "adjacent": ["sea_pacific"]
+      "adjacent": [
+        "sea_pacific"
+      ],
+      "map_pos": {
+        "x": 920,
+        "y": 600
+      }
     },
     {
       "id": "sea_east_asia",
@@ -174,7 +292,16 @@
       "name_ko": "동아시아 해역",
       "region": "ocean",
       "current_direction": "NE",
-      "adjacent": ["hanseong", "busan", "beijing", "sea_pacific"]
+      "adjacent": [
+        "hanseong",
+        "busan",
+        "beijing",
+        "sea_pacific"
+      ],
+      "map_pos": {
+        "x": 800,
+        "y": 330
+      }
     },
     {
       "id": "sea_pacific",
@@ -182,7 +309,16 @@
       "name_ko": "태평양",
       "region": "ocean",
       "current_direction": "E",
-      "adjacent": ["tokyo", "sydney", "sea_east_asia", "sea_atlantic"]
+      "adjacent": [
+        "tokyo",
+        "sydney",
+        "sea_east_asia",
+        "sea_atlantic"
+      ],
+      "map_pos": {
+        "x": 930,
+        "y": 430
+      }
     },
     {
       "id": "sea_atlantic",
@@ -190,26 +326,103 @@
       "name_ko": "대서양",
       "region": "ocean",
       "current_direction": "W",
-      "adjacent": ["rome", "cairo", "new_york", "sea_pacific"]
+      "adjacent": [
+        "rome",
+        "cairo",
+        "new_york",
+        "sea_pacific"
+      ],
+      "map_pos": {
+        "x": 330,
+        "y": 320
+      }
     }
   ],
   "edges": [
-    { "from": "hanseong", "to": "pyongyang", "type": "land" },
-    { "from": "hanseong", "to": "busan", "type": "land" },
-    { "from": "pyongyang", "to": "beijing", "type": "land" },
-    { "from": "tokyo", "to": "kyoto", "type": "land" },
-    { "from": "paris", "to": "rome", "type": "land" },
-    { "from": "rome", "to": "baghdad", "type": "land" },
-    { "from": "baghdad", "to": "cairo", "type": "land" },
-    { "from": "hanseong", "to": "sea_east_asia", "type": "port" },
-    { "from": "busan", "to": "sea_east_asia", "type": "port" },
-    { "from": "beijing", "to": "sea_east_asia", "type": "port" },
-    { "from": "tokyo", "to": "sea_pacific", "type": "port" },
-    { "from": "sydney", "to": "sea_pacific", "type": "port" },
-    { "from": "rome", "to": "sea_atlantic", "type": "port" },
-    { "from": "cairo", "to": "sea_atlantic", "type": "port" },
-    { "from": "new_york", "to": "sea_atlantic", "type": "port" },
-    { "from": "sea_east_asia", "to": "sea_pacific", "type": "sea" },
-    { "from": "sea_pacific", "to": "sea_atlantic", "type": "sea" }
+    {
+      "from": "hanseong",
+      "to": "pyongyang",
+      "type": "land"
+    },
+    {
+      "from": "hanseong",
+      "to": "busan",
+      "type": "land"
+    },
+    {
+      "from": "pyongyang",
+      "to": "beijing",
+      "type": "land"
+    },
+    {
+      "from": "tokyo",
+      "to": "kyoto",
+      "type": "land"
+    },
+    {
+      "from": "paris",
+      "to": "rome",
+      "type": "land"
+    },
+    {
+      "from": "rome",
+      "to": "baghdad",
+      "type": "land"
+    },
+    {
+      "from": "baghdad",
+      "to": "cairo",
+      "type": "land"
+    },
+    {
+      "from": "hanseong",
+      "to": "sea_east_asia",
+      "type": "port"
+    },
+    {
+      "from": "busan",
+      "to": "sea_east_asia",
+      "type": "port"
+    },
+    {
+      "from": "beijing",
+      "to": "sea_east_asia",
+      "type": "port"
+    },
+    {
+      "from": "tokyo",
+      "to": "sea_pacific",
+      "type": "port"
+    },
+    {
+      "from": "sydney",
+      "to": "sea_pacific",
+      "type": "port"
+    },
+    {
+      "from": "rome",
+      "to": "sea_atlantic",
+      "type": "port"
+    },
+    {
+      "from": "cairo",
+      "to": "sea_atlantic",
+      "type": "port"
+    },
+    {
+      "from": "new_york",
+      "to": "sea_atlantic",
+      "type": "port"
+    },
+    {
+      "from": "sea_east_asia",
+      "to": "sea_pacific",
+      "type": "sea"
+    },
+    {
+      "from": "sea_pacific",
+      "to": "sea_atlantic",
+      "type": "sea"
+    }
   ]
 }

@@ -123,6 +123,13 @@ internal sealed class MapNodeDto
     public string? Climate { get; set; }
     public string? CurrentDirection { get; set; }
     public List<string>? Adjacent { get; set; }
+    public MapPosDto? MapPos { get; set; }
+}
+
+internal sealed class MapPosDto
+{
+    public int? X { get; set; }
+    public int? Y { get; set; }
 }
 
 internal sealed class MapEdgeDto

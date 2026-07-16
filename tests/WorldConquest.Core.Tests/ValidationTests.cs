@@ -129,6 +129,38 @@ public class ValidationTests
     }
 
     [Fact]
+    public void 맵좌표_누락_검출()   // 그래픽 클라이언트 배치용 map_pos 는 필수
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.MapFile, n =>
+        {
+            var hanseong = n["nodes"]!.AsArray().First(x => (string?)x!["id"] == "hanseong");
+            hanseong!.AsObject().Remove("map_pos");
+        });
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.MapFile, "hanseong", "map_pos");
+    }
+
+    [Fact]
+    public void 맵좌표_중복_검출()   // 두 노드가 같은 좌표 = 렌더 겹침
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.MapFile, n =>
+        {
+            var nodes = n["nodes"]!.AsArray();
+            var busan = nodes.First(x => (string?)x!["id"] == "busan");
+            var hanseong = nodes.First(x => (string?)x!["id"] == "hanseong");
+            busan!["map_pos"] = new JsonObject
+            {
+                ["x"] = (int)hanseong!["map_pos"]!["x"]!,
+                ["y"] = (int)hanseong["map_pos"]!["y"]!
+            };
+        });
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.MapFile, "busan", "중복");
+    }
+
+    [Fact]
     public void 간선없는_인접목록_검출()
     {
         using var dir = new MutableDataDir();
