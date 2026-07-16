@@ -66,6 +66,50 @@ public class GameplayTests
     }
 
     [Fact]
+    public void 무혈_점령_빈영지_인접_성공()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        // 평양(pyongyang)은 빈 영지이고 한성(joseon 소유)에 인접 → 점령 가능.
+        Assert.Equal(CaptureOutcome.Success, gm.TryCapture("joseon", "pyongyang"));
+        Assert.Contains("pyongyang", joseon.OwnedProvinceIds);
+        Assert.Contains("captured:pyongyang", s.Progress);
+    }
+
+    [Fact]
+    public void 무혈_점령_실패_케이스()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        Assert.Equal(CaptureOutcome.AlreadyOwned, gm.TryCapture("joseon", "hanseong"));   // 이미 소유
+        Assert.Equal(CaptureOutcome.AlreadyOwned, gm.TryCapture("joseon", "beijing"));    // wei 소유
+        Assert.Equal(CaptureOutcome.NotAdjacent, gm.TryCapture("joseon", "baghdad"));     // 비인접 빈 영지
+        Assert.Equal(CaptureOutcome.NoSuchFaction, gm.TryCapture("nobody", "pyongyang"));
+    }
+
+    [Fact]
+    public void 오십턴_자동진행_스모크_예외_및_자원음수_없음()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();   // 첫 턴 수입
+        while (s.Turn <= 50)
+        {
+            gm.AdvancePhase();
+            foreach (var f in s.Factions)
+            {
+                Assert.True(f.Treasury >= 0, $"{f.Id} 금고 음수: {f.Treasury}");
+                Assert.True(f.Food >= 0, $"{f.Id} 식량 음수: {f.Food}");
+            }
+        }
+        Assert.True(s.Turn > 50);
+    }
+
+    [Fact]
     public void 세이브_왕복_실제_게임상태()
     {
         var db = Db();
