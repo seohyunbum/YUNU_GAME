@@ -113,9 +113,10 @@ public sealed class DataLoader
                 errors.Add(new ValidationError(relPath, "-", "JSON 내용이 비어 있습니다."));
             return result;
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            errors.Add(new ValidationError(relPath, "-", $"JSON 파싱 실패: {ex.Message}"));
+            // 파싱뿐 아니라 잠김·권한거부·디스크오류도 전건 수집으로 흡수 (조용한 스킵·중단 없음, §5.5).
+            errors.Add(new ValidationError(relPath, "-", $"파일 읽기/파싱 실패: {ex.Message}"));
             return null;
         }
     }
@@ -176,11 +177,17 @@ public sealed class DataLoader
         Check(dto.AllianceTransferCapPerTurn!.Gold is >= 0 && dto.AllianceTransferCapPerTurn.Food is >= 0,
             "alliance_transfer_cap_per_turn", "gold/food는 0 이상 필수입니다.");
         Check(dto.BaseTaxRate!.Value is >= 0 and <= 100, "base_tax_rate", "0 ~ 100 범위여야 합니다 (정수 스케일 ×100).");
+        Check(dto.LoyaltyMin!.Value <= dto.LoyaltyMax!.Value, "loyalty_min/loyalty_max", "loyalty_min <= loyalty_max 이어야 합니다.");
+        Check(dto.MoraleMax!.Value >= 1, "morale_max", "1 이상이어야 합니다.");
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
+        {
+            if (row is null) { Check(false, $"unit_class_advantage.{atk}", "행(row)이 null 입니다."); continue; }
             foreach (var (def, mult) in row)
                 Check(mult > 0, "unit_class_advantage", $"{atk}->{def} 배율은 0보다 커야 합니다.");
+        }
         foreach (var (ftype, fdef) in dto.Facilities!)
         {
+            if (fdef is null) { Check(false, $"facilities.{ftype}", "시설 정의가 null 입니다."); continue; }
             Check(fdef.CostGold is > 0, $"facilities.{ftype}", "cost_gold 는 0보다 커야 합니다.");
             Check(fdef.MaxLevel is >= 1, $"facilities.{ftype}", "max_level 은 1 이상이어야 합니다.");
             Check(fdef.GoldBonusPctPerLevel is >= 0, $"facilities.{ftype}", "gold_bonus_pct_per_level 은 0 이상이어야 합니다.");
@@ -217,15 +224,15 @@ public sealed class DataLoader
             LandingAttackModifier = dto.LandingAttackModifier.Value,
             LandingDebuffTurns = dto.LandingDebuffTurns.Value,
             AllianceTransferCapPerTurn = new ResourceYield(
-                dto.AllianceTransferCapPerTurn.Gold!.Value, dto.AllianceTransferCapPerTurn.Food!.Value),
+                dto.AllianceTransferCapPerTurn.Gold ?? 0, dto.AllianceTransferCapPerTurn.Food ?? 0),   // null 은 위 Check 가 잡음
             BaseTaxRate = dto.BaseTaxRate.Value,
             UnitClassAdvantage = dto.UnitClassAdvantage.ToDictionary(
                 kv => kv.Key, kv => (IReadOnlyDictionary<string, int>)kv.Value),
-            // 필드 null 은 위 Check 가 errors 로 잡아 Load 가 기동 실패시킨다 — 매핑은 NRE 방지용 기본값.
+            // 값 자체(kv.Value)·필드 null 은 위 Check 가 errors 로 잡아 Load 가 기동 실패시킨다 — 매핑은 NRE 방지용 기본값.
             Facilities = dto.Facilities.ToDictionary(
                 kv => kv.Key,
-                kv => new FacilityDef(kv.Value.CostGold ?? 0, kv.Value.MaxLevel ?? 1,
-                    kv.Value.GoldBonusPctPerLevel ?? 0, kv.Value.FoodBonusPctPerLevel ?? 0)),
+                kv => new FacilityDef(kv.Value?.CostGold ?? 0, kv.Value?.MaxLevel ?? 1,
+                    kv.Value?.GoldBonusPctPerLevel ?? 0, kv.Value?.FoodBonusPctPerLevel ?? 0)),
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),

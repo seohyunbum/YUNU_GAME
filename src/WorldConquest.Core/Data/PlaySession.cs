@@ -63,7 +63,8 @@ public sealed class PlaySession
     /// <summary>한 플레이어의 명령 페이즈. 턴 종료(end)면 true, 게임 종료(quit/EOF)면 false.</summary>
     private bool PlayerTurn(GameState s)
     {
-        var actor = s.Factions.First(f => f.Id == s.Actor);
+        var actor = s.Factions.FirstOrDefault(f => f.Id == s.Actor);
+        if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
         _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / build <영지id> <시설> / save <경로> / end / quit");
@@ -119,9 +120,10 @@ public sealed class PlaySession
                     break;
 
                 case "save":
-                    if (t.Length < 2) { _out.WriteLine("사용법: save <경로>"); break; }
-                    _save.Save(s, t[1]);
-                    _out.WriteLine($"💾 저장 완료: {t[1]}");
+                    var savePath = ArgAfter(line, t[0]);   // 공백 포함 경로 보존
+                    if (savePath.Length == 0) { _out.WriteLine("사용법: save <경로>"); break; }
+                    try { _save.Save(s, savePath); _out.WriteLine($"💾 저장 완료: {savePath}"); }
+                    catch (Exception ex) { _out.WriteLine($"✘ 저장 실패: {ex.Message}"); }   // 쓰기 실패로 세션이 죽지 않게
                     break;
 
                 case "end":
@@ -136,6 +138,13 @@ public sealed class PlaySession
                     break;
             }
         }
+    }
+
+    /// <summary>명령 토큰 뒤의 나머지 인자 전체(공백 포함 경로 등). 토큰 분해로 잘리지 않게.</summary>
+    private static string ArgAfter(string line, string cmd)
+    {
+        var trimmed = line.Trim();
+        return trimmed.Length > cmd.Length ? trimmed[cmd.Length..].Trim() : "";
     }
 
     private void PrintArmies(string factionId)

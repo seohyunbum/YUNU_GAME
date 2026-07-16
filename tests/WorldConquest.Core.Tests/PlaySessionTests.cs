@@ -73,6 +73,15 @@ public class PlaySessionTests
     }
 
     [Fact]
+    public void 미존재_영지_명령도_세션_안죽음()   // QA critical: 오타 명령이 세션 크래시
+    {
+        var db = Db();
+        var (_, output) = RunScript("capture zzz\nrecruit zzz spearman 5\nbuild zzz market\nquit\n", db);
+        Assert.Contains("게임을 종료합니다", output);   // 크래시 없이 정상 종료
+        Assert.Contains("실패", output);                 // 각 명령이 실패로 안내됨
+    }
+
+    [Fact]
     public void EOF는_게임_종료()
     {
         var db = Db();

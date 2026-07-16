@@ -156,6 +156,37 @@ public class SaveSystemTests
     }
 
     [Fact]
+    public void failsoft_삭제세력의_부대_relations_actor_모두_정리()   // QA high: 고아 부대·댕글링 relation·actor 크래시
+    {
+        var path = TempSavePath();
+        try
+        {
+            var db = new DataLoader().Load(TestPaths.RepoDataDir);
+            var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+            var joseon = s.Factions.Single(f => f.Id == "joseon");
+            joseon.Relations["ghost"] = DiplomaticState.War;   // 삭제될 세력 참조
+            s.Factions.Add(new FactionState
+            {
+                Id = "ghost", Controller = "ai", Treasury = 0, Food = 0, TechLevel = 1,
+                OwnedProvinceIds = new(), Relations = new()
+            });
+            s.Armies.Add(new Army("ghost_army_1", "ghost", "hanseong"));   // 삭제 세력 부대
+            s.Actor = "ghost"; s.Phase = TurnPhase.Player1Command;
+            new SaveSystem().Save(s, path);
+
+            var result = new SaveSystem().Load(path, db);   // 'ghost' 는 db 에 없음 → fail-soft
+            Assert.DoesNotContain(result.State.Factions, f => f.Id == "ghost");
+            Assert.DoesNotContain(result.State.Armies, a => a.FactionId == "ghost");     // 고아 부대 제거
+            Assert.DoesNotContain("ghost", result.State.Factions.Single(f => f.Id == "joseon").Relations.Keys); // 댕글링 relation 제거
+            Assert.Equal("", result.State.Actor);   // 삭제 actor 정규화(이어하기 크래시 방지)
+            Assert.Contains(result.Skipped, x => x.Contains("ghost_army_1"));
+            Assert.Contains(result.Skipped, x => x.StartsWith("relation:ghost"));
+            Assert.Contains(result.Skipped, x => x == "actor:ghost");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void save_version_누락은_예외()
     {
         var path = TempSavePath();

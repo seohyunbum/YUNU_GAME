@@ -245,6 +245,24 @@ public class ValidationTests
     }
 
     [Fact]
+    public void 시설_정의_null_이면_크래시없이_검출()   // QA high: facilities 값 null → NRE
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.RulesFile, n => n["facilities"]!["market"] = null);
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "facilities.market", "null");
+    }
+
+    [Fact]
+    public void 상성표_행_null_이면_크래시없이_검출()   // QA medium: unit_class_advantage row null → NRE
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.RulesFile, n => n["unit_class_advantage"]!["spear"] = null);
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "unit_class_advantage.spear", "null");
+    }
+
+    [Fact]
     public void 결번_id_재사용_거부()
     {
         using var dir = new MutableDataDir();

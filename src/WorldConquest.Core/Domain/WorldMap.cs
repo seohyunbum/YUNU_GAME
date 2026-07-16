@@ -37,6 +37,9 @@ public sealed class WorldMap
 
     public Province GetNode(string id) => _nodes[id];
 
+    /// <summary>노드 존재-안전 조회 (미존재 시 false). 사용자 입력 검증용 — 인덱서 KeyNotFound 예외 방지.</summary>
+    public bool TryGetNode(string id, out Province node) => _nodes.TryGetValue(id, out node!);
+
     public IReadOnlyList<string> GetAdjacent(string nodeId) => _nodes[nodeId].Adjacent;
 
     /// <summary>두 노드 사이 간선 종류. 인접하지 않으면 null.</summary>

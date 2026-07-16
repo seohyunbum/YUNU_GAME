@@ -203,6 +203,47 @@ public class GameplayTests
         finally { File.Delete(path); }
     }
 
+    // ── 적대 QA 회귀 (2026-07-16) ──
+
+    [Fact]
+    public void 미존재_영지_명령은_크래시없이_거부()   // QA critical: GetNode 인덱서 KeyNotFound
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        Assert.Equal(CaptureOutcome.NotLandProvince, gm.TryCapture("joseon", "zzz"));
+        Assert.Equal(RecruitOutcome.NotOwnedLandProvince, gm.Recruit("joseon", "zzz", "spearman", 1));
+        Assert.Equal(FacilityOutcome.NotOwnedLandProvince, gm.BuildFacility("joseon", "zzz", "market"));
+    }
+
+    [Fact]
+    public void 징병_거대_count_정수오버플로_우회_방지()   // QA high: cost = RecruitCostGold*count wrap
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        joseon.Treasury = 1000;
+        // spearman 50 × 43,000,000 = 2.15e9 > int.MaxValue — long 승격으로 InsufficientGold, 국고·병력 불변
+        Assert.Equal(RecruitOutcome.InsufficientGold, gm.Recruit("joseon", "hanseong", "spearman", 43_000_000));
+        Assert.Equal(1000, joseon.Treasury);
+        Assert.Empty(s.Armies);
+    }
+
+    [Fact]
+    public void 부대_이동_해상노드_및_미존재_목적지_거부()   // QA high: MoveArmy Port/해역 우회
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();
+        gm.Recruit("joseon", "hanseong", "spearman", 5);
+        var army = s.Armies.Single();
+        Assert.Equal(MoveOutcome.NoPath, gm.MoveArmy(army.Id, "sea_east_asia"));   // 해역 노드
+        Assert.Equal(MoveOutcome.NoPath, gm.MoveArmy(army.Id, "zzz"));             // 미존재 목적지
+        Assert.Equal("hanseong", army.LocationNodeId);
+    }
+
     [Fact]
     public void 오십턴_자동진행_스모크_예외_및_자원음수_없음()
     {

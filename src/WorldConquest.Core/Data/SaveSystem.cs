@@ -90,23 +90,36 @@ public sealed class SaveSystem
         })
         .ToList();
 
-        // D9 fail-soft: 삭제된 영지 정의 참조는 건별 스킵 (정의=fail-fast §5.5 와 대칭, 세이브=fail-soft).
+        var liveFactionIds = factions.Select(f => f.Id).ToHashSet();
+
+        // D9 fail-soft: 삭제된 정의 참조는 건별 스킵 (정의=fail-fast §5.5 와 대칭, 세이브=fail-soft).
         if (db is not null)
             foreach (var f in factions)
+            {
                 foreach (var pid in f.OwnedProvinceIds.Where(p => !db.Map.Nodes.ContainsKey(p)).ToList())
                 {
                     f.OwnedProvinceIds.Remove(pid);
                     skipped?.Add($"province:{pid}@{f.Id}");
                 }
+                // 삭제(스킵)된 세력을 참조하는 외교 관계 키 프루닝
+                foreach (var key in f.Relations.Keys.Where(k => !liveFactionIds.Contains(k)).ToList())
+                {
+                    f.Relations.Remove(key);
+                    skipped?.Add($"relation:{key}@{f.Id}");
+                }
+            }
 
         var armies = (dto.Armies ?? new())
             .Select(a =>
             {
+                var commanderId = a.CommanderId;
+                if (commanderId is not null && db is not null && !db.Characters.ContainsKey(commanderId))
+                { skipped?.Add($"commander:{commanderId}@{a.Id}"); commanderId = null; }   // 삭제된 지휘관 정규화
                 var army = new Army(
                     a.Id ?? throw new InvalidOperationException("army id 누락"),
                     a.FactionId ?? throw new InvalidOperationException($"army '{a.Id}' faction 누락"),
                     a.LocationNodeId ?? throw new InvalidOperationException($"army '{a.Id}' location 누락"))
-                { CommanderId = a.CommanderId, Morale = a.Morale ?? MilitaryForce.MoraleMax, Supply = a.Supply ?? 0 };
+                { CommanderId = commanderId, Morale = a.Morale ?? MilitaryForce.MoraleMax, Supply = a.Supply ?? 0 };
                 foreach (var (unitId, count) in a.Units ?? new())
                     if (count > 0 && (db is null || db.Units.ContainsKey(unitId))) army.AddUnits(unitId, count);
                     else if (db is not null && !db.Units.ContainsKey(unitId)) skipped?.Add($"unit:{unitId}@{a.Id}");
@@ -115,6 +128,7 @@ public sealed class SaveSystem
             .Where(army =>
             {
                 if (db is null) return true;
+                if (!liveFactionIds.Contains(army.FactionId)) { skipped?.Add($"army:{army.Id}(faction {army.FactionId})"); return false; }
                 if (!db.Map.Nodes.ContainsKey(army.LocationNodeId)) { skipped?.Add($"army:{army.Id}(location {army.LocationNodeId})"); return false; }
                 return true;
             })
@@ -134,13 +148,27 @@ public sealed class SaveSystem
             })
             .ToList();
 
+        // 삭제된 시설 정의 참조 프루닝
+        if (db is not null)
+            foreach (var p in provinces)
+                foreach (var ftype in p.Facilities.Keys.Where(k => !db.Rules.Facilities.ContainsKey(k)).ToList())
+                {
+                    p.Facilities.Remove(ftype);
+                    skipped?.Add($"facility:{ftype}@{p.Id}");
+                }
+
+        // 행동 세력(Actor)이 스킵됐으면 빈 문자열로 정규화 — 이어하기 시 PlaySession 이 방어(FirstOrDefault).
+        var actor = dto.Actor ?? "";
+        if (db is not null && actor.Length > 0 && !liveFactionIds.Contains(actor))
+        { skipped?.Add($"actor:{actor}"); actor = ""; }
+
         return new GameState
         {
             DataSchemaVersion = dto.DataSchemaVersion ?? DataLoader.SupportedSchemaVersion,
             CampaignSeed = seed,
             Turn = dto.Turn ?? 1,
             Phase = dto.Phase ?? TurnPhase.Income,
-            Actor = dto.Actor ?? "",
+            Actor = actor,
             Rng = rng,
             Factions = factions,
             Progress = (dto.Progress ?? new()).ToHashSet(),

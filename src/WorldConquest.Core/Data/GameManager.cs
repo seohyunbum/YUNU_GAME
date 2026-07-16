@@ -75,8 +75,9 @@ public sealed class GameManager
                 {
                     var y = land.Produce();
                     var (goldPct, foodPct) = FacilityBonus(provinceId);
-                    faction.Treasury += y.Gold * (100 + goldPct) / 100;   // 정수 스케일 (§4.4)
-                    faction.Food += y.Food * (100 + foodPct) / 100;
+                    // 정수 스케일 (§4.4). 곱은 long 으로 위드닝해 오버플로 방지.
+                    faction.Treasury += (int)((long)y.Gold * (100 + goldPct) / 100);
+                    faction.Food += (int)((long)y.Food * (100 + foodPct) / 100);
                 }
     }
 
@@ -100,7 +101,7 @@ public sealed class GameManager
     {
         var faction = State.Factions.FirstOrDefault(f => f.Id == factionId);
         if (faction is null) return FacilityOutcome.NoSuchFaction;
-        if (_db.Map.GetNode(provinceId) is not LandProvince land || !faction.OwnedProvinceIds.Contains(provinceId))
+        if (!_db.Map.TryGetNode(provinceId, out var node) || node is not LandProvince land || !faction.OwnedProvinceIds.Contains(provinceId))
             return FacilityOutcome.NotOwnedLandProvince;
         if (!_db.Rules.Facilities.TryGetValue(facilityType, out var def))
             return FacilityOutcome.UnknownFacility;
@@ -132,7 +133,7 @@ public sealed class GameManager
     {
         var faction = State.Factions.FirstOrDefault(f => f.Id == factionId);
         if (faction is null) return CaptureOutcome.NoSuchFaction;
-        if (_db.Map.GetNode(provinceId) is not LandProvince) return CaptureOutcome.NotLandProvince;
+        if (!_db.Map.TryGetNode(provinceId, out var node) || node is not LandProvince) return CaptureOutcome.NotLandProvince;
         if (State.Factions.Any(f => f.OwnedProvinceIds.Contains(provinceId))) return CaptureOutcome.AlreadyOwned;
         if (!faction.OwnedProvinceIds.Any(owned => _db.Map.GetEdgeType(owned, provinceId) is not null))
             return CaptureOutcome.NotAdjacent;
@@ -151,15 +152,15 @@ public sealed class GameManager
         if (count <= 0) return RecruitOutcome.InvalidCount;
         var faction = State.Factions.FirstOrDefault(f => f.Id == factionId);
         if (faction is null) return RecruitOutcome.NoSuchFaction;
-        if (_db.Map.GetNode(provinceId) is not LandProvince || !faction.OwnedProvinceIds.Contains(provinceId))
+        if (!_db.Map.TryGetNode(provinceId, out var node) || node is not LandProvince || !faction.OwnedProvinceIds.Contains(provinceId))
             return RecruitOutcome.NotOwnedLandProvince;
         if (!_db.Units.TryGetValue(unitTypeId, out var unit))
             return RecruitOutcome.UnknownUnit;
 
-        var cost = unit.RecruitCostGold * count;
+        long cost = (long)unit.RecruitCostGold * count;   // long 승격 — 거대 count 곱 오버플로로 금 검사 우회 방지
         if (faction.Treasury < cost) return RecruitOutcome.InsufficientGold;
 
-        faction.Treasury -= cost;
+        faction.Treasury -= (int)cost;
         var army = State.Armies.FirstOrDefault(a => a.FactionId == factionId && a.LocationNodeId == provinceId)
                    ?? CreateArmy(factionId, provinceId);
         army.AddUnits(unitTypeId, count);
@@ -173,8 +174,10 @@ public sealed class GameManager
         if (army is null) return MoveOutcome.NoSuchArmy;
         if (army.LocationNodeId == destProvinceId) return MoveOutcome.SameLocation;
 
-        var path = Pathfinding.FindPath(_db.Map, army.LocationNodeId, destProvinceId,
-            e => e is EdgeType.Land or EdgeType.Port);
+        // 육상 부대는 육로만. 상륙(Port 간선)·해역은 함대와 함께 Phase 2. 목적지도 육상 영지여야 한다.
+        if (!_db.Map.TryGetNode(destProvinceId, out var dest) || dest is not LandProvince)
+            return MoveOutcome.NoPath;
+        var path = Pathfinding.FindPath(_db.Map, army.LocationNodeId, destProvinceId, e => e == EdgeType.Land);
         if (path is null) return MoveOutcome.NoPath;
 
         army.LocationNodeId = destProvinceId;
@@ -183,7 +186,10 @@ public sealed class GameManager
 
     private Army CreateArmy(string factionId, string locationNodeId)
     {
-        var seq = State.Armies.Count(a => a.FactionId == factionId) + 1;
+        // 충돌 없는 최소 순번(fail-soft 로 중간 부대가 드롭돼도 기존 id 와 겹치지 않게).
+        var existing = State.Armies.Select(a => a.Id).ToHashSet();
+        var seq = 1;
+        while (existing.Contains($"{factionId}_army_{seq}")) seq++;
         var army = new Army($"{factionId}_army_{seq}", factionId, locationNodeId);
         State.Armies.Add(army);
         return army;

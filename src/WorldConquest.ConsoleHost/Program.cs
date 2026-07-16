@@ -3,6 +3,7 @@ using WorldConquest.Core.Data;
 using WorldConquest.Core.Domain;
 
 Console.OutputEncoding = Encoding.UTF8;
+try { Console.InputEncoding = Encoding.UTF8; } catch { /* 입력이 리다이렉트(파이프)면 무시 */ }
 
 var playMode = args.Length > 0 && args[0] == "play";
 var loadMode = args.Length > 0 && args[0] == "load";
@@ -42,13 +43,18 @@ if (loadMode)
 if (playMode)
 {
     // 핫시트 2인 플레이 (§1.2). 플레이어 세력은 인자 또는 player_selectable 우선.
+    if (db.Factions.Count < 2) { Console.Error.WriteLine("2인 핫시트에는 세력이 2개 이상 필요합니다."); return 1; }
     var selectable = db.Factions.Values.Where(f => f.IsPlayerSelectable).Select(f => f.Id).ToList();
     var p1 = args.Length > 1 ? args[1] : selectable.ElementAtOrDefault(0) ?? db.Factions.Keys.First();
     var p2 = args.Length > 2 ? args[2] : selectable.FirstOrDefault(id => id != p1) ?? db.Factions.Keys.First(id => id != p1);
-    var seed = (ulong)DateTime.Now.Ticks;   // 실제 플레이는 무작위 시드 (Presentation — 결정론 무관)
-    var gm = new GameManager(GameSetup.NewCampaign(db, seed, p1, p2), db);
-    gm.CollectIncome();   // 새 캠페인 첫 턴 수입
-    new PlaySession(gm, db, Console.In, Console.Out).Run();
+    try
+    {
+        var seed = (ulong)DateTime.Now.Ticks;   // 실제 플레이는 무작위 시드 (Presentation — 결정론 무관)
+        var gm = new GameManager(GameSetup.NewCampaign(db, seed, p1, p2), db);
+        gm.CollectIncome();   // 새 캠페인 첫 턴 수입
+        new PlaySession(gm, db, Console.In, Console.Out).Run();
+    }
+    catch (ArgumentException ex) { Console.Error.WriteLine($"플레이 시작 실패: {ex.Message}"); return 1; }
     return 0;
 }
 
