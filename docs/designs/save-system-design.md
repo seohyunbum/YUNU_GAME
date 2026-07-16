@@ -1,6 +1,6 @@
 # 세이브 시스템 설계 (Phase 1)
 
-> **상태**: 구현 진행 중 (2026-07-16) — Pcg32 `e4c6da3` · RngStreams `918b841` · GameState·SaveSystem·SaveDto `3581656`. 세이브 왕복 동일성·RNG 연속성 검증 완료(test 68). 잔여: fail-soft(D9, GameDatabase 대조)·프로세스 재기동 E2E·게임플레이 필드 확장.
+> **상태**: 구현 완료(핵심) (2026-07-16) — Pcg32 `e4c6da3` · RngStreams `918b841` · GameState·SaveSystem·SaveDto `3581656` · load 이어하기·재기동 E2E `e4715e8` · fail-soft(D9) 완료. Phase 1 DoD 세이브 왕복(프로세스 재기동 포함) 충족. 잔여: 게임플레이 필드 확장(부대·시설)은 additive 로 그때그때.
 > **선행 조건**: 정수 스케일 전환·id 생애주기·schema_version 완료(Phase 0 위생, `04d3c30`). Phase 0 데이터/도메인 확정.
 > **정본 관계**: `docs/GAME_DESIGN_SPEC.md` §4.2·§9·v1.4 §0.3-7 의 하위 상세. 스펙 [MUST] 를 재정의하지 않고 그 아래 해상도만 다룬다.
 > **구현 완료 시**: 이 문서를 as-built 로 갱신하고, 첫 실사고 시 `docs/save-system-history.md` 를 개설한다(스펙 §9 리스크 표에서 링크).

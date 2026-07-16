@@ -127,6 +127,35 @@ public class SaveSystemTests
     }
 
     [Fact]
+    public void 로드시_삭제된_정의_id는_failsoft_스킵()
+    {
+        var path = TempSavePath();
+        try
+        {
+            var db = new DataLoader().Load(TestPaths.RepoDataDir);
+            var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+            // 존재하지 않는 영지 참조 + 존재하지 않는 세력을 세이브에 주입
+            s.Factions.Single(f => f.Id == "joseon").OwnedProvinceIds.Add("atlantis");
+            s.Factions.Add(new FactionState
+            {
+                Id = "ghost_faction", Controller = "ai", Treasury = 0, Food = 0, TechLevel = 1,
+                OwnedProvinceIds = new(), Relations = new()
+            });
+            new SaveSystem().Save(s, path);
+
+            var result = new SaveSystem().Load(path, db);   // db 대조 fail-soft
+            var joseon = result.State.Factions.Single(f => f.Id == "joseon");
+
+            Assert.DoesNotContain("atlantis", joseon.OwnedProvinceIds);              // 삭제 영지 스킵
+            Assert.DoesNotContain(result.State.Factions, f => f.Id == "ghost_faction"); // 삭제 세력 스킵
+            Assert.Contains(result.Skipped, x => x.Contains("atlantis"));            // 고지됨
+            Assert.Contains(result.Skipped, x => x.Contains("ghost_faction"));
+            Assert.Contains("hanseong", joseon.OwnedProvinceIds);                    // 유효 영지는 유지
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void save_version_누락은_예외()
     {
         var path = TempSavePath();

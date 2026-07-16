@@ -12,7 +12,7 @@
 - [x] **핫시트 2인 콘솔 루프** — PlaySession(TextReader/Writer 주입, 테스트 가능) + Program `play` 모드. status/capture/save/end/quit. 실 콘솔 구동 확인(조선 평양 점령·수입 누적). Phase 1 DoD '2인이 턴 넘기며 자원 모으고 빈 영지 점령' ✔
 - [ ] **시설·징병·A* 부대 이동** — 부대(Army/Fleet) 상태를 GameState 에 additive 확장. A* 는 부대 이동과 함께.
 - [x] **프로세스 재기동 세이브 E2E** — Program `load` 모드(이어하기). play 저장→프로세스 종료→load 재기동에서 영지 3개(평양 점령)·수입 복원 실증. `187fab0`+
-- [ ] **세이브 fail-soft(D9)** — 로드 시 GameDatabase 대조로 삭제 정의 id 참조 건별 스킵+고지 (정의 참조가 늘어나는 시점).
+- [x] **세이브 fail-soft(D9)** — 로드 시 GameDatabase 대조로 삭제 정의 id 참조 건별 스킵+고지 (정의 참조가 늘어나는 시점).
 
 > ✅ **Phase 1 DoD 충족** (§7): ① 2인 턴 넘기며 자원 모으고 빈 영지 점령 ② 50턴 자동 스모크(예외·자원 음수 0) ③ 세이브→로드 상태 동일성(프로세스 재기동 실증). 남은 항목(부대 이동·시설·징병·fail-soft)은 Phase 1 확장·Phase 2 진입 전 작업.
 

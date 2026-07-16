@@ -5,6 +5,9 @@ using WorldConquest.Core.Domain;
 
 namespace WorldConquest.Core.Data;
 
+/// <summary>fail-soft 로드 결과 (D9): 정규화된 상태 + 스킵된 정의 참조 목록.</summary>
+public sealed record LoadResult(GameState State, IReadOnlyList<string> Skipped);
+
 /// <summary>
 /// 게임 상태 직렬화/역직렬화 — 모든 세이브 읽기의 단일 진입점 (설계문서 §4.2, design save-system).
 /// <para>계약: Load=새 GameState 생성(D1) · 단일 Normalize 경로(D2) · 미래 버전만 거부(D3) ·
@@ -41,8 +44,20 @@ public sealed class SaveSystem
         return Normalize(dto);
     }
 
-    /// <summary>전 필드 nullable DTO → 새 GameState 단일 정규화 경로 (D1·D2·D3). SaveDto 가 internal 이라 internal.</summary>
-    internal static GameState Normalize(SaveDto dto)
+    /// <summary>db 대조 fail-soft 로드 (D9) — 삭제된 정의 id 참조 항목을 스킵하고 Skipped 로 표면화한다.</summary>
+    public LoadResult Load(string filePath, GameDatabase db)
+    {
+        var dto = JsonSerializer.Deserialize<SaveDto>(File.ReadAllText(filePath), JsonOpts)
+                  ?? throw new InvalidOperationException("세이브 파일이 비어 있습니다.");
+        var skipped = new List<string>();
+        return new LoadResult(Normalize(dto, db, skipped), skipped);
+    }
+
+    /// <summary>전 필드 nullable DTO → 새 GameState 단일 정규화 경로 (D1·D2·D3).</summary>
+    internal static GameState Normalize(SaveDto dto) => Normalize(dto, null, null);
+
+    /// <summary>db 를 주면 삭제된 정의 id 참조를 fail-soft 로 스킵하고 skipped 에 기록한다 (D9).</summary>
+    internal static GameState Normalize(SaveDto dto, GameDatabase? db, List<string>? skipped)
     {
         var version = dto.SaveVersion
             ?? throw new InvalidOperationException("세이브에 save_version 이 없습니다.");
@@ -67,7 +82,22 @@ public sealed class SaveSystem
             TechLevel = f.TechLevel ?? 1,
             OwnedProvinceIds = f.OwnedProvinceIds ?? new(),
             Relations = f.Relations ?? new()
-        }).ToList();
+        })
+        .Where(f =>
+        {
+            if (db is not null && !db.Factions.ContainsKey(f.Id)) { skipped?.Add($"faction:{f.Id}"); return false; }
+            return true;
+        })
+        .ToList();
+
+        // D9 fail-soft: 삭제된 영지 정의 참조는 건별 스킵 (정의=fail-fast §5.5 와 대칭, 세이브=fail-soft).
+        if (db is not null)
+            foreach (var f in factions)
+                foreach (var pid in f.OwnedProvinceIds.Where(p => !db.Map.Nodes.ContainsKey(p)).ToList())
+                {
+                    f.OwnedProvinceIds.Remove(pid);
+                    skipped?.Add($"province:{pid}@{f.Id}");
+                }
 
         return new GameState
         {

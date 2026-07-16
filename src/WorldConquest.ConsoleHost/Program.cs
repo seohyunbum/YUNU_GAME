@@ -29,11 +29,13 @@ catch (DataValidationException ex)
 if (loadMode)
 {
     if (args.Length < 2) { Console.Error.WriteLine("사용법: load <세이브경로>"); return 1; }
-    GameState loaded;
-    try { loaded = new SaveSystem().Load(args[1]); }
+    LoadResult result;
+    try { result = new SaveSystem().Load(args[1], db); }
     catch (Exception ex) { Console.Error.WriteLine($"세이브 로드 실패: {ex.Message}"); return 1; }
-    Console.WriteLine($"이어하기: {args[1]} (턴 {loaded.Turn})");
-    new PlaySession(new GameManager(loaded, db), db, Console.In, Console.Out).Run();   // 로드는 수입 재정산 없음
+    if (result.Skipped.Count > 0)   // D9 fail-soft 고지 (무음 금지)
+        Console.WriteLine($"⚠ 현재 버전과 호환되지 않는 항목 {result.Skipped.Count}개를 제외했습니다: {string.Join(", ", result.Skipped)}");
+    Console.WriteLine($"이어하기: {args[1]} (턴 {result.State.Turn})");
+    new PlaySession(new GameManager(result.State, db), db, Console.In, Console.Out).Run();   // 로드는 수입 재정산 없음
     return 0;
 }
 
