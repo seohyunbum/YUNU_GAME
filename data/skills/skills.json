@@ -1,0 +1,226 @@
+[
+  {
+    "id": "undefeated_admiral",
+    "name_ko": "불패의 제독",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [{ "type": "battle_domain", "value": "naval" }],
+    "effects": [
+      { "type": "buff", "target": "self_army", "stat": "naval_def", "amount": 30, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "hero_of_chaos",
+    "name_ko": "난세의 간웅",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      { "type": "buff", "target": "self", "stat": "scheme_success", "amount": 15, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "god_of_war",
+    "name_ko": "무신",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      { "type": "buff", "target": "self", "stat": "duel_power", "amount": 20, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "grande_armee",
+    "name_ko": "대육군",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [{ "type": "battle_domain", "value": "land" }],
+    "effects": [
+      { "type": "buff", "target": "self_army", "stat": "land_atk", "amount": 10, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "banner_of_faith",
+    "name_ko": "신앙의 깃발",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      { "type": "buff", "target": "ally_all", "stat": "morale_regen", "amount": 5, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "keen_smell",
+    "name_ko": "예리한 후각",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      { "type": "buff", "target": "self", "stat": "evasion", "amount": 10, "duration_turns": null },
+      { "type": "buff", "target": "self", "stat": "crit_rate", "amount": 10, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "level_up",
+    "name_ko": "레벨업",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      { "type": "buff", "target": "self", "stat": "exp_gain_rate", "amount": 50, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "arc_reactor",
+    "name_ko": "아크 리액터",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      { "type": "buff", "target": "self", "stat": "gauge_charge_rate", "amount": 20, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "charisma_of_king",
+    "name_ko": "기사왕의 카리스마",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      { "type": "buff", "target": "ally_all", "stat": "atk", "amount": 8, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "demi_servant",
+    "name_ko": "데미 서번트",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      { "type": "buff", "target": "self_army", "stat": "damage_reduction", "amount": 10, "duration_turns": null }
+    ]
+  },
+  {
+    "id": "crane_wing_formation",
+    "name_ko": "학익진",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_crane_wing",
+    "conditions": [{ "type": "battle_domain", "value": "naval" }],
+    "effects": [
+      { "type": "aoe_damage", "target": "enemy_front_row", "power": 250, "scaling_stat": "nav" },
+      { "type": "buff", "target": "ally_all", "stat": "morale", "amount": 20, "duration_turns": 3 }
+    ]
+  },
+  {
+    "id": "overlord_march",
+    "name_ko": "패왕의 진군",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_overlord_march",
+    "conditions": [{ "type": "battle_domain", "value": "land" }],
+    "effects": [
+      { "type": "aoe_damage", "target": "enemy_all", "power": 180, "scaling_stat": "ldr" },
+      { "type": "debuff", "target": "enemy_all", "stat": "morale", "amount": 15, "duration_turns": 2 }
+    ]
+  },
+  {
+    "id": "green_dragon_slash",
+    "name_ko": "청룡언월참",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_green_dragon_slash",
+    "conditions": [{ "type": "battle_domain", "value": "land" }],
+    "effects": [
+      { "type": "aoe_damage", "target": "enemy_front_row", "power": 320, "scaling_stat": "str" }
+    ]
+  },
+  {
+    "id": "imperial_barrage",
+    "name_ko": "황제의 포격",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_imperial_barrage",
+    "conditions": [{ "type": "battle_domain", "value": "land" }],
+    "effects": [
+      { "type": "aoe_damage", "target": "enemy_back_row", "power": 220, "scaling_stat": "ldr" }
+    ]
+  },
+  {
+    "id": "divine_standard",
+    "name_ko": "성녀의 깃발",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_divine_standard",
+    "conditions": [],
+    "effects": [
+      { "type": "heal", "target": "ally_all", "power": 150, "scaling_stat": "cha" },
+      { "type": "buff", "target": "ally_all", "stat": "atk", "amount": 15, "duration_turns": 2 }
+    ]
+  },
+  {
+    "id": "hinokami_kagura",
+    "name_ko": "히노카미 카구라",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_hinokami_kagura",
+    "conditions": [],
+    "effects": [
+      { "type": "single_damage", "target": "enemy_single", "power": 400, "scaling_stat": "str" }
+    ]
+  },
+  {
+    "id": "arise",
+    "name_ko": "일어나라",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_arise",
+    "conditions": [],
+    "effects": [
+      { "type": "summon_unit", "target": "self_side", "unit_id": "shadow_soldiers", "amount": 3 }
+    ]
+  },
+  {
+    "id": "unibeam",
+    "name_ko": "유니빔",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_unibeam",
+    "conditions": [],
+    "effects": [
+      { "type": "aoe_damage", "target": "enemy_front_row", "power": 260, "scaling_stat": "int" }
+    ]
+  },
+  {
+    "id": "excalibur",
+    "name_ko": "약속된 승리의 검",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_excalibur",
+    "conditions": [],
+    "effects": [
+      { "type": "aoe_damage", "target": "enemy_all", "power": 300, "scaling_stat": "str" }
+    ]
+  },
+  {
+    "id": "lord_camelot",
+    "name_ko": "로드 카멜롯",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_lord_camelot",
+    "conditions": [],
+    "effects": [
+      { "type": "shield", "target": "ally_all", "absorb_amount": null, "duration_turns": 3 }
+    ]
+  }
+]

@@ -1,0 +1,15 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+
+# Test results
+TestResults/
+*.trx
+
+# OS
+.DS_Store
+Thumbs.db

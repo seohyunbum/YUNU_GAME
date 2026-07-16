@@ -1,0 +1,54 @@
+[
+  {
+    "id": "small_ship",
+    "name_ko": "소형선",
+    "domain": "naval",
+    "class": "small",
+    "atk": 8,
+    "def": 6,
+    "speed": 16,
+    "recruit_cost_gold": 120,
+    "upkeep_food": 3,
+    "tech_required": 0,
+    "unique_to": null
+  },
+  {
+    "id": "medium_ship",
+    "name_ko": "중형선",
+    "domain": "naval",
+    "class": "medium",
+    "atk": 14,
+    "def": 12,
+    "speed": 11,
+    "recruit_cost_gold": 250,
+    "upkeep_food": 5,
+    "tech_required": 1,
+    "unique_to": null
+  },
+  {
+    "id": "large_ship",
+    "name_ko": "대형선",
+    "domain": "naval",
+    "class": "large",
+    "atk": 22,
+    "def": 18,
+    "speed": 7,
+    "recruit_cost_gold": 500,
+    "upkeep_food": 8,
+    "tech_required": 3,
+    "unique_to": null
+  },
+  {
+    "id": "geobukseon",
+    "name_ko": "거북선",
+    "domain": "naval",
+    "class": "special",
+    "atk": 26,
+    "def": 26,
+    "speed": 9,
+    "recruit_cost_gold": 700,
+    "upkeep_food": 9,
+    "tech_required": 3,
+    "unique_to": "yi_sunsin"
+  }
+]

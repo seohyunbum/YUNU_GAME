@@ -1,0 +1,187 @@
+namespace WorldConquest.Core.Data;
+
+// JSON 역직렬화 전용 DTO. 필수 필드 검증을 위해 전부 nullable로 받고 DataLoader가 검사한다.
+// 프로퍼티명은 SnakeCaseLower 정책으로 JSON 키와 매핑된다 (예: NameKo ↔ name_ko).
+
+internal sealed class StatsDto
+{
+    public int? Ldr { get; set; }
+    public int? Str { get; set; }
+    public int? Int { get; set; }
+    public int? Pol { get; set; }
+    public int? Cha { get; set; }
+    public int? Nav { get; set; }
+}
+
+internal sealed class GrowthRatesDto
+{
+    public double? Ldr { get; set; }
+    public double? Str { get; set; }
+    public double? Int { get; set; }
+    public double? Pol { get; set; }
+    public double? Cha { get; set; }
+    public double? Nav { get; set; }
+}
+
+internal sealed class CharacterDto
+{
+    public string? Id { get; set; }
+    public string? NameKo { get; set; }
+    public string? Origin { get; set; }
+    public int? Rarity { get; set; }
+    public StatsDto? Stats { get; set; }
+    public GrowthRatesDto? GrowthRates { get; set; }
+    public string? PassiveSkillId { get; set; }
+    public string? UltimateSkillId { get; set; }
+    public string? UniqueUnitId { get; set; }
+    public string? StartFaction { get; set; }
+    public string? VoiceSet { get; set; }
+    public string? PortraitAsset { get; set; }
+}
+
+internal sealed class SkillConditionDto
+{
+    public string? Type { get; set; }
+    public string? Value { get; set; }
+}
+
+internal sealed class SkillEffectDto
+{
+    public string? Type { get; set; }
+    public string? Target { get; set; }
+    public int? Power { get; set; }
+    public string? ScalingStat { get; set; }
+    public string? Stat { get; set; }
+    public int? Amount { get; set; }
+    public int? DurationTurns { get; set; }
+    public string? UnitId { get; set; }
+    public int? AbsorbAmount { get; set; }
+}
+
+internal sealed class SkillDto
+{
+    public string? Id { get; set; }
+    public string? NameKo { get; set; }
+    public string? Type { get; set; }
+    public int? GaugeCost { get; set; }
+    public string? CutsceneId { get; set; }
+    public List<SkillConditionDto>? Conditions { get; set; }
+    public List<SkillEffectDto>? Effects { get; set; }
+}
+
+internal sealed class UnitTypeDto
+{
+    public string? Id { get; set; }
+    public string? NameKo { get; set; }
+    public string? Domain { get; set; }
+    public string? Class { get; set; }
+    public int? Atk { get; set; }
+    public int? Def { get; set; }
+    public int? Speed { get; set; }
+    public int? RecruitCostGold { get; set; }
+    public int? UpkeepFood { get; set; }
+    public int? TechRequired { get; set; }
+    public string? UniqueTo { get; set; }
+}
+
+internal sealed class TerrainModifierDto
+{
+    public string? Id { get; set; }
+    public string? NameKo { get; set; }
+    public double? AtkMod { get; set; }
+    public double? DefMod { get; set; }
+    public int? MoveCost { get; set; }
+}
+
+internal sealed class ResourceAmountDto
+{
+    public int? Gold { get; set; }
+    public int? Food { get; set; }
+}
+
+internal sealed class MapNodeDto
+{
+    public string? Id { get; set; }
+    public string? Type { get; set; }
+    public string? NameKo { get; set; }
+    public string? Region { get; set; }
+    public string? Terrain { get; set; }
+    public int? Population { get; set; }
+    public ResourceAmountDto? BaseProduction { get; set; }
+    public int? FacilitySlots { get; set; }
+    public int? DefenseLevel { get; set; }
+    public bool? Port { get; set; }
+    public string? Climate { get; set; }
+    public string? CurrentDirection { get; set; }
+    public List<string>? Adjacent { get; set; }
+}
+
+internal sealed class MapEdgeDto
+{
+    public string? From { get; set; }
+    public string? To { get; set; }
+    public string? Type { get; set; }
+}
+
+internal sealed class WorldMapDto
+{
+    public List<MapNodeDto>? Nodes { get; set; }
+    public List<MapEdgeDto>? Edges { get; set; }
+}
+
+internal sealed class DifficultyModifierDto
+{
+    public double? ResourceBonus { get; set; }
+    public double? AiAggression { get; set; }
+}
+
+internal sealed class FactionDto
+{
+    public string? Id { get; set; }
+    public string? NameKo { get; set; }
+    public string? Color { get; set; }
+    public bool? IsPlayerSelectable { get; set; }
+    public string? AiDisposition { get; set; }
+    public string? LeaderCharacterId { get; set; }
+    public List<string>? StartProvinces { get; set; }
+    public ResourceAmountDto? StartResources { get; set; }
+    public int? StartTechLevel { get; set; }
+    public DifficultyModifierDto? DifficultyModifier { get; set; }
+}
+
+internal sealed class GameRulesDto
+{
+    public int? StatMin { get; set; }
+    public int? StatMax { get; set; }
+    public int? RarityMin { get; set; }
+    public int? RarityMax { get; set; }
+    public int? LevelCap { get; set; }
+    public int? ExpCurveBase { get; set; }
+    public int? LoyaltyMin { get; set; }
+    public int? LoyaltyMax { get; set; }
+    public int? MoraleMax { get; set; }
+    public double? GrowthRateMin { get; set; }
+    public double? GrowthRateMax { get; set; }
+    public int? UltimateGaugeMax { get; set; }
+    public int? GaugeChargeOnAttack { get; set; }
+    public int? GaugeChargeOnDamaged { get; set; }
+    public double? LandingAttackModifier { get; set; }
+    public int? LandingDebuffTurns { get; set; }
+    public ResourceAmountDto? AllianceTransferCapPerTurn { get; set; }
+    public double? BaseTaxRate { get; set; }
+    public Dictionary<string, Dictionary<string, double>>? UnitClassAdvantage { get; set; }
+    public List<string>? ValidTerrains { get; set; }
+    public List<string>? ValidClimates { get; set; }
+    public List<string>? ValidRegions { get; set; }
+    public List<string>? ValidOrigins { get; set; }
+    public List<string>? ValidEffectTypes { get; set; }
+    public List<string>? ValidSkillTargets { get; set; }
+    public List<string>? ValidBuffStats { get; set; }
+    public List<string>? ValidConditionTypes { get; set; }
+    public List<string>? ValidBattleDomains { get; set; }
+    public List<string>? ValidScalingStats { get; set; }
+    public List<string>? ValidUnitClassesLand { get; set; }
+    public List<string>? ValidUnitClassesNaval { get; set; }
+    public List<string>? ValidAiDispositions { get; set; }
+    public List<string>? ValidCurrentDirections { get; set; }
+}
