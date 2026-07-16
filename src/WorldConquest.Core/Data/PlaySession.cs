@@ -67,7 +67,7 @@ public sealed class PlaySession
         if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / attack <부대id> <적영지id> / build <영지id> <시설> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / attack <부대id> <적영지id> / build <영지id> <시설> / save <경로> / end / quit");
 
         while (true)
         {
@@ -103,9 +103,20 @@ public sealed class PlaySession
                         : $"✘ 징병 실패: {ro}");
                     break;
 
+                case "assign":
+                    if (t.Length < 3) { _out.WriteLine("사용법: assign <부대id> <캐릭터id>"); break; }
+                    var so = _gm.AssignCommander(actor.Id, t[1], t[2]);
+                    _out.WriteLine(so == AssignOutcome.Success
+                        ? $"✔ {t[1]} 지휘관 = {CharacterName(t[2])}"
+                        : $"✘ 임명 실패: {so}");
+                    break;
+
                 case "attack":
                     if (t.Length < 3) { _out.WriteLine("사용법: attack <부대id> <적영지id>"); break; }
                     var ao = _gm.Attack(actor.Id, t[1], t[2], out var battle);
+                    if (battle is not null)
+                        foreach (var ev in battle.SkillEvents)
+                            _out.WriteLine($"  ✨ [{ev.Side}] {ev.SkillNameKo} — {ev.Detail}");
                     _out.WriteLine(ao switch
                     {
                         AttackOutcome.AttackerWon when battle!.Rounds == 0
@@ -191,4 +202,7 @@ public sealed class PlaySession
 
     private string FactionName(string id) =>
         _db.Factions.TryGetValue(id, out var f) ? f.NameKo : id;
+
+    private string CharacterName(string id) =>
+        _db.Characters.TryGetValue(id, out var c) ? c.NameKo : id;
 }

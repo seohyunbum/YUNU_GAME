@@ -32,6 +32,16 @@ public enum MoveOutcome
     NoPath            // 육로·항구로 도달 불가
 }
 
+/// <summary>지휘관 임명 결과 (§2.4 — 부대에 무장 배치).</summary>
+public enum AssignOutcome
+{
+    Success,
+    NoSuchArmy,
+    NotYourArmy,
+    UnknownCharacter,
+    AlreadyAssigned   // 다른 부대가 이미 그 무장을 지휘관으로 씀
+}
+
 /// <summary>공격 결과 (§2.6 자동 전투 점령).</summary>
 public enum AttackOutcome
 {
@@ -195,6 +205,18 @@ public sealed class GameManager
         return MoveOutcome.Success;
     }
 
+    /// <summary>지휘관 임명 (§2.4): 부대에 무장을 배치 — 패시브 상시·게이지 궁극기의 전제.</summary>
+    public AssignOutcome AssignCommander(string factionId, string armyId, string characterId)
+    {
+        var army = State.Armies.FirstOrDefault(a => a.Id == armyId);
+        if (army is null) return AssignOutcome.NoSuchArmy;
+        if (army.FactionId != factionId) return AssignOutcome.NotYourArmy;
+        if (!_db.Characters.ContainsKey(characterId)) return AssignOutcome.UnknownCharacter;
+        if (State.Armies.Any(a => a.Id != armyId && a.CommanderId == characterId)) return AssignOutcome.AlreadyAssigned;
+        army.CommanderId = characterId;
+        return AssignOutcome.Success;
+    }
+
     /// <summary>
     /// 공격 (§2.6): 인접 적 육상 영지를 자동 전투로 공략. 승리 시 수비 부대 소멸·영지 점령·부대 진주.
     /// 패배 시 공격 부대 소멸. 병력 손실은 CombatManager 가 양측에 반영.
@@ -216,7 +238,7 @@ public sealed class GameManager
         if (defenders.Count == 0)
         {
             // 주둔군 없는 적 영지 — 무저항 함락
-            battle = new BattleResult(true, 0, 0, 0);
+            battle = new BattleResult(true, 0, 0, 0, Array.Empty<SkillEvent>());
             TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetProvinceId, army);
             return AttackOutcome.AttackerWon;
         }

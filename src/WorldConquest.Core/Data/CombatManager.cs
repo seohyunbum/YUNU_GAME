@@ -2,16 +2,21 @@ using WorldConquest.Core.Domain;
 
 namespace WorldConquest.Core.Data;
 
-/// <summary>자동 전투 결과 (§2.6 전투 위임).</summary>
-public sealed record BattleResult(bool AttackerWon, int AttackerLosses, int DefenderLosses, int Rounds);
+/// <summary>자동 전투 결과 (§2.6 전투 위임). SkillEvents = 발동 스킬 로그(콘솔 표시·DoD 수치 검증).</summary>
+public sealed record BattleResult(
+    bool AttackerWon, int AttackerLosses, int DefenderLosses, int Rounds,
+    IReadOnlyList<SkillEvent> SkillEvents);
 
 /// <summary>
 /// 전투 준비·자동 계산·승패 판정 (설계문서 §2.6·§4.2·전투 C3). 그래픽 없이 Core 에서 완결 [MUST].
 /// 데미지 기대값 = DamageCalculator(순수), 변동은 combat 명명 스트림(§4.4·C2)에서만 —
 /// 같은 시드·같은 전투 순서면 결과가 완전히 재현된다. 상수는 game_rules.combat (§5 데이터 주도).
+/// 지휘관(CommanderId)이 있으면 패시브 상시 + 게이지 충전 → 궁극기 자동 발동 (§2.4·C5).
 /// </summary>
 public sealed class CombatManager
 {
+    private const string Domain = "land";   // 해상전(naval)은 후속 단계 — naval 조건 스킬은 육상전 미발동
+
     private readonly GameDatabase _db;
 
     public CombatManager(GameDatabase db) => _db = db;
@@ -24,31 +29,138 @@ public sealed class CombatManager
     {
         var rules = _db.Rules;
         var terrain = _db.TerrainModifiers[battlefield.Terrain];
+        var atkSide = new[] { attacker };
         var atkStart = attacker.TotalTroops;
         var defStart = defenders.Sum(a => a.TotalTroops);
-        var advAtk = WeightedAdvantagePct(new[] { attacker }, defenders);
-        var advDef = WeightedAdvantagePct(defenders, new[] { attacker });
+        var advAtk = WeightedAdvantagePct(atkSide, defenders);
+        var advDef = WeightedAdvantagePct(defenders, atkSide);
+
+        var events = new List<SkillEvent>();
+        var atkState = new BattleSideState();
+        var defState = new BattleSideState();
+        var atkCmdr = Commander(atkSide);
+        var defCmdr = Commander(defenders);
+
+        // 패시브: 전투 시작 시 상시 발동 (§2.4) — 조건(battle_domain) 통과 시
+        ApplyPassive(atkCmdr, atkState, defState, events, "공격");
+        ApplyPassive(defCmdr, defState, atkState, events, "수비");
 
         var rounds = 0;
         while (attacker.TotalTroops > 0 && defenders.Sum(a => a.TotalTroops) > 0 && rounds < rules.CombatMaxRounds)
         {
             rounds++;
-            // 동시 타격: 라운드 시작 시점 전력으로 양측 데미지 산출 (선공 이점 없음 — 결정성·대칭)
-            var dmgToDef = RollDamage(AttackPower(new[] { attacker }), DefensePower(defenders),
+
+            // 게이지 충전 (§2.4 — 피해를 주고받을 때. 동시 타격이라 양측 모두 공격+피격)
+            var charge = rules.GaugeChargeOnAttack + rules.GaugeChargeOnDamaged;
+            SkillSystem.Charge(atkState, charge, rules.UltimateGaugeMax);
+            SkillSystem.Charge(defState, charge, rules.UltimateGaugeMax);
+
+            // 궁극기 자동 발동 — 공격측 우선 (결정적 순서, C5)
+            TryUltimate(atkCmdr, atkState, defState, events, "공격");
+            TryUltimate(defCmdr, defState, atkState, events, "수비");
+
+            // 소환 병력 반영 (전력 계산 전 — arise 등)
+            ApplySummons(atkState, atkSide);
+            ApplySummons(defState, defenders);
+
+            // 버프 합성: 공격% = atk + land_atk + morale / 피해 감소% = damage_reduction (전투 무관 스탯은 미사용)
+            var atkBonusA = atkState.SumBuff("atk") + atkState.SumBuff("land_atk") + atkState.SumBuff("morale");
+            var atkBonusD = defState.SumBuff("atk") + defState.SumBuff("land_atk") + defState.SumBuff("morale");
+
+            var dmgToDef = RollDamage(Scale(AttackPower(atkSide), atkBonusA), DefensePower(defenders),
                 advAtk, terrain.AtkMod, terrain.DefMod, rng, rules.CombatVariancePct);
-            var dmgToAtk = RollDamage(AttackPower(defenders), DefensePower(new[] { attacker }),
+            var dmgToAtk = RollDamage(Scale(AttackPower(defenders), atkBonusD), DefensePower(atkSide),
                 advDef, terrain.AtkMod, 0, rng, rules.CombatVariancePct);   // 공격측은 야전 — 지형 방어 보정 없음
 
-            ApplyCasualties(defenders, Casualties(dmgToDef, rules.CombatDamagePerCasualty));
-            ApplyCasualties(new[] { attacker }, Casualties(dmgToAtk, rules.CombatDamagePerCasualty));
+            // 스킬 직접 데미지(aoe/single) 합산 → 피해 감소 → 실드 통과
+            dmgToDef = AddClamp(dmgToDef, defState.PendingSkillDamage); defState.PendingSkillDamage = 0;
+            dmgToAtk = AddClamp(dmgToAtk, atkState.PendingSkillDamage); atkState.PendingSkillDamage = 0;
+            dmgToDef = Reduce(dmgToDef, defState.SumBuff("damage_reduction"));
+            dmgToAtk = Reduce(dmgToAtk, atkState.SumBuff("damage_reduction"));
+            dmgToDef = defState.AbsorbDamage(dmgToDef);
+            dmgToAtk = atkState.AbsorbDamage(dmgToAtk);
+
+            if (dmgToDef > 0) ApplyCasualties(defenders, Casualties(dmgToDef, rules.CombatDamagePerCasualty));
+            if (dmgToAtk > 0) ApplyCasualties(atkSide, Casualties(dmgToAtk, rules.CombatDamagePerCasualty));
+
+            // 회복 (divine_standard 등) — 손실 적용 후, 첫 부대 첫 병종에 결정적으로
+            ApplyHeal(atkState, atkSide, rules.CombatDamagePerCasualty);
+            ApplyHeal(defState, defenders, rules.CombatDamagePerCasualty);
+
+            atkState.TickRound();
+            defState.TickRound();
         }
 
         var attackerWon = attacker.TotalTroops > 0 && defenders.Sum(a => a.TotalTroops) == 0;
         return new BattleResult(
             attackerWon,
             atkStart - attacker.TotalTroops,
-            defStart - defenders.Sum(a => a.TotalTroops),
-            rounds);
+            Math.Max(0, defStart - defenders.Sum(a => a.TotalTroops)),   // 소환으로 시작치 초과 가능 — 음수 방지
+            rounds,
+            events);
+    }
+
+    private Character? Commander(IEnumerable<Army> side)
+    {
+        foreach (var a in side.OrderBy(a => a.Id, StringComparer.Ordinal))
+            if (a.CommanderId is not null && _db.Characters.TryGetValue(a.CommanderId, out var c))
+                return c;
+        return null;
+    }
+
+    private void ApplyPassive(Character? cmdr, BattleSideState own, BattleSideState enemy,
+        List<SkillEvent> events, string side)
+    {
+        if (cmdr is null) return;
+        var skill = _db.Skills[cmdr.PassiveSkillId];
+        if (SkillSystem.ConditionsMet(skill, Domain))
+            SkillSystem.Execute(skill, cmdr.Stats, own, enemy, events, side);
+    }
+
+    private void TryUltimate(Character? cmdr, BattleSideState own, BattleSideState enemy,
+        List<SkillEvent> events, string side)
+    {
+        if (cmdr is null || own.Gauge < _db.Rules.UltimateGaugeMax) return;
+        var skill = _db.Skills[cmdr.UltimateSkillId];
+        if (!SkillSystem.ConditionsMet(skill, Domain)) return;   // 조건 불충족(naval 등) — 게이지 유지·미발동
+        SkillSystem.Execute(skill, cmdr.Stats, own, enemy, events, side);
+        own.Gauge -= skill.GaugeCost;
+    }
+
+    private void ApplySummons(BattleSideState state, IEnumerable<Army> side)
+    {
+        if (state.PendingSummons.Count == 0) return;
+        var host = side.Where(a => a.TotalTroops > 0).OrderBy(a => a.Id, StringComparer.Ordinal).FirstOrDefault();
+        if (host is null) { state.PendingSummons.Clear(); return; }
+        foreach (var (unitId, count) in state.PendingSummons.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            if (count > 0 && _db.Units.ContainsKey(unitId)) host.AddUnits(unitId, count);
+        state.PendingSummons.Clear();
+    }
+
+    private static void ApplyHeal(BattleSideState state, IEnumerable<Army> side, int damagePerCasualty)
+    {
+        if (state.PendingHeal <= 0) return;
+        var troops = state.PendingHeal / damagePerCasualty;
+        state.PendingHeal = 0;
+        if (troops <= 0) return;
+        var host = side.Where(a => a.TotalTroops > 0).OrderBy(a => a.Id, StringComparer.Ordinal).FirstOrDefault();
+        var unit = host?.Units.Keys.OrderBy(k => k, StringComparer.Ordinal).FirstOrDefault();
+        if (host is not null && unit is not null) host.AddUnits(unit, troops);
+    }
+
+    private static int Scale(int value, int bonusPct)
+    {
+        var v = (long)value * (100 + Math.Max(-100, bonusPct)) / 100;
+        return v < 0 ? 0 : v > int.MaxValue ? int.MaxValue : (int)v;
+    }
+
+    private static int Reduce(int damage, int cutPct) =>
+        (int)((long)damage * (100 - Math.Clamp(cutPct, 0, 100)) / 100);
+
+    private static int AddClamp(int a, int b)
+    {
+        var v = (long)a + b;
+        return v > int.MaxValue ? int.MaxValue : (int)v;
     }
 
     private int RollDamage(int atkPower, int defPower, int advPct, int terrainAtkPct, int terrainDefPct,
