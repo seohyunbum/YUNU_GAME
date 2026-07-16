@@ -26,8 +26,7 @@ public sealed class PlaySession
     public void Run()
     {
         _out.WriteLine("=== PROJECT WORLD CONQUEST — 핫시트 플레이 (Phase 1) ===");
-        _gm.CollectIncome();   // 첫 턴 수입 (이후 턴은 Income 페이즈 진입 시 자동)
-
+        // 첫 턴 수입은 호출자(새 캠페인)가 정산한다 — 로드 이어하기는 이미 반영돼 있어 이중 수입을 피한다.
         var running = true;
         while (running)
         {

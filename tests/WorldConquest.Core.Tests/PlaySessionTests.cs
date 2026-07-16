@@ -12,6 +12,7 @@ public class PlaySessionTests
     {
         var state = GameSetup.NewCampaign(db, 1, "joseon", "wei");
         var gm = new GameManager(state, db);
+        gm.CollectIncome();   // 새 캠페인 첫 턴 수입 (Program 과 동일)
         var output = new StringWriter();
         new PlaySession(gm, db, new StringReader(script), output).Run();
         return (state, output.ToString());

@@ -5,7 +5,8 @@ using WorldConquest.Core.Domain;
 Console.OutputEncoding = Encoding.UTF8;
 
 var playMode = args.Length > 0 && args[0] == "play";
-var dataDir = playMode || args.Length == 0 ? FindDataDir() : args[0];
+var loadMode = args.Length > 0 && args[0] == "load";
+var dataDir = playMode || loadMode || args.Length == 0 ? FindDataDir() : args[0];
 if (dataDir is null)
 {
     Console.Error.WriteLine("data/ 폴더를 찾을 수 없습니다. 인자로 경로를 지정하십시오: dotnet run --project src/WorldConquest.ConsoleHost -- <data 경로>");
@@ -25,6 +26,17 @@ catch (DataValidationException ex)
     return 1;
 }
 
+if (loadMode)
+{
+    if (args.Length < 2) { Console.Error.WriteLine("사용법: load <세이브경로>"); return 1; }
+    GameState loaded;
+    try { loaded = new SaveSystem().Load(args[1]); }
+    catch (Exception ex) { Console.Error.WriteLine($"세이브 로드 실패: {ex.Message}"); return 1; }
+    Console.WriteLine($"이어하기: {args[1]} (턴 {loaded.Turn})");
+    new PlaySession(new GameManager(loaded, db), db, Console.In, Console.Out).Run();   // 로드는 수입 재정산 없음
+    return 0;
+}
+
 if (playMode)
 {
     // 핫시트 2인 플레이 (§1.2). 플레이어 세력은 인자 또는 player_selectable 우선.
@@ -32,8 +44,9 @@ if (playMode)
     var p1 = args.Length > 1 ? args[1] : selectable.ElementAtOrDefault(0) ?? db.Factions.Keys.First();
     var p2 = args.Length > 2 ? args[2] : selectable.FirstOrDefault(id => id != p1) ?? db.Factions.Keys.First(id => id != p1);
     var seed = (ulong)DateTime.Now.Ticks;   // 실제 플레이는 무작위 시드 (Presentation — 결정론 무관)
-    var state = GameSetup.NewCampaign(db, seed, p1, p2);
-    new PlaySession(new GameManager(state, db), db, Console.In, Console.Out).Run();
+    var gm = new GameManager(GameSetup.NewCampaign(db, seed, p1, p2), db);
+    gm.CollectIncome();   // 새 캠페인 첫 턴 수입
+    new PlaySession(gm, db, Console.In, Console.Out).Run();
     return 0;
 }
 
