@@ -19,9 +19,10 @@ public class SampleDataTests
     public void 샘플데이터_규격_수량()
     {
         var db = Load();
-        Assert.Equal(10, db.Characters.Count);
-        Assert.Equal(12, db.Map.LandProvinces.Count());
-        Assert.Equal(3, db.Map.SeaZones.Count());
+        // Phase 0 최소 규격 = 하한(>=). Phase 5 'JSON 만으로 콘텐츠 추가' 시 확장마다 테스트가 깨지지 않도록.
+        Assert.True(db.Characters.Count >= 10, $"캐릭터는 10 이상 (현재 {db.Characters.Count})");
+        Assert.True(db.Map.LandProvinces.Count() >= 12, $"육상 영지는 12 이상 (현재 {db.Map.LandProvinces.Count()})");
+        Assert.True(db.Map.SeaZones.Count() >= 3, $"해역은 3 이상 (현재 {db.Map.SeaZones.Count()})");
         Assert.True(db.Skills.Count >= 10, $"스킬은 10개 이상이어야 합니다 (현재 {db.Skills.Count})");
         Assert.True(db.Factions.Count >= 2, "부자 2인 플레이를 위해 세력은 2개 이상이어야 합니다");
     }
@@ -29,6 +30,7 @@ public class SampleDataTests
     [Fact]
     public void 이순신_스탯은_설계문서_5_1_예시와_일치()
     {
+        // 스펙 §5.1 예시 계약 — 스펙 예시가 바뀔 때만 갱신 (콘텐츠 확장과 무관).
         var c = Load().Characters["yi_sunsin"];
         Assert.Equal("이순신", c.NameKo);
         Assert.Equal(5, c.Rarity);
@@ -47,6 +49,7 @@ public class SampleDataTests
     [Fact]
     public void 학익진은_설계문서_5_2_예시와_일치()
     {
+        // 스펙 §5.2 예시 계약 — 스펙 예시가 바뀔 때만 갱신.
         var s = Load().Skills["crane_wing_formation"];
         Assert.Equal("ultimate", s.Type);
         Assert.Equal(100, s.GaugeCost);

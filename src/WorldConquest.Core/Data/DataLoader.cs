@@ -151,6 +151,8 @@ public sealed class DataLoader
         Check(dto.LandingAttackModifier!.Value is >= -100 and <= 0, "landing_attack_modifier", "-100 ~ 0 범위여야 합니다 (정수 스케일 ×100).");
         Check(dto.LandingDebuffTurns!.Value >= 0, "landing_debuff_turns", "0 이상이어야 합니다.");
         Check(dto.UltimateGaugeMax!.Value >= 1, "ultimate_gauge_max", "1 이상이어야 합니다.");
+        Check(dto.GaugeChargeOnAttack!.Value is >= 0 && dto.GaugeChargeOnAttack.Value <= dto.UltimateGaugeMax.Value, "gauge_charge_on_attack", "0 ~ ultimate_gauge_max 범위여야 합니다.");
+        Check(dto.GaugeChargeOnDamaged!.Value is >= 0 && dto.GaugeChargeOnDamaged.Value <= dto.UltimateGaugeMax.Value, "gauge_charge_on_damaged", "0 ~ ultimate_gauge_max 범위여야 합니다.");
         Check(dto.AllianceTransferCapPerTurn!.Gold is >= 0 && dto.AllianceTransferCapPerTurn.Food is >= 0,
             "alliance_transfer_cap_per_turn", "gold/food는 0 이상 필수입니다.");
         Check(dto.BaseTaxRate!.Value is >= 0 and <= 100, "base_tax_rate", "0 ~ 100 범위여야 합니다 (정수 스케일 ×100).");
