@@ -36,6 +36,21 @@ public sealed class GameRules
     public required int DuelWinnerMoraleBonus { get; init; }    // 승자 측 공격 버프 %
     public required int DuelWinnerGaugeBonus { get; init; }     // 승자 측 게이지 보너스
 
+    // ── 초빙 (§2.8 — 천장·비용은 밸런스 패널 §5.6 조정 대상) ──
+    public required int SummonIncomeBasePerTurn { get; init; }
+    public required int SummonIncomeBattleVictory { get; init; }
+    public required int SummonIncomeFirstCapture { get; init; }
+    public required int SummonIncomeDuelVictory { get; init; }
+    public required int SummonCostSingle { get; init; }
+    public required int SummonCostBatch10 { get; init; }
+    public required int SummonSoftPityStart { get; init; }
+    public required int SummonSoftPityAddPermyriad { get; init; }
+    public required int SummonHardPity { get; init; }           // [MUST] ≤ MaxPityThreshold
+    public required int SummonMaxPityThreshold { get; init; }
+    public required bool SummonBatchMinRarity4 { get; init; }
+    public required int SummonMaxPerTurn { get; init; }
+    public required int SummonJoinLoyalty { get; init; }
+
     public required IReadOnlySet<string> ValidTerrains { get; init; }
     public required IReadOnlySet<string> ValidClimates { get; init; }
     public required IReadOnlySet<string> ValidRegions { get; init; }

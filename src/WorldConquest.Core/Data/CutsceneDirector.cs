@@ -38,6 +38,17 @@ public sealed class CutsceneDirector
             return;
         }
 
+        // A1 등장씬 (§2.7.7·§2.8.10): CharacterJoined + rarity 5 + entry_cutscene_id → 재사용 (에셋 1벌)
+        if (evt.Type == "CharacterJoined")
+        {
+            var charId = evt.Get("actor");
+            if (charId is not null && _db.Characters.TryGetValue(charId, out var ch) &&
+                ch.Rarity >= 5 && ch.EntryCutsceneId is not null &&
+                _db.CutsceneScripts.ContainsKey(ch.EntryCutsceneId))
+                Fire(ch.EntryCutsceneId);
+            return;
+        }
+
         // 데이터 트리거 매칭 — priority desc → id asc 로 최고 1편 (§2.7.6 같은 순간 2연속 컷씬 방지)
         var match = _db.CutsceneTriggers.Values
             .Where(t => t.OnEvent == evt.Type && ConditionsMet(t, evt))

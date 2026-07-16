@@ -21,6 +21,10 @@ public sealed class DataLoader
     public const string RetiredIdsFile = "config/retired_ids.json";
     public const string CutsceneTriggersFile = "cinematics/cutscene_triggers.json";
     public const string CutsceneScriptsFile = "cinematics/cutscene_scripts.json";
+    public const string BannersFile = "summon/banners.json";
+    public const string RateTablesFile = "summon/rate_tables.json";
+
+    private static readonly HashSet<string> KnownAcquisitionChannels = new() { "start", "summon", "recruit", "event" };
 
     /// <summary>컷씬 트리거가 구독 가능한 이벤트 타입 (§2.7.4 — 신규 타입은 코드 확장과 함께 추가).</summary>
     private static readonly HashSet<string> KnownEventTypes = new()
@@ -92,6 +96,11 @@ public sealed class DataLoader
         var scriptsDto = ReadFile<CutsceneScriptsFileDto>(dataDir, CutsceneScriptsFile, errors) ?? new();
         var cutsceneIds = ValidateCutscenes(triggersDto, scriptsDto, charIds, skillDtos, errors);
 
+        // 5.6) 초빙 (§5.8): 배너→확률표 조인·만분율 합·acquisition channels 검증
+        var bannersDto = ReadFile<BannersFileDto>(dataDir, BannersFile, errors) ?? new();
+        var rateTablesDto = ReadFile<RateTablesFileDto>(dataDir, RateTablesFile, errors) ?? new();
+        ValidateSummon(bannersDto, rateTablesDto, charDtos, cutsceneIds, errors);
+
         // 6) 콘텐츠 id 생애주기 (§5.5): 결번(retired) 등재 id 를 신규 데이터가 재사용하면 기동 실패.
         var terrainIds = CollectIds(terrainDtos.Select(t => t.Id));
         var retired = CollectIds(ReadFile<RetiredIdsDto>(dataDir, RetiredIdsFile, errors)?.RetiredIds);
@@ -109,7 +118,49 @@ public sealed class DataLoader
 
         // 5) 검증 통과 → 도메인 객체 조립
         return Build(rules, terrainDtos, unitDtos.Select(u => u.Dto).ToList(),
-            skillDtos, charDtos, nodeDtos, mapDto.Edges!, factionDtos, triggersDto, scriptsDto);
+            skillDtos, charDtos, nodeDtos, mapDto.Edges!, factionDtos, triggersDto, scriptsDto,
+            bannersDto, rateTablesDto);
+    }
+
+    // ---------- 초빙 (§5.8) ----------
+
+    private static void ValidateSummon(BannersFileDto bannersFile, RateTablesFileDto ratesFile,
+        List<CharacterDto> charDtos, HashSet<string> cutsceneIds, List<ValidationError> errors)
+    {
+        var rateIds = CollectIds((ratesFile.RateTables ?? new()).Select(r => r.Id));
+
+        foreach (var b in bannersFile.Banners ?? new())
+        {
+            var entry = b.Id ?? "(id 없음)";
+            if (string.IsNullOrWhiteSpace(b.Id)) { errors.Add(new(BannersFile, entry, "필수 필드 누락: id")); continue; }
+            if (b.RateTableId is null || !rateIds.Contains(b.RateTableId))
+                errors.Add(new(BannersFile, entry, $"rate_table_id '{b.RateTableId}' — 존재하지 않는 확률표."));
+        }
+
+        foreach (var r in ratesFile.RateTables ?? new())
+        {
+            var entry = r.Id ?? "(id 없음)";
+            if (r.WeightsPermyriad is null || r.WeightsPermyriad.Count == 0)
+            { errors.Add(new(RateTablesFile, entry, "weights_permyriad 필수.")); continue; }
+            var sum = r.WeightsPermyriad.Values.Sum();
+            if (sum != 10000)
+                errors.Add(new(RateTablesFile, entry, $"만분율 합이 10000 이어야 합니다 (현재 {sum})."));
+            foreach (var key in r.WeightsPermyriad.Keys)
+                if (!int.TryParse(key, out var rar) || rar is < 1 or > 5)
+                    errors.Add(new(RateTablesFile, entry, $"등급 키 '{key}' 는 1~5 여야 합니다."));
+        }
+
+        foreach (var c in charDtos)
+        {
+            var entry = c.Id ?? "?";
+            if (c.Acquisition?.Channels is null || c.Acquisition.Channels.Count == 0)
+            { errors.Add(new(CharactersFile, entry, "필수 필드 누락: acquisition.channels (§2.8.2)")); continue; }
+            foreach (var ch in c.Acquisition.Channels)
+                if (!KnownAcquisitionChannels.Contains(ch))
+                    errors.Add(new(CharactersFile, entry, $"acquisition channel '{ch}' 미지원 (start/summon/recruit/event)."));
+            if (c.EntryCutsceneId is not null && !cutsceneIds.Contains(c.EntryCutsceneId))
+                errors.Add(new(CharactersFile, entry, $"entry_cutscene_id '{c.EntryCutsceneId}' — 대응 스크립트 없음 (§5.7)."));
+        }
     }
 
     // ---------- 시네마틱 (§5.7) ----------
@@ -247,6 +298,7 @@ public sealed class DataLoader
         Need(dto.Facilities, "facilities");
         Need(dto.Combat, "combat");
         Need(dto.Duel, "duel");
+        Need(dto.Summon, "summon");
         Need(dto.ValidTerrains, "valid_terrains"); Need(dto.ValidClimates, "valid_climates");
         Need(dto.ValidRegions, "valid_regions"); Need(dto.ValidOrigins, "valid_origins");
         Need(dto.ValidEffectTypes, "valid_effect_types"); Need(dto.ValidSkillTargets, "valid_skill_targets");
@@ -288,6 +340,16 @@ public sealed class DataLoader
         Check(dto.Duel.VariancePct is >= 0 and <= 100, "duel.variance_pct", "0 ~ 100 범위여야 합니다.");
         Check(dto.Duel.WinnerMoraleBonus is >= 0, "duel.winner_morale_bonus", "0 이상이어야 합니다.");
         Check(dto.Duel.WinnerGaugeBonus is >= 0, "duel.winner_gauge_bonus", "0 이상이어야 합니다.");
+        Check(dto.Summon!.Income is not null, "summon.income", "필수 필드 누락");
+        Check(dto.Summon.CostSingle is >= 1, "summon.cost_single", "1 이상이어야 합니다.");
+        Check(dto.Summon.CostBatch10 is >= 1, "summon.cost_batch10", "1 이상이어야 합니다.");
+        Check(dto.Summon.HardPity is >= 1, "summon.hard_pity", "1 이상이어야 합니다.");
+        Check(dto.Summon.MaxPityThreshold is >= 1, "summon.max_pity_threshold", "1 이상이어야 합니다.");
+        Check(dto.Summon.HardPity <= dto.Summon.MaxPityThreshold,
+            "summon.hard_pity", $"천장({dto.Summon.HardPity})은 상한({dto.Summon.MaxPityThreshold}) 이하 [MUST — 다크패턴 봉인].");
+        Check(dto.Summon.SoftPityStart is >= 0, "summon.soft_pity_start", "0 이상이어야 합니다.");
+        Check(dto.Summon.SoftPityAddPermyriad is >= 0, "summon.soft_pity_add_permyriad", "0 이상이어야 합니다.");
+        Check(dto.Summon.MaxSummonsPerTurn is >= 1, "summon.max_summons_per_turn", "1 이상이어야 합니다.");
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
         {
             if (row is null) { Check(false, $"unit_class_advantage.{atk}", "행(row)이 null 입니다."); continue; }
@@ -351,6 +413,19 @@ public sealed class DataLoader
             DuelVariancePct = dto.Duel.VariancePct ?? 0,
             DuelWinnerMoraleBonus = dto.Duel.WinnerMoraleBonus ?? 0,
             DuelWinnerGaugeBonus = dto.Duel.WinnerGaugeBonus ?? 0,
+            SummonIncomeBasePerTurn = dto.Summon.Income?.BasePerTurn ?? 0,
+            SummonIncomeBattleVictory = dto.Summon.Income?.BattleVictory ?? 0,
+            SummonIncomeFirstCapture = dto.Summon.Income?.FirstCapture ?? 0,
+            SummonIncomeDuelVictory = dto.Summon.Income?.DuelVictory ?? 0,
+            SummonCostSingle = dto.Summon.CostSingle ?? 1,
+            SummonCostBatch10 = dto.Summon.CostBatch10 ?? 1,
+            SummonSoftPityStart = dto.Summon.SoftPityStart ?? 0,
+            SummonSoftPityAddPermyriad = dto.Summon.SoftPityAddPermyriad ?? 0,
+            SummonHardPity = dto.Summon.HardPity ?? 1,
+            SummonMaxPityThreshold = dto.Summon.MaxPityThreshold ?? 1,
+            SummonBatchMinRarity4 = dto.Summon.BatchMinRarity4Guarantee ?? false,
+            SummonMaxPerTurn = dto.Summon.MaxSummonsPerTurn ?? 1,
+            SummonJoinLoyalty = dto.Summon.JoinLoyalty ?? 100,
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),
@@ -834,7 +909,9 @@ public sealed class DataLoader
         List<MapEdgeDto> edgeDtos,
         List<FactionDto> factionDtos,
         CutsceneTriggersFileDto triggersFile,
-        CutsceneScriptsFileDto scriptsFile)
+        CutsceneScriptsFileDto scriptsFile,
+        BannersFileDto bannersFile,
+        RateTablesFileDto ratesFile)
     {
         var terrain = terrainDtos.ToDictionary(
             t => t.Id!,
@@ -856,7 +933,7 @@ public sealed class DataLoader
 
         var characters = charDtos.ToDictionary(
             c => c.Id!,
-            c => new Character(
+            c => Attach(new Character(
                 c.Id!, c.NameKo!, c.Origin!, c.Rarity!.Value,
                 new CharacterStats(c.Stats!.Ldr!.Value, c.Stats.Str!.Value, c.Stats.Int!.Value,
                     c.Stats.Pol!.Value, c.Stats.Cha!.Value, c.Stats.Nav!.Value),
@@ -864,7 +941,14 @@ public sealed class DataLoader
                     c.GrowthRates.Pol!.Value, c.GrowthRates.Cha!.Value, c.GrowthRates.Nav!.Value),
                 c.PassiveSkillId!, c.UltimateSkillId!, c.UniqueUnitId,
                 c.StartFaction!, c.VoiceSet!, c.PortraitAsset!,
-                rules.StatMax, rules.LevelCap, rules.ExpCurveBase));
+                rules.StatMax, rules.LevelCap, rules.ExpCurveBase), c));
+
+        static Character Attach(Character ch, CharacterDto dto)
+        {
+            ch.AcquisitionChannels = dto.Acquisition?.Channels ?? new List<string>();   // §2.8.2
+            ch.EntryCutsceneId = dto.EntryCutsceneId;                                    // §2.7.7 A1
+            return ch;
+        }
 
         var provinces = nodeDtos.Select(Province (n) => n.Type == "land"
             ? new LandProvince(
@@ -915,7 +999,12 @@ public sealed class DataLoader
             Factions = factions,
             Map = new WorldMap(provinces, edges),
             CutsceneTriggers = cutsceneTriggers,
-            CutsceneScripts = cutsceneScripts
+            CutsceneScripts = cutsceneScripts,
+            Banners = (bannersFile.Banners ?? new()).ToDictionary(
+                b => b.Id!, b => new Banner(b.Id!, b.NameKo ?? b.Id!, b.RateTableId!)),
+            RateTables = (ratesFile.RateTables ?? new()).ToDictionary(
+                r => r.Id!, r => new RateTable(r.Id!,
+                    r.WeightsPermyriad!.ToDictionary(kv => int.Parse(kv.Key), kv => kv.Value)))
         };
 
         static CutsceneBeat ToBeat(CutsceneBeatDto b) => new(b.Beat!, b.TextKo, b.SpeakerRef, b.Text);

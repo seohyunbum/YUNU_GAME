@@ -38,6 +38,14 @@ internal sealed class CharacterDto
     public string? StartFaction { get; set; }
     public string? VoiceSet { get; set; }
     public string? PortraitAsset { get; set; }
+    public AcquisitionDto? Acquisition { get; set; }      // §2.8.2 획득 경로
+    public string? EntryCutsceneId { get; set; }          // §2.7.7 A1 등장씬
+}
+
+internal sealed class AcquisitionDto
+{
+    public List<string>? Channels { get; set; }           // start|summon|recruit|event
+    public string? InitialStatus { get; set; }
 }
 
 internal sealed class SkillConditionDto
@@ -159,6 +167,51 @@ internal sealed class CombatRulesDto
     public int? NavalCurrentAtkPct { get; set; } // 해상전 조류 정렬 가중 ±%
 }
 
+internal sealed class SummonRulesDto
+{
+    public SummonIncomeDto? Income { get; set; }
+    public int? CostSingle { get; set; }
+    public int? CostBatch10 { get; set; }
+    public int? SoftPityStart { get; set; }
+    public int? SoftPityAddPermyriad { get; set; }
+    public int? HardPity { get; set; }
+    public int? MaxPityThreshold { get; set; }   // 천장 다크패턴 봉인 상한 [MUST]
+    public bool? BatchMinRarity4Guarantee { get; set; }
+    public int? MaxSummonsPerTurn { get; set; }
+    public int? JoinLoyalty { get; set; }
+}
+
+internal sealed class SummonIncomeDto
+{
+    public int? BasePerTurn { get; set; }
+    public int? BattleVictory { get; set; }
+    public int? FirstCapture { get; set; }
+    public int? DuelVictory { get; set; }
+}
+
+internal sealed class BannersFileDto
+{
+    public List<BannerDto>? Banners { get; set; }
+}
+
+internal sealed class BannerDto
+{
+    public string? Id { get; set; }
+    public string? NameKo { get; set; }
+    public string? RateTableId { get; set; }
+}
+
+internal sealed class RateTablesFileDto
+{
+    public List<RateTableDto>? RateTables { get; set; }
+}
+
+internal sealed class RateTableDto
+{
+    public string? Id { get; set; }
+    public Dictionary<string, int>? WeightsPermyriad { get; set; }   // rarity(string) → 만분율
+}
+
 internal sealed class DuelRulesDto
 {
     public int? StrGapMax { get; set; }         // 무력 격차 상한 — 이내여야 성사 (§2.6)
@@ -261,6 +314,7 @@ internal sealed class GameRulesDto
     public Dictionary<string, FacilityDefDto>? Facilities { get; set; }   // 시설 정의 (§2.3)
     public CombatRulesDto? Combat { get; set; }   // 전투 상수 (§2.6)
     public DuelRulesDto? Duel { get; set; }       // 일기토 상수 (§2.6, 2026-07-16 구현 확정)
+    public SummonRulesDto? Summon { get; set; }   // 초빙 상수 (§2.8)
     public List<string>? ValidTerrains { get; set; }
     public List<string>? ValidClimates { get; set; }
     public List<string>? ValidRegions { get; set; }

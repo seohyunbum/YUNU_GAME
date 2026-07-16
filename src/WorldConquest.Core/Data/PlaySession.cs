@@ -81,7 +81,7 @@ public sealed class PlaySession
         if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / attack <부대id> <목표id> / build <영지id> <시설> / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / attack <부대id> <목표id> / build <영지id> <시설> / summon [n] / rates / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
 
         while (true)
         {
@@ -116,6 +116,32 @@ public sealed class PlaySession
                         ? $"✔ {ProvinceName(t[1])}에서 {t[2]} {count} 징병"
                         : $"✘ 징병 실패: {ro}");
                     break;
+
+                case "summon":
+                {
+                    var n = t.Length > 1 && int.TryParse(t[1], out var sn) ? sn : 1;
+                    var sys = new SummonSystem(s, _db, _gm.Bus);
+                    var so2 = sys.DrawBatch(actor.Id, n, out var pulls);
+                    if (so2 != SummonOutcome.Success) { _out.WriteLine($"✘ 초빙 실패: {so2}"); break; }
+                    foreach (var r in pulls) PrintReveal(r);
+                    _out.WriteLine($"  (천명 잔액 {actor.Mandate})");
+                    break;
+                }
+
+                case "rates":
+                {
+                    var sys = new SummonSystem(s, _db, _gm.Bus);
+                    var rates = sys.GetCurrentRates(actor.Id);
+                    var pool = sys.GetPool();
+                    _out.WriteLine($"── 초빙 정보 (§2.8.6 확률 공시) ── 천명 {actor.Mandate} · 단발 {_db.Rules.SummonCostSingle}");
+                    if (pool.Count == 0) { _out.WriteLine("  천하의 인재를 모두 만났습니다 — 풀 소진."); break; }
+                    foreach (var (rarity, w) in rates.OrderByDescending(kv => kv.Key))
+                        _out.WriteLine($"  ★{rarity}: {w / 100}.{w % 100:00}%  (잔여 {pool.Count(c => c.Rarity == rarity)}명)");
+                    var toPity = _db.Rules.SummonHardPity - actor.PityCount;
+                    if (pool.Any(c => c.Rarity >= 5))
+                        _out.WriteLine($"  천장: 다음 ★5까지 최대 {toPity}회");
+                    break;
+                }
 
                 case "ally":
                 case "war":
@@ -207,6 +233,25 @@ public sealed class PlaySession
                     _out.WriteLine($"알 수 없는 명령: {t[0]}");
                     break;
             }
+        }
+    }
+
+    /// <summary>초빙 리빌 — 등급별 차등 연출 (§2.8.10 진실 신호·★5 는 등장씬이 별도 재생됨).</summary>
+    private void PrintReveal(SummonResult r)
+    {
+        var name = CharacterName(r.CharacterId);
+        switch (r.Rarity)
+        {
+            case >= 5:
+                _out.WriteLine("  하늘이 울린다…  ─ 금색 문이 열린다 ─");
+                _out.WriteLine($"  ★★★★★ 「{name}」 {(r.PityTriggered ? "— 천명이 응답했다!" : "")}");
+                break;
+            case 4:
+                _out.WriteLine($"  ─ 자색 문 ─  ★★★★ 「{name}」");
+                break;
+            default:
+                _out.WriteLine($"  ★{r.Rarity} {name} 합류");
+                break;
         }
     }
 

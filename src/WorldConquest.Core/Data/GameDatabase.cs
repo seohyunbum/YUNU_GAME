@@ -17,4 +17,6 @@ public sealed class GameDatabase
     public required WorldMap Map { get; init; }
     public required IReadOnlyDictionary<string, CutsceneTrigger> CutsceneTriggers { get; init; }   // §5.7 Core 소비
     public required IReadOnlyDictionary<string, CutsceneScript> CutsceneScripts { get; init; }     // §5.7 Presentation 소비
+    public required IReadOnlyDictionary<string, Banner> Banners { get; init; }                     // §5.8 초빙
+    public required IReadOnlyDictionary<string, RateTable> RateTables { get; init; }
 }

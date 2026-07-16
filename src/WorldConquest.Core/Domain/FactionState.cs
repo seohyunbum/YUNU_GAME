@@ -17,4 +17,13 @@ public sealed class FactionState
     /// <summary>이번 턴 동맹 자원 지원 누계 (§1.2 턴당 상한 — additive 세이브, 수입 페이즈에 리셋).</summary>
     public int TransferredGoldThisTurn { get; set; }
     public int TransferredFoodThisTurn { get; set; }
+
+    /// <summary>천명 잔고 (§2.8 초빙 전용 재화 — 실물 과금 절대 없음 [MUST]. additive 세이브).</summary>
+    public int Mandate { get; set; }
+
+    /// <summary>5성 미획득 누적 뽑기 수 — soft/hard pity 근거 (§2.8.6. additive 세이브).</summary>
+    public int PityCount { get; set; }
+
+    /// <summary>이번 턴 초빙 횟수 (max_summons_per_turn 캡. 수입 페이즈 리셋).</summary>
+    public int SummonsThisTurn { get; set; }
 }

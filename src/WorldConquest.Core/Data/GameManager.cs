@@ -102,6 +102,8 @@ public sealed class GameManager
         {
             faction.TransferredGoldThisTurn = 0;   // 동맹 지원 턴당 상한 리셋 (§1.2)
             faction.TransferredFoodThisTurn = 0;
+            faction.SummonsThisTurn = 0;           // 초빙 턴당 캡 리셋 (§2.8)
+            faction.Mandate += _db.Rules.SummonIncomeBasePerTurn;   // 천명 기본 수입 (§2.8.3)
         }
         foreach (var faction in State.Factions)
             foreach (var provinceId in faction.OwnedProvinceIds)
@@ -173,7 +175,8 @@ public sealed class GameManager
             return CaptureOutcome.NotAdjacent;
 
         faction.OwnedProvinceIds.Add(provinceId);
-        State.Progress.Add($"captured:{provinceId}");
+        if (State.Progress.Add($"captured:{provinceId}"))
+            faction.Mandate += _db.Rules.SummonIncomeFirstCapture;   // §2.8.3
         return CaptureOutcome.Success;
     }
 
@@ -316,6 +319,17 @@ public sealed class GameManager
 
         PublishBattleEvents(battle, targetNodeId);
 
+        // 천명 보상 (§2.8.3): 전투 승자 + 일기토 승자
+        var winnerFaction = battle.AttackerWon ? factionId : owner.Id;
+        var wf = State.Factions.FirstOrDefault(f => f.Id == winnerFaction);
+        if (wf is not null) wf.Mandate += _db.Rules.SummonIncomeBattleVictory;
+        if (battle.Duel is not null)
+        {
+            var duelWinnerFaction = State.CharacterOwners.GetValueOrDefault(battle.Duel.WinnerCharacterId)
+                ?? (battle.Duel.AttackerWon ? factionId : owner.Id);
+            State.Factions.FirstOrDefault(f => f.Id == duelWinnerFaction)!.Mandate += _db.Rules.SummonIncomeDuelVictory;
+        }
+
         if (!battle.AttackerWon) return AttackOutcome.DefenderHeld;
         TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetNodeId, force);
         return AttackOutcome.AttackerWon;
@@ -344,7 +358,8 @@ public sealed class GameManager
         from.OwnedProvinceIds.Remove(provinceId);
         to.OwnedProvinceIds.Add(provinceId);
         occupier.LocationNodeId = provinceId;   // 점령군 진주
-        State.Progress.Add($"captured:{provinceId}");
+        if (State.Progress.Add($"captured:{provinceId}"))       // 캠페인 최초 점령 (§2.8.3)
+            to.Mandate += _db.Rules.SummonIncomeFirstCapture;
         Bus.Publish(GameEvent.Of("ProvinceCaptured", ("province", provinceId), ("by", to.Id), ("from", from.Id)));
     }
 

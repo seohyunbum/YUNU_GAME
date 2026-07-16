@@ -18,6 +18,12 @@ public sealed class Character
     public string VoiceSet { get; }
     public string PortraitAsset { get; }
 
+    /// <summary>획득 경로 (§2.8.2 — start/summon/recruit/event 데이터 배타 분할).</summary>
+    public IReadOnlyList<string> AcquisitionChannels { get; internal set; } = Array.Empty<string>();
+
+    /// <summary>A1 등장씬 (§2.7.7) — CharacterJoined·★5 초빙 리빌이 재사용 (에셋 1벌).</summary>
+    public string? EntryCutsceneId { get; internal set; }
+
     public int Level { get; private set; } = 1;
     public int Exp { get; private set; }
     public int Loyalty { get; set; } = 100;

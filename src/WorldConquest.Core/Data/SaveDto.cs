@@ -21,6 +21,7 @@ internal sealed class SaveDto
     public List<ArmyDto>? Fleets { get; set; }   // 함대 — Army 와 동일 형태(MilitaryForce)
     public List<ProvinceStateDto>? Provinces { get; set; }
     public List<string>? FiredCutsceneIds { get; set; }   // §2.7.12 fired=seen (additive)
+    public Dictionary<string, string>? CharacterOwners { get; set; }   // §2.8 캐릭터 소속 (additive)
 }
 
 internal sealed class ProvinceStateDto
@@ -57,4 +58,7 @@ internal sealed class FactionStateDto
     public Dictionary<string, DiplomaticState>? Relations { get; set; }
     public int? TransferredGoldThisTurn { get; set; }   // 동맹 지원 턴당 누계 (additive)
     public int? TransferredFoodThisTurn { get; set; }
+    public int? Mandate { get; set; }            // 천명 (§2.8, additive)
+    public int? PityCount { get; set; }          // 5성 천장 카운터
+    public int? SummonsThisTurn { get; set; }
 }

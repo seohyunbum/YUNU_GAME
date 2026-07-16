@@ -1,0 +1,12 @@
+{
+  "banners": [
+    {
+      "id": "banner_standard",
+      "name_ko": "상시 초빙 — 천하의 인재",
+      "rate_table_id": "rt_standard",
+      "unlock": {
+        "type": "always"
+      }
+    }
+  ]
+}

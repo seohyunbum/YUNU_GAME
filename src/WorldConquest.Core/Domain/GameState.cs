@@ -29,6 +29,9 @@ public sealed class GameState
     /// <summary>발동된 컷씬 id-set (§2.7.12 fired=seen — 트리거 시점 기록·not_fired 의 유일 근거, additive).</summary>
     public HashSet<string> FiredCutsceneIds { get; init; } = new();
 
+    /// <summary>캐릭터 소속 (charId → factionId, §2.8 — 미기록 = 재야. 초빙 풀은 여기서 파생, 이중 장부 금지).</summary>
+    public Dictionary<string, string> CharacterOwners { get; init; } = new();
+
     /// <summary>이 상태가 로드될 때 정규화된 원본 세이브 버전 (신규 게임은 현재 버전).</summary>
     public int MigratedFromVersion { get; init; }
 }

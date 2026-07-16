@@ -171,5 +171,22 @@
     "variance_pct": 20,
     "winner_morale_bonus": 15,
     "winner_gauge_bonus": 30
+  },
+  "summon": {
+    "income": {
+      "base_per_turn": 5,
+      "battle_victory": 25,
+      "first_capture": 20,
+      "duel_victory": 15
+    },
+    "cost_single": 100,
+    "cost_batch10": 900,
+    "soft_pity_start": 20,
+    "soft_pity_add_permyriad": 600,
+    "hard_pity": 30,
+    "max_pity_threshold": 40,
+    "batch_min_rarity4_guarantee": true,
+    "max_summons_per_turn": 10,
+    "join_loyalty": 90
   }
 }

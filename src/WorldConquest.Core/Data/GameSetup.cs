@@ -28,9 +28,16 @@ public static class GameSetup
             Actor = "",
             Rng = new RngStreams(seed),
             Factions = factions,
-            Progress = new HashSet<string>()
+            Progress = new HashSet<string>(),
+            CharacterOwners = LeaderOwners(db)
         };
     }
+
+    /// <summary>세력 리더 캐릭터의 시작 소속 (§2.8 — 초빙 풀은 미소속 파생).</summary>
+    private static Dictionary<string, string> LeaderOwners(GameDatabase db) =>
+        db.Factions.Values
+            .Where(f => f.LeaderCharacterId is not null)
+            .ToDictionary(f => f.LeaderCharacterId!, f => f.Id);
 
     public static GameState NewCampaign(GameDatabase db, ulong seed, string player1FactionId, string player2FactionId)
     {
@@ -62,7 +69,8 @@ public static class GameSetup
             Actor = player1FactionId,
             Rng = new RngStreams(seed),
             Factions = factions,
-            Progress = new HashSet<string>()
+            Progress = new HashSet<string>(),
+            CharacterOwners = LeaderOwners(db)
         };
     }
 }

@@ -1,0 +1,12 @@
+{
+  "rate_tables": [
+    {
+      "id": "rt_standard",
+      "weights_permyriad": {
+        "5": 600,
+        "4": 2400,
+        "3": 7000
+      }
+    }
+  ]
+}
