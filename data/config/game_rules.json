@@ -158,5 +158,10 @@
       "gold_bonus_pct_per_level": 0,
       "food_bonus_pct_per_level": 25
     }
+  },
+  "combat": {
+    "variance_pct": 10,
+    "damage_per_casualty": 10,
+    "max_rounds": 100
   }
 }

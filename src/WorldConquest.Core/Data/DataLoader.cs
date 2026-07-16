@@ -147,6 +147,7 @@ public sealed class DataLoader
         Need(dto.BaseTaxRate, "base_tax_rate");
         Need(dto.UnitClassAdvantage, "unit_class_advantage");
         Need(dto.Facilities, "facilities");
+        Need(dto.Combat, "combat");
         Need(dto.ValidTerrains, "valid_terrains"); Need(dto.ValidClimates, "valid_climates");
         Need(dto.ValidRegions, "valid_regions"); Need(dto.ValidOrigins, "valid_origins");
         Need(dto.ValidEffectTypes, "valid_effect_types"); Need(dto.ValidSkillTargets, "valid_skill_targets");
@@ -179,6 +180,9 @@ public sealed class DataLoader
         Check(dto.BaseTaxRate!.Value is >= 0 and <= 100, "base_tax_rate", "0 ~ 100 범위여야 합니다 (정수 스케일 ×100).");
         Check(dto.LoyaltyMin!.Value <= dto.LoyaltyMax!.Value, "loyalty_min/loyalty_max", "loyalty_min <= loyalty_max 이어야 합니다.");
         Check(dto.MoraleMax!.Value >= 1, "morale_max", "1 이상이어야 합니다.");
+        Check(dto.Combat!.VariancePct is >= 0 and <= 100, "combat.variance_pct", "0 ~ 100 범위여야 합니다.");
+        Check(dto.Combat.DamagePerCasualty is >= 1, "combat.damage_per_casualty", "1 이상이어야 합니다.");
+        Check(dto.Combat.MaxRounds is >= 1, "combat.max_rounds", "1 이상이어야 합니다.");
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
         {
             if (row is null) { Check(false, $"unit_class_advantage.{atk}", "행(row)이 null 입니다."); continue; }
@@ -233,6 +237,9 @@ public sealed class DataLoader
                 kv => kv.Key,
                 kv => new FacilityDef(kv.Value?.CostGold ?? 0, kv.Value?.MaxLevel ?? 1,
                     kv.Value?.GoldBonusPctPerLevel ?? 0, kv.Value?.FoodBonusPctPerLevel ?? 0)),
+            CombatVariancePct = dto.Combat.VariancePct ?? 0,
+            CombatDamagePerCasualty = dto.Combat.DamagePerCasualty ?? 1,
+            CombatMaxRounds = dto.Combat.MaxRounds ?? 1,
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),

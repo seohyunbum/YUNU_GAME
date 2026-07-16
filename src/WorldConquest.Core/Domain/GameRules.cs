@@ -26,6 +26,9 @@ public sealed class GameRules
     public required int BaseTaxRate { get; init; }   // 정수 스케일 ×100 (10 = 10%)
     public required IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> UnitClassAdvantage { get; init; }   // 배율 ×100 (150 = ×1.5)
     public required IReadOnlyDictionary<string, FacilityDef> Facilities { get; init; }   // 시설 종류 → 정의 (§2.3)
+    public required int CombatVariancePct { get; init; }        // 전투 라운드 데미지 변동 ±% (§2.6)
+    public required int CombatDamagePerCasualty { get; init; }  // 데미지 → 병력 손실 환산
+    public required int CombatMaxRounds { get; init; }          // 교착 상한 (초과 시 수비 승)
 
     public required IReadOnlySet<string> ValidTerrains { get; init; }
     public required IReadOnlySet<string> ValidClimates { get; init; }

@@ -32,6 +32,17 @@ public enum MoveOutcome
     NoPath            // 육로·항구로 도달 불가
 }
 
+/// <summary>공격 결과 (§2.6 자동 전투 점령).</summary>
+public enum AttackOutcome
+{
+    AttackerWon,        // 수비 전멸 — 영지 점령
+    DefenderHeld,       // 공격 부대 전멸 또는 교착(max_rounds) — 수비 승
+    NoSuchArmy,
+    NotYourArmy,
+    NotAdjacent,        // 부대 위치에서 육로 인접 아님
+    NotEnemyProvince    // 육상 적 영지가 아님 (빈 영지는 capture, 자기 영지·해역 불가)
+}
+
 /// <summary>시설 건설·업그레이드 결과 (§2.3 내정).</summary>
 public enum FacilityOutcome
 {
@@ -182,6 +193,50 @@ public sealed class GameManager
 
         army.LocationNodeId = destProvinceId;
         return MoveOutcome.Success;
+    }
+
+    /// <summary>
+    /// 공격 (§2.6): 인접 적 육상 영지를 자동 전투로 공략. 승리 시 수비 부대 소멸·영지 점령·부대 진주.
+    /// 패배 시 공격 부대 소멸. 병력 손실은 CombatManager 가 양측에 반영.
+    /// </summary>
+    public AttackOutcome Attack(string factionId, string armyId, string targetProvinceId, out BattleResult? battle)
+    {
+        battle = null;
+        var army = State.Armies.FirstOrDefault(a => a.Id == armyId);
+        if (army is null) return AttackOutcome.NoSuchArmy;
+        if (army.FactionId != factionId) return AttackOutcome.NotYourArmy;
+        if (!_db.Map.TryGetNode(targetProvinceId, out var node) || node is not LandProvince land)
+            return AttackOutcome.NotEnemyProvince;
+        var owner = State.Factions.FirstOrDefault(f => f.OwnedProvinceIds.Contains(targetProvinceId));
+        if (owner is null || owner.Id == factionId) return AttackOutcome.NotEnemyProvince;   // 빈 영지=capture 로
+        if (_db.Map.GetEdgeType(army.LocationNodeId, targetProvinceId) != EdgeType.Land)
+            return AttackOutcome.NotAdjacent;
+
+        var defenders = State.Armies.Where(a => a.FactionId == owner.Id && a.LocationNodeId == targetProvinceId).ToList();
+        if (defenders.Count == 0)
+        {
+            // 주둔군 없는 적 영지 — 무저항 함락
+            battle = new BattleResult(true, 0, 0, 0);
+            TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetProvinceId, army);
+            return AttackOutcome.AttackerWon;
+        }
+
+        battle = new CombatManager(_db).ResolveAuto(army, defenders, land, State.Rng.Stream(RngStreams.Combat));
+
+        // 전멸 부대 정리 (양측)
+        State.Armies.RemoveAll(a => a.TotalTroops == 0);
+
+        if (!battle.AttackerWon) return AttackOutcome.DefenderHeld;
+        TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetProvinceId, army);
+        return AttackOutcome.AttackerWon;
+    }
+
+    private void TransferProvince(FactionState from, FactionState to, string provinceId, Army occupier)
+    {
+        from.OwnedProvinceIds.Remove(provinceId);
+        to.OwnedProvinceIds.Add(provinceId);
+        occupier.LocationNodeId = provinceId;   // 점령군 진주
+        State.Progress.Add($"captured:{provinceId}");
     }
 
     private Army CreateArmy(string factionId, string locationNodeId)

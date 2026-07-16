@@ -67,7 +67,7 @@ public sealed class PlaySession
         if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / build <영지id> <시설> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / attack <부대id> <적영지id> / build <영지id> <시설> / save <경로> / end / quit");
 
         while (true)
         {
@@ -101,6 +101,21 @@ public sealed class PlaySession
                     _out.WriteLine(ro == RecruitOutcome.Success
                         ? $"✔ {ProvinceName(t[1])}에서 {t[2]} {count} 징병"
                         : $"✘ 징병 실패: {ro}");
+                    break;
+
+                case "attack":
+                    if (t.Length < 3) { _out.WriteLine("사용법: attack <부대id> <적영지id>"); break; }
+                    var ao = _gm.Attack(actor.Id, t[1], t[2], out var battle);
+                    _out.WriteLine(ao switch
+                    {
+                        AttackOutcome.AttackerWon when battle!.Rounds == 0
+                            => $"⚔ {ProvinceName(t[2])} 무저항 함락!",
+                        AttackOutcome.AttackerWon
+                            => $"⚔ {ProvinceName(t[2])} 점령! ({battle!.Rounds}라운드 · 아군 손실 {battle.AttackerLosses} · 적 손실 {battle.DefenderLosses})",
+                        AttackOutcome.DefenderHeld
+                            => $"✘ 공격 실패 — 수비 견고 ({battle!.Rounds}라운드 · 아군 손실 {battle.AttackerLosses} · 적 손실 {battle.DefenderLosses})",
+                        _ => $"✘ 공격 불가: {ao}"
+                    });
                     break;
 
                 case "build":
