@@ -16,7 +16,8 @@
 - [x] **일기토(§2.6)** — 양측 지휘관·무력 격차 조건·승자 사기/게이지 이득. DuelStarted/DuelEnded 이벤트.
 - [x] **시네마틱 T0 (§2.7)** — EventBus·CutsceneDirector(fired=seen·priority 선택·무상태 해시 확률)·TextCutscenePlayer·T0 스크립트 15편(궁극기 10·온주참화웅 2·동맹·엔딩 2)·로더 §5.7 검증·fired 세이브. **실 콘솔: 프리롤→일기토→溫酒斬華雄→청룡언월참 체인 확인**.
 - [x] **초빙/가챠(§2.8)** — 천명(기본/전투/점령/일기토 수입)·SummonSystem(비복원·soft/hard pity·세력별 스트림 세이브스컴 방지·풀 파생)·확률 공시(rates=판정 동일 함수)·리빌(자/금 문)·★5=등장씬 재사용·CharacterJoined. 실 콘솔 확인.
-- [ ] 밸런스 패널(§5.6) + 바탕화면 바로가기(게임·패널) + 로컬 배포
+- [x] **밸런스 패널(§5.6)** — PanelServer(localhost:8377, HttpListener)·폼은 데이터 JSON 재귀 자동생성(수기 필드 목록 없음)·저장=§5.5 DataLoader 단일 검증 경로 통과 후 atomic write [MUST]. 실검증: 음수 상성 → HTTP 422 §5.5 포맷 거부, 유효값 → 저장·반영.
+- [x] **로컬 배포 + 바탕화면 바로가기** — `scripts/deploy-local.py`(publish→`~/WorldConquest/app`+data 사본+실행 배치 2종 CP949+바탕화면 lnk 2개). 바로가기→배치→exe 전 체인 실증. 재배포 = 이 스크립트 재실행.
 - [ ] Phase 2 DoD 잔여: 부자 완주 게이트(U1— 사용자) · ★게이트 리뷰(U2~U4)
 
 ## Phase 1 (완료 ✅) — §7 전량

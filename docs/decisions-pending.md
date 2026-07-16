@@ -25,3 +25,6 @@
 | 07-17 | EventBus 도입 수준 | 경량 Publish/Subscribe 지금 구현 (§4.3 [MUST] 문면 준수) | Phase 3 오라클의 이벤트 시퀀스 비교 전제 |
 | 07-17 | 일기토 발동 조건 | 양측 지휘관 존재 + 무력 격차 ≤ 데이터 상한(비등해야 성사) + 전투 개시 시 1회 판정 | §2.6 "무력 격차·조건 만족" 의 합리 해석 — 상수는 game_rules 데이터 |
 | 07-17 | 온주참화웅 T0 조건 | 프리롤=DuelStarted+관우+확률 / 페이오프=DuelEnded+관우 승리 (elapsed 3턴 조건은 일기토가 단판 판정이라 항상 충족 — 조건 생략) | §2.7.7 의 정신 유지, 구현 단순화. T0 노트 기록 |
+| 07-17 | 밸런스 패널(§5.6) 구현 방식 | 게임 exe 내장 `panel` 모드 (HttpListener localhost:8377, 별도 웹앱 없음). 폼=데이터 JSON 재귀 자동생성, 저장=§5.5 DataLoader 단일 검증 통과 후에만 atomic write. 극단값 클램프 없음(구조·참조 무결성만 검증) | D-6 기각 판단의 귀결 — 검증 SSOT 는 코드 단일 경로. 자동생성 폼이라 필드 추가 시 패널 수정 불필요(드리프트 원천 차단) |
+| 07-17 | 로컬 배포 경로·형태 | `C:\Users\<user>\WorldConquest` (OneDrive 밖, framework-dependent publish + data 사본). 실행 배치·vbs 는 CP949 저장(cmd/cscript 는 ANSI 파싱 — UTF-8 이면 한글 경로 깨짐, 실측) | worktree 는 임시 scratchpad 라 바로가기 대상 부적합. 재배포=`scripts/deploy-local.py` 재실행 |
+| 07-17 | 패널 편집 허용 파일 | game_rules·characters·land/naval_units·rate_tables·terrain·factions 7종 화이트리스트 (맵·컷씬 대본·배너 제외) | 밸런스 수치 파일만. 맵·대본은 구조 편집이라 폼 UI 부적합 — 오편집 표면 축소 |

@@ -65,3 +65,11 @@
 - **핵심 수정**: 미존재 영지 id → KeyNotFound 세션 크래시(WorldMap.TryGetNode), 징병 cost 곱 오버플로(long 승격), fail-soft 완전화(고아 부대·댕글링 relation·삭제 지휘관·시설·actor 프루닝), MoveArmy 해역 우회 차단, DataLoader null-crash·검증갭.
 - **안 고친 low (실害 미미, 의도적 보류)**: ① NewCampaign 초기 Actor 파생값 불일치 — Income 페이즈는 Actor 미사용이라 무해 ② 세이브 딕셔너리(Relations·Units·Facilities·RngStreams) 직렬화 순서 미고정 — 값 왕복은 정확, 바이트 동일성은 **Phase 2 시드 리플레이 골든 도입 시** 처리 ③ Save `.tmp` 잔존 — File.Replace 실패(희귀) 시, try/finally 정리 미도입 ④ TotalTroops checked Sum 오버플로 — 징병 상한(cost long)으로 완화 ⑤ CollectIncome O(영지×영지상태) — 소규모 맵(40~60노드) 무해.
 - **다음 작업자**: 위 ②는 Phase 2 골든 스냅샷 테스트 착수 시 SortedDictionary/커스텀 converter 로 확정 처리할 것.
+
+## 2026-07-17 — 밸런스 패널(§5.6) + 로컬 배포·바탕화면 바로가기
+
+- **시도/상황**: Phase 2 잔여 — 매번 LLM 에 수치 수정을 요청하지 않고 패널로 밸런스를 조정하는 §5.6, 그리고 부자 실플레이(U1)를 위한 바탕화면 진입점.
+- **결과**: ① `PanelServer`(exe 내장 `panel` 모드, localhost:8377) — 편집 폼은 데이터 JSON 에서 재귀 자동생성(수기 필드 목록 없음), 저장은 임시 폴더 전체 사본에 반영 → §5.5 DataLoader 단일 검증 통과 시에만 atomic write. 실검증: 음수 상성 → HTTP 422(§5.5 포맷 오류 표시), 유효값 → 200 저장·원본 반영. ② `scripts/deploy-local.py` — publish→`~/WorldConquest/app` + data 사본 + 실행 배치 2종 + 바탕화면 lnk 2개(세계정복 게임·밸런스관리). 바로가기→배치→exe 전 체인 실증.
+- **인코딩 함정 (실측 3연발)**: `.bat`/`.vbs` 는 cmd/cscript 가 **ANSI(CP949)** 로 파싱 — UTF-8 저장 시 한글 사용자명 경로가 깨져 `cd /d`·CreateShortcut 이 실패. **CP949 로 저장**해야 함. 게임 한글 출력은 exe 가 `Console.OutputEncoding=UTF8` 설정하므로 chcp 불필요. 또 subprocess 로 dotnet 호출 시 자식 env 의 PATH 는 CreateProcess 탐색에 안 쓰임 — **절대경로 필수**.
+- **다음 작업자가 반복하지 말 판단**: 배포 스크립트를 .bat 로 쓰지 말 것(인코딩 지옥) — python 단일 스크립트가 정답. 패널 편집 파일 추가는 `PanelServer.EditableFiles` 화이트리스트에 DataLoader 상수만 추가하면 폼은 자동.
+- **관련**: `src/WorldConquest.ConsoleHost/PanelServer.cs` · `scripts/deploy-local.py` · 배포본 `C:\Users\서현범\WorldConquest`.

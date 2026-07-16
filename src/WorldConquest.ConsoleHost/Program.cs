@@ -8,7 +8,8 @@ try { Console.InputEncoding = Encoding.UTF8; } catch { /* 입력이 리다이렉
 var playMode = args.Length > 0 && args[0] == "play";
 var loadMode = args.Length > 0 && args[0] == "load";
 var simMode = args.Length > 0 && args[0] == "simulate";
-var dataDir = playMode || loadMode || simMode || args.Length == 0 ? FindDataDir() : args[0];
+var panelMode = args.Length > 0 && args[0] == "panel";
+var dataDir = playMode || loadMode || simMode || panelMode || args.Length == 0 ? FindDataDir() : args[0];
 if (dataDir is null)
 {
     Console.Error.WriteLine("data/ 폴더를 찾을 수 없습니다. 인자로 경로를 지정하십시오: dotnet run --project src/WorldConquest.ConsoleHost -- <data 경로>");
@@ -26,6 +27,13 @@ catch (DataValidationException ex)
     foreach (var error in ex.Errors)
         Console.Error.WriteLine($"  {error}");
     return 1;
+}
+
+if (panelMode)
+{
+    // 밸런스 패널 (§5.6) — db 는 이미 위에서 검증 로드됨(현재 데이터가 유효함을 보장)
+    WorldConquest.ConsoleHost.PanelServer.Run(dataDir);
+    return 0;
 }
 
 if (simMode)
