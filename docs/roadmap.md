@@ -10,7 +10,8 @@
 - [x] **턴 루프·수입·무혈 점령** — TurnSystem(페이즈 전이)·GameSetup.NewCampaign·GameManager(수입·무혈 점령·승리 stub). `b412067`·`11ebbb0`
 - [x] **50턴 자동 스모크** (예외·자원 음수 0). `11ebbb0`
 - [x] **핫시트 2인 콘솔 루프** — PlaySession(TextReader/Writer 주입, 테스트 가능) + Program `play` 모드. status/capture/save/end/quit. 실 콘솔 구동 확인(조선 평양 점령·수입 누적). Phase 1 DoD '2인이 턴 넘기며 자원 모으고 빈 영지 점령' ✔
-- [ ] **시설·징병·A* 부대 이동** — 부대(Army/Fleet) 상태를 GameState 에 additive 확장. A* 는 부대 이동과 함께.
+- [x] **A* 경로 탐색** — Pathfinding.FindPath (BFS 최단 홉, 간선 종류 제한). 부대 이동의 토대. `0a95548`+
+- [ ] **부대 상태·징병·이동 실행** — Army/Fleet 를 GameState 에 additive 확장 + 징병(인구→병력) + Pathfinding 기반 이동. Phase 1 마지막 확장.
 - [x] **프로세스 재기동 세이브 E2E** — Program `load` 모드(이어하기). play 저장→프로세스 종료→load 재기동에서 영지 3개(평양 점령)·수입 복원 실증. `187fab0`+
 - [x] **세이브 fail-soft(D9)** — 로드 시 GameDatabase 대조로 삭제 정의 id 참조 건별 스킵+고지 (정의 참조가 늘어나는 시점).
 
