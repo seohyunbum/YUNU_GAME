@@ -34,6 +34,19 @@ public class PlaySessionTests
     }
 
     [Fact]
+    public void 징병하고_부대_이동_명령()
+    {
+        var db = Db();
+        var (state, output) = RunScript("recruit hanseong spearman 10\narmies\nmove joseon_army_1 pyongyang\nquit\n", db);
+
+        var army = state.Armies.Single();
+        Assert.Equal("pyongyang", army.LocationNodeId);   // 징병 후 이동됨
+        Assert.Equal(10, army.Units["spearman"]);
+        Assert.Contains("징병", output);
+        Assert.Contains("이동", output);
+    }
+
+    [Fact]
     public void 점령_실패도_안내된다()
     {
         var db = Db();

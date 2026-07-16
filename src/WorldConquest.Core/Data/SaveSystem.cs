@@ -99,6 +99,27 @@ public sealed class SaveSystem
                     skipped?.Add($"province:{pid}@{f.Id}");
                 }
 
+        var armies = (dto.Armies ?? new())
+            .Select(a =>
+            {
+                var army = new Army(
+                    a.Id ?? throw new InvalidOperationException("army id 누락"),
+                    a.FactionId ?? throw new InvalidOperationException($"army '{a.Id}' faction 누락"),
+                    a.LocationNodeId ?? throw new InvalidOperationException($"army '{a.Id}' location 누락"))
+                { CommanderId = a.CommanderId, Morale = a.Morale ?? MilitaryForce.MoraleMax, Supply = a.Supply ?? 0 };
+                foreach (var (unitId, count) in a.Units ?? new())
+                    if (count > 0 && (db is null || db.Units.ContainsKey(unitId))) army.AddUnits(unitId, count);
+                    else if (db is not null && !db.Units.ContainsKey(unitId)) skipped?.Add($"unit:{unitId}@{a.Id}");
+                return army;
+            })
+            .Where(army =>
+            {
+                if (db is null) return true;
+                if (!db.Map.Nodes.ContainsKey(army.LocationNodeId)) { skipped?.Add($"army:{army.Id}(location {army.LocationNodeId})"); return false; }
+                return true;
+            })
+            .ToList();
+
         return new GameState
         {
             DataSchemaVersion = dto.DataSchemaVersion ?? DataLoader.SupportedSchemaVersion,
@@ -109,6 +130,7 @@ public sealed class SaveSystem
             Rng = rng,
             Factions = factions,
             Progress = (dto.Progress ?? new()).ToHashSet(),
+            Armies = armies,
             MigratedFromVersion = version
         };
     }
@@ -133,7 +155,13 @@ public sealed class SaveSystem
             Relations = f.Relations
         }).ToList(),
         // ordinal 정렬 직렬화 — 동일 상태 = 동일 바이트(세이브 §2.7.12, 왕복 비교 단순화).
-        Progress = s.Progress.OrderBy(x => x, StringComparer.Ordinal).ToList()
+        Progress = s.Progress.OrderBy(x => x, StringComparer.Ordinal).ToList(),
+        Armies = s.Armies.Select(a => new ArmyDto
+        {
+            Id = a.Id, FactionId = a.FactionId, LocationNodeId = a.LocationNodeId,
+            CommanderId = a.CommanderId, Morale = a.Morale, Supply = a.Supply,
+            Units = a.Units.ToDictionary(kv => kv.Key, kv => kv.Value)
+        }).ToList()
     };
 
     private static string ToHex(ulong v) => v.ToString("x16", CultureInfo.InvariantCulture);

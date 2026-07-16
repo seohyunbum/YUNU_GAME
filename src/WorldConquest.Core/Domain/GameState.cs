@@ -17,6 +17,9 @@ public sealed class GameState
     public required List<FactionState> Factions { get; init; }
     public required HashSet<string> Progress { get; init; } // id-set 진행도(D5) — 콘텐츠 삽입 시 마이그레이션 0줄
 
+    /// <summary>부대 목록 (additive — SaveVersion 을 올리지 않음, D2/B-3). 구세이브는 빈 리스트로 로드.</summary>
+    public List<Army> Armies { get; init; } = new();
+
     /// <summary>이 상태가 로드될 때 정규화된 원본 세이브 버전 (신규 게임은 현재 버전).</summary>
     public int MigratedFromVersion { get; init; }
 }

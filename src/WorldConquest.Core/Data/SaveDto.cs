@@ -17,6 +17,18 @@ internal sealed class SaveDto
     public Dictionary<string, RngStreamDto>? RngStreams { get; set; }
     public List<FactionStateDto>? Factions { get; set; }
     public List<string>? Progress { get; set; }
+    public List<ArmyDto>? Armies { get; set; }
+}
+
+internal sealed class ArmyDto
+{
+    public string? Id { get; set; }
+    public string? FactionId { get; set; }
+    public string? LocationNodeId { get; set; }
+    public string? CommanderId { get; set; }
+    public int? Morale { get; set; }
+    public int? Supply { get; set; }
+    public Dictionary<string, int>? Units { get; set; }   // 병종 id → 병력 수 (병종은 정의 참조)
 }
 
 internal sealed class RngStreamDto

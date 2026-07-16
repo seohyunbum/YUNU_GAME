@@ -66,7 +66,7 @@ public sealed class PlaySession
         var actor = s.Factions.First(f => f.Id == s.Actor);
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / capture <영지id> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / save <경로> / end / quit");
 
         while (true)
         {
@@ -74,27 +74,46 @@ public sealed class PlaySession
             var line = _in.ReadLine();
             if (line is null) return false;   // EOF
 
-            var parts = line.Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 0) continue;
+            var t = line.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (t.Length == 0) continue;
 
-            switch (parts[0])
+            switch (t[0])
             {
                 case "status":
                     PrintStatus(actor);
                     break;
 
+                case "armies":
+                    PrintArmies(actor.Id);
+                    break;
+
                 case "capture":
-                    if (parts.Length < 2) { _out.WriteLine("사용법: capture <영지id>"); break; }
-                    var outcome = _gm.TryCapture(actor.Id, parts[1].Trim());
-                    _out.WriteLine(outcome == CaptureOutcome.Success
-                        ? $"✔ {ProvinceName(parts[1].Trim())} 점령"
-                        : $"✘ 점령 실패: {outcome}");
+                    if (t.Length < 2) { _out.WriteLine("사용법: capture <영지id>"); break; }
+                    var co = _gm.TryCapture(actor.Id, t[1]);
+                    _out.WriteLine(co == CaptureOutcome.Success ? $"✔ {ProvinceName(t[1])} 점령" : $"✘ 점령 실패: {co}");
+                    break;
+
+                case "recruit":
+                    if (t.Length < 4 || !int.TryParse(t[3], out var count))
+                    { _out.WriteLine("사용법: recruit <영지id> <병종id> <수>"); break; }
+                    var ro = _gm.Recruit(actor.Id, t[1], t[2], count);
+                    _out.WriteLine(ro == RecruitOutcome.Success
+                        ? $"✔ {ProvinceName(t[1])}에서 {t[2]} {count} 징병"
+                        : $"✘ 징병 실패: {ro}");
+                    break;
+
+                case "move":
+                    if (t.Length < 3) { _out.WriteLine("사용법: move <부대id> <목적지id>"); break; }
+                    var mo = _gm.MoveArmy(t[1], t[2]);
+                    _out.WriteLine(mo == MoveOutcome.Success
+                        ? $"✔ {t[1]} → {ProvinceName(t[2])} 이동"
+                        : $"✘ 이동 실패: {mo}");
                     break;
 
                 case "save":
-                    if (parts.Length < 2) { _out.WriteLine("사용법: save <경로>"); break; }
-                    _save.Save(s, parts[1].Trim());
-                    _out.WriteLine($"💾 저장 완료: {parts[1].Trim()}");
+                    if (t.Length < 2) { _out.WriteLine("사용법: save <경로>"); break; }
+                    _save.Save(s, t[1]);
+                    _out.WriteLine($"💾 저장 완료: {t[1]}");
                     break;
 
                 case "end":
@@ -105,10 +124,19 @@ public sealed class PlaySession
                     return false;
 
                 default:
-                    _out.WriteLine($"알 수 없는 명령: {parts[0]}");
+                    _out.WriteLine($"알 수 없는 명령: {t[0]}");
                     break;
             }
         }
+    }
+
+    private void PrintArmies(string factionId)
+    {
+        var armies = _gm.State.Armies.Where(a => a.FactionId == factionId).ToList();
+        if (armies.Count == 0) { _out.WriteLine("  (편성된 부대 없음)"); return; }
+        foreach (var a in armies)
+            _out.WriteLine($"  {a.Id} @ {ProvinceName(a.LocationNodeId)} · 병력 {a.TotalTroops} " +
+                           $"({string.Join(", ", a.Units.Select(u => $"{u.Key} {u.Value}"))})");
     }
 
     private void PrintStatus(FactionState f)

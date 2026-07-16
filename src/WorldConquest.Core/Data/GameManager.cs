@@ -12,6 +12,26 @@ public enum CaptureOutcome
     NotAdjacent       // 점령 세력의 소유 영지에 인접하지 않음
 }
 
+/// <summary>징병 결과 (§2.3 병력 = 인구에서 징병).</summary>
+public enum RecruitOutcome
+{
+    Success,
+    InvalidCount,
+    NoSuchFaction,
+    NotOwnedLandProvince,
+    UnknownUnit,
+    InsufficientGold
+}
+
+/// <summary>부대 이동 결과 (§2.1 노드 그래프 · A*).</summary>
+public enum MoveOutcome
+{
+    Success,
+    NoSuchArmy,
+    SameLocation,
+    NoPath            // 육로·항구로 도달 불가
+}
+
 /// <summary>
 /// 게임 흐름 오케스트레이션 (설계문서 §4.2). 페이즈 전이(TurnSystem) + 페이즈별 시스템 실행.
 /// 전투·내정 공식은 여기 두지 않는다(§4.4 God Class 금지) — 해당 시스템에 위임한다.
@@ -63,6 +83,53 @@ public sealed class GameManager
         faction.OwnedProvinceIds.Add(provinceId);
         State.Progress.Add($"captured:{provinceId}");
         return CaptureOutcome.Success;
+    }
+
+    /// <summary>
+    /// 징병 (§2.3): 소유 육상 영지에서 금을 지불해 병력을 편성한다. 영지에 주둔한 자기 부대에 합치거나 새로 만든다.
+    /// 인구 감소는 ProvinceState 도입 시(Phase 1 확장) — 지금은 금 비용만.
+    /// </summary>
+    public RecruitOutcome Recruit(string factionId, string provinceId, string unitTypeId, int count)
+    {
+        if (count <= 0) return RecruitOutcome.InvalidCount;
+        var faction = State.Factions.FirstOrDefault(f => f.Id == factionId);
+        if (faction is null) return RecruitOutcome.NoSuchFaction;
+        if (_db.Map.GetNode(provinceId) is not LandProvince || !faction.OwnedProvinceIds.Contains(provinceId))
+            return RecruitOutcome.NotOwnedLandProvince;
+        if (!_db.Units.TryGetValue(unitTypeId, out var unit))
+            return RecruitOutcome.UnknownUnit;
+
+        var cost = unit.RecruitCostGold * count;
+        if (faction.Treasury < cost) return RecruitOutcome.InsufficientGold;
+
+        faction.Treasury -= cost;
+        var army = State.Armies.FirstOrDefault(a => a.FactionId == factionId && a.LocationNodeId == provinceId)
+                   ?? CreateArmy(factionId, provinceId);
+        army.AddUnits(unitTypeId, count);
+        return RecruitOutcome.Success;
+    }
+
+    /// <summary>부대 이동 (§2.1): 육로·항구 경로가 있으면 목적지로 이동한다. 이동력·턴 소비는 Phase 1 확장.</summary>
+    public MoveOutcome MoveArmy(string armyId, string destProvinceId)
+    {
+        var army = State.Armies.FirstOrDefault(a => a.Id == armyId);
+        if (army is null) return MoveOutcome.NoSuchArmy;
+        if (army.LocationNodeId == destProvinceId) return MoveOutcome.SameLocation;
+
+        var path = Pathfinding.FindPath(_db.Map, army.LocationNodeId, destProvinceId,
+            e => e is EdgeType.Land or EdgeType.Port);
+        if (path is null) return MoveOutcome.NoPath;
+
+        army.LocationNodeId = destProvinceId;
+        return MoveOutcome.Success;
+    }
+
+    private Army CreateArmy(string factionId, string locationNodeId)
+    {
+        var seq = State.Armies.Count(a => a.FactionId == factionId) + 1;
+        var army = new Army($"{factionId}_army_{seq}", factionId, locationNodeId);
+        State.Armies.Add(army);
+        return army;
     }
 
     /// <summary>승리 판정 (§2.2 [7] stub): 한 세력이 전 육상 영지를 소유하면 승리.</summary>

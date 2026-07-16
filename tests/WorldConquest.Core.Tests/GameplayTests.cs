@@ -91,6 +91,83 @@ public class GameplayTests
     }
 
     [Fact]
+    public void 징병_금_소비하고_부대_편성()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();   // joseon 금 1220
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        var gold0 = joseon.Treasury;
+
+        // spearman(비용 50) 10명 → 500 금
+        Assert.Equal(RecruitOutcome.Success, gm.Recruit("joseon", "hanseong", "spearman", 10));
+        Assert.Equal(gold0 - 500, joseon.Treasury);
+        var army = s.Armies.Single(a => a.FactionId == "joseon" && a.LocationNodeId == "hanseong");
+        Assert.Equal(10, army.Units["spearman"]);
+
+        // 같은 영지 재징병은 같은 부대에 합쳐짐
+        Assert.Equal(RecruitOutcome.Success, gm.Recruit("joseon", "hanseong", "archer", 5));
+        Assert.Single(s.Armies.Where(a => a.FactionId == "joseon"));
+        Assert.Equal(15, army.TotalTroops);
+    }
+
+    [Fact]
+    public void 징병_실패_케이스()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        Assert.Equal(RecruitOutcome.InsufficientGold, gm.Recruit("joseon", "hanseong", "siege_ram", 100)); // 200×100
+        Assert.Equal(RecruitOutcome.NotOwnedLandProvince, gm.Recruit("joseon", "beijing", "spearman", 1));   // wei 소유
+        Assert.Equal(RecruitOutcome.UnknownUnit, gm.Recruit("joseon", "hanseong", "nope", 1));
+        Assert.Equal(RecruitOutcome.InvalidCount, gm.Recruit("joseon", "hanseong", "spearman", 0));
+    }
+
+    [Fact]
+    public void 부대_이동_경로있으면_성공_없으면_실패()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();
+        gm.Recruit("joseon", "hanseong", "spearman", 5);
+        var army = s.Armies.Single();
+
+        // 한성→평양 (인접 육로) 성공
+        Assert.Equal(MoveOutcome.Success, gm.MoveArmy(army.Id, "pyongyang"));
+        Assert.Equal("pyongyang", army.LocationNodeId);
+        // 같은 위치 이동
+        Assert.Equal(MoveOutcome.SameLocation, gm.MoveArmy(army.Id, "pyongyang"));
+        // 없는 부대
+        Assert.Equal(MoveOutcome.NoSuchArmy, gm.MoveArmy("nope", "hanseong"));
+    }
+
+    [Fact]
+    public void 부대_상태_세이브_왕복()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();
+        gm.Recruit("joseon", "hanseong", "spearman", 12);
+        gm.Recruit("joseon", "hanseong", "cavalry", 3);
+
+        var path = Path.Combine(Path.GetTempPath(), "wc_saves", Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            new SaveSystem().Save(s, path);
+            var loaded = new SaveSystem().Load(path);
+            var army = loaded.Armies.Single();
+            Assert.Equal("hanseong", army.LocationNodeId);
+            Assert.Equal("joseon", army.FactionId);
+            Assert.Equal(12, army.Units["spearman"]);
+            Assert.Equal(3, army.Units["cavalry"]);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void 오십턴_자동진행_스모크_예외_및_자원음수_없음()
     {
         var db = Db();
