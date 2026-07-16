@@ -1,6 +1,6 @@
 # PROJECT WORLD CONQUEST (가칭) — AI 작업지시용 마스터 설계문서
 
-> **문서 버전**: v1.1 (2026-07-16) — 개정 이력: v1.0 최초 작성 · v1.1 §5.6 밸런스 편집 도구 신설
+> **문서 버전**: v1.2 (2026-07-16) — 개정 이력: v1.0 최초 작성 · v1.1 §5.6 밸런스 편집 도구 신설 · v1.2 §2.7 시네마틱·컷씬 + §2.8 초빙(가챠) 신설, §5.7·§5.8 스키마, §1·§2.2·§2.3 동반 개정, §7 Phase 증분, §9·§10 갱신
 > **프로젝트 성격**: 부자(父子) 2인 협동 플레이를 위한 KOEI 삼국지 스타일 대전략 게임. AI(Claude Code 등)와의 협업 개발 전제.
 > **저장소 정책**: 본 repo(YUNU_GAME)는 **비공개 가족용 프로젝트**. 타사 IP 캐릭터(귀멸의 칼날·마블·Fate 등)를 등장시키므로 **퍼블릭 공개·상업 배포·외부 공유 절대 금지**. 개인 학습·가족 놀이 목적으로만 사용한다.
 
@@ -47,7 +47,7 @@ docs/GAME_DESIGN_SPEC.md 를 먼저 읽고, 현재 Phase(§7 참조)의 완료 �
 | **플레이 인원** | **2인 협동(핫시트) 기본** + AI 세력 다수. 부자가 각자 세력 1개씩 운영 |
 | **그래픽 목표** | 최종: 언리얼 엔진 5 고해상도 3D. **단, Phase 0~2는 그래픽 없는 텍스트/2D 시뮬레이터** (§7) |
 | **승리 조건** | 전 세계 모든 육상 영지 + 주요 해상 거점 점령 (World Conquest). 2인 동맹 공동 승리 허용 |
-| **에셋 정책** | BGM·SFX·UI·환경 텍스처는 **CC0(퍼블릭 도메인) 최우선**. 캐릭터 일러스트/모델만 개별 생성 |
+| **에셋 정책** | BGM·SFX·UI·환경 텍스처는 **CC0(퍼블릭 도메인) 최우선**. 캐릭터 일러스트/모델·컷씬 영상은 개별 생성(생성형 포함, §2.7.9) — **IP 참조 이미지 클라우드 업로드 금지 [MUST]**, `docs/ASSET_CREDITS.md` 행 단위 기록 |
 | **IP 정책** | 크로스오버 캐릭터는 가족용 비공개 사용에 한정. **repo 퍼블릭 전환·배포 금지 [MUST]** |
 
 ### 1.1 핵심 플레이 시나리오 (이 게임이 재미있어야 하는 단 하나의 장면)
@@ -87,7 +87,7 @@ docs/GAME_DESIGN_SPEC.md 를 먼저 읽고, 현재 Phase(§7 참조)의 완료 �
 
 ```
 [1] 수입 페이즈   — 전 세력 자원 수입 정산 (영지 Produce)
-[2] 플레이어1 페이즈 — 내정 명령 + 군사 명령 + 외교 명령
+[2] 플레이어1 페이즈 — 내정 명령 + 군사 명령 + 외교 명령 + 조정 명령(§2.8: 초빙·선물 초빙장·찜 예약)
 [3] 플레이어2 페이즈 — 동일
 [4] AI 세력 페이즈  — AI 세력들이 순서대로 행동
 [5] 해결 페이즈   — 이동 완료 처리, 전투 발생 판정 → 전투 씬 진입
@@ -104,6 +104,7 @@ docs/GAME_DESIGN_SPEC.md 를 먼저 읽고, 현재 Phase(§7 참조)의 완료 �
 | **병력(Troops)** | 부대 편성 | 영지 인구에서 징병 (인구 감소 트레이드오프) |
 | **기술(Tech)** | 병종 해금, 함선 업그레이드 | 학당 시설 + 지력형 캐릭터 배치 |
 | **민심(PublicOrder)** | 0~100. 낮으면 반란·생산 페널티 | 정치형 캐릭터 내정, 세율 조절 |
+| **천명(Mandate)** | 초빙(§2.8) 전용 — 재야·이계 인재 소환 | §2.8.3 화이트리스트 소스(기본 수입·전투 승리·최초 점령·이벤트) |
 
 - 영지별 시설 슬롯(기본 4개): 시장 / 농지 / 병영 / 학당 / 성벽 / 항구(해안 영지만)
 - 각 시설은 레벨 1~3, 건설·업그레이드에 금 + 소요 턴
@@ -155,6 +156,378 @@ docs/GAME_DESIGN_SPEC.md 를 먼저 읽고, 현재 Phase(§7 참조)의 완료 �
 
 #### 전투 위임 [SHOULD]
 - 매 전투를 수동으로 하면 늘어진다. **자동 계산(Auto-Resolve)** 옵션 제공: 양측 전투력 종합 수식으로 즉시 결과 산출. 중요 전투만 수동 전술 진입
+
+### 2.7 시네마틱·컷씬 시스템
+
+> **이 시스템이 존재하는 이유**: §1.1 의 "위기 순간 각자의 에이스가 화려한 궁극기를 터뜨린다"를 실제 화면의 전율로 만들기 위함. §2.4 궁극기의 `cutscene_id` 필드(기존)가 본 절에서 정식 시스템으로 확장된다. 초빙(가챠) 리빌 연출(§2.8.10)도 본 절의 인프라를 공유한다 — 별도 연출 시스템 신설 금지 [MUST].
+
+#### 2.7.1 설계 원칙
+
+§1.1 "단 하나의 장면"을 연출 언어로 분해한 제작 우선순위:
+
+| # | §1.1 정점 | 대응 연출 | 우선순위 |
+|---|---|---|---|
+| P1 | 위기 순간 에이스의 궁극기 | 궁극기 컷씬 — 특히 **상대 플레이어(아빠/아들)가 지켜보는 내 궁극기** | 1위 |
+| P2 | 초반 동맹·협공 | 동맹 체결·첫 공동 전투·첫 상륙 성공 컷씬 | 2위 |
+| P3 | 세계 양분 / 공동 승리 선언 | 공동 승리 엔딩 시네마틱 — **최대 제작 예산 1순위** | 3위 |
+| P4 | 에이스를 손에 넣는 순간 | 초빙 최고 등급 리빌 (§2.8.10) | 4위 |
+
+'관우 찻잔(온주참화웅)' 류 **역사 명장면 재현**은 P1 을 증폭하는 5위 콘텐츠 — 별도 시스템이 아니라 기존 전투 이벤트 위의 **조건부 오버라이드**로 얹어 시스템 비용을 0에 수렴시킨다.
+
+**"고퀄리티"의 재정의 [MUST]** — 2인 취미 개발에서 고퀄리티는 물량이 아니라 3요소의 곱:
+1. **대본의 질** — "이 찻잔이 식기 전에"의 전율은 카메라가 아니라 글에서 나온다. 편당 30분~1시간, 비용 0. 부자가 함께 쓰는 놀이(§1.1 정신의 연장)
+2. **문법의 일관성** — 레터박스 2.35:1 · 수묵 붓글씨 타이틀카드 · 3비트 구조(예고→절정→각인) · 등급별 스팅을 통일한 `docs/CINEMATIC_GRAMMAR.md` (1페이지, Phase 0 작성 [MUST])
+3. **선택과 집중** — 베스포크(T3) 하드캡, 나머지는 템플릿 (§2.7.9)
+
+> **핵심 명제 [MUST]**: 연출의 SSOT 는 영상이 아니라 **연출 스크립트(비트 시퀀스, §5.7)** 다. 스크립트가 데이터로 완성되면 콘솔(Phase 0~2)에서 이미 드라마가 성립하고, UE5(Phase 3)는 같은 스크립트를 더 비싼 매체로 재해석할 뿐이다 — §4.1 레이어 분리·§7 Phase 게이트("로직이 재미없으면 그래픽을 입혀도 재미없다")와 연출 품질을 동시에 만족시키는 유일한 경로.
+
+#### 2.7.2 아키텍처 — CutsceneDirector [MUST]
+
+```
+Core Simulation Layer
+ └─ CutsceneDirector          ← §4.2 표에 1행 추가
+     책임: 게임 이벤트를 트리거 조건과 대조 → 발동할 컷씬 id "선택"만
+     멤버: EvaluateTriggers(event), firedCutsceneIds(HashSet<string>)
+     발행: CutsceneTriggered(cutsceneId, contextIds, firstFire)
+Presentation Layer
+ ├─ (콘솔) TextCutscenePlayer  ← 비트를 타자기 텍스트+유니코드 괘선으로 재생
+ └─ (UE5)  CinematicPlayer    ← 같은 비트를 티어별(T1~T3) 영상으로 재생
+```
+
+핵심 계약 5개:
+
+1. **[MUST] 비권위(non-authoritative)**: 컷씬은 게임 상태를 절대 바꾸지 않는다. 궁극기 효과·초빙 지급·점령은 Core 에서 **선(先)커밋**되고 연출은 확정 결과의 후행 표현. 스킵·재생 실패·티어 강등이 시뮬레이션에 미치는 영향 0 → 콘솔 오라클(§7) 유지.
+2. **[MUST] fired = seen**: `firedCutsceneIds` 는 **트리거 시점**에 기록한다. 스킵해도 기록된다 — 시청 완료 여부를 Core 가 알면 결정론(§4.4)이 재생 행위에 오염되기 때문. `not_fired` 조건·쇼트 전환·갤러리 해금·초빙 리빌 재시청 판정(§2.8.10) 전부 이 집합 하나만 참조한다. 역방향 "시청 완료" 통지 채널은 만들지 않는다 [MUST].
+3. **[MUST] 결정적 선택**: 복수 매치 시 `priority desc → id asc` 고정 순서로 1편.
+4. **[MUST] Core 논블로킹**: Core 는 이벤트 발행 후 **즉시 리턴하고 어떤 신호도 대기하지 않는다** (§4.3 fire-and-forget 준수). 재생 중 턴 정지는 Presentation 이 §4.2 의 `GameManager.AdvancePhase()` 펌프를 재생 종료까지 유예하는 것으로 구현한다. 헤드리스 스모크·배치 시뮬은 펌프를 즉시 돌리므로 자연히 무정지 — 특례 플래그·즉시 신호 어댑터 불요. (콘솔 타자기 지연은 Presentation 내부 옵션일 뿐 Core 와 무관)
+5. **[MUST] Core 역직렬화는 트리거 서브셋만**: Core 는 `cutscene_triggers.json` 만 바인딩하고 script·tier_assets·queue_policy(연출 메타)는 알지 못한다 (§5.7 파일 분리).
+
+**오라클 테스트 확장 [MUST]**: Phase 3 오라클(§7)은 전투 수치뿐 아니라 **CutsceneTriggered (id, firstFire) 시퀀스**도 콘솔판과 일치해야 한다. `firstFire` = 트리거 시점의 fired 여부 스냅샷(bool, Core 결정값) — 쇼트/풀 선택은 이 값을 근거로 Presentation 이 수행.
+
+#### 2.7.3 §4.4 결정론 개정 [MUST — 본 절 채택의 선결 승인 항목]
+
+현행 §4.4 "시드 주입 가능한 Random 하나만"을 다음으로 개정한다:
+
+> Core 랜덤은 **단일 마스터 시드에서 결정적으로 파생되는 명명(named) 스트림 집합**만 허용한다. v1 스트림: `combat` / `world_events` / `summon:{faction_id}`(세력별, §2.8.5) / `cinematic`. 스트림 간 소비 격리 [MUST]. 스트림 신설·구현체 변경은 스펙 개정 항목. 구현체는 **상태 직렬화 가능 PRNG(PCG32 권장)** — System.Random 은 상태 직렬화 불가로 세이브→로드 스트림 연속성이 성립하지 않는다.
+
+- `cinematic` 스트림은 순차 소비가 아니라 **무상태 해시 파생**: `chance_permyriad` 평가·연출 난수 = `Hash(master_seed, cutscene_id, battle_index)`. 소비 카운터가 없으므로 **컷씬 데이터 삽입·평가 순서 변경이 combat 등 타 스트림을 절대 교란하지 않는다** — 선행 확정 "콘텐츠 삽입 = 구세이브 무영향" 원칙의 난수 축 확장. 리플레이 버전 안정성 제약(§9)이 combat 스트림 한정으로 축소된다.
+- 초빙 리빌의 페이크아웃 등 코스메틱 난수는 `Hash(pull_id)` 로 Presentation 이 파생 — Core 스트림 소비 0, 같은 리플레이에서 같은 연출 재현.
+- 본 개정 미승인 시: 종속 기능(세이브스컴 방지 §2.8.5, 리플레이 삽입 안정성)의 주장·DoD 를 제외하고 System.Random 유지 — 조건부임을 명시한다.
+
+#### 2.7.4 Core 발행 이벤트 (신규)
+
+| 이벤트 | 발행 시점 | Presentation 처리 |
+|---|---|---|
+| `CutsceneTriggered(cutsceneId, contextIds, firstFire)` | 조건 충족 직후 (효과 선커밋 후) | 보유 최고 티어 재생. firstFire=false 면 쇼트 |
+| `SummonPerformed(...)` | 초빙 확정 시 — 정의는 §2.8.10 | 리빌 연출 |
+| `CharacterJoined(characterId, via)` | 초빙·등용 어느 경로든 합류 확정 시 | rarity 5 면 시그니처 등장씬(A1) 재생 — **에셋 1벌로 2경로 커버** |
+
+#### 2.7.5 트리거 조건 DSL — EffectType 패턴 동형 (§5.2 준수)
+
+캐릭터별 if문 금지 원칙(§4.4)을 트리거에도 적용한다. 조건은 범용 타입 배열:
+
+- 초기 세트: `event_field`(발화 이벤트 필드 비교 eq/lte/gte/has_tag), `state_check`(**화이트리스트 접근자**로 상태 질의 — elapsed_battle_turns·alliance_active·regions_conquered 등), `not_fired`, `chance_permyriad`(정수 만분율, cinematic 해시 파생), `actor_is`(char_id 또는 characters.json `tags` 매치), `context_match`(선행 컷씬과 동일 컨텍스트 검증 — 프리롤/페이오프 연계)
+- 새 조건 타입·state_check 접근자 신규 키는 §5.2 와 동일하게 "제안 → 해석기 1회 구현 → 데이터 재사용" 절차 강제 — 만능 API 비대화 방지.
+- **`not_fired` 스코프 [MUST]**: `{ "scope": "global" | "per_param" }`. per_param 의 fired 기록 키 = `<fired_key>#<param값>` — **fired_key 는 표현(템플릿 id)이 아닌 의미 단위로 선언**한다 (예: 등장씬은 `"entry"` → 기록 = `entry#guan_yu`). 밸런스 패치로 rarity·템플릿이 바뀌어도 fired 이력에 영향 0. id 문자셋 `#` 금지(DataLoader 검증).
+- **`once_per` enum**: `{ save | faction | character }` (v1 은 save 만 사용해도 스키마에 자리 확보 — id-set 키 접두어라 마이그레이션 0줄).
+- **고유 대사 컷씬 = `actor_is` 필수** [MUST] — 태그 조건만으로는 duelist_legend 태그의 세이버가 관우의 찻잔 대사를 말하는 사고 발생. `CINEMATIC_GRAMMAR.md` 규칙으로 명문화.
+
+#### 2.7.6 충돌·큐잉·피로
+
+- 한 이벤트 복수 매치 → priority 최고 1편만. **명장면 재현(80)은 일반 궁극기 컷씬(50)을 그 판에서 대체** — 같은 순간 2연속 컷씬은 연출 살인.
+- `queue_policy`(연출 메타, Presentation 소비): `immediate` / `end_of_phase`(캠페인 마일스톤 — 턴 흐름 존중) / `drop`. fired 는 트리거 시점 기록이므로 재생 지연은 Core 의미론에 무영향.
+- 피로 상한: `max_full_cutscenes_per_battle: 2` — 초과분 자동 쇼트. 단 `once_per` 지정 컷씬(명장면·캠페인)은 상한 제외 — 1회성 풀버전 상실 방지.
+- 명장면(유형 B) 조건은 **수동 전투에서만 평가**(Auto-Resolve 억제) — 지켜본 전투에서만 터져야 의미가 있다. 배치 시뮬 검증은 **강제 평가 플래그**(수동 억제 규칙을 시뮬 한정 해제)로 수행 (§7 Phase 2 DoD).
+
+#### 2.7.7 콘텐츠 유형 (5유형)
+
+**유형 A — 캐릭터 시그니처**
+
+| 서브타입 | 트리거 | 규칙 |
+|---|---|---|
+| A1 등장씬 | 첫 획득 — `CharacterJoined` + `not_fired`(per_param, fired_key `entry`) | 최초 풀버전 → 중복 쇼트. **rarity 4~5 만 개별 제작, 1~3 은 등급 공용 템플릿 + 초상·이름 파라미터** |
+| A2 궁극기 | `SkillExecuted` + skills.json 기존 `cutscene_id`(§2.4) | **세이브당 최초 풀버전, 이후 쇼트 컷인** — 피로 관리 핵심 [MUST] |
+| A3 일기토 승리 | `DuelEnded` + winner [MAY — 일기토 §2.6 [MAY] 종속] | 캐릭터당 최초만 풀버전 |
+
+**유형 B — 역사 명장면 재현 (조건부 오버라이드)** — '관우 찻잔' 골든 예시:
+
+- 프리롤(별도 컷씬 `cs_moment_warm_wine_preroll`): `DuelStarted` + `actor_is: guan_yu` + 페이오프 `not_fired` + `chance_permyriad`(해시 파생 — 상태 카운터 없는 쿨다운 대체, 양치기 방지). 대사: *"잔을 데워 두시오. 이 찻잔이 식기 전에 적장의 목을 베고 돌아오겠소."*
+- 페이오프(`cs_moment_warm_wine`): `DuelEnded` + `actor_is: guan_yu` + winner + `elapsed_battle_turns lte 3`(찻잔이 식기 전) + `context_match(with: preroll, key: duel_id)` — 같은 일기토에서 프리롤이 나왔을 때만 성립. priority 80, `once_per: save`. 1박자 정적 → `══ 溫酒斬華雄 ══` → *"술이… 아직 따뜻하구려."*
+- **조건 실패(3턴 초과) 시 페이오프 침묵** → "아깝다!"라는 부자 대화가 자연 발생 — 실패조차 연출 자산.
+- 연출 문법 표준(골든 견본): **전투는 화면 밖(소리·빛), 카메라는 찻잔의 김에 머문다** — 저비용·고긴장 문법을 `CINEMATIC_GRAMMAR.md` 에 명문화.
+- 시즌1 5편: 온주참화웅 / 적벽 화공 / 명량(3배 열세 해상전 승리) / 아우스터리츠 / 크로스오버 1편(야간 특수병종 승리). **전부 기존 전투 변수(풍향·조류·병력비·지형·턴수, §2.6)의 조합만으로 조건 정의 — 신규 시뮬 메커니즘 0개 [MUST]**.
+
+**유형 C — 캠페인 이벤트 (부자 서사의 축, §1.2 직결)**
+
+| 컷씬 | 트리거 | queue_policy |
+|---|---|---|
+| 동맹 체결 (플레이어 간 최초) | `AllianceFormed` + 양측 인간 플레이어 | immediate |
+| 첫 공동 전투 승리 | `BattleEnded` + 양 플레이어 부대 동시 참전(§1.2 공동 전투) + 승리 | end_of_phase |
+| 첫 상륙전 성공 | `ProvinceCaptured` + 상륙전 + 함대 소유주 ≠ 상륙군 소유주 (아빠 함대가 아들 군을 열어준 순간) | end_of_phase |
+| 권역 통일 ×6 | 공용 템플릿 + 지역명 파라미터 | end_of_phase |
+| 세계 정복 / 공동 승리 / 패배 | `GameEnded(outcome)` | immediate |
+
+공동 승리 엔딩은 두 플레이어의 에이스 id 를 파라미터로 받아 함께 서는 장면(데이터 주도 캐스팅) — 제작 예산 1순위.
+
+**유형 D — 초빙 리빌** → §2.8.10. **유형 E — 트레일러** (런타임 아님) → §2.7.11.
+
+#### 2.7.8 스킵·재생 모드·핫시트
+
+- **홀드 스킵**: 첫 재생 스킵 = 키 1.5초 홀드(`skip_hold_ms`). 탭이 아닌 홀드인 이유 — **핫시트(§1.2)에서 한 사람의 실수 탭이 다른 사람의 감상을 뺏지 않게.** "잠깐, 나 볼래!" 말할 시간을 준다.
+- 2회차(firstFire=false)는 자동 쇼트 + 탭 즉시 스킵. Auto-Resolve 전투는 한 줄 플레이버 텍스트만.
+- **재생 모드**: `전부 풀 / 처음만 풀(기본) / 항상 쇼트 / 텍스트 로그만` — **플레이어 슬롯별 2벌**(p1/p2, 적용 = 현재 페이즈 소유 플레이어의 모드; 세력↔슬롯 매핑은 핫시트 세이브에 기존 존재 → 세이브 추가 0). 저장 위치 = ProfileStore(§2.7.12). 엔딩 3종은 모드 무관 항상 풀(홀드 스킵 허용). "영원히 스킵 불가"는 금지 — 가족 UX.
+- **핫시트 "같이 보는 화면"**: 물리적으로 한 화면 = 상대 턴의 컷씬이 곧 관전 콘텐츠. 플레이어 턴 컷씬은 전체화면 기본(아들의 궁극기를 아빠가 봐줘야 §1.1 완성). AI 턴 발생분은 쇼트만.
+- **합격기(合擊) 템플릿 [SHOULD]**: 공동 전투에서 양 플레이어 캐릭터의 궁극기가 같은 전투 턴 발동 시 개별 2편 대신 **2개 char_id 파라미터를 받는 공용 템플릿 1편** — 조합 폭발 없이 "우리 둘의 필살기". 콘솔 T0 는 교차 서술 1문장으로 다운스케일, 진짜 임팩트는 Phase 3 T2 유보.
+- **명장면첩(갤러리) [MAY]**: **캠페인 로드 후 인게임 메뉴**에서 fired 집합 기준 재감상(콘솔=텍스트 리플레이, UE5=영상). 잠긴 슬롯은 힌트 한 줄("찻잔이 식기 전에…") — 부자의 다음 목표. 메인 메뉴 전 세이브 union 은 Phase 5 유보 — **컷씬 기록만을 위한 암묵적 메타 파일 신설 금지 [MUST]**.
+
+#### 2.7.9 연출 티어 T0~T3 + 제작 방식
+
+| 티어 | 매체 | 비용/편 | Phase |
+|---|---|---|---|
+| **T0 텍스트** | 타자기 텍스트 + 유니코드 괘선 + 박자. **전 컷씬 의무 최저 티어이자 정본(SSOT)** | 30분~1시간 | 0~2 |
+| **T1 정지컷** | 일러스트 1~3장 + Ken Burns 팬/줌 + 자막 + 스팅 | 반나절 | 3a |
+| **T2 인게임** | UE5 Sequencer **공용 템플릿**(차지→붓글씨 기술명→임팩트→여운) + 카메라 레일 + 레터박스 + Niagara(§6.1 EffectPoolManager 경유 [MUST]) | 템플릿 2~3일×3종, 바인딩 1~2시간 | 3b |
+| **T3 베스포크** | Sequencer 전용 스테이징 또는 촬영본 영상화 | 1주+ | 3b~5, **하드캡** |
+
+- **폴백 체인 [MUST]**: t3→t2→t1→t0. T0 필수라 **어떤 제작 진척 상태에서도 게임은 완결 경험**(콘솔=오라클 원칙과 동형). **placeholder 에셋(회색 화면·TODO 영상) 전면 금지 [MUST]** — 미제작 = 키 null, Presentation 은 존재하는 최고 티어로 자동 강등 재생.
+- **모든 컷씬은 T0 로 먼저 출하 [MUST]**. Phase 2 재미 검증 게이트(§7)는 T0 만으로 통과해야 한다.
+- **T3 하드캡 = 5편** (기본값). 시즌1 배정: ①공동 승리 엔딩 ②동맹 체결 ③온주참화웅 ④5★ 초빙 프레임 ⑤적벽. 캡 축소 시 ④⑤부터 강등(①②가 §1.1 직결). **캡 집행 = ContentGate(CI 도구) FAIL — 런타임 DataLoader 는 캡을 읽지 않는다 [MUST]**: 연출 예산 정책(프로세스 문제)이 T3 에셋을 쓰지도 않는 콘솔 오라클의 부팅(제품)을 인질로 잡지 않는다. 런타임 로더 검증은 참조 무결성까지만 (§5.7).
+- T2 템플릿 3종: 육상 궁극기 / 해상 궁극기 / 리빌·등장. 스케일·소켓 오버라이드 파라미터로 체형·무기 다양성(거북선 vs 기마 vs 슈트) 흡수.
+
+**제작 방식 판정 [MUST]**:
+
+| 기준 | ① UE5 Sequencer | ② 전통 사전 렌더 | ③ AI 영상 생성 | ④ 3D 캐릭터 모델 수급 |
+|---|---|---|---|---|
+| 편당 비용 | 템플릿 후 1~2시간 | 풀코스 — 2인 취미 불가능 | 클립당 수 시간+구독료 | 5★ 6캐릭터 한정 유료 스톡/커미션(예산 상한 사전 합의) 또는 스타일라이즈드 공용 체형+초상 오버레이 |
+| 판정 | **워크호스. 채택** | **기각** ("T2 촬영본 mp4 굽기"만 허용) | **액센트 한정**: 퍼블릭 도메인 역사 위인·풍경·군세 샷 전용, **총 3편 상한**, 실패 시 T2 촬영 대체 | **게임 립(rip) 에셋 다운로드 금지 [MUST]**. 모델 확보 불가 캐릭터는 '실루엣+이펙트 중심'(전투는 화면 밖 문법의 확장) no-model 템플릿 변형으로 T2 성립 |
+
+- **[MUST] IP 정책**: 크로스오버 IP 캐릭터 참조 이미지의 **클라우드 AI 서비스 업로드 금지**(ToS·유출 — §1 비공개 정책 연쇄). IP 캐릭터는 로컬 생성(T1)·인게임(T2)만. 로컬 생성 환경 구축은 Phase 3a 첫 항목(§7) — Phase 2 게이트 이전에는 규칙만 발효.
+- T1 일러스트: 스타일 바이블(수묵+담채 프롬프트 고정)로 화풍 통일. 폴백 = CC0 초상 프레임. 음성: §9 풀더빙 스코프 아웃 준수 — 자막 + CC0 스팅. 가족 녹음 특전 [MAY].
+- **에셋 정책 확장(§1 표에 추가)**: 컷씬 영상 = 개별 생성(생성형 포함), 비공개 전용, 외부 업로드 금지, `ASSET_CREDITS.md` 에 도구명·생성일·약관 확인·IP 참조 이미지 미사용 확인을 행 단위 기록 [MUST].
+
+#### 2.7.10 물량 예산 (시즌1) + ContentGate
+
+| 유형 | 물량 | 티어 |
+|---|---|---|
+| A2 궁극기 | 캐릭터 10 (Phase 0 샘플 기준) | T0 전원 → 5성만 T2 바인딩 |
+| A1 등장씬 | 5★ 개별 6~8 + 등급 템플릿 3 | T0 → T1/T2 |
+| B 명장면 | 5편 | T0 → T2 (2편 T3) |
+| C 캠페인 | 개별 5 + 권역 템플릿 1 | T0 → T1/T2 (2편 T3) |
+| D 초빙 프레임 | 4 (5★는 A1 재사용) | T0 → T2 (1편 T3) |
+| 합격기 템플릿 | 1 | T2 |
+
+총 **T0 대본 ~30편**(주말 집필 4~6회) / T2 템플릿 3종+바인딩 ~10건 / T3 캡 5 / AI 영상 ≤3. 물량 확장은 Phase 5 "아들 인기 투표 → 티어 승급 백로그"로만. 신규 캐릭터는 T0 의무·티어는 투표 승급 [MUST].
+
+**ContentGate** (tools/, dotnet 콘솔, CI 단계): 컷씬별 `target_tier` 선언 → `id | category | target_tier | achieved_tier | referenced_by | status` 리포트. 판정 명문화 [MUST]: **FAIL** = tier_assets 에 경로가 선언돼 있는데 실파일 부재(placeholder 금지의 집행) 또는 t3 선언 수 > `t3_budget_cap`; **WARN** = 경로 null(미착수 백로그), achieved < target, orphan, 크레딧 미기재 에셋. UE5 에셋 경로는 `--ue5-project` 모드에서만 검사. Phase 2 게이트가 UE5 축소를 결정하면 `target_tier` 일괄 하향(T1 중심) — **데이터 수정만으로 노선 전환 흡수**.
+
+#### 2.7.11 트레일러
+
+트레일러는 런타임 시스템이 아니라 **결정론(§4.4)의 배당금으로 얻는 제작 산출물**이다.
+
+1. **리플레이 = 촬영 원본**: 시드+입력 로그(§8) → Phase 1부터 `--record` 축적. **부자의 실제 명경기가 소스**. 촬영·편집은 같은 버전 내 완결(combat 스트림 한정 제약 — §2.7.3) [MUST].
+2. **게이팅 [MUST]**: Phase 2 게이트 이전 영상 착수 금지(§3 원칙의 정면 적용). 통과 시 'Phase 3 킥오프 트레일러' 30초 [MAY] — 게이트가 UE5 축소를 결정하면 자동 취소. 저비용 대안: 콘솔 로그 녹화 "텍스트 트레일러" [MAY].
+3. **정식 트레일러**: Phase 4. 티저 30초 + 본편 90초(§1.1 서사 그대로: 선택→동맹→협공→궁극기→공동 승리). UE5 시네마 모드(리플레이 자유 카메라+HUD OFF) [MAY] + Movie Render Queue/OBS + DaVinci Resolve(무료) + CC0 BGM. **전용 에셋 제작 금지** — 인게임 파이프라인 부산물로만.
+4. **배포 = 가족 시사회가 전부 [MUST]** + 기술 억제 3종: ①게임·시네마 모드에 공유/내보내기/업로드 기능 자체를 탑재하지 않음(§9 스코프 아웃) ②모든 캡처 산출물에 "비공개 가족용" 워터마크 **자동 번인(해제 불가)** ③트레일러 파일의 가족 폴더 밖 반출 금지를 파일 경로 수준으로 가족 합의 문서에 명기. 교육(아들 SNS 업로드 금지)은 보완이지 방지책이 아님 — 잔존 리스크로 §9 등재.
+
+#### 2.7.12 세이브·프로필 영향
+
+세이브 추가 = 사실상 1구조 + RNG 스트림 상태(§2.7.3):
+
+- `cinematics.firedCutsceneIds: HashSet<string>` — 트리거 시점 기록. `not_fired` 평가·쇼트 전환·갤러리 해금의 유일한 근거. **id-set 원칙**: 신규 컷씬 삽입 = 마이그레이션 0줄. **결번 원칙**: 삭제 id 잔존 무해(정의 없는 id 무시). **주의 [MUST]**: 이 집합은 `not_fired` 가 읽는 결정론적 Core 상태(단순 통계 아님) → 세이브→로드 상태 동일성 테스트(Phase 1 DoD) 비교 대상에 포함. 직렬화 시 **ordinal 정렬 출력 [SHOULD]** — 동일 상태 = 동일 바이트, 동일성 테스트를 파일 비교로 단순화.
+- `rng_streams`: 스트림별 `{state: hex64, inc: hex64}` (PCG32, 정수만). cinematic 스트림은 무상태 해시 파생이라 저장 불요. **부재 구세이브 재시드 규칙 명문화**: `Hash(campaign_seed, stream_name, current_turn)` — 기본값 0 퇴화 스트림 금지.
+- 필드 부재 기본값 [MUST]: `cinematics` 부재 → 빈 set (의도된 결정 — 소급 없음). 구버전 세이브 픽스처 로드 테스트를 Phase 1 DoD 에 편입.
+- **이중 기준 명문화**: 결번 관대 처리는 **세이브 내 잔존 id 에만** 적용. data/ 정의 간 참조(`not_fired.cutscene_id`, `skills.cutscene_id`, `ending_always_full` 등)가 결번 id 를 가리키면 §5.5 기동 실패 대상.
+- **ProfileStore** (§4.2 표 1행 추가, SaveSystem 과 별개): 재생 모드(p1/p2) 등 기기 취향. 최소 규율 — `schema_version` 필드 + 알 수 없는 키 무시(전방 호환) + 파손 시 기본값 재생성(마이그레이션 없음 선언). **"프로필은 파손·삭제되어도 게임 진행에 영향 0"을 계약으로 고정** — 세이브/프로필 이원 마이그레이션 비용을 구조적으로 0에 고정.
+
+> ⚠ 미확정 — 사용자 결정 필요:
+> 1. **T3 하드캡 편수**: 기본안 5편(위 배정) vs 축소안 3편 — 실제 주말 세션 빈도에 따라 확정. 축소 시 ④⑤부터 강등.
+> 2. **AI 영상 생성 채택 여부**: 월 구독료 + 품질 도박. 기본안 = "역사 위인·풍경 전용 3편 상한 + 실패 시 T2 촬영 대체" 허용, 대안 = 전면 배제(T2 촬영본만). 구독 비용 지불 의사 결정 필요.
+> 3. **일기토(§2.6 [MAY]) 구현 여부**: 미구현 결정 시 온주참화웅 트리거를 대체 조건(예: 관우 부대의 3턴 내 속전 승리)으로 재설계 필요 — 우선 결정 요망.
+> 4. **§4.4 개정(§2.7.3: 명명 스트림 + PCG32) 승인**: 본 절·§2.8 의 결정론 구조 전체의 전제. Phase 0 선결 승인 항목.
+> 5. **체감 파라미터 기본값 승인**: 스킵 홀드 1.5초 / 전투당 풀버전 상한 2 등 — 전부 config 외부화, Phase 2 부자 실플레이 관찰로 튜닝.
+> 6. **메인 메뉴 union 갤러리 조기 도입 여부**: 기본 = Phase 5 유보(신규 영속 표면 방지). 가족 핫시트 특성상 조기 요구 가능.
+
+### 2.8 초빙(招聘) 시스템 — 인재 소환 (가챠)
+
+> **한 줄 정의**: 군주가 캠페인 플레이로 벌어들인 **천명(天命)** 을 바쳐, 재야의 위인과 이계(크로스오버)의 영웅을 자기 세력으로 부르는 시스템. 별도 메타게임이 아니라 캠페인 내부의 **조정(朝廷) 명령**이며, 재화는 100% 인게임 획득 — **실물 과금·IAP 절대 불가 [MUST, §1/§9]**. 핵심 재미 = 핫시트(§1.2) 한 화면 앞에서 부자가 함께 10연 리빌을 지켜보며 금색 문에 환호하는 순간. 리빌 연출은 §2.7 인프라를 그대로 공유한다.
+
+#### 2.8.1 컨셉·재화
+
+- 픽션: 삼고초려의 재현 — 본거지에서 천명을 바쳐 기원하면 재야의 인재(역사 위인)와 시공의 틈 너머 영웅(탄지로·세이버·마슈·아이언맨)이 응답한다. 두 출신을 "천명이 부른다" 하나의 서사로 통합.
+- 재화: **천명(Mandate) 단일** — 티켓·보석 등 2차 재화 금지 [MUST]. 과금 없는 게임에서 다중 재화는 존재 이유가 없고 가족용 인지 부담만 늘린다.
+
+#### 2.8.2 기존 시스템 접속 — 동반 스펙 개정 3건 [MUST]
+
+본 절 채택 시 다음 문면을 동시 개정한다 (구현 AI 의 문면 충돌 방지):
+1. **§2.2 [2]/[3] 페이즈**: "내정 명령 + 군사 명령 + 외교 명령" → **4종(+조정 명령: 초빙·선물 초빙장·찜 예약)**.
+2. **§2.3 자원 표**: 6번째 행 추가 — `천명(Mandate) | 초빙 전용 | §2.8.3 화이트리스트 소스`.
+3. **§4.4**: §2.7.3 개정안(명명 스트림·PCG32)과 동일 승인 건.
+
+**§2.4 등용과의 역할 분담 [MUST]**:
+
+| | **등용** (§2.4 충성도 기반, 기존) | **초빙** (신규) |
+|---|---|---|
+| 대상 | 타 세력 소속 무장·포로 (맵에 존재) | **재야(미소속)** 인재 + 크로스오버 영웅 |
+| 자원 | 금 + 매력(CHA) 판정 | 천명 |
+| 불확실성 | 성공/실패 | **누가 오는지**가 랜덤. 실패 없음 — 시행하면 반드시 1명 합류 |
+| 전략 의미 | 적 약화+아군 강화 (제로섬) | 신규 전력 유입 (포지티브섬) |
+| 연출 | 대화 이벤트 | rarity 차등 세리머니 (§2.8.10) |
+
+- 경계 규칙: 초빙 풀 = "현재 캠페인에서 미소속 캐릭터"를 소속 상태에서 **파생 계산**(별도 리스트 저장 금지 — 이중 장부 방지). 포로 해방으로 재야 복귀 시 자동 재진입. 캐릭터 추가 시 기존 세이브에 자동 소급(마이그레이션 0줄).
+- 획득 경로는 `characters.json` 의 `acquisition.channels` (`start|summon|recruit|event`) 로 **데이터 배타 분할** — CHA 등용 사문화 방지.
+
+#### 2.8.3 천명 경제
+
+**수입원 화이트리스트 [MUST]** — `game_rules.json` 열거형으로만 정의, DataLoader 가 미등록 소스 리젝. §9 과금 불가를 운영 방침이 아닌 **스키마 수준에서 구조적으로 봉인**(가격·결제 필드 자체가 스키마에 부재).
+
+| 소스 | 시점 (§2.2 페이즈) | 기본값(초안, 정수) |
+|---|---|---|
+| 기본 수입 | [1] 수입, 세력당 | +5/턴 |
+| 전투 승리 | [5] 해결 (자동 계산 포함) | 소 +10 / 중 +25 / 대 +50 — **소/중/대 판정 기준(metric·threshold)도 데이터 외부화 [MUST]** (§5.8) |
+| 영지 최초 점령 | 점령 확정 1회 | +20 |
+| 일기토 승리 | 전투 중 — **§2.6 일기토 [MAY] 채택 시 활성(조건부)** | +15 |
+| 이벤트 | [6] 이벤트 | 이벤트 데이터 reward 필드 |
+| 업적 최초 달성 | 업적 id-set 훅 [MAY] | 업적 데이터 reward 필드 |
+
+- 비용: 단발 **100** / 10연 **900** (배너별). 페이스: 초반 10턴 ≈ 150~250 → 단발 1~2회, 10연은 ~25턴 전후 — **5성 유입 속도가 캠페인 진행 속도에 자연 동기화** (밸런스 장치 1호).
+- **이전 규칙**: 천명 직접 이전은 §1.2 동맹 자원 지원 대상에서 **제외 [MUST]** — 재화 퍼널링 차단, "각자의 천명" 테마. 유일한 예외 = 선물 초빙장(§2.8.8) — 단 퍼널링은 발행자·수신자 양측 턴당 캡 + 미개봉 상한(`max_pending: 3`)으로 상한이 걸릴 뿐 완전 차단이 아님을 명기(정직한 서술). 아들 배려의 정공법 = §1.2 난이도 보정 확장: `mandate_income_pct`(정수 %).
+- **가챠 0회 클리어 보장 [MUST]**: 초빙은 가속·수집 레이어이지 진행 게이트가 아니다. 집행 2중화 — ①도달가능성 린트(§2.8.7) ②Phase 2 "무가챠 런 완주" 자동 시뮬 DoD(§7).
+
+#### 2.8.4 풀·배너
+
+- **비복원 추출(without replacement)**: 무장은 유일 개체(KOEI 문법) → 중복 없음. 뽑힌 캐릭터는 소속 발생으로 풀 자동 이탈. 중복 보상(조각·돌파) 경제를 통째 제거 — "꽝/명함" 좌절의 개념적 소멸 + 추격 심리 원천 차단. **중복 기반 파워 스태킹(돌파·성혼)은 Phase 5 확장 시에도 영구 금지 [MUST]**.
+- 저rarity(1~3성)의 존재 의의: 내정 요원·수비대장·함대 부관 — 뽑기가 "꽝"이 아니라 "영지 태수 충원".
+- 배너 2종: `standard`(전체 재야 풀, 상시) / `themed`(풀 필터 + rate-up — **캠페인 사건이 해금**: 한성 점령 → "조선 수군" 배너, 차원문 이벤트 → "이계의 영웅" 배너). 가챠가 정복 동기를 역강화하는 통합 고리. **실시간(달력) 기간 한정 금지 [MUST]** — 해금 후 상시 유지(反FOMO + 오프라인 결정론 정합).
+- `allowed_factions` 필터: 크로스오버 배너 `human_players` 지정 가능 — AI 가 탄지로를 채가는 사고를 데이터로 차단.
+- 해금 상태 = `unlocked_banner_ids` HashSet<string> — 배너 추가 시 마이그레이션 0줄, 삭제 배너 id 결번 무시.
+
+#### 2.8.5 뽑기 해석 알고리즘 — 결정론 명세 [MUST]
+
+Core `SummonSystem`/`SummonRoller` 전담, 전 과정 정수 산술. RNG = **세력별 명명 스트림 `summon:{faction_id}`** (§2.7.3 §4.4 개정 전제).
+
+```
+DrawBatch(faction, banner, k):
+  1. 검증: 잔고 ≥ 비용, 배너 해금, 턴당 초빙 캡, 풀 ≥ 1
+     (풀 < k 이면 k = min(k, 풀크기), 비용 건당 선형 재계산)
+  2. k회 반복 — 불변식 [MUST]: 뽑기 1회 = RNG 정확히 2회 소비(rarity 1회 + 캐릭터 1회):
+     a. 유효 rarity 가중치 = rate_table 기본 permyriad(만분율)
+        + soft pity 가산 (합산 후 [0,10000] clamp, 초과분 최저 rarity 차감 — 단위 테스트 고정)
+        ; hard pity 도달 시 해당 rarity 강제
+     b. roll₁ = rng.NextInt(0, Σ가중치) → rarity 확정
+     c. 후보 = 배너 필터 통과 ∧ 미소속 ∧ 타인 찜 예약 아님.
+        후보는 반드시 character id 서수(ordinal) 정렬 [MUST] — HashSet 순회 순서 의존 금지
+     d. rarity 풀 공백 시 rate_table.fallback_order 체인 강하
+     e. 캐릭터 확정 = 가중 추첨 [MUST]: 기본 가중 10000, rate_up 대상 ×weight_multiplier_pct/100
+        (정수) → 누적합 배열에서 roll₂ = rng.NextInt(0, 총합) 1회.
+        hard pity 발동 시 rate_up 후보가 존재하면 후보를 rate_up 풀로 한정(픽업 우선)
+     f. 즉시 소속 변경(풀 이탈), pity 카운터 갱신
+  3. EventBus.Publish(SummonPerformed(factionId, bannerId, results[]))
+```
+
+- **세이브스컴 방지**: 세력별 스트림 + 스트림 상태 세이브 직렬화로, 리로드 후 **다른 행동(전투·이동·타 플레이어 뽑기)을 끼워 넣어도** 자기 세력의 다음 뽑기 결과가 불변 — "리로드 후 딴 짓 하고 뽑기" 우회까지 봉쇄. 아이가 5성 리세마라를 배울 수 없다. 단 이 주장은 §4.4 개정 승인에 종속 — 미승인(System.Random 단일 스트림 유지) 시 주장을 "동일 행동 시퀀스에 한해 결과 고정"으로 축소하고 관련 DoD 제외 [MUST].
+- 결과 k건은 커맨드 처리 시점 전량 확정, 이벤트 1건 발행. 리빌 순서·페이크아웃 등 코스메틱 난수 = Presentation 이 `Hash(pull_id)` 파생 — Core 스트림 오염 0, 리플레이 재현.
+
+#### 2.8.6 천장(pity)·확률 투명성
+
+- **soft pity**: 5성 미획득 20뽑부터 매 뽑 +600 permyriad. **hard pity: 30뽑째 5성 확정 — [MUST] 승격**(아동 좌절 방어선은 선택 사항이 될 수 없다). 50/50 없음 — 아이 눈높이 단순화. 10연 보장: 배치 내 4성 이상 0명이면 마지막 1건 4성 floor.
+- pity 카운터 = pity 키(`rate_table_id` 또는 `pity_scope:"own"` 배너 id) → **map<rarity(string), int>** 의 이중 id-key map — 신규 배너·신규 rarity pity 추가 시 기본값 0 자연 등장, 마이그레이션 0줄.
+- **pity 키 생애주기 [MUST]** (id 생애주기 계약의 확장): `banner.pity_scope`·`rate_table_id` 는 발행 후 불변 — 변경 필요 시 신규 배너 id 발행 + `pity_key_aliases` 승계 맵 제공(로더가 순환·중복 검사). 세이브 내 미실존 pity 키는 **잔존 무시·보존**(삭제 아님 — 재등장 대비).
+- **DataLoader 하드 캡 [MUST]**: `hard_pity ≤ max_pity_threshold(40)` — 향후 튜닝으로도 다크패턴 수준 천장을 데이터에 몰래 넣을 수 없게 봉인.
+- **확률 공시 [MUST]**: 초빙 화면(콘솔 `초빙 정보` 커맨드 — Phase 1부터 / UE5 고정 패널 — 서브메뉴에 묻지 않음, 클릭 0회 노출)에 상시 표시: 등급별 확률·잔여 캐릭터 수("남은 5★: 3명")·천장 게이지("다음 5성까지 최대 7번")·아동 눈높이 병기("10번 뽑으면 평균 ○명은 4★ 이상"). 숨김 천장 금지.
+- **표시값 = 판정 로직 동일 함수 `GetCurrentRates()` [MUST]** — 산출 정의는 **fallback 반영 유효 확률**: rarity r 의 유효확률 = 기본 가중치 중 fallback 체인을 따라 풀 잔존 rarity 로 최종 귀착하는 질량의 합(정수 permyriad). rate_table 명목치 표시 금지.
+- **풀 고갈 분기 명세 [MUST]** (비복원 풀의 정상 상태 — 기대-배신 방지): 잔여 5★ 0명이면 천장 게이지를 "이 배너의 5성 영웅을 모두 만났습니다" 상태로 전환하고 "최대 N번" 문구 억제; 잔여 5★ ≤ 천장까지 남은 뽑수면 사전 고지. **pity 카운터는 리셋하지 않고 이월**(풀 재진입 시 즉시 발동 자격 유지).
+- 천장 임박(잔여 5회 이내) 안내 연출 + 천장 발동은 감추지 않고 **"천명이 응답했다!" 축하 프레이밍**(`PityTriggered` → 게이지 만개) — 좌절 구간을 기대 구간으로 반전.
+
+#### 2.8.7 밸런스 잠금장치
+
+**3중 잠금** (초반 5성 캐리 차단):
+1. **경제 게이트**(§2.8.3): 천명 수입이 캠페인 진행에 비례. ※ Phase 1 은 기본 수입만 붙는 반쪽 경제 — 실효 판정은 Phase 2 행운 시드 테스트로 이관(§7).
+2. **합류 레벨 스케일링**: `max(1, 세력 상위5인 평균레벨 × 60 / 100)` (정수 나눗셈, game_rules 파라미터). 초반 5성 = "성장주" — rarity 는 성장률·스킬 천장이지 즉시 전투력이 아님(§5.1 growth_rates 문법 일치).
+3. **기존 경제 종속**: 병력은 통솔+세력 자원(§2.3), 궁극기 게이지는 전투 중 충전 시작(§2.4) — 뽑자마자 궁극기 불가.
+
+**구조적 안전장치**:
+4. **도달가능성 린트 [MUST]** (채널 문자열 검사가 아닌 실도달 검증): `required_for` 비면제 캐릭터는 다음 중 하나 필수 — (a) `start` → factions.json 시작 배치 실존 검증 (b) `event` → 지급 이벤트 id 실존 + 발화 조건이 summon 비의존임을 검증 (c) `recruit` 는 `initial_status` 가 타 세력 소속(start_faction 지정)일 때만 인정 — **unaffiliated + recruit 단독 조합은 리젝**(재야는 등용 불가라 영구 미도달). 위반 시 파일·항목·사유 명시 기동 실패(§5.5 방식). ※ v1 승리 조건(§1)상 required_for 는 대부분 빈 배열 — 실보장은 Phase 2 무가챠 시뮬이 담당하며, **Phase 5 콘텐츠 추가 시 시뮬 재실행 [MUST]**(§7).
+5. **rarity 스탯 예산 밴드 [SHOULD]**: `rarity_stat_budget_max` 로더 검증 — 초빙은 characters.json 에 이미 정의·검증된 캐릭터의 **참조 해금**일 뿐 새 수치를 발행하지 않으므로 §8 배치 시뮬·§5.5 검증이 획득 경로 무관 전 캐릭터를 자동 포섭.
+
+보조: 턴당 초빙 캡 `max_summons_per_turn: 10`(= 10연 1회) — 비축 후 일괄 폭발 방지 + 세리머니 희소성. 합류 충성도 `join_loyalty: 90` — 뽑은 캐릭터를 AI 가 즉시 등용해 가는 좌절 방지.
+
+#### 2.8.8 부자 협동 기제 (§1.1/§1.2 직결)
+
+가챠를 "부자 협공"의 정서적 확장으로 만드는 3종 — 전부 기존 시스템(DiplomacyManager·턴 페이즈) 재사용, 상한은 데이터:
+
+| 기제 | 동작 | 제약(데이터) |
+|---|---|---|
+| **① 선물 초빙장** | 아빠가 자기 천명으로 초빙 1회권 발행(조정 명령) → **아들 턴에 아들이 개봉**. "아빠가 보낸 초빙장이 도착했습니다" — 개봉은 수신자의 `summon:{faction}` 스트림·풀 필터·pity·연출로 확정(커맨드 로그 경유 → 리플레이 안전) | 발행 = 발행자 턴당 캡 포함, **개봉 = 수신자 턴당 캡 포함**, 미개봉 상한 `max_pending: 3`(초과 시 발행 거부; 세이브 로드 시 초과분은 관용 유지·신규 발행만 차단). 발행 세력 멸망 시 미개봉 선물 유효 유지(from_faction_id 는 기록용), 수신 세력 소멸 시 무효. **`advances_recipient_pity` 기본 false** — 쟁점 확정 전 보수 기본값 |
+| **② 찜 예약** | 플레이어당 최대 2명 예약 → 다른 모든 세력(상대 플레이어+AI)의 초빙 풀에서 제외(등용 무영향) | `reserve_slots_per_player: 2`, `reservedCharacterIds` id-set. **예약/해제 = 조정 명령군의 정식 커맨드 [MUST]**(자기 페이즈 중 언제든) — 커맨드 로그 밖 UI 토글 금지(풀 구성 변이는 뽑기 결과 직결 → 리플레이·오라클 전제). 예약 캐릭터가 소속을 얻으면 전 세력에서 자동 해제(SummonSystem 책임) |
+| **③ 인재 추천** [MAY, Phase 5] | 보유 캐릭터(부대 미배치)를 동맹에게 이관 — "추천장" 플레이버 | 턴당 1명, 동맹 필수 |
+
+②가 비복원 공유 풀의 유일한 가족 리스크("아빠가 세이버 뽑아갔어!")를 정면 해소하고, ①이 §1.1 장면("부자가 함께 영웅을 모은다")을 가챠 안으로 끌어들인다. 핫시트는 화면 공유이므로 10연 리빌은 자연스럽게 둘이 함께 보는 이벤트.
+
+#### 2.8.9 AI 세력 참여
+
+- AI 세력도 **동일 `SummonSystem` API** 로 초빙 [SHOULD] — 특수 경로 금지(§5 데이터 주도 정신). AIController 는 규칙 기반(잔고 ≥ `spend_threshold` 면 단발) 소비. 풀이 플레이어 전용 뷔페가 되는 것을 막아 세계 생동감 유지.
+- 체감 사고 방지 노브 2종: `allowed_factions: human_players` + 찜 예약. 밸런스는 Phase 2 배치 시뮬(초빙 활성 100판) 게이트.
+
+#### 2.8.10 리빌 연출 — §2.7 접속
+
+**레이어 계약 [MUST, §4.1/§4.3]**: Core 는 연출을 모른다. §4.3 `SkillExecuted` 와 동일하게 **사실만 발행**:
+
+```csharp
+record SummonPerformed(string FactionId, string BannerId,
+                       IReadOnlyList<SummonResult> Results);   // 불변 (§4.3)
+record SummonResult(string CharacterId,   // 정의 참조만 — 스탯 복사 금지
+                    int    Rarity,
+                    bool   PityTriggered);
+```
+
+- 이벤트에 연출 id 를 싣지 않는다. 컷씬 해석 체인(캐릭터 `entry_cutscene_id` → 배너 `reveal_overrides` → rarity 기본)은 **Presentation 공용 순수 함수 `ResolveRevealCinematic(characterDef, bannerDef, revealDefaults)`** — 콘솔·UE5 가 같은 함수를 호출. Phase 3 오라클의 "cinematic id 일치"는 이 함수의 단위 테스트(동일 입력 → 동일 id)로 검증 — 검증력 손실 없이 레이어 계약 복원.
+- **★5 리빌의 절정 = 해당 캐릭터의 A1 등장씬(`entry_cutscene_id`) 재사용 [MUST]** — 초빙 전용 영상은 등급 프레임 4종만. 관우를 뽑으면 시그니처 대본이 그대로 리빌로 재생. 충성도 등용 합류도 동일 연출(`CharacterJoined`) — **명장면(요구 ①)과 rarity 차등 가챠(요구 ②)를 에셋 1벌로 동시 충족, §2.4 등용과 초빙이 연출 층에서 통합**.
+
+**rarity 차등 티어**:
+
+| Rarity | 티어 | 콘솔 (Phase 1~2, 오라클) | UE5 (Phase 3) | 길이 |
+|---|---|---|---|---|
+| 1~2성 | text | 로그 1줄 ("재야의 무사 ○○ 합류") | 카드 팝 | ~2s |
+| 3성 | standard | 구분선 + 요약 스탯 박스 | 공용 연출 (청색 문) | ~3s |
+| 4성 | premium | ★★★★ ASCII 배너 + 대사 1줄 | 공용 고급 + 일러스트 컷인 (자색 문) | 5~8s |
+| 5성 | cinematic | 전조("하늘이 울린다…") → 시그니처 대사 → 이름 대공개, 타자기 페이싱 | **A1 등장씬 풀버전** (금색 문) | 10~20s |
+
+**연출 규칙**:
+- **문 색 티즈**: 10연은 배치 내 최고 rarity 로 문 색(청/자/금)이 먼저 정해지는 사전 긴장. 리빌 순서 = rarity 오름차순 고정(최고 등급 마지막) — 결정적이면서 서스펜스 극대화. **★4=자색 / ★5=금색으로 시각 분리** — "금색인데 4성" near-miss(기대-배신) 구조를 원천 제거.
+- **진실 신호 기본 [MUST]**: 문 색은 실제 최고 rarity 와 항상 일치가 기본값. 페이크아웃(승격 연출)은 데이터 토글(`fakeout_permyriad`, 기본 0)로 준비하되 기본 비활성, 활성하더라도 **상향 서프라이즈 전용 — 하향 연출 금지 [MUST]**. 난수는 `Hash(pull_id)` Presentation 파생.
+- 스킵 상시 가능 + 최초 1회만 풀연출 — **시청 기록 = §2.7 `firedCutsceneIds` 재사용 [MUST]**(fired=seen 계약, 트리거 시점 기록 → 역방향 시청 통지 채널 불요). 별도 watched 세트 신설 금지. **스코프 = 캠페인 세이브 [MUST]** — 신규 캠페인에서 풀연출 재생은 의도된 동작(핫시트 특성상 시청 주체 = 캠페인). 컷씬 기록만을 위한 암묵적 메타 파일 신설 금지 — 프로필 스코프 요구가 생기면 정식 쟁점으로 재상정.
+- 서스펜스 상한 3초(데이터 상수). ★5 배출 시 "○○의 천명" 기념 프레임 1박자 — 옆 사람과 하이파이브할 타이밍을 연출이 만든다.
+- **전용 등장 컷씬 v1 = 3본 고정**(밸브 = `entry_cutscene_id` 유무 — 컷씬 미제작이 캐릭터 출시를 블로킹하지 않음). 명장면성은 길이가 아니라 컷 밀도로 달성(§2.7.1 문법). 나머지는 rarity 기본 폴백.
+- **"텍스트만으로 아들이 환호하는가"가 Phase 2 재미 게이트(§7)의 검증 항목** — UE5 축소 결정 시에도 초빙은 콘솔+텍스트 연출로 완결.
+
+#### 2.8.11 세이브 영향 (id 생애주기·id-set·정의 참조·정수 원칙 정합)
+
+**세력(Faction)별** — `factions[]` 배열 하위, **AI 세력 포함 전 세력 보유**(배치 시뮬 전제):
+
+| 필드 | 타입 | 비고 |
+|---|---|---|
+| `mandate` | int | 잔고만. 수입 상수는 정의 참조 |
+| `pity` | map<pity_key, map<rarity, int>> | 이중 id-key map — 배너·rarity 추가 시 마이그레이션 0줄. 미실존 키 잔존 무시·보존 |
+| `summon_history` | array<{turn, banner_id, character_id}> | id 참조만. **소비자 명시**: 도감 획득 이력 표시 + Phase 2 경제 시뮬 계측. 상한 500건 — 초과 시 오래된 항목을 집계 카운터로 접는 **링버퍼**(append-only 아님) |
+| `reservedCharacterIds` | HashSet<string> | 찜 예약. 소속 발생 시 자동 해제 |
+| `pendingGiftSummons` | array<{from_faction_id, banner_id}> | ≤ max_pending 3 |
+| `summons_this_turn` | int | 턴 시작 시 0 리셋 |
+
+**캠페인 전역**: `unlocked_banner_ids`(id-set) / `rng_streams`(§2.7.12 — `summon:{faction_id}` 포함).
+
+**계약**:
+- **플레이어 = 세력 1:1 고정 [MUST]**. 모든 초빙 상태는 세력 귀속 — 세력 소멸 시 함께 소멸(미개봉 수신 선물 포함). `allowed_factions: human_players` 해석은 기존 캠페인 세이브의 인간/AI 컨트롤러 배정 필드를 참조.
+- **미실존 id 잔존 무시·보존** 규칙을 초빙 관련 모든 id 컬렉션(unlocked_banner_ids·reservedCharacterIds·summon_history·pendingGiftSummons.banner_id·pity 키)에 일반화 [MUST]. 정의 간 참조는 반대로 엄격(§2.7.12 이중 기준).
+- **버전 규칙 [MUST]**: additive 필드 추가 = 버전 유지(부재 시 기본값 0/빈 세트 로드 — 구세이브 무마이그레이션), 필드 의미 변경·제거·필수화 = +1 및 하위 로드 거부, **상위 버전 세이브는 로드 거부**(경고 후 중단 — 빌드 롤백 시 초빙 상태 silent drop 방지).
+- **저장하지 않는 것(파생 상태)**: 재야 풀 목록(소속+예약에서 매번 파생 — 이중 장부 금지), 배너 해금 조건 평가 상태(매 턴 재평가, 결과만 id-set 축적), 시청 컷씬(= firedCutsceneIds 재사용).
+
+> ⚠ 미확정 — 사용자 결정 필요:
+> 1. **페이크아웃 연출 허용 여부**: 두근거림(성인 가챠 문법) vs 아동 기대-배신 학습 방지. 데이터 토글 준비 완료, 기본값 0(진실 신호)·상향 전용. 아들 연령·성향을 아는 사용자가 결정.
+> 2. **천장·페이스 수치**: hard pity 30 / soft 20+600 / 단발 100·10연 900 / 수입표 — 캠페인 목표 턴 수(미확정) 결부 초안. Phase 2 경제 시뮬로 튜닝하되 초기값 승인 필요. 특히 hard pity 의 캠페인 내 도달 가능성이 관건.
+> 3. **선물 초빙장 pity 규칙**(`advances_recipient_pity`): 본 문서는 보수 기본값 false 로 확정 기술 — true(협동 기능 강화) 전환 여부는 Phase 2 부자 플레이테스트 후 결정.
+> 4. **전용 등장 컷씬 v1 명단 3본**: 후보 예 — 관우·이순신·세이버. §5.7 레지스트리 id 를 Phase 0 에서 합의 필요.
+> 5. **메타 컬렉션(캠페인 간 영구 로스터) 처분**: 완전 기각 vs Phase 5 이후 v2 백로그 보존 — 2회차 캠페인 동기가 필요해지는 시점에 재부상할 주제. 기본 = v2 백로그.
+> 6. **§4.4 개정 승인**(§2.7.3 과 공유): 세력별 summon 스트림·세이브스컴 방지 주장의 전제.
 
 ---
 
@@ -323,6 +696,254 @@ data/
 - 극단 실험값(데미지 999배 등)은 **허용한다 — 클램프하지 않는다**. 검증은 타입·참조 무결성·구조 규칙만. 놀이의 자유는 실험 계층에, 정합성은 검증기에.
 - **소급 규칙**: 정의 수치 변경은 세이브 로드 시 재계산으로 소급 적용된다(세이브 = 정의 참조 id + 가변 상태만 저장 원칙). 이미 파생된 가변 상태(현재 병력 수·완료된 시설)는 소급하지 않는다.
 
+### 5.7 Cinematics 스키마
+
+Core 소비 데이터와 Presentation 소비 데이터를 **파일로 분리**한다 [MUST] — Core 는 `cutscene_triggers.json` 만 역직렬화하고 script·tier_assets·queue_policy 를 알지 못한다(§2.7.2 계약 5).
+
+```
+data/cinematics/
+├── cutscene_triggers.json   ← Core 소비 (트리거·우선순위·once_per)
+├── cutscene_scripts.json    ← Presentation 소비 (비트·티어 에셋·큐 정책), id 로 조인
+└── (config) data/config/cinematics_rules.json
+```
+
+```jsonc
+// ── data/cinematics/cutscene_triggers.json (Core 소비) ──
+{
+  "schema_version": 1,
+  "triggers": [
+    {
+      "id": "cs_moment_warm_wine",              // 영구 불변 id (결번 정책). '#' 문자 금지
+      "category": "historical_moment",          // signature_entry|signature_ultimate|signature_duel|historical_moment|campaign|gacha_frame|combo_template|system
+      "fired_key": null,                        // null = id 그대로 기록. 템플릿은 의미키 선언(예: 등장씬 "entry" → 기록 "entry#guan_yu")
+      "on_event": "DuelEnded",
+      "conditions": [
+        { "type": "actor_is", "value": "guan_yu" },                    // 고유 대사 컷씬 = actor_is 필수 [MUST]
+        { "type": "event_field", "field": "winner", "op": "eq", "value": "actor" },
+        { "type": "state_check", "key": "elapsed_battle_turns", "op": "lte", "value": 3 },
+        { "type": "not_fired", "cutscene_id": "self", "scope": "global" },
+        { "type": "context_match", "with": "cs_moment_warm_wine_preroll", "key": "duel_id" }
+      ],
+      "priority": 80,
+      "once_per": "save",                       // enum: save|faction|character
+      "params": []                              // 템플릿용 (예: ["character_id"], ["char_a","char_b"])
+    },
+    {
+      "id": "cs_moment_warm_wine_preroll",      // 프리롤 = 독립 컷씬 항목 (항목당 트리거 1개 균일 모델)
+      "category": "historical_moment",
+      "on_event": "DuelStarted",
+      "conditions": [
+        { "type": "actor_is", "value": "guan_yu" },
+        { "type": "not_fired", "cutscene_id": "cs_moment_warm_wine", "scope": "global" },
+        { "type": "chance_permyriad", "value": 6000 }   // cinematic 스트림 무상태 해시 파생(§2.7.3) — 쿨다운 카운터 대체, 세이브 표면 0
+      ],
+      "priority": 79,
+      "params": []
+    }
+  ]
+}
+
+// ── data/cinematics/cutscene_scripts.json (Presentation 소비, id 조인) ──
+{
+  "schema_version": 1,
+  "scripts": [
+    {
+      "id": "cs_moment_warm_wine",
+      "title_ko": "온주참화웅",
+      "title_card": { "text": "溫酒斬華雄", "style": "ink_brush" },
+      "queue_policy": "immediate",              // immediate|end_of_phase|drop — 연출 메타(재생 지연은 Core 의미론 무영향)
+      "script": [                               // T0 SSOT — 하위 티어는 모르는 beat 무시(전방 호환). 수치 전부 정수(ms·만분율)
+        { "beat": "beat_pause", "pause_ms": 700 },
+        { "beat": "title_card", "ref": "self", "sfx": "sting_blade_r5" },
+        { "beat": "still", "key": "warm_wine_02_blade" },           // T1 전용
+        { "beat": "camera", "hint": "dive_to_actor" },              // T2+ 힌트
+        { "beat": "narration", "text_ko": "관우가 돌아와 잔을 든다. — 술은 아직 따뜻했다.", "pause_ms": 1200 }
+      ],
+      "short_script": [
+        { "beat": "title_card", "ref": "self" },
+        { "beat": "narration", "text_ko": "찻잔이 식기 전에 — 적장의 목이 떨어졌다.", "pause_ms": 400 }
+      ],
+      "target_tier": "t3",                      // ContentGate 판정 기준
+      "tier_assets": {
+        "t1_stills": ["warm_wine_01_cup", "warm_wine_02_blade", "warm_wine_03_return"],
+        "t2_sequence": null,                    // 미제작 = null (placeholder 금지 — 존재 최고 티어로 강등 재생)
+        "t3_level_sequence": "LS_WarmWine"      // t3_budget_cap 대상만 채움
+      }
+    },
+    {
+      "id": "cs_moment_warm_wine_preroll",
+      "queue_policy": "immediate",
+      "script": [
+        { "beat": "line", "speaker_ref": "actor",
+          "text_ko": "잔을 데워 두시오. 이 찻잔이 식기 전에 적장의 목을 베고 돌아오겠소.", "pause_ms": 900 }
+      ],
+      "target_tier": "t0",
+      "tier_assets": {}
+    }
+  ]
+}
+
+// ── data/config/cinematics_rules.json ──
+{
+  "skip_hold_ms": 1500,
+  "short_after_first_fire": true,
+  "ai_turn_cutscene_mode": "short_only",
+  "auto_resolve_cutscene_mode": "text_line_only",
+  "max_full_cutscenes_per_battle": 2,           // once_per 지정 컷씬은 상한 제외
+  "ending_always_full": ["cs_end_world_conquest", "cs_end_joint_victory", "cs_end_defeat"],
+  "combo_ultimate_template": "cs_combo_ultimate_frame",
+  "t3_budget_cap": 5                            // 집행 = ContentGate(CI) FAIL. 런타임 로더는 이 값을 읽지 않는다 [MUST]
+}
+```
+
+**기존 스키마 추가 필드**: `characters.json` 에 `"tags": ["duelist_legend"]`, `"entry_cutscene_id": "cs_entry_guan_yu"`(A1 — ★5 초빙 리빌이 재사용, §2.8.10). `skills.json` 의 `cutscene_id` 는 §2.4 기존 필드 그대로 — 참조 무결성 검증 대상에 편입.
+
+**DataLoader 검증(§5.5 확장 — 런타임)**: ①triggers↔scripts id 조인 완전성 ②`skills.cutscene_id`·`not_fired.cutscene_id`·`context_match.with`·`ending_always_full`·speaker 참조 실존(정의 간 참조가 결번 id 를 가리키면 기동 실패 — 세이브 잔존 id 관대와 이중 기준, §2.7.12) ③id 문자셋 `#` 금지 ④condition type·enum 값 검증 ⑤Core 바인딩 타입이 scripts 필드를 포함하지 않음(구조 검증). **t3 캡·에셋 실존·placeholder 검출은 ContentGate(CI) 소관** — 런타임 로더 검증 금지 [MUST].
+
+### 5.8 초빙(가챠) 스키마
+
+```jsonc
+// ── data/summon/banners.json ──
+{
+  "banners": [
+    { "id": "banner_standard", "name_ko": "상시 초빙 — 천하의 인재",
+      "banner_type": "standard",
+      "cost_single": 100, "cost_batch10": 900,
+      "rate_table_id": "rt_standard",           // 발행 후 불변 [MUST] — 변경 필요 시 신규 배너 id + pity_key_aliases
+      "pity_scope": "rate_table",               // rate_table|own — 발행 후 불변 [MUST]
+      "pool_filter": { "channels": ["summon"], "origins": "any", "rarity_min": 1, "rarity_max": 5 },
+      "allowed_factions": "all",
+      "unlock": { "type": "always" }, "rate_up": [], "reveal_overrides": {},
+      "opening_cinematic_id": "cine_summon_gate_standard" },
+    { "id": "banner_dimension_gate", "name_ko": "차원문 초빙 — 이계의 영웅",
+      "banner_type": "themed",
+      "cost_single": 150, "cost_batch10": 1350,
+      "rate_table_id": "rt_standard", "pity_scope": "own",
+      "pool_filter": { "channels": ["summon"], "origins": ["crossover_kimetsu","crossover_marvel","crossover_fate"], "rarity_min": 3, "rarity_max": 5 },
+      "allowed_factions": "human_players",      // AI 의 크로스오버 획득 차단
+      "unlock": { "type": "any_of", "triggers": [
+        { "type": "event_fired", "event_id": "ev_dimension_rift" },
+        { "type": "turn_reached", "turn": 24 } ] },
+      "rate_up": [ { "character_id": "saber_artoria", "weight_multiplier_pct": 200 } ],
+      "opening_cinematic_id": "cine_summon_gate_dimension" }
+  ],
+  "pity_key_aliases": {}                        // 구 pity 키 → 신 키 승계 맵 (순환·중복 로더 검사)
+}
+
+// ── data/summon/rate_tables.json (전부 정수 permyriad, 합 10000 로더 검증) ──
+{
+  "rate_tables": [
+    { "id": "rt_standard",
+      "weights_permyriad": { "5": 300, "4": 1300, "3": 6400, "2": 1500, "1": 500 },
+      "fallback_order": { "5": ["4","3","2","1"], "4": ["3","5","2","1"],
+                          "3": ["4","2","5","1"], "2": ["3","1","4","5"], "1": ["2","3","4","5"] },
+      "soft_pity": { "rarity": 5, "start_after": 20, "add_permyriad_per_draw": 600 },
+      "hard_pity": { "rarity": 5, "at_draw": 30 },   // [MUST] ≤ validation.max_pity_threshold
+      "batch_guarantee": { "size": 10, "min_rarity": 4 } }
+  ]
+}
+
+// ── data/summon/summon_reveals.json (Presentation 해석 전용 — Core 는 읽지 않는다 [MUST]) ──
+{
+  "defaults_by_rarity": {                        // rarity 1~5 전 등급 명시 필수 (로더 검증 — 상속 폴백 없음)
+    "1": { "entry_mode": "fixed_cutscene", "cutscene_id": "cine_summon_r1", "tier": "text" },
+    "2": { "entry_mode": "fixed_cutscene", "cutscene_id": "cine_summon_r2", "tier": "text" },
+    "3": { "entry_mode": "fixed_cutscene", "cutscene_id": "cine_summon_r3", "tier": "standard" },
+    "4": { "entry_mode": "fixed_cutscene", "cutscene_id": "cine_summon_r4", "tier": "premium" },
+    "5": { "entry_mode": "character_entry",      // ★5 = 캐릭터 entry_cutscene_id(A1) 재사용 — 센티널 문자열 금지, enum 으로 분기
+           "fallback_cutscene_id": "cine_summon_r5_default", "tier": "cinematic" }
+  },
+  "tease": { "gate_color_by_max_rarity": { "3": "blue", "4": "purple", "5": "gold" },  // ★4/★5 시각 분리 — near-miss 제거
+             "truthful_signal": true,
+             "fakeout_permyriad": 0,             // 기본 비활성. 활성 시에도 상향 전용 [MUST]
+             "fakeout_direction": "upward_only",
+             "max_suspense_seconds": 3 },
+  "reveal_order": "rarity_ascending",
+  "skip_policy": { "always_skippable": true, "repeat_view": "short_version",
+                   "tracked_by": "firedCutsceneIds" },   // §2.7 fired 집합 재사용 — 별도 세트 금지 [MUST]
+  "pity_trigger_cinematic_id": "cine_summon_pity_bloom"
+}
+
+// ── data/characters/characters.json 확장 (§5.1 항목에 추가) ──
+{
+  "id": "yi_sunsin", "rarity": 5,
+  "tags": [],
+  "entry_cutscene_id": "cs_entry_yi_sunsin",     // A1 등장씬 — CharacterJoined·★5 리빌 공용 (에셋 1벌)
+  "required_for": [],                            // 비어있지 않으면 도달가능성 린트 대상 (§2.8.7-4)
+  "acquisition": {
+    "channels": ["summon", "recruit"],           // start|summon|recruit|event
+    "initial_status": "unaffiliated"             // unaffiliated+recruit 단독 조합은 린트 리젝
+  }
+}
+
+// ── data/config/game_rules.json 확장 ──
+{
+  "summon": {
+    "currency_name_ko": "천명",
+    "income": {                                  // 소스 화이트리스트 — 미등록 소스 리젝 [MUST]
+      "base_per_turn": 5,
+      "battle_victory": {
+        "metric": "total_troops_engaged",        // 소/중/대 판정 기준의 데이터 외부화 (§5.4 매직넘버 금지)
+        "thresholds": { "medium": 5000, "large": 20000 },   // 로더: 단조 증가 검증
+        "reward": { "small": 10, "medium": 25, "large": 50 } },
+      "first_capture": 20,
+      "duel_victory": { "amount": 15, "requires_feature": "duel" }   // §2.6 일기토 [MAY] 채택 시 활성 — 미채택 시 미발생 허용
+    },
+    "transferable_between_allies": false,        // 천명 직접 이전 금지 [MUST]
+    "gift_summon": { "enabled": true,
+                     "counts_toward_issuer_cap": true,
+                     "counts_toward_recipient_cap": true,
+                     "max_pending": 3,
+                     "advances_recipient_pity": false },   // 쟁점 확정 전 보수 기본값 (§2.8 미확정 #3)
+    "reserve_slots_per_player": 2,
+    "max_summons_per_turn": 10,
+    "join_loyalty": 90,
+    "join_level_rule": { "type": "faction_top5_avg_pct", "pct": 60, "min": 1, "max": 30 },
+    "ai": { "enabled": true, "single_draw_only": true, "spend_threshold": 300 },
+    "validation": { "max_pity_threshold": 40,
+                    "rarity_stat_budget_max": { "3": 420, "4": 500, "5": 560 } }
+  }
+}
+
+// ── data/factions/factions.json 난이도 보정 확장 (§1.2) ──
+{ "difficulty_modifiers": { "mandate_income_pct": 150 } }
+
+// ── 세이브 스키마 스케치 (§2.7.12·§2.8.11) ──
+{
+  "schema_version": 2,
+  "rng_streams": {                               // §4.4 개정(§2.7.3) 전제. cinematic 스트림 = 무상태 해시 — 저장 불요
+    "combat":        { "state": "0x9E3779B97F4A7C15", "inc": "0xDA442D24" },
+    "world_events":  { "state": "0x...", "inc": "0x..." },
+    "summon:father": { "state": "0x...", "inc": "0x..." },
+    "summon:son":    { "state": "0x...", "inc": "0x..." }
+  },                                             // 부재 구세이브: Hash(campaign_seed, stream, current_turn) 재시드 — 기본값 0 금지
+  "cinematics": { "firedCutsceneIds": ["cs_moment_warm_wine", "entry#guan_yu"] },  // ordinal 정렬 직렬화 [SHOULD]
+  "campaign": { "unlocked_banner_ids": ["banner_standard", "banner_dimension_gate"] },
+  "factions": [
+    { "id": "father", "controller": "human_p1",  // 플레이어=세력 1:1 [MUST]
+      "summon": { "mandate": 1200,
+                  "pity": { "rt_standard": { "5": 12, "4": 3 } },   // map<pity_key, map<rarity,int>>
+                  "reservedCharacterIds": ["saber_artoria"],
+                  "pendingGiftSummons": [],
+                  "summons_this_turn": 0,
+                  "summon_history": [ { "turn": 12, "banner_id": "banner_standard", "character_id": "zhang_liao" } ] } }
+  ]
+}
+```
+
+**DataLoader 검증(§5.5 확장)**: banner→rate_table 참조 / opening·reveal·pity_trigger cinematic id 실존(§5.7 레지스트리 대조 — 시네마틱 데이터 확정 전 Phase 0 병행 시 "선언 id 목록" 스텁 파일 대조) / permyriad 합 10000 / fallback 체인 순환 금지 / defaults_by_rarity 1~5 전 등급 명시 / entry_mode enum / channels 열거값 / 재화 소스 화이트리스트 / battle_victory threshold 단조 증가 / hard_pity ≤ max_pity_threshold / rarity 스탯 예산 밴드 / **도달가능성 린트 3규칙**(§2.8.7-4) / 가챠 풀 내 각 rarity 최소 1인 / pity_key_aliases 순환·중복 / id `#` 금지 — 위반 시 파일·항목·사유 명시 후 기동 실패.
+
+**§4.2 클래스 표 추가 행**:
+
+| 클래스 | 책임 | 핵심 멤버 |
+|---|---|---|
+| `CutsceneDirector` (Core) | 이벤트↔트리거 대조, 컷씬 id 선택만 | `EvaluateTriggers(event)`, `firedCutsceneIds` |
+| `SummonSystem` (Core) | 풀 파생·뽑기 오케스트레이션·pity·재화·선물/예약 커맨드 | `GetPool()`, `DrawBatch()`, `IssueGiftSummon()`, `ReserveCharacter()/ReleaseReservation()`, `EvaluateBannerUnlocks()`, `GetCurrentRates()` |
+| `SummonRoller` (Core) | 확률 판정 **순수 함수**(상태 없음 — DamageCalculator 동형) [SHOULD] | `Roll(poolSnapshot, rates, pityState, rng)` |
+| `ProfileStore` (Presentation) | 세이브 밖 기기 프로필(재생 모드 p1/p2) | 파손 시 기본값 재생성 — 진행 영향 0 계약 |
+
+EventBus 신규 이벤트: `CutsceneTriggered`, `CharacterJoined`, `MandateEarned`, `BannerUnlocked`, `SummonPerformed`, `PityTriggered`, `GiftSummonIssued/Opened` — 전부 불변 객체(§4.3), Core 는 발행 후 즉시 리턴(§2.7.2 논블로킹).
+
 ---
 
 ## 6. 성능·최적화 지침 (Performance) [MUST]
@@ -358,6 +979,12 @@ data/
   - [ ] `dotnet test` 전체 통과 (로더 검증 케이스 포함: 깨진 참조·범위 위반 검출 테스트)
   - [ ] 샘플 JSON 로드 → 콘솔에 세력·영지·캐릭터 요약 출력
 - **지시 예시**: *"Phase 0. §5.1~5.5 스키마대로 data/ 샘플과 DataLoader, 도메인 클래스, xUnit 테스트를 작성하라. 전투·UI 코드는 금지."*
+- **v1.2 증분 (§2.7 시네마틱·§2.8 초빙 채택분)** — Phase 0 코드 기완료 상태이므로 "재개봉 증분"으로 취급(기존 로더 회귀 테스트 범위 유지):
+  - **선결 승인 [MUST]**: §4.4 개정(§2.7.3 — 명명 RNG 스트림 + 직렬화 가능 PRNG, PCG32 권장). 전투·이벤트 난수를 포함한 Core 전역 계약이므로 가장 이른 게이트 소관. 승인 시 무효화되는 기존 테스트 픽스처·리플레이 목록을 작성 후 일괄 재생성한다.
+  - 작업: §5.7·§5.8 스키마 확정 + `data/` 샘플 컷씬 10편(궁극기 5 + 등장 템플릿 2 + 명장면 1[온주참화웅 프리롤/페이오프] + 캠페인 1[동맹 체결] + 엔딩 스텁 1) + `docs/CINEMATIC_GRAMMAR.md`(1페이지) + DataLoader 검증 확장(§5.7·§5.8 검증 목록 전체) + `characters.json` `acquisition`/`required_for`/`entry_cutscene_id`/`tags` 확장
+  - DoD 추가:
+    - [ ] 깨진 cutscene_id·speaker 참조 / permyriad 합 오류 / fallback 순환 / pity 캡 초과 / 스탯 밴드 위반 / 도달가능성 린트(unaffiliated+recruit 단독 리젝 포함) / id `#` 위반을 **파일·항목·사유 명시**로 검출하는 로더 테스트 통과
+    - [ ] Core 역직렬화 타입이 cutscene_scripts·summon_reveals·tier_assets 를 포함하지 않음(구조 검증)
 
 ### Phase 1 — 글로벌 맵·내정 시뮬레이터 (전투 제외)
 - **작업**: 턴 루프(§2.2, 전투는 스텁) + 자원 생산 + 시설 건설 + 징병 + 부대 이동(A*) + 무혈 점령(수비대 0 영지) + 핫시트 2인 입력 + 세이브/로드
@@ -365,6 +992,16 @@ data/
   - [ ] 콘솔에서 아빠·아들 2인이 턴 넘기며 자원 모으고 빈 영지 점령 가능
   - [ ] 50턴 자동 진행 스모크 테스트 통과 (예외·자원 음수 없음)
   - [ ] 세이브 → 로드 → 상태 동일성 테스트 통과
+- **v1.2 증분 (§2.7·§2.8)**:
+  - 작업: `CutsceneDirector` 골격 + `CutsceneTriggered` + 콘솔 `TextCutscenePlayer`(line/narration/title_card/pause) + 비전투 트리거(동맹 체결·무혈 점령) 가동 / 수입 페이즈 천명 정산(기본 수입만) + `SummonSystem`/`SummonRoller` + 콘솔 초빙 커맨드(**`초빙 정보` 확률 공시 포함 [MUST]**) / `firedCutsceneIds`·`rng_streams`·세력별 summon 블록 세이브 편입 / `--record` 리플레이 축적 시작 / §2.2 명령 4종·§2.3 천명 행 반영 확인
+  - DoD 추가:
+    - [ ] 동맹 체결 → 콘솔 T0 재생. 50턴 스모크가 컷씬으로 블로킹되지 않음(Core 논블로킹 구조 확인 — 특례 플래그 없이)
+    - [ ] 세이브→로드 상태 동일성에 `firedCutsceneIds`·pity·잔고·`rng_streams` 포함
+    - [ ] 로드 직후 뽑기 결과 = 저장 전과 동일 + **리로드 후 이질 행동(전투·이동·타 세력 뽑기) 삽입 시나리오에서도 자기 세력 뽑기 결과 불변**(세력별 스트림 — 세이브스컴 방지 실검증)
+    - [ ] 같은 시드+커맨드 시퀀스 → 같은 결과(시드 고정 1,000회 리플레이) / rate_up 가중 추첨 검증 / "뽑기 1회 = RNG 2회 소비" 불변식 테스트
+    - [ ] 천장 property 테스트(어떤 시퀀스도 30회 내 5성 — 풀 고갈 hard pity 케이스 포함) / 무꽝 property / `초빙 정보` 표시값 = `GetCurrentRates()` 일치(고갈 케이스 포함)
+    - [ ] 기본 수입 단독 페이스 검증(10턴 150~250 천명) — 경제 게이트 실효 판정은 Phase 2 이관 명기
+    - [ ] 구버전 세이브 픽스처(cinematics·summon 블록 부재) 로드 → 기본값(빈 set/0) + rng_streams 재시드 규칙 동작
 
 ### Phase 2 — 전투 로직·스킬·외교·AI (콘솔 완결판)
 - **작업**: `CombatManager`·`DamageCalculator`(지형·상성·풍향·조류) + `SkillSystem`(EffectType 해석기, 게이지) + 육상/해상/상륙전 + 자동 계산 + `DiplomacyManager`(동맹·시야공유·자원지원·공동전투) + 규칙 기반 `AIController` + 승리 판정
@@ -373,20 +1010,48 @@ data/
   - [ ] 해상전에서 풍향·조류 변경 시 결과가 달라지는 테스트 통과
   - [ ] **부자 2인이 콘솔 버전으로 처음부터 공동 승리까지 1회 완주** ← 재미 검증 게이트
   - [ ] 밸런스 배치 시뮬: AI끼리 100판 자동 대전 → 특정 세력 승률 70% 초과 없음 [SHOULD]
-- **★ 게이트 리뷰**: 완주 후 "UE5 풀 3D 강행 / Godot·2D 축소 / 콘솔+간이UI 유지" 재결정 (§9)
+- **v1.2 증분 (§2.7·§2.8)**:
+  - 작업: 트리거 DSL 전투 확장(DuelEnded·BattleEnded·SkillExecuted — §2.4 `cutscene_id` 연동) + priority/queue_policy/피로 규칙 + 명장면 5편 + 전투 승리 천명 보상([5]) + 배너 해금 트리거([6]) + AI 초빙 소비 + 선물 초빙장·찜 예약(조정 명령군 정식 커맨드 — 커맨드 로그 경유) + 콘솔 리빌 3단 연출 + 합격기 판정 + 명장면첩(인게임 텍스트) + **T0 전량 집필(~30편)** + 아들 낭독회(table-read) + 테스트 하네스 [SHOULD]: 천명 지급·pity 세팅 치트 커맨드(디버그 빌드 전용, 릴리스 노출 차단). ※ 로컬 이미지 생성 환경 구축은 Phase 3a — Phase 2 는 규칙만 발효: 게이트 통과 전 이미지·영상 생성 도구 착수 금지, **IP 참조 이미지 클라우드 업로드 금지는 즉시 발효 [MUST]**
+  - DoD 추가:
+    - [ ] 동일 시드에서 온주참화웅(프리롤→페이오프) 트리거 재현 / 궁극기 최초 풀→쇼트 전환 / 시드 고정 리플레이 2회의 CutsceneTriggered (id, firstFire) 시퀀스 완전 동일(예약·선물 커맨드 개입 케이스 포함)
+    - [ ] 초빙 r1~r5 콘솔 연출 구분 + 판정 분포 시드 테스트
+    - [ ] **무가챠 런(초빙 0회) 완주 가능 자동 시뮬 [MUST]** + required_for 캐릭터 전원 획득 로그 확인
+    - [ ] AI 100판 배치 시뮬(초빙 활성) 승률 70% 조건 유지 + 풀 소진 시점 = 캠페인 목표 턴수 정합(경제 시뮬)
+    - [ ] 행운 시드 강제 테스트(치트 하네스로 10턴 내 5성 주입 → 승률 편차 한도 내 — 3중 잠금 실효)
+    - [ ] 명장면 강제 평가 플래그 배치 시뮬 발화율 리포트 + 명장면 5편 각각의 조건 충족 고정 시드 시나리오(3턴 내 일기토 승리가 실도달 가능한 밸런스인지)
+    - [ ] 부자 완주 게이트에 "초빙 10연 1회 + 시그니처 이벤트 1회 이상 자연 발화 + 리빌 텍스트가 두근거리는가(아들 피드백 기록 1건)" 포함
+- **★ 게이트 리뷰**: 완주 후 "UE5 풀 3D 강행 / Godot·2D 축소 / 콘솔+간이UI 유지" 재결정 (§9) — **안건 추가(v1.2)**: "관우 찻잔이 T0 로 통했는가" — 장면 설계 재미와 표현 매체 만족도를 분리 평가. UE5 축소 결정 시 `target_tier` 일괄 하향(T1 중심) — 데이터 수정만으로 노선 전환. 통과 시 킥오프 트레일러 30초 [MAY]
 
-### Phase 3 — UE5 연동·비주얼
-- **작업**: UE5 프로젝트 생성, Core C# 로직 이식(C++ 포팅 또는 명세 기준 재구현 — 콘솔판이 기대값 오라클) + 글로벌 맵 3D(LOD) + 전투 씬 + 궁극기 컷씬·파티클(오브젝트 풀) + UI/UX
+### Phase 3 — UE5 연동·비주얼 (3a/3b 분할 [MUST], v1.2)
+
+§9 "UE5 과대 스코프" 리스크의 연출판 방어 — 두 단계로 분할하며, **3a DoD 전량 통과가 3b 착수 게이트**다.
+
+#### Phase 3a — Core 이식·오라클·정지컷
+- **작업**: UE5 프로젝트 생성, Core C# 로직 이식(C++ 포팅 또는 명세 기준 재구현 — 콘솔판이 기대값 오라클) + 글로벌 맵 3D(LOD) + 전투 씬 + UI/UX + `CinematicPlayer` T1(Ken Burns 정지컷)만 + 로컬 이미지 생성 환경 구축(스타일 바이블 포함 — IP 클라우드 업로드 유혹 제거)
 - **DoD**:
   - [ ] 동일 시드·동일 입력 시 UE5 판과 콘솔 판의 전투 결과 일치 (오라클 테스트)
+  - [ ] 오라클 확장 — CutsceneTriggered (id, firstFire) 시퀀스·뽑기 결과(캐릭터·순서) 콘솔=UE5 완전 일치
+  - [ ] `ResolveRevealCinematic()` 순수 함수 단위 테스트(동일 입력→동일 id)
+  - [ ] 컷씬 재생·스킵이 전투 결과 무영향 / 임의 티어 에셋 제거 시 크래시 없이 강등 재생, placeholder 0건
   - [ ] GTX 1660급 60fps (맵·전투 모두), 풀링 미적용 Spawn/Destroy 검출 0건
+
+#### Phase 3b — 연출 본편 (착수 게이트 = 3a DoD 전량 통과)
+- **작업**: T2 템플릿 3종(육상 궁극기/해상 궁극기/리빌·등장) + 5★ 캐릭터 바인딩 + 초빙 개봉 비주얼(문 색 티즈·확률 고정 패널) + 궁극기 컷씬·파티클(오브젝트 풀) + 문법 킷(레터박스·타이틀카드·스팅어) + 시네마 모드 [MAY] + ContentGate `--ue5-project` 모드. **Sequencer 학습 기간 최소 1~2주를 견적에 명기.** T3 는 ①공동 승리 엔딩 ②동맹 체결 2편만 — ③온주참화웅 ④5★ 프레임 ⑤적벽은 Phase 4~5 이연.
+- **DoD**:
+  - [ ] rarity 5 궁극기 전부 t2 이상(ContentGate 기계 판정)
+  - [ ] 파티클 전량 EffectPoolManager 경유 — 컷씬·리빌 포함 Spawn/Destroy 0건
+  - [ ] 5성 세리머니 중 60fps / 확률 패널 클릭 0회 노출 / 모든 리빌 스킵 가능 / T3 ≤ 캡
 
 ### Phase 4 — CC0 사운드·에셋·폴리시
 - **작업**: CC0 라이브러리(Freesound CC0, Kenney, OpenGameArt 등)에서 BGM·SFX·환경 텍스처 수급 → `AudioManager`가 기후(사막·설원·바다)·상황(내정/전투/승리)별 트랙 전환 → 에셋 출처 목록 `docs/ASSET_CREDITS.md` 기록 [MUST]
 - **DoD**: [ ] 전 기후·전투 상황 BGM 매핑 완료, 라이선스 표 100% 작성
+- **v1.2 증분 (§2.7·§2.8)**:
+  - 작업: 등급 스팅 5종 + 컷씬 BGM 덕킹/전환 + 붓글씨 폰트(라이선스 확인) + 문 열림·천장 만개 SFX + AI 영상 T3 파일럿 ≤3편(퍼블릭 도메인 역사 위인·풍경 샷만, 실패 시 T2 촬영 대체 — 채택 여부는 §2.7 미확정 #2) + 이연 T3(③④⑤) 제작 + 정식 트레일러(티저 30초 + 본편 90초, 워터마크 자동 번인)
+  - DoD 추가: [ ] 전 sfx/bgm 키 실에셋 매핑 100% + `ASSET_CREDITS.md` 확장 스코프(AI 생성 에셋은 도구명·생성일·약관 확인·IP 참조 이미지 미사용 확인을 행 단위 기록) / [ ] 트레일러 가족 시사회 1회 + 워터마크 번인 확인 + 업로드 금지 가족 합의(파일 경로 수준)
 
 ### Phase 5 — 콘텐츠 확장·밸런스 (라이브 운영)
 - 캐릭터·영지 추가(JSON만으로), 이벤트 시스템 확장, 아들 피드백 반영 루프
+- **v1.2 증분 (§2.7·§2.8)**: 신규 캐릭터 체크리스트 확장 — characters.json + T0 대본(또는 등급 템플릿) + 초상화만으로 성립(코드 0줄) + **무가챠 완주 시뮬 재실행 [MUST]**(도달가능성 보장의 라이브 유지) + 배너 추가 시 기존 세이브 자동 소급 확인 / 명장면 시즌2 / 재감상 union 갤러리 [MAY] / 잉여 천명 소모처(도감 완성 기념 시네마틱 + 천명→금 환전율 데이터 — 풀 고갈 연착륙) / 인재 추천 [MAY] / AI TTS 한 줄 보이스 파일럿 [MAY] / 아들 "가장 다시 보고 싶은 컷씬" 문항 → T3 잔여 예산·티어 승급 백로그 근거 / 아이템 가챠 도입 시 무꽝·무스태킹 원칙 승계 심사
 
 ---
 
@@ -408,8 +1073,21 @@ data/
 | 전 세계 맵 밸런스 붕괴 | 초기 40~60노드로 시작, 배치 시뮬로 검증 후 확장 |
 | AI가 한 번에 다 만들다 코드 꼬임 | §0.3 + §7 Phase 게이트 강제. Phase 건너뛰기 요청은 AI가 거절하고 사유 안내 |
 | 세이브 호환 깨짐 | 세이브에 스키마 버전 필드, 로드 시 버전 검사 |
+| T3 베스포크 스코프 크리프 ("엔딩만 조금 더"가 취미 프로젝트 좌초의 전형) | `t3_budget_cap` 을 ContentGate(CI) FAIL 로 기계 강제 — 단 **런타임 부팅과는 분리**(콘솔 오라클 비인질). 캡 상향은 게이트 리뷰 안건으로만 |
+| Phase 3 과적 — 연출 체계가 §9 "UE5 과대 스코프" 경고를 재생산 | Phase 3 을 3a(Core 이식+오라클+T1)/3b(T2·초빙 비주얼) 분할, 3a 완료가 3b 착수 게이트. T3 3편 Phase 4~5 이연, Sequencer 학습 1~2주 견적 명기 |
+| 명장면 조건 과다 엄격 (3턴 내 일기토 승리가 밸런스상 사실상 불가) | 배치 시뮬 **강제 평가 플래그** 발화율 리포트 + 명장면별 조건 충족 고정 시드 시나리오 테스트 (Phase 2 DoD) |
+| 궁극기 컷씬 반복 피로 + 부자 감상 속도 차(아들=다 보고 싶음, 아빠=진행) | 최초 풀→쇼트 / 전투당 풀 상한 2 / 재생 모드 **플레이어 슬롯별** 프로필 — 게이트 리뷰 실관찰로 기본값 재조정 |
+| IP 캐릭터 참조 이미지의 클라우드 AI 업로드 (ToS·유출) | 업로드 금지 [MUST] 즉시 발효 + 로컬 생성 환경을 Phase 3a 에 선구축(유혹 제거) |
+| 트레일러·캡처의 외부 유출 (아들 SNS) | 공유/내보내기 기능 미탑재(스코프 아웃) + 워터마크 자동 번인(해제 불가) + 가족 합의 — 합의는 억제책일 뿐, **잔존 리스크로 수용** |
+| AI 일러스트 화풍 드리프트 | 스타일 바이블(수묵+담채 프롬프트 고정)로 완화 |
+| 초빙 풀 고갈 (비복원 풀이라 후반 천명이 죽은 재화) | Phase 2 경제 시뮬 DoD 검측 + 고갈 시 확률·게이지 표시 전환(§2.8.6) + Phase 5 환전·기념관 연착륙. v1 은 "전원 수집 = 완료"로 수용 |
+| AI 초빙 스노볼 / 크로스오버 채가기 | Phase 2 배치 시뮬(초빙 활성) 게이트 + `allowed_factions`·찜 예약 이중 노브 |
+| 선물 초빙장의 pity 가속 (아빠 재화로 아들 천장 전진) | `advances_recipient_pity` 기본 false + 발행자·수신자 양측 턴 캡 + `max_pending: 3` — 완전 차단 아님을 명기 |
+| 리플레이 버전 안정성 (콘텐츠 삽입 시 난수 소비 순서 변동) | cinematic 무상태 해시 파생(§2.7.3)으로 제약을 **combat 스트림 한정으로 축소** — 트레일러 촬영·편집은 같은 버전 내 완결 규칙 |
+| 콘솔 T0 가 재미 검증을 왜곡 (텍스트가 심심한 것 ≠ 장면 설계가 나쁜 것) | Phase 2 게이트에서 '장면 설계 재미'와 '표현 매체 만족도' 분리 평가 |
+| 세이브스컴 방지의 역작용 ("한 번 꼬인 시드" 불만 — 리로드해도 같은 결과) | soft pity 로 완화 + 디버그 전용 치트 하네스(천명 지급) [MAY] 탈출구 |
 
-**스코프 아웃 (v1에서 하지 않음)**: 온라인 멀티플레이, 모바일, 실시간 전투, 캐릭터 음성 풀더빙, 모드 마켓플레이스.
+**스코프 아웃 (v1에서 하지 않음)**: 온라인 멀티플레이, 모바일, 실시간 전투, 캐릭터 음성 풀더빙, 모드 마켓플레이스, **실물 과금·IAP·유료 재화 (영구 금지 — v1 한정 아님)**, **실시간(달력) 기간 한정 배너**, **중복 기반 파워 스태킹(돌파·성혼 — 영구 금지)**, **게임 내 공유·내보내기·업로드 기능**, 캠페인 간 메타 컬렉션(영구 로스터 — v2 백로그), 전 세이브 union 갤러리(Phase 5 재검토).
 
 ---
 
@@ -423,3 +1101,21 @@ data/
 | 오라클 테스트 | 콘솔판 결과를 정답지 삼아 UE5판 로직 일치를 검증하는 테스트 |
 | DoD | Definition of Done. Phase 완료 판정 체크리스트 |
 | EffectType | 스킬 효과를 데이터로 조립하기 위한 범용 효과 단위 |
+| 컷씬 티어 (T0~T3) | 연출 매체 단계: T0 텍스트(정본·의무) → T1 정지컷 → T2 인게임 템플릿 → T3 베스포크. 폴백 체인으로 자동 강등 재생 |
+| 비트(Beat) | 연출 스크립트의 최소 단위(line·narration·title_card·sfx 등). 하위 티어는 모르는 비트를 무시(전방 호환) |
+| fired = seen | 컷씬을 트리거 시점에 시청 처리로 기록하는 계약. 스킵·재생 실패와 무관 — 재생 행위가 Core 결정론을 오염시키지 않게 하는 장치 |
+| 폴백 체인 | t3→t2→t1→t0. 어떤 제작 진척 상태에서도 게임이 완결 경험이 되게 하는 규칙 (placeholder 금지) |
+| ContentGate | 컷씬 target_tier·에셋 실존·T3 캡을 CI 단계에서 기계 판정하는 도구(tools/). 런타임 부팅과 분리 |
+| 명명 RNG 스트림 | 마스터 시드에서 결정적으로 파생되는 용도별 난수 스트림(combat·world_events·summon:{세력}·cinematic) — §4.4 개정 |
+| 무상태 해시 파생 | 난수를 스트림 소비 없이 Hash(시드, id, 인덱스)로 얻는 방식. 콘텐츠 삽입이 리플레이를 깨지 않는다 |
+| 프리롤/페이오프 | 명장면의 2단 구성 — 예고 대사(프리롤) 후 조건 달성 시 절정(페이오프). 실패 시 침묵도 연출 자산 |
+| 합격기(合擊) | 두 플레이어 캐릭터의 궁극기가 같은 전투 턴에 발동될 때의 2-파라미터 공용 템플릿 연출 |
+| 명장면첩 | fired 집합 기준 컷씬 재감상 갤러리(캠페인 내 인게임 메뉴). 잠긴 슬롯은 힌트 한 줄 |
+| 초빙(招聘) | 천명으로 재야·이계 인재를 소환하는 인게임 가챠. 실물 과금 절대 없음, 캠페인 내부의 조정 명령 |
+| 천명(Mandate) | 초빙 전용 단일 인게임 재화. 획득 소스는 화이트리스트로만 정의 |
+| 조정(朝廷) 명령 | 플레이어 페이즈의 4번째 명령군(초빙·선물 초빙장·찜 예약) — §2.2 개정 |
+| 천장(Pity) | 뽑기 누적 보장 장치. soft = 확률 가산, hard = 등급 확정 [MUST]. 카운터는 풀 고갈 시에도 이월 |
+| 비복원 추출 | 뽑힌 캐릭터가 풀에서 제외되는 방식(무장 유일 개체) — 중복·명함·돌파 경제가 원천 부재 |
+| 페이크아웃 | 리빌 문 색이 상위 등급으로 승격되는 서프라이즈 연출. 상향 전용 [MUST], 기본 비활성 |
+| permyriad (만분율) | 정수 확률 단위(합 10000). float 금지 원칙 하의 표준 확률 표현 |
+| ProfileStore | 세이브 밖 기기 프로필(재생 모드 등) 저장소. 파손·삭제되어도 게임 진행 영향 0 이 계약 |
