@@ -234,4 +234,13 @@ public class ValidationTests
         var ex = LoadFails(dir);
         Assert.True(ex.Errors.Count >= 2, "여러 오류를 모아서 한 번에 보고해야 합니다 (조용한 스킵 금지)");
     }
+
+    [Fact]
+    public void 미래_스키마버전_거부()
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.RulesFile, n => n["schema_version"] = 999);
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "schema_version", "미래 버전 거부");
+    }
 }

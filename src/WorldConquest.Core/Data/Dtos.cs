@@ -152,6 +152,7 @@ internal sealed class FactionDto
 
 internal sealed class GameRulesDto
 {
+    public int? SchemaVersion { get; set; }   // 데이터 스키마 버전 앵커 (§5.5). 미래 버전 로드 거부.
     public int? StatMin { get; set; }
     public int? StatMax { get; set; }
     public int? RarityMin { get; set; }

@@ -19,6 +19,9 @@ public sealed class DataLoader
     public const string MapFile = "map/world_map.json";
     public const string FactionsFile = "factions/factions.json";
 
+    /// <summary>지원하는 데이터 스키마 버전 (game_rules.json:schema_version). 미래 버전은 로드 거부 (§5.5).</summary>
+    public const int SupportedSchemaVersion = 1;
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -114,6 +117,7 @@ public sealed class DataLoader
         var missing = new List<string>();
         void Need(object? v, string name) { if (v is null) missing.Add(name); }
 
+        Need(dto.SchemaVersion, "schema_version");
         Need(dto.StatMin, "stat_min"); Need(dto.StatMax, "stat_max");
         Need(dto.RarityMin, "rarity_min"); Need(dto.RarityMax, "rarity_max");
         Need(dto.LevelCap, "level_cap"); Need(dto.ExpCurveBase, "exp_curve_base");
@@ -143,6 +147,8 @@ public sealed class DataLoader
         void Check(bool ok, string entry, string message)
         { if (!ok) errors.Add(new ValidationError(RulesFile, entry, message)); }
 
+        Check(dto.SchemaVersion!.Value is >= 1 and <= SupportedSchemaVersion, "schema_version",
+            $"지원하지 않는 스키마 버전({dto.SchemaVersion.Value}). 지원: 1~{SupportedSchemaVersion} (미래 버전 거부).");
         Check(dto.StatMin!.Value >= 1 && dto.StatMin.Value <= dto.StatMax!.Value, "stat_min/stat_max", "1 <= stat_min <= stat_max 이어야 합니다.");
         Check(dto.RarityMin!.Value >= 1 && dto.RarityMin.Value <= dto.RarityMax!.Value, "rarity_min/rarity_max", "1 <= rarity_min <= rarity_max 이어야 합니다.");
         Check(dto.LevelCap!.Value >= 1, "level_cap", "1 이상이어야 합니다.");

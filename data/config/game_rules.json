@@ -1,4 +1,5 @@
 {
+  "schema_version": 1,
   "stat_min": 1,
   "stat_max": 120,
   "rarity_min": 1,
