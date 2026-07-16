@@ -12,7 +12,7 @@
 - [ ] **M1** — 수직 슬라이스: 절차 생성 지도 렌더 + 소유 색 + end turn + 세이브/로드 (스크린샷 QA 하네스 포함)
 - [ ] **M2** — 명령 UI 전체 + 이벤트 로그 연출 (콘솔과 기능 동등)
 - [ ] **M3** — 전투 씬·가챠 리빌·컷씬 T1 승격
-- [ ] self-contained 단일 파일 publish 전환 (deploy-local.py 개정, DOTNET_ROOT 의존 제거)
+- [x] self-contained 단일 파일 publish 전환 — 67.8MB exe 단일, DOTNET_ROOT·배치 인코딩 의존 제거. .NET 환경변수 없이 실행 실증
 
 ## Phase 2 — 전투·스킬·외교·AI (구현 전량 완료 · U1 재미검증만 대기)
 

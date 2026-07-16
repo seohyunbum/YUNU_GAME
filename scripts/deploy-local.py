@@ -50,11 +50,10 @@ def run(cmd: list[str], **kw) -> None:
 
 
 def write_bat(path: Path, mode: str, title: str) -> None:
+    # self-contained exe 라 DOTNET_ROOT 불필요 — 배치는 실행+pause 만.
     lines = [
         "@echo off",
         f"title {title}",
-        f"set DOTNET_ROOT={DOTNET_ROOT}",
-        "set PATH=%DOTNET_ROOT%;%PATH%",
         'cd /d "%~dp0"',
         f'"app\\WorldConquest.ConsoleHost.exe" {mode}',
         "pause",
@@ -91,8 +90,15 @@ def make_shortcuts() -> None:
 
 def main() -> int:
     print(f"repo: {REPO}\ndeploy: {DEPLOY}")
+    # self-contained 단일 파일 (ue5-client-design §4): 대상 PC 에 .NET 불필요 —
+    # DOTNET_ROOT·배치 인코딩 의존 제거 + UE5 자식 스폰이 exe 하나만 알면 됨.
+    # app/ 은 통째 재생성 — framework-dependent 시절 DLL 잔재가 남지 않게.
+    app = DEPLOY / "app"
+    if app.exists():
+        shutil.rmtree(app)
     run([dotnet_exe(), "publish", str(REPO / "src" / "WorldConquest.ConsoleHost"),
-         "-c", "Release", "-o", str(DEPLOY / "app")])
+         "-c", "Release", "-r", "win-x64", "--self-contained", "true",
+         "-p:PublishSingleFile=true", "-o", str(app)])
 
     # data/ 는 패널이 편집하는 라이브 사본 — 통째 교체(구버전 잔재 방지).
     # 커스텀 밸런스를 지키려면 배포 전 패널 값을 백업하거나 이 단계를 주석 처리.
