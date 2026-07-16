@@ -7,7 +7,8 @@ try { Console.InputEncoding = Encoding.UTF8; } catch { /* 입력이 리다이렉
 
 var playMode = args.Length > 0 && args[0] == "play";
 var loadMode = args.Length > 0 && args[0] == "load";
-var dataDir = playMode || loadMode || args.Length == 0 ? FindDataDir() : args[0];
+var simMode = args.Length > 0 && args[0] == "simulate";
+var dataDir = playMode || loadMode || simMode || args.Length == 0 ? FindDataDir() : args[0];
 if (dataDir is null)
 {
     Console.Error.WriteLine("data/ 폴더를 찾을 수 없습니다. 인자로 경로를 지정하십시오: dotnet run --project src/WorldConquest.ConsoleHost -- <data 경로>");
@@ -25,6 +26,51 @@ catch (DataValidationException ex)
     foreach (var error in ex.Errors)
         Console.Error.WriteLine($"  {error}");
     return 1;
+}
+
+if (simMode)
+{
+    // 배치 시뮬 (§8·Phase 2 DoD): simulate [판수] [--assert]. --assert = 승률 70% 초과 시 exit 1.
+    var games = args.Length > 1 && int.TryParse(args[1], out var g) ? g : 100;
+    var assert = args.Contains("--assert");
+
+    if (args.Contains("--trace"))
+    {
+        // 1판 진단 트레이스: 25턴마다 세력 상태 덤프
+        var ts = GameSetup.AiCampaign(db, 1000);
+        var tgm = new GameManager(ts, db);
+        tgm.CollectIncome();
+        for (var checkpoint = 25; checkpoint <= 200; checkpoint += 25)
+        {
+            while (ts.Turn <= checkpoint && tgm.CheckVictory().Count == 0) tgm.AdvancePhase();
+            Console.WriteLine($"── 턴 {ts.Turn} ──");
+            foreach (var f in ts.Factions.OrderBy(x => x.Id, StringComparer.Ordinal))
+            {
+                var troops = ts.Armies.Where(a => a.FactionId == f.Id).Sum(a => a.TotalTroops);
+                var locs = string.Join(",", ts.Armies.Where(a => a.FactionId == f.Id)
+                    .Select(a => $"{a.LocationNodeId}:{a.TotalTroops}"));
+                var fleets = string.Join(",", ts.Fleets.Where(x => x.FactionId == f.Id)
+                    .Select(x => $"{x.LocationNodeId}:{x.TotalTroops}"));
+                Console.WriteLine($"  {f.Id,-20} 영지{f.OwnedProvinceIds.Count,2} 금{f.Treasury,8} 병력{troops,8} [{locs}] ⚓[{fleets}]");
+            }
+            if (tgm.CheckVictory().Count > 0) { Console.WriteLine("승리!"); break; }
+        }
+        return 0;
+    }
+    Console.WriteLine($"AI 대 AI 배치 시뮬 {games}판 (턴 상한 200) 실행 중...");
+    var report = BatchSimulator.Run(db, games);
+
+    Console.WriteLine($"\n── 결과 ({report.Games}판 · 평균 {report.AverageTurns}턴 · 무승부 {report.Draws} · 판정승 {report.DecisionWins}) ──");
+    foreach (var (fid, w) in report.WinsByFaction.OrderByDescending(kv => kv.Value))
+        Console.WriteLine($"  {db.Factions[fid].NameKo,-8} {w,4}승 ({w * 100 / report.Games,3}%)");
+    Console.WriteLine($"최고 승률: {report.MaxWinRatePct}% (DoD 기준 70% 이하 [SHOULD])");
+
+    if (assert && report.MaxWinRatePct > 70)
+    {
+        Console.Error.WriteLine("✖ 밸런스 게이트 실패 — 특정 세력 승률 70% 초과");
+        return 1;
+    }
+    return 0;
 }
 
 if (loadMode)

@@ -87,6 +87,7 @@ public sealed class GameManager
     {
         TurnSystem.Advance(State);
         if (State.Phase == TurnPhase.Income) CollectIncome();
+        else if (State.Phase == TurnPhase.AiAction) new AIController(State, _db, this).RunAll();   // §2.2 [4]
     }
 
     /// <summary>수입 페이즈 (§2.2 [1]): 소유 육상 영지의 기본 생산량 + 시설 보너스(§2.3)를 정산한다.</summary>
