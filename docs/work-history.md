@@ -57,3 +57,11 @@
 - **핵심 판단**: GameState additive 확장(Armies·Provinces)은 SaveVersion 유지(구세이브=빈 리스트, B-3). 부대·영지·병종 정의 참조는 로드 시 fail-soft(D9)로 삭제 대응. 시설 정의는 game_rules.json 데이터 주도(§5).
 - **다음 작업자**: Phase 2(전투·스킬·외교·AI)는 §7 새 페이즈 — §0.3 클래스 목록 제시부터. Phase 2 완주(부자 공동 승리 1회) 후 UE5 강행/축소 게이트 리뷰. 잔여 Phase 1 세부(함대·상륙전·인구 감소)는 Phase 2와 함께.
 - **관련 커밋**: e4c6da3~9b83d8f (세이브·게임루프·부대·시설).
+
+## 2026-07-16 — Phase 1 적대 QA (확정 24건 수정, 잔여 low 문서화)
+
+- **시도/상황**: Phase 1 완주 후 8-finder 적대 버그 헌팅(Workflow) — 오버플로·세이브왕복·fail-soft·결정론·게임로직·입력파싱·데이터검증 관점.
+- **결과**: 후보 27 → 확정 24 전량 수정 + 회귀 테스트 7종. test 93→100. 커밋 `5fa73b1`.
+- **핵심 수정**: 미존재 영지 id → KeyNotFound 세션 크래시(WorldMap.TryGetNode), 징병 cost 곱 오버플로(long 승격), fail-soft 완전화(고아 부대·댕글링 relation·삭제 지휘관·시설·actor 프루닝), MoveArmy 해역 우회 차단, DataLoader null-crash·검증갭.
+- **안 고친 low (실害 미미, 의도적 보류)**: ① NewCampaign 초기 Actor 파생값 불일치 — Income 페이즈는 Actor 미사용이라 무해 ② 세이브 딕셔너리(Relations·Units·Facilities·RngStreams) 직렬화 순서 미고정 — 값 왕복은 정확, 바이트 동일성은 **Phase 2 시드 리플레이 골든 도입 시** 처리 ③ Save `.tmp` 잔존 — File.Replace 실패(희귀) 시, try/finally 정리 미도입 ④ TotalTroops checked Sum 오버플로 — 징병 상한(cost long)으로 완화 ⑤ CollectIncome O(영지×영지상태) — 소규모 맵(40~60노드) 무해.
+- **다음 작업자**: 위 ②는 Phase 2 골든 스냅샷 테스트 착수 시 SortedDictionary/커스텀 converter 로 확정 처리할 것.

@@ -3,7 +3,12 @@
 > 상세 파이프라인·DoD 는 스펙 §7. 이 문서는 **현재 초점과 대기 작업**의 얇은 트래커다.
 > 아들 테스트(§8) 백로그·Phase 2 게이트 리뷰 결정도 여기에 수렴한다.
 
-## NOW — Phase 1 진행 중
+## NOW — Phase 2 (전투·스킬·외교·AI) 착수
+
+설계: `docs/designs/combat-system-design.md` (클래스 목록·C1~C8). 단계: DamageCalculator(순수함수) → CombatManager(자동계산) → SkillSystem(EffectType) → 해상/상륙전 → DiplomacyManager → AIController.
+- [ ] DamageCalculator 착수
+
+## Phase 1 (완료 ✅) — §7 전량
 
 - [x] **세이브 시스템 설계** → `docs/designs/save-system-design.md` (§4.2 계약 D1~D10, design-doc 장르 첫 적용). `f80741f`
 - [x] **세이브 시스템 골격 구현** — Pcg32 `e4c6da3` · RngStreams `918b841` · GameState·SaveSystem `3581656`. 세이브→로드 상태 동일성·RNG 연속성 검증(test 68).
