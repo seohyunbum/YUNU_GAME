@@ -150,6 +150,12 @@ internal sealed class FactionDto
     public DifficultyModifierDto? DifficultyModifier { get; set; }
 }
 
+internal sealed class RetiredIdsDto
+{
+    // 삭제된 콘텐츠 id 의 영구 결번 목록 (§5.5 id 생애주기). 재사용 시 기동 실패.
+    public List<string>? RetiredIds { get; set; }
+}
+
 internal sealed class GameRulesDto
 {
     public int? SchemaVersion { get; set; }   // 데이터 스키마 버전 앵커 (§5.5). 미래 버전 로드 거부.

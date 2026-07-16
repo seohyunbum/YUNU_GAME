@@ -18,6 +18,7 @@ public sealed class DataLoader
     public const string CharactersFile = "characters/characters.json";
     public const string MapFile = "map/world_map.json";
     public const string FactionsFile = "factions/factions.json";
+    public const string RetiredIdsFile = "config/retired_ids.json";
 
     /// <summary>지원하는 데이터 스키마 버전 (game_rules.json:schema_version). 미래 버전은 로드 거부 (§5.5).</summary>
     public const int SupportedSchemaVersion = 1;
@@ -75,6 +76,18 @@ public sealed class DataLoader
         ValidateFactions(factionDtos, charIds, nodeById, errors);
         ValidateFactionDispositions(factionDtos, rules, errors);
 
+        // 6) 콘텐츠 id 생애주기 (§5.5): 결번(retired) 등재 id 를 신규 데이터가 재사용하면 기동 실패.
+        var terrainIds = CollectIds(terrainDtos.Select(t => t.Id));
+        var retired = CollectIds(ReadFile<RetiredIdsDto>(dataDir, RetiredIdsFile, errors)?.RetiredIds);
+        if (retired.Count > 0)
+            foreach (var (ids, file) in new (HashSet<string>, string)[]
+            {
+                (charIds, CharactersFile), (skillIds, SkillsFile), (unitIds, LandUnitsFile),
+                (factionIds, FactionsFile), (nodeIds, MapFile), (terrainIds, TerrainFile)
+            })
+                foreach (var id in ids.Where(retired.Contains))
+                    errors.Add(new(file, id, "결번(retired) id 재사용 금지 — 삭제된 id 는 retired_ids.json 에 영구 등재되며 재사용할 수 없습니다 (§5.5 id 생애주기)."));
+
         if (errors.Count > 0) throw new DataValidationException(errors);
 
         // 5) 검증 통과 → 도메인 객체 조립
@@ -107,8 +120,8 @@ public sealed class DataLoader
         }
     }
 
-    private static HashSet<string> CollectIds(IEnumerable<string?> ids) =>
-        ids.Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id!).ToHashSet();
+    private static HashSet<string> CollectIds(IEnumerable<string?>? ids) =>
+        (ids ?? Enumerable.Empty<string?>()).Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id!).ToHashSet();
 
     // ---------- 전역 상수 ----------
 

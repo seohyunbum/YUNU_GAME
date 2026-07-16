@@ -243,4 +243,14 @@ public class ValidationTests
         var ex = LoadFails(dir);
         AssertError(ex, DataLoader.RulesFile, "schema_version", "미래 버전 거부");
     }
+
+    [Fact]
+    public void 결번_id_재사용_거부()
+    {
+        using var dir = new MutableDataDir();
+        // 이순신 id 를 결번 등재한 뒤 데이터에 그대로 두면 재사용으로 검출된다 (§5.5 id 생애주기).
+        dir.Mutate(DataLoader.RetiredIdsFile, n => n["retired_ids"]!.AsArray().Add("yi_sunsin"));
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.CharactersFile, "yi_sunsin", "결번");
+    }
 }
