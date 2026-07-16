@@ -93,6 +93,11 @@ public sealed class GameManager
     public void CollectIncome()
     {
         foreach (var faction in State.Factions)
+        {
+            faction.TransferredGoldThisTurn = 0;   // 동맹 지원 턴당 상한 리셋 (§1.2)
+            faction.TransferredFoodThisTurn = 0;
+        }
+        foreach (var faction in State.Factions)
             foreach (var provinceId in faction.OwnedProvinceIds)
                 if (_db.Map.GetNode(provinceId) is LandProvince land)
                 {
@@ -282,7 +287,12 @@ public sealed class GameManager
         if (_db.Map.GetEdgeType(force.LocationNodeId, targetNodeId) != requiredEdge)
             return AttackOutcome.NotAdjacent;
 
-        var defenders = State.Armies.Where(a => a.FactionId == owner.Id && a.LocationNodeId == targetNodeId)
+        // 공동 수비 (§1.2 공동 전투): 영지 소유자 + 그 동맹의 주둔군이 함께 방어한다.
+        var dip = new DiplomacyManager(State, _db);
+        var defenders = State.Armies
+            .Where(a => a.LocationNodeId == targetNodeId &&
+                        (a.FactionId == owner.Id || dip.AreAllied(a.FactionId, owner.Id)) &&
+                        a.FactionId != factionId)
             .Cast<MilitaryForce>().ToList();
         if (defenders.Count == 0)
         {
@@ -332,20 +342,35 @@ public sealed class GameManager
         return fleet;
     }
 
-    /// <summary>승리 판정 (§2.2 [7] stub): 한 세력이 전 육상 영지를 소유하면 승리.</summary>
-    public bool IsVictory(out string? winnerFactionId)
+    /// <summary>
+    /// 승리 판정 (§2.2 [7]·§1.2): 단독 = 한 세력이 전 육상 영지 소유.
+    /// 공동 승리 = 두 인간 플레이어가 동맹 유지 + 합산 전 육상 영지 소유(각자 1개 이상).
+    /// </summary>
+    public IReadOnlyList<string> CheckVictory()
     {
         var totalLand = _db.Map.LandProvinces.Count();
+        int LandOwned(FactionState f) => f.OwnedProvinceIds.Count(id => _db.Map.GetNode(id) is LandProvince);
+
         foreach (var faction in State.Factions)
+            if (LandOwned(faction) == totalLand)
+                return new[] { faction.Id };
+
+        var p1 = State.Factions.FirstOrDefault(f => f.Controller == "human_p1");
+        var p2 = State.Factions.FirstOrDefault(f => f.Controller == "human_p2");
+        if (p1 is not null && p2 is not null && new DiplomacyManager(State, _db).AreAllied(p1.Id, p2.Id))
         {
-            var landOwned = faction.OwnedProvinceIds.Count(id => _db.Map.GetNode(id) is LandProvince);
-            if (landOwned == totalLand)
-            {
-                winnerFactionId = faction.Id;
-                return true;
-            }
+            var a = LandOwned(p1); var b = LandOwned(p2);
+            if (a > 0 && b > 0 && a + b == totalLand)
+                return new[] { p1.Id, p2.Id };   // 공동 승리 (§1.2 [MUST])
         }
-        winnerFactionId = null;
-        return false;
+        return Array.Empty<string>();
+    }
+
+    /// <summary>단독 승리 편의 오버로드 (기존 호환).</summary>
+    public bool IsVictory(out string? winnerFactionId)
+    {
+        var winners = CheckVictory();
+        winnerFactionId = winners.Count == 1 ? winners[0] : null;
+        return winners.Count > 0;
     }
 }

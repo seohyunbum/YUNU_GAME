@@ -13,4 +13,8 @@ public sealed class FactionState
     public required int TechLevel { get; set; }
     public required List<string> OwnedProvinceIds { get; init; }
     public required Dictionary<string, DiplomaticState> Relations { get; init; }
+
+    /// <summary>이번 턴 동맹 자원 지원 누계 (§1.2 턴당 상한 — additive 세이브, 수입 페이즈에 리셋).</summary>
+    public int TransferredGoldThisTurn { get; set; }
+    public int TransferredFoodThisTurn { get; set; }
 }

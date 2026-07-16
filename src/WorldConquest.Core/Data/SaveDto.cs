@@ -54,4 +54,6 @@ internal sealed class FactionStateDto
     public int? TechLevel { get; set; }
     public List<string>? OwnedProvinceIds { get; set; }
     public Dictionary<string, DiplomaticState>? Relations { get; set; }
+    public int? TransferredGoldThisTurn { get; set; }   // 동맹 지원 턴당 누계 (additive)
+    public int? TransferredFoodThisTurn { get; set; }
 }

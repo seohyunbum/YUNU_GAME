@@ -10,7 +10,8 @@
 - [x] CombatManager 자동 전투 + GameManager.Attack + 콘솔 attack — 결정론(combat 스트림)·비례 손실·점령 이전·무저항 함락. 실전투 구동 확인.
 - [x] SkillSystem — EffectType 해석기 7종(미지 타입 throw [MUST])·게이지 충전·궁극기 자동 발동·버프/실드/소환/회복·지휘관 임명(assign). 실전 패시브 발동 확인.
 - [x] 해상전·상륙전 — 함대(Fleets additive 세이브)·항구 건조·해로 이동·풍향(8방위 combat 스트림)×조류(해역 데이터) 보정·상륙 -25% 디버프·이순신 학익진 해상 발동. DoD '풍향·조류 변경 시 결과 상이' ✔
-- [ ] DiplomacyManager(동맹·자원지원·공동전투) → AIController(규칙 기반) → DoD 마무리(부자 완주·배치 시뮬)
+- [x] DiplomacyManager — 동맹/선전포고/종전 양측 동기·자원지원(턴당 상한 alliance_transfer_cap·수입 페이즈 리셋)·공동 수비(동맹 주둔군 합류)·**공동 승리 [MUST]**. 콘솔 ally/war/peace/send.
+- [ ] AIController(규칙 기반 §2.6) → 배치 시뮬(AI 100판) → Phase 2 DoD 마무리(부자 완주 게이트)
 
 ## Phase 1 (완료 ✅) — §7 전량
 

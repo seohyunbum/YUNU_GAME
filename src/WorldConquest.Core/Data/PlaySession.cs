@@ -44,9 +44,12 @@ public sealed class PlaySession
                     break;
 
                 case TurnPhase.VictoryCheck:
-                    if (_gm.IsVictory(out var winner))
+                    var winners = _gm.CheckVictory();
+                    if (winners.Count > 0)
                     {
-                        _out.WriteLine($"\n🏆 {FactionName(winner!)} 세력이 전 육상 영지를 정복했습니다! 게임 종료.");
+                        _out.WriteLine(winners.Count == 1
+                            ? $"\n🏆 {FactionName(winners[0])} 세력이 전 육상 영지를 정복했습니다! 게임 종료."
+                            : $"\n🏆🏆 공동 승리! {string.Join(" · ", winners.Select(FactionName))} 동맹이 세계를 정복했습니다! (§1.2)");
                         running = false;
                     }
                     else _gm.AdvancePhase();
@@ -67,7 +70,7 @@ public sealed class PlaySession
         if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / attack <부대id> <적영지id> / build <영지id> <시설> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / attack <부대id> <목표id> / build <영지id> <시설> / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
 
         while (true)
         {
@@ -101,6 +104,36 @@ public sealed class PlaySession
                     _out.WriteLine(ro == RecruitOutcome.Success
                         ? $"✔ {ProvinceName(t[1])}에서 {t[2]} {count} 징병"
                         : $"✘ 징병 실패: {ro}");
+                    break;
+
+                case "ally":
+                case "war":
+                case "peace":
+                    if (t.Length < 2) { _out.WriteLine($"사용법: {t[0]} <세력id>"); break; }
+                    var dip = new DiplomacyManager(s, _db);
+                    var dr = t[0] switch
+                    {
+                        "ally" => dip.FormAlliance(actor.Id, t[1]),
+                        "war" => dip.DeclareWar(actor.Id, t[1]),
+                        _ => dip.MakePeace(actor.Id, t[1])
+                    };
+                    _out.WriteLine(dr == DiplomacyOutcome.Success
+                        ? t[0] switch
+                        {
+                            "ally" => $"🤝 {FactionName(t[1])} 와(과) 동맹 체결",
+                            "war" => $"⚔ {FactionName(t[1])} 에 선전포고",
+                            _ => $"🕊 {FactionName(t[1])} 와(과) 종전"
+                        }
+                        : $"✘ 외교 실패: {dr}");
+                    break;
+
+                case "send":
+                    if (t.Length < 4 || !int.TryParse(t[2], out var sg) || !int.TryParse(t[3], out var sf))
+                    { _out.WriteLine("사용법: send <세력id> <금> <식량>"); break; }
+                    var tr = new DiplomacyManager(s, _db).TransferResources(actor.Id, t[1], sg, sf);
+                    _out.WriteLine(tr == DiplomacyOutcome.Success
+                        ? $"📦 {FactionName(t[1])} 에 금 {sg}·식량 {sf} 지원"
+                        : $"✘ 지원 실패: {tr}");
                     break;
 
                 case "assign":

@@ -81,7 +81,9 @@ public sealed class SaveSystem
             Food = f.Food ?? 0,
             TechLevel = f.TechLevel ?? 1,
             OwnedProvinceIds = f.OwnedProvinceIds ?? new(),
-            Relations = f.Relations ?? new()
+            Relations = f.Relations ?? new(),
+            TransferredGoldThisTurn = f.TransferredGoldThisTurn ?? 0,
+            TransferredFoodThisTurn = f.TransferredFoodThisTurn ?? 0
         })
         .Where(f =>
         {
@@ -221,7 +223,9 @@ public sealed class SaveSystem
             Id = f.Id, Controller = f.Controller,
             Treasury = f.Treasury, Food = f.Food, TechLevel = f.TechLevel,
             OwnedProvinceIds = f.OwnedProvinceIds,
-            Relations = f.Relations
+            Relations = f.Relations,
+            TransferredGoldThisTurn = f.TransferredGoldThisTurn,
+            TransferredFoodThisTurn = f.TransferredFoodThisTurn
         }).ToList(),
         // ordinal 정렬 직렬화 — 동일 상태 = 동일 바이트(세이브 §2.7.12, 왕복 비교 단순화).
         Progress = s.Progress.OrderBy(x => x, StringComparer.Ordinal).ToList(),
