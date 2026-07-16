@@ -183,6 +183,8 @@ public sealed class DataLoader
         Check(dto.Combat!.VariancePct is >= 0 and <= 100, "combat.variance_pct", "0 ~ 100 범위여야 합니다.");
         Check(dto.Combat.DamagePerCasualty is >= 1, "combat.damage_per_casualty", "1 이상이어야 합니다.");
         Check(dto.Combat.MaxRounds is >= 1, "combat.max_rounds", "1 이상이어야 합니다.");
+        Check(dto.Combat.NavalWindAtkPct is >= 0 and <= 100, "combat.naval_wind_atk_pct", "0 ~ 100 범위여야 합니다.");
+        Check(dto.Combat.NavalCurrentAtkPct is >= 0 and <= 100, "combat.naval_current_atk_pct", "0 ~ 100 범위여야 합니다.");
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
         {
             if (row is null) { Check(false, $"unit_class_advantage.{atk}", "행(row)이 null 입니다."); continue; }
@@ -240,6 +242,8 @@ public sealed class DataLoader
             CombatVariancePct = dto.Combat.VariancePct ?? 0,
             CombatDamagePerCasualty = dto.Combat.DamagePerCasualty ?? 1,
             CombatMaxRounds = dto.Combat.MaxRounds ?? 1,
+            NavalWindAtkPct = dto.Combat.NavalWindAtkPct ?? 0,
+            NavalCurrentAtkPct = dto.Combat.NavalCurrentAtkPct ?? 0,
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),

@@ -162,6 +162,8 @@
   "combat": {
     "variance_pct": 10,
     "damage_per_casualty": 10,
-    "max_rounds": 100
+    "max_rounds": 100,
+    "naval_wind_atk_pct": 20,
+    "naval_current_atk_pct": 10
   }
 }

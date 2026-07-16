@@ -134,6 +134,31 @@ public sealed class SaveSystem
             })
             .ToList();
 
+        var fleets = (dto.Fleets ?? new())
+            .Select(f =>
+            {
+                var commanderId = f.CommanderId;
+                if (commanderId is not null && db is not null && !db.Characters.ContainsKey(commanderId))
+                { skipped?.Add($"commander:{commanderId}@{f.Id}"); commanderId = null; }
+                var fleet = new Fleet(
+                    f.Id ?? throw new InvalidOperationException("fleet id 누락"),
+                    f.FactionId ?? throw new InvalidOperationException($"fleet '{f.Id}' faction 누락"),
+                    f.LocationNodeId ?? throw new InvalidOperationException($"fleet '{f.Id}' location 누락"))
+                { CommanderId = commanderId, Morale = f.Morale ?? MilitaryForce.MoraleMax, Supply = f.Supply ?? 0 };
+                foreach (var (unitId, count) in f.Units ?? new())
+                    if (count > 0 && (db is null || db.Units.ContainsKey(unitId))) fleet.AddUnits(unitId, count);
+                    else if (db is not null && !db.Units.ContainsKey(unitId)) skipped?.Add($"unit:{unitId}@{f.Id}");
+                return fleet;
+            })
+            .Where(fleet =>
+            {
+                if (db is null) return true;
+                if (!liveFactionIds.Contains(fleet.FactionId)) { skipped?.Add($"fleet:{fleet.Id}(faction {fleet.FactionId})"); return false; }
+                if (!db.Map.Nodes.ContainsKey(fleet.LocationNodeId)) { skipped?.Add($"fleet:{fleet.Id}(location {fleet.LocationNodeId})"); return false; }
+                return true;
+            })
+            .ToList();
+
         var provinces = (dto.Provinces ?? new())
             .Select(p => new ProvinceState
             {
@@ -173,6 +198,7 @@ public sealed class SaveSystem
             Factions = factions,
             Progress = (dto.Progress ?? new()).ToHashSet(),
             Armies = armies,
+            Fleets = fleets,
             Provinces = provinces,
             MigratedFromVersion = version
         };
@@ -204,6 +230,12 @@ public sealed class SaveSystem
             Id = a.Id, FactionId = a.FactionId, LocationNodeId = a.LocationNodeId,
             CommanderId = a.CommanderId, Morale = a.Morale, Supply = a.Supply,
             Units = a.Units.ToDictionary(kv => kv.Key, kv => kv.Value)
+        }).ToList(),
+        Fleets = s.Fleets.Select(f => new ArmyDto
+        {
+            Id = f.Id, FactionId = f.FactionId, LocationNodeId = f.LocationNodeId,
+            CommanderId = f.CommanderId, Morale = f.Morale, Supply = f.Supply,
+            Units = f.Units.ToDictionary(kv => kv.Key, kv => kv.Value)
         }).ToList(),
         Provinces = s.Provinces.Select(p => new ProvinceStateDto
         {

@@ -20,6 +20,7 @@ public enum RecruitOutcome
     NoSuchFaction,
     NotOwnedLandProvince,
     UnknownUnit,
+    RequiresPortProvince,   // 해상 병종은 항구 영지에서만 건조 (§2.3 항구 시설·§2.1 port)
     InsufficientGold
 }
 
@@ -49,8 +50,9 @@ public enum AttackOutcome
     DefenderHeld,       // 공격 부대 전멸 또는 교착(max_rounds) — 수비 승
     NoSuchArmy,
     NotYourArmy,
-    NotAdjacent,        // 부대 위치에서 육로 인접 아님
-    NotEnemyProvince    // 육상 적 영지가 아님 (빈 영지는 capture, 자기 영지·해역 불가)
+    NotAdjacent,        // 부대 위치에서 인접 아님 (육군=육로, 함대=해로/항구)
+    NotEnemyProvince,   // 유효한 공격 대상이 아님 (빈 영지는 capture, 자기 영지 불가, 육군은 해역 불가)
+    NoEnemyFleet        // 해역에 적 함대 없음
 }
 
 /// <summary>시설 건설·업그레이드 결과 (§2.3 내정).</summary>
@@ -173,47 +175,72 @@ public sealed class GameManager
         if (count <= 0) return RecruitOutcome.InvalidCount;
         var faction = State.Factions.FirstOrDefault(f => f.Id == factionId);
         if (faction is null) return RecruitOutcome.NoSuchFaction;
-        if (!_db.Map.TryGetNode(provinceId, out var node) || node is not LandProvince || !faction.OwnedProvinceIds.Contains(provinceId))
+        if (!_db.Map.TryGetNode(provinceId, out var node) || node is not LandProvince land || !faction.OwnedProvinceIds.Contains(provinceId))
             return RecruitOutcome.NotOwnedLandProvince;
         if (!_db.Units.TryGetValue(unitTypeId, out var unit))
             return RecruitOutcome.UnknownUnit;
+        var naval = unit.Domain == "naval";
+        if (naval && !land.Port) return RecruitOutcome.RequiresPortProvince;   // 함선 건조 = 항구 영지만
 
         long cost = (long)unit.RecruitCostGold * count;   // long 승격 — 거대 count 곱 오버플로로 금 검사 우회 방지
         if (faction.Treasury < cost) return RecruitOutcome.InsufficientGold;
 
         faction.Treasury -= (int)cost;
-        var army = State.Armies.FirstOrDefault(a => a.FactionId == factionId && a.LocationNodeId == provinceId)
-                   ?? CreateArmy(factionId, provinceId);
-        army.AddUnits(unitTypeId, count);
+        if (naval)
+        {
+            var fleet = State.Fleets.FirstOrDefault(f => f.FactionId == factionId && f.LocationNodeId == provinceId)
+                        ?? CreateFleet(factionId, provinceId);
+            fleet.AddUnits(unitTypeId, count);
+        }
+        else
+        {
+            var army = State.Armies.FirstOrDefault(a => a.FactionId == factionId && a.LocationNodeId == provinceId)
+                       ?? CreateArmy(factionId, provinceId);
+            army.AddUnits(unitTypeId, count);
+        }
         return RecruitOutcome.Success;
     }
 
-    /// <summary>부대 이동 (§2.1): 육로·항구 경로가 있으면 목적지로 이동한다. 이동력·턴 소비는 Phase 1 확장.</summary>
-    public MoveOutcome MoveArmy(string armyId, string destProvinceId)
+    /// <summary>
+    /// 부대·함대 이동 (§2.1): 육군 = 육로·목적지 육상 / 함대 = 해로·항구 간선, 목적지 해역 또는 항구 육상(정박).
+    /// 이동력·턴 소비는 후속 확장.
+    /// </summary>
+    public MoveOutcome MoveArmy(string forceId, string destNodeId)
     {
-        var army = State.Armies.FirstOrDefault(a => a.Id == armyId);
-        if (army is null) return MoveOutcome.NoSuchArmy;
-        if (army.LocationNodeId == destProvinceId) return MoveOutcome.SameLocation;
+        var force = FindForce(forceId);
+        if (force is null) return MoveOutcome.NoSuchArmy;
+        if (force.LocationNodeId == destNodeId) return MoveOutcome.SameLocation;
+        if (!_db.Map.TryGetNode(destNodeId, out var dest)) return MoveOutcome.NoPath;
 
-        // 육상 부대는 육로만. 상륙(Port 간선)·해역은 함대와 함께 Phase 2. 목적지도 육상 영지여야 한다.
-        if (!_db.Map.TryGetNode(destProvinceId, out var dest) || dest is not LandProvince)
-            return MoveOutcome.NoPath;
-        var path = Pathfinding.FindPath(_db.Map, army.LocationNodeId, destProvinceId, e => e == EdgeType.Land);
+        var isFleet = force is Fleet;
+        var destOk = isFleet
+            ? dest is SeaZone || (dest is LandProvince { Port: true })
+            : dest is LandProvince;
+        if (!destOk) return MoveOutcome.NoPath;
+
+        var path = Pathfinding.FindPath(_db.Map, force.LocationNodeId, destNodeId,
+            isFleet ? e => e is EdgeType.Sea or EdgeType.Port : e => e == EdgeType.Land);
         if (path is null) return MoveOutcome.NoPath;
 
-        army.LocationNodeId = destProvinceId;
+        force.LocationNodeId = destNodeId;
         return MoveOutcome.Success;
     }
 
-    /// <summary>지휘관 임명 (§2.4): 부대에 무장을 배치 — 패시브 상시·게이지 궁극기의 전제.</summary>
-    public AssignOutcome AssignCommander(string factionId, string armyId, string characterId)
+    private MilitaryForce? FindForce(string id) =>
+        (MilitaryForce?)State.Armies.FirstOrDefault(a => a.Id == id)
+        ?? State.Fleets.FirstOrDefault(f => f.Id == id);
+
+    /// <summary>지휘관 임명 (§2.4): 부대·함대에 무장을 배치 — 패시브 상시·게이지 궁극기의 전제.</summary>
+    public AssignOutcome AssignCommander(string factionId, string forceId, string characterId)
     {
-        var army = State.Armies.FirstOrDefault(a => a.Id == armyId);
-        if (army is null) return AssignOutcome.NoSuchArmy;
-        if (army.FactionId != factionId) return AssignOutcome.NotYourArmy;
+        var force = FindForce(forceId);
+        if (force is null) return AssignOutcome.NoSuchArmy;
+        if (force.FactionId != factionId) return AssignOutcome.NotYourArmy;
         if (!_db.Characters.ContainsKey(characterId)) return AssignOutcome.UnknownCharacter;
-        if (State.Armies.Any(a => a.Id != armyId && a.CommanderId == characterId)) return AssignOutcome.AlreadyAssigned;
-        army.CommanderId = characterId;
+        if (State.Armies.Any(a => a.Id != forceId && a.CommanderId == characterId) ||
+            State.Fleets.Any(f => f.Id != forceId && f.CommanderId == characterId))
+            return AssignOutcome.AlreadyAssigned;
+        force.CommanderId = characterId;
         return AssignOutcome.Success;
     }
 
@@ -221,39 +248,62 @@ public sealed class GameManager
     /// 공격 (§2.6): 인접 적 육상 영지를 자동 전투로 공략. 승리 시 수비 부대 소멸·영지 점령·부대 진주.
     /// 패배 시 공격 부대 소멸. 병력 손실은 CombatManager 가 양측에 반영.
     /// </summary>
-    public AttackOutcome Attack(string factionId, string armyId, string targetProvinceId, out BattleResult? battle)
+    public AttackOutcome Attack(string factionId, string forceId, string targetNodeId, out BattleResult? battle)
     {
         battle = null;
-        var army = State.Armies.FirstOrDefault(a => a.Id == armyId);
-        if (army is null) return AttackOutcome.NoSuchArmy;
-        if (army.FactionId != factionId) return AttackOutcome.NotYourArmy;
-        if (!_db.Map.TryGetNode(targetProvinceId, out var node) || node is not LandProvince land)
-            return AttackOutcome.NotEnemyProvince;
-        var owner = State.Factions.FirstOrDefault(f => f.OwnedProvinceIds.Contains(targetProvinceId));
+        var force = FindForce(forceId);
+        if (force is null) return AttackOutcome.NoSuchArmy;
+        if (force.FactionId != factionId) return AttackOutcome.NotYourArmy;
+        if (!_db.Map.TryGetNode(targetNodeId, out var node)) return AttackOutcome.NotEnemyProvince;
+
+        // ── 해상전 (§2.6 [MUST]): 함대가 인접 해역의 적 함대를 공격 ──
+        if (force is Fleet && node is SeaZone sea)
+        {
+            if (_db.Map.GetEdgeType(force.LocationNodeId, targetNodeId) is not (EdgeType.Sea or EdgeType.Port))
+                return AttackOutcome.NotAdjacent;
+            var enemyFleets = State.Fleets
+                .Where(f => f.FactionId != factionId && f.LocationNodeId == targetNodeId).ToList();
+            if (enemyFleets.Count == 0) return AttackOutcome.NoEnemyFleet;
+
+            battle = new CombatManager(_db).ResolveNaval(force, enemyFleets, sea, State.Rng.Stream(RngStreams.Combat));
+            State.Fleets.RemoveAll(f => f.TotalTroops == 0);
+            if (!battle.AttackerWon) return AttackOutcome.DefenderHeld;
+            force.LocationNodeId = targetNodeId;   // 해역 장악 — 진출
+            return AttackOutcome.AttackerWon;
+        }
+
+        if (node is not LandProvince land) return AttackOutcome.NotEnemyProvince;
+        var owner = State.Factions.FirstOrDefault(f => f.OwnedProvinceIds.Contains(targetNodeId));
         if (owner is null || owner.Id == factionId) return AttackOutcome.NotEnemyProvince;   // 빈 영지=capture 로
-        if (_db.Map.GetEdgeType(army.LocationNodeId, targetProvinceId) != EdgeType.Land)
+
+        // 함대의 육상 공격 = 상륙전 (Port 간선, 첫 2턴 -25% §2.6 [MUST]) / 육군 = 육로
+        var landing = force is Fleet;
+        var requiredEdge = landing ? EdgeType.Port : EdgeType.Land;
+        if (_db.Map.GetEdgeType(force.LocationNodeId, targetNodeId) != requiredEdge)
             return AttackOutcome.NotAdjacent;
 
-        var defenders = State.Armies.Where(a => a.FactionId == owner.Id && a.LocationNodeId == targetProvinceId).ToList();
+        var defenders = State.Armies.Where(a => a.FactionId == owner.Id && a.LocationNodeId == targetNodeId)
+            .Cast<MilitaryForce>().ToList();
         if (defenders.Count == 0)
         {
             // 주둔군 없는 적 영지 — 무저항 함락
             battle = new BattleResult(true, 0, 0, 0, Array.Empty<SkillEvent>());
-            TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetProvinceId, army);
+            TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetNodeId, force);
             return AttackOutcome.AttackerWon;
         }
 
-        battle = new CombatManager(_db).ResolveAuto(army, defenders, land, State.Rng.Stream(RngStreams.Combat));
+        battle = new CombatManager(_db).ResolveAuto(force, defenders, land, State.Rng.Stream(RngStreams.Combat), landing);
 
         // 전멸 부대 정리 (양측)
         State.Armies.RemoveAll(a => a.TotalTroops == 0);
+        State.Fleets.RemoveAll(f => f.TotalTroops == 0);
 
         if (!battle.AttackerWon) return AttackOutcome.DefenderHeld;
-        TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetProvinceId, army);
+        TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetNodeId, force);
         return AttackOutcome.AttackerWon;
     }
 
-    private void TransferProvince(FactionState from, FactionState to, string provinceId, Army occupier)
+    private void TransferProvince(FactionState from, FactionState to, string provinceId, MilitaryForce occupier)
     {
         from.OwnedProvinceIds.Remove(provinceId);
         to.OwnedProvinceIds.Add(provinceId);
@@ -270,6 +320,16 @@ public sealed class GameManager
         var army = new Army($"{factionId}_army_{seq}", factionId, locationNodeId);
         State.Armies.Add(army);
         return army;
+    }
+
+    private Fleet CreateFleet(string factionId, string locationNodeId)
+    {
+        var existing = State.Fleets.Select(f => f.Id).ToHashSet();
+        var seq = 1;
+        while (existing.Contains($"{factionId}_fleet_{seq}")) seq++;
+        var fleet = new Fleet($"{factionId}_fleet_{seq}", factionId, locationNodeId);
+        State.Fleets.Add(fleet);
+        return fleet;
     }
 
     /// <summary>승리 판정 (§2.2 [7] stub): 한 세력이 전 육상 영지를 소유하면 승리.</summary>

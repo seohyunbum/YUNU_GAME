@@ -18,6 +18,7 @@ internal sealed class SaveDto
     public List<FactionStateDto>? Factions { get; set; }
     public List<string>? Progress { get; set; }
     public List<ArmyDto>? Armies { get; set; }
+    public List<ArmyDto>? Fleets { get; set; }   // 함대 — Army 와 동일 형태(MilitaryForce)
     public List<ProvinceStateDto>? Provinces { get; set; }
 }
 

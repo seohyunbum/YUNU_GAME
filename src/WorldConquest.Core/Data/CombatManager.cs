@@ -5,7 +5,7 @@ namespace WorldConquest.Core.Data;
 /// <summary>자동 전투 결과 (§2.6 전투 위임). SkillEvents = 발동 스킬 로그(콘솔 표시·DoD 수치 검증).</summary>
 public sealed record BattleResult(
     bool AttackerWon, int AttackerLosses, int DefenderLosses, int Rounds,
-    IReadOnlyList<SkillEvent> SkillEvents);
+    IReadOnlyList<SkillEvent> SkillEvents, string? Wind = null);
 
 /// <summary>
 /// 전투 준비·자동 계산·승패 판정 (설계문서 §2.6·§4.2·전투 C3). 그래픽 없이 Core 에서 완결 [MUST].
@@ -15,7 +15,8 @@ public sealed record BattleResult(
 /// </summary>
 public sealed class CombatManager
 {
-    private const string Domain = "land";   // 해상전(naval)은 후속 단계 — naval 조건 스킬은 육상전 미발동
+    /// <summary>8방위 (§2.6 풍향·조류). 로더 valid_current_directions 와 동일 집합.</summary>
+    private static readonly string[] Directions = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 
     private readonly GameDatabase _db;
 
@@ -25,11 +26,35 @@ public sealed class CombatManager
     /// 자동 계산(Auto-Resolve): 라운드마다 양측이 동시 타격 → 손실 적용, 한쪽 전멸까지.
     /// max_rounds 초과 교착은 수비 승(공성 실패). 참가 부대의 병력 손실은 이 메서드가 직접 반영한다.
     /// </summary>
-    public BattleResult ResolveAuto(Army attacker, IReadOnlyList<Army> defenders, LandProvince battlefield, Pcg32 rng)
+    public BattleResult ResolveAuto(MilitaryForce attacker, IReadOnlyList<MilitaryForce> defenders,
+        LandProvince battlefield, Pcg32 rng, bool landing = false)
+    {
+        var terrain = _db.TerrainModifiers[battlefield.Terrain];
+        return ResolveCore(attacker, defenders, "land", terrain.AtkMod, terrain.DefMod, landing, rng, wind: null);
+    }
+
+    /// <summary>
+    /// 해상전 (§2.6 [MUST]): 풍향은 combat 스트림에서 8방위 추첨, 해역 조류(current_direction)와의
+    /// 정렬로 공격 보정 — 순풍·순류 = +(wind+current)%, 역풍·역류 = -(wind+current)%, 그 외 중립.
+    /// </summary>
+    public BattleResult ResolveNaval(MilitaryForce attacker, IReadOnlyList<MilitaryForce> defenders,
+        SeaZone sea, Pcg32 rng)
+    {
+        var wind = Directions[rng.NextInt(Directions.Length)];
+        var swing = _db.Rules.NavalWindAtkPct + _db.Rules.NavalCurrentAtkPct;
+        var atkBonus = wind == sea.CurrentDirection ? swing
+                     : wind == Opposite(sea.CurrentDirection) ? -swing : 0;
+        return ResolveCore(attacker, defenders, "naval", atkBonus, 0, false, rng, wind);
+    }
+
+    private static string Opposite(string dir) =>
+        Directions[(Array.IndexOf(Directions, dir) + 4) % Directions.Length];
+
+    private BattleResult ResolveCore(MilitaryForce attacker, IReadOnlyList<MilitaryForce> defenders,
+        string domain, int atkTerrainPct, int defTerrainPct, bool landing, Pcg32 rng, string? wind)
     {
         var rules = _db.Rules;
-        var terrain = _db.TerrainModifiers[battlefield.Terrain];
-        var atkSide = new[] { attacker };
+        var atkSide = new MilitaryForce[] { attacker };
         var atkStart = attacker.TotalTroops;
         var defStart = defenders.Sum(a => a.TotalTroops);
         var advAtk = WeightedAdvantagePct(atkSide, defenders);
@@ -42,8 +67,8 @@ public sealed class CombatManager
         var defCmdr = Commander(defenders);
 
         // 패시브: 전투 시작 시 상시 발동 (§2.4) — 조건(battle_domain) 통과 시
-        ApplyPassive(atkCmdr, atkState, defState, events, "공격");
-        ApplyPassive(defCmdr, defState, atkState, events, "수비");
+        ApplyPassive(atkCmdr, atkState, defState, events, "공격", domain);
+        ApplyPassive(defCmdr, defState, atkState, events, "수비", domain);
 
         var rounds = 0;
         while (attacker.TotalTroops > 0 && defenders.Sum(a => a.TotalTroops) > 0 && rounds < rules.CombatMaxRounds)
@@ -56,21 +81,28 @@ public sealed class CombatManager
             SkillSystem.Charge(defState, charge, rules.UltimateGaugeMax);
 
             // 궁극기 자동 발동 — 공격측 우선 (결정적 순서, C5)
-            TryUltimate(atkCmdr, atkState, defState, events, "공격");
-            TryUltimate(defCmdr, defState, atkState, events, "수비");
+            TryUltimate(atkCmdr, atkState, defState, events, "공격", domain);
+            TryUltimate(defCmdr, defState, atkState, events, "수비", domain);
 
             // 소환 병력 반영 (전력 계산 전 — arise 등)
             ApplySummons(atkState, atkSide);
             ApplySummons(defState, defenders);
 
             // 버프 합성: 공격% = atk + land_atk + morale / 피해 감소% = damage_reduction (전투 무관 스탯은 미사용)
-            var atkBonusA = atkState.SumBuff("atk") + atkState.SumBuff("land_atk") + atkState.SumBuff("morale");
-            var atkBonusD = defState.SumBuff("atk") + defState.SumBuff("land_atk") + defState.SumBuff("morale");
+            var domainAtkBuff = domain == "land" ? "land_atk" : "naval_atk";
+            var domainDefBuff = domain == "naval" ? "naval_def" : "land_def";
+            var atkBonusA = atkState.SumBuff("atk") + atkState.SumBuff(domainAtkBuff) + atkState.SumBuff("morale");
+            var atkBonusD = defState.SumBuff("atk") + defState.SumBuff(domainAtkBuff) + defState.SumBuff("morale");
+            var defBonusD = defState.SumBuff(domainDefBuff);
 
-            var dmgToDef = RollDamage(Scale(AttackPower(atkSide), atkBonusA), DefensePower(defenders),
-                advAtk, terrain.AtkMod, terrain.DefMod, rng, rules.CombatVariancePct);
+            // 상륙전 (§2.6 [MUST]): 첫 landing_debuff_turns 라운드 동안 공격측 landing_attack_modifier(-25%)
+            if (landing && rounds <= rules.LandingDebuffTurns)
+                atkBonusA += rules.LandingAttackModifier;
+
+            var dmgToDef = RollDamage(Scale(AttackPower(atkSide), atkBonusA), Scale(DefensePower(defenders), defBonusD),
+                advAtk, atkTerrainPct, defTerrainPct, rng, rules.CombatVariancePct);
             var dmgToAtk = RollDamage(Scale(AttackPower(defenders), atkBonusD), DefensePower(atkSide),
-                advDef, terrain.AtkMod, 0, rng, rules.CombatVariancePct);   // 공격측은 야전 — 지형 방어 보정 없음
+                advDef, atkTerrainPct, 0, rng, rules.CombatVariancePct);   // 공격측은 야전 — 지형 방어 보정 없음
 
             // 스킬 직접 데미지(aoe/single) 합산 → 피해 감소 → 실드 통과
             dmgToDef = AddClamp(dmgToDef, defState.PendingSkillDamage); defState.PendingSkillDamage = 0;
@@ -97,10 +129,11 @@ public sealed class CombatManager
             atkStart - attacker.TotalTroops,
             Math.Max(0, defStart - defenders.Sum(a => a.TotalTroops)),   // 소환으로 시작치 초과 가능 — 음수 방지
             rounds,
-            events);
+            events,
+            wind);
     }
 
-    private Character? Commander(IEnumerable<Army> side)
+    private Character? Commander(IEnumerable<MilitaryForce> side)
     {
         foreach (var a in side.OrderBy(a => a.Id, StringComparer.Ordinal))
             if (a.CommanderId is not null && _db.Characters.TryGetValue(a.CommanderId, out var c))
@@ -109,25 +142,25 @@ public sealed class CombatManager
     }
 
     private void ApplyPassive(Character? cmdr, BattleSideState own, BattleSideState enemy,
-        List<SkillEvent> events, string side)
+        List<SkillEvent> events, string side, string domain)
     {
         if (cmdr is null) return;
         var skill = _db.Skills[cmdr.PassiveSkillId];
-        if (SkillSystem.ConditionsMet(skill, Domain))
+        if (SkillSystem.ConditionsMet(skill, domain))
             SkillSystem.Execute(skill, cmdr.Stats, own, enemy, events, side);
     }
 
     private void TryUltimate(Character? cmdr, BattleSideState own, BattleSideState enemy,
-        List<SkillEvent> events, string side)
+        List<SkillEvent> events, string side, string domain)
     {
         if (cmdr is null || own.Gauge < _db.Rules.UltimateGaugeMax) return;
         var skill = _db.Skills[cmdr.UltimateSkillId];
-        if (!SkillSystem.ConditionsMet(skill, Domain)) return;   // 조건 불충족(naval 등) — 게이지 유지·미발동
+        if (!SkillSystem.ConditionsMet(skill, domain)) return;   // 조건 불충족 — 게이지 유지·미발동
         SkillSystem.Execute(skill, cmdr.Stats, own, enemy, events, side);
         own.Gauge -= skill.GaugeCost;
     }
 
-    private void ApplySummons(BattleSideState state, IEnumerable<Army> side)
+    private void ApplySummons(BattleSideState state, IEnumerable<MilitaryForce> side)
     {
         if (state.PendingSummons.Count == 0) return;
         var host = side.Where(a => a.TotalTroops > 0).OrderBy(a => a.Id, StringComparer.Ordinal).FirstOrDefault();
@@ -137,7 +170,7 @@ public sealed class CombatManager
         state.PendingSummons.Clear();
     }
 
-    private static void ApplyHeal(BattleSideState state, IEnumerable<Army> side, int damagePerCasualty)
+    private static void ApplyHeal(BattleSideState state, IEnumerable<MilitaryForce> side, int damagePerCasualty)
     {
         if (state.PendingHeal <= 0) return;
         var troops = state.PendingHeal / damagePerCasualty;
@@ -179,10 +212,10 @@ public sealed class CombatManager
         return c < 1 ? 1 : c;   // 최소 1 — 교착 방지
     }
 
-    private int AttackPower(IEnumerable<Army> side) => Power(side, u => u.Atk);
-    private int DefensePower(IEnumerable<Army> side) => Power(side, u => u.Def);
+    private int AttackPower(IEnumerable<MilitaryForce> side) => Power(side, u => u.Atk);
+    private int DefensePower(IEnumerable<MilitaryForce> side) => Power(side, u => u.Def);
 
-    private int Power(IEnumerable<Army> side, Func<UnitType, int> stat)
+    private int Power(IEnumerable<MilitaryForce> side, Func<UnitType, int> stat)
     {
         long sum = 0;
         foreach (var army in side)
@@ -193,7 +226,7 @@ public sealed class CombatManager
     }
 
     /// <summary>병력 가중 평균 상성 배율(×100) — 병종별 if문 없이 구성비로 합성 (§4.4·§2.5).</summary>
-    private int WeightedAdvantagePct(IEnumerable<Army> atkSide, IEnumerable<Army> defSide)
+    private int WeightedAdvantagePct(IEnumerable<MilitaryForce> atkSide, IEnumerable<MilitaryForce> defSide)
     {
         long num = 0, denom = 0;
         foreach (var a in atkSide)
@@ -213,7 +246,7 @@ public sealed class CombatManager
     }
 
     /// <summary>손실을 부대·병종에 비례 배분 (id ordinal 순 결정적, 잔여는 앞에서부터).</summary>
-    private static void ApplyCasualties(IEnumerable<Army> side, int casualties)
+    private static void ApplyCasualties(IEnumerable<MilitaryForce> side, int casualties)
     {
         var armies = side.Where(a => a.TotalTroops > 0).OrderBy(a => a.Id, StringComparer.Ordinal).ToList();
         var total = armies.Sum(a => a.TotalTroops);

@@ -175,11 +175,13 @@ public sealed class PlaySession
 
     private void PrintArmies(string factionId)
     {
-        var armies = _gm.State.Armies.Where(a => a.FactionId == factionId).ToList();
-        if (armies.Count == 0) { _out.WriteLine("  (편성된 부대 없음)"); return; }
-        foreach (var a in armies)
-            _out.WriteLine($"  {a.Id} @ {ProvinceName(a.LocationNodeId)} · 병력 {a.TotalTroops} " +
-                           $"({string.Join(", ", a.Units.Select(u => $"{u.Key} {u.Value}"))})");
+        var forces = _gm.State.Armies.Where(a => a.FactionId == factionId).Cast<MilitaryForce>()
+            .Concat(_gm.State.Fleets.Where(f => f.FactionId == factionId)).ToList();
+        if (forces.Count == 0) { _out.WriteLine("  (편성된 부대 없음)"); return; }
+        foreach (var a in forces)
+            _out.WriteLine($"  {(a is Fleet ? "⚓" : "⚔")} {a.Id} @ {ProvinceName(a.LocationNodeId)} · 병력 {a.TotalTroops} " +
+                           $"({string.Join(", ", a.Units.Select(u => $"{u.Key} {u.Value}"))})" +
+                           (a.CommanderId is null ? "" : $" · 지휘 {CharacterName(a.CommanderId)}"));
     }
 
     private void PrintStatus(FactionState f)

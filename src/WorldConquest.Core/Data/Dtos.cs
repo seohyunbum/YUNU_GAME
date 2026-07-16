@@ -155,6 +155,8 @@ internal sealed class CombatRulesDto
     public int? VariancePct { get; set; }        // 라운드 데미지 변동 ±% (combat 스트림)
     public int? DamagePerCasualty { get; set; }  // 데미지 → 병력 손실 환산 계수
     public int? MaxRounds { get; set; }          // 교착 상한 (초과 시 수비 승)
+    public int? NavalWindAtkPct { get; set; }    // 해상전 풍향 정렬 공격 보정 ±% (§2.6)
+    public int? NavalCurrentAtkPct { get; set; } // 해상전 조류 정렬 가중 ±%
 }
 
 internal sealed class FacilityDefDto

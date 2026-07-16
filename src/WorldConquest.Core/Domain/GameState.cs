@@ -20,6 +20,9 @@ public sealed class GameState
     /// <summary>부대 목록 (additive — SaveVersion 을 올리지 않음, D2/B-3). 구세이브는 빈 리스트로 로드.</summary>
     public List<Army> Armies { get; init; } = new();
 
+    /// <summary>함대 목록 (additive). 해상 병종만 편성 — 위치는 해역 또는 항구 육상(정박).</summary>
+    public List<Fleet> Fleets { get; init; } = new();
+
     /// <summary>영지 가변 상태(시설 등, additive). 시설 없는 영지는 목록에 없음 — 구세이브 호환.</summary>
     public List<ProvinceState> Provinces { get; init; } = new();
 

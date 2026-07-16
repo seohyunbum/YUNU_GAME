@@ -9,7 +9,8 @@
 - [x] DamageCalculator (순수 함수, 상성·지형 정수 합성). `2d55c90`
 - [x] CombatManager 자동 전투 + GameManager.Attack + 콘솔 attack — 결정론(combat 스트림)·비례 손실·점령 이전·무저항 함락. 실전투 구동 확인.
 - [x] SkillSystem — EffectType 해석기 7종(미지 타입 throw [MUST])·게이지 충전·궁극기 자동 발동·버프/실드/소환/회복·지휘관 임명(assign). 실전 패시브 발동 확인.
-- [ ] 해상전(풍향·조류)·상륙전(-25%) 착수 → DiplomacyManager → AIController
+- [x] 해상전·상륙전 — 함대(Fleets additive 세이브)·항구 건조·해로 이동·풍향(8방위 combat 스트림)×조류(해역 데이터) 보정·상륙 -25% 디버프·이순신 학익진 해상 발동. DoD '풍향·조류 변경 시 결과 상이' ✔
+- [ ] DiplomacyManager(동맹·자원지원·공동전투) → AIController(규칙 기반) → DoD 마무리(부자 완주·배치 시뮬)
 
 ## Phase 1 (완료 ✅) — §7 전량
 

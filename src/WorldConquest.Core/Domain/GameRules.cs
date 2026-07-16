@@ -29,6 +29,8 @@ public sealed class GameRules
     public required int CombatVariancePct { get; init; }        // 전투 라운드 데미지 변동 ±% (§2.6)
     public required int CombatDamagePerCasualty { get; init; }  // 데미지 → 병력 손실 환산
     public required int CombatMaxRounds { get; init; }          // 교착 상한 (초과 시 수비 승)
+    public required int NavalWindAtkPct { get; init; }          // 해상전 풍향 정렬 공격 보정 ±% (§2.6)
+    public required int NavalCurrentAtkPct { get; init; }       // 해상전 조류 정렬 가중 ±%
 
     public required IReadOnlySet<string> ValidTerrains { get; init; }
     public required IReadOnlySet<string> ValidClimates { get; init; }
