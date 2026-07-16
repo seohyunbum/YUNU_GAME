@@ -177,6 +177,8 @@ public sealed class GameManager
         faction.OwnedProvinceIds.Add(provinceId);
         if (State.Progress.Add($"captured:{provinceId}"))
             faction.Mandate += _db.Rules.SummonIncomeFirstCapture;   // §2.8.3
+        Bus.Publish(GameEvent.Of("ProvinceCaptured",                  // 표현층 연출용 (§4.3) — 무혈 점령
+            ("faction", factionId), ("province", provinceId), ("bloodless", "true")));
         return CaptureOutcome.Success;
     }
 

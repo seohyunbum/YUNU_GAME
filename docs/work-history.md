@@ -73,3 +73,12 @@
 - **인코딩 함정 (실측 3연발)**: `.bat`/`.vbs` 는 cmd/cscript 가 **ANSI(CP949)** 로 파싱 — UTF-8 저장 시 한글 사용자명 경로가 깨져 `cd /d`·CreateShortcut 이 실패. **CP949 로 저장**해야 함. 게임 한글 출력은 exe 가 `Console.OutputEncoding=UTF8` 설정하므로 chcp 불필요. 또 subprocess 로 dotnet 호출 시 자식 env 의 PATH 는 CreateProcess 탐색에 안 쓰임 — **절대경로 필수**.
 - **다음 작업자가 반복하지 말 판단**: 배포 스크립트를 .bat 로 쓰지 말 것(인코딩 지옥) — python 단일 스크립트가 정답. 패널 편집 파일 추가는 `PanelServer.EditableFiles` 화이트리스트에 DataLoader 상수만 추가하면 폼은 자동.
 - **관련**: `src/WorldConquest.ConsoleHost/PanelServer.cs` · `scripts/deploy-local.py` · 배포본 `C:\Users\서현범\WorldConquest`.
+
+## 2026-07-17 — Phase 3 M0: 게임 API 서버 (UE5 클라이언트 계약, 헤드리스 완결)
+
+- **시도/상황**: U2 앞당김 결정(UE5 강행) 후 아키텍처 판정 패널(3렌즈)+적대 검증 2인 워크플로로 C안(UE5 표현 클라 + C# 권위 시뮬) 3:0 확정. UE 설치 전 헤드리스로 M0 완성.
+- **결과**: ①`SessionDriver`(Core) — 페이즈 오케스트레이션 단일 구현, PlaySession 도 이걸 쓰도록 리팩터링(기존 163테스트 무손상 통과 = 콘솔 동작 보존 증명) ②`GameSessionHost` — 이벤트 저널(seq)·명령 멱등 캐시·전체 상태 스냅샷·verb 디스패치 ③`ApiServer` — HTTP 얇은 계층, `WC_API_PORT=` stdout 핸드셰이크, `/api/static`(map_pos·세력 color 포함) ④계약 테스트 7종(총 170). 라이브 E2E 전 시나리오 실증 — 멱등 재전송 시 천명 불변(RNG 이중 소모 차단), end 한 번에 AI 6세력 진행·이벤트 저널로 관측.
+- **핵심 판단**: 적대 검증의 완화책을 그대로 채택 — 저널 seq(유실 복구), 멱등 seq(HTTP 재시도 안전), SessionDriver 공유(이중정산 함정 단일화), 캠페인마다 Bus 재생성(구독자 누적 차단). 무혈 점령에 `ProvinceCaptured` 이벤트 신설(§4.3 — UE 연출용, 콘솔 무영향).
+- **함정 (재발 방지)**: Git Bash 의 curl.exe 는 `-d '한글'` 인자를 CP949 로 전송해 서버(UTF-8 리더)에서 mojibake — API 검증 시 **한글 본문은 UTF-8 파일로 만들어 `--data-binary @file`** 로 보낼 것. `curl -X POST` 본문 없음 = HTTP.SYS 411 → `-d '{}'` 필수. 서버 결함 아님(UE 클라는 Content-Length 정상 부착).
+- **다음**: Day-0(U6 — 사용자: 디스크 확보+UE5.5+VS2022 C++ 설치) → AI 가 CLI 빌드·오프스크린 샷 왕복 검증 → M1 수직 슬라이스.
+- **관련**: `src/WorldConquest.Core/Data/SessionDriver.cs`·`GameSessionHost.cs`·`ApiDtos.cs`, `src/WorldConquest.ConsoleHost/ApiServer.cs`, `tests/.../ApiContractTests.cs`, 설계 정본 `docs/designs/ue5-client-design.md`.

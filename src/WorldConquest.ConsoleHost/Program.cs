@@ -10,7 +10,8 @@ var soloMode = args.Length > 0 && args[0] == "solo";
 var loadMode = args.Length > 0 && args[0] == "load";
 var simMode = args.Length > 0 && args[0] == "simulate";
 var panelMode = args.Length > 0 && args[0] == "panel";
-var dataDir = playMode || soloMode || loadMode || simMode || panelMode || args.Length == 0 ? FindDataDir() : args[0];
+var serverMode = args.Length > 0 && args[0] == "server";
+var dataDir = playMode || soloMode || loadMode || simMode || panelMode || serverMode || args.Length == 0 ? FindDataDir() : args[0];
 if (dataDir is null)
 {
     Console.Error.WriteLine("data/ 폴더를 찾을 수 없습니다. 인자로 경로를 지정하십시오: dotnet run --project src/WorldConquest.ConsoleHost -- <data 경로>");
@@ -34,6 +35,15 @@ if (panelMode)
 {
     // 밸런스 패널 (§5.6) — db 는 이미 위에서 검증 로드됨(현재 데이터가 유효함을 보장)
     WorldConquest.ConsoleHost.PanelServer.Run(dataDir);
+    return 0;
+}
+
+if (serverMode)
+{
+    // 그래픽 클라이언트용 게임 API (ue5-client-design §2): server [--port N] — 미지정/0 = 빈 포트 자동
+    var portIdx = Array.IndexOf(args, "--port");
+    var apiPort = portIdx >= 0 && portIdx + 1 < args.Length && int.TryParse(args[portIdx + 1], out var p) ? p : 8378;
+    WorldConquest.ConsoleHost.ApiServer.Run(db, dataDir, apiPort);
     return 0;
 }
 

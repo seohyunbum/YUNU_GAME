@@ -23,11 +23,19 @@ public sealed class PlaySession
         _out = output;
 
         // T0 컷씬 재생 — CutsceneTriggered 구독 (§2.7.2: Core 는 선택만, 재생은 Presentation)
+        // 턴 시작 배너 — SessionDriver 가 발행하는 TurnStarted 를 콘솔식으로 표현 (UE5 는 같은 이벤트를 연출로)
         var player = new TextCutscenePlayer(db, output);
         gm.Bus.Subscribe(evt =>
         {
-            if (evt.Type == "CutsceneTriggered")
-                player.Play(evt.Get("cutscene")!, evt.Get("first_fire") == "true");
+            switch (evt.Type)
+            {
+                case "CutsceneTriggered":
+                    player.Play(evt.Get("cutscene")!, evt.Get("first_fire") == "true");
+                    break;
+                case "TurnStarted":
+                    _out.WriteLine($"\n── {evt.Get("turn")}턴 시작 · 수입 정산 완료 ──");
+                    break;
+            }
         });
     }
 
@@ -35,41 +43,17 @@ public sealed class PlaySession
     {
         _out.WriteLine("=== PROJECT WORLD CONQUEST — 핫시트 플레이 (Phase 1) ===");
         // 첫 턴 수입은 호출자(새 캠페인)가 정산한다 — 로드 이어하기는 이미 반영돼 있어 이중 수입을 피한다.
-        var running = true;
-        while (running)
+        // 페이즈 오케스트레이션은 SessionDriver 단일 구현 공유 (UE5 설계 §2.3 [MUST]).
+        while (true)
         {
-            var s = _gm.State;
-            switch (s.Phase)
+            if (SessionDriver.AdvanceUntilInput(_gm, out var winners) == DriverStop.GameEnded)
             {
-                case TurnPhase.Player1Command:
-                case TurnPhase.Player2Command:
-                    running = PlayerTurn(s);
-                    break;
-
-                case TurnPhase.Income:
-                    _out.WriteLine($"\n── {s.Turn}턴 시작 · 수입 정산 완료 ──");
-                    _gm.AdvancePhase();
-                    break;
-
-                case TurnPhase.VictoryCheck:
-                    var winners = _gm.CheckVictory();
-                    if (winners.Count > 0)
-                    {
-                        _gm.Bus.Publish(GameEvent.Of("GameEnded",
-                            ("outcome", winners.Count > 1 ? "joint_victory" : "conquest"),
-                            ("winners", string.Join(",", winners))));
-                        _out.WriteLine(winners.Count == 1
-                            ? $"\n🏆 {FactionName(winners[0])} 세력이 전 육상 영지를 정복했습니다! 게임 종료."
-                            : $"\n🏆🏆 공동 승리! {string.Join(" · ", winners.Select(FactionName))} 동맹이 세계를 정복했습니다! (§1.2)");
-                        running = false;
-                    }
-                    else _gm.AdvancePhase();
-                    break;
-
-                default:   // AiAction · Resolution · Events (Phase 1 자동 통과)
-                    _gm.AdvancePhase();
-                    break;
+                _out.WriteLine(winners.Count == 1
+                    ? $"\n🏆 {FactionName(winners[0])} 세력이 전 육상 영지를 정복했습니다! 게임 종료."
+                    : $"\n🏆🏆 공동 승리! {string.Join(" · ", winners.Select(FactionName))} 동맹이 세계를 정복했습니다! (§1.2)");
+                break;
             }
+            if (!PlayerTurn(_gm.State)) break;
         }
         _out.WriteLine("게임을 종료합니다.");
     }

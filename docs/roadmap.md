@@ -7,7 +7,7 @@
 
 설계 정본: `docs/designs/ue5-client-design.md` — **C안**(UE5 표현 클라이언트 + C# 권위 시뮬, 판정 패널 3:0 + 적대 검증). 마일스톤 M0→Day-0→M1→M2→M3.
 - [x] 맵 보드지도 좌표(map_pos) 데이터+로더 검증+테스트 (163 통과) — 그래픽 배치 전제
-- [ ] **M0** — SessionDriver Core 추출 + ApiServer(`server` 모드: 상태 스냅샷·이벤트 저널·명령 seq 멱등·핸드셰이크) + 계약 테스트. **UE 설치 없이 헤드리스 완결**
+- [x] **M0** — SessionDriver Core 추출(PlaySession 도 공유 — 플로우 단일화 [MUST])·GameSessionHost(이벤트 저널 seq·명령 멱등·스냅샷)·ApiServer `server` 모드(WC_API_PORT stdout 핸드셰이크·/api/static 에 map_pos·color)·계약 테스트 7종(170 통과). **라이브 E2E**: new solo→capture(이벤트)→멱등 재전송(천명 불변)→차례 게이트 422→end(AI 3점령 관측)→커서 재동기→한글경로 save→shutdown 전부 실증
 - [ ] **Day-0 (사용자 U6)** — 디스크 확보 + UE5.5 + VS2022 C++ 설치 → AI 가 CLI 빌드·오프스크린 스크린샷 왕복 검증
 - [ ] **M1** — 수직 슬라이스: 절차 생성 지도 렌더 + 소유 색 + end turn + 세이브/로드 (스크린샷 QA 하네스 포함)
 - [ ] **M2** — 명령 UI 전체 + 이벤트 로그 연출 (콘솔과 기능 동등)

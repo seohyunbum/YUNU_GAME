@@ -223,13 +223,12 @@ public sealed class AIController
                     .Where(a => a.FactionId == x.Owner!.Id && a.LocationNodeId == x.Id)
                     .Sum(a => a.TotalTroops)))
                 .OrderBy(x => x.Garrison).ThenBy(x => x.Id, StringComparer.Ordinal)
-                .Cast<(string Id, int Garrison)?>()
-                .FirstOrDefault();
-            if (target is null) continue;
+                .ToList();
+            if (target.Count == 0) continue;
 
-            var threshold = (long)target.Value.Garrison * 150 / Math.Max(1, def.AiAggression);
+            var threshold = (long)target[0].Garrison * 150 / Math.Max(1, def.AiAggression);
             if (army.TotalTroops > threshold)
-                _gm.Attack(faction.Id, army.Id, target.Value.Id, out _);
+                _gm.Attack(faction.Id, army.Id, target[0].Id, out _);
         }
     }
 
