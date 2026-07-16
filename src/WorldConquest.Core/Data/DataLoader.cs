@@ -145,6 +145,7 @@ public sealed class DataLoader
         Need(dto.AllianceTransferCapPerTurn, "alliance_transfer_cap_per_turn");
         Need(dto.BaseTaxRate, "base_tax_rate");
         Need(dto.UnitClassAdvantage, "unit_class_advantage");
+        Need(dto.Facilities, "facilities");
         Need(dto.ValidTerrains, "valid_terrains"); Need(dto.ValidClimates, "valid_climates");
         Need(dto.ValidRegions, "valid_regions"); Need(dto.ValidOrigins, "valid_origins");
         Need(dto.ValidEffectTypes, "valid_effect_types"); Need(dto.ValidSkillTargets, "valid_skill_targets");
@@ -178,6 +179,13 @@ public sealed class DataLoader
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
             foreach (var (def, mult) in row)
                 Check(mult > 0, "unit_class_advantage", $"{atk}->{def} 배율은 0보다 커야 합니다.");
+        foreach (var (ftype, fdef) in dto.Facilities!)
+        {
+            Check(fdef.CostGold is > 0, $"facilities.{ftype}", "cost_gold 는 0보다 커야 합니다.");
+            Check(fdef.MaxLevel is >= 1, $"facilities.{ftype}", "max_level 은 1 이상이어야 합니다.");
+            Check(fdef.GoldBonusPctPerLevel is >= 0, $"facilities.{ftype}", "gold_bonus_pct_per_level 은 0 이상이어야 합니다.");
+            Check(fdef.FoodBonusPctPerLevel is >= 0, $"facilities.{ftype}", "food_bonus_pct_per_level 은 0 이상이어야 합니다.");
+        }
         foreach (var (list, name) in new (List<string>?, string)[]
                  {
                      (dto.ValidTerrains, "valid_terrains"), (dto.ValidClimates, "valid_climates"),
@@ -213,6 +221,11 @@ public sealed class DataLoader
             BaseTaxRate = dto.BaseTaxRate.Value,
             UnitClassAdvantage = dto.UnitClassAdvantage.ToDictionary(
                 kv => kv.Key, kv => (IReadOnlyDictionary<string, int>)kv.Value),
+            // 필드 null 은 위 Check 가 errors 로 잡아 Load 가 기동 실패시킨다 — 매핑은 NRE 방지용 기본값.
+            Facilities = dto.Facilities.ToDictionary(
+                kv => kv.Key,
+                kv => new FacilityDef(kv.Value.CostGold ?? 0, kv.Value.MaxLevel ?? 1,
+                    kv.Value.GoldBonusPctPerLevel ?? 0, kv.Value.FoodBonusPctPerLevel ?? 0)),
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),

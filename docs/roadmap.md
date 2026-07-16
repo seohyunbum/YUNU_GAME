@@ -12,7 +12,9 @@
 - [x] **핫시트 2인 콘솔 루프** — PlaySession(TextReader/Writer 주입, 테스트 가능) + Program `play` 모드. status/capture/save/end/quit. 실 콘솔 구동 확인(조선 평양 점령·수입 누적). Phase 1 DoD '2인이 턴 넘기며 자원 모으고 빈 영지 점령' ✔
 - [x] **A* 경로 탐색** — Pathfinding.FindPath (BFS 최단 홉, 간선 종류 제한). 부대 이동의 토대. `0a95548`+
 - [x] **부대 상태·징병·이동** — GameState.Armies(additive 세이브)·GameManager.Recruit(금 소비)·MoveArmy(Pathfinding). 콘솔 recruit/move/armies 명령. 실 구동 확인(창병10·궁병5 편성→평양 이동).
-- [ ] **시설 건설·함대·인구 감소** — ProvinceState(시설 레벨·인구) additive. 함대·상륙전은 Phase 2 근접. Phase 1 §7 잔여는 시설뿐.
+- [x] **시설 건설** — game_rules facilities(시장·농지)·ProvinceState(시설 레벨 additive 세이브)·BuildFacility(슬롯·최대레벨)·수입 보너스. 실 구동(market+farm → 수입 +250금/+182식). 함대·상륙전은 Phase 2.
+
+> ✅✅ **Phase 1 §7 작업 전량 완료** (2026-07-16): 턴 루프·자원 생산·시설·징병·A* 이동·무혈 점령·핫시트 2인·세이브/로드. 부자가 콘솔에서 완전한 한 판(자원·내정·부대·점령·저장·이어하기)을 플레이 가능. **다음 = Phase 2**(전투·스킬·외교·AI).
 - [x] **프로세스 재기동 세이브 E2E** — Program `load` 모드(이어하기). play 저장→프로세스 종료→load 재기동에서 영지 3개(평양 점령)·수입 복원 실증. `187fab0`+
 - [x] **세이브 fail-soft(D9)** — 로드 시 GameDatabase 대조로 삭제 정의 id 참조 건별 스킵+고지 (정의 참조가 늘어나는 시점).
 

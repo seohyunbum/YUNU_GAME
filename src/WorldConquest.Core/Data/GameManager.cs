@@ -32,6 +32,18 @@ public enum MoveOutcome
     NoPath            // 육로·항구로 도달 불가
 }
 
+/// <summary>시설 건설·업그레이드 결과 (§2.3 내정).</summary>
+public enum FacilityOutcome
+{
+    Success,
+    NoSuchFaction,
+    NotOwnedLandProvince,
+    UnknownFacility,
+    MaxLevelReached,
+    NoFreeSlot,       // 새 시설인데 영지 시설 슬롯이 가득 참
+    InsufficientGold
+}
+
 /// <summary>
 /// 게임 흐름 오케스트레이션 (설계문서 §4.2). 페이즈 전이(TurnSystem) + 페이즈별 시스템 실행.
 /// 전투·내정 공식은 여기 두지 않는다(§4.4 God Class 금지) — 해당 시스템에 위임한다.
@@ -54,17 +66,62 @@ public sealed class GameManager
         if (State.Phase == TurnPhase.Income) CollectIncome();
     }
 
-    /// <summary>수입 페이즈 (§2.2 [1]): 각 세력이 소유 육상 영지의 기본 생산량을 정산한다.</summary>
+    /// <summary>수입 페이즈 (§2.2 [1]): 소유 육상 영지의 기본 생산량 + 시설 보너스(§2.3)를 정산한다.</summary>
     public void CollectIncome()
     {
         foreach (var faction in State.Factions)
             foreach (var provinceId in faction.OwnedProvinceIds)
                 if (_db.Map.GetNode(provinceId) is LandProvince land)
                 {
-                    var yield = land.Produce();
-                    faction.Treasury += yield.Gold;
-                    faction.Food += yield.Food;
+                    var y = land.Produce();
+                    var (goldPct, foodPct) = FacilityBonus(provinceId);
+                    faction.Treasury += y.Gold * (100 + goldPct) / 100;   // 정수 스케일 (§4.4)
+                    faction.Food += y.Food * (100 + foodPct) / 100;
                 }
+    }
+
+    /// <summary>영지의 시설 누적 생산 보너스(정수 %). 시설 상태가 없으면 0.</summary>
+    private (int GoldPct, int FoodPct) FacilityBonus(string provinceId)
+    {
+        var ps = State.Provinces.FirstOrDefault(p => p.Id == provinceId);
+        if (ps is null) return (0, 0);
+        int gold = 0, food = 0;
+        foreach (var (type, level) in ps.Facilities)
+            if (_db.Rules.Facilities.TryGetValue(type, out var def))
+            {
+                gold += level * def.GoldBonusPctPerLevel;
+                food += level * def.FoodBonusPctPerLevel;
+            }
+        return (gold, food);
+    }
+
+    /// <summary>시설 건설·업그레이드 (§2.3): 소유 육상 영지에 금을 지불해 시설 레벨을 올린다.</summary>
+    public FacilityOutcome BuildFacility(string factionId, string provinceId, string facilityType)
+    {
+        var faction = State.Factions.FirstOrDefault(f => f.Id == factionId);
+        if (faction is null) return FacilityOutcome.NoSuchFaction;
+        if (_db.Map.GetNode(provinceId) is not LandProvince land || !faction.OwnedProvinceIds.Contains(provinceId))
+            return FacilityOutcome.NotOwnedLandProvince;
+        if (!_db.Rules.Facilities.TryGetValue(facilityType, out var def))
+            return FacilityOutcome.UnknownFacility;
+
+        var ps = State.Provinces.FirstOrDefault(p => p.Id == provinceId);
+        var level = ps?.Facilities.GetValueOrDefault(facilityType) ?? 0;
+        if (level >= def.MaxLevel) return FacilityOutcome.MaxLevelReached;
+        if (level == 0 && (ps?.Facilities.Count ?? 0) >= land.FacilitySlots) return FacilityOutcome.NoFreeSlot;
+        if (faction.Treasury < def.CostGold) return FacilityOutcome.InsufficientGold;
+
+        faction.Treasury -= def.CostGold;
+        ps ??= CreateProvinceState(provinceId);
+        ps.Facilities[facilityType] = level + 1;
+        return FacilityOutcome.Success;
+    }
+
+    private ProvinceState CreateProvinceState(string provinceId)
+    {
+        var ps = new ProvinceState { Id = provinceId, Facilities = new() };
+        State.Provinces.Add(ps);
+        return ps;
     }
 
     /// <summary>

@@ -18,6 +18,13 @@ internal sealed class SaveDto
     public List<FactionStateDto>? Factions { get; set; }
     public List<string>? Progress { get; set; }
     public List<ArmyDto>? Armies { get; set; }
+    public List<ProvinceStateDto>? Provinces { get; set; }
+}
+
+internal sealed class ProvinceStateDto
+{
+    public string? Id { get; set; }
+    public Dictionary<string, int>? Facilities { get; set; }
 }
 
 internal sealed class ArmyDto

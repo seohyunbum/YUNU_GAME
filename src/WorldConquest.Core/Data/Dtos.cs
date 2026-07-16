@@ -150,6 +150,14 @@ internal sealed class FactionDto
     public DifficultyModifierDto? DifficultyModifier { get; set; }
 }
 
+internal sealed class FacilityDefDto
+{
+    public int? CostGold { get; set; }
+    public int? MaxLevel { get; set; }
+    public int? GoldBonusPctPerLevel { get; set; }
+    public int? FoodBonusPctPerLevel { get; set; }
+}
+
 internal sealed class RetiredIdsDto
 {
     // 삭제된 콘텐츠 id 의 영구 결번 목록 (§5.5 id 생애주기). 재사용 시 기동 실패.
@@ -178,6 +186,7 @@ internal sealed class GameRulesDto
     public ResourceAmountDto? AllianceTransferCapPerTurn { get; set; }
     public int? BaseTaxRate { get; set; }   // 정수 스케일 ×100 (10)
     public Dictionary<string, Dictionary<string, int>>? UnitClassAdvantage { get; set; }   // 배율 ×100
+    public Dictionary<string, FacilityDefDto>? Facilities { get; set; }   // 시설 정의 (§2.3)
     public List<string>? ValidTerrains { get; set; }
     public List<string>? ValidClimates { get; set; }
     public List<string>? ValidRegions { get; set; }

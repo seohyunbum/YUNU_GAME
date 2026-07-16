@@ -20,6 +20,9 @@ public sealed class GameState
     /// <summary>부대 목록 (additive — SaveVersion 을 올리지 않음, D2/B-3). 구세이브는 빈 리스트로 로드.</summary>
     public List<Army> Armies { get; init; } = new();
 
+    /// <summary>영지 가변 상태(시설 등, additive). 시설 없는 영지는 목록에 없음 — 구세이브 호환.</summary>
+    public List<ProvinceState> Provinces { get; init; } = new();
+
     /// <summary>이 상태가 로드될 때 정규화된 원본 세이브 버전 (신규 게임은 현재 버전).</summary>
     public int MigratedFromVersion { get; init; }
 }

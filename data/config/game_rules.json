@@ -144,5 +144,19 @@
     "SW",
     "W",
     "NW"
-  ]
+  ],
+  "facilities": {
+    "market": {
+      "cost_gold": 300,
+      "max_level": 3,
+      "gold_bonus_pct_per_level": 25,
+      "food_bonus_pct_per_level": 0
+    },
+    "farm": {
+      "cost_gold": 300,
+      "max_level": 3,
+      "gold_bonus_pct_per_level": 0,
+      "food_bonus_pct_per_level": 25
+    }
+  }
 }

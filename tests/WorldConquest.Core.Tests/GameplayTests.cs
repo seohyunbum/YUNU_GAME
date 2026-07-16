@@ -144,6 +144,42 @@ public class GameplayTests
     }
 
     [Fact]
+    public void 시설_건설_수입_보너스_그리고_슬롯_최대레벨()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+
+        // 시장 건설 (비용 300) — 한성 소유
+        Assert.Equal(FacilityOutcome.Success, gm.BuildFacility("joseon", "hanseong", "market"));
+        Assert.Equal(1, s.Provinces.Single(p => p.Id == "hanseong").Facilities["market"]);
+
+        // 시장 1레벨(+25%) → 한성 금생산 120 → 150. 부산은 시설 없어 100 그대로. 합 250.
+        joseon.Treasury = 0;
+        gm.CollectIncome();
+        Assert.Equal(150 + 100, joseon.Treasury);   // 한성 120*125% + 부산 100
+
+        // 최대 레벨(3)까지 증축 (증축 비용 확보)
+        joseon.Treasury = 10000;
+        gm.BuildFacility("joseon", "hanseong", "market");   // lv2
+        gm.BuildFacility("joseon", "hanseong", "market");   // lv3 = max
+        Assert.Equal(FacilityOutcome.MaxLevelReached, gm.BuildFacility("joseon", "hanseong", "market"));
+    }
+
+    [Fact]
+    public void 시설_실패_케이스()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        Assert.Equal(FacilityOutcome.NotOwnedLandProvince, gm.BuildFacility("joseon", "beijing", "market"));
+        Assert.Equal(FacilityOutcome.UnknownFacility, gm.BuildFacility("joseon", "hanseong", "casino"));
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 10;
+        Assert.Equal(FacilityOutcome.InsufficientGold, gm.BuildFacility("joseon", "hanseong", "market"));
+    }
+
+    [Fact]
     public void 부대_상태_세이브_왕복()
     {
         var db = Db();

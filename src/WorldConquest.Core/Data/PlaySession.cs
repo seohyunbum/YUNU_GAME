@@ -66,7 +66,7 @@ public sealed class PlaySession
         var actor = s.Factions.First(f => f.Id == s.Actor);
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / build <영지id> <시설> / save <경로> / end / quit");
 
         while (true)
         {
@@ -100,6 +100,14 @@ public sealed class PlaySession
                     _out.WriteLine(ro == RecruitOutcome.Success
                         ? $"✔ {ProvinceName(t[1])}에서 {t[2]} {count} 징병"
                         : $"✘ 징병 실패: {ro}");
+                    break;
+
+                case "build":
+                    if (t.Length < 3) { _out.WriteLine("사용법: build <영지id> <시설: market|farm>"); break; }
+                    var fo = _gm.BuildFacility(actor.Id, t[1], t[2]);
+                    _out.WriteLine(fo == FacilityOutcome.Success
+                        ? $"✔ {ProvinceName(t[1])}에 {t[2]} 건설/증축"
+                        : $"✘ 건설 실패: {fo}");
                     break;
 
                 case "move":

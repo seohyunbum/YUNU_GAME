@@ -120,6 +120,20 @@ public sealed class SaveSystem
             })
             .ToList();
 
+        var provinces = (dto.Provinces ?? new())
+            .Select(p => new ProvinceState
+            {
+                Id = p.Id ?? throw new InvalidOperationException("province id 누락"),
+                Facilities = p.Facilities ?? new()
+            })
+            .Where(p =>
+            {
+                if (db is null) return true;
+                if (!db.Map.Nodes.ContainsKey(p.Id)) { skipped?.Add($"province_state:{p.Id}"); return false; }
+                return true;
+            })
+            .ToList();
+
         return new GameState
         {
             DataSchemaVersion = dto.DataSchemaVersion ?? DataLoader.SupportedSchemaVersion,
@@ -131,6 +145,7 @@ public sealed class SaveSystem
             Factions = factions,
             Progress = (dto.Progress ?? new()).ToHashSet(),
             Armies = armies,
+            Provinces = provinces,
             MigratedFromVersion = version
         };
     }
@@ -161,6 +176,11 @@ public sealed class SaveSystem
             Id = a.Id, FactionId = a.FactionId, LocationNodeId = a.LocationNodeId,
             CommanderId = a.CommanderId, Morale = a.Morale, Supply = a.Supply,
             Units = a.Units.ToDictionary(kv => kv.Key, kv => kv.Value)
+        }).ToList(),
+        Provinces = s.Provinces.Select(p => new ProvinceStateDto
+        {
+            Id = p.Id,
+            Facilities = p.Facilities.ToDictionary(kv => kv.Key, kv => kv.Value)
         }).ToList()
     };
 
