@@ -31,6 +31,10 @@ public sealed class GameRules
     public required int CombatMaxRounds { get; init; }          // 교착 상한 (초과 시 수비 승)
     public required int NavalWindAtkPct { get; init; }          // 해상전 풍향 정렬 공격 보정 ±% (§2.6)
     public required int NavalCurrentAtkPct { get; init; }       // 해상전 조류 정렬 가중 ±%
+    public required int DuelStrGapMax { get; init; }            // 일기토 성사 무력 격차 상한 (§2.6)
+    public required int DuelVariancePct { get; init; }
+    public required int DuelWinnerMoraleBonus { get; init; }    // 승자 측 공격 버프 %
+    public required int DuelWinnerGaugeBonus { get; init; }     // 승자 측 게이지 보너스
 
     public required IReadOnlySet<string> ValidTerrains { get; init; }
     public required IReadOnlySet<string> ValidClimates { get; init; }

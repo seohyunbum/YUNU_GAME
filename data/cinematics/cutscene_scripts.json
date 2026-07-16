@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "scripts": [
+    {
+      "id": "cs_moment_warm_wine_preroll",
+      "title_ko": "출진",
+      "script": [
+        { "beat": "line", "speaker_ref": "guan_yu", "text_ko": "잔을 데워 두시오. 이 찻잔이 식기 전에 적장의 목을 베고 돌아오겠소." }
+      ],
+      "short_script": []
+    },
+    {
+      "id": "cs_moment_warm_wine",
+      "title_ko": "온주참화웅",
+      "title_card": { "text": "溫酒斬華雄" },
+      "script": [
+        { "beat": "pause" },
+        { "beat": "narration", "text_ko": "말발굽 소리. 진영이 숨을 죽인다. — 단칼의 섬광." },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "관우가 돌아와 잔을 든다. 술은… 아직 따뜻했다." },
+        { "beat": "line", "speaker_ref": "guan_yu", "text_ko": "술이… 아직 따뜻하구려." }
+      ],
+      "short_script": [
+        { "beat": "narration", "text_ko": "찻잔이 식기 전에 — 적장의 목이 떨어졌다." }
+      ]
+    },
+    {
+      "id": "cs_first_alliance",
+      "title_ko": "맹약",
+      "title_card": { "text": "盟約" },
+      "script": [
+        { "beat": "narration", "text_ko": "두 군주가 마주 앉는다. 지도 위에 놓이는 두 개의 인장." },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "\"함께라면 — 천하도 좁다.\" 동맹이 맺어졌다." }
+      ],
+      "short_script": [
+        { "beat": "narration", "text_ko": "동맹의 인장이 찍혔다." }
+      ]
+    },
+    {
+      "id": "cs_end_joint_victory",
+      "title_ko": "공동 승리",
+      "title_card": { "text": "天下統一" },
+      "script": [
+        { "beat": "narration", "text_ko": "마지막 성문이 열린다. 두 군기가 나란히 성벽 위에 오른다." },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "아버지와 아들 — 두 군주가 세계를 정복했다. 역사는 이 동맹을 기억할 것이다." }
+      ],
+      "short_script": []
+    },
+    {
+      "id": "cs_end_world_conquest",
+      "title_ko": "천하통일",
+      "title_card": { "text": "天下統一" },
+      "script": [
+        { "beat": "narration", "text_ko": "전장의 먼지가 가라앉는다. 하나의 깃발만이 바람에 나부낀다." },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "세계는 하나의 이름 아래 통일되었다." }
+      ],
+      "short_script": []
+    },
+    {
+      "id": "cs_crane_wing",
+      "title_ko": "학익진",
+      "title_card": { "text": "鶴翼陣" },
+      "script": [
+        { "beat": "line", "speaker_ref": "yi_sunsin", "text_ko": "학이 날개를 편다 — 전군, 진형을 벌려라!" },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "함대가 반원으로 벌어지며 일제히 불을 뿜는다. 바다가 갈라진다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "학익진 — 일제 포격!" } ]
+    },
+    {
+      "id": "cs_green_dragon_slash",
+      "title_ko": "청룡언월참",
+      "title_card": { "text": "靑龍偃月" },
+      "script": [
+        { "beat": "line", "speaker_ref": "guan_yu", "text_ko": "청룡이 운다." },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "언월도가 호를 그린다 — 적진 한가운데가 갈라진다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "청룡언월참!" } ]
+    },
+    {
+      "id": "cs_lord_camelot",
+      "title_ko": "로드 카멜롯",
+      "title_card": { "text": "Lord Camelot" },
+      "script": [
+        { "beat": "line", "speaker_ref": "mash_kyrielight", "text_ko": "선배들은… 제가 지킵니다!" },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "빛의 성벽이 솟아오른다. 어떤 공격도 이 방패를 넘지 못한다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "로드 카멜롯 — 전군 피해 무효!" } ]
+    },
+    {
+      "id": "cs_excalibur",
+      "title_ko": "엑스칼리버",
+      "title_card": { "text": "EXCALIBUR" },
+      "script": [
+        { "beat": "line", "speaker_ref": "saber_artoria", "text_ko": "약속된 승리의 검 — " },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "황금빛 섬광이 지평선을 지운다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "엑스칼리버!" } ]
+    },
+    {
+      "id": "cs_arise",
+      "title_ko": "일어나라",
+      "title_card": { "text": "ARISE" },
+      "script": [
+        { "beat": "line", "speaker_ref": "sung_jinwoo", "text_ko": "일어나라." },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "그림자가 땅에서 일어선다 — 쓰러진 적들이 군단이 되어 돌아온다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "그림자 군단이 일어선다." } ]
+    },
+    {
+      "id": "cs_overlord_march",
+      "title_ko": "패왕의 진군",
+      "title_card": { "text": "覇道" },
+      "script": [
+        { "beat": "line", "speaker_ref": "cao_cao", "text_ko": "천하가 나를 저버려도 — 나는 천하를 저버리지 않는다." },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "패왕의 군세가 진군한다. 적진의 사기가 무너져 내린다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "패왕의 진군!" } ]
+    },
+    {
+      "id": "cs_imperial_barrage",
+      "title_ko": "황제의 포격",
+      "title_card": { "text": "Grande Batterie" },
+      "script": [
+        { "beat": "line", "speaker_ref": "napoleon", "text_ko": "포병은 전장의 신이다. — 일제 사격!" },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "백문의 포열이 동시에 불을 뿜는다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "일제 포격!" } ]
+    },
+    {
+      "id": "cs_divine_standard",
+      "title_ko": "성녀의 군기",
+      "title_card": { "text": "La Pucelle" },
+      "script": [
+        { "beat": "line", "speaker_ref": "jeanne_darc", "text_ko": "깃발을 따르라 — 신께서 우리와 함께하신다!" },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "빛나는 군기 아래, 쓰러진 병사들이 다시 일어선다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "성녀의 군기가 빛난다." } ]
+    },
+    {
+      "id": "cs_hinokami_kagura",
+      "title_ko": "히노카미 카구라",
+      "title_card": { "text": "日の神神楽" },
+      "script": [
+        { "beat": "line", "speaker_ref": "kamado_tanjiro", "text_ko": "숨을 가다듬고 — 히노카미 카구라, 원무!" },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "불꽃의 검무가 어둠을 베어낸다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "불꽃의 검무!" } ]
+    },
+    {
+      "id": "cs_unibeam",
+      "title_ko": "유니빔",
+      "title_card": { "text": "UNIBEAM" },
+      "script": [
+        { "beat": "line", "speaker_ref": "iron_man", "text_ko": "좋아, 다들 고개 숙여." },
+        { "beat": "title_card" },
+        { "beat": "narration", "text_ko": "흉부 리액터가 과열된다 — 백색 광선이 전열을 관통한다." }
+      ],
+      "short_script": [ { "beat": "narration", "text_ko": "유니빔 발사!" } ]
+    }
+  ]
+}

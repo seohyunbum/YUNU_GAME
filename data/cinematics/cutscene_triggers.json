@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "triggers": [
+    {
+      "id": "cs_moment_warm_wine_preroll",
+      "category": "historical_moment",
+      "on_event": "DuelStarted",
+      "conditions": [
+        { "type": "actor_is", "value": "guan_yu" },
+        { "type": "not_fired", "value": "cs_moment_warm_wine" },
+        { "type": "chance_permyriad", "permyriad": 6000 }
+      ],
+      "priority": 79,
+      "once_per": "save"
+    },
+    {
+      "id": "cs_moment_warm_wine",
+      "category": "historical_moment",
+      "on_event": "DuelEnded",
+      "conditions": [
+        { "type": "actor_is", "value": "guan_yu" },
+        { "type": "event_field", "field": "winner", "op": "eq", "value": "actor" },
+        { "type": "not_fired", "value": "self" }
+      ],
+      "priority": 80,
+      "once_per": "save"
+    },
+    {
+      "id": "cs_first_alliance",
+      "category": "campaign",
+      "on_event": "AllianceFormed",
+      "conditions": [
+        { "type": "event_field", "field": "both_human", "op": "eq", "value": "true" },
+        { "type": "not_fired", "value": "self" }
+      ],
+      "priority": 70,
+      "once_per": "save"
+    },
+    {
+      "id": "cs_end_joint_victory",
+      "category": "campaign",
+      "on_event": "GameEnded",
+      "conditions": [
+        { "type": "event_field", "field": "outcome", "op": "eq", "value": "joint_victory" }
+      ],
+      "priority": 100,
+      "once_per": "save"
+    },
+    {
+      "id": "cs_end_world_conquest",
+      "category": "campaign",
+      "on_event": "GameEnded",
+      "conditions": [
+        { "type": "event_field", "field": "outcome", "op": "eq", "value": "conquest" }
+      ],
+      "priority": 100,
+      "once_per": "save"
+    }
+  ]
+}

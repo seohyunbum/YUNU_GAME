@@ -2,10 +2,13 @@ using WorldConquest.Core.Domain;
 
 namespace WorldConquest.Core.Data;
 
+/// <summary>일기토 결과 (§2.6, 2026-07-16 구현 확정) — 컷씬 트리거(온주참화웅)·연출의 원천.</summary>
+public sealed record DuelInfo(string WinnerCharacterId, string LoserCharacterId, bool AttackerWon);
+
 /// <summary>자동 전투 결과 (§2.6 전투 위임). SkillEvents = 발동 스킬 로그(콘솔 표시·DoD 수치 검증).</summary>
 public sealed record BattleResult(
     bool AttackerWon, int AttackerLosses, int DefenderLosses, int Rounds,
-    IReadOnlyList<SkillEvent> SkillEvents, string? Wind = null);
+    IReadOnlyList<SkillEvent> SkillEvents, string? Wind = null, DuelInfo? Duel = null);
 
 /// <summary>
 /// 전투 준비·자동 계산·승패 판정 (설계문서 §2.6·§4.2·전투 C3). 그래픽 없이 Core 에서 완결 [MUST].
@@ -70,6 +73,29 @@ public sealed class CombatManager
         ApplyPassive(atkCmdr, atkState, defState, events, "공격", domain);
         ApplyPassive(defCmdr, defState, atkState, events, "수비", domain);
 
+        // 일기토 (§2.6): 육상전 + 양측 지휘관 + 무력 격차가 상한 이내면 개전 전 1:1 — 승자 측 사기·게이지 이득
+        DuelInfo? duel = null;
+        if (domain == "land" && atkCmdr is not null && defCmdr is not null &&
+            Math.Abs(atkCmdr.Stats.Str - defCmdr.Stats.Str) <= rules.DuelStrGapMax)
+        {
+            int DuelRoll(int str, BattleSideState side)
+            {
+                var power = str + side.SumBuff("duel_power");
+                var swing = rng.NextInt(2 * rules.DuelVariancePct + 1) - rules.DuelVariancePct;
+                return (int)((long)power * (100 + swing) / 100);
+            }
+            var atkWins = DuelRoll(atkCmdr.Stats.Str, atkState) >= DuelRoll(defCmdr.Stats.Str, defState);
+            var winnerState = atkWins ? atkState : defState;
+            winnerState.AddBuff("morale", rules.DuelWinnerMoraleBonus, rules.CombatMaxRounds);   // 전투 내내
+            SkillSystem.Charge(winnerState, rules.DuelWinnerGaugeBonus, rules.UltimateGaugeMax);
+            duel = new DuelInfo(
+                atkWins ? atkCmdr.Id : defCmdr.Id,
+                atkWins ? defCmdr.Id : atkCmdr.Id,
+                atkWins);
+            events.Add(new SkillEvent("duel", "일기토", atkWins ? "공격" : "수비",
+                $"{duel.WinnerCharacterId} 승 — 사기+{rules.DuelWinnerMoraleBonus}%·게이지+{rules.DuelWinnerGaugeBonus}"));
+        }
+
         var rounds = 0;
         while (attacker.TotalTroops > 0 && defenders.Sum(a => a.TotalTroops) > 0 && rounds < rules.CombatMaxRounds)
         {
@@ -130,7 +156,8 @@ public sealed class CombatManager
             Math.Max(0, defStart - defenders.Sum(a => a.TotalTroops)),   // 소환으로 시작치 초과 가능 — 음수 방지
             rounds,
             events,
-            wind);
+            wind,
+            duel);
     }
 
     private Character? Commander(IEnumerable<MilitaryForce> side)

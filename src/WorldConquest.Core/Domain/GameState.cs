@@ -26,6 +26,9 @@ public sealed class GameState
     /// <summary>영지 가변 상태(시설 등, additive). 시설 없는 영지는 목록에 없음 — 구세이브 호환.</summary>
     public List<ProvinceState> Provinces { get; init; } = new();
 
+    /// <summary>발동된 컷씬 id-set (§2.7.12 fired=seen — 트리거 시점 기록·not_fired 의 유일 근거, additive).</summary>
+    public HashSet<string> FiredCutsceneIds { get; init; } = new();
+
     /// <summary>이 상태가 로드될 때 정규화된 원본 세이브 버전 (신규 게임은 현재 버전).</summary>
     public int MigratedFromVersion { get; init; }
 }

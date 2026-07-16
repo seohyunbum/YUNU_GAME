@@ -159,12 +159,75 @@ internal sealed class CombatRulesDto
     public int? NavalCurrentAtkPct { get; set; } // 해상전 조류 정렬 가중 ±%
 }
 
+internal sealed class DuelRulesDto
+{
+    public int? StrGapMax { get; set; }         // 무력 격차 상한 — 이내여야 성사 (§2.6)
+    public int? VariancePct { get; set; }
+    public int? WinnerMoraleBonus { get; set; }
+    public int? WinnerGaugeBonus { get; set; }
+}
+
 internal sealed class FacilityDefDto
 {
     public int? CostGold { get; set; }
     public int? MaxLevel { get; set; }
     public int? GoldBonusPctPerLevel { get; set; }
     public int? FoodBonusPctPerLevel { get; set; }
+}
+
+// ── 시네마틱 (§5.7) ──
+
+internal sealed class CutsceneTriggersFileDto
+{
+    public int? SchemaVersion { get; set; }
+    public List<CutsceneTriggerDto>? Triggers { get; set; }
+}
+
+internal sealed class CutsceneTriggerDto
+{
+    public string? Id { get; set; }
+    public string? Category { get; set; }
+    public string? OnEvent { get; set; }
+    public List<CutsceneConditionDto>? Conditions { get; set; }
+    public int? Priority { get; set; }
+    public string? OncePer { get; set; }
+}
+
+internal sealed class CutsceneConditionDto
+{
+    public string? Type { get; set; }
+    public string? Field { get; set; }
+    public string? Op { get; set; }
+    public string? Value { get; set; }
+    public int? Permyriad { get; set; }
+}
+
+internal sealed class CutsceneScriptsFileDto
+{
+    public int? SchemaVersion { get; set; }
+    public List<CutsceneScriptDto>? Scripts { get; set; }
+}
+
+internal sealed class CutsceneScriptDto
+{
+    public string? Id { get; set; }
+    public string? TitleKo { get; set; }
+    public TitleCardDto? TitleCard { get; set; }
+    public List<CutsceneBeatDto>? Script { get; set; }
+    public List<CutsceneBeatDto>? ShortScript { get; set; }
+}
+
+internal sealed class TitleCardDto
+{
+    public string? Text { get; set; }
+}
+
+internal sealed class CutsceneBeatDto
+{
+    public string? Beat { get; set; }
+    public string? TextKo { get; set; }
+    public string? SpeakerRef { get; set; }
+    public string? Text { get; set; }
 }
 
 internal sealed class RetiredIdsDto
@@ -197,6 +260,7 @@ internal sealed class GameRulesDto
     public Dictionary<string, Dictionary<string, int>>? UnitClassAdvantage { get; set; }   // 배율 ×100
     public Dictionary<string, FacilityDefDto>? Facilities { get; set; }   // 시설 정의 (§2.3)
     public CombatRulesDto? Combat { get; set; }   // 전투 상수 (§2.6)
+    public DuelRulesDto? Duel { get; set; }       // 일기토 상수 (§2.6, 2026-07-16 구현 확정)
     public List<string>? ValidTerrains { get; set; }
     public List<string>? ValidClimates { get; set; }
     public List<string>? ValidRegions { get; set; }

@@ -21,6 +21,14 @@ public sealed class PlaySession
         _db = db;
         _in = input;
         _out = output;
+
+        // T0 컷씬 재생 — CutsceneTriggered 구독 (§2.7.2: Core 는 선택만, 재생은 Presentation)
+        var player = new TextCutscenePlayer(db, output);
+        gm.Bus.Subscribe(evt =>
+        {
+            if (evt.Type == "CutsceneTriggered")
+                player.Play(evt.Get("cutscene")!, evt.Get("first_fire") == "true");
+        });
     }
 
     public void Run()
@@ -47,6 +55,9 @@ public sealed class PlaySession
                     var winners = _gm.CheckVictory();
                     if (winners.Count > 0)
                     {
+                        _gm.Bus.Publish(GameEvent.Of("GameEnded",
+                            ("outcome", winners.Count > 1 ? "joint_victory" : "conquest"),
+                            ("winners", string.Join(",", winners))));
                         _out.WriteLine(winners.Count == 1
                             ? $"\n🏆 {FactionName(winners[0])} 세력이 전 육상 영지를 정복했습니다! 게임 종료."
                             : $"\n🏆🏆 공동 승리! {string.Join(" · ", winners.Select(FactionName))} 동맹이 세계를 정복했습니다! (§1.2)");
@@ -110,7 +121,7 @@ public sealed class PlaySession
                 case "war":
                 case "peace":
                     if (t.Length < 2) { _out.WriteLine($"사용법: {t[0]} <세력id>"); break; }
-                    var dip = new DiplomacyManager(s, _db);
+                    var dip = new DiplomacyManager(s, _db, _gm.Bus);
                     var dr = t[0] switch
                     {
                         "ally" => dip.FormAlliance(actor.Id, t[1]),

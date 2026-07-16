@@ -165,5 +165,11 @@
     "max_rounds": 100,
     "naval_wind_atk_pct": 20,
     "naval_current_atk_pct": 10
+  },
+  "duel": {
+    "str_gap_max": 30,
+    "variance_pct": 20,
+    "winner_morale_bonus": 15,
+    "winner_gauge_bonus": 30
   }
 }

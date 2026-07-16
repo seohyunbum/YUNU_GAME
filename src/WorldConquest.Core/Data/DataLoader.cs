@@ -19,6 +19,17 @@ public sealed class DataLoader
     public const string MapFile = "map/world_map.json";
     public const string FactionsFile = "factions/factions.json";
     public const string RetiredIdsFile = "config/retired_ids.json";
+    public const string CutsceneTriggersFile = "cinematics/cutscene_triggers.json";
+    public const string CutsceneScriptsFile = "cinematics/cutscene_scripts.json";
+
+    /// <summary>컷씬 트리거가 구독 가능한 이벤트 타입 (§2.7.4 — 신규 타입은 코드 확장과 함께 추가).</summary>
+    private static readonly HashSet<string> KnownEventTypes = new()
+    { "DuelStarted", "DuelEnded", "BattleEnded", "ProvinceCaptured", "AllianceFormed", "GameEnded", "SkillExecuted", "CharacterJoined" };
+
+    private static readonly HashSet<string> KnownConditionTypes = new()
+    { "actor_is", "event_field", "not_fired", "chance_permyriad" };
+
+    private static readonly HashSet<string> KnownBeats = new() { "line", "narration", "title_card", "pause" };
 
     /// <summary>지원하는 데이터 스키마 버전 (game_rules.json:schema_version). 미래 버전은 로드 거부 (§5.5).</summary>
     public const int SupportedSchemaVersion = 1;
@@ -76,6 +87,11 @@ public sealed class DataLoader
         ValidateFactions(factionDtos, charIds, nodeById, errors);
         ValidateFactionDispositions(factionDtos, rules, errors);
 
+        // 5.5) 시네마틱 (§5.7): 트리거↔스크립트 조인·조건 DSL·궁극기 cutscene_id 실존 검증
+        var triggersDto = ReadFile<CutsceneTriggersFileDto>(dataDir, CutsceneTriggersFile, errors) ?? new();
+        var scriptsDto = ReadFile<CutsceneScriptsFileDto>(dataDir, CutsceneScriptsFile, errors) ?? new();
+        var cutsceneIds = ValidateCutscenes(triggersDto, scriptsDto, charIds, skillDtos, errors);
+
         // 6) 콘텐츠 id 생애주기 (§5.5): 결번(retired) 등재 id 를 신규 데이터가 재사용하면 기동 실패.
         var terrainIds = CollectIds(terrainDtos.Select(t => t.Id));
         var retired = CollectIds(ReadFile<RetiredIdsDto>(dataDir, RetiredIdsFile, errors)?.RetiredIds);
@@ -83,7 +99,8 @@ public sealed class DataLoader
             foreach (var (ids, file) in new (HashSet<string>, string)[]
             {
                 (charIds, CharactersFile), (skillIds, SkillsFile), (unitIds, LandUnitsFile),
-                (factionIds, FactionsFile), (nodeIds, MapFile), (terrainIds, TerrainFile)
+                (factionIds, FactionsFile), (nodeIds, MapFile), (terrainIds, TerrainFile),
+                (cutsceneIds, CutsceneScriptsFile)
             })
                 foreach (var id in ids.Where(retired.Contains))
                     errors.Add(new(file, id, "결번(retired) id 재사용 금지 — 삭제된 id 는 retired_ids.json 에 영구 등재되며 재사용할 수 없습니다 (§5.5 id 생애주기)."));
@@ -92,7 +109,88 @@ public sealed class DataLoader
 
         // 5) 검증 통과 → 도메인 객체 조립
         return Build(rules, terrainDtos, unitDtos.Select(u => u.Dto).ToList(),
-            skillDtos, charDtos, nodeDtos, mapDto.Edges!, factionDtos);
+            skillDtos, charDtos, nodeDtos, mapDto.Edges!, factionDtos, triggersDto, scriptsDto);
+    }
+
+    // ---------- 시네마틱 (§5.7) ----------
+
+    private static HashSet<string> ValidateCutscenes(
+        CutsceneTriggersFileDto triggersFile, CutsceneScriptsFileDto scriptsFile,
+        HashSet<string> charIds, List<SkillDto> skillDtos, List<ValidationError> errors)
+    {
+        var triggers = triggersFile.Triggers ?? new();
+        var scripts = scriptsFile.Scripts ?? new();
+        var scriptIds = CollectIds(scripts.Select(s => s.Id));
+        var triggerIds = CollectIds(triggers.Select(t => t.Id));
+
+        void Err(string file, string entry, string msg) => errors.Add(new(file, entry, msg));
+
+        // 트리거 검증
+        var seen = new HashSet<string>();
+        foreach (var t in triggers)
+        {
+            var entry = t.Id ?? "(id 없음)";
+            if (string.IsNullOrWhiteSpace(t.Id)) { Err(CutsceneTriggersFile, entry, "필수 필드 누락: id"); continue; }
+            if (!seen.Add(t.Id)) Err(CutsceneTriggersFile, entry, "중복 id");
+            if (t.Id.Contains('#')) Err(CutsceneTriggersFile, entry, "id 에 '#' 금지 (fired 복합키 예약 문자)");
+            if (t.OnEvent is null || !KnownEventTypes.Contains(t.OnEvent))
+                Err(CutsceneTriggersFile, entry, $"on_event '{t.OnEvent}' 는 지원 이벤트가 아닙니다.");
+            if (t.Priority is null) Err(CutsceneTriggersFile, entry, "필수 필드 누락: priority");
+            if (t.OncePer is not (null or "save"))
+                Err(CutsceneTriggersFile, entry, $"once_per '{t.OncePer}' 미지원 (v1: save).");
+            if (!scriptIds.Contains(t.Id))
+                Err(CutsceneTriggersFile, entry, "대응하는 스크립트가 없습니다 (트리거↔스크립트 조인).");
+
+            foreach (var c in t.Conditions ?? new())
+            {
+                if (c.Type is null || !KnownConditionTypes.Contains(c.Type))
+                { Err(CutsceneTriggersFile, entry, $"조건 타입 '{c.Type}' 미지원."); continue; }
+                switch (c.Type)
+                {
+                    case "actor_is" when c.Value is null || !charIds.Contains(c.Value):
+                        Err(CutsceneTriggersFile, entry, $"actor_is '{c.Value}' — 존재하지 않는 캐릭터.");
+                        break;
+                    case "not_fired" when c.Value is not "self" && (c.Value is null || !triggerIds.Contains(c.Value)):
+                        Err(CutsceneTriggersFile, entry, $"not_fired '{c.Value}' — self 또는 실존 컷씬 id 여야 합니다.");
+                        break;
+                    case "event_field" when c.Field is null || c.Op is not "eq" || c.Value is null:
+                        Err(CutsceneTriggersFile, entry, "event_field 는 field·op(eq)·value 필수.");
+                        break;
+                    case "chance_permyriad" when c.Permyriad is null or < 0 or > 10000:
+                        Err(CutsceneTriggersFile, entry, "chance_permyriad 는 0~10000.");
+                        break;
+                }
+            }
+        }
+
+        // 스크립트 검증 (비트 enum·speaker 실존)
+        var seenScripts = new HashSet<string>();
+        foreach (var s in scripts)
+        {
+            var entry = s.Id ?? "(id 없음)";
+            if (string.IsNullOrWhiteSpace(s.Id)) { Err(CutsceneScriptsFile, entry, "필수 필드 누락: id"); continue; }
+            if (!seenScripts.Add(s.Id)) Err(CutsceneScriptsFile, entry, "중복 id");
+            foreach (var b in (s.Script ?? new()).Concat(s.ShortScript ?? new()))
+            {
+                if (b.Beat is null || !KnownBeats.Contains(b.Beat))
+                { Err(CutsceneScriptsFile, entry, $"비트 '{b.Beat}' 미지원."); continue; }
+                if (b.Beat is "line" && (b.TextKo is null || b.SpeakerRef is null))
+                    Err(CutsceneScriptsFile, entry, "line 비트는 speaker_ref·text_ko 필수.");
+                if (b.Beat is "line" && b.SpeakerRef is not (null or "actor") && !charIds.Contains(b.SpeakerRef))
+                    Err(CutsceneScriptsFile, entry, $"speaker_ref '{b.SpeakerRef}' — 존재하지 않는 캐릭터.");
+                if (b.Beat is "narration" && b.TextKo is null)
+                    Err(CutsceneScriptsFile, entry, "narration 비트는 text_ko 필수.");
+                if (b.Beat is "title_card" && s.TitleCard?.Text is null && b.Text is null)
+                    Err(CutsceneScriptsFile, entry, "title_card 비트는 스크립트 title_card.text 또는 비트 text 필요.");
+            }
+        }
+
+        // 궁극기 cutscene_id 는 스크립트에 실존해야 (§5.7 — A2 연출 계약)
+        foreach (var sk in skillDtos.Where(x => x.Type == "ultimate" && x.CutsceneId is not null))
+            if (!scriptIds.Contains(sk.CutsceneId!))
+                Err(SkillsFile, sk.Id ?? "?", $"cutscene_id '{sk.CutsceneId}' 에 대응하는 컷씬 스크립트가 없습니다.");
+
+        return scriptIds.Concat(triggerIds).ToHashSet();
     }
 
     // ---------- 파일 읽기 ----------
@@ -148,6 +246,7 @@ public sealed class DataLoader
         Need(dto.UnitClassAdvantage, "unit_class_advantage");
         Need(dto.Facilities, "facilities");
         Need(dto.Combat, "combat");
+        Need(dto.Duel, "duel");
         Need(dto.ValidTerrains, "valid_terrains"); Need(dto.ValidClimates, "valid_climates");
         Need(dto.ValidRegions, "valid_regions"); Need(dto.ValidOrigins, "valid_origins");
         Need(dto.ValidEffectTypes, "valid_effect_types"); Need(dto.ValidSkillTargets, "valid_skill_targets");
@@ -185,6 +284,10 @@ public sealed class DataLoader
         Check(dto.Combat.MaxRounds is >= 1, "combat.max_rounds", "1 이상이어야 합니다.");
         Check(dto.Combat.NavalWindAtkPct is >= 0 and <= 100, "combat.naval_wind_atk_pct", "0 ~ 100 범위여야 합니다.");
         Check(dto.Combat.NavalCurrentAtkPct is >= 0 and <= 100, "combat.naval_current_atk_pct", "0 ~ 100 범위여야 합니다.");
+        Check(dto.Duel!.StrGapMax is >= 0, "duel.str_gap_max", "0 이상이어야 합니다.");
+        Check(dto.Duel.VariancePct is >= 0 and <= 100, "duel.variance_pct", "0 ~ 100 범위여야 합니다.");
+        Check(dto.Duel.WinnerMoraleBonus is >= 0, "duel.winner_morale_bonus", "0 이상이어야 합니다.");
+        Check(dto.Duel.WinnerGaugeBonus is >= 0, "duel.winner_gauge_bonus", "0 이상이어야 합니다.");
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
         {
             if (row is null) { Check(false, $"unit_class_advantage.{atk}", "행(row)이 null 입니다."); continue; }
@@ -244,6 +347,10 @@ public sealed class DataLoader
             CombatMaxRounds = dto.Combat.MaxRounds ?? 1,
             NavalWindAtkPct = dto.Combat.NavalWindAtkPct ?? 0,
             NavalCurrentAtkPct = dto.Combat.NavalCurrentAtkPct ?? 0,
+            DuelStrGapMax = dto.Duel.StrGapMax ?? 0,
+            DuelVariancePct = dto.Duel.VariancePct ?? 0,
+            DuelWinnerMoraleBonus = dto.Duel.WinnerMoraleBonus ?? 0,
+            DuelWinnerGaugeBonus = dto.Duel.WinnerGaugeBonus ?? 0,
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),
@@ -725,7 +832,9 @@ public sealed class DataLoader
         List<CharacterDto> charDtos,
         List<MapNodeDto> nodeDtos,
         List<MapEdgeDto> edgeDtos,
-        List<FactionDto> factionDtos)
+        List<FactionDto> factionDtos,
+        CutsceneTriggersFileDto triggersFile,
+        CutsceneScriptsFileDto scriptsFile)
     {
         var terrain = terrainDtos.ToDictionary(
             t => t.Id!,
@@ -781,6 +890,21 @@ public sealed class DataLoader
                 f.DifficultyModifier!.ResourceBonus!.Value, f.DifficultyModifier.AiAggression!.Value,
                 f.StartProvinces!));
 
+        var cutsceneTriggers = (triggersFile.Triggers ?? new()).ToDictionary(
+            t => t.Id!,
+            t => new CutsceneTrigger(
+                t.Id!, t.Category ?? "misc", t.OnEvent!,
+                (t.Conditions ?? new()).Select(c =>
+                    new CutsceneCondition(c.Type!, c.Field, c.Op, c.Value, c.Permyriad)).ToList(),
+                t.Priority!.Value, t.OncePer ?? "save"));
+
+        var cutsceneScripts = (scriptsFile.Scripts ?? new()).ToDictionary(
+            s => s.Id!,
+            s => new CutsceneScript(
+                s.Id!, s.TitleKo, s.TitleCard?.Text,
+                (s.Script ?? new()).Select(ToBeat).ToList(),
+                (s.ShortScript ?? new()).Select(ToBeat).ToList()));
+
         return new GameDatabase
         {
             Rules = rules,
@@ -789,7 +913,11 @@ public sealed class DataLoader
             Units = units,
             TerrainModifiers = terrain,
             Factions = factions,
-            Map = new WorldMap(provinces, edges)
+            Map = new WorldMap(provinces, edges),
+            CutsceneTriggers = cutsceneTriggers,
+            CutsceneScripts = cutsceneScripts
         };
+
+        static CutsceneBeat ToBeat(CutsceneBeatDto b) => new(b.Beat!, b.TextKo, b.SpeakerRef, b.Text);
     }
 }

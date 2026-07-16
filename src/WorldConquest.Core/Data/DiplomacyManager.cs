@@ -25,11 +25,13 @@ public sealed class DiplomacyManager
 {
     private readonly GameState _state;
     private readonly GameDatabase _db;
+    private readonly EventBus? _bus;
 
-    public DiplomacyManager(GameState state, GameDatabase db)
+    public DiplomacyManager(GameState state, GameDatabase db, EventBus? bus = null)
     {
         _state = state;
         _db = db;
+        _bus = bus;
     }
 
     public bool AreAllied(string a, string b) =>
@@ -45,6 +47,9 @@ public sealed class DiplomacyManager
         fa.Relations[b] = DiplomaticState.Alliance;
         fb!.Relations[a] = DiplomaticState.Alliance;
         _state.Progress.Add($"alliance:{Canonical(a, b)}");   // id-set — 최초 동맹 컷씬 트리거원 (§2.7 유형 C)
+        var bothHuman = fa.Controller.StartsWith("human") && fb.Controller.StartsWith("human");
+        _bus?.Publish(GameEvent.Of("AllianceFormed",
+            ("a", a), ("b", b), ("both_human", bothHuman ? "true" : "false")));
         return DiplomacyOutcome.Success;
     }
 

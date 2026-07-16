@@ -202,6 +202,7 @@ public sealed class SaveSystem
             Armies = armies,
             Fleets = fleets,
             Provinces = provinces,
+            FiredCutsceneIds = (dto.FiredCutsceneIds ?? new()).ToHashSet(),   // 결번 id 잔존 무해(정의 없는 id 무시)
             MigratedFromVersion = version
         };
     }
@@ -229,6 +230,7 @@ public sealed class SaveSystem
         }).ToList(),
         // ordinal 정렬 직렬화 — 동일 상태 = 동일 바이트(세이브 §2.7.12, 왕복 비교 단순화).
         Progress = s.Progress.OrderBy(x => x, StringComparer.Ordinal).ToList(),
+        FiredCutsceneIds = s.FiredCutsceneIds.OrderBy(x => x, StringComparer.Ordinal).ToList(),
         Armies = s.Armies.Select(a => new ArmyDto
         {
             Id = a.Id, FactionId = a.FactionId, LocationNodeId = a.LocationNodeId,

@@ -15,4 +15,6 @@ public sealed class GameDatabase
     public required IReadOnlyDictionary<string, TerrainModifier> TerrainModifiers { get; init; }
     public required IReadOnlyDictionary<string, Faction> Factions { get; init; }
     public required WorldMap Map { get; init; }
+    public required IReadOnlyDictionary<string, CutsceneTrigger> CutsceneTriggers { get; init; }   // §5.7 Core 소비
+    public required IReadOnlyDictionary<string, CutsceneScript> CutsceneScripts { get; init; }     // §5.7 Presentation 소비
 }

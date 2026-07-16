@@ -76,10 +76,15 @@ public sealed class GameManager
     private readonly GameDatabase _db;
     public GameState State { get; }
 
-    public GameManager(GameState state, GameDatabase db)
+    /// <summary>Core→Presentation 이벤트 버스 (§4.3). CutsceneDirector 가 구독해 컷씬을 선택·발행한다.</summary>
+    public EventBus Bus { get; }
+
+    public GameManager(GameState state, GameDatabase db, EventBus? bus = null)
     {
         State = state;
         _db = db;
+        Bus = bus ?? new EventBus();
+        _ = new CutsceneDirector(state, db, Bus);   // 구독 등록 (§2.7.2)
     }
 
     /// <summary>다음 페이즈로 진행하고, 진입한 페이즈의 시스템을 실행한다.</summary>
@@ -309,9 +314,29 @@ public sealed class GameManager
         State.Armies.RemoveAll(a => a.TotalTroops == 0);
         State.Fleets.RemoveAll(f => f.TotalTroops == 0);
 
+        PublishBattleEvents(battle, targetNodeId);
+
         if (!battle.AttackerWon) return AttackOutcome.DefenderHeld;
         TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetNodeId, force);
         return AttackOutcome.AttackerWon;
+    }
+
+    /// <summary>전투 결과를 불변 이벤트로 발행 (§4.3) — 컷씬 트리거·콘솔/UE5 표현의 원천.</summary>
+    private void PublishBattleEvents(BattleResult battle, string node)
+    {
+        if (battle.Duel is not null)
+        {
+            var d = battle.Duel;
+            // 참가자별 관점 발행 — actor_is 조건이 어느 쪽 캐릭터든 매칭 가능하게
+            Bus.Publish(GameEvent.Of("DuelStarted", ("actor", d.WinnerCharacterId), ("opponent", d.LoserCharacterId), ("node", node)));
+            Bus.Publish(GameEvent.Of("DuelStarted", ("actor", d.LoserCharacterId), ("opponent", d.WinnerCharacterId), ("node", node)));
+            Bus.Publish(GameEvent.Of("DuelEnded", ("actor", d.WinnerCharacterId), ("winner", "actor"), ("node", node)));
+            Bus.Publish(GameEvent.Of("DuelEnded", ("actor", d.LoserCharacterId), ("winner", "opponent"), ("node", node)));
+        }
+        foreach (var ev in battle.SkillEvents.Where(e => e.SkillId != "duel"))
+            Bus.Publish(GameEvent.Of("SkillExecuted", ("skill", ev.SkillId), ("side", ev.Side), ("node", node)));
+        Bus.Publish(GameEvent.Of("BattleEnded",
+            ("node", node), ("attacker_won", battle.AttackerWon ? "true" : "false")));
     }
 
     private void TransferProvince(FactionState from, FactionState to, string provinceId, MilitaryForce occupier)
@@ -320,6 +345,7 @@ public sealed class GameManager
         to.OwnedProvinceIds.Add(provinceId);
         occupier.LocationNodeId = provinceId;   // 점령군 진주
         State.Progress.Add($"captured:{provinceId}");
+        Bus.Publish(GameEvent.Of("ProvinceCaptured", ("province", provinceId), ("by", to.Id), ("from", from.Id)));
     }
 
     private Army CreateArmy(string factionId, string locationNodeId)
