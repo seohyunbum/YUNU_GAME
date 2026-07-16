@@ -19,4 +19,4 @@ Thumbs.db
 data/config/balance_overrides.json   # 밸런스 패널 실험 델타 (§5.6)
 telemetry/                            # 매치 결과 JSONL (§2.8.10 D-라이브운영)
 reports/repro/                        # 버그 재현 아티팩트 (세이브+시드 스냅샷)
-# runtime 세이브(자동저장 링·수동 슬롯) 저장 경로 확정 시 여기에 추가할 것 (Phase 1)
+saves/                                # 런타임 세이브 (기본 경로 = %APPDATA%/WorldConquest/saves/, repo 로컬 세이브 대비 안전장치)

@@ -1,6 +1,6 @@
 # 세이브 시스템 설계 (Phase 1)
 
-> **상태**: 설계 완료 · 구현 대기 (2026-07-16)
+> **상태**: 구현 진행 중 (2026-07-16) — Pcg32 `e4c6da3` · RngStreams `918b841` · GameState·SaveSystem·SaveDto `3581656`. 세이브 왕복 동일성·RNG 연속성 검증 완료(test 68). 잔여: fail-soft(D9, GameDatabase 대조)·프로세스 재기동 E2E·게임플레이 필드 확장.
 > **선행 조건**: 정수 스케일 전환·id 생애주기·schema_version 완료(Phase 0 위생, `04d3c30`). Phase 0 데이터/도메인 확정.
 > **정본 관계**: `docs/GAME_DESIGN_SPEC.md` §4.2·§9·v1.4 §0.3-7 의 하위 상세. 스펙 [MUST] 를 재정의하지 않고 그 아래 해상도만 다룬다.
 > **구현 완료 시**: 이 문서를 as-built 로 갱신하고, 첫 실사고 시 `docs/save-system-history.md` 를 개설한다(스펙 §9 리스크 표에서 링크).
@@ -85,8 +85,8 @@
 - 세이브 스키마 형태 변경 = SaveVersion 상향 + Normalize 보강 + 왕복 테스트를 **같은 커밋**(§0.3-7).
 - Phase 1 DoD(스펙 §7): 50턴 자동 스모크(예외·자원 음수 0) + 세이브→로드 상태 동일성.
 
-## 7. 미해결 — 사용자 확인 필요
+## 7. 확정 (2026-07-16 — 기본값으로 확정)
 
-1. **자동저장 링 도입 시점**: 기본 = Phase 1 은 수동 명명 슬롯만, 턴 단위 자동저장 링(B-10)은 이어하기 QoL 요구 시. — 확인 필요.
-2. **세이브 파일 저장 경로**: 런타임 세이브 위치(예: `%APPDATA%/WorldConquest/saves/` vs repo 로컬). gitignore 대상(AGENTS.md §4). — 확인 필요.
-3. **controller 필드**(human_p1/human_p2/ai) 를 세이브에 둘지 vs 캠페인 설정 별도 파일: 핫시트 2인 매핑의 정본 위치. — 확인 필요.
+1. **자동저장 링**: Phase 1 은 **수동 명명 슬롯만**. 턴 단위 자동저장 링(B-10)은 이어하기 QoL 요구가 실제로 나올 때.
+2. **세이브 파일 저장 경로**: **`%APPDATA%/WorldConquest/saves/`** (repo 밖, gitignore 안전장치는 AGENTS.md §4). `SaveSystem` 은 경로를 인자로 받으므로 경로 결정처는 ConsoleHost/호출자.
+3. **controller 필드**: **세이브에 포함**(`FactionState.Controller` = human_p1/human_p2/ai). 핫시트 2인 매핑의 정본 = 세이브.

@@ -3,10 +3,13 @@
 > 상세 파이프라인·DoD 는 스펙 §7. 이 문서는 **현재 초점과 대기 작업**의 얇은 트래커다.
 > 아들 테스트(§8) 백로그·Phase 2 게이트 리뷰 결정도 여기에 수렴한다.
 
-## NOW — Phase 1 착수
+## NOW — Phase 1 진행 중
 
-- [ ] **세이브 시스템 설계 확정** → `docs/designs/save-system-design.md` (스펙 §4.2 계약 5종 구체화: 단일 `SaveVersion`+`Normalize`, `Load`=새 GameState, fail-soft 스킵, 페이즈 경계, atomic write). design-doc 장르 첫 적용.
-- [ ] Phase 1 작업: 턴 루프·자원 생산·시설·징병·A* 이동·무혈 점령·핫시트 2인·세이브/로드 (스펙 §7 Phase 1)
+- [x] **세이브 시스템 설계** → `docs/designs/save-system-design.md` (§4.2 계약 D1~D10, design-doc 장르 첫 적용). `f80741f`
+- [x] **세이브 시스템 골격 구현** — Pcg32 `e4c6da3` · RngStreams `918b841` · GameState·SaveSystem `3581656`. 세이브→로드 상태 동일성·RNG 연속성 검증(test 68).
+- [ ] **세이브 fail-soft(D9)** — 로드 시 GameDatabase 대조로 삭제 정의 id 참조 건별 스킵+고지 (게임플레이 정의 참조가 늘어나는 시점).
+- [ ] **게임플레이** (스펙 §7 Phase 1): GameManager·TurnSystem(페이즈 전이) → 자원 생산 → 시설·징병 → A* 이동 → 무혈 점령 → 핫시트 2인 입력. GameState 필드는 여기서 additive 확장.
+- [ ] Phase 1 DoD: 50턴 자동 스모크(예외·자원 음수 0) + 프로세스 재기동 포함 세이브 왕복 E2E.
 
 ## DONE — Phase 0 위생 (2026-07-16, dotnet 8.0.423 설치 후 verify 통과)
 
