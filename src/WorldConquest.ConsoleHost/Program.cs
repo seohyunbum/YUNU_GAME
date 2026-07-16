@@ -4,7 +4,8 @@ using WorldConquest.Core.Domain;
 
 Console.OutputEncoding = Encoding.UTF8;
 
-var dataDir = args.Length > 0 ? args[0] : FindDataDir();
+var playMode = args.Length > 0 && args[0] == "play";
+var dataDir = playMode || args.Length == 0 ? FindDataDir() : args[0];
 if (dataDir is null)
 {
     Console.Error.WriteLine("data/ 폴더를 찾을 수 없습니다. 인자로 경로를 지정하십시오: dotnet run --project src/WorldConquest.ConsoleHost -- <data 경로>");
@@ -22,6 +23,18 @@ catch (DataValidationException ex)
     foreach (var error in ex.Errors)
         Console.Error.WriteLine($"  {error}");
     return 1;
+}
+
+if (playMode)
+{
+    // 핫시트 2인 플레이 (§1.2). 플레이어 세력은 인자 또는 player_selectable 우선.
+    var selectable = db.Factions.Values.Where(f => f.IsPlayerSelectable).Select(f => f.Id).ToList();
+    var p1 = args.Length > 1 ? args[1] : selectable.ElementAtOrDefault(0) ?? db.Factions.Keys.First();
+    var p2 = args.Length > 2 ? args[2] : selectable.FirstOrDefault(id => id != p1) ?? db.Factions.Keys.First(id => id != p1);
+    var seed = (ulong)DateTime.Now.Ticks;   // 실제 플레이는 무작위 시드 (Presentation — 결정론 무관)
+    var state = GameSetup.NewCampaign(db, seed, p1, p2);
+    new PlaySession(new GameManager(state, db), db, Console.In, Console.Out).Run();
+    return 0;
 }
 
 Console.WriteLine("════════════════════════════════════════════════════════");

@@ -9,7 +9,7 @@
 - [x] **세이브 시스템 골격 구현** — Pcg32 `e4c6da3` · RngStreams `918b841` · GameState·SaveSystem `3581656`. 세이브→로드 상태 동일성·RNG 연속성 검증(test 68).
 - [x] **턴 루프·수입·무혈 점령** — TurnSystem(페이즈 전이)·GameSetup.NewCampaign·GameManager(수입·무혈 점령·승리 stub). `b412067`·`11ebbb0`
 - [x] **50턴 자동 스모크** (예외·자원 음수 0). `11ebbb0`
-- [ ] **핫시트 2인 콘솔 루프** — ConsoleHost 통합(플레이어 명령 입력·턴 넘기기·세이브/로드 커맨드). Phase 1 DoD '2인이 턴 넘기며 자원 모으고 빈 영지 점령'.
+- [x] **핫시트 2인 콘솔 루프** — PlaySession(TextReader/Writer 주입, 테스트 가능) + Program `play` 모드. status/capture/save/end/quit. 실 콘솔 구동 확인(조선 평양 점령·수입 누적). Phase 1 DoD '2인이 턴 넘기며 자원 모으고 빈 영지 점령' ✔
 - [ ] **시설·징병·A* 부대 이동** — 부대(Army/Fleet) 상태를 GameState 에 additive 확장. A* 는 부대 이동과 함께.
 - [ ] **세이브 fail-soft(D9)** — 로드 시 GameDatabase 대조로 삭제 정의 id 참조 건별 스킵+고지 (정의 참조가 늘어나는 시점).
 - [ ] **프로세스 재기동 세이브 E2E** — ConsoleHost 저장→재기동→로드→상태 diff (Phase 1 DoD·§8).
