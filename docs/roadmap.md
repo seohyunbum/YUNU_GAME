@@ -7,9 +7,12 @@
 
 - [x] **세이브 시스템 설계** → `docs/designs/save-system-design.md` (§4.2 계약 D1~D10, design-doc 장르 첫 적용). `f80741f`
 - [x] **세이브 시스템 골격 구현** — Pcg32 `e4c6da3` · RngStreams `918b841` · GameState·SaveSystem `3581656`. 세이브→로드 상태 동일성·RNG 연속성 검증(test 68).
-- [ ] **세이브 fail-soft(D9)** — 로드 시 GameDatabase 대조로 삭제 정의 id 참조 건별 스킵+고지 (게임플레이 정의 참조가 늘어나는 시점).
-- [ ] **게임플레이** (스펙 §7 Phase 1): GameManager·TurnSystem(페이즈 전이) → 자원 생산 → 시설·징병 → A* 이동 → 무혈 점령 → 핫시트 2인 입력. GameState 필드는 여기서 additive 확장.
-- [ ] Phase 1 DoD: 50턴 자동 스모크(예외·자원 음수 0) + 프로세스 재기동 포함 세이브 왕복 E2E.
+- [x] **턴 루프·수입·무혈 점령** — TurnSystem(페이즈 전이)·GameSetup.NewCampaign·GameManager(수입·무혈 점령·승리 stub). `b412067`·`11ebbb0`
+- [x] **50턴 자동 스모크** (예외·자원 음수 0). `11ebbb0`
+- [ ] **핫시트 2인 콘솔 루프** — ConsoleHost 통합(플레이어 명령 입력·턴 넘기기·세이브/로드 커맨드). Phase 1 DoD '2인이 턴 넘기며 자원 모으고 빈 영지 점령'.
+- [ ] **시설·징병·A* 부대 이동** — 부대(Army/Fleet) 상태를 GameState 에 additive 확장. A* 는 부대 이동과 함께.
+- [ ] **세이브 fail-soft(D9)** — 로드 시 GameDatabase 대조로 삭제 정의 id 참조 건별 스킵+고지 (정의 참조가 늘어나는 시점).
+- [ ] **프로세스 재기동 세이브 E2E** — ConsoleHost 저장→재기동→로드→상태 diff (Phase 1 DoD·§8).
 
 ## DONE — Phase 0 위생 (2026-07-16, dotnet 8.0.423 설치 후 verify 통과)
 
