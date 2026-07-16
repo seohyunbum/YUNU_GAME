@@ -13,3 +13,10 @@ TestResults/
 # OS
 .DS_Store
 Thumbs.db
+
+# 로컬 전용 산출물 (AGENTS.md §4 로컬 파일 정책 — 스키마 버전·fail-soft+고지 규율 적용)
+# ⚠ tests/fixtures/saves/** (마이그레이션 픽스처)·리플레이 골든은 추적한다. 아래는 런타임 산출물만.
+data/config/balance_overrides.json   # 밸런스 패널 실험 델타 (§5.6)
+telemetry/                            # 매치 결과 JSONL (§2.8.10 D-라이브운영)
+reports/repro/                        # 버그 재현 아티팩트 (세이브+시드 스냅샷)
+# runtime 세이브(자동저장 링·수동 슬롯) 저장 경로 확정 시 여기에 추가할 것 (Phase 1)

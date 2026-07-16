@@ -1,0 +1,32 @@
+name: verify
+
+# WorldConquest (orphan 브랜치) 전용 CI. paths 필터로 master=YUNU_GAME 에서는 돌지 않는다.
+# 통합 경로 확정(AGENTS.md) 시 branches 필터를 함께 갱신할 것.
+on:
+  push:
+    paths:
+      - 'WorldConquest.sln'
+      - 'src/WorldConquest.**'
+      - 'tests/WorldConquest.**'
+      - 'data/**'
+      - 'global.json'
+      - '.github/workflows/verify.yml'
+  pull_request:
+    paths:
+      - 'WorldConquest.sln'
+      - 'src/WorldConquest.**'
+      - 'tests/WorldConquest.**'
+      - 'data/**'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: build (warnings as errors)
+        run: dotnet build -warnaserror
+      - name: test
+        run: dotnet test --no-build
