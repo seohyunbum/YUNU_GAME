@@ -35,10 +35,17 @@
 - **다음 작업자가 반복하지 말 판단**: 편집 대상 데이터 안에 그 데이터의 검증 범위를 함께 두지 말 것. 검증은 코드(단일 경로)에.
 - **관련 파일·테스트·커밋**: 스펙 §5.6(v1.1), 분석 워크플로우 wf_91c95588 판정.
 
-## 2026-07-16 — Phase 0 코드 검증 불가 환경(집 PC, dotnet 미설치)에서 정수 스케일 전환 보류
+## 2026-07-16 — winget .NET SDK 설치 hang → zip 바이너리로 회피
 
-- **시도/상황**: 보고서 §7 '즉시' 묶음 중 data JSON float→정수 스케일 전환·gauge 범위 검사·`schema_version` 로더·SampleDataTests 하한화·레이어 정적 게이트 테스트를 반영하려 함.
-- **결과**: 보류. 집 PC 에 .NET SDK 없음 → `dotnet build`/`dotnet test`/데이터 로딩을 검증할 수 없어, 검증 없이 C# 코드·데이터 계약을 바꾸지 않기로 함(스펙 §0.3-6 커밋 전 verify 원칙).
-- **이유**: 정수 스케일은 8개 JSON + DataLoader 파싱 + Domain 계산 + 테스트가 엮여 검증 없이는 회귀 위험이 큼.
-- **다음 작업자가 반복하지 말 판단**: dotnet 있는 환경(회사 PC 또는 SDK 설치)에서 계약(스펙 §4.4·§5.5, v1.4 반영 완료)에 맞춰 코드·데이터 전환 + verify 통과 후 커밋.
-- **관련 파일·테스트·커밋**: 스펙 §4.4 정수 산술 [MUST]·§5.5(v1.4). 대기 작업 = roadmap.md 'next'.
+- **시도/상황**: 집 PC 에 dotnet 없어 `winget install Microsoft.DotNet.SDK.8 --silent` 를 백그라운드 실행.
+- **결과**: 31분 hang. 진단 결과 **다운로드는 214MB 완료됐으나 installer(.exe) 실행 단계에서 멈춤**(winget CPU 0:00:01, 백그라운드 콘솔에 UI 없는 installer 가 대기). winget kill 후 **zip 바이너리**(`dotnet-sdk-8.0.423-win-x64.zip`)를 `C:\Users\서현범\dotnet` 에 압축 해제 — installer·관리자 불필요라 hang 없음. `DOTNET_ROOT` 지정해 사용.
+- **다음 작업자가 반복하지 말 판단**: 이 PC 에서 dotnet 필요 시 winget installer 말고 **zip 방식**. curl 다운로드 경로는 `C:\` 루트가 아니라 홈(표준 사용자는 C:\ 루트 쓰기 불가 — curl 오류 23).
+- **관련**: `C:\Users\서현범\dotnet\dotnet.exe` (8.0.423). 메모리 `pc-home-python-node-no-libreoffice` 에 dotnet 추가 필요.
+
+## 2026-07-16 — Phase 0 위생 완료 (정수 스케일 등 6종, verify 통과)
+
+- **시도/상황**: 보고서 §7 '즉시' 묶음의 코드/데이터 부분을 SDK 설치 후 구현.
+- **결과**: baseline verify 48/48 확인 → 6종 단계별 적용, 각 verify 후 커밋: 정수 스케일(×100, `0f1b126`)·gauge+수량하한(`ee09147`)·schema_version(`542e174`)·id 생애주기(`2699bcb`)·레이어 게이트(`a8ac963`). 최종 52/52.
+- **이유**: 세이브·전투가 붙기 전 데이터 계약을 정수로 굳혀야 Phase 1 마이그레이션이 없음(§4.4).
+- **핵심 판단**: Grow 는 `floor(L*g)-floor((L-1)*g)` 라 정수 나눗셈(rate≥0)이 floor 와 동일 → 성장 결과 등가 보존(테스트 51 유지). 스케일은 ×100 일관(100=×1.0).
+- **다음**: Phase 1 = 세이브 시스템 design-doc → GameState(Load=새 객체) → 턴 루프. `aliases` id 리매핑은 Normalize 도입 시.

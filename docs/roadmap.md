@@ -3,21 +3,21 @@
 > 상세 파이프라인·DoD 는 스펙 §7. 이 문서는 **현재 초점과 대기 작업**의 얇은 트래커다.
 > 아들 테스트(§8) 백로그·Phase 2 게이트 리뷰 결정도 여기에 수렴한다.
 
-## NOW — Phase 1 착수 준비
+## NOW — Phase 1 착수
 
 - [ ] **세이브 시스템 설계 확정** → `docs/designs/save-system-design.md` (스펙 §4.2 계약 5종 구체화: 단일 `SaveVersion`+`Normalize`, `Load`=새 GameState, fail-soft 스킵, 페이즈 경계, atomic write). design-doc 장르 첫 적용.
 - [ ] Phase 1 작업: 턴 루프·자원 생산·시설·징병·A* 이동·무혈 점령·핫시트 2인·세이브/로드 (스펙 §7 Phase 1)
 
-## NEXT — dotnet 환경에서 처리할 코드/데이터 전환 (계약은 스펙 v1.4 에 확정, 구현 대기)
+## DONE — Phase 0 위생 (2026-07-16, dotnet 8.0.423 설치 후 verify 통과)
 
-> 집 PC 에 .NET SDK 없어 보류됨 (work-history 2026-07-16). 회사 PC 또는 SDK 설치 후 `verify` 통과와 함께 처리.
+> `.NET SDK` 를 zip 바이너리로 `C:\Users\서현범\dotnet` 에 설치(winget installer hang 회피). baseline verify 48/48 확인 후 진행.
 
-- [ ] **data JSON 정수 스케일 전환** — `growth_rates`·상성 배율·세율 등 float → 정수 스케일(1.2→120, ×1.5→150/100). DataLoader 파싱·Domain 계산·테스트 동반. **스키마 굳기 전 우선** (스펙 §4.4). ⚠ 완전성 갭 P1.
-- [ ] **콘텐츠 id 생애주기 구현** — `data/config/retired_ids.json` + DataLoader 재사용 검출 기동 실패 + `aliases` 맵 (스펙 §5.5). ⚠ 완전성 갭 P1.
-- [ ] `game_rules.json` 에 `schema_version` 필드 + DataLoader 미래 버전 거부 (스펙 §5.5).
-- [ ] DataLoader.BuildRules 에 `gauge_charge_on_attack`/`on_damaged` 범위 검사 2줄 (기존 하드코딩 검증 방식).
-- [ ] `SampleDataTests` 수량 동등 assert 3건(캐릭터 10·영지 12·해역 3) → 하한(`>=`)으로 — Phase 5 'JSON 만으로 콘텐츠 추가' 시 테스트 깨짐 방지.
-- [ ] 레이어 정적 게이트 테스트 — Core.csproj 참조 화이트리스트(0개) + Core 소스 `Console.`·표현층 네임스페이스 스캔 (스펙 §0.3-5 기계화).
+- [x] **data JSON 정수 스케일 전환(×100)** — growth 120·상성 150·terrain ±100·tax 10·landing −25. Grow 는 정수 나눗셈으로 결과 등가 보존 (스펙 §4.4). ⚠ 완전성 갭 P1. `0f1b126`
+- [x] **콘텐츠 id 생애주기** — `retired_ids.json` + DataLoader 재사용 검출 기동 실패 (스펙 §5.5). ⚠ 완전성 갭 P1. `aliases` 리매핑은 SaveSystem.Normalize 도입(Phase 1) 시. `2699bcb`
+- [x] `game_rules.json` `schema_version` + 미래 버전 거부. `542e174`
+- [x] gauge 범위 검사 2줄 + `SampleDataTests` 수량 하한화. `ee09147`
+- [x] 레이어 정적 게이트 테스트 (Core 외부·표현층 의존 0). `a8ac963`
+- 현재 테스트 52/52 통과.
 
 ## LATER
 
