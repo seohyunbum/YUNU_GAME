@@ -6,6 +6,7 @@
 #include "WCCityView.h"
 #include "WCRevealOverlay.h"
 #include "WCTurnModals.h"
+#include "WCFactionSelect.h"
 #include "WCBattleOverlay.h"
 #include "WCPlayerController.h"
 #include "WCHUD.h"
@@ -145,6 +146,7 @@ void AWCGameMode::BeginPlay()
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCTurnReport).GameMode(this), 26);      // 턴 리포트
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCEndTurnConfirm).GameMode(this), 27);   // 턴 종료 확인
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCBattleOverlay).GameMode(this), 28);   // 전투 결과
+        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCFactionSelect).GameMode(this), 29);   // 세력 선택 — 시작 화면
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCRevealOverlay).GameMode(this), 30);   // 리빌 — 최상위
     }
 

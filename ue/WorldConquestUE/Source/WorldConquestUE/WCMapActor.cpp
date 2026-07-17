@@ -28,10 +28,11 @@ namespace
 
     // Kenney 마커 스케일 — 원본 성탑 100x100x131, 깃발 10x43x86 (실측 bounds).
     // 기존 도형 마커(폭 ~200, 높이 ~200)와 눈에 띄는 크기를 맞춘다.
-    constexpr double kTowerScale = 1.5;     // 100 → 150 폭 (지도에서 과하지 않게)
-    constexpr double kTowerTopZ  = 190.0;   // 깃발을 성탑 총안 위로
-    // 깃발이 세력 구분 전담이라 크게 — 작으면 세력색이 안 읽힌다(실측 1.6 은 점으로 보였음)
-    constexpr double kFlagScale  = 4.0;
+    // 성탑+깃발 마커 — 2026-07-17 사용자 요청으로 70% 축소 (지도가 조밀해져 마커가 서로 붙었다).
+    // 세력 영역(TerritoryRadius)은 그대로 — 축소 대상은 '깃발+받침대' 아이콘뿐이다.
+    constexpr double kTowerScale = 1.05;    // 1.5 × 0.7
+    constexpr double kTowerTopZ  = 133.0;   // 190 × 0.7 — 깃발이 성탑 총안 위에 그대로 얹히도록 함께 축소
+    constexpr double kFlagScale  = 2.8;     // 4.0 × 0.7 (깃발이 세력 구분 전담이라 여전히 크게)
     const FLinearColor RimColor(0.03f, 0.03f, 0.03f);       // 마커 테두리 = 흑
 }
 
