@@ -233,6 +233,7 @@ internal sealed class FacilityDefDto
     public int? MaxLevel { get; set; }
     public int? GoldBonusPctPerLevel { get; set; }
     public int? FoodBonusPctPerLevel { get; set; }
+    public int? TechBonusPerLevel { get; set; }   // 학당 — 레벨당 턴 기술점 (선택, 기본 0)
 }
 
 // ── 시네마틱 (§5.7) ──

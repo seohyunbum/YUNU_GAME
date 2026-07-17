@@ -37,6 +37,10 @@ namespace
 
     const FSlateBrush* White() { return FCoreStyle::Get().GetBrush("WhiteBrush"); }
     const FButtonStyle PrimaryStyle = FWCStyle::PrimaryButton();
+
+    // 지연 초기화 — 스타일이 위젯보다 오래 살아야 하고(SButton 이 포인터 보관),
+    // 텍스처 LoadObject 는 정적 초기화 시점이 아니라 첫 위젯 생성 시점에 해야 안전.
+    const FButtonStyle& BtnStyle() { static const FButtonStyle S = FWCStyle::Button(); return S; }
 }
 
 void SWCCityView::Construct(const FArguments& InArgs)
@@ -93,7 +97,7 @@ void SWCCityView::Construct(const FArguments& InArgs)
             // 3컬럼 패널 — 하단 스트립 (KOEI 식: 3D 도시 위에 명령 패널)
             + SVerticalBox::Slot().AutoHeight()
             [
-                SNew(SBox).HeightOverride(360)
+                SNew(SBox).HeightOverride(452)   // 시설 카드 4종 + 무장 그리드가 잘리지 않는 최소 높이
                 [
                     SNew(SHorizontalBox)
                     + SHorizontalBox::Slot().FillWidth(1).Padding(0, 0, 12, 0)[ MakeDomesticPanel() ]
@@ -110,6 +114,14 @@ void SWCCityView::Construct(const FArguments& InArgs)
                     MakeButton(FText::FromString(TEXT("◀ 세계지도로  (ESC)")),
                         [](AWCGameMode* G) { G->LeaveCity(); })
                 ]
+            ]
+
+            // 에셋 크레딧 — game-icons.net 은 CC BY 3.0 이라 표기 의무 [MUST]
+            + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 5, 0, 0)
+            [
+                SNew(STextBlock).Font(CityFont(9))
+                .ColorAndOpacity(FSlateColor(FLinearColor(0.55f, 0.53f, 0.48f, 0.75f)))
+                .Text(FText::FromString(TEXT("Icons by Lorc, Delapouite & contributors — game-icons.net (CC BY 3.0)")))
             ]
         ]
     ];
@@ -131,47 +143,138 @@ TSharedRef<SWidget> SWCCityView::MakeFramedPanel(const FText& Title, TSharedRef<
     ];
 }
 
+int32 SWCCityView::FacilityLevelOf(const FString& Kind) const
+{
+    if (!GM.IsValid()) return 0;
+    for (const auto& Row : GM->UiCityFacilityRows())
+        if (Row.Kind == Kind) return Row.Level;
+    return 0;   // 미건설
+}
+
+TSharedRef<SWidget> SWCCityView::MakeIconStat(const TCHAR* IconName, const FLinearColor& Tint,
+                                              TFunction<FText()> ValueGetter, int32 IconSize, int32 FontSize)
+{
+    return SNew(SHorizontalBox)
+        + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+        [ SNew(SBox).WidthOverride(IconSize).HeightOverride(IconSize)
+            [ SNew(SImage).Image(FWCStyle::Icon(IconName, Tint, IconSize)) ] ]
+        + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(6, 0, 0, 0)
+        [ SNew(STextBlock).Font(CityFont(FontSize)).ColorAndOpacity(FSlateColor(FWCStyle::Ink))
+            .Text_Lambda([ValueGetter] { return ValueGetter(); }) ];
+}
+
+TSharedRef<SWidget> SWCCityView::MakeFacilityCard(const FString& Kind, const TCHAR* IconName, const FText& Label)
+{
+    return SNew(SBorder)
+        .BorderImage(White())
+        .BorderBackgroundColor(FSlateColor(CardBg))
+        .Padding(FMargin(9, 7))
+        [
+            SNew(SHorizontalBox)
+            // 시설 아이콘 (game-icons.net, 금색 틴트) — 미건설이면 흐리게
+            + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+            [
+                SNew(SBox).WidthOverride(32).HeightOverride(32)
+                [
+                    SNew(SImage)
+                    .Image_Lambda([this, Kind, IconName]
+                    {
+                        const bool bBuilt = FacilityLevelOf(Kind) > 0;
+                        return FWCStyle::Icon(IconName, bBuilt ? FWCStyle::GoldHi : GoldDim, 32);
+                    })
+                ]
+            ]
+            // 이름 + 레벨 핍
+            + SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center).Padding(9, 0, 0, 0)
+            [
+                SNew(SVerticalBox)
+                + SVerticalBox::Slot().AutoHeight()
+                [ SNew(STextBlock).Font(CityFont(14)).ColorAndOpacity(FSlateColor(FWCStyle::Ink)).Text(Label) ]
+                + SVerticalBox::Slot().AutoHeight()
+                [
+                    SNew(STextBlock).Font(CityFont(12))
+                    .ColorAndOpacity_Lambda([this, Kind]
+                    { return FSlateColor(FacilityLevelOf(Kind) > 0 ? Gold : TextDim); })
+                    .Text_Lambda([this, Kind]
+                    {
+                        const int32 Lv = FacilityLevelOf(Kind);
+                        if (Lv <= 0) return FText::FromString(TEXT("미건설"));
+                        FString Pips;
+                        for (int32 i = 1; i <= 3; ++i) Pips += (i <= Lv) ? TEXT("●") : TEXT("○");
+                        return FText::FromString(FString::Printf(TEXT("%s  Lv%d"), *Pips, Lv));
+                    })
+                ]
+            ]
+            // 건설/증축 (레벨 3 = 최대)
+            + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+            [
+                SNew(SBox).WidthOverride(62).HeightOverride(30)
+                [
+                    SNew(SButton).ButtonStyle(&BtnStyle())
+                    .IsEnabled_Lambda([this, Kind] { return FacilityLevelOf(Kind) < 3; })
+                    .OnClicked_Lambda([this, Kind]
+                    { if (GM.IsValid()) GM->BuildSelected(Kind); return FReply::Handled(); })
+                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                    [
+                        SNew(STextBlock).Font(CityFont(12)).ColorAndOpacity(FSlateColor(FWCStyle::Ink))
+                        .Text_Lambda([this, Kind]
+                        {
+                            const int32 Lv = FacilityLevelOf(Kind);
+                            return FText::FromString(Lv <= 0 ? TEXT("건설") : Lv >= 3 ? TEXT("최대") : TEXT("증축"));
+                        })
+                    ]
+                ]
+            ]
+        ];
+}
+
 TSharedRef<SWidget> SWCCityView::MakeDomesticPanel()
 {
     return MakeFramedPanel(FText::FromString(TEXT("내정")),
         SNew(SVerticalBox)
-        + SVerticalBox::Slot().AutoHeight()
-        [
-            SNew(STextBlock).Font(CityFont(14)).ColorAndOpacity(FSlateColor(TextDim))
-            .Text_Lambda([this]
-            {
-                if (!GM.IsValid()) return FText::GetEmpty();
-                const auto* Info = GM->NodeInfos.Find(GM->EnteredCityId);
-                return Info ? FText::FromString(FString::Printf(TEXT("기본 생산 —  금 %d  ·  식량 %d"), Info->Gold, Info->Food)) : FText::GetEmpty();
-            })
-        ]
-        + SVerticalBox::Slot().AutoHeight().Padding(0, 14, 0, 6)
-        [ SNew(STextBlock).Font(CityFont(15)).ColorAndOpacity(FSlateColor(Gold)).Text(FText::FromString(TEXT("시설"))) ]
-        + SVerticalBox::Slot().FillHeight(1)
-        [
-            SNew(STextBlock).Font(CityFont(14))
-            .Text_Lambda([this]
-            {
-                if (!GM.IsValid()) return FText::GetEmpty();
-                const auto Rows = GM->UiCityFacilityRows();
-                if (Rows.Num() == 0) return FText::FromString(TEXT("(시설 없음 — 아래에서 건설)"));
-                FString Text;
-                for (const auto& Row : Rows)
-                {
-                    FString Pips;
-                    for (int32 i = 1; i <= 3; ++i) Pips += (i <= Row.Level) ? TEXT("●") : TEXT("○");
-                    Text += FString::Printf(TEXT("%s   %s  Lv%d\n"), *Row.NameKo, *Pips, Row.Level);
-                }
-                return FText::FromString(Text);
-            })
-        ]
+        // 생산 스트립 (아이콘) — 이 거점의 기본 생산
         + SVerticalBox::Slot().AutoHeight()
         [
             SNew(SHorizontalBox)
-            + SHorizontalBox::Slot().FillWidth(1)[ MakeButton(FText::FromString(TEXT("시장 건설/증축")),
-                [](AWCGameMode* G) { G->BuildSelected(TEXT("market")); }) ]
-            + SHorizontalBox::Slot().FillWidth(1).Padding(8, 0, 0, 0)[ MakeButton(FText::FromString(TEXT("농지 건설/증축")),
-                [](AWCGameMode* G) { G->BuildSelected(TEXT("farm")); }) ]
+            + SHorizontalBox::Slot().AutoWidth()
+            [ MakeIconStat(TEXT("gold"), Gold, [this]
+              {
+                  const auto* I = GM.IsValid() ? GM->NodeInfos.Find(GM->EnteredCityId) : nullptr;
+                  return FText::FromString(I ? FString::Printf(TEXT("금 %d"), I->Gold) : TEXT("-"));
+              }) ]
+            + SHorizontalBox::Slot().AutoWidth().Padding(18, 0, 0, 0)
+            [ MakeIconStat(TEXT("food"), FLinearColor(0.62f, 0.82f, 0.45f), [this]
+              {
+                  const auto* I = GM.IsValid() ? GM->NodeInfos.Find(GM->EnteredCityId) : nullptr;
+                  return FText::FromString(I ? FString::Printf(TEXT("식량 %d"), I->Food) : TEXT("-"));
+              }) ]
+            + SHorizontalBox::Slot().AutoWidth().Padding(18, 0, 0, 0)
+            [ MakeIconStat(TEXT("pop"), FLinearColor(0.72f, 0.78f, 0.88f), [this]
+              {
+                  const auto* I = GM.IsValid() ? GM->NodeInfos.Find(GM->EnteredCityId) : nullptr;
+                  return FText::FromString(I && I->Population > 0
+                      ? FString::Printf(TEXT("인구 %s"), *FText::AsNumber(I->Population).ToString()) : TEXT("-"));
+              }) ]
+        ]
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 12, 0, 6)
+        [ SNew(STextBlock).Font(CityFont(15)).ColorAndOpacity(FSlateColor(Gold))
+            .Text(FText::FromString(TEXT("시설  (슬롯 4)"))) ]
+        // 시설 카드 4종 (§2.3 경제 시설 — 병영·성벽은 전투 Phase 2)
+        + SVerticalBox::Slot().FillHeight(1)
+        [
+            SNew(SScrollBox)
+            + SScrollBox::Slot()
+            [
+                SNew(SVerticalBox)
+                + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 5)
+                [ MakeFacilityCard(TEXT("market"), TEXT("market"), FText::FromString(TEXT("시장  — 금 +25%/Lv"))) ]
+                + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 5)
+                [ MakeFacilityCard(TEXT("farm"), TEXT("farm"), FText::FromString(TEXT("농지  — 식량 +25%/Lv"))) ]
+                + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 5)
+                [ MakeFacilityCard(TEXT("port"), TEXT("port"), FText::FromString(TEXT("항구  — 교역 금+18% 식량+10%"))) ]
+                + SVerticalBox::Slot().AutoHeight()
+                [ MakeFacilityCard(TEXT("academy"), TEXT("academy"), FText::FromString(TEXT("학당  — 기술 +2/Lv 매턴"))) ]
+            ]
         ]);
 }
 

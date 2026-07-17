@@ -110,26 +110,28 @@ public sealed class GameManager
                 if (_db.Map.GetNode(provinceId) is LandProvince land)
                 {
                     var y = land.Produce();
-                    var (goldPct, foodPct) = FacilityBonus(provinceId);
+                    var (goldPct, foodPct, tech) = FacilityBonus(provinceId);
                     // 정수 스케일 (§4.4). 곱은 long 으로 위드닝해 오버플로 방지.
                     faction.Treasury += (int)((long)y.Gold * (100 + goldPct) / 100);
                     faction.Food += (int)((long)y.Food * (100 + foodPct) / 100);
+                    faction.TechLevel += tech;   // 학당 시설 — 레벨당 턴 기술점 (§2.3)
                 }
     }
 
-    /// <summary>영지의 시설 누적 생산 보너스(정수 %). 시설 상태가 없으면 0.</summary>
-    private (int GoldPct, int FoodPct) FacilityBonus(string provinceId)
+    /// <summary>영지의 시설 누적 보너스: 생산(정수 %) + 기술점(정수). 시설 상태가 없으면 0.</summary>
+    private (int GoldPct, int FoodPct, int Tech) FacilityBonus(string provinceId)
     {
         var ps = State.Provinces.FirstOrDefault(p => p.Id == provinceId);
-        if (ps is null) return (0, 0);
-        int gold = 0, food = 0;
+        if (ps is null) return (0, 0, 0);
+        int gold = 0, food = 0, tech = 0;
         foreach (var (type, level) in ps.Facilities)
             if (_db.Rules.Facilities.TryGetValue(type, out var def))
             {
                 gold += level * def.GoldBonusPctPerLevel;
                 food += level * def.FoodBonusPctPerLevel;
+                tech += level * def.TechBonusPerLevel;
             }
-        return (gold, food);
+        return (gold, food, tech);
     }
 
     /// <summary>시설 건설·업그레이드 (§2.3): 소유 육상 영지에 금을 지불해 시설 레벨을 올린다.</summary>

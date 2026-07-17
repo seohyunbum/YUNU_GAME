@@ -157,6 +157,19 @@
       "max_level": 3,
       "gold_bonus_pct_per_level": 0,
       "food_bonus_pct_per_level": 25
+    },
+    "port": {
+      "cost_gold": 350,
+      "max_level": 3,
+      "gold_bonus_pct_per_level": 18,
+      "food_bonus_pct_per_level": 10
+    },
+    "academy": {
+      "cost_gold": 400,
+      "max_level": 3,
+      "gold_bonus_pct_per_level": 0,
+      "food_bonus_pct_per_level": 0,
+      "tech_bonus_per_level": 2
     }
   },
   "combat": {

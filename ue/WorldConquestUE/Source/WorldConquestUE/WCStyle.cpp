@@ -73,6 +73,32 @@ const FSlateBrush* FWCStyle::Box(const TCHAR* Path, float Margin, const FLinearC
     return Brush.Get();
 }
 
+const FSlateBrush* FWCStyle::Icon(const TCHAR* Name, const FLinearColor& Tint, int32 Size)
+{
+    // (이름·크기·틴트)별 static 캐시 — 브러시는 위젯보다 오래 살아야 함. 텍스처는 GC 방지 AddToRoot.
+    static TMap<FString, TSharedPtr<FSlateBrush>> Cache;
+    const FString Key = FString::Printf(TEXT("%s|%d|%s"), Name, Size, *Tint.ToString());
+    if (TSharedPtr<FSlateBrush>* Found = Cache.Find(Key)) return Found->Get();
+
+    TSharedPtr<FSlateBrush> Brush = MakeShared<FSlateBrush>();
+    const FString Path = FString::Printf(TEXT("/Game/Icons/T_icon_%s.T_icon_%s"), Name, Name);
+    if (UTexture2D* Tex = LoadObject<UTexture2D>(nullptr, *Path))
+    {
+        Tex->AddToRoot();
+        Brush->SetResourceObject(Tex);
+        Brush->DrawAs = ESlateBrushDrawType::Image;
+        Brush->ImageSize = FVector2D(Size, Size);
+        Brush->TintColor = FSlateColor(Tint);     // 흰 아이콘을 금/비취색으로
+    }
+    else
+    {
+        Brush->DrawAs = ESlateBrushDrawType::NoDrawType;   // 아이콘 부재 = 조용히 생략(레이아웃 유지)
+        Brush->ImageSize = FVector2D(Size, Size);
+    }
+    Cache.Add(Key, Brush);
+    return Brush.Get();
+}
+
 const FSlateBrush* FWCStyle::Panel()
 {
     return Box(TEXT("/Game/UI/T_panel.T_panel"), 0.30f, FLinearColor(0.05f, 0.045f, 0.035f, 0.92f));

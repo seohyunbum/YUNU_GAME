@@ -32,6 +32,13 @@ private:
     TSharedRef<SWidget> MakeRateRow(int32 Index);
     TSharedRef<SWidget> MakeButton(const FText& Label, TFunction<void(AWCGameMode*)> Action);
 
+    /** 시설 카드 (아이콘 · 이름 · 레벨 핍 · 건설/증축). Kind = 서버 시설 종류(market/farm/port/academy). */
+    TSharedRef<SWidget> MakeFacilityCard(const FString& Kind, const TCHAR* IconName, const FText& Label);
+    /** 아이콘 + 라벨 + 값 한 줄 (자원 스트립·정보행 공용). */
+    TSharedRef<SWidget> MakeIconStat(const TCHAR* IconName, const FLinearColor& Tint,
+                                     TFunction<FText()> ValueGetter, int32 IconSize = 20, int32 FontSize = 14);
+    int32 FacilityLevelOf(const FString& Kind) const;
+
     void RebuildCharacterGrid() const;
     const FSlateBrush* GetBgBrush() const;
 

@@ -27,6 +27,13 @@ public:
     static const FSlateBrush* Panel();
     static const FSlateBrush* Header();
 
+    /**
+     * 거점 UI 아이콘 (/Game/Icons/T_icon_<Name>). 출처=game-icons.net CC BY 3.0 (흰색/투명 → 틴트).
+     * Name 예: gold food pop tech mandate market farm port academy barracks wall build recruit summon back
+     *          pagoda lantern gong dragon troops
+     */
+    static const FSlateBrush* Icon(const TCHAR* Name, const FLinearColor& Tint, int32 Size = 22);
+
     /** 버튼 스타일 (일반/hover/pressed 3-state 스킨). */
     static FButtonStyle Button();
     static FButtonStyle PrimaryButton();

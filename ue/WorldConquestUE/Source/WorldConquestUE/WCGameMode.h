@@ -130,7 +130,9 @@ public:
     // ── 구조화 뷰모델 (카드·표 UI 용) ──
     struct FWCCharCard { FString Id; FString Name; int32 Rarity = 3; };
     struct FWCArmyCard { FString Id; FString Detail; FString Commander; int32 Troops = 0; };
-    struct FWCFacilityRow { FString NameKo; int32 Level = 0; };
+    struct FWCFacilityRow { FString NameKo; FString Kind; int32 Level = 0; int32 MaxLevel = 3; };
+    /** 시설 종류 → 한글명 (§2.3). 미정의 종류는 원문 유지. */
+    static FString FacilityNameKo(const FString& Kind);
     struct FWCRateRow { int32 Rarity = 3; int32 Permyriad = 0; int32 Remaining = 0; };
     TArray<FWCCharCard> UiMyCharacterCards() const;
     TArray<FWCArmyCard> UiCityArmyCards() const;

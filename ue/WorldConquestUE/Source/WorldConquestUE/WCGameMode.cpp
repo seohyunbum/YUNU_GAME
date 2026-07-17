@@ -948,6 +948,18 @@ TArray<AWCGameMode::FWCArmyCard> AWCGameMode::UiCityArmyCards() const
     return Cards;
 }
 
+FString AWCGameMode::FacilityNameKo(const FString& Kind)
+{
+    // §2.3 시설. 경제 4종 구현 — 병영·성벽은 전투 결합이라 Phase 2 (ue5-client-workflow.md §4).
+    if (Kind == TEXT("market"))   return TEXT("시장");
+    if (Kind == TEXT("farm"))     return TEXT("농지");
+    if (Kind == TEXT("port"))     return TEXT("항구");
+    if (Kind == TEXT("academy"))  return TEXT("학당");
+    if (Kind == TEXT("barracks")) return TEXT("병영");
+    if (Kind == TEXT("wall"))     return TEXT("성벽");
+    return Kind;
+}
+
 TArray<AWCGameMode::FWCFacilityRow> AWCGameMode::UiCityFacilityRows() const
 {
     TArray<FWCFacilityRow> Rows;
@@ -962,7 +974,8 @@ TArray<AWCGameMode::FWCFacilityRow> AWCGameMode::UiCityFacilityRows() const
             {
                 const FString Kind(Pair.Key);
                 FWCFacilityRow Row;
-                Row.NameKo = Kind == TEXT("market") ? TEXT("시장") : Kind == TEXT("farm") ? TEXT("농지") : Kind;
+                Row.Kind = Kind;
+                Row.NameKo = FacilityNameKo(Kind);
                 Row.Level = static_cast<int32>(Pair.Value->AsNumber());
                 Rows.Add(Row);
             }
@@ -1006,8 +1019,8 @@ FText AWCGameMode::UiCityFacilities() const
         if (Province->TryGetObjectField(TEXT("facilities"), Facilities) && Facilities)
             for (const auto& Pair : (*Facilities)->Values)
             {
-                Text += FString::Printf(TEXT("  %s Lv%d\n"),
-                    Pair.Key == TEXT("market") ? TEXT("시장") : Pair.Key == TEXT("farm") ? TEXT("농지") : *Pair.Key,
+                const FString Kind(Pair.Key);
+                Text += FString::Printf(TEXT("  %s Lv%d\n"), *FacilityNameKo(Kind),
                     static_cast<int32>(Pair.Value->AsNumber()));
                 bAny = true;
             }

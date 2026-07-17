@@ -28,9 +28,9 @@ BIN_FILES = [
     "UnrealEditor.modules",
     "WorldConquestUEEditor.target",
 ]
-# 항상 미러링할 Content 하위(코드/생성물이 자주 바뀜). 대용량 Fab 팩은 별도 처리.
-CONTENT_MIRROR = ["Fonts", "UI", "Portraits", "WorldMap", "CityBg", "Collections", "Developers"]
-CONTENT_LAZY = ["Asian_Village"]  # 없을 때만 복사
+# Content 하위는 **자동 열거**한다 — 고정 목록은 새 폴더(Icons 등)가 생기면 조용히 누락된다(실측 사고).
+# 대용량 Fab 팩만 예외로 "없을 때만" 복사(매번 1GB 복사 회피).
+CONTENT_LAZY = ["Asian_Village"]
 
 
 def kill_ue() -> None:
@@ -62,8 +62,11 @@ def main() -> int:
             shutil.copy2(s, DST / "Binaries/Win64" / f)
             print(f"  bin: {f}")
 
-    # 2) Content — 자주 바뀌는 하위 미러
-    for name in CONTENT_MIRROR:
+    # 2) Content — 하위 폴더 자동 열거 미러 (신규 폴더 누락 방지)
+    subdirs = sorted(p.name for p in (SRC / "Content").iterdir() if p.is_dir())
+    for name in subdirs:
+        if name in CONTENT_LAZY:
+            continue
         mirror_dir(SRC / "Content" / name, DST / "Content" / name)
 
     # 3) Content — 대용량 팩은 없을 때만
@@ -73,6 +76,11 @@ def main() -> int:
             print(f"  (유지 — 이미 있음: {name})")
         else:
             mirror_dir(SRC / "Content" / name, d)
+
+    # 4) 누락 검증 — 원본에 있는데 대상에 없는 Content 하위가 있으면 실패로 알린다
+    missing = [n for n in subdirs if not (DST / "Content" / n).is_dir()]
+    if missing:
+        sys.exit(f"배포 누락: {missing} — 확인 필요")
 
     print("\n배포 완료 — 바탕화면 [세계정복 3D] 로 확인하십시오.")
     return 0

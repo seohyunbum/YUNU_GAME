@@ -363,6 +363,7 @@ public sealed class DataLoader
             Check(fdef.MaxLevel is >= 1, $"facilities.{ftype}", "max_level 은 1 이상이어야 합니다.");
             Check(fdef.GoldBonusPctPerLevel is >= 0, $"facilities.{ftype}", "gold_bonus_pct_per_level 은 0 이상이어야 합니다.");
             Check(fdef.FoodBonusPctPerLevel is >= 0, $"facilities.{ftype}", "food_bonus_pct_per_level 은 0 이상이어야 합니다.");
+            Check((fdef.TechBonusPerLevel ?? 0) >= 0, $"facilities.{ftype}", "tech_bonus_per_level 은 0 이상이어야 합니다.");
         }
         foreach (var (list, name) in new (List<string>?, string)[]
                  {
@@ -403,7 +404,8 @@ public sealed class DataLoader
             Facilities = dto.Facilities.ToDictionary(
                 kv => kv.Key,
                 kv => new FacilityDef(kv.Value?.CostGold ?? 0, kv.Value?.MaxLevel ?? 1,
-                    kv.Value?.GoldBonusPctPerLevel ?? 0, kv.Value?.FoodBonusPctPerLevel ?? 0)),
+                    kv.Value?.GoldBonusPctPerLevel ?? 0, kv.Value?.FoodBonusPctPerLevel ?? 0,
+                    kv.Value?.TechBonusPerLevel ?? 0)),
             CombatVariancePct = dto.Combat.VariancePct ?? 0,
             CombatDamagePerCasualty = dto.Combat.DamagePerCasualty ?? 1,
             CombatMaxRounds = dto.Combat.MaxRounds ?? 1,
