@@ -9,6 +9,7 @@
     "speed": 8,
     "recruit_cost_gold": 50,
     "upkeep_food": 2,
+    "pop_cost": 1,
     "tech_required": 0,
     "unique_to": null
   },
@@ -22,6 +23,7 @@
     "speed": 14,
     "recruit_cost_gold": 90,
     "upkeep_food": 4,
+    "pop_cost": 1,
     "tech_required": 1,
     "unique_to": null
   },
@@ -35,6 +37,7 @@
     "speed": 10,
     "recruit_cost_gold": 70,
     "upkeep_food": 3,
+    "pop_cost": 1,
     "tech_required": 0,
     "unique_to": null
   },
@@ -48,6 +51,7 @@
     "speed": 4,
     "recruit_cost_gold": 200,
     "upkeep_food": 6,
+    "pop_cost": 3,
     "tech_required": 2,
     "unique_to": null
   },
@@ -61,6 +65,7 @@
     "speed": 13,
     "recruit_cost_gold": 250,
     "upkeep_food": 5,
+    "pop_cost": 1,
     "tech_required": 2,
     "unique_to": "kamado_tanjiro"
   },
@@ -74,6 +79,7 @@
     "speed": 12,
     "recruit_cost_gold": 300,
     "upkeep_food": 0,
+    "pop_cost": 0,
     "tech_required": 3,
     "unique_to": "sung_jinwoo"
   },
@@ -87,6 +93,7 @@
     "speed": 16,
     "recruit_cost_gold": 220,
     "upkeep_food": 5,
+    "pop_cost": 1,
     "tech_required": 2,
     "unique_to": "cao_cao"
   },
@@ -100,6 +107,7 @@
     "speed": 9,
     "recruit_cost_gold": 240,
     "upkeep_food": 5,
+    "pop_cost": 1,
     "tech_required": 2,
     "unique_to": "napoleon"
   }

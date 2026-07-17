@@ -28,6 +28,9 @@ internal sealed class ProvinceStateDto
 {
     public string? Id { get; set; }
     public Dictionary<string, int>? Facilities { get; set; }
+    public int? PublicOrder { get; set; }     // 민심 (§2.3, additive)
+    public int? Population { get; set; }      // 현재 인구 (additive — null=정의값)
+    public string? GovernorId { get; set; }   // 태수 (additive)
 }
 
 internal sealed class ArmyDto
@@ -61,4 +64,6 @@ internal sealed class FactionStateDto
     public int? Mandate { get; set; }            // 천명 (§2.8, additive)
     public int? PityCount { get; set; }          // 5성 천장 카운터
     public int? SummonsThisTurn { get; set; }
+    public string? TaxLevel { get; set; }        // 세율 단계 (§2.3, additive)
+    public int? TechPoints { get; set; }         // 기술 포인트 (§2.3, additive)
 }

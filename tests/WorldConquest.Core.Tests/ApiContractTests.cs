@@ -122,6 +122,37 @@ public class ApiContractTests
         // 이후 정상 명령은 여전히 동작
         Assert.Equal("ok", host.Execute(2, "joseon", "capture", new[] { "pyongyang" }).Status);
     }
+
+    [Fact]
+    public void 스냅샷은_내정_필드를_additive_노출한다()   // §2.3.1 — UE5 도시 화면용
+    {
+        var (host, _) = NewSolo();
+        var snap = host.Snapshot();
+        var hanseong = snap.Provinces.Single(p => p.Id == "hanseong");
+        Assert.Equal(70, hanseong.PublicOrder);        // po_initial
+        Assert.Equal(181_260, hanseong.Population);    // 정의값 180,000 + 첫 턴 성장(민심70) 1,260
+        Assert.Null(hanseong.GovernorId);              // 초기 공석
+        var joseon = snap.Factions.Single(f => f.Id == "joseon");
+        Assert.Equal("normal", joseon.TaxLevel);       // 기본 세율
+        Assert.Equal(0, joseon.TechPoints);
+    }
+
+    [Fact]
+    public void 태수_임명과_세율_명령이_API로_동작한다()   // 콘솔 parity
+    {
+        var (host, _) = NewSolo();
+        var gov = host.Execute(0, "joseon", "governor", new[] { "hanseong", "yi_sunsin" });
+        Assert.Equal("ok", gov.Status);
+        Assert.Equal("yi_sunsin", gov.State.Provinces.Single(p => p.Id == "hanseong").GovernorId);
+
+        var tax = host.Execute(1, "joseon", "tax", new[] { "high" });
+        Assert.Equal("ok", tax.Status);
+        Assert.Equal("high", tax.State.Factions.Single(f => f.Id == "joseon").TaxLevel);
+
+        // 소속 아닌 무장은 거부 (§2.8 단일 장부)
+        var bad = host.Execute(2, "joseon", "governor", new[] { "busan", "cao_cao" });
+        Assert.Equal("error", bad.Status);
+    }
 }
 
 internal static class ApiTestExtensions

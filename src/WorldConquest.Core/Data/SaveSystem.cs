@@ -86,7 +86,9 @@ public sealed class SaveSystem
             TransferredFoodThisTurn = f.TransferredFoodThisTurn ?? 0,
             Mandate = f.Mandate ?? 0,
             PityCount = f.PityCount ?? 0,
-            SummonsThisTurn = f.SummonsThisTurn ?? 0
+            SummonsThisTurn = f.SummonsThisTurn ?? 0,
+            TaxLevel = f.TaxLevel ?? "",   // 빈 값 = 기본 세율 해석 (§2.3, additive)
+            TechPoints = Math.Max(f.TechPoints ?? 0, 0)
         })
         .Where(f =>
         {
@@ -101,6 +103,11 @@ public sealed class SaveSystem
         if (db is not null)
             foreach (var f in factions)
             {
+                if (f.TaxLevel.Length > 0 && !db.Rules.InternalAffairs.TaxLevels.ContainsKey(f.TaxLevel))
+                {
+                    skipped?.Add($"tax_level:{f.TaxLevel}@{f.Id}");
+                    f.TaxLevel = "";   // 기본 세율로 정규화
+                }
                 foreach (var pid in f.OwnedProvinceIds.Where(p => !db.Map.Nodes.ContainsKey(p)).ToList())
                 {
                     f.OwnedProvinceIds.Remove(pid);
@@ -168,7 +175,10 @@ public sealed class SaveSystem
             .Select(p => new ProvinceState
             {
                 Id = p.Id ?? throw new InvalidOperationException("province id 누락"),
-                Facilities = p.Facilities ?? new()
+                Facilities = p.Facilities ?? new(),
+                PublicOrder = p.PublicOrder is { } po ? Math.Clamp(po, 0, 100) : null,   // §2.3 (additive)
+                Population = p.Population is { } pop and >= 0 ? pop : null,
+                GovernorId = p.GovernorId
             })
             .Where(p =>
             {
@@ -178,14 +188,21 @@ public sealed class SaveSystem
             })
             .ToList();
 
-        // 삭제된 시설 정의 참조 프루닝
+        // 삭제된 시설 정의·태수 캐릭터 참조 프루닝
         if (db is not null)
             foreach (var p in provinces)
+            {
                 foreach (var ftype in p.Facilities.Keys.Where(k => !db.Rules.Facilities.ContainsKey(k)).ToList())
                 {
                     p.Facilities.Remove(ftype);
                     skipped?.Add($"facility:{ftype}@{p.Id}");
                 }
+                if (p.GovernorId is not null && !db.Characters.ContainsKey(p.GovernorId))
+                {
+                    skipped?.Add($"governor:{p.GovernorId}@{p.Id}");
+                    p.GovernorId = null;
+                }
+            }
 
         // 행동 세력(Actor)이 스킵됐으면 빈 문자열로 정규화 — 이어하기 시 PlaySession 이 방어(FirstOrDefault).
         var actor = dto.Actor ?? "";
@@ -233,7 +250,9 @@ public sealed class SaveSystem
             TransferredFoodThisTurn = f.TransferredFoodThisTurn,
             Mandate = f.Mandate,
             PityCount = f.PityCount,
-            SummonsThisTurn = f.SummonsThisTurn
+            SummonsThisTurn = f.SummonsThisTurn,
+            TaxLevel = f.TaxLevel.Length > 0 ? f.TaxLevel : null,   // 기본값은 미기록 (세이브 슬림)
+            TechPoints = f.TechPoints
         }).ToList(),
         // ordinal 정렬 직렬화 — 동일 상태 = 동일 바이트(세이브 §2.7.12, 왕복 비교 단순화).
         Progress = s.Progress.OrderBy(x => x, StringComparer.Ordinal).ToList(),
@@ -255,7 +274,10 @@ public sealed class SaveSystem
         Provinces = s.Provinces.Select(p => new ProvinceStateDto
         {
             Id = p.Id,
-            Facilities = p.Facilities.ToDictionary(kv => kv.Key, kv => kv.Value)
+            Facilities = p.Facilities.ToDictionary(kv => kv.Key, kv => kv.Value),
+            PublicOrder = p.PublicOrder,
+            Population = p.Population,
+            GovernorId = p.GovernorId
         }).ToList()
     };
 

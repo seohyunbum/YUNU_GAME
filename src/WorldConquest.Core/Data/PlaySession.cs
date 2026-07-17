@@ -65,7 +65,7 @@ public sealed class PlaySession
         if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / attack <부대id> <목표id> / build <영지id> <시설> / summon [n] / rates / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / chars / province [영지id] / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / governor <영지id> <캐릭터id> / dismiss <영지id> / tax <단계> / attack <부대id> <목표id> / build <영지id> <시설> / summon [n] / rates / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
 
         while (true)
         {
@@ -157,6 +157,42 @@ public sealed class PlaySession
                         : $"✘ 지원 실패: {tr}");
                     break;
 
+                case "governor":
+                    if (t.Length < 3) { _out.WriteLine("사용법: governor <영지id> <캐릭터id>"); break; }
+                    var go = _gm.Internal.AppointGovernor(actor.Id, t[1], t[2]);
+                    _out.WriteLine(go == GovernorOutcome.Success
+                        ? $"✔ {ProvinceName(t[1])} 태수 = {CharacterName(t[2])}"
+                        : $"✘ 태수 임명 실패: {go}");
+                    break;
+
+                case "dismiss":
+                    if (t.Length < 2) { _out.WriteLine("사용법: dismiss <영지id>"); break; }
+                    var dgo = _gm.Internal.DismissGovernor(actor.Id, t[1]);
+                    _out.WriteLine(dgo == GovernorOutcome.Success
+                        ? $"✔ {ProvinceName(t[1])} 태수 해임"
+                        : $"✘ 해임 실패: {dgo}");
+                    break;
+
+                case "tax":
+                {
+                    var levels = string.Join("|", _db.Rules.InternalAffairs.TaxLevels.Keys);
+                    if (t.Length < 2) { _out.WriteLine($"사용법: tax <{levels}>"); break; }
+                    var to2 = _gm.Internal.SetTaxLevel(actor.Id, t[1]);
+                    _out.WriteLine(to2 == TaxOutcome.Success
+                        ? $"✔ 세율 = {t[1]} (금 {_db.Rules.InternalAffairs.TaxLevels[t[1]].GoldPct}% · 민심 {_db.Rules.InternalAffairs.TaxLevels[t[1]].PoDrift:+0;-#;0}/턴)"
+                        : $"✘ 세율 변경 실패: {to2} (가능: {levels})");
+                    break;
+                }
+
+                case "province":
+                    if (t.Length >= 2) PrintProvinceDetail(actor, t[1]);
+                    else foreach (var pid in actor.OwnedProvinceIds) PrintProvinceLine(pid);
+                    break;
+
+                case "chars":
+                    PrintCharacters(actor.Id);
+                    break;
+
                 case "assign":
                     if (t.Length < 3) { _out.WriteLine("사용법: assign <부대id> <캐릭터id>"); break; }
                     var so = _gm.AssignCommander(actor.Id, t[1], t[2]);
@@ -246,6 +282,58 @@ public sealed class PlaySession
         return trimmed.Length > cmd.Length ? trimmed[cmd.Length..].Trim() : "";
     }
 
+    /// <summary>영지 한 줄 요약 (province 무인자).</summary>
+    private void PrintProvinceLine(string pid)
+    {
+        var ia = _gm.Internal;
+        var p = ia.PreviewIncome(pid);
+        var gov = ia.GovernorOf(pid);
+        _out.WriteLine($"  {ProvinceName(pid)}[{pid}] 민심 {p.PublicOrder} · 인구 {ia.GetPopulation(pid):N0} · " +
+                       $"수입 금{p.FinalGold}/식량{p.FinalFood} · 태수 {(gov is null ? "-" : gov.NameKo)}");
+    }
+
+    /// <summary>영지 상세 (province &lt;id&gt;) — 수입 산출 내역·시설·태수 효과 (§2.3.1).</summary>
+    private void PrintProvinceDetail(FactionState actor, string pid)
+    {
+        if (!actor.OwnedProvinceIds.Contains(pid)) { _out.WriteLine($"✘ 소유 영지가 아닙니다: {pid}"); return; }
+        var ia = _gm.Internal;
+        var p = ia.PreviewIncome(pid);
+        var gov = ia.GovernorOf(pid);
+        var ps = _gm.State.Provinces.FirstOrDefault(x => x.Id == pid);
+        var facilities = ps is null || ps.Facilities.Count == 0
+            ? "(없음)"
+            : string.Join(", ", ps.Facilities.Select(kv => $"{kv.Key} Lv{kv.Value}"));
+        _out.WriteLine($"── {ProvinceName(pid)} [{pid}] ──");
+        _out.WriteLine($"  민심 {p.PublicOrder} (생산 승수 {p.PoOutputPct}%) · 인구 {ia.GetPopulation(pid):N0}");
+        _out.WriteLine($"  시설: {facilities}");
+        _out.WriteLine($"  태수: {(gov is null ? "(공석)" : $"{gov.NameKo} — 정치 {gov.Stats.Pol}·매력 {gov.Stats.Cha}·지력 {gov.Stats.Int}")}");
+        _out.WriteLine($"  수입: 금 {p.BaseGold}→{p.FinalGold} (시설 +{p.FacilityGoldPct}% · 태수 +{p.GovernorGoldPct}% · 민심 {p.PoOutputPct}% · 세율 {p.TaxGoldPct}%)");
+        _out.WriteLine($"       식량 {p.BaseFood}→{p.FinalFood} (시설 +{p.FacilityFoodPct}% · 태수 +{p.GovernorFoodPct}% · 민심 {p.PoOutputPct}%)");
+        _out.WriteLine($"  징병 할인 {ia.RecruitDiscountPct(pid)}% · 수비 보정 +{ia.DefenseBonusPct(pid)}%");
+    }
+
+    /// <summary>보유 무장 목록 — 보직(지휘관/태수/대기) 표시 (§2.3.1·§2.8).</summary>
+    private void PrintCharacters(string factionId)
+    {
+        var ia = _gm.Internal;
+        var owned = _gm.State.CharacterOwners
+            .Where(kv => kv.Value == factionId && _db.Characters.ContainsKey(kv.Key))
+            .Select(kv => _db.Characters[kv.Key])
+            .OrderBy(c => c.Id, StringComparer.Ordinal)
+            .ToList();
+        if (owned.Count == 0) { _out.WriteLine("  (보유 무장 없음)"); return; }
+        foreach (var c in owned)
+        {
+            var force = _gm.State.Armies.FirstOrDefault(a => a.CommanderId == c.Id)?.Id
+                        ?? _gm.State.Fleets.FirstOrDefault(f => f.CommanderId == c.Id)?.Id;
+            var governed = ia.GovernorProvinceOf(c.Id);
+            var role = force is not null ? $"지휘관 @ {force}"
+                     : governed is not null ? $"태수 @ {ProvinceName(governed)}"
+                     : "대기";
+            _out.WriteLine($"  {c.NameKo,-8} 통{c.Stats.Ldr,3} 무{c.Stats.Str,3} 지{c.Stats.Int,3} 정{c.Stats.Pol,3} 매{c.Stats.Cha,3} 해{c.Stats.Nav,3} · {role}");
+        }
+    }
+
     private void PrintArmies(string factionId)
     {
         var forces = _gm.State.Armies.Where(a => a.FactionId == factionId).Cast<MilitaryForce>()
@@ -259,8 +347,15 @@ public sealed class PlaySession
 
     private void PrintStatus(FactionState f)
     {
-        _out.WriteLine($"  금 {f.Treasury} · 식량 {f.Food} · 기술 Lv{f.TechLevel} · " +
+        var ia = _gm.Internal;
+        var tax = f.TaxLevel.Length > 0 ? f.TaxLevel : _db.Rules.InternalAffairs.DefaultTaxLevel;
+        _out.WriteLine($"  금 {f.Treasury} · 식량 {f.Food} · 세율 {tax} · 기술 Lv{f.TechLevel} ({f.TechPoints}pt) · " +
                        $"영지 {f.OwnedProvinceIds.Count}개: {string.Join(", ", f.OwnedProvinceIds.Select(ProvinceName))}");
+        var unrest = f.OwnedProvinceIds
+            .Where(pid => _db.Map.GetNode(pid) is LandProvince && ia.GetPublicOrder(pid) < _db.Rules.InternalAffairs.RebellionThreshold)
+            .Select(ProvinceName).ToList();
+        if (unrest.Count > 0)
+            _out.WriteLine($"  ⚠ 반란 위험(민심 {_db.Rules.InternalAffairs.RebellionThreshold} 미만): {string.Join(", ", unrest)}");
 
         var allOwned = _gm.State.Factions.SelectMany(x => x.OwnedProvinceIds).ToHashSet();
         var capturable = f.OwnedProvinceIds

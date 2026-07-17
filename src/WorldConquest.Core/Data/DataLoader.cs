@@ -36,7 +36,7 @@ public sealed class DataLoader
     private static readonly HashSet<string> KnownBeats = new() { "line", "narration", "title_card", "pause" };
 
     /// <summary>지원하는 데이터 스키마 버전 (game_rules.json:schema_version). 미래 버전은 로드 거부 (§5.5).</summary>
-    public const int SupportedSchemaVersion = 1;
+    public const int SupportedSchemaVersion = 2;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -293,7 +293,7 @@ public sealed class DataLoader
         Need(dto.LandingAttackModifier, "landing_attack_modifier");
         Need(dto.LandingDebuffTurns, "landing_debuff_turns");
         Need(dto.AllianceTransferCapPerTurn, "alliance_transfer_cap_per_turn");
-        Need(dto.BaseTaxRate, "base_tax_rate");
+        Need(dto.InternalAffairs, "internal_affairs");
         Need(dto.UnitClassAdvantage, "unit_class_advantage");
         Need(dto.Facilities, "facilities");
         Need(dto.Combat, "combat");
@@ -328,7 +328,7 @@ public sealed class DataLoader
         Check(dto.GaugeChargeOnDamaged!.Value is >= 0 && dto.GaugeChargeOnDamaged.Value <= dto.UltimateGaugeMax.Value, "gauge_charge_on_damaged", "0 ~ ultimate_gauge_max 범위여야 합니다.");
         Check(dto.AllianceTransferCapPerTurn!.Gold is >= 0 && dto.AllianceTransferCapPerTurn.Food is >= 0,
             "alliance_transfer_cap_per_turn", "gold/food는 0 이상 필수입니다.");
-        Check(dto.BaseTaxRate!.Value is >= 0 and <= 100, "base_tax_rate", "0 ~ 100 범위여야 합니다 (정수 스케일 ×100).");
+        ValidateInternalAffairs(dto.InternalAffairs!, Check);
         Check(dto.LoyaltyMin!.Value <= dto.LoyaltyMax!.Value, "loyalty_min/loyalty_max", "loyalty_min <= loyalty_max 이어야 합니다.");
         Check(dto.MoraleMax!.Value >= 1, "morale_max", "1 이상이어야 합니다.");
         Check(dto.Combat!.VariancePct is >= 0 and <= 100, "combat.variance_pct", "0 ~ 100 범위여야 합니다.");
@@ -363,7 +363,9 @@ public sealed class DataLoader
             Check(fdef.MaxLevel is >= 1, $"facilities.{ftype}", "max_level 은 1 이상이어야 합니다.");
             Check(fdef.GoldBonusPctPerLevel is >= 0, $"facilities.{ftype}", "gold_bonus_pct_per_level 은 0 이상이어야 합니다.");
             Check(fdef.FoodBonusPctPerLevel is >= 0, $"facilities.{ftype}", "food_bonus_pct_per_level 은 0 이상이어야 합니다.");
-            Check((fdef.TechBonusPerLevel ?? 0) >= 0, $"facilities.{ftype}", "tech_bonus_per_level 은 0 이상이어야 합니다.");
+            Check((fdef.TechPointsPerLevel ?? 0) >= 0, $"facilities.{ftype}", "tech_points_per_level 은 0 이상이어야 합니다.");
+            Check((fdef.RecruitDiscountPctPerLevel ?? 0) is >= 0 and <= 100, $"facilities.{ftype}", "recruit_discount_pct_per_level 은 0~100 이어야 합니다.");
+            Check((fdef.DefenseBonusPctPerLevel ?? 0) is >= 0 and <= 100, $"facilities.{ftype}", "defense_bonus_pct_per_level 은 0~100 이어야 합니다.");
         }
         foreach (var (list, name) in new (List<string>?, string)[]
                  {
@@ -397,7 +399,7 @@ public sealed class DataLoader
             LandingDebuffTurns = dto.LandingDebuffTurns.Value,
             AllianceTransferCapPerTurn = new ResourceYield(
                 dto.AllianceTransferCapPerTurn.Gold ?? 0, dto.AllianceTransferCapPerTurn.Food ?? 0),   // null 은 위 Check 가 잡음
-            BaseTaxRate = dto.BaseTaxRate.Value,
+            InternalAffairs = BuildInternalAffairs(dto.InternalAffairs!),
             UnitClassAdvantage = dto.UnitClassAdvantage.ToDictionary(
                 kv => kv.Key, kv => (IReadOnlyDictionary<string, int>)kv.Value),
             // 값 자체(kv.Value)·필드 null 은 위 Check 가 errors 로 잡아 Load 가 기동 실패시킨다 — 매핑은 NRE 방지용 기본값.
@@ -405,7 +407,8 @@ public sealed class DataLoader
                 kv => kv.Key,
                 kv => new FacilityDef(kv.Value?.CostGold ?? 0, kv.Value?.MaxLevel ?? 1,
                     kv.Value?.GoldBonusPctPerLevel ?? 0, kv.Value?.FoodBonusPctPerLevel ?? 0,
-                    kv.Value?.TechBonusPerLevel ?? 0)),
+                    kv.Value?.TechPointsPerLevel ?? 0, kv.Value?.RecruitDiscountPctPerLevel ?? 0,
+                    kv.Value?.DefenseBonusPctPerLevel ?? 0)),
             CombatVariancePct = dto.Combat.VariancePct ?? 0,
             CombatDamagePerCasualty = dto.Combat.DamagePerCasualty ?? 1,
             CombatMaxRounds = dto.Combat.MaxRounds ?? 1,
@@ -444,6 +447,77 @@ public sealed class DataLoader
             ValidCurrentDirections = dto.ValidCurrentDirections!.ToHashSet()
         };
     }
+
+    /// <summary>internal_affairs 블록 검증 (§2.3.1·§5.5 — 필수·범위. 민심은 0~100 고정 스케일).</summary>
+    private static void ValidateInternalAffairs(InternalAffairsDto ia, Action<bool, string, string> check)
+    {
+        void Po(int? v, string name) => check(v is >= 0 and <= 100, $"internal_affairs.{name}", "0~100 범위 필수입니다.");
+        Po(ia.PoInitial, "po_initial");
+        Po(ia.PoAfterHostileCapture, "po_after_hostile_capture");
+        Po(ia.PoAfterPeacefulCapture, "po_after_peaceful_capture");
+        Po(ia.PoAfterRebellion, "po_after_rebellion");
+        Po(ia.RebellionThreshold, "rebellion_threshold");
+        check(ia.PoOutputBasePct is >= 0 and <= 200, "internal_affairs.po_output_base_pct", "0~200 범위 필수입니다.");
+        check(ia.PoOutputSlopePct is >= 0 and <= 200, "internal_affairs.po_output_slope_pct", "0~200 범위 필수입니다.");
+        check(ia.RebellionChancePermyriad is >= 0 and <= 10000, "internal_affairs.rebellion_chance_permyriad", "0~10000(만분율) 필수입니다.");
+        check(ia.RecruitPoPenaltyPer1000 is >= 0, "internal_affairs.recruit_po_penalty_per_1000", "0 이상 필수입니다.");
+        foreach (var (v, name) in new (int?, string)[]
+                 {
+                     (ia.GovernorGoldPctPer100Pol, "governor_gold_pct_per_100_pol"),
+                     (ia.GovernorFoodPctPer100Pol, "governor_food_pct_per_100_pol"),
+                     (ia.GovernorBuildDiscountPctPer100Pol, "governor_build_discount_pct_per_100_pol"),
+                     (ia.GovernorRecruitDiscountPctPer100Cha, "governor_recruit_discount_pct_per_100_cha"),
+                     (ia.GovernorPoRegenPer100Cha, "governor_po_regen_per_100_cha"),
+                     (ia.GovernorTechPointsPer100Int, "governor_tech_points_per_100_int")
+                 })
+            check(v is >= 0 and <= 100, $"internal_affairs.{name}", "0~100 범위 필수입니다.");
+        check(ia.BuildDiscountMaxPct is >= 0 and <= 90, "internal_affairs.build_discount_max_pct", "0~90 범위 필수입니다 (100%면 공짜 건설).");
+        check(ia.RecruitDiscountMaxPct is >= 0 and <= 90, "internal_affairs.recruit_discount_max_pct", "0~90 범위 필수입니다.");
+        check(ia.PopGrowthPermyriadAtPo100 is >= 0 and <= 10000, "internal_affairs.pop_growth_permyriad_at_po100", "0~10000(만분율) 필수입니다.");
+        check(ia.PopCapPctOfBase is >= 100, "internal_affairs.pop_cap_pct_of_base", "100 이상 필수입니다 (정의 인구 미만 상한 금지).");
+        check(ia.TechCostPerLevel is >= 1, "internal_affairs.tech_cost_per_level", "1 이상 필수입니다.");
+        check(ia.TechLevelCap is >= 1, "internal_affairs.tech_level_cap", "1 이상 필수입니다.");
+        if (ia.TaxLevels is null || ia.TaxLevels.Count == 0)
+        {
+            check(false, "internal_affairs.tax_levels", "세율 단계가 1개 이상 필수입니다.");
+            return;
+        }
+        foreach (var (id, tl) in ia.TaxLevels)
+        {
+            check(tl?.GoldPct is >= 1 and <= 1000, $"internal_affairs.tax_levels.{id}", "gold_pct 는 1~1000 필수입니다.");
+            check(tl?.PoDrift is >= -100 and <= 100, $"internal_affairs.tax_levels.{id}", "po_drift 는 -100~100 필수입니다.");
+        }
+        check(ia.DefaultTaxLevel is not null && ia.TaxLevels.ContainsKey(ia.DefaultTaxLevel),
+            "internal_affairs.default_tax_level", $"tax_levels 에 존재하는 키여야 합니다: '{ia.DefaultTaxLevel}'");
+    }
+
+    private static InternalAffairsRules BuildInternalAffairs(InternalAffairsDto ia) => new()
+    {
+        PoInitial = ia.PoInitial ?? 0,
+        PoAfterHostileCapture = ia.PoAfterHostileCapture ?? 0,
+        PoAfterPeacefulCapture = ia.PoAfterPeacefulCapture ?? 0,
+        PoAfterRebellion = ia.PoAfterRebellion ?? 0,
+        PoOutputBasePct = ia.PoOutputBasePct ?? 100,
+        PoOutputSlopePct = ia.PoOutputSlopePct ?? 0,
+        RebellionThreshold = ia.RebellionThreshold ?? 0,
+        RebellionChancePermyriad = ia.RebellionChancePermyriad ?? 0,
+        RecruitPoPenaltyPer1000 = ia.RecruitPoPenaltyPer1000 ?? 0,
+        GovernorGoldPctPer100Pol = ia.GovernorGoldPctPer100Pol ?? 0,
+        GovernorFoodPctPer100Pol = ia.GovernorFoodPctPer100Pol ?? 0,
+        GovernorBuildDiscountPctPer100Pol = ia.GovernorBuildDiscountPctPer100Pol ?? 0,
+        BuildDiscountMaxPct = ia.BuildDiscountMaxPct ?? 0,
+        GovernorRecruitDiscountPctPer100Cha = ia.GovernorRecruitDiscountPctPer100Cha ?? 0,
+        RecruitDiscountMaxPct = ia.RecruitDiscountMaxPct ?? 0,
+        GovernorPoRegenPer100Cha = ia.GovernorPoRegenPer100Cha ?? 0,
+        GovernorTechPointsPer100Int = ia.GovernorTechPointsPer100Int ?? 0,
+        PopGrowthPermyriadAtPo100 = ia.PopGrowthPermyriadAtPo100 ?? 0,
+        PopCapPctOfBase = ia.PopCapPctOfBase ?? 100,
+        TechCostPerLevel = ia.TechCostPerLevel ?? 1,
+        TechLevelCap = ia.TechLevelCap ?? 1,
+        TaxLevels = (ia.TaxLevels ?? new()).ToDictionary(
+            kv => kv.Key, kv => new TaxLevelDef(kv.Value?.GoldPct ?? 100, kv.Value?.PoDrift ?? 0)),
+        DefaultTaxLevel = ia.DefaultTaxLevel ?? ""
+    };
 
     // ---------- 지형 ----------
 
@@ -493,6 +567,7 @@ public sealed class DataLoader
             if (u.Speed is null or <= 0) errors.Add(new(file, entry, "speed는 1 이상 필수입니다."));
             if (u.RecruitCostGold is null or < 0) errors.Add(new(file, entry, "recruit_cost_gold는 0 이상 필수입니다."));
             if (u.UpkeepFood is null or < 0) errors.Add(new(file, entry, "upkeep_food는 0 이상 필수입니다."));
+            if (u.PopCost is null or < 0) errors.Add(new(file, entry, "pop_cost는 0 이상 필수입니다 (§2.3 징병 인구 소모)."));
             if (u.TechRequired is null or < 0) errors.Add(new(file, entry, "tech_required는 0 이상 필수입니다."));
             if (u.UniqueTo is not null && !charIds.Contains(u.UniqueTo))
                 errors.Add(new(file, entry, $"unique_to가 존재하지 않는 캐릭터를 참조합니다: '{u.UniqueTo}'"));
@@ -931,7 +1006,8 @@ public sealed class DataLoader
         var units = unitDtos.ToDictionary(
             u => u.Id!,
             u => new UnitType(u.Id!, u.NameKo!, u.Domain!, u.Class!, u.Atk!.Value, u.Def!.Value,
-                u.Speed!.Value, u.RecruitCostGold!.Value, u.UpkeepFood!.Value, u.TechRequired!.Value, u.UniqueTo));
+                u.Speed!.Value, u.RecruitCostGold!.Value, u.UpkeepFood!.Value, u.PopCost!.Value,
+                u.TechRequired!.Value, u.UniqueTo));
 
         var skills = skillDtos.ToDictionary(
             s => s.Id!,

@@ -89,6 +89,7 @@ internal sealed class UnitTypeDto
     public int? Speed { get; set; }
     public int? RecruitCostGold { get; set; }
     public int? UpkeepFood { get; set; }
+    public int? PopCost { get; set; }
     public int? TechRequired { get; set; }
     public string? UniqueTo { get; set; }
 }
@@ -233,7 +234,50 @@ internal sealed class FacilityDefDto
     public int? MaxLevel { get; set; }
     public int? GoldBonusPctPerLevel { get; set; }
     public int? FoodBonusPctPerLevel { get; set; }
-    public int? TechBonusPerLevel { get; set; }   // 학당 — 레벨당 턴 기술점 (선택, 기본 0)
+    public int? TechPointsPerLevel { get; set; }         // 학당 — 레벨당 턴 기술 포인트 (선택, 기본 0)
+    public int? RecruitDiscountPctPerLevel { get; set; } // 병영 — 징병 할인 % (선택)
+    public int? DefenseBonusPctPerLevel { get; set; }    // 성벽 — 수비 방어 % (선택)
+}
+
+internal sealed class TaxLevelDefDto
+{
+    public int? GoldPct { get; set; }
+    public int? PoDrift { get; set; }
+}
+
+internal sealed class InternalAffairsDto
+{
+    public int? PoInitial { get; set; }
+    public int? PoAfterHostileCapture { get; set; }
+    public int? PoAfterPeacefulCapture { get; set; }
+    public int? PoAfterRebellion { get; set; }
+    public int? PoOutputBasePct { get; set; }
+    public int? PoOutputSlopePct { get; set; }
+    public int? RebellionThreshold { get; set; }
+    public int? RebellionChancePermyriad { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("recruit_po_penalty_per_1000")]
+    public int? RecruitPoPenaltyPer1000 { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("governor_gold_pct_per_100_pol")]
+    public int? GovernorGoldPctPer100Pol { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("governor_food_pct_per_100_pol")]
+    public int? GovernorFoodPctPer100Pol { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("governor_build_discount_pct_per_100_pol")]
+    public int? GovernorBuildDiscountPctPer100Pol { get; set; }
+    public int? BuildDiscountMaxPct { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("governor_recruit_discount_pct_per_100_cha")]
+    public int? GovernorRecruitDiscountPctPer100Cha { get; set; }
+    public int? RecruitDiscountMaxPct { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("governor_po_regen_per_100_cha")]
+    public int? GovernorPoRegenPer100Cha { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("governor_tech_points_per_100_int")]
+    public int? GovernorTechPointsPer100Int { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("pop_growth_permyriad_at_po100")]
+    public int? PopGrowthPermyriadAtPo100 { get; set; }
+    public int? PopCapPctOfBase { get; set; }
+    public int? TechCostPerLevel { get; set; }
+    public int? TechLevelCap { get; set; }
+    public Dictionary<string, TaxLevelDefDto>? TaxLevels { get; set; }
+    public string? DefaultTaxLevel { get; set; }
 }
 
 // ── 시네마틱 (§5.7) ──
@@ -317,7 +361,7 @@ internal sealed class GameRulesDto
     public int? LandingAttackModifier { get; set; }   // 정수 스케일 ×100 (-25)
     public int? LandingDebuffTurns { get; set; }
     public ResourceAmountDto? AllianceTransferCapPerTurn { get; set; }
-    public int? BaseTaxRate { get; set; }   // 정수 스케일 ×100 (10)
+    public InternalAffairsDto? InternalAffairs { get; set; }   // 내정 상수 (§2.3.1)
     public Dictionary<string, Dictionary<string, int>>? UnitClassAdvantage { get; set; }   // 배율 ×100
     public Dictionary<string, FacilityDefDto>? Facilities { get; set; }   // 시설 정의 (§2.3)
     public CombatRulesDto? Combat { get; set; }   // 전투 상수 (§2.6)

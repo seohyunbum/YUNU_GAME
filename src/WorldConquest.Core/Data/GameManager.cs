@@ -12,18 +12,6 @@ public enum CaptureOutcome
     NotAdjacent       // 점령 세력의 소유 영지에 인접하지 않음
 }
 
-/// <summary>징병 결과 (§2.3 병력 = 인구에서 징병).</summary>
-public enum RecruitOutcome
-{
-    Success,
-    InvalidCount,
-    NoSuchFaction,
-    NotOwnedLandProvince,
-    UnknownUnit,
-    RequiresPortProvince,   // 해상 병종은 항구 영지에서만 건조 (§2.3 항구 시설·§2.1 port)
-    InsufficientGold
-}
-
 /// <summary>부대 이동 결과 (§2.1 노드 그래프 · A*).</summary>
 public enum MoveOutcome
 {
@@ -40,7 +28,9 @@ public enum AssignOutcome
     NoSuchArmy,
     NotYourArmy,
     UnknownCharacter,
-    AlreadyAssigned   // 다른 부대가 이미 그 무장을 지휘관으로 씀
+    AlreadyAssigned,   // 다른 부대가 이미 그 무장을 지휘관으로 씀
+    NotYourCharacter,  // 소속(CharacterOwners) 세력이 아님 (§2.8 로스터 단일 장부)
+    IsGovernor         // 태수와 겸직 불가 (§2.3.1 한 무장 = 한 보직)
 }
 
 /// <summary>공격 결과 (§2.6 자동 전투 점령).</summary>
@@ -55,18 +45,6 @@ public enum AttackOutcome
     NoEnemyFleet        // 해역에 적 함대 없음
 }
 
-/// <summary>시설 건설·업그레이드 결과 (§2.3 내정).</summary>
-public enum FacilityOutcome
-{
-    Success,
-    NoSuchFaction,
-    NotOwnedLandProvince,
-    UnknownFacility,
-    MaxLevelReached,
-    NoFreeSlot,       // 새 시설인데 영지 시설 슬롯이 가득 참
-    InsufficientGold
-}
-
 /// <summary>
 /// 게임 흐름 오케스트레이션 (설계문서 §4.2). 페이즈 전이(TurnSystem) + 페이즈별 시스템 실행.
 /// 전투·내정 공식은 여기 두지 않는다(§4.4 God Class 금지) — 해당 시스템에 위임한다.
@@ -74,6 +52,7 @@ public enum FacilityOutcome
 public sealed class GameManager
 {
     private readonly GameDatabase _db;
+    private readonly InternalAffairsManager _internal;
     public GameState State { get; }
 
     /// <summary>Core→Presentation 이벤트 버스 (§4.3). CutsceneDirector 가 구독해 컷씬을 선택·발행한다.</summary>
@@ -84,6 +63,7 @@ public sealed class GameManager
         State = state;
         _db = db;
         Bus = bus ?? new EventBus();
+        _internal = new InternalAffairsManager(state, db, Bus);   // 내정 공식 소유 (§4.4 God Class 금지)
         _ = new CutsceneDirector(state, db, Bus);   // 구독 등록 (§2.7.2)
     }
 
@@ -95,73 +75,15 @@ public sealed class GameManager
         else if (State.Phase == TurnPhase.AiAction) new AIController(State, _db, this).RunAll();   // §2.2 [4]
     }
 
-    /// <summary>수입 페이즈 (§2.2 [1]): 소유 육상 영지의 기본 생산량 + 시설 보너스(§2.3)를 정산한다.</summary>
-    public void CollectIncome()
-    {
-        foreach (var faction in State.Factions)
-        {
-            faction.TransferredGoldThisTurn = 0;   // 동맹 지원 턴당 상한 리셋 (§1.2)
-            faction.TransferredFoodThisTurn = 0;
-            faction.SummonsThisTurn = 0;           // 초빙 턴당 캡 리셋 (§2.8)
-            faction.Mandate += _db.Rules.SummonIncomeBasePerTurn;   // 천명 기본 수입 (§2.8.3)
-        }
-        foreach (var faction in State.Factions)
-            foreach (var provinceId in faction.OwnedProvinceIds)
-                if (_db.Map.GetNode(provinceId) is LandProvince land)
-                {
-                    var y = land.Produce();
-                    var (goldPct, foodPct, tech) = FacilityBonus(provinceId);
-                    // 정수 스케일 (§4.4). 곱은 long 으로 위드닝해 오버플로 방지.
-                    faction.Treasury += (int)((long)y.Gold * (100 + goldPct) / 100);
-                    faction.Food += (int)((long)y.Food * (100 + foodPct) / 100);
-                    faction.TechLevel += tech;   // 학당 시설 — 레벨당 턴 기술점 (§2.3)
-                }
-    }
+    /// <summary>내정 시스템 (§2.3.1) — 태수·세율·민심·수입 미리보기 등 조회·명령의 진입점.</summary>
+    public InternalAffairsManager Internal => _internal;
 
-    /// <summary>영지의 시설 누적 보너스: 생산(정수 %) + 기술점(정수). 시설 상태가 없으면 0.</summary>
-    private (int GoldPct, int FoodPct, int Tech) FacilityBonus(string provinceId)
-    {
-        var ps = State.Provinces.FirstOrDefault(p => p.Id == provinceId);
-        if (ps is null) return (0, 0, 0);
-        int gold = 0, food = 0, tech = 0;
-        foreach (var (type, level) in ps.Facilities)
-            if (_db.Rules.Facilities.TryGetValue(type, out var def))
-            {
-                gold += level * def.GoldBonusPctPerLevel;
-                food += level * def.FoodBonusPctPerLevel;
-                tech += level * def.TechBonusPerLevel;
-            }
-        return (gold, food, tech);
-    }
+    /// <summary>수입 페이즈 (§2.2 [1]) — 내정 공식은 InternalAffairsManager 소유 (§4.4 God Class 금지).</summary>
+    public void CollectIncome() => _internal.ProcessIncomePhase();
 
-    /// <summary>시설 건설·업그레이드 (§2.3): 소유 육상 영지에 금을 지불해 시설 레벨을 올린다.</summary>
-    public FacilityOutcome BuildFacility(string factionId, string provinceId, string facilityType)
-    {
-        var faction = State.Factions.FirstOrDefault(f => f.Id == factionId);
-        if (faction is null) return FacilityOutcome.NoSuchFaction;
-        if (!_db.Map.TryGetNode(provinceId, out var node) || node is not LandProvince land || !faction.OwnedProvinceIds.Contains(provinceId))
-            return FacilityOutcome.NotOwnedLandProvince;
-        if (!_db.Rules.Facilities.TryGetValue(facilityType, out var def))
-            return FacilityOutcome.UnknownFacility;
-
-        var ps = State.Provinces.FirstOrDefault(p => p.Id == provinceId);
-        var level = ps?.Facilities.GetValueOrDefault(facilityType) ?? 0;
-        if (level >= def.MaxLevel) return FacilityOutcome.MaxLevelReached;
-        if (level == 0 && (ps?.Facilities.Count ?? 0) >= land.FacilitySlots) return FacilityOutcome.NoFreeSlot;
-        if (faction.Treasury < def.CostGold) return FacilityOutcome.InsufficientGold;
-
-        faction.Treasury -= def.CostGold;
-        ps ??= CreateProvinceState(provinceId);
-        ps.Facilities[facilityType] = level + 1;
-        return FacilityOutcome.Success;
-    }
-
-    private ProvinceState CreateProvinceState(string provinceId)
-    {
-        var ps = new ProvinceState { Id = provinceId, Facilities = new() };
-        State.Provinces.Add(ps);
-        return ps;
-    }
+    /// <summary>시설 건설·업그레이드 (§2.3) — InternalAffairsManager 위임.</summary>
+    public FacilityOutcome BuildFacility(string factionId, string provinceId, string facilityType) =>
+        _internal.BuildFacility(factionId, provinceId, facilityType);
 
     /// <summary>
     /// 무혈 점령 (§2.2): 어느 세력도 소유하지 않은 빈 육상 영지를, 점령 세력의 소유 영지에 인접할 때 접수한다.
@@ -177,6 +99,7 @@ public sealed class GameManager
             return CaptureOutcome.NotAdjacent;
 
         faction.OwnedProvinceIds.Add(provinceId);
+        _internal.OnProvinceTaken(provinceId, hostile: false);        // 무혈 점령 민심·태수 (§2.3.1)
         if (State.Progress.Add($"captured:{provinceId}"))
             faction.Mandate += _db.Rules.SummonIncomeFirstCapture;   // §2.8.3
         Bus.Publish(GameEvent.Of("ProvinceCaptured",                  // 표현층 연출용 (§4.3) — 무혈 점령
@@ -184,40 +107,9 @@ public sealed class GameManager
         return CaptureOutcome.Success;
     }
 
-    /// <summary>
-    /// 징병 (§2.3): 소유 육상 영지에서 금을 지불해 병력을 편성한다. 영지에 주둔한 자기 부대에 합치거나 새로 만든다.
-    /// 인구 감소는 ProvinceState 도입 시(Phase 1 확장) — 지금은 금 비용만.
-    /// </summary>
-    public RecruitOutcome Recruit(string factionId, string provinceId, string unitTypeId, int count)
-    {
-        if (count <= 0) return RecruitOutcome.InvalidCount;
-        var faction = State.Factions.FirstOrDefault(f => f.Id == factionId);
-        if (faction is null) return RecruitOutcome.NoSuchFaction;
-        if (!_db.Map.TryGetNode(provinceId, out var node) || node is not LandProvince land || !faction.OwnedProvinceIds.Contains(provinceId))
-            return RecruitOutcome.NotOwnedLandProvince;
-        if (!_db.Units.TryGetValue(unitTypeId, out var unit))
-            return RecruitOutcome.UnknownUnit;
-        var naval = unit.Domain == "naval";
-        if (naval && !land.Port) return RecruitOutcome.RequiresPortProvince;   // 함선 건조 = 항구 영지만
-
-        long cost = (long)unit.RecruitCostGold * count;   // long 승격 — 거대 count 곱 오버플로로 금 검사 우회 방지
-        if (faction.Treasury < cost) return RecruitOutcome.InsufficientGold;
-
-        faction.Treasury -= (int)cost;
-        if (naval)
-        {
-            var fleet = State.Fleets.FirstOrDefault(f => f.FactionId == factionId && f.LocationNodeId == provinceId)
-                        ?? CreateFleet(factionId, provinceId);
-            fleet.AddUnits(unitTypeId, count);
-        }
-        else
-        {
-            var army = State.Armies.FirstOrDefault(a => a.FactionId == factionId && a.LocationNodeId == provinceId)
-                       ?? CreateArmy(factionId, provinceId);
-            army.AddUnits(unitTypeId, count);
-        }
-        return RecruitOutcome.Success;
-    }
+    /// <summary>징병 (§2.3 병력 = 인구에서 징병) — InternalAffairsManager 위임.</summary>
+    public RecruitOutcome Recruit(string factionId, string provinceId, string unitTypeId, int count) =>
+        _internal.Recruit(factionId, provinceId, unitTypeId, count);
 
     /// <summary>
     /// 부대·함대 이동 (§2.1): 육군 = 육로·목적지 육상 / 함대 = 해로·항구 간선, 목적지 해역 또는 항구 육상(정박).
@@ -255,6 +147,10 @@ public sealed class GameManager
         if (force is null) return AssignOutcome.NoSuchArmy;
         if (force.FactionId != factionId) return AssignOutcome.NotYourArmy;
         if (!_db.Characters.ContainsKey(characterId)) return AssignOutcome.UnknownCharacter;
+        if (State.CharacterOwners.GetValueOrDefault(characterId) != factionId)
+            return AssignOutcome.NotYourCharacter;   // 소속 무장만 (§2.8 단일 장부)
+        if (State.Provinces.Any(p => p.GovernorId == characterId))
+            return AssignOutcome.IsGovernor;         // 태수 겸직 불가 (§2.3.1)
         if (State.Armies.Any(a => a.Id != forceId && a.CommanderId == characterId) ||
             State.Fleets.Any(f => f.Id != forceId && f.CommanderId == characterId))
             return AssignOutcome.AlreadyAssigned;
@@ -321,7 +217,8 @@ public sealed class GameManager
         var atkCommander = force.CommanderId;
         var defCommander = defenders.FirstOrDefault(d => d.CommanderId is not null)?.CommanderId;
 
-        battle = new CombatManager(_db).ResolveAuto(force, defenders, land, State.Rng.Stream(RngStreams.Combat), landing);
+        battle = new CombatManager(_db).ResolveAuto(force, defenders, land, State.Rng.Stream(RngStreams.Combat), landing,
+            _internal.DefenseBonusPct(targetNodeId));   // 성벽 등 시설 방어 보정 (§2.3.1·§2.6)
 
         // 전멸 부대 정리 (양측)
         State.Armies.RemoveAll(a => a.TotalTroops == 0);
@@ -378,32 +275,12 @@ public sealed class GameManager
     {
         from.OwnedProvinceIds.Remove(provinceId);
         to.OwnedProvinceIds.Add(provinceId);
+        _internal.OnProvinceTaken(provinceId, hostile: true);   // 전투 점령 민심·태수 해임 (§2.3.1)
         occupier.LocationNodeId = provinceId;   // 점령군 진주
         if (State.Progress.Add($"captured:{provinceId}"))       // 캠페인 최초 점령 (§2.8.3)
             to.Mandate += _db.Rules.SummonIncomeFirstCapture;
         // 키 계약: 무혈 점령(TryCapture)과 동일하게 faction 사용 — 표현층이 단일 경로로 소비 (§4.3)
         Bus.Publish(GameEvent.Of("ProvinceCaptured", ("faction", to.Id), ("province", provinceId), ("from", from.Id)));
-    }
-
-    private Army CreateArmy(string factionId, string locationNodeId)
-    {
-        // 충돌 없는 최소 순번(fail-soft 로 중간 부대가 드롭돼도 기존 id 와 겹치지 않게).
-        var existing = State.Armies.Select(a => a.Id).ToHashSet();
-        var seq = 1;
-        while (existing.Contains($"{factionId}_army_{seq}")) seq++;
-        var army = new Army($"{factionId}_army_{seq}", factionId, locationNodeId);
-        State.Armies.Add(army);
-        return army;
-    }
-
-    private Fleet CreateFleet(string factionId, string locationNodeId)
-    {
-        var existing = State.Fleets.Select(f => f.Id).ToHashSet();
-        var seq = 1;
-        while (existing.Contains($"{factionId}_fleet_{seq}")) seq++;
-        var fleet = new Fleet($"{factionId}_fleet_{seq}", factionId, locationNodeId);
-        State.Fleets.Add(fleet);
-        return fleet;
     }
 
     /// <summary>

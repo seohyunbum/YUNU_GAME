@@ -98,6 +98,8 @@ public class CommanderBattleTests
         var s = GameSetup.NewCampaign(db, seed, "joseon", "wei");
         var gm = new GameManager(s, db);
         s.Factions.Single(f => f.Id == "wei").OwnedProvinceIds.Add("pyongyang");
+        s.CharacterOwners["guan_yu"] = "joseon";           // 소속 무장만 지휘관 가능 (§2.8 단일 장부)
+        s.CharacterOwners["mash_kyrielight"] = "wei";
         var atk = new Army("joseon_army_1", "joseon", "hanseong");
         atk.AddUnits("spearman", 1000);
         s.Armies.Add(atk);
@@ -115,6 +117,7 @@ public class CommanderBattleTests
         Assert.Equal(AssignOutcome.Success, gm.AssignCommander("joseon", "joseon_army_1", "guan_yu"));
         Assert.Equal("guan_yu", s.Armies.Single(a => a.Id == "joseon_army_1").CommanderId);
         Assert.Equal(AssignOutcome.UnknownCharacter, gm.AssignCommander("joseon", "joseon_army_1", "nobody"));
+        Assert.Equal(AssignOutcome.NotYourCharacter, gm.AssignCommander("joseon", "joseon_army_1", "saber_artoria"));   // 칼데아 소속 (§2.8)
         Assert.Equal(AssignOutcome.NotYourArmy, gm.AssignCommander("joseon", "wei_army_1", "cao_cao"));
         // 같은 무장을 다른 부대가 중복 임명 불가
         var second = new Army("joseon_army_2", "joseon", "hanseong");

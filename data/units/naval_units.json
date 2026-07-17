@@ -9,6 +9,7 @@
     "speed": 16,
     "recruit_cost_gold": 120,
     "upkeep_food": 3,
+    "pop_cost": 5,
     "tech_required": 0,
     "unique_to": null
   },
@@ -22,6 +23,7 @@
     "speed": 11,
     "recruit_cost_gold": 250,
     "upkeep_food": 5,
+    "pop_cost": 10,
     "tech_required": 1,
     "unique_to": null
   },
@@ -35,6 +37,7 @@
     "speed": 7,
     "recruit_cost_gold": 500,
     "upkeep_food": 8,
+    "pop_cost": 20,
     "tech_required": 3,
     "unique_to": null
   },
@@ -48,6 +51,7 @@
     "speed": 9,
     "recruit_cost_gold": 700,
     "upkeep_food": 9,
+    "pop_cost": 25,
     "tech_required": 3,
     "unique_to": "yi_sunsin"
   }

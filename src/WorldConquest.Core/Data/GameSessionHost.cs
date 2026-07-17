@@ -70,6 +70,7 @@ public sealed class GameSessionHost
 
     public StateSnapshot Snapshot()
     {
+        var ia = RequireGame().Internal;
         var s = RequireGame().State;
         var owners = s.Factions
             .SelectMany(f => f.OwnedProvinceIds.Select(p => (p, f.Id)))
@@ -86,11 +87,14 @@ public sealed class GameSessionHost
             s.Factions.Select(f => new FactionView(
                 f.Id, f.Controller, f.Treasury, f.Food, f.TechLevel, f.Mandate, f.PityCount,
                 f.OwnedProvinceIds.ToList(),
-                f.Relations.ToDictionary(kv => kv.Key, kv => kv.Value.ToString().ToLowerInvariant()))).ToList(),
+                f.Relations.ToDictionary(kv => kv.Key, kv => kv.Value.ToString().ToLowerInvariant()),
+                f.TaxLevel.Length > 0 ? f.TaxLevel : _db.Rules.InternalAffairs.DefaultTaxLevel,
+                f.TechPoints)).ToList(),
             _db.Map.LandProvinces.Select(p => new ProvinceOwnershipView(
                 p.Id,
                 owners.TryGetValue(p.Id, out var o) ? o : null,
-                facilities.TryGetValue(p.Id, out var fc) ? fc : new Dictionary<string, int>())).ToList(),
+                facilities.TryGetValue(p.Id, out var fc) ? fc : new Dictionary<string, int>(),
+                ia.GetPublicOrder(p.Id), ia.GetPopulation(p.Id), ia.GovernorOf(p.Id)?.Id)).ToList(),
             s.Armies.Select(ForceView).ToList(),
             s.Fleets.Select(ForceView).ToList(),
             new Dictionary<string, string>(s.CharacterOwners),
@@ -227,6 +231,27 @@ public sealed class GameSessionHost
                 var o = gm.BuildFacility(factionId, args[0], args[1]);
                 if (o != FacilityOutcome.Success) { ok = false; return $"건설 실패: {o}"; }
                 return $"{args[0]}에 {args[1]} 건설/증축";
+            }
+            case "governor":
+            {
+                Require(args, 2, "governor <영지id> <캐릭터id>");
+                var o = gm.Internal.AppointGovernor(factionId, args[0], args[1]);
+                if (o != GovernorOutcome.Success) { ok = false; return $"태수 임명 실패: {o}"; }
+                return $"{args[0]} 태수 = {args[1]}";
+            }
+            case "dismiss":
+            {
+                Require(args, 1, "dismiss <영지id>");
+                var o = gm.Internal.DismissGovernor(factionId, args[0]);
+                if (o != GovernorOutcome.Success) { ok = false; return $"해임 실패: {o}"; }
+                return $"{args[0]} 태수 해임";
+            }
+            case "tax":
+            {
+                Require(args, 1, "tax <단계>");
+                var o = gm.Internal.SetTaxLevel(factionId, args[0]);
+                if (o != TaxOutcome.Success) { ok = false; return $"세율 변경 실패: {o}"; }
+                return $"세율 = {args[0]}";
             }
             case "summon":
             {

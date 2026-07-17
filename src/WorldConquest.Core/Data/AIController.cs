@@ -37,6 +37,7 @@ public sealed class AIController
 
         MergeStacks(faction);            // 같은 위치 소부대 병합 — 개별 threshold 교착 방지
         CaptureEmptyNeighbors(faction);
+        ManageInternalAffairs(faction);  // 태수 파견·시설 투자 (§2.3.1 — 전선 행동 전 예산 배분)
 
         var landReachable = LandReachableEnemyExists(faction);
         if (landReachable)
@@ -152,6 +153,57 @@ public sealed class AIController
             }
             if (best is not null)
                 _gm.MoveArmy(fleet.Id, best[^2]);   // 상륙 목표 직전 해역
+        }
+    }
+
+    /// <summary>
+    /// 1.5) 내정 (§2.3.1): ①보직 없는 소속 무장을 정치 순으로 태수 공석 영지(생산 순)에 파견
+    /// ②여유 자금(비용 3배 보유) 시 최고 생산 영지부터 시설 우선순위대로 턴당 1건 건설.
+    /// 전부 ordinal 정렬 — 난수 없이 결정적.
+    /// </summary>
+    private void ManageInternalAffairs(FactionState faction)
+    {
+        var ia = _gm.Internal;
+
+        // ① 태수 파견 — 후보: 소속 && 지휘관 아님 && 태수 아님, 정치 내림차순
+        var idle = _state.CharacterOwners
+            .Where(kv => kv.Value == faction.Id && _db.Characters.ContainsKey(kv.Key))
+            .Select(kv => kv.Key)
+            .Where(id => !_state.Armies.Any(a => a.CommanderId == id) &&
+                         !_state.Fleets.Any(f => f.CommanderId == id) &&
+                         ia.GovernorProvinceOf(id) is null)
+            .OrderByDescending(id => _db.Characters[id].Stats.Pol)
+            .ThenBy(id => id, StringComparer.Ordinal)
+            .ToList();
+        var vacant = faction.OwnedProvinceIds
+            .Where(pid => _db.Map.GetNode(pid) is LandProvince && ia.GovernorOf(pid) is null)
+            .OrderByDescending(pid =>
+            {
+                var land = (LandProvince)_db.Map.GetNode(pid);
+                return land.BaseProduction.Gold + land.BaseProduction.Food;
+            })
+            .ThenBy(pid => pid, StringComparer.Ordinal)
+            .ToList();
+        foreach (var (pid, cid) in vacant.Zip(idle))
+            ia.AppointGovernor(faction.Id, pid, cid);
+
+        // ② 시설 투자 — 경제·기술 우선, 여유 자금일 때만 (전비 잠식 방지), 턴당 1건
+        var provincesByYield = faction.OwnedProvinceIds
+            .Where(pid => _db.Map.GetNode(pid) is LandProvince)
+            .OrderByDescending(pid =>
+            {
+                var land = (LandProvince)_db.Map.GetNode(pid);
+                return land.BaseProduction.Gold + land.BaseProduction.Food;
+            })
+            .ThenBy(pid => pid, StringComparer.Ordinal)
+            .ToList();
+        foreach (var ftype in new[] { "market", "farm", "port", "academy", "barracks", "walls" })
+        {
+            if (!_db.Rules.Facilities.TryGetValue(ftype, out var def)) continue;
+            if (faction.Treasury < (long)def.CostGold * 3) continue;   // 여유 자금 가드
+            foreach (var pid in provincesByYield)
+                if (ia.BuildFacility(faction.Id, pid, ftype) == FacilityOutcome.Success)
+                    return;   // 턴당 1건
         }
     }
 

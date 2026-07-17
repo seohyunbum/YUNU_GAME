@@ -30,10 +30,11 @@ public sealed class CombatManager
     /// max_rounds 초과 교착은 수비 승(공성 실패). 참가 부대의 병력 손실은 이 메서드가 직접 반영한다.
     /// </summary>
     public BattleResult ResolveAuto(MilitaryForce attacker, IReadOnlyList<MilitaryForce> defenders,
-        LandProvince battlefield, Pcg32 rng, bool landing = false)
+        LandProvince battlefield, Pcg32 rng, bool landing = false, int defenseBonusPct = 0)
     {
+        // defenseBonusPct = 영지 시설(성벽) 수비 보정 (§2.3) — 지형 방어와 합산해 수비측에만 적용
         var terrain = _db.TerrainModifiers[battlefield.Terrain];
-        return ResolveCore(attacker, defenders, "land", terrain.AtkMod, terrain.DefMod, landing, rng, wind: null);
+        return ResolveCore(attacker, defenders, "land", terrain.AtkMod, terrain.DefMod + defenseBonusPct, landing, rng, wind: null);
     }
 
     /// <summary>

@@ -48,6 +48,7 @@ public class NavalCombatTests
         var s = GameSetup.NewCampaign(db, 42, "joseon", "wei");
         var gm = new GameManager(s, db);
         s.Factions.Single(f => f.Id == "joseon").Treasury = 100000;
+        s.Factions.Single(f => f.Id == "joseon").TechLevel = 3;   // 대형선 해금 (§2.3 기술)
         s.Factions.Single(f => f.Id == "wei").Treasury = 100000;
         gm.Recruit("joseon", "hanseong", "large_ship", 20);
         var enemy = new Fleet("wei_fleet_1", "wei", "sea_east_asia");

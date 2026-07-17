@@ -29,10 +29,17 @@ public sealed record FactionView(
     string Id, string Controller,
     int Treasury, int Food, int TechLevel, int Mandate, int PityCount,
     List<string> OwnedProvinceIds,
-    Dictionary<string, string> Relations);   // 상대 세력 id → war|alliance|peace
+    Dictionary<string, string> Relations,   // 상대 세력 id → war|alliance|peace
+    string TaxLevel = "normal",             // 세율 단계 (§2.3.1, additive)
+    int TechPoints = 0);                    // 기술 포인트 누적 (additive)
 
-/// <summary>영지 가변 상태 — 소유·시설. 정의(이름·좌표·생산)는 /api/static 쪽.</summary>
-public sealed record ProvinceOwnershipView(string Id, string? OwnerFactionId, Dictionary<string, int> Facilities);
+/// <summary>
+/// 영지 가변 상태 — 소유·시설·내정(민심·인구·태수). 정의(이름·좌표·생산)는 /api/static 쪽.
+/// 내정 필드는 additive (§2.3.1) — 구 클라이언트는 무시, 신 클라이언트는 도시 화면에 표시.
+/// </summary>
+public sealed record ProvinceOwnershipView(
+    string Id, string? OwnerFactionId, Dictionary<string, int> Facilities,
+    int PublicOrder = 0, int Population = 0, string? GovernorId = null);
 
 public sealed record ForceView(
     string Id, string FactionId, string Location, string? CommanderId,

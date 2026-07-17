@@ -118,7 +118,8 @@ public class GameplayTests
         var db = Db();
         var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
         var gm = new GameManager(s, db);
-        Assert.Equal(RecruitOutcome.InsufficientGold, gm.Recruit("joseon", "hanseong", "siege_ram", 100)); // 200×100
+        Assert.Equal(RecruitOutcome.TechLevelTooLow, gm.Recruit("joseon", "hanseong", "siege_ram", 100));  // 공성추 tech 2 > Lv1 (§2.3 해금)
+        Assert.Equal(RecruitOutcome.InsufficientGold, gm.Recruit("joseon", "hanseong", "spearman", 100));  // 50×100=5000 > 1000
         Assert.Equal(RecruitOutcome.NotOwnedLandProvince, gm.Recruit("joseon", "beijing", "spearman", 1));   // wei 소유
         Assert.Equal(RecruitOutcome.UnknownUnit, gm.Recruit("joseon", "hanseong", "nope", 1));
         Assert.Equal(RecruitOutcome.InvalidCount, gm.Recruit("joseon", "hanseong", "spearman", 0));
@@ -224,8 +225,11 @@ public class GameplayTests
         var gm = new GameManager(s, db);
         var joseon = s.Factions.Single(f => f.Id == "joseon");
         joseon.Treasury = 1000;
-        // spearman 50 × 43,000,000 = 2.15e9 > int.MaxValue — long 승격으로 InsufficientGold, 국고·병력 불변
-        Assert.Equal(RecruitOutcome.InsufficientGold, gm.Recruit("joseon", "hanseong", "spearman", 43_000_000));
+        joseon.TechLevel = 3;   // 기술 게이트 통과시켜 오버플로 경로만 검증
+        // 인구 검사(§2.3)가 거대 count 를 먼저 차단 — pop_need 도 long 승격이라 wrap 없음
+        Assert.Equal(RecruitOutcome.InsufficientPopulation, gm.Recruit("joseon", "hanseong", "spearman", 43_000_000));
+        // pop_cost 0 병종(그림자 병사)으로 금 검사 경로: 300 × 43,000,000 = 1.29e10 > int.MaxValue — long 승격으로 InsufficientGold
+        Assert.Equal(RecruitOutcome.InsufficientGold, gm.Recruit("joseon", "hanseong", "shadow_soldiers", 43_000_000));
         Assert.Equal(1000, joseon.Treasury);
         Assert.Empty(s.Armies);
     }

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "stat_min": 1,
   "stat_max": 120,
   "rarity_min": 1,
@@ -20,7 +20,6 @@
     "gold": 500,
     "food": 500
   },
-  "base_tax_rate": 10,
   "unit_class_advantage": {
     "spear": {
       "cavalry": 150
@@ -169,7 +168,21 @@
       "max_level": 3,
       "gold_bonus_pct_per_level": 0,
       "food_bonus_pct_per_level": 0,
-      "tech_bonus_per_level": 2
+      "tech_points_per_level": 30
+    },
+    "barracks": {
+      "cost_gold": 350,
+      "max_level": 3,
+      "gold_bonus_pct_per_level": 0,
+      "food_bonus_pct_per_level": 0,
+      "recruit_discount_pct_per_level": 5
+    },
+    "walls": {
+      "cost_gold": 500,
+      "max_level": 3,
+      "gold_bonus_pct_per_level": 0,
+      "food_bonus_pct_per_level": 0,
+      "defense_bonus_pct_per_level": 10
     }
   },
   "combat": {
@@ -201,5 +214,43 @@
     "batch_min_rarity4_guarantee": true,
     "max_summons_per_turn": 10,
     "join_loyalty": 90
+  },
+  "internal_affairs": {
+    "po_initial": 70,
+    "po_after_hostile_capture": 40,
+    "po_after_peaceful_capture": 60,
+    "po_after_rebellion": 50,
+    "po_output_base_pct": 65,
+    "po_output_slope_pct": 50,
+    "rebellion_threshold": 20,
+    "rebellion_chance_permyriad": 2500,
+    "recruit_po_penalty_per_1000": 2,
+    "governor_gold_pct_per_100_pol": 15,
+    "governor_food_pct_per_100_pol": 10,
+    "governor_build_discount_pct_per_100_pol": 20,
+    "build_discount_max_pct": 30,
+    "governor_recruit_discount_pct_per_100_cha": 15,
+    "recruit_discount_max_pct": 40,
+    "governor_po_regen_per_100_cha": 5,
+    "governor_tech_points_per_100_int": 10,
+    "pop_growth_permyriad_at_po100": 100,
+    "pop_cap_pct_of_base": 150,
+    "tech_cost_per_level": 200,
+    "tech_level_cap": 5,
+    "tax_levels": {
+      "low": {
+        "gold_pct": 70,
+        "po_drift": 3
+      },
+      "normal": {
+        "gold_pct": 100,
+        "po_drift": 0
+      },
+      "high": {
+        "gold_pct": 130,
+        "po_drift": -5
+      }
+    },
+    "default_tax_level": "normal"
   }
 }
