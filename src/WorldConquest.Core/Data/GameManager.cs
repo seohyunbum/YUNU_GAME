@@ -313,13 +313,20 @@ public sealed class GameManager
             return AttackOutcome.AttackerWon;
         }
 
+        // 전투 전 스냅샷 (결과 화면용 — §4.3 표현층이 전·후를 대비)
+        var atkTroopsBefore = force.TotalTroops;
+        var defTroopsBefore = defenders.Sum(d => d.TotalTroops);
+        var atkCommander = force.CommanderId;
+        var defCommander = defenders.FirstOrDefault(d => d.CommanderId is not null)?.CommanderId;
+
         battle = new CombatManager(_db).ResolveAuto(force, defenders, land, State.Rng.Stream(RngStreams.Combat), landing);
 
         // 전멸 부대 정리 (양측)
         State.Armies.RemoveAll(a => a.TotalTroops == 0);
         State.Fleets.RemoveAll(f => f.TotalTroops == 0);
 
-        PublishBattleEvents(battle, targetNodeId);
+        PublishBattleEvents(battle, targetNodeId, factionId, owner.Id,
+            atkTroopsBefore, defTroopsBefore, atkCommander, defCommander);
 
         // 천명 보상 (§2.8.3): 전투 승자 + 일기토 승자
         var winnerFaction = battle.AttackerWon ? factionId : owner.Id;
@@ -337,8 +344,10 @@ public sealed class GameManager
         return AttackOutcome.AttackerWon;
     }
 
-    /// <summary>전투 결과를 불변 이벤트로 발행 (§4.3) — 컷씬 트리거·콘솔/UE5 표현의 원천.</summary>
-    private void PublishBattleEvents(BattleResult battle, string node)
+    /// <summary>전투 결과를 불변 이벤트로 발행 (§4.3) — 컷씬 트리거·콘솔/UE5 결과 화면의 원천.</summary>
+    private void PublishBattleEvents(BattleResult battle, string node,
+        string attackerFaction, string defenderFaction,
+        int attackerBefore, int defenderBefore, string? attackerCommander, string? defenderCommander)
     {
         if (battle.Duel is not null)
         {
@@ -351,8 +360,16 @@ public sealed class GameManager
         }
         foreach (var ev in battle.SkillEvents.Where(e => e.SkillId != "duel"))
             Bus.Publish(GameEvent.Of("SkillExecuted", ("skill", ev.SkillId), ("side", ev.Side), ("node", node)));
+        // 전투 결과 상세 — 표현층(전투 화면)이 양측 병력·손실·라운드·지휘관·일기토를 대비 표시
         Bus.Publish(GameEvent.Of("BattleEnded",
-            ("node", node), ("attacker_won", battle.AttackerWon ? "true" : "false")));
+            ("node", node),
+            ("attacker_won", battle.AttackerWon ? "true" : "false"),
+            ("attacker_faction", attackerFaction), ("defender_faction", defenderFaction),
+            ("attacker_before", attackerBefore.ToString()), ("defender_before", defenderBefore.ToString()),
+            ("attacker_losses", battle.AttackerLosses.ToString()), ("defender_losses", battle.DefenderLosses.ToString()),
+            ("rounds", battle.Rounds.ToString()),
+            ("attacker_commander", attackerCommander ?? ""), ("defender_commander", defenderCommander ?? ""),
+            ("duel_winner", battle.Duel?.WinnerCharacterId ?? ""), ("duel_loser", battle.Duel?.LoserCharacterId ?? "")));
     }
 
     private void TransferProvince(FactionState from, FactionState to, string provinceId, MilitaryForce occupier)

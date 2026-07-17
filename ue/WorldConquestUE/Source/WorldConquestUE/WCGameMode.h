@@ -73,6 +73,25 @@ public:
     float CamDist = 24500.f;
     float CamPitch = -52.f;
 
+    // ── 전투 결과 연출 (§4.3 BattleEnded — 양측 병력·손실·라운드·지휘관·일기토) ──
+    struct FWCBattle
+    {
+        FString Node, AtkFaction, DefFaction, AtkCommander, DefCommander, DuelWinner, DuelLoser;
+        int32 AtkBefore = 0, DefBefore = 0, AtkLosses = 0, DefLosses = 0, Rounds = 0;
+        bool bAttackerWon = false, bMine = false;
+    };
+    TOptional<FWCBattle> ActiveBattle;
+    TArray<FWCBattle> BattleQueue;
+    void DismissBattle();
+    void TryStartNextBattle();
+    // 결과 화면 뷰모델
+    FText UiBattleTitle() const;      // "한성 공방전 — 승리 / 패배"
+    FText UiBattleAtkLine() const;    // "조선 (관우) — 100 → 62 (-38)"
+    FText UiBattleDefLine() const;
+    FText UiBattleFooter() const;     // "3라운드 · 일기토: 관우 승"
+    FLinearColor UiBattleAtkColor() const;
+    FLinearColor UiBattleDefColor() const;
+
     // ── 초빙 리빌 연출 (§2.8.10 진실 신호 — 금문/자문, 표현 전용) ──
     struct FWCReveal { FString CharId; FString Name; int32 Rarity = 3; };
     TOptional<FWCReveal> ActiveReveal;

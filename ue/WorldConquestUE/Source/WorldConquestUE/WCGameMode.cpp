@@ -4,6 +4,7 @@
 #include "WCMainUI.h"
 #include "WCCityView.h"
 #include "WCRevealOverlay.h"
+#include "WCBattleOverlay.h"
 #include "WCPlayerController.h"
 #include "WCHUD.h"
 #include "Engine/GameViewportClient.h"
@@ -103,6 +104,7 @@ void AWCGameMode::BeginPlay()
     {
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCMainUI).GameMode(this), 10);
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCCityView).GameMode(this), 20);   // 도시 화면
+        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCBattleOverlay).GameMode(this), 28);   // 전투 결과
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCRevealOverlay).GameMode(this), 30);   // 리빌 — 최상위
     }
 
@@ -263,7 +265,7 @@ void AWCGameMode::StartCutscene(const FString& Id)
 
 void AWCGameMode::TryStartNextCutscene()
 {
-    if (ActiveReveal.IsSet()) return;   // 리빌 연출 우선 — 소진 후 등장씬
+    if (ActiveBattle.IsSet() || ActiveReveal.IsSet()) return;   // 전투·리빌 우선 — 소진 후 컷씬
     if (ActiveCutscene.IsSet() || CutsceneQueue.Num() == 0) return;
     const FString Next = CutsceneQueue[0];
     CutsceneQueue.RemoveAt(0);
@@ -343,6 +345,16 @@ void AWCGameMode::OnState(TSharedPtr<FJsonObject> State)
                     CamDist = DistStr.IsEmpty() ? 5000.f : FCString::Atof(*DistStr);
                     UpdateBoardCamera();
                 }
+        }
+        if (FParse::Param(FCommandLine::Get(), TEXT("WCBattle")))   // 전투 결과 화면 강제 (QA)
+        {
+            FWCBattle B;
+            B.Node = TEXT("hanseong"); B.AtkFaction = TEXT("wei"); B.DefFaction = PendingActor;
+            B.AtkBefore = 120; B.DefBefore = 80; B.AtkLosses = 45; B.DefLosses = 80;
+            B.Rounds = 4; B.bAttackerWon = true; B.bMine = true;
+            B.AtkCommander = TEXT("guan_yu"); B.DuelWinner = TEXT("guan_yu"); B.DuelLoser = TEXT("yi_sunsin");
+            BattleQueue.Add(B);
+            TryStartNextBattle();
         }
         FString QaReveal;   // 리빌 연출 강제 (표현층 시각 검증 전용)
         if (FParse::Value(FCommandLine::Get(), TEXT("WCReveal="), QaReveal) && !QaReveal.IsEmpty())
@@ -443,14 +455,100 @@ void AWCGameMode::AppendEvents(const TArray<TSharedPtr<FJsonValue>>& Events)
                 RevealQueue.Add(Reveal);
             }
         }
+        else if (Type == TEXT("BattleEnded"))
+        {
+            // 전투 결과 화면 — 내 세력이 관여한 전투만 연출 (AI끼리는 로그)
+            const TSharedPtr<FJsonObject> D = Event->GetObjectField(TEXT("data"));
+            FWCBattle B;
+            D->TryGetStringField(TEXT("node"), B.Node);
+            D->TryGetStringField(TEXT("attacker_faction"), B.AtkFaction);
+            D->TryGetStringField(TEXT("defender_faction"), B.DefFaction);
+            D->TryGetStringField(TEXT("attacker_commander"), B.AtkCommander);
+            D->TryGetStringField(TEXT("defender_commander"), B.DefCommander);
+            D->TryGetStringField(TEXT("duel_winner"), B.DuelWinner);
+            D->TryGetStringField(TEXT("duel_loser"), B.DuelLoser);
+            FString V;
+            B.bAttackerWon = D->TryGetStringField(TEXT("attacker_won"), V) && V == TEXT("true");
+            const auto Num = [&D](const TCHAR* K) { FString S; D->TryGetStringField(K, S); return FCString::Atoi(*S); };
+            B.AtkBefore = Num(TEXT("attacker_before")); B.DefBefore = Num(TEXT("defender_before"));
+            B.AtkLosses = Num(TEXT("attacker_losses")); B.DefLosses = Num(TEXT("defender_losses"));
+            B.Rounds = Num(TEXT("rounds"));
+            B.bMine = (B.AtkFaction == PendingActor || B.DefFaction == PendingActor);
+            if (B.bMine && B.AtkBefore + B.DefBefore > 0) BattleQueue.Add(B);   // 무저항 함락(병력0)은 화면 생략
+        }
     }
     while (EventLog.Num() > EventLogMax) EventLog.RemoveAt(EventLog.Num() - 1);
+    TryStartNextBattle();
     TryStartNextReveal();
     TryStartNextCutscene();
 }
 
+void AWCGameMode::TryStartNextBattle()
+{
+    if (ActiveBattle.IsSet() || BattleQueue.Num() == 0) return;
+    ActiveBattle = BattleQueue[0];
+    BattleQueue.RemoveAt(0);
+}
+
+void AWCGameMode::DismissBattle()
+{
+    ActiveBattle.Reset();
+    TryStartNextBattle();
+    TryStartNextReveal();
+    TryStartNextCutscene();
+}
+
+FText AWCGameMode::UiBattleTitle() const
+{
+    if (!ActiveBattle.IsSet()) return FText::GetEmpty();
+    const auto& B = *ActiveBattle;
+    const bool bWon = (B.AtkFaction == PendingActor) ? B.bAttackerWon : !B.bAttackerWon;
+    return FText::FromString(FString::Printf(TEXT("%s 공방전 — %s"),
+        *NameOf(ProvinceNames, B.Node), bWon ? TEXT("승 리") : TEXT("패 배")));
+}
+
+FText AWCGameMode::UiBattleAtkLine() const
+{
+    if (!ActiveBattle.IsSet()) return FText::GetEmpty();
+    const auto& B = *ActiveBattle;
+    const FString Cmd = B.AtkCommander.IsEmpty() ? FString() : FString::Printf(TEXT(" (%s)"), *NameOf(CharacterNames, B.AtkCommander));
+    return FText::FromString(FString::Printf(TEXT("공격  %s%s\n%d  →  %d   (-%d)"),
+        *NameOf(FactionNames, B.AtkFaction), *Cmd, B.AtkBefore, FMath::Max(0, B.AtkBefore - B.AtkLosses), B.AtkLosses));
+}
+
+FText AWCGameMode::UiBattleDefLine() const
+{
+    if (!ActiveBattle.IsSet()) return FText::GetEmpty();
+    const auto& B = *ActiveBattle;
+    const FString Cmd = B.DefCommander.IsEmpty() ? FString() : FString::Printf(TEXT(" (%s)"), *NameOf(CharacterNames, B.DefCommander));
+    return FText::FromString(FString::Printf(TEXT("수비  %s%s\n%d  →  %d   (-%d)"),
+        *NameOf(FactionNames, B.DefFaction), *Cmd, B.DefBefore, FMath::Max(0, B.DefBefore - B.DefLosses), B.DefLosses));
+}
+
+FText AWCGameMode::UiBattleFooter() const
+{
+    if (!ActiveBattle.IsSet()) return FText::GetEmpty();
+    const auto& B = *ActiveBattle;
+    FString Text = FString::Printf(TEXT("%d 라운드"), B.Rounds);
+    if (!B.DuelWinner.IsEmpty())
+        Text += FString::Printf(TEXT("   ·   ⚡일기토: %s ▶ %s"),
+            *NameOf(CharacterNames, B.DuelWinner), *NameOf(CharacterNames, B.DuelLoser));
+    return FText::FromString(Text);
+}
+
+FLinearColor AWCGameMode::UiBattleAtkColor() const
+{
+    return ActiveBattle.IsSet() && MapActor ? MapActor->GetFactionColor(ActiveBattle->AtkFaction) : FLinearColor::White;
+}
+
+FLinearColor AWCGameMode::UiBattleDefColor() const
+{
+    return ActiveBattle.IsSet() && MapActor ? MapActor->GetFactionColor(ActiveBattle->DefFaction) : FLinearColor::White;
+}
+
 void AWCGameMode::TryStartNextReveal()
 {
+    if (ActiveBattle.IsSet()) return;   // 전투 결과 → 리빌 순
     if (ActiveReveal.IsSet() || RevealQueue.Num() == 0) return;
     ActiveReveal = RevealQueue[0];
     RevealQueue.RemoveAt(0);

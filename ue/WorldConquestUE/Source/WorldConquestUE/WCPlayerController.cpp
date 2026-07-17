@@ -78,7 +78,8 @@ void AWCPlayerController::OnClick()
     AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
     if (!GM) return;
 
-    // 클릭 우선순위: 리빌 → 컷씬 → (도시 화면이면 지도 클릭 무시)
+    // 클릭 우선순위: 전투 결과 → 리빌 → 컷씬 → (도시 화면이면 지도 클릭 무시)
+    if (GM->ActiveBattle.IsSet()) { GM->DismissBattle(); return; }
     if (GM->ActiveReveal.IsSet()) { GM->DismissReveal(); return; }
     if (GM->GetActiveCutsceneDef()) { GM->AdvanceCutscene(); return; }
     if (GM->UiInCity()) return;
