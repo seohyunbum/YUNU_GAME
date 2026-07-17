@@ -69,6 +69,13 @@ public:
     void PanCamera(float DeltaX, float DeltaY);   // 우클릭 드래그 — 지도 범위 클램프
     TObjectPtr<class ACameraActor> BoardCamera;
 
+    // ── 초빙 리빌 연출 (§2.8.10 진실 신호 — 금문/자문, 표현 전용) ──
+    struct FWCReveal { FString CharId; FString Name; int32 Rarity = 3; };
+    TOptional<FWCReveal> ActiveReveal;
+    TArray<FWCReveal> RevealQueue;
+    void DismissReveal();                 // 클릭 — 다음 리빌 또는 대기 컷씬
+    void TryStartNextReveal();
+
     // ── 컷씬 오버레이 (표현 전용 — fired 판정은 서버) ──
     struct FWCActiveCutscene { FString Id; int32 LineIndex = 0; };
     TMap<FString, FWCCutscene> Cutscenes;

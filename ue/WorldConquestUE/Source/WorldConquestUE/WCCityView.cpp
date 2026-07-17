@@ -12,6 +12,7 @@
 #include "Widgets/Input/SButton.h"
 #include "Engine/Font.h"
 #include "Engine/Texture2D.h"
+#include "Widgets/SNullWidget.h"
 
 namespace
 {
@@ -300,15 +301,29 @@ void SWCCityView::RebuildCharacterGrid() const
 {
     if (!CharacterGrid.IsValid() || !GM.IsValid()) return;
     CharacterGrid->ClearChildren();
+    PortraitBrushes.Reset();
+
     for (const auto& Card : GM->UiMyCharacterCards())
     {
-        FString Stars;
-        for (int32 i = 0; i < Card.Rarity; ++i) Stars += TEXT("★");
-        CharacterGrid->AddSlot().Padding(0, 0, 8, 8)
-        [
-            SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(RarityColor(Card.Rarity))).Padding(1.5f)
-            [
-                SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(CardBg)).Padding(FMargin(12, 8))
+        // 초상 (/Game/Portraits/T_<id> — 드롭인 교체 가능, 없으면 텍스트 카드 폴백)
+        UTexture2D* Tex = LoadObject<UTexture2D>(nullptr,
+            *FString::Printf(TEXT("/Game/Portraits/T_%s.T_%s"), *Card.Id, *Card.Id));
+
+        TSharedRef<SWidget> Inner = SNullWidget::NullWidget;
+        if (Tex)
+        {
+            const TSharedPtr<FSlateBrush> Brush = MakeShared<FSlateBrush>();
+            Brush->SetResourceObject(Tex);
+            Brush->ImageSize = FVector2D(96, 120);
+            PortraitBrushes.Add(Brush);
+            Inner = SNew(SBox).WidthOverride(96).HeightOverride(120)
+                [ SNew(SImage).Image(Brush.Get()) ];
+        }
+        else
+        {
+            FString Stars;
+            for (int32 i = 0; i < Card.Rarity; ++i) Stars += TEXT("★");
+            Inner = SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(CardBg)).Padding(FMargin(12, 8))
                 [
                     SNew(SVerticalBox)
                     + SVerticalBox::Slot().AutoHeight()
@@ -316,8 +331,13 @@ void SWCCityView::RebuildCharacterGrid() const
                         .Text(FText::FromString(Stars)) ]
                     + SVerticalBox::Slot().AutoHeight()
                     [ SNew(STextBlock).Font(CityFont(15)).Text(FText::FromString(Card.Name)) ]
-                ]
-            ]
+                ];
+        }
+
+        CharacterGrid->AddSlot().Padding(0, 0, 8, 8)
+        [
+            SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(RarityColor(Card.Rarity))).Padding(1.5f)
+            [ Inner ]
         ];
     }
 }

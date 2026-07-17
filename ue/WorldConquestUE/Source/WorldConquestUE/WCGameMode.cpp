@@ -3,6 +3,7 @@
 #include "WCMapActor.h"
 #include "WCMainUI.h"
 #include "WCCityView.h"
+#include "WCRevealOverlay.h"
 #include "WCPlayerController.h"
 #include "WCHUD.h"
 #include "Engine/GameViewportClient.h"
@@ -56,7 +57,8 @@ void AWCGameMode::BeginPlay()
     if (GEngine && GEngine->GameViewport)
     {
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCMainUI).GameMode(this), 10);
-        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCCityView).GameMode(this), 20);   // 도시 화면 — 최상위
+        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCCityView).GameMode(this), 20);   // 도시 화면
+        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCRevealOverlay).GameMode(this), 30);   // 리빌 — 최상위
     }
 
     BootSequence();
@@ -216,6 +218,7 @@ void AWCGameMode::StartCutscene(const FString& Id)
 
 void AWCGameMode::TryStartNextCutscene()
 {
+    if (ActiveReveal.IsSet()) return;   // 리빌 연출 우선 — 소진 후 등장씬
     if (ActiveCutscene.IsSet() || CutsceneQueue.Num() == 0) return;
     const FString Next = CutsceneQueue[0];
     CutsceneQueue.RemoveAt(0);
@@ -282,6 +285,16 @@ void AWCGameMode::OnState(TSharedPtr<FJsonObject> State)
         FString QaCity;
         if (FParse::Value(FCommandLine::Get(), TEXT("WCCity="), QaCity) && !QaCity.IsEmpty())
             EnterCity(QaCity);
+        FString QaReveal;   // 리빌 연출 강제 (표현층 시각 검증 전용)
+        if (FParse::Value(FCommandLine::Get(), TEXT("WCReveal="), QaReveal) && !QaReveal.IsEmpty())
+        {
+            FWCReveal Reveal;
+            Reveal.CharId = QaReveal;
+            Reveal.Name = NameOf(CharacterNames, QaReveal);
+            Reveal.Rarity = CharacterRarity.FindRef(QaReveal);
+            RevealQueue.Add(Reveal);
+            TryStartNextReveal();
+        }
     }
 
     // QA: -WCCmd="verb a b|verb c" — 명령 체인 자동 실행 (클릭 없이 명령 경로 시각 검증)
@@ -353,11 +366,42 @@ void AWCGameMode::AppendEvents(const TArray<TSharedPtr<FJsonValue>>& Events)
     {
         const TSharedPtr<FJsonObject> Event = E->AsObject();
         EventLog.Insert(EventToLine(Event), 0);
-        if (Event->GetStringField(TEXT("type")) == TEXT("CutsceneTriggered"))
+        const FString Type = Event->GetStringField(TEXT("type"));
+        if (Type == TEXT("CutsceneTriggered"))
             CutsceneQueue.Add(Event->GetObjectField(TEXT("data"))->GetStringField(TEXT("cutscene")));
+        else if (Type == TEXT("CharacterJoined"))
+        {
+            // 초빙 리빌 — 내 세력 합류만 연출 (AI 초빙은 로그로 충분)
+            const TSharedPtr<FJsonObject> Data = Event->GetObjectField(TEXT("data"));
+            FString Faction;
+            Data->TryGetStringField(TEXT("faction"), Faction);
+            if (Faction == PendingActor)
+            {
+                FWCReveal Reveal;
+                Data->TryGetStringField(TEXT("character"), Reveal.CharId);
+                Reveal.Name = NameOf(CharacterNames, Reveal.CharId);
+                Reveal.Rarity = CharacterRarity.FindRef(Reveal.CharId);
+                RevealQueue.Add(Reveal);
+            }
+        }
     }
     while (EventLog.Num() > EventLogMax) EventLog.RemoveAt(EventLog.Num() - 1);
+    TryStartNextReveal();
     TryStartNextCutscene();
+}
+
+void AWCGameMode::TryStartNextReveal()
+{
+    if (ActiveReveal.IsSet() || RevealQueue.Num() == 0) return;
+    ActiveReveal = RevealQueue[0];
+    RevealQueue.RemoveAt(0);
+}
+
+void AWCGameMode::DismissReveal()
+{
+    ActiveReveal.Reset();
+    TryStartNextReveal();
+    TryStartNextCutscene();   // 리빌 소진 후 대기 중이던 등장씬 재생
 }
 
 FString AWCGameMode::EventToLine(const TSharedPtr<FJsonObject>& Event) const

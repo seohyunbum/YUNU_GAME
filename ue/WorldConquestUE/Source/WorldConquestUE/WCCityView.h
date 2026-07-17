@@ -39,6 +39,7 @@ private:
     mutable TSharedPtr<FSlateBrush> BgBrush;
     mutable FString BgLoadedCity;
     TSharedPtr<SWrapBox> CharacterGrid;
+    mutable TArray<TSharedPtr<FSlateBrush>> PortraitBrushes;   // 카드 초상 브러시 수명 관리
 
     EVisibility CityVisibility() const;
 };

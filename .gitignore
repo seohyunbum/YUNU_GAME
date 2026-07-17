@@ -29,3 +29,5 @@ ue/**/DerivedDataCache/
 ue/**/.vs/
 ue/**/*.sln
 ue/**/shot_*.png
+ue/**/citybg_out.txt
+ue/**/portraits_out.txt

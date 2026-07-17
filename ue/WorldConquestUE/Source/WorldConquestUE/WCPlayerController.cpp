@@ -78,7 +78,8 @@ void AWCPlayerController::OnClick()
     AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
     if (!GM) return;
 
-    // 컷씬 재생 중엔 클릭 = 다음 라인 (지도 조작 차단). 도시 화면은 Slate 전면이라 지도 클릭 무시.
+    // 클릭 우선순위: 리빌 → 컷씬 → (도시 화면이면 지도 클릭 무시)
+    if (GM->ActiveReveal.IsSet()) { GM->DismissReveal(); return; }
     if (GM->GetActiveCutsceneDef()) { GM->AdvanceCutscene(); return; }
     if (GM->UiInCity()) return;
 
