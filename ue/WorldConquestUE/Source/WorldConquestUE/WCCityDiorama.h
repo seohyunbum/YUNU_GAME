@@ -22,7 +22,7 @@ public:
     virtual void BeginPlay() override;
 
     /** 진입 도시 갱신 — 세력 깃발 색 (마을 자체는 공통). */
-    void Configure(const FLinearColor& FactionColor, int32 MarketLv, int32 FarmLv, bool bPort);
+    void Configure(const FLinearColor& FactionColor, bool bPort);
 
     /** 도시 화면 카메라 뷰포인트 (건물 밀집부를 바라보는 시네마틱 앵글). */
     FTransform GetViewpoint() const;

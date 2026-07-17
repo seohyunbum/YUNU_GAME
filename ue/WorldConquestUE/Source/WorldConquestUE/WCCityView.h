@@ -34,6 +34,8 @@ private:
     TSharedRef<SWidget> MakeFramedPanel(const FText& Title, TSharedRef<SWidget> Content);
     TSharedRef<SWidget> MakeRateRow(int32 Index);
     TSharedRef<SWidget> MakeButton(const FText& Label, TFunction<void(AWCGameMode*)> Action);
+    /** 파견 행동 버튼 (개발·탐색) — 무장이 선택돼 있을 때만 활성 (§2.3.2). */
+    TSharedRef<SWidget> MakeDispatchButton(const FText& Label, TFunction<void(AWCGameMode*)> Action);
 
     /** 디오라마 위의 건물 간판 — 클릭하면 그 건물 패널이 열린다(다시 누르면 닫힘). */
     TSharedRef<SWidget> MakeSignboard(const FString& Kind, const TCHAR* IconName, const FText& Label);

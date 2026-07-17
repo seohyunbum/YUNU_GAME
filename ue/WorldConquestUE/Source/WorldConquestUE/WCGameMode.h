@@ -46,7 +46,9 @@ public:
     // ── M2 명령 (전부 서버 판정 — 클라는 인자만 만든다) ──
     void RecruitSelected(int32 Count);            // R=10 · T=50, 병종은 U 로 순환
     void CycleRecruitUnit();                      // U
-    void BuildSelected(const FString& Facility);  // B=market · N=farm
+    void BuildSelected(const FString& Facility);  // 시설 건설 (도시 간판)
+    void DevelopSelected(const FString& Kind);    // 개발 파견 — kind=commerce/agriculture, 선택 무장 (§2.3.2)
+    void SearchSelected();                         // 재보 탐색 파견 — 선택 무장 (§2.3.2)
     void SummonOnce();                            // S
     void BeginMoveMode();                         // M → 목표 클릭
     void BeginAttackMode();                       // A → 목표 클릭
@@ -134,6 +136,13 @@ public:
     void CloseCityBuilding() { OpenBuilding.Reset(); }
     bool UiBuildingOpen(const FString& Kind) const { return OpenBuilding == Kind; }
     bool UiAnyBuildingOpen() const { return !OpenBuilding.IsEmpty(); }
+
+    /** 파견할 무장 (도시 무장 패널에서 선택 — 개발·탐색의 주어, §2.3.2). 빈 값 = 미선택. */
+    FString DispatchCharId;
+    void SelectDispatchChar(const FString& Id) { DispatchCharId = (DispatchCharId == Id) ? FString() : Id; }
+    bool UiHasDispatchChar() const { return !DispatchCharId.IsEmpty(); }
+    FText UiDispatchCharText() const;    // "파견할 무장: 이순신" / 안내
+    FText UiCityDevelopment() const;     // "상업 460 / 1008    농업 144 / 360" (§2.3.2 수치제)
 
     // ── 구조화 뷰모델 (카드·표 UI 용) ──
     struct FWCCharCard { FString Id; FString Name; int32 Rarity = 3; };

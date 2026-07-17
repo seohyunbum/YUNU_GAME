@@ -141,11 +141,10 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 8, 0, 0)
             [
-                SNew(SHorizontalBox)
-                + SHorizontalBox::Slot().FillWidth(1)[ MakeButton(FText::FromString(TEXT("시장 건설")),
-                    [](AWCGameMode* G) { G->BuildSelected(TEXT("market")); }) ]
-                + SHorizontalBox::Slot().FillWidth(1).Padding(6, 0, 0, 0)[ MakeButton(FText::FromString(TEXT("농지 건설")),
-                    [](AWCGameMode* G) { G->BuildSelected(TEXT("farm")); }) ]
+                // 상업·농업은 §2.3.2 로 수치제 개발이 됐다(시장·농지 시설 폐지) — 개발·무장 파견·초빙은 도시 안에서.
+                MakeButton(FText::FromString(TEXT("도시 들어가기 (개발·무장)")),
+                    [](AWCGameMode* G) { G->EnterSelectedCity(); },
+                    TAttribute<bool>::CreateLambda([this] { return GM.IsValid() && GM->UiCanEnterSelected(); }))
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 8, 0, 0)
             [

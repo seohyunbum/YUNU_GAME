@@ -110,13 +110,11 @@ void SWCCityView::Construct(const FArguments& InArgs)
                         + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 8)
                         [ SNew(STextBlock).Font(CityFont(13)).ColorAndOpacity(FSlateColor(TextDim))
                             .Text(FText::FromString(TEXT("건물을 눌러보세요"))) ]
-                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("market"),   TEXT("market"),   FText::FromString(TEXT("시장"))) ]
-                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("farm"),     TEXT("farm"),     FText::FromString(TEXT("농지"))) ]
+                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("chars"),    TEXT("recruit"),  FText::FromString(TEXT("무장·개발"))) ]
                         + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("barracks"), TEXT("barracks"), FText::FromString(TEXT("병영"))) ]
                         + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("academy"),  TEXT("academy"),  FText::FromString(TEXT("학당"))) ]
                         + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("walls"),    TEXT("walls"),    FText::FromString(TEXT("성벽"))) ]
                         + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("port"),     TEXT("port"),     FText::FromString(TEXT("항구"))) ]
-                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("chars"),    TEXT("recruit"),  FText::FromString(TEXT("우리 무장"))) ]
                     ]
                 ]
 
@@ -393,8 +391,6 @@ TSharedRef<SWidget> SWCCityView::MakeFacilityBody(const FString& /*Unused*/)
             {
                 if (!GM.IsValid()) return FText::GetEmpty();
                 const FString K = GM->OpenBuilding;
-                if (K == TEXT("market"))  return FText::FromString(TEXT("장사를 해서 금을 더 벌어요. 크게 만들수록 금이 늘어나요."));
-                if (K == TEXT("farm"))    return FText::FromString(TEXT("농사를 지어 식량을 더 거둬요. 크게 만들수록 식량이 늘어나요."));
                 if (K == TEXT("academy")) return FText::FromString(TEXT("공부하는 곳이에요. 기술이 올라가요."));
                 if (K == TEXT("walls"))   return FText::FromString(TEXT("성벽이 높으면 쳐들어와도 잘 버텨요."));
                 if (K == TEXT("port"))    return FText::FromString(TEXT("배가 드나들어요. 교역으로 금·식량을 벌어요."));
@@ -470,16 +466,38 @@ TSharedRef<SWidget> SWCCityView::MakeBarracksBody()
 TSharedRef<SWidget> SWCCityView::MakeCharactersBody()
 {
     return SNew(SVerticalBox)
+        // 상업·농업 개발 수치 (§2.3.2 수치제 경제)
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 6)
+        [
+            SNew(STextBlock).Font(CityFont(15)).ColorAndOpacity(FSlateColor(Gold))
+            .Text_Lambda([this] { return GM.IsValid() ? GM->UiCityDevelopment() : FText::GetEmpty(); })
+        ]
+        // 안내 + 선택한 파견 무장
         + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 8)
         [
             SNew(STextBlock).Font(CityFont(13)).AutoWrapText(true).ColorAndOpacity(FSlateColor(TextDim))
-            .Text(FText::FromString(TEXT("이 거점에 있는 우리 무장이에요. (새로 부르기는 지도에서 ★ 사람 부르기)")))
+            .Text_Lambda([this] { return GM.IsValid() ? GM->UiDispatchCharText() : FText::GetEmpty(); })
         ]
+        // 초상 그리드 — 클릭하면 그 무장을 파견 대상으로 선택 (테두리 금색)
         + SVerticalBox::Slot().FillHeight(1)
         [
             SNew(SScrollBox)
             + SScrollBox::Slot()
             [ SAssignNew(CharacterGrid, SWrapBox).UseAllottedSize(true) ]
+        ]
+        // 파견 행동 — 선택 무장으로 이 고을 개발 / 재보 탐색 (§2.3.2, 무장 능력치에 성과 좌우)
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 10, 0, 0)
+        [
+            SNew(SHorizontalBox)
+            + SHorizontalBox::Slot().FillWidth(1)
+            [ MakeDispatchButton(FText::FromString(TEXT("상업 개발")),
+                [](AWCGameMode* G) { G->DevelopSelected(TEXT("commerce")); }) ]
+            + SHorizontalBox::Slot().FillWidth(1).Padding(6, 0, 0, 0)
+            [ MakeDispatchButton(FText::FromString(TEXT("농업 개발")),
+                [](AWCGameMode* G) { G->DevelopSelected(TEXT("agriculture")); }) ]
+            + SHorizontalBox::Slot().FillWidth(1).Padding(6, 0, 0, 0)
+            [ MakeDispatchButton(FText::FromString(TEXT("재보 탐색")),
+                [](AWCGameMode* G) { G->SearchSelected(); }) ]
         ];
 }
 
@@ -533,10 +551,23 @@ void SWCCityView::RebuildCharacterGrid() const
                 ];
         }
 
+        // 클릭 = 파견 대상 선택. 선택된 무장은 테두리 금색 (§2.3.2 개발·탐색의 주어).
+        const FString CardId = Card.Id;
+        const int32 CardRarity = Card.Rarity;
         CharacterGrid->AddSlot().Padding(0, 0, 8, 8)
         [
-            SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(RarityColor(Card.Rarity))).Padding(1.5f)
-            [ Inner ]
+            SNew(SButton).ButtonStyle(&FWCStyle::ButtonRef()).ContentPadding(FMargin(0))
+            .OnClicked_Lambda([this, CardId] { if (GM.IsValid()) GM->SelectDispatchChar(CardId); return FReply::Handled(); })
+            [
+                SNew(SBorder).BorderImage(White())
+                .BorderBackgroundColor_Lambda([this, CardId, CardRarity]
+                {
+                    const bool bSel = GM.IsValid() && GM->DispatchCharId == CardId;
+                    return FSlateColor(bSel ? FLinearColor(0.98f, 0.85f, 0.30f) : RarityColor(CardRarity));
+                })
+                .Padding(2.5f)
+                [ Inner ]
+            ]
         ];
     }
 }
@@ -565,6 +596,17 @@ TSharedRef<SWidget> SWCCityView::MakeButton(const FText& Label, TFunction<void(A
         .HAlign(HAlign_Center).VAlign(VAlign_Center)
         .ContentPadding(FMargin(8, 7))
         [ SNew(STextBlock).Font(FWCStyle::Font(14)).ColorAndOpacity(FSlateColor(FWCStyle::Ink)).Text(Label) ];
+}
+
+// 파견 행동 버튼 (§2.3.2) — 파견할 무장이 선택돼 있을 때만 활성. 미선택이면 비활성(선택하라는 안내는 상단 텍스트).
+TSharedRef<SWidget> SWCCityView::MakeDispatchButton(const FText& Label, TFunction<void(AWCGameMode*)> Action)
+{
+    return SNew(SButton).ButtonStyle(&BtnStyle())
+        .IsEnabled_Lambda([this] { return GM.IsValid() && GM->UiHasDispatchChar(); })
+        .OnClicked_Lambda([this, Action] { if (GM.IsValid()) Action(GM.Get()); return FReply::Handled(); })
+        .HAlign(HAlign_Center).VAlign(VAlign_Center)
+        .ContentPadding(FMargin(8, 7))
+        [ SNew(STextBlock).Font(CityFont(13)).ColorAndOpacity(FSlateColor(FWCStyle::Ink)).Text(Label) ];
 }
 
 EVisibility SWCCityView::CityVisibility() const

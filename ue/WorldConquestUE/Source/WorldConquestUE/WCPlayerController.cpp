@@ -77,8 +77,7 @@ void AWCPlayerController::SetupInputComponent()
     Bind(EKeys::U, [](AWCGameMode* G) { G->CycleRecruitUnit(); });
     Bind(EKeys::M, [](AWCGameMode* G) { G->BeginMoveMode(); });
     Bind(EKeys::A, [](AWCGameMode* G) { G->BeginAttackMode(); });
-    Bind(EKeys::B, [](AWCGameMode* G) { G->BuildSelected(TEXT("market")); });
-    Bind(EKeys::N, [](AWCGameMode* G) { G->BuildSelected(TEXT("farm")); });
+    Bind(EKeys::B, [](AWCGameMode* G) { G->EnterSelectedCity(); });   // 도시 들어가기 (개발·무장은 도시 안, §2.3.2)
     Bind(EKeys::S, [](AWCGameMode* G) { G->SummonOnce(); });
     Bind(EKeys::Escape, [](AWCGameMode* G) { G->CancelMode(); });
     Bind(EKeys::F5, [](AWCGameMode* G) { G->QuickSave(); });

@@ -744,6 +744,21 @@ void AWCGameMode::BuildSelected(const FString& Facility)
     SendVerb(TEXT("build"), { SelectedNodeId, Facility });
 }
 
+// 개발 파견 (§2.3.2) — 선택한 무장을 보내 이 거점의 상업/농업 수치를 올린다. 성과는 무장 정치력에 좌우(서버 판정).
+void AWCGameMode::DevelopSelected(const FString& Kind)
+{
+    if (SelectedNodeId.IsEmpty()) return;
+    if (DispatchCharId.IsEmpty()) { EventLog.Insert(TEXT("✘ 먼저 파견할 무장을 고르세요"), 0); return; }
+    SendVerb(TEXT("develop"), { SelectedNodeId, Kind, DispatchCharId });
+}
+
+// 재보 탐색 파견 (§2.3.2) — 선택한 무장의 지력이 성공률을 좌우(서버 판정). 성공 시 금 획득.
+void AWCGameMode::SearchSelected()
+{
+    if (DispatchCharId.IsEmpty()) { EventLog.Insert(TEXT("✘ 먼저 파견할 무장을 고르세요"), 0); return; }
+    SendVerb(TEXT("search"), { DispatchCharId });
+}
+
 void AWCGameMode::SummonOnce()
 {
     SendVerb(TEXT("summon"), { TEXT("1") });
@@ -889,6 +904,8 @@ FString AWCGameMode::VerbToKoreanAction(const FString& Verb) const
         FString::Printf(TEXT(" (%s)"), *NameOf(ProvinceNames, SelectedNodeId));
     if (Verb == TEXT("recruit")) return FString::Printf(TEXT("병사 모으기%s"), *Where);
     if (Verb == TEXT("build"))   return FString::Printf(TEXT("건물 짓기%s"), *Where);
+    if (Verb == TEXT("develop")) return FString::Printf(TEXT("고을 키우기%s"), *Where);
+    if (Verb == TEXT("search"))  return TEXT("보물 찾기");
     if (Verb == TEXT("capture")) return FString::Printf(TEXT("땅 차지하기%s"), *Where);
     if (Verb == TEXT("move"))    return TEXT("부대 옮기기");
     if (Verb == TEXT("attack"))  return TEXT("공격하기");
@@ -938,6 +955,7 @@ void AWCGameMode::EnterCity(const FString& NodeId)
 {
     EnteredCityId = NodeId;
     OpenBuilding.Reset();     // 진입 시엔 패널 없이 거점 전경부터 보여준다 (ux-design §5.2)
+    DispatchCharId.Reset();   // 이전 거점의 파견 무장 선택 해제 (§2.3.2)
     SelectedNodeId = NodeId;
 
     // 거점 지역에 맞는 배경으로 전환 (뉴욕이 동양 마을로 보이던 문제).
@@ -964,15 +982,9 @@ void AWCGameMode::EnterCity(const FString& NodeId)
             for (const TSharedPtr<FJsonValue>& P : LastState->GetArrayField(TEXT("provinces")))
                 if (P->AsObject()->GetStringField(TEXT("id")) == NodeId)
                 { P->AsObject()->TryGetStringField(TEXT("owner_faction_id"), OwnerId); break; }
-        int32 MarketLv = 0, FarmLv = 0;
-        for (const auto& Row : UiCityFacilityRows())
-        {
-            if (Row.NameKo == TEXT("시장")) MarketLv = Row.Level;
-            else if (Row.NameKo == TEXT("농지")) FarmLv = Row.Level;
-        }
         const FWCNodeInfo* Info = NodeInfos.Find(NodeId);
         Diorama->Configure(MapActor ? MapActor->GetFactionColor(OwnerId) : FLinearColor::Gray,
-            MarketLv, FarmLv, Info && Info->bPort);
+            Info && Info->bPort);
     }
     if (CityCamera)
         if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
@@ -982,6 +994,7 @@ void AWCGameMode::EnterCity(const FString& NodeId)
 void AWCGameMode::LeaveCity()
 {
     OpenBuilding.Reset();
+    DispatchCharId.Reset();
     EnteredCityId.Empty();
     if (BoardCamera)
         if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
@@ -1076,9 +1089,7 @@ TArray<AWCGameMode::FWCArmyCard> AWCGameMode::UiCityArmyCards() const
 
 FString AWCGameMode::FacilityNameKo(const FString& Kind)
 {
-    // §2.3 시설. 경제 4종 구현 — 병영·성벽은 전투 결합이라 Phase 2 (ue5-client-workflow.md §4).
-    if (Kind == TEXT("market"))   return TEXT("시장");
-    if (Kind == TEXT("farm"))     return TEXT("농지");
+    // §2.3 시설 (§2.3.2 로 시장·농지는 수치제 개발로 대체 — 항구·학당·병영·성벽만 시설).
     if (Kind == TEXT("port"))     return TEXT("항구");
     if (Kind == TEXT("academy"))  return TEXT("학당");
     if (Kind == TEXT("barracks")) return TEXT("병영");
@@ -1154,6 +1165,33 @@ FText AWCGameMode::UiCityFacilities() const
     }
     if (!bAny) Text += TEXT("  (없음 — 아래에서 건설)");
     return FText::FromString(Text);
+}
+
+// 상업·농업 개발 수치 (§2.3.2 수치제 경제) — 서버 스냅샷 ProvinceOwnershipView(commerce/agriculture) 표시.
+FText AWCGameMode::UiCityDevelopment() const
+{
+    if (EnteredCityId.IsEmpty() || !LastState.IsValid()) return FText::GetEmpty();
+    for (const TSharedPtr<FJsonValue>& P : LastState->GetArrayField(TEXT("provinces")))
+    {
+        const TSharedPtr<FJsonObject> Province = P->AsObject();
+        if (Province->GetStringField(TEXT("id")) != EnteredCityId) continue;
+        double C = 0, CM = 0, A = 0, AM = 0;
+        Province->TryGetNumberField(TEXT("commerce"), C);
+        Province->TryGetNumberField(TEXT("commerce_max"), CM);
+        Province->TryGetNumberField(TEXT("agriculture"), A);
+        Province->TryGetNumberField(TEXT("agriculture_max"), AM);
+        return FText::FromString(FString::Printf(TEXT("상업 %d / %d      농업 %d / %d"),
+            static_cast<int32>(C), static_cast<int32>(CM), static_cast<int32>(A), static_cast<int32>(AM)));
+    }
+    return FText::GetEmpty();
+}
+
+// 선택한 파견 무장 안내 (§2.3.2). 미선택이면 고르라는 안내.
+FText AWCGameMode::UiDispatchCharText() const
+{
+    if (DispatchCharId.IsEmpty())
+        return FText::FromString(TEXT("무장을 골라 아래 일(개발·탐색)을 맡기세요."));
+    return FText::FromString(FString::Printf(TEXT("파견할 무장: %s"), *NameOf(CharacterNames, DispatchCharId)));
 }
 
 FText AWCGameMode::UiCityArmies() const

@@ -120,7 +120,7 @@ void AWCCityDiorama::LoadForRegion(const FString& Region)
     UE_LOG(LogWCDiorama, Log, TEXT("거점 배경: 지역 %s → %s"), *Region, *LevelPath);
 }
 
-void AWCCityDiorama::Configure(const FLinearColor& FactionColor, int32 MarketLv, int32 FarmLv, bool bPort)
+void AWCCityDiorama::Configure(const FLinearColor& FactionColor, bool bPort)
 {
     // 마을 자체는 지역 배경 — 세력색은 UI 헤더 배너로 표현. (깃발 메시 틴트는 에셋 도입 후)
 }
