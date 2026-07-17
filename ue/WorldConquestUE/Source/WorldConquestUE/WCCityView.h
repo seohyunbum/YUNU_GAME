@@ -47,5 +47,6 @@ private:
     mutable FString BgLoadedCity;
     TSharedPtr<SWrapBox> CharacterGrid;   // 초상 브러시 수명·GC 루팅은 FWCStyle::Portrait 가 소유
 
+
     EVisibility CityVisibility() const;
 };

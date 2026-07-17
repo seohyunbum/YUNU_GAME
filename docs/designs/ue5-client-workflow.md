@@ -28,6 +28,11 @@
 ⑥ QA 샷 (실행본)  UnrealEditor.exe "C:\Users\Public\wc-game\ue\WorldConquestUE\WorldConquestUE.uproject" \
                     -game -RenderOffscreen -WCShot [-WCCity=hanseong|-WCReveal=<id>] -resx=1600 -resy=900 -nosplash -nosound
                   → Saved\Screenshots\WindowsEditor\ScreenShot00000.png 를 이미지 판독
+⑥' 클릭 QA (UI 변경 시 [MUST])
+                  python ue\WorldConquestUE\Scripts\click_test.py <clientX> <clientY>
+                  창모드로 띄워 **실제 마우스 클릭을 주입**하고 전/후 스샷·로그로 판정.
+                  오프스크린 샷(⑥)은 그림만 찍으므로 **클릭 동작을 절대 검증하지 못한다** — 이 하네스가
+                  없어서 "클릭 안 됨" 을 두 번 놓쳤다(2026-07-17). 다른 앱이 포그라운드를 뺏으면 무효 판정됨.
 ⑦ 커밋+푸시
 ```
 
@@ -93,7 +98,12 @@
 - WCUE 로 QA 찍고 "됐다" 판단 → 유저는 wc-game 실행 (2026-07-17).
 - **⚠ 배포는 실행 중인 게임을 강제 종료한다** (DLL 잠금 해제용 taskkill). **가족이 플레이 중일 땐 배포 금지** — 갑자기 꺼진다.
 - **Slate 브러시가 미루팅 UTexture2D 참조 → GC 후 크래시** (`UObjectArray.h` "Index >= 0" assertion, SlateCore 스택). 초상·아이콘 등 모든 텍스처는 **AddToRoot 한 static 캐시**(`FWCStyle::Icon/Portrait`)로만 로드. 위젯에서 직접 `LoadObject`+`SetResourceObject` 금지 [MUST].
-- **입력 모드 기본값 GameOnly → Slate 버튼이 클릭을 못 받는다** (거점 화면 전멸, 2026-07-17). PlayerController::BeginPlay 에서 `FInputModeGameAndUI` 필수 [MUST].
+- **입력 모드 기본값 GameOnly → 뷰포트가 마우스를 영구 캡처**. PlayerController::BeginPlay 에서 `FInputModeGameAndUI` 필수 [MUST].
+- **★ 오버레이 위젯 자신의 Visibility 가 클릭을 전부 삼킨다** (거점·지도 버튼 전멸의 진짜 원인, 2026-07-17 확정).
+  `SCompoundWidget` 기본 Visibility = `Visible` → **자식만 Collapsed 로 숨기면 위젯 자신은 전체 화면을 덮는 '투명한 벽'** 이 되어
+  아래 ZOrder 위젯의 클릭을 전부 가로챈다. 최상단 `SWCRevealOverlay`(ZOrder 30)가 리빌이 없을 때도 모든 버튼을 막고 있었다.
+  → 전체화면 오버레이 위젯은 **Construct 에서 `SetVisibility(EVisibility::SelfHitTestInvisible)` 필수** [MUST] (자신=클릭 대상 아님, 자식=정상).
+  진단법: 커서 아래 위젯 경로를 `FSlateApplication::LocateWindowUnderMouse` 로 찍으면 범인이 바로 보인다.
 - 폰트 장식체(Gugi) 문장부호 글리프 없음 → 폴백 타입페이스 필수.
 - Live Coding 잠금 → Build 전 UE 프로세스 kill.
 - 절차생성 도형을 고퀄로 착각 → 외부 에셋 확보가 정답.

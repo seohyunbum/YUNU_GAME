@@ -13,8 +13,10 @@ void AWCPlayerController::BeginPlay()
 {
     Super::BeginPlay();
 
-    // [MUST] GameAndUI — 기본값 GameOnly 는 뷰포트가 마우스를 캡처해 **Slate 위젯이 클릭을 못 받는다**
-    // (거점 화면은 전부 버튼이라 전멸했음, 2026-07-17 실측). 지도 픽킹은 위젯 밖 클릭으로 그대로 동작.
+    // GameAndUI — Slate 위젯과 게임 픽킹이 마우스를 함께 받게 한다(기본 GameOnly 는 뷰포트가 영구 캡처).
+    // 주의: 이것만으로는 부족했다 — 거점 클릭 전멸의 실제 범인은 오버레이 위젯 자신의 기본 Visibility 였다.
+    // (SCompoundWidget 기본값 Visible → 내용이 Collapsed 여도 전체 화면을 덮는 투명 벽. WCStyle 계열
+    //  오버레이는 Construct 에서 SelfHitTestInvisible 로 해제. 2026-07-17 위젯 경로 계측으로 확정)
     FInputModeGameAndUI Mode;
     Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
     Mode.SetHideCursorDuringCapture(false);
@@ -71,6 +73,8 @@ void AWCPlayerController::SetupInputComponent()
 void AWCPlayerController::PlayerTick(float DeltaTime)
 {
     Super::PlayerTick(DeltaTime);
+
+
     AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
     if (!GM) return;
 

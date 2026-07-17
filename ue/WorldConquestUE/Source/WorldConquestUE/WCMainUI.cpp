@@ -17,6 +17,12 @@ namespace
 
 void SWCMainUI::Construct(const FArguments& InArgs)
 {
+    // [MUST] 위젯 '자신' 은 히트테스트에서 제외한다 — SCompoundWidget 의 기본 Visibility 는 Visible 이라
+    // 내용이 Collapsed 여도 위젯 자체가 화면 전체를 덮는 '투명한 벽' 이 되어 아래 위젯의 클릭을 전부 삼킨다.
+    // (실측 2026-07-17: ZOrder 30 인 SWCRevealOverlay 가 리빌이 없을 때도 모든 버튼 클릭을 차단)
+    // SelfHitTestInvisible = 자신은 클릭 대상 아님 + 자식은 정상 클릭.
+    SetVisibility(EVisibility::SelfHitTestInvisible);
+
     GM = InArgs._GameMode;
 
     ChildSlot
