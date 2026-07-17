@@ -49,22 +49,21 @@ void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
     else
         UE_LOG(LogWCMap, Warning, TEXT("M_UnlitColor 없음 — lit 폴백 (Scripts/import_worldmap.py 실행 필요)"));
 
-    // 바닥 = NASA 세계지도 평면 (에디터 Python 이 생성한 /Game/WorldMap 에셋, unlit)
-    if (UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")))
+    // 바닥 = NASA 고도 기반 3D 지형 (SM_Terrain — OBJ 가 UE 월드 좌표로 생성됨, RTK 식 릴리프)
+    if (UStaticMesh* TerrainMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/WorldMap/SM_Terrain.SM_Terrain")))
     {
-        UStaticMeshComponent* Floor = NewObject<UStaticMeshComponent>(this, TEXT("worldmap_floor"));
-        Floor->SetupAttachment(RootComponent);
-        Floor->RegisterComponent();
-        Floor->SetStaticMesh(Plane);
-        Floor->SetRelativeLocation(FVector(0, 0, -12.0));
-        // 이미지 U(서→동)=월드 +Y, V(북→남)=월드 -X 가 되도록 yaw 90 (실측-교정은 QA 샷)
-        Floor->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
-        Floor->SetRelativeScale3D(FVector(200.0, 100.0, 1.0));   // 20000×10000cm
-        Floor->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Terrain = NewObject<UStaticMeshComponent>(this, TEXT("worldmap_terrain"));
+        Terrain->SetupAttachment(RootComponent);
+        Terrain->RegisterComponent();
+        Terrain->SetStaticMesh(TerrainMesh);
+        Terrain->SetCollisionEnabled(ECollisionEnabled::QueryOnly);   // 마커 부착 트레이스 + 픽킹
+        Terrain->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
         if (UMaterialInterface* MapMat = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorldMap/M_WorldMap.M_WorldMap")))
-            Floor->SetMaterial(0, MapMat);
-        else
-            UE_LOG(LogWCMap, Warning, TEXT("M_WorldMap 에셋 없음 — Scripts/import_worldmap.py 실행 필요"));
+            Terrain->SetMaterial(0, MapMat);
+    }
+    else
+    {
+        UE_LOG(LogWCMap, Warning, TEXT("SM_Terrain 없음 — Scripts/import_terrain.py 실행 필요"));
     }
 
     // 세력 색 (#RRGGBB)
@@ -83,7 +82,8 @@ void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
         const FString Id = Node->GetStringField(TEXT("id"));
         const TSharedPtr<FJsonObject> Pos = Node->GetObjectField(TEXT("map_pos"));
         const bool bSea = Node->GetStringField(TEXT("type")) == TEXT("sea");
-        const FVector World = BoardToWorld(Pos->GetNumberField(TEXT("x")), Pos->GetNumberField(TEXT("y")));
+        FVector World = BoardToWorld(Pos->GetNumberField(TEXT("x")), Pos->GetNumberField(TEXT("y")));
+        World.Z = TerrainZ(World) + 14.0;   // 지형 표면 부착 (바다=0, 산악 도시=능선 위)
         NodePositions.Add(Id, World);
         MakeNodeMesh(Id, World, bSea);
     }
@@ -161,6 +161,16 @@ void AWCMapActor::MakeUnitMarker(const TSharedPtr<FJsonObject>& Force, bool bFle
     Mat->SetVectorParameterValue(TEXT("Color"), GetFactionColor(Force->GetStringField(TEXT("faction_id"))));
     Mesh->SetMaterial(0, Mat);
     UnitMarkers.Add(Mesh);
+}
+
+double AWCMapActor::TerrainZ(const FVector& At) const
+{
+    if (!Terrain) return 0.0;
+    FHitResult Hit;
+    const FVector Start(At.X, At.Y, 3000.0), End(At.X, At.Y, -200.0);
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility))
+        return Hit.ImpactPoint.Z;
+    return 0.0;
 }
 
 FString AWCMapActor::FindNodeIdByComponent(const UPrimitiveComponent* Component) const

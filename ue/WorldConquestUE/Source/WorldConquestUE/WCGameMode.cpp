@@ -10,7 +10,15 @@
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Engine/DirectionalLight.h"
+#include "Engine/SkyLight.h"
+#include "Engine/ExponentialHeightFog.h"
+#include "Components/ExponentialHeightFogComponent.h"
+#include "Engine/PostProcessVolume.h"
 #include "Components/LightComponent.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/SkyLightComponent.h"
+#include "Components/SkyAtmosphereComponent.h"
+#include "Components/VolumetricCloudComponent.h"
 #include "Components/PrimitiveComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogWorldConquest, Log, All);
@@ -32,21 +40,58 @@ void AWCGameMode::BeginPlay()
     Super::BeginPlay();
     UE_LOG(LogWorldConquest, Log, TEXT("WorldConquest UE client boot (protocol v1)"));
 
-    // 조명 — Entry 맵은 비어 있으므로 코드로 스폰 (코드-퍼스트, 에셋 저작 없음)
+    // ── 시네마틱 환경 (전부 코드 스폰 — 코드-퍼스트) ──
+    // 태양: 낮은 사선 + 그림자 → 지형 릴리프가 살아남. 대기 연동으로 일몰빛.
     if (ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(
-            FVector::ZeroVector, FRotator(-60.f, 30.f, 0.f)))
+            FVector::ZeroVector, FRotator(-32.f, 215.f, 0.f)))
     {
-        Sun->GetLightComponent()->SetIntensity(4.0f);
-        Sun->GetLightComponent()->SetCastShadows(false);
+        UDirectionalLightComponent* SunComp = CastChecked<UDirectionalLightComponent>(Sun->GetLightComponent());
+        SunComp->SetIntensity(6.0f);
+        SunComp->SetCastShadows(true);
+        SunComp->SetAtmosphereSunLight(true);   // SkyAtmosphere 연동
+    }
+    // 대기·하늘빛·안개·구름 — RTK 식 원경 무드
+    if (AActor* Sky = GetWorld()->SpawnActor<AActor>())
+    {
+        USkyAtmosphereComponent* Atmo = NewObject<USkyAtmosphereComponent>(Sky);
+        Atmo->RegisterComponent();
+    }
+    if (ASkyLight* SkyLight = GetWorld()->SpawnActor<ASkyLight>())
+    {
+        SkyLight->GetLightComponent()->SetIntensity(1.6f);
+        SkyLight->GetLightComponent()->SetRealTimeCapture(true);
+    }
+    if (AExponentialHeightFog* Fog = GetWorld()->SpawnActor<AExponentialHeightFog>())
+    {
+        Fog->GetComponent()->SetFogDensity(0.00002f);
+        Fog->GetComponent()->SetFogHeightFalloff(0.001f);
+    }
+    if (AActor* Clouds = GetWorld()->SpawnActor<AActor>())
+    {
+        UVolumetricCloudComponent* Cloud = NewObject<UVolumetricCloudComponent>(Clouds);
+        Cloud->RegisterComponent();
+        Cloud->SetLayerBottomAltitude(8.0f);   // km — 지도 위 높은 구름층
+        Cloud->SetLayerHeight(4.0f);
+    }
+    if (APostProcessVolume* Post = GetWorld()->SpawnActor<APostProcessVolume>())
+    {
+        Post->bUnbound = true;
+        Post->Settings.bOverride_BloomIntensity = true;
+        Post->Settings.BloomIntensity = 0.35f;
+        Post->Settings.bOverride_AmbientOcclusionIntensity = true;
+        Post->Settings.AmbientOcclusionIntensity = 0.7f;
+        Post->Settings.bOverride_VignetteIntensity = true;
+        Post->Settings.VignetteIntensity = 0.35f;
     }
 
-    // 직교 탑다운 카메라 — BoardToWorld 매핑과 짝: 화면 위 = +X(북), 화면 오른쪽 = +Y(동).
-    BoardCamera = GetWorld()->SpawnActor<ACameraActor>(FVector(0, 0, 10000.0), FRotator(-90.f, 0.f, 0.f));
+    // ── 시네마틱 카메라: 원근 틸트(-52°) + 돌리 줌 (RTK14 앵글). 화면 위 ≈ 북쪽 유지 ──
+    BoardCamera = GetWorld()->SpawnActor<ACameraActor>(FVector::ZeroVector, FRotator::ZeroRotator);
     if (BoardCamera)
     {
         UCameraComponent* Cam = BoardCamera->GetCameraComponent();
-        Cam->ProjectionMode = ECameraProjectionMode::Orthographic;
-        Cam->OrthoWidth = 21000.f;   // 지도 평면 20000(등장방형 2:1) + 여백
+        Cam->ProjectionMode = ECameraProjectionMode::Perspective;
+        Cam->SetFieldOfView(46.f);
+        UpdateBoardCamera();
         if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
             PC->SetViewTarget(BoardCamera);
     }
@@ -885,23 +930,32 @@ FText AWCGameMode::UiRecruitUnitText() const
     return FText::FromString(FString::Printf(TEXT("병종: %s ▸"), *UnitName));
 }
 
+void AWCGameMode::UpdateBoardCamera()
+{
+    if (!BoardCamera) return;
+    // 줌인할수록 틸트를 세워 근경 디테일(-58° → 원경 -46°)
+    CamPitch = FMath::Lerp(-58.f, -46.f, FMath::GetMappedRangeValueClamped(
+        FVector2D(3500.f, 30000.f), FVector2D(0.f, 1.f), CamDist));
+    const FRotator ViewRot(CamPitch, 0.f, 0.f);
+    BoardCamera->SetActorLocationAndRotation(CamTarget - ViewRot.Vector() * CamDist, ViewRot);
+}
+
 void AWCGameMode::ZoomCamera(float WheelDelta)
 {
     if (!BoardCamera || FMath::IsNearlyZero(WheelDelta)) return;
-    UCameraComponent* Cam = BoardCamera->GetCameraComponent();
-    Cam->OrthoWidth = FMath::Clamp(Cam->OrthoWidth * (1.f - WheelDelta * 0.12f), 2500.f, 21000.f);
+    CamDist = FMath::Clamp(CamDist * (1.f - WheelDelta * 0.13f), 3500.f, 30000.f);
+    UpdateBoardCamera();
 }
 
 void AWCGameMode::PanCamera(float DeltaX, float DeltaY)
 {
     if (!BoardCamera) return;
-    const float Scale = BoardCamera->GetCameraComponent()->OrthoWidth / 1200.f;   // 줌 비례 감도
-    FVector Pos = BoardCamera->GetActorLocation();
-    Pos.Y -= DeltaX * Scale;        // 마우스 우 = 지도 좌로 끌기
-    Pos.X += DeltaY * Scale;        // 마우스 상 = 지도 아래로 끌기 (드래그 관성 방향)
-    Pos.X = FMath::Clamp(Pos.X, -5200.0, 5200.0);
-    Pos.Y = FMath::Clamp(Pos.Y, -10200.0, 10200.0);
-    BoardCamera->SetActorLocation(Pos);
+    const float Scale = CamDist / 1100.f;   // 줌 비례 감도
+    CamTarget.Y -= DeltaX * Scale;
+    CamTarget.X += DeltaY * Scale;
+    CamTarget.X = FMath::Clamp(CamTarget.X, -6000.0, 6000.0);
+    CamTarget.Y = FMath::Clamp(CamTarget.Y, -10500.0, 10500.0);
+    UpdateBoardCamera();
 }
 
 void AWCGameMode::ScheduleQaShotIfRequested()

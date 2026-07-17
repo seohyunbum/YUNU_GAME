@@ -64,10 +64,14 @@ public:
     void SelectFactionByIndex(int32 Index);       // 숫자키 1~9
     void ToggleHotseat();
 
-    // ── 카메라 줌/팬 (휠 + 우클릭 드래그) ──
-    void ZoomCamera(float WheelDelta);            // 휠 — OrthoWidth 3000~21000
-    void PanCamera(float DeltaX, float DeltaY);   // 우클릭 드래그 — 지도 범위 클램프
+    // ── 시네마틱 카메라 (원근 틸트 + 돌리 줌/팬) ──
+    void ZoomCamera(float WheelDelta);            // 휠 — 거리 3500~30000
+    void PanCamera(float DeltaX, float DeltaY);   // 우클릭 드래그 — 타깃 이동
+    void UpdateBoardCamera();
     TObjectPtr<class ACameraActor> BoardCamera;
+    FVector CamTarget = FVector(-900, 0, 0);      // 주시점 — 틸트 보정 남쪽 오프셋
+    float CamDist = 24500.f;
+    float CamPitch = -52.f;
 
     // ── 초빙 리빌 연출 (§2.8.10 진실 신호 — 금문/자문, 표현 전용) ──
     struct FWCReveal { FString CharId; FString Name; int32 Rarity = 3; };

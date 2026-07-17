@@ -62,6 +62,12 @@ private:
     UPROPERTY()
     TObjectPtr<UMaterialInterface> BaseMaterial;
 
+    UPROPERTY()
+    TObjectPtr<UStaticMeshComponent> Terrain;
+
+    /** 지형 표면 높이 (라인트레이스) — 마커·간선 부착용. */
+    double TerrainZ(const FVector& At) const;
+
     /** 부대·함대 마커 — ApplyState 마다 재생성. */
     UPROPERTY()
     TArray<TObjectPtr<UStaticMeshComponent>> UnitMarkers;
