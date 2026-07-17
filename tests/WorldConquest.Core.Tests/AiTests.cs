@@ -69,6 +69,73 @@ public class AiTests
             Assert.Contains(p, joseon.OwnedProvinceIds);   // 동맹의 시작 영지 침탈 없음
     }
 
+    /// <summary>
+    /// F1 회귀 (외교 설계 §1.4): 불가침이 **해상 상륙**에서도 존중돼야 한다.
+    /// 수정 전에는 NonAggression 필터가 AttackWeakNeighbors 한 곳뿐이라 상륙 공격이 그대로 뚫렸다.
+    ///
+    /// 시나리오 설계 근거 — 아무 세력이나 불가침으로 묶으면 이 경로를 못 태운다:
+    ///  · 전원 불가침 → LandReachableEnemyExists(IsNonAllied)가 여전히 true → 육상 분기 → NavalOperations 미실행.
+    ///  · 따라서 **육상 완전 고립** 세력이어야 한다 → 지도상 new_york 은 육상 간선이 없는 단독 컴포넌트 = avengers.
+    ///  · avengers 함대를 sea_atlantic 에 두면 Port 간선이 rome·london·cairo·rio·new_york 로 뻗는데,
+    ///    그중 **세력 소유 항구는 rome(chaldea) 뿐** → 상륙 대상이 rome 하나로 통제된다.
+    ///  · chaldea 를 전 세력과 불가침으로 묶어 육상 공격자(france 는 rome 과 육상 인접)도 배제 →
+    ///    rome 이 함락되면 원인은 avengers 의 해상 상륙뿐.
+    /// </summary>
+    [Fact]
+    public void 불가침_상대는_해상_상륙으로도_침탈되지_않는다()
+    {
+        var db = Db();
+        var s = GameSetup.AiCampaign(db, 1);
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();
+
+        // 불가침은 아직 런타임 체결 경로가 없다(설계 G6 — DiplomacyManager 에 SetNonAggression 부재).
+        // 상태를 직접 세팅해 'AI 필터가 불가침을 존중하는가' 만 검증한다.
+        foreach (var other in s.Factions.Where(f => f.Id != "chaldea"))
+        {
+            other.Relations["chaldea"] = DiplomaticState.NonAggression;
+            s.Factions.Single(f => f.Id == "chaldea").Relations[other.Id] = DiplomaticState.NonAggression;
+        }
+
+        // avengers 함대를 rome 바로 앞 해역에 배치 — 압도적 전력이라 문턱은 확실히 통과
+        var fleet = new Fleet("avengers_fleet_1", "avengers", "sea_atlantic");
+        fleet.AddUnits("medium_ship", 200);
+        s.Fleets.Add(fleet);
+
+        Assert.Contains("rome", s.Factions.Single(f => f.Id == "chaldea").OwnedProvinceIds);
+        while (s.Turn <= 3) gm.AdvancePhase();
+
+        Assert.Contains("rome", s.Factions.Single(f => f.Id == "chaldea").OwnedProvinceIds);
+    }
+
+    /// <summary>
+    /// E13 회귀: 관계 술어를 하나로 합치면 안 된다. LandReachableEnemyExists 는 공격 필터가 아니라
+    /// **분기 게이트**라, 여기에 IsHostile(불가침 제외)을 쓰면 전 이웃과 불가침인 AI 가 '고립' 판정 →
+    /// 해상 분기로 갔다가 목표 0 으로 즉시 return → **징병조차 못 하는 영구 무행동**에 빠진다.
+    /// 불가침은 만료가 없어 회복 경로도 없다.
+    /// </summary>
+    [Fact]
+    public void 전_세력과_불가침인_AI도_징병을_계속한다()
+    {
+        var db = Db();
+        var s = GameSetup.AiCampaign(db, 5);
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();
+
+        var wei = s.Factions.Single(f => f.Id == "wei");
+        foreach (var other in s.Factions.Where(f => f.Id != "wei"))
+        {
+            wei.Relations[other.Id] = DiplomaticState.NonAggression;
+            other.Relations["wei"] = DiplomaticState.NonAggression;
+        }
+
+        while (s.Turn <= 3) gm.AdvancePhase();
+
+        Assert.True(s.Armies.Any(a => a.FactionId == "wei"),
+            "전 세력과 불가침인 AI 가 징병조차 못 함 — 분기 게이트(LandReachableEnemyExists)가 " +
+            "IsHostile 로 좁혀졌는지 확인 (IsNonAllied 여야 함)");
+    }
+
     [Fact]
     public void 배치_시뮬_같은_시드_같은_결과()   // §8 시드 고정 리플레이 — 게임 전체 수준
     {

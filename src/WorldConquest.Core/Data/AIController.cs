@@ -74,6 +74,10 @@ public sealed class AIController
     private static bool IsNonAllied(FactionState faction, string otherId) =>
         faction.Relations.GetValueOrDefault(otherId) != DiplomaticState.Alliance;
 
+    /// <summary>영지 소유 세력 id (무주공산이면 null).</summary>
+    private string? OwnerOf(string provinceId) =>
+        _state.Factions.FirstOrDefault(f => f.OwnedProvinceIds.Contains(provinceId))?.Id;
+
     /// <summary>육로로 도달 가능한 (비동맹) 적 육상 영지가 존재하는가.</summary>
     private bool LandReachableEnemyExists(FactionState faction)
     {
@@ -131,6 +135,14 @@ public sealed class AIController
         var portTargets = enemyTargets.Where(t => _db.Map.GetNode(t) is LandProvince { Port: true }).ToList();
         if (portTargets.Count == 0) return;   // 상륙 지점 없음 (적이 전부 내륙 — 후속: 수송)
 
+        // F1 수정: 상륙 **공격** 대상에서만 불가침을 제외한다 (§1.2 — 조약은 바다에도 적용).
+        // 항해·게이트(enemyTargets·portTargets)는 IsNonAllied 를 유지 — 여기까지 IsHostile 로
+        // 좁히면 '고립 + 도달 가능한 상대가 전부 불가침' 인 AI 가 함대 건조조차 못 하고
+        // 영구 무행동에 빠진다(불가침은 만료가 없어 회복 불가). 목표를 향해 나아가되 치지만 않는다.
+        var attackablePorts = portTargets
+            .Where(t => OwnerOf(t) is { } owner && IsHostile(faction, owner))
+            .ToList();
+
         // 함대 건조 (자기 항구 영지에서, 고립 상태라 예산 집중 90%)
         var homePort = faction.OwnedProvinceIds
             .Where(id => _db.Map.GetNode(id) is LandProvince { Port: true })
@@ -148,7 +160,7 @@ public sealed class AIController
                      .OrderBy(f => f.Id, StringComparer.Ordinal)
                      .ToList())
         {
-            var adjacentPort = portTargets.FirstOrDefault(t =>
+            var adjacentPort = attackablePorts.FirstOrDefault(t =>
                 _db.Map.GetEdgeType(fleet.LocationNodeId, t) == EdgeType.Port);
             if (adjacentPort is not null)
             {
@@ -334,11 +346,15 @@ public sealed class AIController
         }
     }
 
-    /// <summary>4) 진군 — 인접에 공격 대상이 없는 부대는 가장 가까운 적 육상 영지의 직전 노드로 이동해 전선을 만든다.</summary>
+    /// <summary>
+    /// 4) 진군 — 인접에 공격 대상이 없는 부대는 가장 가까운 적 육상 영지의 직전 노드로 이동해 전선을 만든다.
+    /// F1 수정: 진군은 공격의 준비 동작이므로 **불가침 상대는 목표에서 제외**(IsHostile).
+    /// 목표가 0 이면 부대는 제자리 — 징병은 이미 끝났으므로 무행동 함정 없음.
+    /// </summary>
     private void AdvanceTowardEnemies(FactionState faction)
     {
         var enemyProvinces = _state.Factions
-            .Where(f => f.Id != faction.Id && IsNonAllied(faction, f.Id))
+            .Where(f => f.Id != faction.Id && IsHostile(faction, f.Id))
             .SelectMany(f => f.OwnedProvinceIds)
             .Where(id => _db.Map.GetNode(id) is LandProvince)
             .OrderBy(id => id, StringComparer.Ordinal)
