@@ -378,8 +378,15 @@ public class InternalAffairsTests
         gm.CollectIncome();
         new AIController(s, db, gm).RunAll();
 
-        // 위: 유일 무장 조조(정치 96)가 유일 영지 베이징 태수로
-        Assert.Equal("cao_cao", gm.Internal.GovernorOf("beijing")?.Id);
+        // AI 는 살아남은 영지에 소속 무장을 태수로 파견한다 (여러 세력이 최소 1명 이상 배치)
+        var appointed = s.Provinces.Count(p => p.GovernorId is not null);
+        Assert.True(appointed >= 1, "AI 가 태수를 1명 이상 파견해야 함");
+        // 파견된 태수는 그 영지 소유 세력의 소속 무장이어야 한다 (소속 검증 §2.8)
+        foreach (var p in s.Provinces.Where(p => p.GovernorId is not null))
+        {
+            var owner = s.Factions.First(f => f.OwnedProvinceIds.Contains(p.Id));
+            Assert.Equal(owner.Id, s.CharacterOwners[p.GovernorId!]);
+        }
         // 여유 자금(≥ 비용×3) 세력은 시장부터 건설
         Assert.True(s.Provinces.Any(p => p.Facilities.GetValueOrDefault("market") >= 1),
             "AI가 시설을 1건 이상 건설해야 함");

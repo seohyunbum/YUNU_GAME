@@ -465,6 +465,196 @@
           "text_ko": "마슈가 합류했다."
         }
       ]
+    },
+    {
+      "id": "cs_eight_gates",
+      "title_ko": "팔진도",
+      "title_card": {
+        "text": "八陣圖"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "돌·바람·안개가 여덟 문으로 적을 가둔다. 진에 갇힌 자, 길을 잃는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "팔진도 — 적 전열 봉쇄!"
+        }
+      ]
+    },
+    {
+      "id": "cs_jiangdong",
+      "title_ko": "강동의 결속",
+      "title_card": {
+        "text": "江東"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "강동의 젊은 주공이 손을 든다. 전군의 사기가 하나로 묶인다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "강동 결속 — 전군 고무!"
+        }
+      ]
+    },
+    {
+      "id": "cs_hollow_purple",
+      "title_ko": "허식·자",
+      "title_card": {
+        "text": "虛式・紫"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "적과 반발이 겹쳐 보라색 소멸이 공간을 지운다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "허식 자 — 소멸!"
+        }
+      ]
+    },
+    {
+      "id": "cs_ghost_strategy",
+      "title_ko": "귀모",
+      "title_card": {
+        "text": "鬼謀"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "보이지 않는 계략이 적 후열을 무너뜨린다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "귀모 — 후열 붕괴!"
+        }
+      ]
+    },
+    {
+      "id": "cs_piercing_shot",
+      "title_ko": "관통사",
+      "title_card": {
+        "text": "貫通射"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "시위를 떠난 화살이 장수의 심장을 꿰뚫는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "관통사 — 일격!"
+        }
+      ]
+    },
+    {
+      "id": "cs_radiant_lance",
+      "title_ko": "광창",
+      "title_card": {
+        "text": "光槍"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "빛의 창이 궤적을 그리며 적장을 관통한다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "광창 — 관통!"
+        }
+      ]
+    },
+    {
+      "id": "cs_divergent_fist",
+      "title_ko": "다이버전",
+      "title_card": {
+        "text": "逕庭拳"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "주먹이 닿고, 한 박자 늦게 저주의 충격이 터진다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "다이버전 피스트!"
+        }
+      ]
+    },
+    {
+      "id": "cs_gamma_smash",
+      "title_ko": "감마 스매시",
+      "title_card": {
+        "text": "SMASH"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "거인의 주먹이 대지를 내리찍어 전열을 날려버린다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "감마 스매시!"
+        }
+      ]
+    },
+    {
+      "id": "cs_ubw",
+      "title_ko": "무한검제",
+      "title_card": {
+        "text": "Unlimited Blade Works"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "무수한 검이 대지에서 솟아 적 전군에 쏟아진다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "무한검제 — 검의 비!"
+        }
+      ]
+    },
+    {
+      "id": "cs_singijeon",
+      "title_ko": "신기전",
+      "title_card": {
+        "text": "神機箭"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "화차가 불을 뿜으며 백 발의 신기전이 하늘을 덮는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "신기전 일제사격!"
+        }
+      ]
     }
   ]
 }

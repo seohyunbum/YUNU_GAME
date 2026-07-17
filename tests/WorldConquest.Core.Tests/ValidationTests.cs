@@ -210,22 +210,32 @@ public class ValidationTests
         using var dir = new MutableDataDir();
         dir.Mutate(DataLoader.MapFile, n =>
         {
-            // 도쿄-태평양 항구 간선을 끊으면 도쿄·교토가 고립된다
+            // chengdu-beijing 과 nanjing-해역 을 끊으면 {chengdu,nanjing} 이 본토에서 분리된다
+            // (둘은 chengdu-nanjing 간선으로 서로만 연결 — 도달 불가 성분).
             var edges = n["edges"]!.AsArray();
-            var idx = edges.Select((e, i) => (e, i))
-                .First(x => (string?)x.e!["from"] == "tokyo" && (string?)x.e!["to"] == "sea_pacific").i;
-            edges.RemoveAt(idx);
+            void CutEdge(string a, string b)
+            {
+                var idx = edges.Select((e, i) => (e, i)).First(x =>
+                    (((string?)x.e!["from"] == a && (string?)x.e!["to"] == b) ||
+                     ((string?)x.e!["from"] == b && (string?)x.e!["to"] == a))).i;
+                edges.RemoveAt(idx);
+            }
+            void CutAdj(JsonArray nodes, string node, string neighbor)
+            {
+                var adj = nodes.First(x => (string?)x!["id"] == node)!["adjacent"]!.AsArray();
+                adj.RemoveAt(adj.Select((a, i) => (a, i)).First(x => (string?)x.a == neighbor).i);
+            }
+            CutEdge("chengdu", "beijing");
+            CutEdge("nanjing", "sea_east_asia");
             var nodes = n["nodes"]!.AsArray();
-            var tokyo = nodes.First(x => (string?)x!["id"] == "tokyo")!;
-            tokyo["port"] = false;
-            var adj = tokyo["adjacent"]!.AsArray();
-            adj.RemoveAt(adj.Select((a, i) => (a, i)).First(x => (string?)x.a == "sea_pacific").i);
-            var sea = nodes.First(x => (string?)x!["id"] == "sea_pacific")!;
-            var seaAdj = sea["adjacent"]!.AsArray();
-            seaAdj.RemoveAt(seaAdj.Select((a, i) => (a, i)).First(x => (string?)x.a == "tokyo").i);
+            CutAdj(nodes, "chengdu", "beijing");
+            CutAdj(nodes, "beijing", "chengdu");
+            CutAdj(nodes, "nanjing", "sea_east_asia");
+            CutAdj(nodes, "sea_east_asia", "nanjing");
+            nodes.First(x => (string?)x!["id"] == "nanjing")!["port"] = false;   // 해역 단절 후 port 정합
         });
         var ex = LoadFails(dir);
-        AssertError(ex, DataLoader.MapFile, "tokyo", "도달 불가");
+        AssertError(ex, DataLoader.MapFile, "chengdu", "도달 불가");
     }
 
     [Fact]

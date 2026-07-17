@@ -61,7 +61,8 @@
     "ip_kimetsu",
     "ip_solo_leveling",
     "ip_marvel",
-    "ip_fate"
+    "ip_fate",
+    "ip_jjk"
   ],
   "valid_effect_types": [
     "aoe_damage",

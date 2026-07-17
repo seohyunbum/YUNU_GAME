@@ -5,9 +5,20 @@
     "type": "passive",
     "gauge_cost": 0,
     "cutscene_id": null,
-    "conditions": [{ "type": "battle_domain", "value": "naval" }],
+    "conditions": [
+      {
+        "type": "battle_domain",
+        "value": "naval"
+      }
+    ],
     "effects": [
-      { "type": "buff", "target": "self_army", "stat": "naval_def", "amount": 30, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "naval_def",
+        "amount": 30,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -18,7 +29,13 @@
     "cutscene_id": null,
     "conditions": [],
     "effects": [
-      { "type": "buff", "target": "self", "stat": "scheme_success", "amount": 15, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "scheme_success",
+        "amount": 15,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -29,7 +46,13 @@
     "cutscene_id": null,
     "conditions": [],
     "effects": [
-      { "type": "buff", "target": "self", "stat": "duel_power", "amount": 20, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "duel_power",
+        "amount": 20,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -38,9 +61,20 @@
     "type": "passive",
     "gauge_cost": 0,
     "cutscene_id": null,
-    "conditions": [{ "type": "battle_domain", "value": "land" }],
+    "conditions": [
+      {
+        "type": "battle_domain",
+        "value": "land"
+      }
+    ],
     "effects": [
-      { "type": "buff", "target": "self_army", "stat": "land_atk", "amount": 10, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "land_atk",
+        "amount": 10,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -51,7 +85,13 @@
     "cutscene_id": null,
     "conditions": [],
     "effects": [
-      { "type": "buff", "target": "ally_all", "stat": "morale_regen", "amount": 5, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "morale_regen",
+        "amount": 5,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -62,8 +102,20 @@
     "cutscene_id": null,
     "conditions": [],
     "effects": [
-      { "type": "buff", "target": "self", "stat": "evasion", "amount": 10, "duration_turns": null },
-      { "type": "buff", "target": "self", "stat": "crit_rate", "amount": 10, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "evasion",
+        "amount": 10,
+        "duration_turns": null
+      },
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "crit_rate",
+        "amount": 10,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -74,7 +126,13 @@
     "cutscene_id": null,
     "conditions": [],
     "effects": [
-      { "type": "buff", "target": "self", "stat": "exp_gain_rate", "amount": 50, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "exp_gain_rate",
+        "amount": 50,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -85,7 +143,13 @@
     "cutscene_id": null,
     "conditions": [],
     "effects": [
-      { "type": "buff", "target": "self", "stat": "gauge_charge_rate", "amount": 20, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "gauge_charge_rate",
+        "amount": 20,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -96,7 +160,13 @@
     "cutscene_id": null,
     "conditions": [],
     "effects": [
-      { "type": "buff", "target": "ally_all", "stat": "atk", "amount": 8, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "atk",
+        "amount": 8,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -107,7 +177,13 @@
     "cutscene_id": null,
     "conditions": [],
     "effects": [
-      { "type": "buff", "target": "self_army", "stat": "damage_reduction", "amount": 10, "duration_turns": null }
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "damage_reduction",
+        "amount": 10,
+        "duration_turns": null
+      }
     ]
   },
   {
@@ -116,10 +192,26 @@
     "type": "ultimate",
     "gauge_cost": 100,
     "cutscene_id": "cs_crane_wing",
-    "conditions": [{ "type": "battle_domain", "value": "naval" }],
+    "conditions": [
+      {
+        "type": "battle_domain",
+        "value": "naval"
+      }
+    ],
     "effects": [
-      { "type": "aoe_damage", "target": "enemy_front_row", "power": 250, "scaling_stat": "nav" },
-      { "type": "buff", "target": "ally_all", "stat": "morale", "amount": 20, "duration_turns": 3 }
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 250,
+        "scaling_stat": "nav"
+      },
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "morale",
+        "amount": 20,
+        "duration_turns": 3
+      }
     ]
   },
   {
@@ -128,10 +220,26 @@
     "type": "ultimate",
     "gauge_cost": 100,
     "cutscene_id": "cs_overlord_march",
-    "conditions": [{ "type": "battle_domain", "value": "land" }],
+    "conditions": [
+      {
+        "type": "battle_domain",
+        "value": "land"
+      }
+    ],
     "effects": [
-      { "type": "aoe_damage", "target": "enemy_all", "power": 180, "scaling_stat": "ldr" },
-      { "type": "debuff", "target": "enemy_all", "stat": "morale", "amount": 15, "duration_turns": 2 }
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 180,
+        "scaling_stat": "ldr"
+      },
+      {
+        "type": "debuff",
+        "target": "enemy_all",
+        "stat": "morale",
+        "amount": 15,
+        "duration_turns": 2
+      }
     ]
   },
   {
@@ -140,9 +248,19 @@
     "type": "ultimate",
     "gauge_cost": 100,
     "cutscene_id": "cs_green_dragon_slash",
-    "conditions": [{ "type": "battle_domain", "value": "land" }],
+    "conditions": [
+      {
+        "type": "battle_domain",
+        "value": "land"
+      }
+    ],
     "effects": [
-      { "type": "aoe_damage", "target": "enemy_front_row", "power": 320, "scaling_stat": "str" }
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 320,
+        "scaling_stat": "str"
+      }
     ]
   },
   {
@@ -151,9 +269,19 @@
     "type": "ultimate",
     "gauge_cost": 100,
     "cutscene_id": "cs_imperial_barrage",
-    "conditions": [{ "type": "battle_domain", "value": "land" }],
+    "conditions": [
+      {
+        "type": "battle_domain",
+        "value": "land"
+      }
+    ],
     "effects": [
-      { "type": "aoe_damage", "target": "enemy_back_row", "power": 220, "scaling_stat": "ldr" }
+      {
+        "type": "aoe_damage",
+        "target": "enemy_back_row",
+        "power": 220,
+        "scaling_stat": "ldr"
+      }
     ]
   },
   {
@@ -164,8 +292,19 @@
     "cutscene_id": "cs_divine_standard",
     "conditions": [],
     "effects": [
-      { "type": "heal", "target": "ally_all", "power": 150, "scaling_stat": "cha" },
-      { "type": "buff", "target": "ally_all", "stat": "atk", "amount": 15, "duration_turns": 2 }
+      {
+        "type": "heal",
+        "target": "ally_all",
+        "power": 150,
+        "scaling_stat": "cha"
+      },
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "atk",
+        "amount": 15,
+        "duration_turns": 2
+      }
     ]
   },
   {
@@ -176,7 +315,12 @@
     "cutscene_id": "cs_hinokami_kagura",
     "conditions": [],
     "effects": [
-      { "type": "single_damage", "target": "enemy_single", "power": 400, "scaling_stat": "str" }
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 400,
+        "scaling_stat": "str"
+      }
     ]
   },
   {
@@ -187,7 +331,12 @@
     "cutscene_id": "cs_arise",
     "conditions": [],
     "effects": [
-      { "type": "summon_unit", "target": "self_side", "unit_id": "shadow_soldiers", "amount": 3 }
+      {
+        "type": "summon_unit",
+        "target": "self_side",
+        "unit_id": "shadow_soldiers",
+        "amount": 3
+      }
     ]
   },
   {
@@ -198,7 +347,12 @@
     "cutscene_id": "cs_unibeam",
     "conditions": [],
     "effects": [
-      { "type": "aoe_damage", "target": "enemy_front_row", "power": 260, "scaling_stat": "int" }
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 260,
+        "scaling_stat": "int"
+      }
     ]
   },
   {
@@ -209,7 +363,12 @@
     "cutscene_id": "cs_excalibur",
     "conditions": [],
     "effects": [
-      { "type": "aoe_damage", "target": "enemy_all", "power": 300, "scaling_stat": "str" }
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 300,
+        "scaling_stat": "str"
+      }
     ]
   },
   {
@@ -220,7 +379,361 @@
     "cutscene_id": "cs_lord_camelot",
     "conditions": [],
     "effects": [
-      { "type": "shield", "target": "ally_all", "absorb_amount": null, "duration_turns": 3 }
+      {
+        "type": "shield",
+        "target": "ally_all",
+        "absorb_amount": null,
+        "duration_turns": 3
+      }
+    ]
+  },
+  {
+    "id": "sleeping_dragon",
+    "name_ko": "와룡",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "scheme_success",
+        "amount": 20,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "eight_gates_formation",
+    "name_ko": "팔진도",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_eight_gates",
+    "conditions": [
+      {
+        "type": "battle_domain",
+        "value": "land"
+      }
+    ],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 200,
+        "scaling_stat": "int"
+      },
+      {
+        "type": "debuff",
+        "target": "enemy_all",
+        "stat": "atk",
+        "amount": -15,
+        "duration_turns": 2
+      }
+    ]
+  },
+  {
+    "id": "blue_eyed_ruler",
+    "name_ko": "벽안의 군주",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "atk",
+        "amount": 8,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "jiangdong_unity",
+    "name_ko": "강동의 결속",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_jiangdong",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "atk",
+        "amount": 18,
+        "duration_turns": 3
+      },
+      {
+        "type": "heal",
+        "target": "ally_all",
+        "power": 120,
+        "scaling_stat": "cha"
+      }
+    ]
+  },
+  {
+    "id": "infinity",
+    "name_ko": "무하한",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "damage_reduction",
+        "amount": 25,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "hollow_purple",
+    "name_ko": "허식·자",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_hollow_purple",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 340,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "ten_victories",
+    "name_ko": "십승십패론",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "scheme_success",
+        "amount": 12,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ghost_strategy",
+    "name_ko": "귀모",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_ghost_strategy",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_back_row",
+        "power": 220,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "divine_archery",
+    "name_ko": "신궁",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "crit_rate",
+        "amount": 15,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "piercing_shot",
+    "name_ko": "관통사",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_piercing_shot",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 300,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "rune_magic",
+    "name_ko": "룬 마술",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "evasion",
+        "amount": 12,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "radiant_lance",
+    "name_ko": "광창",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_radiant_lance",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 330,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "black_flash",
+    "name_ko": "흑섬",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "crit_rate",
+        "amount": 12,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "divergent_fist",
+    "name_ko": "다이버전",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_divergent_fist",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 300,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "rage",
+    "name_ko": "분노",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "land_atk",
+        "amount": 15,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "gamma_smash",
+    "name_ko": "감마 스매시",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_gamma_smash",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 300,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "projection",
+    "name_ko": "투사",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "crit_rate",
+        "amount": 10,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "unlimited_blade_barrage",
+    "name_ko": "무한검제",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_ubw",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 280,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "mechanical_genius",
+    "name_ko": "기기묘산",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "def",
+        "amount": 12,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "singijeon_volley",
+    "name_ko": "신기전 일제사격",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_singijeon",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 260,
+        "scaling_stat": "int"
+      }
     ]
   }
 ]

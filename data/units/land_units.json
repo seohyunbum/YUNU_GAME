@@ -110,5 +110,33 @@
     "pop_cost": 1,
     "tech_required": 2,
     "unique_to": "napoleon"
+  },
+  {
+    "id": "jujutsu_sorcerers",
+    "name_ko": "주술고전 술사",
+    "domain": "land",
+    "class": "special",
+    "atk": 24,
+    "def": 18,
+    "speed": 13,
+    "recruit_cost_gold": 320,
+    "upkeep_food": 5,
+    "pop_cost": 1,
+    "tech_required": 3,
+    "unique_to": "gojo_satoru"
+  },
+  {
+    "id": "singijeon_battery",
+    "name_ko": "신기전 화차",
+    "domain": "land",
+    "class": "special",
+    "atk": 26,
+    "def": 8,
+    "speed": 6,
+    "recruit_cost_gold": 280,
+    "upkeep_food": 6,
+    "pop_cost": 2,
+    "tech_required": 2,
+    "unique_to": "jang_yeongsil"
   }
 ]

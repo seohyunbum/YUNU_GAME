@@ -139,5 +139,65 @@
       "resource_bonus": 100,
       "ai_aggression": 90
     }
+  },
+  {
+    "id": "shu",
+    "name_ko": "촉",
+    "color": "#1E8449",
+    "is_player_selectable": true,
+    "ai_disposition": "expansionist",
+    "leader_character_id": "zhuge_liang",
+    "start_provinces": [
+      "chengdu"
+    ],
+    "start_resources": {
+      "gold": 1000,
+      "food": 900
+    },
+    "start_tech_level": 2,
+    "difficulty_modifier": {
+      "resource_bonus": 100,
+      "ai_aggression": 105
+    }
+  },
+  {
+    "id": "wu",
+    "name_ko": "오",
+    "color": "#CA6F1E",
+    "is_player_selectable": true,
+    "ai_disposition": "expansionist",
+    "leader_character_id": "sun_quan",
+    "start_provinces": [
+      "nanjing"
+    ],
+    "start_resources": {
+      "gold": 1100,
+      "food": 1000
+    },
+    "start_tech_level": 2,
+    "difficulty_modifier": {
+      "resource_bonus": 100,
+      "ai_aggression": 110
+    }
+  },
+  {
+    "id": "jujutsu",
+    "name_ko": "주술고전",
+    "color": "#4A235A",
+    "is_player_selectable": true,
+    "ai_disposition": "aggressive",
+    "leader_character_id": "gojo_satoru",
+    "start_provinces": [
+      "osaka"
+    ],
+    "start_resources": {
+      "gold": 1000,
+      "food": 800
+    },
+    "start_tech_level": 3,
+    "difficulty_modifier": {
+      "resource_bonus": 100,
+      "ai_aggression": 120
+    }
   }
 ]

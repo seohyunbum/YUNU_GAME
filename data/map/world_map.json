@@ -90,7 +90,8 @@
       "climate": "temperate",
       "adjacent": [
         "pyongyang",
-        "sea_east_asia"
+        "sea_east_asia",
+        "chengdu"
       ],
       "map_pos": {
         "x": 823,
@@ -137,7 +138,8 @@
       "port": false,
       "climate": "temperate",
       "adjacent": [
-        "tokyo"
+        "tokyo",
+        "osaka"
       ],
       "map_pos": {
         "x": 877,
@@ -160,7 +162,8 @@
       "port": false,
       "climate": "temperate",
       "adjacent": [
-        "rome"
+        "rome",
+        "london"
       ],
       "map_pos": {
         "x": 507,
@@ -185,7 +188,8 @@
       "adjacent": [
         "paris",
         "baghdad",
-        "sea_atlantic"
+        "sea_atlantic",
+        "istanbul"
       ],
       "map_pos": {
         "x": 535,
@@ -209,7 +213,8 @@
       "climate": "desert",
       "adjacent": [
         "rome",
-        "cairo"
+        "cairo",
+        "istanbul"
       ],
       "map_pos": {
         "x": 623,
@@ -296,7 +301,8 @@
         "hanseong",
         "busan",
         "beijing",
-        "sea_pacific"
+        "sea_pacific",
+        "nanjing"
       ],
       "map_pos": {
         "x": 842,
@@ -313,7 +319,8 @@
         "tokyo",
         "sydney",
         "sea_east_asia",
-        "sea_atlantic"
+        "sea_atlantic",
+        "osaka"
       ],
       "map_pos": {
         "x": 972,
@@ -330,11 +337,156 @@
         "rome",
         "cairo",
         "new_york",
-        "sea_pacific"
+        "sea_pacific",
+        "london",
+        "rio"
       ],
       "map_pos": {
         "x": 389,
         "y": 158
+      }
+    },
+    {
+      "id": "chengdu",
+      "type": "land",
+      "name_ko": "청두",
+      "region": "east_asia",
+      "terrain": "mountain",
+      "population": 160000,
+      "base_production": {
+        "gold": 90,
+        "food": 100
+      },
+      "facility_slots": 4,
+      "defense_level": 3,
+      "port": false,
+      "climate": "temperate",
+      "adjacent": [
+        "beijing",
+        "nanjing"
+      ],
+      "map_pos": {
+        "x": 790,
+        "y": 150
+      }
+    },
+    {
+      "id": "nanjing",
+      "type": "land",
+      "name_ko": "난징",
+      "region": "east_asia",
+      "terrain": "plains",
+      "population": 200000,
+      "base_production": {
+        "gold": 130,
+        "food": 120
+      },
+      "facility_slots": 4,
+      "defense_level": 3,
+      "port": true,
+      "climate": "temperate",
+      "adjacent": [
+        "chengdu",
+        "sea_east_asia"
+      ],
+      "map_pos": {
+        "x": 833,
+        "y": 172
+      }
+    },
+    {
+      "id": "osaka",
+      "type": "land",
+      "name_ko": "오사카",
+      "region": "east_asia",
+      "terrain": "urban",
+      "population": 210000,
+      "base_production": {
+        "gold": 140,
+        "food": 85
+      },
+      "facility_slots": 4,
+      "defense_level": 3,
+      "port": true,
+      "climate": "temperate",
+      "adjacent": [
+        "kyoto",
+        "sea_pacific"
+      ],
+      "map_pos": {
+        "x": 897,
+        "y": 164
+      }
+    },
+    {
+      "id": "london",
+      "type": "land",
+      "name_ko": "런던",
+      "region": "europe",
+      "terrain": "urban",
+      "population": 240000,
+      "base_production": {
+        "gold": 150,
+        "food": 95
+      },
+      "facility_slots": 4,
+      "defense_level": 3,
+      "port": true,
+      "climate": "temperate",
+      "adjacent": [
+        "paris",
+        "sea_atlantic"
+      ],
+      "map_pos": {
+        "x": 490,
+        "y": 100
+      }
+    },
+    {
+      "id": "istanbul",
+      "type": "land",
+      "name_ko": "이스탄불",
+      "region": "middle_east",
+      "terrain": "plains",
+      "population": 170000,
+      "base_production": {
+        "gold": 110,
+        "food": 90
+      },
+      "facility_slots": 4,
+      "defense_level": 2,
+      "port": false,
+      "climate": "temperate",
+      "adjacent": [
+        "rome",
+        "baghdad"
+      ],
+      "map_pos": {
+        "x": 568,
+        "y": 148
+      }
+    },
+    {
+      "id": "rio",
+      "type": "land",
+      "name_ko": "리우",
+      "region": "america",
+      "terrain": "plains",
+      "population": 150000,
+      "base_production": {
+        "gold": 110,
+        "food": 120
+      },
+      "facility_slots": 4,
+      "defense_level": 2,
+      "port": true,
+      "climate": "tropical",
+      "adjacent": [
+        "sea_atlantic"
+      ],
+      "map_pos": {
+        "x": 360,
+        "y": 300
       }
     }
   ],
@@ -423,6 +575,56 @@
       "from": "sea_pacific",
       "to": "sea_atlantic",
       "type": "sea"
+    },
+    {
+      "from": "chengdu",
+      "to": "beijing",
+      "type": "land"
+    },
+    {
+      "from": "nanjing",
+      "to": "sea_east_asia",
+      "type": "port"
+    },
+    {
+      "from": "osaka",
+      "to": "kyoto",
+      "type": "land"
+    },
+    {
+      "from": "osaka",
+      "to": "sea_pacific",
+      "type": "port"
+    },
+    {
+      "from": "london",
+      "to": "paris",
+      "type": "land"
+    },
+    {
+      "from": "london",
+      "to": "sea_atlantic",
+      "type": "port"
+    },
+    {
+      "from": "istanbul",
+      "to": "rome",
+      "type": "land"
+    },
+    {
+      "from": "istanbul",
+      "to": "baghdad",
+      "type": "land"
+    },
+    {
+      "from": "rio",
+      "to": "sea_atlantic",
+      "type": "port"
+    },
+    {
+      "from": "nanjing",
+      "to": "chengdu",
+      "type": "land"
     }
   ]
 }

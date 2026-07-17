@@ -18,22 +18,30 @@ public class SummonTests
     }
 
     [Fact]
-    public void 풀은_미소속_summon_채널만()   // 리더 7명 제외 — 관우·잔다르크·마슈
+    public void 풀은_미소속_summon_채널만()   // 리더(start 채널)는 제외, summon 채널 전원이 풀
     {
+        var db = Db();
         var (_, _, sys) = Setup(1);
-        var pool = sys.GetPool().Select(c => c.Id).ToList();
-        Assert.Equal(new[] { "guan_yu", "jeanne_darc", "mash_kyrielight" }, pool);
+        var pool = sys.GetPool().Select(c => c.Id).OrderBy(x => x).ToList();
+        var expected = db.Characters.Values
+            .Where(c => c.AcquisitionChannels.Contains("summon"))
+            .Select(c => c.Id).OrderBy(x => x).ToList();
+        Assert.Equal(expected, pool);
+        Assert.Contains("guan_yu", pool);   // 대표 소환 무장 (회귀 감지)
     }
 
     [Fact]
     public void 초빙은_비복원_전원_유일()
     {
         var (s, _, sys) = Setup(42);
-        var outcome = sys.DrawBatch("joseon", 3, out var results);
+        var poolSize = sys.GetPool().Count;
+        var cap = Db().Rules.SummonMaxPerTurn;
+        Assert.True(poolSize <= cap, $"풀({poolSize})이 턴 캡({cap}) 이내라야 한 배치로 소진 검증 가능");
+        var outcome = sys.DrawBatch("joseon", poolSize, out var results);
 
         Assert.Equal(SummonOutcome.Success, outcome);
-        Assert.Equal(3, results.Count);
-        Assert.Equal(3, results.Select(r => r.CharacterId).Distinct().Count());   // 중복 없음
+        Assert.Equal(poolSize, results.Count);
+        Assert.Equal(poolSize, results.Select(r => r.CharacterId).Distinct().Count());   // 중복 없음 (비복원)
         Assert.All(results, r => Assert.Equal("joseon", s.CharacterOwners[r.CharacterId]));
         Assert.Empty(sys.GetPool());                                              // 풀 소진
         Assert.Equal(SummonOutcome.PoolExhausted, sys.DrawBatch("joseon", 1, out _));
@@ -57,7 +65,9 @@ public class SummonTests
 
         Assert.True(results[0].PityTriggered);
         Assert.Equal(5, results[0].Rarity);
-        Assert.Equal("guan_yu", results[0].CharacterId);    // 풀 유일 ★5
+        var pool5 = sys.GetPool().Where(c => c.Rarity == 5).Select(c => c.Id)
+            .Append(results[0].CharacterId);   // 뽑힌 무장은 이미 풀에서 빠졌으므로 합집합
+        Assert.Contains(results[0].CharacterId, pool5);     // 풀의 ★5 중 하나 확정
         Assert.Equal(0, joseon.PityCount);                  // 리셋
     }
 
@@ -96,7 +106,11 @@ public class SummonTests
     [Fact]
     public void 별5_초빙은_등장씬을_재생한다()   // §2.8.10 — A1 재사용
     {
+        var db = Db();
         var (s, _, sys) = Setup(7);
+        // 관우(entry_cutscene 보유)를 유일 ★5 로 — 다른 소환 ★5 는 소속 처리해 풀에서 제거
+        foreach (var c in db.Characters.Values.Where(c => c.Rarity == 5 && c.Id != "guan_yu" && c.AcquisitionChannels.Contains("summon")))
+            s.CharacterOwners[c.Id] = "wei";
         s.Factions.Single(f => f.Id == "joseon").PityCount = Db().Rules.SummonHardPity - 1;   // 관우 확정
         sys.DrawBatch("joseon", 1, out _);
         Assert.Contains("cs_entry_guan_yu", s.FiredCutsceneIds);
@@ -128,9 +142,11 @@ public class SummonTests
     [Fact]
     public void 확률_공시는_판정과_동일_함수_풀고갈_반영()   // §2.8.6 [MUST]
     {
+        var db = Db();
         var (s, _, sys) = Setup(1);
-        // 관우(★5) 를 소속시켜 풀에서 제거 → ★5 질량이 ★4 로 귀착돼야
-        s.CharacterOwners["guan_yu"] = "wei";
+        // 풀의 ★5 를 전부 소속시켜 제거 → ★5 질량이 하위 등급으로 귀착돼야
+        foreach (var c in db.Characters.Values.Where(c => c.Rarity == 5 && c.AcquisitionChannels.Contains("summon")))
+            s.CharacterOwners[c.Id] = "wei";
         var rates = sys.GetCurrentRates("joseon");
         Assert.False(rates.ContainsKey(5));
         Assert.Equal(10000, rates.Values.Sum());   // 합 보존

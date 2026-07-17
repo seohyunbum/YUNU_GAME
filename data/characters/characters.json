@@ -344,5 +344,352 @@
       "initial_status": "unaffiliated"
     },
     "entry_cutscene_id": "cs_entry_mash"
+  },
+  {
+    "id": "zhuge_liang",
+    "name_ko": "제갈량",
+    "origin": "history_china",
+    "rarity": 5,
+    "stats": {
+      "ldr": 92,
+      "str": 45,
+      "int": 120,
+      "pol": 115,
+      "cha": 98,
+      "nav": 60
+    },
+    "growth_rates": {
+      "ldr": 110,
+      "str": 40,
+      "int": 150,
+      "pol": 140,
+      "cha": 100,
+      "nav": 50
+    },
+    "passive_skill_id": "sleeping_dragon",
+    "ultimate_skill_id": "eight_gates_formation",
+    "unique_unit_id": null,
+    "start_faction": "shu",
+    "voice_set": "cc0_male_cn_03",
+    "portrait_asset": "portraits/zhuge_liang.png",
+    "acquisition": {
+      "channels": [
+        "start"
+      ],
+      "initial_status": "faction_leader"
+    }
+  },
+  {
+    "id": "sun_quan",
+    "name_ko": "손권",
+    "origin": "history_china",
+    "rarity": 5,
+    "stats": {
+      "ldr": 95,
+      "str": 72,
+      "int": 88,
+      "pol": 105,
+      "cha": 100,
+      "nav": 90
+    },
+    "growth_rates": {
+      "ldr": 120,
+      "str": 70,
+      "int": 90,
+      "pol": 110,
+      "cha": 100,
+      "nav": 100
+    },
+    "passive_skill_id": "blue_eyed_ruler",
+    "ultimate_skill_id": "jiangdong_unity",
+    "unique_unit_id": null,
+    "start_faction": "wu",
+    "voice_set": "cc0_male_cn_04",
+    "portrait_asset": "portraits/sun_quan.png",
+    "acquisition": {
+      "channels": [
+        "start"
+      ],
+      "initial_status": "faction_leader"
+    }
+  },
+  {
+    "id": "gojo_satoru",
+    "name_ko": "고죠 사토루",
+    "origin": "ip_jjk",
+    "rarity": 5,
+    "stats": {
+      "ldr": 88,
+      "str": 110,
+      "int": 118,
+      "pol": 60,
+      "cha": 105,
+      "nav": 20
+    },
+    "growth_rates": {
+      "ldr": 100,
+      "str": 140,
+      "int": 150,
+      "pol": 50,
+      "cha": 110,
+      "nav": 10
+    },
+    "passive_skill_id": "infinity",
+    "ultimate_skill_id": "hollow_purple",
+    "unique_unit_id": "jujutsu_sorcerers",
+    "start_faction": "jujutsu",
+    "voice_set": "cc0_male_jp_02",
+    "portrait_asset": "portraits/gojo_satoru.png",
+    "acquisition": {
+      "channels": [
+        "start"
+      ],
+      "initial_status": "faction_leader"
+    }
+  },
+  {
+    "id": "guo_jia",
+    "name_ko": "곽가",
+    "origin": "history_china",
+    "rarity": 4,
+    "stats": {
+      "ldr": 70,
+      "str": 40,
+      "int": 115,
+      "pol": 92,
+      "cha": 80,
+      "nav": 30
+    },
+    "growth_rates": {
+      "ldr": 80,
+      "str": 40,
+      "int": 150,
+      "pol": 110,
+      "cha": 90,
+      "nav": 20
+    },
+    "passive_skill_id": "ten_victories",
+    "ultimate_skill_id": "ghost_strategy",
+    "unique_unit_id": null,
+    "start_faction": "wei",
+    "voice_set": "cc0_male_cn_05",
+    "portrait_asset": "portraits/guo_jia.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "taishi_ci",
+    "name_ko": "태사자",
+    "origin": "history_china",
+    "rarity": 4,
+    "stats": {
+      "ldr": 88,
+      "str": 105,
+      "int": 70,
+      "pol": 55,
+      "cha": 82,
+      "nav": 75
+    },
+    "growth_rates": {
+      "ldr": 100,
+      "str": 140,
+      "int": 60,
+      "pol": 50,
+      "cha": 80,
+      "nav": 80
+    },
+    "passive_skill_id": "divine_archery",
+    "ultimate_skill_id": "piercing_shot",
+    "unique_unit_id": null,
+    "start_faction": "wu",
+    "voice_set": "cc0_male_cn_06",
+    "portrait_asset": "portraits/taishi_ci.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "lancer_prince",
+    "name_ko": "랜서(빛의 왕자)",
+    "origin": "ip_fate",
+    "rarity": 5,
+    "stats": {
+      "ldr": 85,
+      "str": 108,
+      "int": 72,
+      "pol": 60,
+      "cha": 100,
+      "nav": 40
+    },
+    "growth_rates": {
+      "ldr": 100,
+      "str": 140,
+      "int": 60,
+      "pol": 50,
+      "cha": 110,
+      "nav": 40
+    },
+    "passive_skill_id": "rune_magic",
+    "ultimate_skill_id": "radiant_lance",
+    "unique_unit_id": null,
+    "start_faction": "chaldea",
+    "voice_set": "cc0_male_eu_02",
+    "portrait_asset": "portraits/lancer_prince.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "yuji_itadori",
+    "name_ko": "이타도리 유지",
+    "origin": "ip_jjk",
+    "rarity": 4,
+    "stats": {
+      "ldr": 68,
+      "str": 108,
+      "int": 55,
+      "pol": 35,
+      "cha": 90,
+      "nav": 15
+    },
+    "growth_rates": {
+      "ldr": 80,
+      "str": 140,
+      "int": 50,
+      "pol": 30,
+      "cha": 100,
+      "nav": 10
+    },
+    "passive_skill_id": "black_flash",
+    "ultimate_skill_id": "divergent_fist",
+    "unique_unit_id": null,
+    "start_faction": "jujutsu",
+    "voice_set": "cc0_male_jp_03",
+    "portrait_asset": "portraits/yuji_itadori.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "hulk",
+    "name_ko": "헐크",
+    "origin": "ip_marvel",
+    "rarity": 5,
+    "stats": {
+      "ldr": 60,
+      "str": 120,
+      "int": 45,
+      "pol": 20,
+      "cha": 65,
+      "nav": 30
+    },
+    "growth_rates": {
+      "ldr": 60,
+      "str": 150,
+      "int": 40,
+      "pol": 10,
+      "cha": 60,
+      "nav": 20
+    },
+    "passive_skill_id": "rage",
+    "ultimate_skill_id": "gamma_smash",
+    "unique_unit_id": null,
+    "start_faction": "avengers",
+    "voice_set": "cc0_male_us_02",
+    "portrait_asset": "portraits/hulk.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "archer_emiya",
+    "name_ko": "아처",
+    "origin": "ip_fate",
+    "rarity": 4,
+    "stats": {
+      "ldr": 80,
+      "str": 95,
+      "int": 88,
+      "pol": 55,
+      "cha": 78,
+      "nav": 35
+    },
+    "growth_rates": {
+      "ldr": 90,
+      "str": 120,
+      "int": 90,
+      "pol": 50,
+      "cha": 80,
+      "nav": 30
+    },
+    "passive_skill_id": "projection",
+    "ultimate_skill_id": "unlimited_blade_barrage",
+    "unique_unit_id": null,
+    "start_faction": "chaldea",
+    "voice_set": "cc0_male_jp_04",
+    "portrait_asset": "portraits/archer_emiya.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "jang_yeongsil",
+    "name_ko": "장영실",
+    "origin": "history_korea",
+    "rarity": 4,
+    "stats": {
+      "ldr": 60,
+      "str": 40,
+      "int": 115,
+      "pol": 100,
+      "cha": 75,
+      "nav": 55
+    },
+    "growth_rates": {
+      "ldr": 60,
+      "str": 40,
+      "int": 150,
+      "pol": 120,
+      "cha": 80,
+      "nav": 50
+    },
+    "passive_skill_id": "mechanical_genius",
+    "ultimate_skill_id": "singijeon_volley",
+    "unique_unit_id": "singijeon_battery",
+    "start_faction": "joseon",
+    "voice_set": "cc0_male_kr_03",
+    "portrait_asset": "portraits/jang_yeongsil.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
   }
 ]
