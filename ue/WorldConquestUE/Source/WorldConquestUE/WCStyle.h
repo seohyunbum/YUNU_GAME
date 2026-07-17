@@ -34,6 +34,13 @@ public:
      */
     static const FSlateBrush* Icon(const TCHAR* Name, const FLinearColor& Tint, int32 Size = 22);
 
+    /**
+     * 무장 초상 (/Game/Portraits/T_<CharId>). 없으면 nullptr → 호출부가 텍스트 카드로 폴백.
+     * [MUST] 텍스처를 AddToRoot 한 static 캐시로 소유한다 — 브러시가 GC 된 UObject 를 참조하면
+     * SlateCore 가 죽은 포인터를 역참조해 크래시한다(UObjectArray.h "Index >= 0" assertion, 실측).
+     */
+    static const FSlateBrush* Portrait(const FString& CharId, const FVector2D& Size);
+
     /** 버튼 스타일 (일반/hover/pressed 3-state 스킨). */
     static FButtonStyle Button();
     static FButtonStyle PrimaryButton();

@@ -106,16 +106,10 @@ void SWCRevealOverlay::Construct(const FArguments& InArgs)
 
 const FSlateBrush* SWCRevealOverlay::GetPortraitBrush() const
 {
+    // rooted static 캐시 사용 [MUST] — 직접 LoadObject 하면 텍스처가 GC 되어 죽은 포인터 참조 크래시.
     const FString CharId = GM.IsValid() && GM->ActiveReveal.IsSet() ? GM->ActiveReveal->CharId : FString();
-    if (CharId != LoadedCharId)
-    {
-        LoadedCharId = CharId;
-        UTexture2D* Tex = CharId.IsEmpty() ? nullptr : LoadObject<UTexture2D>(nullptr,
-            *FString::Printf(TEXT("/Game/Portraits/T_%s.T_%s"), *CharId, *CharId));
-        PortraitBrush->SetResourceObject(Tex);
-        if (Tex) PortraitBrush->ImageSize = FVector2D(Tex->GetSizeX(), Tex->GetSizeY());
-    }
-    return PortraitBrush.Get();
+    if (const FSlateBrush* B = FWCStyle::Portrait(CharId, FVector2D(300, 375))) return B;
+    return PortraitBrush.Get();   // 초상 부재 = 빈 브러시(등급 프레임만 표시)
 }
 
 EVisibility SWCRevealOverlay::RevealVisibility() const

@@ -9,6 +9,19 @@ AWCPlayerController::AWCPlayerController()
     bEnableMouseOverEvents = true;
 }
 
+void AWCPlayerController::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // [MUST] GameAndUI — 기본값 GameOnly 는 뷰포트가 마우스를 캡처해 **Slate 위젯이 클릭을 못 받는다**
+    // (거점 화면은 전부 버튼이라 전멸했음, 2026-07-17 실측). 지도 픽킹은 위젯 밖 클릭으로 그대로 동작.
+    FInputModeGameAndUI Mode;
+    Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    Mode.SetHideCursorDuringCapture(false);
+    SetInputMode(Mode);
+    bShowMouseCursor = true;
+}
+
 void AWCPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();

@@ -1118,7 +1118,7 @@ void AWCGameMode::UpdateBoardCamera()
     if (!BoardCamera) return;
     // 줌인할수록 틸트를 세워 근경 디테일(-58° → 원경 -46°) + 우드래그 수동 오프셋
     const float AutoPitch = FMath::Lerp(-58.f, -46.f, FMath::GetMappedRangeValueClamped(
-        FVector2D(3500.f, 30000.f), FVector2D(0.f, 1.f), CamDist));
+        FVector2D(3000.f, 19000.f), FVector2D(0.f, 1.f), CamDist));   // 줌 클램프와 동일 범위 유지
     CamPitch = FMath::Clamp(AutoPitch + CamPitchManual, -80.f, -18.f);
     const FRotator ViewRot(CamPitch, CamYaw, 0.f);   // 요 회전 포함
     BoardCamera->SetActorLocationAndRotation(CamTarget - ViewRot.Vector() * CamDist, ViewRot);
@@ -1127,14 +1127,14 @@ void AWCGameMode::UpdateBoardCamera()
 void AWCGameMode::ZoomCamera(float WheelDelta)
 {
     if (!BoardCamera || FMath::IsNearlyZero(WheelDelta)) return;
-    CamDist = FMath::Clamp(CamDist * (1.f - WheelDelta * 0.13f), 3500.f, 30000.f);
+    CamDist = FMath::Clamp(CamDist * (1.f - WheelDelta * 0.13f), 3000.f, 19000.f);   // 최대 줌아웃 축소 = 거점 확대
     UpdateBoardCamera();
 }
 
 void AWCGameMode::PanCamera(float DeltaX, float DeltaY)
 {
     if (!BoardCamera) return;
-    const float Scale = CamDist / 1100.f;   // 줌 비례 감도
+    const float Scale = CamDist / 220.f;   // 줌 비례 감도 (5배 — 이전 /1100 은 너무 느렸음)
     // 화면 기준 팬 — 카메라 요를 반영해 "끌리는" 방향이 시야와 일치
     const float Yaw = FMath::DegreesToRadians(CamYaw);
     const float S = FMath::Sin(Yaw), C = FMath::Cos(Yaw);

@@ -34,8 +34,12 @@ CONTENT_LAZY = ["Asian_Village"]
 
 
 def kill_ue() -> None:
+    """DLL·에셋 덮어쓰기용 잠금 해제. ⚠ 실행 중인 게임이 있으면 강제 종료된다 —
+    가족이 플레이 중일 때 배포하면 게임이 갑자기 꺼진다. 플레이 중 배포 금지."""
     for exe in ("UnrealEditor.exe", "UnrealEditor-Cmd.exe", "WorldConquest.ConsoleHost.exe"):
-        subprocess.run(["taskkill", "/F", "/IM", exe], capture_output=True)
+        r = subprocess.run(["taskkill", "/F", "/IM", exe], capture_output=True, text=True)
+        if r.returncode == 0:   # 실제로 죽인 경우만 경고
+            print(f"  ⚠ 실행 중이던 {exe} 를 종료했습니다 (플레이 중이었다면 그래서 꺼진 것)")
 
 
 def mirror_dir(src: Path, dst: Path) -> None:

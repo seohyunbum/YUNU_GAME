@@ -99,6 +99,29 @@ const FSlateBrush* FWCStyle::Icon(const TCHAR* Name, const FLinearColor& Tint, i
     return Brush.Get();
 }
 
+const FSlateBrush* FWCStyle::Portrait(const FString& CharId, const FVector2D& Size)
+{
+    if (CharId.IsEmpty()) return nullptr;
+    // (id·크기)별 static 캐시. 텍스처는 AddToRoot — 미루팅 시 GC 후 Slate 가 죽은 포인터 참조 → 크래시.
+    static TMap<FString, TSharedPtr<FSlateBrush>> Cache;
+    const FString Key = FString::Printf(TEXT("%s|%gx%g"), *CharId, Size.X, Size.Y);
+    if (TSharedPtr<FSlateBrush>* Found = Cache.Find(Key)) return Found->Get();
+
+    TSharedPtr<FSlateBrush> Brush;
+    const FString Path = FString::Printf(TEXT("/Game/Portraits/T_%s.T_%s"), *CharId, *CharId);
+    if (UTexture2D* Tex = LoadObject<UTexture2D>(nullptr, *Path))
+    {
+        Tex->AddToRoot();
+        Brush = MakeShared<FSlateBrush>();
+        Brush->SetResourceObject(Tex);
+        Brush->DrawAs = ESlateBrushDrawType::Image;
+        Brush->ImageSize = Size;
+        Brush->TintColor = FSlateColor(FLinearColor::White);
+    }
+    Cache.Add(Key, Brush);              // 부재도 캐시(재시도 폭주 방지)
+    return Brush.IsValid() ? Brush.Get() : nullptr;
+}
+
 const FSlateBrush* FWCStyle::Panel()
 {
     return Box(TEXT("/Game/UI/T_panel.T_panel"), 0.30f, FLinearColor(0.05f, 0.045f, 0.035f, 0.92f));

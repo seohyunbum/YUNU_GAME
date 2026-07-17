@@ -71,7 +71,7 @@ public:
     void UpdateBoardCamera();
     TObjectPtr<class ACameraActor> BoardCamera;
     FVector CamTarget = FVector(-900, 0, 0);      // 주시점 — 틸트 보정 남쪽 오프셋
-    float CamDist = 24500.f;
+    float CamDist = 14000.f;                      // 시작 줌 — 거점이 크게 보이도록(외곽 극지방은 잘려도 무방)
     float CamPitch = -52.f;
     float CamYaw = 0.f;                           // 오빗 회전 (우클릭 드래그)
     float CamPitchManual = 0.f;                   // 우클릭 세로드래그 추가 틸트 오프셋

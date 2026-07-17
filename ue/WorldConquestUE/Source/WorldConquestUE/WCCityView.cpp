@@ -400,23 +400,17 @@ void SWCCityView::RebuildCharacterGrid() const
 {
     if (!CharacterGrid.IsValid() || !GM.IsValid()) return;
     CharacterGrid->ClearChildren();
-    PortraitBrushes.Reset();
 
     for (const auto& Card : GM->UiMyCharacterCards())
     {
-        // 초상 (/Game/Portraits/T_<id> — 드롭인 교체 가능, 없으면 텍스트 카드 폴백)
-        UTexture2D* Tex = LoadObject<UTexture2D>(nullptr,
-            *FString::Printf(TEXT("/Game/Portraits/T_%s.T_%s"), *Card.Id, *Card.Id));
+        // 초상 = rooted static 캐시 (WCStyle). 드롭인 교체 가능, 없으면 텍스트 카드 폴백.
+        const FSlateBrush* Brush = FWCStyle::Portrait(Card.Id, FVector2D(96, 120));
 
         TSharedRef<SWidget> Inner = SNullWidget::NullWidget;
-        if (Tex)
+        if (Brush)
         {
-            const TSharedPtr<FSlateBrush> Brush = MakeShared<FSlateBrush>();
-            Brush->SetResourceObject(Tex);
-            Brush->ImageSize = FVector2D(96, 120);
-            PortraitBrushes.Add(Brush);
             Inner = SNew(SBox).WidthOverride(96).HeightOverride(120)
-                [ SNew(SImage).Image(Brush.Get()) ];
+                [ SNew(SImage).Image(Brush) ];
         }
         else
         {

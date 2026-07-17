@@ -89,7 +89,11 @@
 ## 5. 흔한 함정 (실측 누적)
 
 - 빌드만 하고 ⑤ 배포 누락 → 아이콘 반영 0 (2026-07-17).
+- 배포 스크립트의 **Content 하위 고정 목록** → 새 폴더(Icons) 조용히 누락 (2026-07-17). → 자동 열거로 수정.
 - WCUE 로 QA 찍고 "됐다" 판단 → 유저는 wc-game 실행 (2026-07-17).
+- **⚠ 배포는 실행 중인 게임을 강제 종료한다** (DLL 잠금 해제용 taskkill). **가족이 플레이 중일 땐 배포 금지** — 갑자기 꺼진다.
+- **Slate 브러시가 미루팅 UTexture2D 참조 → GC 후 크래시** (`UObjectArray.h` "Index >= 0" assertion, SlateCore 스택). 초상·아이콘 등 모든 텍스처는 **AddToRoot 한 static 캐시**(`FWCStyle::Icon/Portrait`)로만 로드. 위젯에서 직접 `LoadObject`+`SetResourceObject` 금지 [MUST].
+- **입력 모드 기본값 GameOnly → Slate 버튼이 클릭을 못 받는다** (거점 화면 전멸, 2026-07-17). PlayerController::BeginPlay 에서 `FInputModeGameAndUI` 필수 [MUST].
 - 폰트 장식체(Gugi) 문장부호 글리프 없음 → 폴백 타입페이스 필수.
 - Live Coding 잠금 → Build 전 UE 프로세스 kill.
 - 절차생성 도형을 고퀄로 착각 → 외부 에셋 확보가 정답.

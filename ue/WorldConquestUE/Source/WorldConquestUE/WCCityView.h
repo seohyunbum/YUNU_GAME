@@ -45,8 +45,7 @@ private:
     // 배경·무장 그리드는 진입/초빙 시 lazy 갱신 (어트리뷰트 평가 스레드 = 게임 스레드)
     mutable TSharedPtr<FSlateBrush> BgBrush;
     mutable FString BgLoadedCity;
-    TSharedPtr<SWrapBox> CharacterGrid;
-    mutable TArray<TSharedPtr<FSlateBrush>> PortraitBrushes;   // 카드 초상 브러시 수명 관리
+    TSharedPtr<SWrapBox> CharacterGrid;   // 초상 브러시 수명·GC 루팅은 FWCStyle::Portrait 가 소유
 
     EVisibility CityVisibility() const;
 };
