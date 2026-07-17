@@ -1,8 +1,10 @@
 #include "WCGameMode.h"
 #include "WCApiSubsystem.h"
 #include "WCMapActor.h"
+#include "WCMainUI.h"
 #include "WCPlayerController.h"
 #include "WCHUD.h"
+#include "Engine/GameViewportClient.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Engine/DirectionalLight.h"
@@ -48,6 +50,11 @@ void AWCGameMode::BeginPlay()
     }
 
     MapActor = GetWorld()->SpawnActor<AWCMapActor>(FVector::ZeroVector, FRotator::ZeroRotator);
+
+    // KOEI 식 메인 UI (Slate — 코드 퍼스트). Playing 단계에서만 보임.
+    if (GEngine && GEngine->GameViewport)
+        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCMainUI).GameMode(this), 10);
+
     BootSequence();
 }
 
@@ -526,6 +533,46 @@ void AWCGameMode::CaptureSelected()
     SendVerb(TEXT("capture"), { SelectedNodeId });
 }
 
+FText AWCGameMode::UiTurnText() const
+{
+    if (!LastState.IsValid()) return FText::FromString(HudLine);
+    const int32 Turn = static_cast<int32>(LastState->GetNumberField(TEXT("turn")));
+    return FText::FromString(FString::Printf(TEXT("%d턴 · %s 차례"), Turn, *NameOf(FactionNames, PendingActor)));
+}
+
+FText AWCGameMode::UiResourceText() const
+{
+    if (!LastState.IsValid() || PendingActor.IsEmpty()) return FText::GetEmpty();
+    for (const TSharedPtr<FJsonValue>& F : LastState->GetArrayField(TEXT("factions")))
+    {
+        const TSharedPtr<FJsonObject> Faction = F->AsObject();
+        if (Faction->GetStringField(TEXT("id")) != PendingActor) continue;
+        return FText::FromString(FString::Printf(TEXT("금 %d   식량 %d   천명 %d"),
+            static_cast<int32>(Faction->GetNumberField(TEXT("treasury"))),
+            static_cast<int32>(Faction->GetNumberField(TEXT("food"))),
+            static_cast<int32>(Faction->GetNumberField(TEXT("mandate")))));
+    }
+    return FText::GetEmpty();
+}
+
+FText AWCGameMode::UiSelectionTitle() const
+{
+    if (SelectedNodeId.IsEmpty()) return FText::GetEmpty();
+    return FText::FromString(NameOf(ProvinceNames, SelectedNodeId));
+}
+
+FText AWCGameMode::UiSelectionDetail() const
+{
+    return FText::FromString(HudSelection);
+}
+
+FText AWCGameMode::UiRecruitUnitText() const
+{
+    const FString UnitName = LandUnitIds.IsValidIndex(RecruitUnitIndex)
+        ? NameOf(UnitNames, LandUnitIds[RecruitUnitIndex]) : TEXT("-");
+    return FText::FromString(FString::Printf(TEXT("병종: %s ▸"), *UnitName));
+}
+
 void AWCGameMode::ZoomCamera(float WheelDelta)
 {
     if (!BoardCamera || FMath::IsNearlyZero(WheelDelta)) return;
@@ -553,7 +600,7 @@ void AWCGameMode::ScheduleQaShotIfRequested()
     FTimerHandle ShotTimer, QuitTimer;
     GetWorld()->GetTimerManager().SetTimer(ShotTimer, []()
     {
-        FScreenshotRequest::RequestScreenshot(false);
+        FScreenshotRequest::RequestScreenshot(true);   // true = Slate UI 포함 (false 는 UI 제외 캡처)
         UE_LOG(LogWorldConquest, Log, TEXT("QA 스크린샷 요청 완료"));
     }, 2.0f, false);
     GetWorld()->GetTimerManager().SetTimer(QuitTimer, [this]()

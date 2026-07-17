@@ -12,18 +12,13 @@ void AWCHUD::DrawHUD()
     UFont* Large = GEngine->GetLargeFont();
     UFont* Small = GEngine->GetMediumFont();
 
-    // ── 상단: 턴/차례 + 선택 정보 ──
-    FCanvasTextItem Title(FVector2D(24, 20), FText::FromString(GM->HudLine), Large, FLinearColor::White);
-    Title.EnableShadow(FLinearColor::Black);
-    Title.Scale = FVector2D(1.5, 1.5);
-    Canvas->DrawItem(Title);
-
-    if (!GM->HudSelection.IsEmpty())
+    // ── 상단 상태줄: Playing 중엔 Slate 자원바가 대체 — 부팅/선택/오류 메시지만 Canvas ──
+    if (!GM->UiIsPlaying())
     {
-        FCanvasTextItem Sel(FVector2D(24, 52), FText::FromString(GM->HudSelection), Large, FLinearColor(1.f, 0.9f, 0.5f));
-        Sel.EnableShadow(FLinearColor::Black);
-        Sel.Scale = FVector2D(1.2, 1.2);
-        Canvas->DrawItem(Sel);
+        FCanvasTextItem Title(FVector2D(24, 20), FText::FromString(GM->HudLine), Large, FLinearColor::White);
+        Title.EnableShadow(FLinearColor::Black);
+        Title.Scale = FVector2D(1.5, 1.5);
+        Canvas->DrawItem(Title);
     }
 
     // ── 하단: 명령·모드 안내줄 (이벤트 로그 바로 위에 동적 배치) ──

@@ -128,3 +128,10 @@
 - **디버깅 여정 (3샷)**: 흰 간선 원인 후보를 A/B 로 배제 — ①lit 폴백? → ConstructorHelpers 가 CDO 시점에 /Game 에셋 로드 실패하는 함정 발견, 런타임 LoadObject 로 교체 ②MID 미적용? → 머티리얼 기본값을 마젠타로 바꿔 촬영 = 마젠타 없음 → MID 정상 ③**진범 = 서브픽셀 지오메트리의 TAA 뭉개짐** (간선 반지름 7cm ≈ 화면 1px) → 두께 픽셀 기준 상향으로 해소.
 - **함정 (재발 방지)**: ①생성자 ConstructorHelpers 로 /Game 에셋 찾지 말 것(레지스트리 타이밍) — 런타임 LoadObject ②`unreal.log` 는 pythonscript 커맨드렛 stdout 에 안 흐름 — 검사 출력은 파일로 ③가는 지오메트리는 TAA 에 하얗게 뭉개져 "색 버그"처럼 보임 — 두께부터 의심.
 - **다음**: Slate UI 창(상단 자원바·영지 정보/명령 버튼 창·전역 버튼) = KOEI 인터페이스 본체.
+
+## 2026-07-17 — 비주얼 개편 2: KOEI 식 Slate UI (버튼 인터페이스)
+
+- **결과**: `SWCMainUI`(SCompoundWidget, UMG 에셋 0) — ①상단 자원 바(턴·차례·금·식량·천명, TAttribute 폴링으로 자동 갱신) ②영지 선택 시 우측 명령 창(점령·징병 10/50·병종 순환·시장/농지·부대 이동/공격 — **아군 부대 없으면 자동 비활성**) ③우하단 전역 패널(무장 초빙·저장·이어하기·턴 종료). 전부 마우스 클릭, 단축키는 보조로 유지.
+- **함정 2건**: ①Slate 기본 Roboto 는 한글 글리프 없음 → `GEngine->GetLargeFont()->GetLegacySlateFontInfo()` (Canvas 에서 검증된 엔진 폰트) ②`FScreenshotRequest::RequestScreenshot(false)` 의 false = **UI 제외 캡처** — Slate 만 안 찍혀 "UI 미표시"로 오진할 뻔. QA 하네스는 true 필수 (Canvas HUD 는 뷰포트 렌더에 포함이라 false 에서도 찍혀 혼란 가중).
+- **함정 3**: 사용자가 게임 실행 중이면 Live Coding 세션이 UBT 빌드를 차단 ("Unable to build while Live Coding is active") — 빌드 전 UnrealEditor 프로세스 확인.
+- **다음 (M2 잔여)**: 세력 선택도 클릭 버튼화·컷씬 QA 샷 재검증·deploy-local.py 에 3D 갱신 통합·M3(전투/가챠 연출).

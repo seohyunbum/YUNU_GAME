@@ -75,6 +75,16 @@ public:
     const FWCCutscene* GetActiveCutsceneDef() const;
     FTimerHandle CutsceneTimer;
 
+    // ── Slate UI 뷰모델 (TAttribute 폴링 — 매 프레임 평가) ──
+    FText UiTurnText() const;          // "3턴 · 조선 차례"
+    FText UiResourceText() const;      // "금 1220 · 식량 960 · 천명 25"
+    FText UiSelectionTitle() const;    // "평양 (소유: 위)"
+    FText UiSelectionDetail() const;   // 주둔·아군부대
+    FText UiRecruitUnitText() const;   // "병종: 창병"
+    bool UiHasSelection() const { return !SelectedNodeId.IsEmpty(); }
+    bool UiArmyReady() const { return !SelectedArmyId.IsEmpty(); }
+    bool UiIsPlaying() const { return Phase == EWCPhase::Playing; }
+
     // ── HUD 조회용 ──
     FString HudLine = TEXT("연결 중...");
     FString HudSelection;                       // 선택 정보 줄
