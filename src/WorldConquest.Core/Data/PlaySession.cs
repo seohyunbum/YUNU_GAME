@@ -65,7 +65,7 @@ public sealed class PlaySession
         if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / chars / recruits / enlist <대상무장id> <사신무장id> / search <사신무장id> / province [영지id] / capture <영지id> / recruit <영지id> <병종id> <수> [군수무장id] / develop <영지id> <commerce|agriculture> <무장id> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / governor <영지id> <캐릭터id> / dismiss <영지id> / tax <단계> / attack <부대id> <목표id> / build <영지id> <시설: port|academy|barracks|walls> / summon [n] / rates / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / chars / recruits / enlist <대상무장id> <사신무장id> / search <사신무장id> / province [영지id] / capture <영지id> / recruit <영지id> <병종id> <수> [군수무장id] / develop <영지id> <commerce|agriculture> <무장id> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / governor <영지id> <캐릭터id> / dismiss <영지id> / tax <단계> / attack <부대id> <목표id> / build <영지id> <시설: port|academy|barracks|walls> / summon [n] / rates / ally|war|peace|nonaggress <세력id> / send <세력id> <금> <식량> / tribute <세력id> <금> <식량> / scheme <세력A> <세력B> / relations / accept|reject <세력id> <제안종류> / save <경로> / end / quit");
 
         while (true)
         {
@@ -179,6 +179,71 @@ public sealed class PlaySession
                     _out.WriteLine(tr == DiplomacyOutcome.Success
                         ? $"📦 {FactionName(t[1])} 에 금 {sg}·식량 {sf} 지원"
                         : $"✘ 지원 실패: {tr}");
+                    break;
+
+                // ── 외교 심화 (관계도·조공·계략·불가침) ──
+
+                case "nonaggress":
+                    if (t.Length < 2) { _out.WriteLine("사용법: nonaggress <세력id>"); break; }
+                    var nr = new DiplomacyManager(s, _db, _gm.Bus).SetNonAggression(actor.Id, t[1]);
+                    _out.WriteLine(nr == DiplomacyOutcome.Success
+                        ? $"✋ {FactionName(t[1])} 와(과) 불가침 조약"
+                        : $"✘ 불가침 실패: {nr}");
+                    break;
+
+                case "tribute":
+                    if (t.Length < 4 || !int.TryParse(t[2], out var tg) || !int.TryParse(t[3], out var tf))
+                    { _out.WriteLine("사용법: tribute <세력id> <금> <식량>   (비동맹 상대 — 동맹엔 send)"); break; }
+                    var tro = new DiplomacyManager(s, _db, _gm.Bus).SendTribute(actor.Id, t[1], tg, tf);
+                    _out.WriteLine(tro == DiplomacyOutcome.Success
+                        ? $"🎁 {FactionName(t[1])} 에 조공 — 금 {tg}·식량 {tf} (우호도 상승)"
+                        : $"✘ 조공 실패: {tro}");
+                    break;
+
+                case "scheme":
+                    if (t.Length < 3) { _out.WriteLine("사용법: scheme <세력A> <세력B>   (두 세력을 이간)"); break; }
+                    var scho = new SchemeSystem(s, _db, _gm.Bus).SowDiscord(actor.Id, t[1], t[2]);
+                    _out.WriteLine(scho switch
+                    {
+                        SchemeOutcome.Success => $"🗡 이간계 성공 — {FactionName(t[1])} 와(과) {FactionName(t[2])} 의 사이가 틀어졌다",
+                        SchemeOutcome.Exposed => $"💢 이간계 발각 — {FactionName(t[1])}·{FactionName(t[2])} 양쪽의 신뢰를 잃었다",
+                        _ => $"✘ 계략 실패: {scho}"
+                    });
+                    break;
+
+                case "relations":
+                    var led = new RelationLedger(s, _db);
+                    _out.WriteLine($"── {FactionName(actor.Id)} 의 외교 관계 ──");
+                    foreach (var f in s.Factions
+                                 .Where(f => f.Id != actor.Id && f.OwnedProvinceIds.Count > 0)
+                                 .OrderByDescending(f => led.Favor(actor.Id, f.Id)))
+                    {
+                        var fv = led.Favor(actor.Id, f.Id);
+                        var att = led.AttitudeOf(actor.Id, f.Id) switch
+                        {
+                            Attitude.Devoted => "맹우", Attitude.Friendly => "우호",
+                            Attitude.Hostile => "적대", Attitude.Nemesis => "숙적", _ => "중립"
+                        };
+                        var st = actor.Relations.GetValueOrDefault(f.Id) switch
+                        {
+                            DiplomaticState.Alliance => "동맹", DiplomaticState.War => "전쟁",
+                            DiplomaticState.NonAggression => "불가침", _ => "-"
+                        };
+                        _out.WriteLine($"  {FactionName(f.Id),-12} 우호도 {fv,5}  [{att}]  조약: {st}");
+                    }
+                    foreach (var p in s.PendingProposals.Where(p => p.To == actor.Id))
+                        _out.WriteLine($"  ✉ {FactionName(p.From)} 의 제안: {p.Kind} — accept/reject {p.From} {p.Kind}");
+                    break;
+
+                case "accept":
+                case "reject":
+                    if (t.Length < 3 || !Enum.TryParse<ProposalKind>(t[2], true, out var pk))
+                    { _out.WriteLine($"사용법: {t[0]} <세력id> <Alliance|NonAggression|Peace>"); break; }
+                    var rr = new DiplomacyManager(s, _db, _gm.Bus)
+                        .RespondToProposal(actor.Id, t[1], pk, t[0] == "accept");
+                    _out.WriteLine(rr == DiplomacyOutcome.Success
+                        ? (t[0] == "accept" ? $"✔ {FactionName(t[1])} 의 {pk} 제안 수락" : $"✖ {FactionName(t[1])} 의 제안 거절")
+                        : $"✘ 응답 실패: {rr}");
                     break;
 
                 case "governor":
