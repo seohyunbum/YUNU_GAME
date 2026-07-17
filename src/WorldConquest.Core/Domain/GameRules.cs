@@ -51,6 +51,17 @@ public sealed class GameRules
     public required int SummonMaxPerTurn { get; init; }
     public required int SummonJoinLoyalty { get; init; }
 
+    // ── 등용 (§2.8 recruit — 재야 무장 영입. 사신 매력이 성공률을 좌우) ──
+    public required int RecruitBaseCostGold { get; init; }
+    public required int RecruitCostPerRarity { get; init; }        // 비용 = base + 대상 rarity × 이 값
+    public required int RecruitBaseChancePermyriad { get; init; }
+    public required int RecruitEnvoyChaPermyriadPer100 { get; init; }  // 사신 매력 100당 성공률 가산(만분율)
+    public required int RecruitRarityPenaltyPermyriad { get; init; }   // 대상 rarity 당 성공률 차감(만분율)
+    public required int RecruitChanceMinPermyriad { get; init; }       // clamp 하한
+    public required int RecruitChanceMaxPermyriad { get; init; }       // clamp 상한
+    public required int RecruitJoinLoyalty { get; init; }
+    public required int RecruitMaxPerTurn { get; init; }
+
     public required IReadOnlySet<string> ValidTerrains { get; init; }
     public required IReadOnlySet<string> ValidClimates { get; init; }
     public required IReadOnlySet<string> ValidRegions { get; init; }

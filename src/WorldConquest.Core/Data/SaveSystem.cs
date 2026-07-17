@@ -87,6 +87,7 @@ public sealed class SaveSystem
             Mandate = f.Mandate ?? 0,
             PityCount = f.PityCount ?? 0,
             SummonsThisTurn = f.SummonsThisTurn ?? 0,
+            RecruitsThisTurn = f.RecruitsThisTurn ?? 0,
             TaxLevel = f.TaxLevel ?? "",   // 빈 값 = 기본 세율 해석 (§2.3, additive)
             TechPoints = Math.Max(f.TechPoints ?? 0, 0)
         })
@@ -251,6 +252,7 @@ public sealed class SaveSystem
             Mandate = f.Mandate,
             PityCount = f.PityCount,
             SummonsThisTurn = f.SummonsThisTurn,
+            RecruitsThisTurn = f.RecruitsThisTurn,
             TaxLevel = f.TaxLevel.Length > 0 ? f.TaxLevel : null,   // 기본값은 미기록 (세이브 슬림)
             TechPoints = f.TechPoints
         }).ToList(),

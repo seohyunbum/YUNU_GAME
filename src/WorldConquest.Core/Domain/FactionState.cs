@@ -27,6 +27,9 @@ public sealed class FactionState
     /// <summary>이번 턴 초빙 횟수 (max_summons_per_turn 캡. 수입 페이즈 리셋).</summary>
     public int SummonsThisTurn { get; set; }
 
+    /// <summary>이번 턴 등용 시도 횟수 (§2.8 recruit — recruit_general.max_per_turn 캡. 수입 페이즈 리셋. additive 세이브).</summary>
+    public int RecruitsThisTurn { get; set; }
+
     /// <summary>세율 단계 id (§2.3 — internal_affairs.tax_levels 키). 빈 값·미인식 = 기본 세율 해석 (additive 세이브).</summary>
     public string TaxLevel { get; set; } = "";
 

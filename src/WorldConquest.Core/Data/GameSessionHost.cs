@@ -253,6 +253,15 @@ public sealed class GameSessionHost
                 if (o != TaxOutcome.Success) { ok = false; return $"세율 변경 실패: {o}"; }
                 return $"세율 = {args[0]}";
             }
+            case "enlist":
+            {
+                Require(args, 2, "enlist <대상무장id> <사신무장id>");
+                var rs = new RecruitmentSystem(s, _db, gm.Bus);
+                var res = rs.TryRecruit(factionId, args[0], args[1]);
+                if (res.Outcome == RecruitGeneralOutcome.Success) return $"{args[0]} 등용 성공 (성공률 {res.ChancePermyriad / 100}%)";
+                if (res.Outcome == RecruitGeneralOutcome.Failed) return $"{args[0]} 등용 실패 — 거절 (성공률 {res.ChancePermyriad / 100}% · 비용 소모)";
+                ok = false; return $"등용 불가: {res.Outcome}";
+            }
             case "summon":
             {
                 var n = args.Length > 0 && int.TryParse(args[0], out var sn) ? sn : 1;

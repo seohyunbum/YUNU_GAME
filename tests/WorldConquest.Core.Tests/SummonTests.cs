@@ -23,11 +23,16 @@ public class SummonTests
         var db = Db();
         var (_, _, sys) = Setup(1);
         var pool = sys.GetPool().Select(c => c.Id).OrderBy(x => x).ToList();
+        // 시작 소속(리더 + start_characters)은 이미 소속되어 풀에서 제외돼야 한다
+        var startOwned = db.Factions.Values
+            .SelectMany(f => (f.LeaderCharacterId is null ? Array.Empty<string>() : new[] { f.LeaderCharacterId })
+                .Concat(f.StartCharacterIds))
+            .ToHashSet();
         var expected = db.Characters.Values
-            .Where(c => c.AcquisitionChannels.Contains("summon"))
+            .Where(c => c.AcquisitionChannels.Contains("summon") && !startOwned.Contains(c.Id))
             .Select(c => c.Id).OrderBy(x => x).ToList();
         Assert.Equal(expected, pool);
-        Assert.Contains("guan_yu", pool);   // 대표 소환 무장 (회귀 감지)
+        Assert.DoesNotContain("guan_yu", pool);   // guan_yu 는 촉 시작 무장 → 풀 제외 (회귀 감지)
     }
 
     [Fact]
@@ -108,12 +113,12 @@ public class SummonTests
     {
         var db = Db();
         var (s, _, sys) = Setup(7);
-        // 관우(entry_cutscene 보유)를 유일 ★5 로 — 다른 소환 ★5 는 소속 처리해 풀에서 제거
-        foreach (var c in db.Characters.Values.Where(c => c.Rarity == 5 && c.Id != "guan_yu" && c.AcquisitionChannels.Contains("summon")))
+        // 랜서(빛의 왕자, entry_cutscene 보유)를 유일 풀 ★5 로 — 다른 풀 ★5 는 소속 처리해 제거
+        foreach (var c in sys.GetPool().Where(c => c.Rarity == 5 && c.Id != "lancer_prince").ToList())
             s.CharacterOwners[c.Id] = "wei";
-        s.Factions.Single(f => f.Id == "joseon").PityCount = Db().Rules.SummonHardPity - 1;   // 관우 확정
+        s.Factions.Single(f => f.Id == "joseon").PityCount = Db().Rules.SummonHardPity - 1;   // 랜서 확정
         sys.DrawBatch("joseon", 1, out _);
-        Assert.Contains("cs_entry_guan_yu", s.FiredCutsceneIds);
+        Assert.Contains("cs_entry_lancer_prince", s.FiredCutsceneIds);
     }
 
     [Fact]

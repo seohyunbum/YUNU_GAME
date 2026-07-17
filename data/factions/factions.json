@@ -10,6 +10,9 @@
       "hanseong",
       "busan"
     ],
+    "start_characters": [
+      "jang_yeongsil"
+    ],
     "start_resources": {
       "gold": 1000,
       "food": 800
@@ -29,6 +32,9 @@
     "leader_character_id": "cao_cao",
     "start_provinces": [
       "beijing"
+    ],
+    "start_characters": [
+      "guo_jia"
     ],
     "start_resources": {
       "gold": 1200,
@@ -110,6 +116,9 @@
     "start_provinces": [
       "new_york"
     ],
+    "start_characters": [
+      "hulk"
+    ],
     "start_resources": {
       "gold": 1500,
       "food": 700
@@ -129,6 +138,9 @@
     "leader_character_id": "saber_artoria",
     "start_provinces": [
       "rome"
+    ],
+    "start_characters": [
+      "mash_kyrielight"
     ],
     "start_resources": {
       "gold": 1000,
@@ -150,6 +162,9 @@
     "start_provinces": [
       "chengdu"
     ],
+    "start_characters": [
+      "guan_yu"
+    ],
     "start_resources": {
       "gold": 1000,
       "food": 900
@@ -169,6 +184,9 @@
     "leader_character_id": "sun_quan",
     "start_provinces": [
       "nanjing"
+    ],
+    "start_characters": [
+      "taishi_ci"
     ],
     "start_resources": {
       "gold": 1100,

@@ -65,7 +65,7 @@ public sealed class PlaySession
         if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / chars / province [영지id] / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / governor <영지id> <캐릭터id> / dismiss <영지id> / tax <단계> / attack <부대id> <목표id> / build <영지id> <시설> / summon [n] / rates / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / chars / recruits / enlist <대상무장id> <사신무장id> / province [영지id] / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / governor <영지id> <캐릭터id> / dismiss <영지id> / tax <단계> / attack <부대id> <목표id> / build <영지id> <시설> / summon [n] / rates / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
 
         while (true)
         {
@@ -192,6 +192,31 @@ public sealed class PlaySession
                 case "chars":
                     PrintCharacters(actor.Id);
                     break;
+
+                case "recruits":
+                {
+                    var rs = new RecruitmentSystem(s, _db, _gm.Bus);
+                    var pool = rs.GetRecruitablePool();
+                    if (pool.Count == 0) { _out.WriteLine("  (재야 무장 없음 — 천하의 인재를 모두 등용/초빙했습니다)"); break; }
+                    _out.WriteLine("── 재야 무장 (등용 후보) ──");
+                    foreach (var c in pool)
+                        _out.WriteLine($"  {c.Id,-16} {c.NameKo,-12} ★{c.Rarity} · 등용비 {rs.CostFor(c)}금 (무력{c.Stats.Str} 지력{c.Stats.Int})");
+                    break;
+                }
+
+                case "enlist":
+                {
+                    if (t.Length < 3) { _out.WriteLine("사용법: enlist <대상무장id> <사신무장id>  (사신=자기 세력 무장, 매력이 성공률↑)"); break; }
+                    var rs = new RecruitmentSystem(s, _db, _gm.Bus);
+                    var res = rs.TryRecruit(actor.Id, t[1], t[2]);
+                    _out.WriteLine(res.Outcome switch
+                    {
+                        RecruitGeneralOutcome.Success => $"✔ {CharacterName(t[1])} 등용 성공! (성공률 {res.ChancePermyriad / 100}% · 비용 {res.Cost}금)",
+                        RecruitGeneralOutcome.Failed  => $"✘ {CharacterName(t[1])} 등용 실패 — 거절당함 (성공률 {res.ChancePermyriad / 100}% · 비용 {res.Cost}금 소모)",
+                        _ => $"✘ 등용 불가: {res.Outcome}"
+                    });
+                    break;
+                }
 
                 case "assign":
                     if (t.Length < 3) { _out.WriteLine("사용법: assign <부대id> <캐릭터id>"); break; }

@@ -253,5 +253,16 @@
       }
     },
     "default_tax_level": "normal"
+  },
+  "recruit_general": {
+    "base_cost_gold": 200,
+    "cost_per_rarity": 150,
+    "base_chance_permyriad": 3000,
+    "envoy_cha_permyriad_per_100": 4000,
+    "rarity_penalty_permyriad": 1000,
+    "chance_min_permyriad": 500,
+    "chance_max_permyriad": 9500,
+    "join_loyalty": 80,
+    "max_per_turn": 3
   }
 }

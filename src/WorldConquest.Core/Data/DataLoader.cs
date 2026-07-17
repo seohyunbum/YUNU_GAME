@@ -299,6 +299,7 @@ public sealed class DataLoader
         Need(dto.Combat, "combat");
         Need(dto.Duel, "duel");
         Need(dto.Summon, "summon");
+        Need(dto.RecruitGeneral, "recruit_general");
         Need(dto.ValidTerrains, "valid_terrains"); Need(dto.ValidClimates, "valid_climates");
         Need(dto.ValidRegions, "valid_regions"); Need(dto.ValidOrigins, "valid_origins");
         Need(dto.ValidEffectTypes, "valid_effect_types"); Need(dto.ValidSkillTargets, "valid_skill_targets");
@@ -349,6 +350,17 @@ public sealed class DataLoader
             "summon.hard_pity", $"천장({dto.Summon.HardPity})은 상한({dto.Summon.MaxPityThreshold}) 이하 [MUST — 다크패턴 봉인].");
         Check(dto.Summon.SoftPityStart is >= 0, "summon.soft_pity_start", "0 이상이어야 합니다.");
         Check(dto.Summon.SoftPityAddPermyriad is >= 0, "summon.soft_pity_add_permyriad", "0 이상이어야 합니다.");
+        var rg = dto.RecruitGeneral;
+        Check(rg?.BaseCostGold is >= 0, "recruit_general.base_cost_gold", "0 이상이어야 합니다.");
+        Check(rg?.CostPerRarity is >= 0, "recruit_general.cost_per_rarity", "0 이상이어야 합니다.");
+        Check(rg?.BaseChancePermyriad is >= 0 and <= 10000, "recruit_general.base_chance_permyriad", "0~10000 이어야 합니다.");
+        Check(rg?.EnvoyChaPermyriadPer100 is >= 0, "recruit_general.envoy_cha_permyriad_per_100", "0 이상이어야 합니다.");
+        Check(rg?.RarityPenaltyPermyriad is >= 0, "recruit_general.rarity_penalty_permyriad", "0 이상이어야 합니다.");
+        Check(rg?.ChanceMinPermyriad is >= 0 and <= 10000, "recruit_general.chance_min_permyriad", "0~10000 이어야 합니다.");
+        Check(rg?.ChanceMaxPermyriad is >= 0 and <= 10000, "recruit_general.chance_max_permyriad", "0~10000 이어야 합니다.");
+        Check((rg?.ChanceMinPermyriad ?? 0) <= (rg?.ChanceMaxPermyriad ?? 10000), "recruit_general.chance_min_permyriad", "min 은 max 이하여야 합니다.");
+        Check(rg?.JoinLoyalty is >= 0 and <= 100, "recruit_general.join_loyalty", "0~100 이어야 합니다.");
+        Check(rg?.MaxPerTurn is >= 1, "recruit_general.max_per_turn", "1 이상이어야 합니다.");
         Check(dto.Summon.MaxSummonsPerTurn is >= 1, "summon.max_summons_per_turn", "1 이상이어야 합니다.");
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
         {
@@ -431,6 +443,15 @@ public sealed class DataLoader
             SummonBatchMinRarity4 = dto.Summon.BatchMinRarity4Guarantee ?? false,
             SummonMaxPerTurn = dto.Summon.MaxSummonsPerTurn ?? 1,
             SummonJoinLoyalty = dto.Summon.JoinLoyalty ?? 100,
+            RecruitBaseCostGold = dto.RecruitGeneral!.BaseCostGold ?? 0,
+            RecruitCostPerRarity = dto.RecruitGeneral.CostPerRarity ?? 0,
+            RecruitBaseChancePermyriad = dto.RecruitGeneral.BaseChancePermyriad ?? 0,
+            RecruitEnvoyChaPermyriadPer100 = dto.RecruitGeneral.EnvoyChaPermyriadPer100 ?? 0,
+            RecruitRarityPenaltyPermyriad = dto.RecruitGeneral.RarityPenaltyPermyriad ?? 0,
+            RecruitChanceMinPermyriad = dto.RecruitGeneral.ChanceMinPermyriad ?? 0,
+            RecruitChanceMaxPermyriad = dto.RecruitGeneral.ChanceMaxPermyriad ?? 10000,
+            RecruitJoinLoyalty = dto.RecruitGeneral.JoinLoyalty ?? 80,
+            RecruitMaxPerTurn = dto.RecruitGeneral.MaxPerTurn ?? 1,
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),
@@ -928,6 +949,7 @@ public sealed class DataLoader
     {
         var seen = new HashSet<string>();
         var provinceOwner = new Dictionary<string, string>();
+        var charOwner = new Dictionary<string, string>();   // 시작 무장(리더+start_characters) 중복 소속 검출
         for (var i = 0; i < dtos.Count; i++)
         {
             var f = dtos[i];
@@ -944,6 +966,24 @@ public sealed class DataLoader
                 errors.Add(new(FactionsFile, entry, "필수 필드 누락: ai_disposition"));
             if (f.LeaderCharacterId is not null && !charIds.Contains(f.LeaderCharacterId))
                 errors.Add(new(FactionsFile, entry, $"leader_character_id가 존재하지 않는 캐릭터를 참조합니다: '{f.LeaderCharacterId}'"));
+            else if (f.LeaderCharacterId is not null)
+            {
+                if (charOwner.TryGetValue(f.LeaderCharacterId, out var o0))
+                    errors.Add(new(FactionsFile, entry, $"무장 '{f.LeaderCharacterId}'는 이미 세력 '{o0}'의 시작 무장입니다."));
+                else charOwner[f.LeaderCharacterId] = f.Id!;
+            }
+
+            // start_characters (선택) — 리더 외 시작 무장. 존재·중복 소속·리더 중복 검증 (§2.8).
+            foreach (var cid in f.StartCharacters ?? new())
+            {
+                if (!charIds.Contains(cid))
+                { errors.Add(new(FactionsFile, entry, $"start_characters가 존재하지 않는 캐릭터를 참조합니다: '{cid}'")); continue; }
+                if (cid == f.LeaderCharacterId)
+                    errors.Add(new(FactionsFile, entry, $"start_characters '{cid}'가 leader_character_id 와 중복됩니다."));
+                if (charOwner.TryGetValue(cid, out var o1))
+                    errors.Add(new(FactionsFile, entry, $"무장 '{cid}'는 이미 세력 '{o1}'의 시작 무장입니다."));
+                else charOwner[cid] = f.Id!;
+            }
 
             if (f.StartProvinces is null || f.StartProvinces.Count == 0)
                 errors.Add(new(FactionsFile, entry, "start_provinces는 1건 이상 필수입니다."));
@@ -1061,7 +1101,7 @@ public sealed class DataLoader
                 f.AiDisposition!, f.LeaderCharacterId,
                 f.StartResources!.Gold!.Value, f.StartResources.Food!.Value, f.StartTechLevel!.Value,
                 f.DifficultyModifier!.ResourceBonus!.Value, f.DifficultyModifier.AiAggression!.Value,
-                f.StartProvinces!));
+                f.StartProvinces!, f.StartCharacters ?? new()));
 
         var cutsceneTriggers = (triggersFile.Triggers ?? new()).ToDictionary(
             t => t.Id!,

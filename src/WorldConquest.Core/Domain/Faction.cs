@@ -23,6 +23,9 @@ public sealed class Faction
     private readonly List<string> _ownedProvinceIds;
     public IReadOnlyList<string> OwnedProvinceIds => _ownedProvinceIds;
 
+    /// <summary>시작 시 리더와 함께 소속되는 추가 무장 id (§2.8 — 리더 외 초기 무장). 비면 리더 1명만.</summary>
+    public IReadOnlyList<string> StartCharacterIds { get; }
+
     private readonly Dictionary<string, DiplomaticState> _relations = new();
     public IReadOnlyDictionary<string, DiplomaticState> DiplomaticRelations => _relations;
 
@@ -31,7 +34,8 @@ public sealed class Faction
         string aiDisposition, string? leaderCharacterId,
         int treasury, int food, int techLevel,
         int resourceBonus, int aiAggression,
-        IEnumerable<string> startProvinceIds)
+        IEnumerable<string> startProvinceIds,
+        IEnumerable<string>? startCharacterIds = null)
     {
         Id = id;
         NameKo = nameKo;
@@ -45,6 +49,7 @@ public sealed class Faction
         ResourceBonus = resourceBonus;
         AiAggression = aiAggression;
         _ownedProvinceIds = new List<string>(startProvinceIds);
+        StartCharacterIds = (startCharacterIds ?? Enumerable.Empty<string>()).ToList();
     }
 
     public DiplomaticState GetRelation(string otherFactionId) =>

@@ -64,6 +64,7 @@ internal sealed class FactionStateDto
     public int? Mandate { get; set; }            // 천명 (§2.8, additive)
     public int? PityCount { get; set; }          // 5성 천장 카운터
     public int? SummonsThisTurn { get; set; }
+    public int? RecruitsThisTurn { get; set; }   // 등용 턴당 시도 (§2.8, additive)
     public string? TaxLevel { get; set; }        // 세율 단계 (§2.3, additive)
     public int? TechPoints { get; set; }         // 기술 포인트 (§2.3, additive)
 }

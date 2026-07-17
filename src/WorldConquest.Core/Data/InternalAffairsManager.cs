@@ -158,6 +158,7 @@ public sealed class InternalAffairsManager
             faction.TransferredGoldThisTurn = 0;   // 동맹 지원 턴당 상한 리셋 (§1.2)
             faction.TransferredFoodThisTurn = 0;
             faction.SummonsThisTurn = 0;           // 초빙 턴당 캡 리셋 (§2.8)
+            faction.RecruitsThisTurn = 0;          // 등용 턴당 캡 리셋 (§2.8 recruit)
             faction.Mandate += _db.Rules.SummonIncomeBasePerTurn;   // 천명 기본 수입 (§2.8.3)
         }
 

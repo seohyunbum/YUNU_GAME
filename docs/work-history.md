@@ -200,3 +200,12 @@
 - 검증: build -warnaserror 녹색, 테스트 200 유지. 콘텐츠 증가로 깨진 기존 테스트 7건은 하드코딩(풀 3명·그래프 격리 지점·wei 베이징 태수)을 **데이터 유래로 강건화**해 의도 보존 수정 (§5 확장마다 테스트가 깨지지 않도록).
 - 맵 밸런스: 신규 동아시아 거점이 beijing 과 접경 → AI 턴1 무방비 수도 스나이프(기존 france↔rome 과 동일한 기존 AI 행동). nanjing 을 beijing 대신 chengdu 접경으로 옮겨 베이징 이중접경 완화.
 - ⚠ 배치 시뮬 관찰(회귀 아님, [SHOULD]): 7세력→10세력·12→18거점으로 커지며 AI 대 AI 는 200턴 내 완전정복 미완 = 전부 무승부(이전 판정 종결). 대륙이 대양으로 분단돼 AI 해상 원정이 통일을 못 맺음. **2인 핫시트(주 모드)엔 무영향** — 인간이 능동 정복. 후속 밸런스(턴 상한·AI 후반 해상 공세·대륙 간 연결)는 Phase 2 게이트 안건.
+
+## 2026-07-17 — 무장 획득 2경로 추가: 시작 배치(start_characters) + 등용(recruit)
+
+- 요청: "시작 무장 1명(리더)뿐 → 몇 명 데리고 시작 + 등용 시스템 둘 다(C)".
+- (A) start_characters: factions.json 신규 필드. GameSetup StartOwners 가 리더+start_characters 를 시작 소속. 6세력에 2번째 무장 배치(촉 관우·위 곽가·오 태사자·조선 장영실·칼데아 마슈·어벤져스 헐크). 검증(존재·리더중복·세력간 중복소속) DataLoader. 잔여 재야 4명(잔다르크·랜서·이타도리·아처)이 등용/초빙 풀.
+- (B) 등용 RecruitmentSystem: 재야(recruit 채널·미소속) 지목 영입. 성공률=base+사신매력×계수−rarity×페널티(정수 만분율 clamp), 비용=base+rarity×cost_per_rarity(실패도 소모), recruit:{faction} 스트림으로 결정적·세이브스컴 불가. 턴당 캡(RecruitsThisTurn, 수입 리셋·additive 세이브). 콘솔 recruits/enlist, API enlist. game_rules.recruit_general 상수.
+- 판단: 초빙(SummonSystem)과 별개 클래스(SRP) — 등용=지목·매력승부, 초빙=확률추첨. 충성도는 CharacterOwners 소속만(초빙과 동일, 별도 충성도 스토어 미도입 — 후속). 랜서(빛의왕자)에 등장씬 부여(★5 소환 등장씬 테스트 대상 겸 콘텐츠).
+- 검증: build -warnaserror 녹색, 테스트 200→215(신규 15: 시작배치 3·등용 12). 콘솔 실행으로 시작 2인·recruits·enlist(성공률 25% 표시·실패 비용 소모) 실동작 확인. schema_version 유지(recruit_general 은 rules 추가라 세이브 스키마 불변, start_characters 는 정의 데이터 additive).
+- data schema/세이브: FactionState.RecruitsThisTurn additive(SaveVersion 불변). start_characters 는 정의 데이터(schema_version 2 유지 — 필수화 아닌 선택 필드).

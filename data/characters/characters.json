@@ -550,7 +550,8 @@
         "recruit"
       ],
       "initial_status": "unaffiliated"
-    }
+    },
+    "entry_cutscene_id": "cs_entry_lancer_prince"
   },
   {
     "id": "yuji_itadori",

@@ -29,15 +29,21 @@ public static class GameSetup
             Rng = new RngStreams(seed),
             Factions = factions,
             Progress = new HashSet<string>(),
-            CharacterOwners = LeaderOwners(db)
+            CharacterOwners = StartOwners(db)
         };
     }
 
-    /// <summary>세력 리더 캐릭터의 시작 소속 (§2.8 — 초빙 풀은 미소속 파생).</summary>
-    private static Dictionary<string, string> LeaderOwners(GameDatabase db) =>
-        db.Factions.Values
-            .Where(f => f.LeaderCharacterId is not null)
-            .ToDictionary(f => f.LeaderCharacterId!, f => f.Id);
+    /// <summary>시작 소속 (§2.8): 세력 리더 + start_characters(추가 시작 무장). 초빙·등용 풀은 미소속 파생.</summary>
+    private static Dictionary<string, string> StartOwners(GameDatabase db)
+    {
+        var owners = new Dictionary<string, string>();
+        foreach (var f in db.Factions.Values)
+        {
+            if (f.LeaderCharacterId is not null) owners[f.LeaderCharacterId] = f.Id;
+            foreach (var cid in f.StartCharacterIds) owners[cid] = f.Id;   // 검증에서 중복·존재 보장
+        }
+        return owners;
+    }
 
     /// <summary>
     /// 새 캠페인. <paramref name="player2FactionId"/> 가 null 이면 1인 플레이(조작자 1명, 나머지 전부 AI).
@@ -75,7 +81,7 @@ public static class GameSetup
             Rng = new RngStreams(seed),
             Factions = factions,
             Progress = new HashSet<string>(),
-            CharacterOwners = LeaderOwners(db)
+            CharacterOwners = StartOwners(db)
         };
     }
 }

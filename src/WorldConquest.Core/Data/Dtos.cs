@@ -161,6 +161,7 @@ internal sealed class FactionDto
     public string? AiDisposition { get; set; }
     public string? LeaderCharacterId { get; set; }
     public List<string>? StartProvinces { get; set; }
+    public List<string>? StartCharacters { get; set; }   // 리더 외 시작 무장 (선택, §2.8)
     public ResourceAmountDto? StartResources { get; set; }
     public int? StartTechLevel { get; set; }
     public DifficultyModifierDto? DifficultyModifier { get; set; }
@@ -187,6 +188,20 @@ internal sealed class SummonRulesDto
     public bool? BatchMinRarity4Guarantee { get; set; }
     public int? MaxSummonsPerTurn { get; set; }
     public int? JoinLoyalty { get; set; }
+}
+
+internal sealed class RecruitGeneralRulesDto
+{
+    public int? BaseCostGold { get; set; }
+    public int? CostPerRarity { get; set; }
+    public int? BaseChancePermyriad { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("envoy_cha_permyriad_per_100")]
+    public int? EnvoyChaPermyriadPer100 { get; set; }
+    public int? RarityPenaltyPermyriad { get; set; }
+    public int? ChanceMinPermyriad { get; set; }
+    public int? ChanceMaxPermyriad { get; set; }
+    public int? JoinLoyalty { get; set; }
+    public int? MaxPerTurn { get; set; }
 }
 
 internal sealed class SummonIncomeDto
@@ -366,7 +381,8 @@ internal sealed class GameRulesDto
     public Dictionary<string, FacilityDefDto>? Facilities { get; set; }   // 시설 정의 (§2.3)
     public CombatRulesDto? Combat { get; set; }   // 전투 상수 (§2.6)
     public DuelRulesDto? Duel { get; set; }       // 일기토 상수 (§2.6, 2026-07-16 구현 확정)
-    public SummonRulesDto? Summon { get; set; }   // 초빙 상수 (§2.8)
+    public SummonRulesDto? Summon { get; set; }
+    public RecruitGeneralRulesDto? RecruitGeneral { get; set; }   // 초빙 상수 (§2.8)
     public List<string>? ValidTerrains { get; set; }
     public List<string>? ValidClimates { get; set; }
     public List<string>? ValidRegions { get; set; }
