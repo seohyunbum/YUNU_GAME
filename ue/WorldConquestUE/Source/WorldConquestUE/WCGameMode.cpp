@@ -37,14 +37,14 @@ void AWCGameMode::BeginPlay()
     }
 
     // 직교 탑다운 카메라 — BoardToWorld 매핑과 짝: 화면 위 = +X(북), 화면 오른쪽 = +Y(동).
-    if (ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(
-            FVector(0, 0, 10000.0), FRotator(-90.f, 0.f, 0.f)))
+    BoardCamera = GetWorld()->SpawnActor<ACameraActor>(FVector(0, 0, 10000.0), FRotator(-90.f, 0.f, 0.f));
+    if (BoardCamera)
     {
-        UCameraComponent* Cam = Camera->GetCameraComponent();
+        UCameraComponent* Cam = BoardCamera->GetCameraComponent();
         Cam->ProjectionMode = ECameraProjectionMode::Orthographic;
-        Cam->OrthoWidth = 23000.f;
+        Cam->OrthoWidth = 21000.f;   // 지도 평면 20000(등장방형 2:1) + 여백
         if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
-            PC->SetViewTarget(Camera);
+            PC->SetViewTarget(BoardCamera);
     }
 
     MapActor = GetWorld()->SpawnActor<AWCMapActor>(FVector::ZeroVector, FRotator::ZeroRotator);
@@ -524,6 +524,25 @@ void AWCGameMode::CaptureSelected()
 {
     if (SelectedNodeId.IsEmpty()) return;
     SendVerb(TEXT("capture"), { SelectedNodeId });
+}
+
+void AWCGameMode::ZoomCamera(float WheelDelta)
+{
+    if (!BoardCamera || FMath::IsNearlyZero(WheelDelta)) return;
+    UCameraComponent* Cam = BoardCamera->GetCameraComponent();
+    Cam->OrthoWidth = FMath::Clamp(Cam->OrthoWidth * (1.f - WheelDelta * 0.12f), 2500.f, 21000.f);
+}
+
+void AWCGameMode::PanCamera(float DeltaX, float DeltaY)
+{
+    if (!BoardCamera) return;
+    const float Scale = BoardCamera->GetCameraComponent()->OrthoWidth / 1200.f;   // 줌 비례 감도
+    FVector Pos = BoardCamera->GetActorLocation();
+    Pos.Y -= DeltaX * Scale;        // 마우스 우 = 지도 좌로 끌기
+    Pos.X += DeltaY * Scale;        // 마우스 상 = 지도 아래로 끌기 (드래그 관성 방향)
+    Pos.X = FMath::Clamp(Pos.X, -5200.0, 5200.0);
+    Pos.Y = FMath::Clamp(Pos.Y, -10200.0, 10200.0);
+    BoardCamera->SetActorLocation(Pos);
 }
 
 void AWCGameMode::ScheduleQaShotIfRequested()

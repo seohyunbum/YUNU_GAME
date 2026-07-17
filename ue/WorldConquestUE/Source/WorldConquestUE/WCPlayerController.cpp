@@ -41,12 +41,29 @@ void AWCPlayerController::SetupInputComponent()
     Bind(EKeys::F5, [](AWCGameMode* G) { G->QuickSave(); });
     Bind(EKeys::F9, [](AWCGameMode* G) { G->QuickLoad(); });
 
+    // 카메라 줌 (마우스 휠)
+    Bind(EKeys::MouseScrollUp, [](AWCGameMode* G) { G->ZoomCamera(1.f); });
+    Bind(EKeys::MouseScrollDown, [](AWCGameMode* G) { G->ZoomCamera(-1.f); });
+
     // 세력 선택 (숫자키 1~9) + 핫시트 토글
     const FKey Digits[] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four,
                             EKeys::Five, EKeys::Six, EKeys::Seven, EKeys::Eight, EKeys::Nine };
     for (int32 i = 0; i < UE_ARRAY_COUNT(Digits); ++i)
         Bind(Digits[i], [i](AWCGameMode* G) { G->SelectFactionByIndex(i); });
     Bind(EKeys::H, [](AWCGameMode* G) { G->ToggleHotseat(); });
+}
+
+void AWCPlayerController::PlayerTick(float DeltaTime)
+{
+    Super::PlayerTick(DeltaTime);
+    // 우클릭 드래그 팬 — KOEI식 지도 탐색
+    if (IsInputKeyDown(EKeys::RightMouseButton))
+    {
+        float DX = 0.f, DY = 0.f;
+        GetInputMouseDelta(DX, DY);
+        if (AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>())
+            GM->PanCamera(DX, DY);
+    }
 }
 
 void AWCPlayerController::OnEndTurnPressed()

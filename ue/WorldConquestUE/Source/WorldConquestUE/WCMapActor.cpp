@@ -7,14 +7,16 @@ DEFINE_LOG_CATEGORY_STATIC(LogWCMap, Log, All);
 
 namespace
 {
-    constexpr double BoardScale = 20.0;     // map_pos 1 단위 = 20cm
+    // 등장방형 지구 좌표 (1000×500) — NASA 지도 이미지와 1:1 정합 (x=경도, y=위도)
+    constexpr double BoardScale = 20.0;     // map_pos 1 단위 = 20cm → 지도 평면 20000×10000cm
     constexpr double BoardCenterX = 500.0;  // 0~1000
-    constexpr double BoardCenterY = 350.0;  // 0~700
+    constexpr double BoardCenterY = 250.0;  // 0~500
 
-    const FLinearColor NeutralColor(0.35f, 0.35f, 0.35f);
-    const FLinearColor SeaColor(0.05f, 0.15f, 0.40f);
-    const FLinearColor LandEdgeColor(0.6f, 0.5f, 0.3f);
-    const FLinearColor SeaEdgeColor(0.1f, 0.3f, 0.6f);
+    const FLinearColor NeutralColor(0.75f, 0.73f, 0.68f);   // 지도 위 중립 마커 = 회백
+    const FLinearColor SeaColor(0.15f, 0.4f, 0.85f);        // 해역 거점 = 청색
+    const FLinearColor LandEdgeColor(0.35f, 0.25f, 0.12f);  // 육로 = 진갈색 (밝은 지도 위 대비)
+    const FLinearColor SeaEdgeColor(0.06f, 0.2f, 0.45f);    // 해로 = 진남색
+    const FLinearColor RimColor(0.03f, 0.03f, 0.03f);       // 마커 테두리 = 흑
 }
 
 AWCMapActor::AWCMapActor()
@@ -22,11 +24,12 @@ AWCMapActor::AWCMapActor()
     PrimaryActorTick.bCanEverTick = false;
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 
-    // 엔진 내장 에셋만 사용 (코드-퍼스트 [MUST]) — 프로젝트 에셋 저작 없음
+    // 코드-퍼스트 [MUST] — 엔진 내장 메시만 생성자에서. /Game 에셋은 CDO 시점에
+    // 레지스트리 미준비로 실패할 수 있어 BuildFromStatic 의 런타임 LoadObject 로.
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
     CylinderMesh = Cylinder.Object;
-    static ConstructorHelpers::FObjectFinder<UMaterialInterface> Material(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
-    BaseMaterial = Material.Object;
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> Fallback(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+    BaseMaterial = Fallback.Object;
 }
 
 FVector AWCMapActor::BoardToWorld(double X, double Y)
@@ -39,6 +42,30 @@ FVector AWCMapActor::BoardToWorld(double X, double Y)
 void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
 {
     if (!StaticJson.IsValid()) { UE_LOG(LogWCMap, Error, TEXT("static 정의 없음")); return; }
+
+    // 마커·간선 머티리얼 = unlit 색 (에디터 Python 생성물 — 런타임 로드, 미존재 시 lit 유지)
+    if (UMaterialInterface* Unlit = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorldMap/M_UnlitColor.M_UnlitColor")))
+        BaseMaterial = Unlit;
+    else
+        UE_LOG(LogWCMap, Warning, TEXT("M_UnlitColor 없음 — lit 폴백 (Scripts/import_worldmap.py 실행 필요)"));
+
+    // 바닥 = NASA 세계지도 평면 (에디터 Python 이 생성한 /Game/WorldMap 에셋, unlit)
+    if (UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")))
+    {
+        UStaticMeshComponent* Floor = NewObject<UStaticMeshComponent>(this, TEXT("worldmap_floor"));
+        Floor->SetupAttachment(RootComponent);
+        Floor->RegisterComponent();
+        Floor->SetStaticMesh(Plane);
+        Floor->SetRelativeLocation(FVector(0, 0, -12.0));
+        // 이미지 U(서→동)=월드 +Y, V(북→남)=월드 -X 가 되도록 yaw 90 (실측-교정은 QA 샷)
+        Floor->SetRelativeRotation(FRotator(0.f, 90.f, 0.f));
+        Floor->SetRelativeScale3D(FVector(200.0, 100.0, 1.0));   // 20000×10000cm
+        Floor->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        if (UMaterialInterface* MapMat = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorldMap/M_WorldMap.M_WorldMap")))
+            Floor->SetMaterial(0, MapMat);
+        else
+            UE_LOG(LogWCMap, Warning, TEXT("M_WorldMap 에셋 없음 — Scripts/import_worldmap.py 실행 필요"));
+    }
 
     // 세력 색 (#RRGGBB)
     for (const TSharedPtr<FJsonValue>& F : StaticJson->GetArrayField(TEXT("factions")))
@@ -151,13 +178,25 @@ FLinearColor AWCMapActor::GetFactionColor(const FString& FactionId) const
 
 UStaticMeshComponent* AWCMapActor::MakeNodeMesh(const FString& NodeId, const FVector& Pos, bool bSea)
 {
+    // 테두리(흑) 원판 — 밝은 위성지도 위에서 마커 윤곽 확보
+    UStaticMeshComponent* Rim = NewObject<UStaticMeshComponent>(this);
+    Rim->SetupAttachment(RootComponent);
+    Rim->RegisterComponent();
+    Rim->SetStaticMesh(CylinderMesh);
+    Rim->SetRelativeLocation(Pos - FVector(0, 0, 3.0));
+    Rim->SetRelativeScale3D(bSea ? FVector(3.2, 3.2, 0.06) : FVector(2.6, 2.6, 0.4));
+    Rim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    UMaterialInstanceDynamic* RimMat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+    RimMat->SetVectorParameterValue(TEXT("Color"), RimColor);
+    Rim->SetMaterial(0, RimMat);
+
     UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(this, *FString::Printf(TEXT("node_%s"), *NodeId));
     Mesh->SetupAttachment(RootComponent);
     Mesh->RegisterComponent();
     Mesh->SetStaticMesh(CylinderMesh);
     Mesh->SetRelativeLocation(Pos);
-    // 육상 = 굵은 원판, 해역 = 낮고 넓은 원판 (직교 원경에서도 식별되는 크기)
-    Mesh->SetRelativeScale3D(bSea ? FVector(3.4, 3.4, 0.08) : FVector(2.4, 2.4, 0.45));
+    // 지도 위 도시 마커 — 촘촘한 동아시아에서도 겹치지 않는 크기 (등장방형은 도시 간격이 좁음)
+    Mesh->SetRelativeScale3D(bSea ? FVector(2.6, 2.6, 0.08) : FVector(2.0, 2.0, 0.5));
     Mesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);   // M2 클릭 픽킹 대비
 
     UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
@@ -180,7 +219,7 @@ void AWCMapActor::MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRout
     Mesh->SetRelativeLocation(Mid);
     // 실린더 기본 축 = Z(높이 100) → 간선 방향으로 눕힌다
     Mesh->SetRelativeRotation(FRotationMatrix::MakeFromZ(B - A).Rotator());
-    Mesh->SetRelativeScale3D(FVector(0.25, 0.25, Length / 100.0));
+    Mesh->SetRelativeScale3D(FVector(0.5, 0.5, Length / 100.0));
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
     UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(BaseMaterial, this);

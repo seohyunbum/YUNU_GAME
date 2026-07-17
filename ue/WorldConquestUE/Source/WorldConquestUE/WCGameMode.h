@@ -61,6 +61,11 @@ public:
     void SelectFactionByIndex(int32 Index);       // 숫자키 1~9
     void ToggleHotseat();
 
+    // ── 카메라 줌/팬 (휠 + 우클릭 드래그) ──
+    void ZoomCamera(float WheelDelta);            // 휠 — OrthoWidth 3000~21000
+    void PanCamera(float DeltaX, float DeltaY);   // 우클릭 드래그 — 지도 범위 클램프
+    TObjectPtr<class ACameraActor> BoardCamera;
+
     // ── 컷씬 오버레이 (표현 전용 — fired 판정은 서버) ──
     struct FWCActiveCutscene { FString Id; int32 LineIndex = 0; };
     TMap<FString, FWCCutscene> Cutscenes;

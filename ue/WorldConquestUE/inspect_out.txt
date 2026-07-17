@@ -1,0 +1,6 @@
+expressions=1
+shading_model=<MaterialShadingModel.MSM_UNLIT: 0>
+vector_params=['Color']
+connect_result=True
+vector_params_after=['Color']
+DONE

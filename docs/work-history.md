@@ -120,3 +120,11 @@
 - **결과**: ①클릭 해석 모드 — [M]이동/[A]공격 → 목표 클릭 2단계, ESC 취소 ②영지 선택 시 아군 부대 자동 선택(이동·공격의 주어) ③[R/T]징병 10/50·[U]병종 순환·[B/N]건설·[S]초빙·[F5/F9] 퀵세이브/로드(서버 로컬 %USERPROFILE%/WorldConquest/saves/quick.json) ④명령 안내줄 HUD ⑤**QA -WCCmd="verb a b|verb c"** 명령 체인 러너 — 클릭 없이 명령 경로 시각 검증. 실증: 점령→징병20(주둔 20·아군부대 표시)→건설·초빙 서버 거부 라인 표시.
 - **함정**: `UInputComponent::BindKeyLambda` 는 존재하지 않는 API — 람다 키 바인딩은 `FInputKeyBinding` + `KeyDelegate.GetDelegateForManualSet().BindLambda` + `KeyBindings.Add` 패턴.
 - **잔여 (M2 마감 항목)**: 세력 선택 화면(현재 solo 조선 고정)·컷씬 대사 표시(현재 id 만)·deploy-local.py 에 3D 바로가기·wc-game 갱신 통합·병종별 징병 비용 표시.
+
+## 2026-07-17 — 비주얼 개편 1: NASA 실세계지도 + 줌/팬 (사용자 피드백 대응)
+
+- **계기**: 사용자 실플레이 피드백 — "실제 세계지도 멋진 게 나오고 KOEI 같은 인터페이스 창들이 나와야지". 기능 배선 단계의 그래프 다이어그램 화면은 기대 미달. 비주얼·UI 우선으로 전환.
+- **결과**: ①NASA Blue Marble 7월(퍼블릭 도메인, 사용자 다운로드 승인) 5400×2700 을 unlit 평면으로 — **에디터 Python 커맨드렛**(`Scripts/import_worldmap.py`)으로 텍스처 임포트+머티리얼 생성 (에셋 파이프라인 개통, GUI 0) ②map_pos 를 실위경도 등장방형(1000×500)으로 재정합 — 도시가 실제 위치에 ③M_UnlitColor(색 파라미터 unlit)로 마커·간선 — 조명 씻김 해소 ④마커 흑 테두리 ⑤**휠 줌(OrthoWidth 2500~21000)+우클릭 드래그 팬** — 동아시아 밀집 해소 수단.
+- **디버깅 여정 (3샷)**: 흰 간선 원인 후보를 A/B 로 배제 — ①lit 폴백? → ConstructorHelpers 가 CDO 시점에 /Game 에셋 로드 실패하는 함정 발견, 런타임 LoadObject 로 교체 ②MID 미적용? → 머티리얼 기본값을 마젠타로 바꿔 촬영 = 마젠타 없음 → MID 정상 ③**진범 = 서브픽셀 지오메트리의 TAA 뭉개짐** (간선 반지름 7cm ≈ 화면 1px) → 두께 픽셀 기준 상향으로 해소.
+- **함정 (재발 방지)**: ①생성자 ConstructorHelpers 로 /Game 에셋 찾지 말 것(레지스트리 타이밍) — 런타임 LoadObject ②`unreal.log` 는 pythonscript 커맨드렛 stdout 에 안 흐름 — 검사 출력은 파일로 ③가는 지오메트리는 TAA 에 하얗게 뭉개져 "색 버그"처럼 보임 — 두께부터 의심.
+- **다음**: Slate UI 창(상단 자원바·영지 정보/명령 버튼 창·전역 버튼) = KOEI 인터페이스 본체.
