@@ -196,6 +196,126 @@ public class DiplomacyTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    // ── 조공 (E6·E7) / 배신 (E9) / 불가침 (G6) ──────────────────────────────────
+
+    [Fact]
+    public void 조공은_비동맹에게만_동맹에겐_지원을_쓴다()
+    {
+        var (s, _, dip) = Setup();
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 10000;
+
+        Assert.Equal(DiplomacyOutcome.Success, dip.SendTribute("joseon", "wei", 100, 0));
+        dip.FormAlliance("joseon", "wei");
+        Assert.Equal(DiplomacyOutcome.AlliedTarget, dip.SendTribute("joseon", "wei", 100, 0));
+    }
+
+    [Fact]
+    public void 조공은_자원을_옮기고_우호도를_올린다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var dip = new DiplomacyManager(s, db);
+        var led = new RelationLedger(s, db);
+        var t = db.Rules.Diplomacy.Tribute;
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        var wei = s.Factions.Single(f => f.Id == "wei");
+        joseon.Treasury = 10000;
+        var weiGold = wei.Treasury;
+
+        Assert.Equal(DiplomacyOutcome.Success, dip.SendTribute("joseon", "wei", t.GoldPerFavor * 7, 0));
+
+        Assert.Equal(10000 - t.GoldPerFavor * 7, joseon.Treasury);
+        Assert.Equal(weiGold + t.GoldPerFavor * 7, wei.Treasury);
+        Assert.Equal(7, led.Favor("joseon", "wei"));
+    }
+
+    /// <summary>
+    /// **DoD [MUST]** — 조공이 §1.2 '자원 지원 턴당 상한' 을 우회하지 못한다 (E7).
+    /// 캡은 대상별이 아니라 '보내는 세력의 턴 누계' 라, 조공에 전용 캡을 주면
+    /// "동맹 A 에게 지원 500 → 비동맹 B 에게 조공 500" = 턴당 1000 이 빠져나간다.
+    /// </summary>
+    [Fact]
+    public void 조공은_동맹지원과_캡_예산을_공유한다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var dip = new DiplomacyManager(s, db);
+        var cap = db.Rules.AllianceTransferCapPerTurn;
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 100000;
+
+        // 동맹 A(wei) 에게 캡 전액 지원
+        dip.FormAlliance("joseon", "wei");
+        Assert.Equal(DiplomacyOutcome.Success, dip.TransferResources("joseon", "wei", cap.Gold, 0));
+
+        // 비동맹 제3국 B(france) 에게 조공 시도 → 예산이 이미 소진됐으므로 거부돼야 한다
+        Assert.Equal(DiplomacyOutcome.TransferCapExceeded, dip.SendTribute("joseon", "france", 1, 0));
+
+        // 새 턴(수입 페이즈)에 리셋되면 다시 가능
+        gm.CollectIncome();
+        Assert.Equal(DiplomacyOutcome.Success, dip.SendTribute("joseon", "france", 1, 0));
+    }
+
+    [Fact]
+    public void 조공_잔고_부족과_잘못된_금액은_거부()
+    {
+        var (s, _, dip) = Setup();
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 10;
+        Assert.Equal(DiplomacyOutcome.InvalidAmount, dip.SendTribute("joseon", "wei", 0, 0));
+        Assert.Equal(DiplomacyOutcome.InvalidAmount, dip.SendTribute("joseon", "wei", -5, 0));
+        Assert.Equal(DiplomacyOutcome.InsufficientResources, dip.SendTribute("joseon", "wei", 50, 0));
+        Assert.Equal(DiplomacyOutcome.SelfTarget, dip.SendTribute("joseon", "joseon", 5, 0));
+    }
+
+    /// <summary>배신에 대가가 없으면 동맹은 공짜 방패가 된다 — 제3국 전체가 등을 돌린다(§5.2).</summary>
+    [Fact]
+    public void 동맹_중_선전포고는_배신이라_제3국까지_등을_돌린다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var dip = new DiplomacyManager(s, db);
+        var led = new RelationLedger(s, db);
+        var r = db.Rules.Diplomacy;
+
+        dip.FormAlliance("joseon", "wei");
+        var beforeThird = led.Favor("joseon", "france");
+
+        dip.DeclareWar("joseon", "wei");   // 배신
+
+        Assert.Equal(r.OnAllianceFormed + r.OnBetrayal, led.Favor("joseon", "wei"));
+        Assert.Equal(beforeThird + r.OnBetrayalReputation, led.Favor("joseon", "france"));   // 제3국
+        Assert.Equal(beforeThird + r.OnBetrayalReputation, led.Favor("joseon", "shu"));
+    }
+
+    [Fact]
+    public void 동맹이_아니면_선전포고해도_배신이_아니다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var dip = new DiplomacyManager(s, db);
+        var led = new RelationLedger(s, db);
+
+        dip.DeclareWar("joseon", "wei");
+
+        Assert.Equal(0, led.Favor("joseon", "wei"));        // 평판 페널티 없음
+        Assert.Equal(0, led.Favor("joseon", "france"));
+    }
+
+    /// <summary>G6 해소: 불가침이 enum 에만 있고 쓰는 경로가 없어 도달 불가였다.</summary>
+    [Fact]
+    public void 불가침은_중립에서만_체결된다()
+    {
+        var (s, _, dip) = Setup();
+
+        Assert.Equal(DiplomacyOutcome.Success, dip.SetNonAggression("joseon", "wei"));
+        Assert.Equal(DiplomaticState.NonAggression, s.Factions.Single(f => f.Id == "joseon").Relations["wei"]);
+        Assert.Equal(DiplomaticState.NonAggression, s.Factions.Single(f => f.Id == "wei").Relations["joseon"]);
+
+        Assert.Equal(DiplomacyOutcome.NotNeutral, dip.SetNonAggression("joseon", "wei"));   // 이미 불가침
+        dip.DeclareWar("joseon", "france");
+        Assert.Equal(DiplomacyOutcome.NotNeutral, dip.SetNonAggression("joseon", "france"));   // 전쟁 중
+    }
+
     // ── 전투 → 관계도 훅 (E8: Attack 의 3분기 각각. PublishBattleEvents 는 육상에서만 호출된다) ──
 
     [Fact]
