@@ -4,13 +4,13 @@
 #include "GameFramework/Actor.h"
 #include "WCCityDiorama.generated.h"
 
-class UStaticMeshComponent;
-class UMaterialInstanceDynamic;
+class UHierarchicalInstancedStaticMeshComponent;
 
 /**
- * 도시 3D 디오라마 (KOEI 거점 화면 배경) — 엔진 기본 도형으로 절차 생성한 동아시아 성곽 마을.
- * 세계지도 밖 먼 위치(도시 화면 전용 카메라가 비춤)에 1회 스폰, 진입 도시의 세력색·시설로 갱신.
- * 코드-퍼스트 [MUST] — 외부 에셋 0. Fab 건물팩이 들어오면 프리미티브를 메시로 교체하는 자리.
+ * 도시 3D 디오라마 (KOEI 거점 화면 배경) — Fab "Stylized Eastern Village" 팩의
+ * 데모 맵 배치(village_layout.json, 2944 액터)를 메시별 HISM 인스턴싱으로 정확 재현.
+ * 세계지도 밖 먼 위치에 1회 스폰, 도시 화면 전용 카메라가 건물 밀집부를 비춘다.
+ * 에셋/JSON 부재 시 안전 폴백(빈 액터) — 크래시 없음.
  */
 UCLASS()
 class WORLDCONQUESTUE_API AWCCityDiorama : public AActor
@@ -21,32 +21,18 @@ public:
     AWCCityDiorama();
     virtual void BeginPlay() override;
 
-    /** 진입 도시 갱신 — 세력색(깃발·지붕 강조), 시설 레벨(부속 건물 수). */
+    /** 진입 도시 갱신 — 세력 깃발 색 (마을 자체는 공통). */
     void Configure(const FLinearColor& FactionColor, int32 MarketLv, int32 FarmLv, bool bPort);
 
-    /** 도시 화면 카메라가 볼 시점(뷰 타깃 트랜스폼). */
+    /** 도시 화면 카메라 뷰포인트 (건물 밀집부를 바라보는 시네마틱 앵글). */
     FTransform GetViewpoint() const;
 
+    bool IsLoaded() const { return bLoaded; }
+
 private:
-    // 절차 배치 도형 헬퍼
-    UStaticMeshComponent* Add(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
-                              const FLinearColor& Color, const FRotator& Rot = FRotator::ZeroRotator,
-                              UMaterialInstanceDynamic** OutMid = nullptr);
-    void BuildKeep(const FVector& Base);            // 천수각(3층 기와 성채)
-    void BuildHouse(const FVector& Base, double Yaw, double Scale, const FLinearColor& Roof);
-    void BuildWall(const FVector& A, const FVector& B);
-    void BuildBanner(const FVector& Base, double Height);
+    bool bLoaded = false;
+    FVector VillageCenter = FVector::ZeroVector;   // 배치 원점 보정용 (마을을 액터 원점으로 이동)
 
-    UPROPERTY() TObjectPtr<UStaticMesh> Cube;
-    UPROPERTY() TObjectPtr<UStaticMesh> Cone;
-    UPROPERTY() TObjectPtr<UStaticMesh> Cylinder;
-    UPROPERTY() TObjectPtr<UStaticMesh> Plane;
-    UPROPERTY() TObjectPtr<UMaterialInterface> BaseMat;
-
-    // 세력색 반응 대상 (깃발·천수각 최상층 지붕)
-    UPROPERTY() TArray<TObjectPtr<UMaterialInstanceDynamic>> FactionTargets;
-    // 시설 연동 부속 (레벨↑ 시 표시)
-    UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> MarketBuildings;
-    UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> FarmPatches;
-    UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> PortDocks;
+    UPROPERTY()
+    TArray<TObjectPtr<UHierarchicalInstancedStaticMeshComponent>> FactionFlagHisms;
 };

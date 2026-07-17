@@ -42,6 +42,10 @@ void AWCGameMode::BeginPlay()
     Super::BeginPlay();
     UE_LOG(LogWorldConquest, Log, TEXT("WorldConquest UE client boot (protocol v1)"));
 
+    // 화면 디버그 경고 억제 (라이팅 리빌드·다중 directional light 등 — 플레이 화면에 노출 금지)
+    GAreScreenMessagesEnabled = false;
+    if (GEngine) GEngine->bEnableOnScreenDebugMessages = false;
+
     // ── 시네마틱 환경 (전부 코드 스폰 — 코드-퍼스트) ──
     // 태양: 낮은 사선 + 그림자 → 지형 릴리프가 살아남. 대기 연동으로 일몰빛.
     if (ADirectionalLight* Sun = GetWorld()->SpawnActor<ADirectionalLight>(
@@ -60,7 +64,7 @@ void AWCGameMode::BeginPlay()
     }
     if (ASkyLight* SkyLight = GetWorld()->SpawnActor<ASkyLight>())
     {
-        SkyLight->GetLightComponent()->SetIntensity(1.6f);
+        SkyLight->GetLightComponent()->SetIntensity(1.0f);   // 청색 하늘광 완화 (벽 세척 방지)
         SkyLight->GetLightComponent()->SetRealTimeCapture(true);
     }
     if (AExponentialHeightFog* Fog = GetWorld()->SpawnActor<AExponentialHeightFog>())
@@ -84,6 +88,18 @@ void AWCGameMode::BeginPlay()
         Post->Settings.AmbientOcclusionIntensity = 0.7f;
         Post->Settings.bOverride_VignetteIntensity = true;
         Post->Settings.VignetteIntensity = 0.35f;
+        // 노출 고정 — 자동노출 적응 잠금(Min=Max). 값↓ = 밝게. 0.3 = 하얗게 안 날고 어둡지도 않음
+        Post->Settings.bOverride_AutoExposureMinBrightness = true;
+        Post->Settings.AutoExposureMinBrightness = 0.3f;
+        Post->Settings.bOverride_AutoExposureMaxBrightness = true;
+        Post->Settings.AutoExposureMaxBrightness = 0.3f;
+        Post->Settings.bOverride_AutoExposureBias = true;
+        Post->Settings.AutoExposureBias = 0.4f;    // 살짝 밝게
+        // 화이트밸런스 약간 따뜻하게 (청색 하늘광 상쇄)
+        Post->Settings.bOverride_WhiteTemp = true;
+        Post->Settings.WhiteTemp = 6900.f;
+        Post->Settings.bOverride_ColorSaturation = true;
+        Post->Settings.ColorSaturation = FVector4(1.12f, 1.12f, 1.12f, 1.0f);   // 채도 +12%
     }
 
     // ── 시네마틱 카메라: 원근 틸트(-52°) + 돌리 줌 (RTK14 앵글). 화면 위 ≈ 북쪽 유지 ──
@@ -1116,14 +1132,16 @@ void AWCGameMode::ScheduleQaShotIfRequested()
     bShotScheduled = true;
 
     FTimerHandle ShotTimer, QuitTimer;
+    // 도시 진입 샷은 데모 맵(레벨 인스턴스) 비동기 로드 + 셰이더 컴파일 여유 필요
+    const float ShotAt = UiInCity() ? 12.0f : 2.0f;
     GetWorld()->GetTimerManager().SetTimer(ShotTimer, []()
     {
         FScreenshotRequest::RequestScreenshot(true);   // true = Slate UI 포함 (false 는 UI 제외 캡처)
         UE_LOG(LogWorldConquest, Log, TEXT("QA 스크린샷 요청 완료"));
-    }, 2.0f, false);
+    }, ShotAt, false);
     GetWorld()->GetTimerManager().SetTimer(QuitTimer, [this]()
     {
         UE_LOG(LogWorldConquest, Log, TEXT("QA 하네스 종료"));
         FPlatformMisc::RequestExit(false);
-    }, 5.0f, false);
+    }, ShotAt + 3.0f, false);
 }

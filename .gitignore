@@ -32,3 +32,6 @@ ue/**/shot_*.png
 ue/**/citybg_out.txt
 ue/**/portraits_out.txt
 ue/**/qa_*.png
+ue/**/Content/Asian_Village/
+ue/**/village_layout.json
+ue/**/*_out.txt
