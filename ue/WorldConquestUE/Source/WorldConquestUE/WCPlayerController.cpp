@@ -142,8 +142,12 @@ bool AWCPlayerController::ReadCursorDelta(FVector2D& OutDelta)
 
 void AWCPlayerController::OnEndTurnPressed()
 {
-    if (AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>())
-        GM->EndTurn();
+    AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
+    if (!GM) return;
+    // 모달이 떠 있으면 Enter/Space 는 턴 종료가 아니다 — 전투 결과 보다가 스페이스로
+    // 턴이 넘어가 버리는 사고 방지(실측).
+    if (GM->ActiveBattle.IsSet() || GM->ActiveReveal.IsSet() || GM->GetActiveCutsceneDef()) return;
+    GM->EndTurn();
 }
 
 void AWCPlayerController::OnClick()

@@ -94,5 +94,6 @@ TSharedRef<SWidget> SWCBattleOverlay::SideRow(bool bAttacker)
 
 EVisibility SWCBattleOverlay::BattleVisibility() const
 {
-    return GM.IsValid() && GM->ActiveBattle.IsSet() ? EVisibility::HitTestInvisible : EVisibility::Collapsed;
+    return GM.IsValid() && GM->ActiveBattle.IsSet() ? EVisibility::Visible : EVisibility::Collapsed;   // [MUST] Visible = 딤이 클릭을 흡수한다.
+                                                       // HitTestInvisible 이면 딤 뒤의 버튼이 그대로 눌린다(실측).
 }

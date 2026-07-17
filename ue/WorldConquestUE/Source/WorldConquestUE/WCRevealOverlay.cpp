@@ -120,5 +120,6 @@ const FSlateBrush* SWCRevealOverlay::GetPortraitBrush() const
 
 EVisibility SWCRevealOverlay::RevealVisibility() const
 {
-    return GM.IsValid() && GM->ActiveReveal.IsSet() ? EVisibility::HitTestInvisible : EVisibility::Collapsed;
+    return GM.IsValid() && GM->ActiveReveal.IsSet() ? EVisibility::Visible : EVisibility::Collapsed;   // [MUST] Visible = 딤이 클릭을 흡수한다.
+                                                       // HitTestInvisible 이면 딤 뒤의 버튼이 그대로 눌린다(실측).
 }

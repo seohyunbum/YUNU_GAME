@@ -12,6 +12,12 @@ void AWCHUD::DrawHUD()
     UFont* Large = GEngine->GetLargeFont();
     UFont* Small = GEngine->GetMediumFont();
 
+    // [MUST] 거점 화면·모달 중엔 지도용 Canvas HUD(이벤트 로그·도시명 라벨·명령 안내줄)를 그리지 않는다.
+    // Canvas 는 Slate 와 별개 레이어라 서로를 모른다 → 가드가 없으면 거점 패널·모달을 뚫고 그려
+    // "상점 창에 겹쳐 가려짐" 이 된다 (2026-07-17 사용자 보고의 실제 원인).
+    const bool bMapHudHidden = GM->UiInCity()
+        || GM->ActiveBattle.IsSet() || GM->ActiveReveal.IsSet();
+
     // ── 상단 상태줄: Playing 중엔 Slate 자원바가 대체 — 부팅/선택/오류 메시지만 Canvas ──
     if (!GM->UiIsPlaying())
     {
@@ -22,7 +28,7 @@ void AWCHUD::DrawHUD()
     }
 
     // ── 하단: 명령·모드 안내줄 (이벤트 로그 바로 위에 동적 배치) ──
-    if (!GM->HudModeLine.IsEmpty())
+    if (!bMapHudHidden && !GM->HudModeLine.IsEmpty())
     {
         const float LogHeight = 30.f + 24.f * GM->EventLog.Num();
         FCanvasTextItem Mode(FVector2D(24, Canvas->ClipY - LogHeight - 36.f),
@@ -32,6 +38,7 @@ void AWCHUD::DrawHUD()
     }
 
     // ── 도시명 라벨: 월드 → 화면 투영 (엔진 폰트의 한글 폴백 사용 — TextRender 한글 문제 회피) ──
+    if (!bMapHudHidden)
     if (const AWCMapActor* Map = GM->GetMapActor())
     {
         for (const auto& Pair : Map->GetNodePositions())
@@ -52,14 +59,17 @@ void AWCHUD::DrawHUD()
     }
 
     // ── 좌하단: 이벤트 로그 (최신이 아래) ──
-    const float LogBottom = Canvas->ClipY - 30.f;
-    for (int32 i = 0; i < GM->EventLog.Num(); ++i)
+    if (!bMapHudHidden)
     {
-        const float Alpha = 1.f - 0.08f * i;
-        FCanvasTextItem Line(FVector2D(24, LogBottom - 24.f * i),
-            FText::FromString(GM->EventLog[i]), Small, FLinearColor(1.f, 1.f, 1.f, FMath::Max(0.25f, Alpha)));
-        Line.EnableShadow(FLinearColor::Black);
-        Canvas->DrawItem(Line);
+        const float LogBottom = Canvas->ClipY - 30.f;
+        for (int32 i = 0; i < GM->EventLog.Num(); ++i)
+        {
+            const float Alpha = 1.f - 0.08f * i;
+            FCanvasTextItem Line(FVector2D(24, LogBottom - 24.f * i),
+                FText::FromString(GM->EventLog[i]), Small, FLinearColor(1.f, 1.f, 1.f, FMath::Max(0.25f, Alpha)));
+            Line.EnableShadow(FLinearColor::Black);
+            Canvas->DrawItem(Line);
+        }
     }
 
     // ── 세력 선택 화면 (지도 배경 위 패널) ──
