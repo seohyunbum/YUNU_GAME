@@ -8,15 +8,11 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Engine/Font.h"
 #include "Engine/Texture2D.h"
+#include "WCStyle.h"
 
 namespace
 {
-    FSlateFontInfo RevealFont(int32 Size)
-    {
-        FSlateFontInfo Info = GEngine->GetLargeFont()->GetLegacySlateFontInfo();
-        Info.Size = Size;
-        return Info;
-    }
+    FSlateFontInfo RevealFont(int32 Size) { return FWCStyle::Font(Size); }
 
     FLinearColor RevealColor(int32 Rarity)
     {
@@ -93,7 +89,7 @@ void SWCRevealOverlay::Construct(const FArguments& InArgs)
             ]
             + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 4, 0, 0)
             [
-                SNew(STextBlock).Font(RevealFont(34)).ColorAndOpacity(FSlateColor(FLinearColor::White))
+                SNew(STextBlock).Font(FWCStyle::Title(36)).ColorAndOpacity(FSlateColor(FLinearColor::White))
                 .ShadowOffset(FVector2D(2, 2))
                 .Text_Lambda([this]
                 { return GM.IsValid() && GM->ActiveReveal.IsSet() ? FText::FromString(GM->ActiveReveal->Name) : FText::GetEmpty(); })

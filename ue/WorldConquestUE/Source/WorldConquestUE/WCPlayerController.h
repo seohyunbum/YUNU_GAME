@@ -20,6 +20,12 @@ protected:
 private:
     void OnEndTurnPressed();
     void OnClick();
+    void OnClickReleased();
     void OnDoubleClick();
     void OnCapturePressed();
+
+    // 좌클릭 클릭 vs 드래그 판별 (드래그 = 지도 팬, 클릭 = 노드 선택)
+    bool  bLeftDown = false;
+    bool  bLeftDragged = false;
+    float LeftDragDist = 0.f;   // 누적 이동 픽셀 — 임계값 넘으면 드래그로 승격
 };

@@ -1,24 +1,18 @@
 #include "WCMainUI.h"
 #include "WCGameMode.h"
+#include "WCStyle.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
-#include "Engine/Font.h"
 
 namespace
 {
-    // 엔진 레거시 폰트 — Canvas 에서 한글 폴백이 검증된 폰트를 Slate 로 (Roboto 는 한글 글리프 없음)
-    FSlateFontInfo KFont(int32 Size)
-    {
-        FSlateFontInfo Info = GEngine->GetLargeFont()->GetLegacySlateFontInfo();
-        Info.Size = Size;
-        return Info;
-    }
-
-    const FLinearColor PanelBg(0.02f, 0.02f, 0.05f, 0.82f);
-    const FLinearColor Gold(0.85f, 0.72f, 0.3f);
+    FSlateFontInfo KFont(int32 Size) { return FWCStyle::Font(Size); }
+    const FLinearColor Gold = FWCStyle::GoldHi;
+    const FButtonStyle PrimaryStyle = FWCStyle::PrimaryButton();
+    const FButtonStyle ButtonStyle = FWCStyle::Button();
 }
 
 void SWCMainUI::Construct(const FArguments& InArgs)
@@ -53,15 +47,14 @@ void SWCMainUI::Construct(const FArguments& InArgs)
 TSharedRef<SWidget> SWCMainUI::MakeTopBar()
 {
     return SNew(SBorder)
-        .BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-        .BorderBackgroundColor(FSlateColor(PanelBg))
-        .Padding(FMargin(18, 8))
+        .BorderImage(FWCStyle::Header())
+        .Padding(FMargin(22, 10))
         [
             SNew(SHorizontalBox)
             + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
             [
                 SNew(STextBlock)
-                .Font(KFont(17))
+                .Font(FWCStyle::Title(18))
                 .ColorAndOpacity(FSlateColor(Gold))
                 .Text_Lambda([this] { return GM.IsValid() ? GM->UiTurnText() : FText::GetEmpty(); })
             ]
@@ -76,18 +69,17 @@ TSharedRef<SWidget> SWCMainUI::MakeTopBar()
 
 TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
 {
-    return SNew(SBox).WidthOverride(280)
+    return SNew(SBox).WidthOverride(300)
     [
         SNew(SBorder)
-        .BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-        .BorderBackgroundColor(FSlateColor(PanelBg))
-        .Padding(FMargin(14, 12))
+        .BorderImage(FWCStyle::Panel())
+        .Padding(FMargin(22, 20))
         .Visibility(this, &SWCMainUI::SelectionVisibility)
         [
             SNew(SVerticalBox)
             + SVerticalBox::Slot().AutoHeight()
             [
-                SNew(STextBlock).Font(KFont(19)).ColorAndOpacity(FSlateColor(Gold))
+                SNew(STextBlock).Font(FWCStyle::Title(21)).ColorAndOpacity(FSlateColor(Gold))
                 .Text_Lambda([this] { return GM.IsValid() ? GM->UiSelectionTitle() : FText::GetEmpty(); })
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 4, 0, 10)
@@ -97,15 +89,14 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
             ]
             + SVerticalBox::Slot().AutoHeight()
             [
-                SNew(SBox).HeightOverride(40)
+                SNew(SBox).HeightOverride(42)
                 [
-                    SNew(SButton)
-                    .ButtonColorAndOpacity(FSlateColor(Gold))
+                    SNew(SButton).ButtonStyle(&PrimaryStyle)
                     .IsEnabled_Lambda([this] { return GM.IsValid() && GM->UiCanEnterSelected(); })
                     .OnClicked_Lambda([this] { if (GM.IsValid()) GM->EnterSelectedCity(); return FReply::Handled(); })
                     .HAlign(HAlign_Center).VAlign(VAlign_Center)
-                    [ SNew(STextBlock).Font(KFont(15)).ColorAndOpacity(FSlateColor(FLinearColor::Black))
-                        .Text(FText::FromString(TEXT("🏯 도시 진입"))) ]
+                    [ SNew(STextBlock).Font(KFont(15)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
+                        .Text(FText::FromString(TEXT("도시 진입 ▶"))) ]
                 ]
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 8, 0, 0)[ MakeButton(FText::FromString(TEXT("점령 (빈 영지)")),
@@ -120,9 +111,10 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 4, 0, 0)
             [
-                SNew(SButton)
+                SNew(SButton).ButtonStyle(&ButtonStyle)
                 .OnClicked_Lambda([this] { if (GM.IsValid()) GM->CycleRecruitUnit(); return FReply::Handled(); })
-                [ SNew(STextBlock).Font(KFont(13))
+                .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(8, 6))
+                [ SNew(STextBlock).Font(KFont(13)).ColorAndOpacity(FSlateColor(FWCStyle::Ink))
                     .Text_Lambda([this] { return GM.IsValid() ? GM->UiRecruitUnitText() : FText::GetEmpty(); }) ]
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 8, 0, 0)
@@ -150,9 +142,8 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
 TSharedRef<SWidget> SWCMainUI::MakeGlobalPanel()
 {
     return SNew(SBorder)
-        .BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-        .BorderBackgroundColor(FSlateColor(PanelBg))
-        .Padding(FMargin(12, 10))
+        .BorderImage(FWCStyle::Panel())
+        .Padding(FMargin(18, 16))
         [
             SNew(SVerticalBox)
             + SVerticalBox::Slot().AutoHeight()[ MakeButton(FText::FromString(TEXT("★ 무장 초빙")),
@@ -167,13 +158,12 @@ TSharedRef<SWidget> SWCMainUI::MakeGlobalPanel()
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 10, 0, 0)
             [
-                SNew(SBox).HeightOverride(46)
+                SNew(SBox).HeightOverride(48)
                 [
-                    SNew(SButton)
-                    .ButtonColorAndOpacity(FSlateColor(Gold))
+                    SNew(SButton).ButtonStyle(&PrimaryStyle)
                     .OnClicked_Lambda([this] { if (GM.IsValid()) GM->EndTurn(); return FReply::Handled(); })
                     .HAlign(HAlign_Center).VAlign(VAlign_Center)
-                    [ SNew(STextBlock).Font(KFont(17)).ColorAndOpacity(FSlateColor(FLinearColor::Black))
+                    [ SNew(STextBlock).Font(KFont(17)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
                         .Text(FText::FromString(TEXT("▶ 턴 종료"))) ]
                 ]
             ]
@@ -183,11 +173,11 @@ TSharedRef<SWidget> SWCMainUI::MakeGlobalPanel()
 TSharedRef<SWidget> SWCMainUI::MakeButton(const FText& Label, TFunction<void(AWCGameMode*)> Action,
                                           TAttribute<bool> Enabled)
 {
-    return SNew(SButton)
+    return SNew(SButton).ButtonStyle(&ButtonStyle)
         .IsEnabled(Enabled)
         .OnClicked_Lambda([this, Action] { if (GM.IsValid()) Action(GM.Get()); return FReply::Handled(); })
-        .HAlign(HAlign_Center)
-        [ SNew(STextBlock).Font(KFont(13)).Text(Label) ];
+        .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(8, 6))
+        [ SNew(STextBlock).Font(KFont(14)).ColorAndOpacity(FSlateColor(FWCStyle::Ink)).Text(Label) ];
 }
 
 EVisibility SWCMainUI::PlayingVisibility() const

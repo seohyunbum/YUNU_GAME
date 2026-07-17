@@ -13,15 +13,11 @@
 #include "Engine/Font.h"
 #include "Engine/Texture2D.h"
 #include "Widgets/SNullWidget.h"
+#include "WCStyle.h"
 
 namespace
 {
-    FSlateFontInfo CityFont(int32 Size)
-    {
-        FSlateFontInfo Info = GEngine->GetLargeFont()->GetLegacySlateFontInfo();
-        Info.Size = Size;
-        return Info;
-    }
+    FSlateFontInfo CityFont(int32 Size) { return FWCStyle::Font(Size); }   // 본문 = Gothic A1
 
     const FLinearColor Gold(0.85f, 0.72f, 0.30f);
     const FLinearColor GoldDim(0.55f, 0.45f, 0.20f, 0.9f);
@@ -40,6 +36,7 @@ namespace
     }
 
     const FSlateBrush* White() { return FCoreStyle::Get().GetBrush("WhiteBrush"); }
+    const FButtonStyle PrimaryStyle = FWCStyle::PrimaryButton();
 }
 
 void SWCCityView::Construct(const FArguments& InArgs)
@@ -78,7 +75,7 @@ void SWCCityView::Construct(const FArguments& InArgs)
                 ]
                 + SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center).Padding(16, 0, 0, 0)
                 [
-                    SNew(STextBlock).Font(CityFont(30)).ColorAndOpacity(FSlateColor(Gold))
+                    SNew(STextBlock).Font(FWCStyle::Title(32)).ColorAndOpacity(FSlateColor(Gold))
                     .ShadowOffset(FVector2D(2, 2))
                     .Text_Lambda([this] { return GM.IsValid() ? GM->UiCityHeader() : FText::GetEmpty(); })
                 ]
@@ -108,12 +105,10 @@ void SWCCityView::Construct(const FArguments& InArgs)
             // 하단 복귀
             + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 12, 0, 0)
             [
-                SNew(SBox).WidthOverride(280).HeightOverride(40)
+                SNew(SBox).WidthOverride(300).HeightOverride(44)
                 [
-                    SNew(SButton)
-                    .OnClicked_Lambda([this] { if (GM.IsValid()) GM->LeaveCity(); return FReply::Handled(); })
-                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
-                    [ SNew(STextBlock).Font(CityFont(15)).Text(FText::FromString(TEXT("◀ 세계지도로  (ESC)"))) ]
+                    MakeButton(FText::FromString(TEXT("◀ 세계지도로  (ESC)")),
+                        [](AWCGameMode* G) { G->LeaveCity(); })
                 ]
             ]
         ]
@@ -122,19 +117,17 @@ void SWCCityView::Construct(const FArguments& InArgs)
 
 TSharedRef<SWidget> SWCCityView::MakeFramedPanel(const FText& Title, TSharedRef<SWidget> Content)
 {
-    // 이중 프레임: 외곽 금색 라인 + 내부 다크 패널
-    return SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(GoldDim)).Padding(1.5f)
+    // 금테·양피지 9-slice 프레임 (WCStyle 스킨)
+    return SNew(SBorder).BorderImage(FWCStyle::Panel()).Padding(FMargin(22, 18))
     [
-        SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(PanelBg)).Padding(FMargin(16, 12))
-        [
-            SNew(SVerticalBox)
-            + SVerticalBox::Slot().AutoHeight()
-            [ SNew(STextBlock).Font(CityFont(19)).ColorAndOpacity(FSlateColor(Gold)).Text(Title) ]
-            + SVerticalBox::Slot().AutoHeight().Padding(0, 6, 0, 10)
-            [ SNew(SBox).HeightOverride(1)[ SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(FLinearColor(1, 1, 1, 0.12f))) ] ]
-            + SVerticalBox::Slot().FillHeight(1)
-            [ Content ]
-        ]
+        SNew(SVerticalBox)
+        + SVerticalBox::Slot().AutoHeight()
+        [ SNew(STextBlock).Font(FWCStyle::Font(20)).ColorAndOpacity(FSlateColor(FWCStyle::GoldHi))
+            .ShadowOffset(FVector2D(1, 1)).Text(Title) ]
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 7, 0, 11)
+        [ SNew(SBox).HeightOverride(2)[ SNew(SImage).Image(White()).ColorAndOpacity(FSlateColor(FWCStyle::Gold * 0.6f)) ] ]
+        + SVerticalBox::Slot().FillHeight(1)
+        [ Content ]
     ];
 }
 
@@ -200,7 +193,7 @@ TSharedRef<SWidget> SWCCityView::MakeMilitaryPanel()
                     FString Text;
                     for (const auto& Card : Cards)
                     {
-                        Text += FString::Printf(TEXT("⚔ %s  —  총 %d\n    %s\n"), *Card.Id, Card.Troops, *Card.Detail);
+                        Text += FString::Printf(TEXT("▶ %s  —  총 %d\n    %s\n"), *Card.Id, Card.Troops, *Card.Detail);
                         if (!Card.Commander.IsEmpty())
                             Text += FString::Printf(TEXT("    지휘: %s\n"), *Card.Commander);
                         Text += TEXT("\n");
@@ -267,16 +260,15 @@ TSharedRef<SWidget> SWCCityView::MakeTavernPanel()
             ]
         ]
 
-        // 초빙 버튼
+        // 초빙 버튼 (금색 강조 스킨)
         + SVerticalBox::Slot().AutoHeight().Padding(0, 10, 0, 0)
         [
-            SNew(SBox).HeightOverride(46)
+            SNew(SBox).HeightOverride(48)
             [
-                SNew(SButton)
-                .ButtonColorAndOpacity(FSlateColor(Gold))
+                SNew(SButton).ButtonStyle(&PrimaryStyle)
                 .OnClicked_Lambda([this] { if (GM.IsValid()) GM->SummonOnce(); return FReply::Handled(); })
                 .HAlign(HAlign_Center).VAlign(VAlign_Center)
-                [ SNew(STextBlock).Font(CityFont(17)).ColorAndOpacity(FSlateColor(FLinearColor::Black))
+                [ SNew(STextBlock).Font(FWCStyle::Font(18)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
                     .Text(FText::FromString(TEXT("★ 무장 초빙 (1회)"))) ]
             ]
         ]);
@@ -364,10 +356,12 @@ const FSlateBrush* SWCCityView::GetBgBrush() const
 
 TSharedRef<SWidget> SWCCityView::MakeButton(const FText& Label, TFunction<void(AWCGameMode*)> Action)
 {
-    return SNew(SButton)
+    static const FButtonStyle Style = FWCStyle::Button();
+    return SNew(SButton).ButtonStyle(&Style)
         .OnClicked_Lambda([this, Action] { if (GM.IsValid()) Action(GM.Get()); return FReply::Handled(); })
-        .HAlign(HAlign_Center)
-        [ SNew(STextBlock).Font(CityFont(13)).Text(Label) ];
+        .HAlign(HAlign_Center).VAlign(VAlign_Center)
+        .ContentPadding(FMargin(8, 7))
+        [ SNew(STextBlock).Font(FWCStyle::Font(14)).ColorAndOpacity(FSlateColor(FWCStyle::Ink)).Text(Label) ];
 }
 
 EVisibility SWCCityView::CityVisibility() const

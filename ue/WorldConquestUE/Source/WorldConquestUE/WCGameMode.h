@@ -64,14 +64,17 @@ public:
     void SelectFactionByIndex(int32 Index);       // 숫자키 1~9
     void ToggleHotseat();
 
-    // ── 시네마틱 카메라 (원근 틸트 + 돌리 줌/팬) ──
+    // ── 시네마틱 카메라 (원근 틸트 + 돌리 줌/팬/오빗) ──
     void ZoomCamera(float WheelDelta);            // 휠 — 거리 3500~30000
-    void PanCamera(float DeltaX, float DeltaY);   // 우클릭 드래그 — 타깃 이동
+    void PanCamera(float DeltaX, float DeltaY);   // 좌클릭 드래그 — 화면기준 타깃 이동
+    void OrbitCamera(float DeltaX, float DeltaY); // 우클릭 드래그 — 요/피치 회전
     void UpdateBoardCamera();
     TObjectPtr<class ACameraActor> BoardCamera;
     FVector CamTarget = FVector(-900, 0, 0);      // 주시점 — 틸트 보정 남쪽 오프셋
     float CamDist = 24500.f;
     float CamPitch = -52.f;
+    float CamYaw = 0.f;                           // 오빗 회전 (우클릭 드래그)
+    float CamPitchManual = 0.f;                   // 우클릭 세로드래그 추가 틸트 오프셋
 
     // ── 전투 결과 연출 (§4.3 BattleEnded — 양측 병력·손실·라운드·지휘관·일기토) ──
     struct FWCBattle

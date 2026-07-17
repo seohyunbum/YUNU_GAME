@@ -67,10 +67,12 @@ void AWCGameMode::BeginPlay()
         SkyLight->GetLightComponent()->SetIntensity(1.0f);   // 청색 하늘광 완화 (벽 세척 방지)
         SkyLight->GetLightComponent()->SetRealTimeCapture(true);
     }
+    // 안개 최소 — 세계지도가 뿌옇게 세척되지 않도록 (데모 맵도 자체 안개를 가져오므로 내 것은 거의 0)
     if (AExponentialHeightFog* Fog = GetWorld()->SpawnActor<AExponentialHeightFog>())
     {
-        Fog->GetComponent()->SetFogDensity(0.00002f);
-        Fog->GetComponent()->SetFogHeightFalloff(0.001f);
+        Fog->GetComponent()->SetFogDensity(0.000003f);
+        Fog->GetComponent()->SetFogHeightFalloff(0.02f);
+        Fog->GetComponent()->SetFogMaxOpacity(0.35f);
     }
     if (AActor* Clouds = GetWorld()->SpawnActor<AActor>())
     {
@@ -88,13 +90,13 @@ void AWCGameMode::BeginPlay()
         Post->Settings.AmbientOcclusionIntensity = 0.7f;
         Post->Settings.bOverride_VignetteIntensity = true;
         Post->Settings.VignetteIntensity = 0.35f;
-        // 노출 고정 — 자동노출 적응 잠금(Min=Max). 값↓ = 밝게. 0.3 = 하얗게 안 날고 어둡지도 않음
+        // 노출 — 자동 적응하되 범위 제한 (세계지도 밝은 바다 세척 방지 + 도시 어둠 방지)
         Post->Settings.bOverride_AutoExposureMinBrightness = true;
-        Post->Settings.AutoExposureMinBrightness = 0.3f;
+        Post->Settings.AutoExposureMinBrightness = 0.5f;
         Post->Settings.bOverride_AutoExposureMaxBrightness = true;
-        Post->Settings.AutoExposureMaxBrightness = 0.3f;
+        Post->Settings.AutoExposureMaxBrightness = 2.0f;
         Post->Settings.bOverride_AutoExposureBias = true;
-        Post->Settings.AutoExposureBias = 0.4f;    // 살짝 밝게
+        Post->Settings.AutoExposureBias = 0.0f;
         // 화이트밸런스 약간 따뜻하게 (청색 하늘광 상쇄)
         Post->Settings.bOverride_WhiteTemp = true;
         Post->Settings.WhiteTemp = 6900.f;
@@ -341,7 +343,7 @@ void AWCGameMode::OnState(TSharedPtr<FJsonObject> State)
     const TArray<TSharedPtr<FJsonValue>>* Winners = nullptr;
     if (State->TryGetArrayField(TEXT("winners"), Winners) && Winners && Winners->Num() > 0)
     {
-        HudLine = FString::Printf(TEXT("🏆 게임 종료 — 승자: %s"), *NameOf(FactionNames, (*Winners)[0]->AsString()));
+        HudLine = FString::Printf(TEXT("♛ 게임 종료 — 승자: %s"), *NameOf(FactionNames, (*Winners)[0]->AsString()));
     }
     else
     {
@@ -562,7 +564,7 @@ FText AWCGameMode::UiBattleFooter() const
     const auto& B = *ActiveBattle;
     FString Text = FString::Printf(TEXT("%d 라운드"), B.Rounds);
     if (!B.DuelWinner.IsEmpty())
-        Text += FString::Printf(TEXT("   ·   ⚡일기토: %s ▶ %s"),
+        Text += FString::Printf(TEXT("   ·   ◆ 일기토: %s ▶ %s"),
             *NameOf(CharacterNames, B.DuelWinner), *NameOf(CharacterNames, B.DuelLoser));
     return FText::FromString(Text);
 }
@@ -609,13 +611,13 @@ FString AWCGameMode::EventToLine(const TSharedPtr<FJsonObject>& Event) const
     if (Type == TEXT("CutsceneTriggered"))
         return FString::Printf(TEXT("『컷씬』 %s"), *D(TEXT("cutscene")));
     if (Type == TEXT("BattleEnded"))
-        return FString::Printf(TEXT("⚔ %s 공방전 — %s"), *NameOf(ProvinceNames, D(TEXT("node"))),
+        return FString::Printf(TEXT("✕ %s 공방전 — %s"), *NameOf(ProvinceNames, D(TEXT("node"))),
             D(TEXT("attacker_won")) == TEXT("true") ? TEXT("공격 측 승리") : TEXT("수비 성공"));
     if (Type == TEXT("DuelStarted"))
-        return FString::Printf(TEXT("⚡ 일기토! %s vs %s"), *NameOf(CharacterNames, D(TEXT("actor"))),
+        return FString::Printf(TEXT("◆ 일기토! %s vs %s"), *NameOf(CharacterNames, D(TEXT("actor"))),
             *NameOf(CharacterNames, D(TEXT("opponent"))));
     if (Type == TEXT("GameEnded"))
-        return FString::Printf(TEXT("🏆 세계 정복 — %s"), *D(TEXT("winners")));
+        return FString::Printf(TEXT("♛ 세계 정복 — %s"), *D(TEXT("winners")));
 
     // 미지 타입 폴백 — 유실 없이 원형 표시 (신규 이벤트가 클라 수정 없이도 보인다)
     FString Line = Type;
@@ -752,7 +754,7 @@ void AWCGameMode::QuickSave()
         [this](TSharedPtr<FJsonObject> R)
         {
             EventLog.Insert(R.IsValid() && R->GetStringField(TEXT("status")) == TEXT("ok")
-                ? TEXT("💾 저장 완료 (quick)") : TEXT("✘ 저장 실패"), 0);
+                ? TEXT("◈ 저장 완료 (quick)") : TEXT("✘ 저장 실패"), 0);
         });
 }
 
@@ -762,7 +764,7 @@ void AWCGameMode::QuickLoad()
         [this](TSharedPtr<FJsonObject> State)
         {
             if (!State.IsValid()) { EventLog.Insert(TEXT("✘ 로드 실패 (저장 파일 없음?)"), 0); return; }
-            EventLog.Insert(TEXT("📂 이어하기 (quick)"), 0);
+            EventLog.Insert(TEXT("▶ 이어하기 (quick)"), 0);
             OnState(State);
             UpdateSelectionInfo();
         });
@@ -775,9 +777,9 @@ void AWCGameMode::UpdateModeLine()
     switch (ClickMode)
     {
         case EWCClickMode::MoveTarget:
-            HudModeLine = FString::Printf(TEXT("🎯 이동 목표를 클릭하십시오 (%s)  [ESC] 취소"), *SelectedArmyId); break;
+            HudModeLine = FString::Printf(TEXT("◎ 이동 목표를 클릭하십시오 (%s)  [ESC] 취소"), *SelectedArmyId); break;
         case EWCClickMode::AttackTarget:
-            HudModeLine = FString::Printf(TEXT("⚔ 공격 목표를 클릭하십시오 (%s)  [ESC] 취소"), *SelectedArmyId); break;
+            HudModeLine = FString::Printf(TEXT("✕ 공격 목표를 클릭하십시오 (%s)  [ESC] 취소"), *SelectedArmyId); break;
         default:
             HudModeLine = FString::Printf(
                 TEXT("[R]징병10 [T]50 (병종:%s [U]변경) [M]이동 [A]공격 [B]시장 [N]농지 [S]초빙 [F5]저장 [F9]로드"), *UnitName);
@@ -1031,7 +1033,7 @@ FText AWCGameMode::UiCityArmies() const
                     static_cast<int32>(Pair.Value->AsNumber()));
         FString Commander;
         Army->TryGetStringField(TEXT("commander_id"), Commander);
-        Text += FString::Printf(TEXT("⚔ %s — %s%s\n"), *Army->GetStringField(TEXT("id")), *Units,
+        Text += FString::Printf(TEXT("▶ %s — %s%s\n"), *Army->GetStringField(TEXT("id")), *Units,
             Commander.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("· 지휘 %s"), *NameOf(CharacterNames, Commander)));
     }
     return FText::FromString(Text.IsEmpty() ? TEXT("(주둔 부대 없음 — 아래에서 징병)") : Text);
@@ -1095,16 +1097,17 @@ FText AWCGameMode::UiRecruitUnitText() const
 {
     const FString UnitName = LandUnitIds.IsValidIndex(RecruitUnitIndex)
         ? NameOf(UnitNames, LandUnitIds[RecruitUnitIndex]) : TEXT("-");
-    return FText::FromString(FString::Printf(TEXT("병종: %s ▸"), *UnitName));
+    return FText::FromString(FString::Printf(TEXT("병종: %s »"), *UnitName));
 }
 
 void AWCGameMode::UpdateBoardCamera()
 {
     if (!BoardCamera) return;
-    // 줌인할수록 틸트를 세워 근경 디테일(-58° → 원경 -46°)
-    CamPitch = FMath::Lerp(-58.f, -46.f, FMath::GetMappedRangeValueClamped(
+    // 줌인할수록 틸트를 세워 근경 디테일(-58° → 원경 -46°) + 우드래그 수동 오프셋
+    const float AutoPitch = FMath::Lerp(-58.f, -46.f, FMath::GetMappedRangeValueClamped(
         FVector2D(3500.f, 30000.f), FVector2D(0.f, 1.f), CamDist));
-    const FRotator ViewRot(CamPitch, 0.f, 0.f);
+    CamPitch = FMath::Clamp(AutoPitch + CamPitchManual, -80.f, -18.f);
+    const FRotator ViewRot(CamPitch, CamYaw, 0.f);   // 요 회전 포함
     BoardCamera->SetActorLocationAndRotation(CamTarget - ViewRot.Vector() * CamDist, ViewRot);
 }
 
@@ -1119,10 +1122,23 @@ void AWCGameMode::PanCamera(float DeltaX, float DeltaY)
 {
     if (!BoardCamera) return;
     const float Scale = CamDist / 1100.f;   // 줌 비례 감도
-    CamTarget.Y -= DeltaX * Scale;
-    CamTarget.X += DeltaY * Scale;
+    // 화면 기준 팬 — 카메라 요를 반영해 "끌리는" 방향이 시야와 일치
+    const float Yaw = FMath::DegreesToRadians(CamYaw);
+    const float S = FMath::Sin(Yaw), C = FMath::Cos(Yaw);
+    const float MoveRight = -DeltaX * Scale;   // 화면 오른쪽
+    const float MoveFwd   =  DeltaY * Scale;   // 화면 위(=지도 안쪽)
+    CamTarget.X += MoveFwd * C - MoveRight * S;
+    CamTarget.Y += MoveFwd * S + MoveRight * C;
     CamTarget.X = FMath::Clamp(CamTarget.X, -6000.0, 6000.0);
     CamTarget.Y = FMath::Clamp(CamTarget.Y, -10500.0, 10500.0);
+    UpdateBoardCamera();
+}
+
+void AWCGameMode::OrbitCamera(float DeltaX, float DeltaY)
+{
+    if (!BoardCamera) return;
+    CamYaw = FMath::Fmod(CamYaw + DeltaX * 0.35f, 360.f);   // 좌우 = 요 회전
+    CamPitchManual = FMath::Clamp(CamPitchManual - DeltaY * 0.22f, -22.f, 22.f);  // 상하 = 틸트
     UpdateBoardCamera();
 }
 

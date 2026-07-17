@@ -5,15 +5,11 @@
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Engine/Font.h"
+#include "WCStyle.h"
 
 namespace
 {
-    FSlateFontInfo BFont(int32 Size)
-    {
-        FSlateFontInfo Info = GEngine->GetLargeFont()->GetLegacySlateFontInfo();
-        Info.Size = Size;
-        return Info;
-    }
+    FSlateFontInfo BFont(int32 Size) { return FWCStyle::Font(Size); }
     const FSlateBrush* White() { return FCoreStyle::Get().GetBrush("WhiteBrush"); }
     const FLinearColor Gold(0.85f, 0.72f, 0.30f);
 }
@@ -30,14 +26,16 @@ void SWCBattleOverlay::Construct(const FArguments& InArgs)
         .Visibility(this, &SWCBattleOverlay::BattleVisibility)
         .HAlign(HAlign_Center).VAlign(VAlign_Center)
         [
-            SNew(SBox).WidthOverride(920)
+            SNew(SBox).WidthOverride(960)
             [
+                SNew(SBorder).BorderImage(FWCStyle::Panel()).Padding(FMargin(40, 32))
+                [
                 SNew(SVerticalBox)
 
                 // 제목
                 + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
                 [
-                    SNew(STextBlock).Font(BFont(34)).ColorAndOpacity(FSlateColor(Gold)).ShadowOffset(FVector2D(2, 2))
+                    SNew(STextBlock).Font(FWCStyle::Title(36)).ColorAndOpacity(FSlateColor(Gold)).ShadowOffset(FVector2D(2, 2))
                     .Text_Lambda([this] { return GM.IsValid() ? GM->UiBattleTitle() : FText::GetEmpty(); })
                 ]
 
@@ -49,7 +47,7 @@ void SWCBattleOverlay::Construct(const FArguments& InArgs)
                 + SVerticalBox::Slot().AutoHeight()[ SideRow(true) ]
                 + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 8, 0, 8)
                 [ SNew(STextBlock).Font(BFont(24)).ColorAndOpacity(FSlateColor(FLinearColor(0.7f, 0.7f, 0.7f)))
-                    .Text(FText::FromString(TEXT("⚔  VS  ⚔"))) ]
+                    .Text(FText::FromString(TEXT("✕  VS  ✕"))) ]
                 + SVerticalBox::Slot().AutoHeight()[ SideRow(false) ]
 
                 // 푸터 (라운드·일기토)
@@ -60,6 +58,7 @@ void SWCBattleOverlay::Construct(const FArguments& InArgs)
                 + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 22, 0, 0)
                 [ SNew(STextBlock).Font(BFont(13)).ColorAndOpacity(FSlateColor(FLinearColor(0.55f, 0.55f, 0.55f)))
                     .Text(FText::FromString(TEXT("(클릭 — 계속)"))) ]
+                ]
             ]
         ]
     ];

@@ -17,6 +17,7 @@ void AWCPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AWCPlayerController::OnEndTurnPressed);
     InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this, &AWCPlayerController::OnEndTurnPressed);
     InputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AWCPlayerController::OnClick);
+    InputComponent->BindKey(EKeys::LeftMouseButton, IE_Released, this, &AWCPlayerController::OnClickReleased);
     InputComponent->BindKey(EKeys::LeftMouseButton, IE_DoubleClick, this, &AWCPlayerController::OnDoubleClick);
     InputComponent->BindKey(EKeys::C, IE_Pressed, this, &AWCPlayerController::OnCapturePressed);
 
@@ -57,13 +58,32 @@ void AWCPlayerController::SetupInputComponent()
 void AWCPlayerController::PlayerTick(float DeltaTime)
 {
     Super::PlayerTick(DeltaTime);
-    // 우클릭 드래그 팬 — KOEI식 지도 탐색
-    if (IsInputKeyDown(EKeys::RightMouseButton))
+    AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
+    if (!GM) return;
+
+    // 도시 화면·오버레이 중엔 지도 카메라 조작 무시
+    const bool bMapActive = !GM->UiInCity() && !GM->ActiveBattle.IsSet()
+        && !GM->ActiveReveal.IsSet() && !GM->GetActiveCutsceneDef();
+
+    // 우클릭 드래그 = 오빗(요/틸트 회전)
+    if (bMapActive && IsInputKeyDown(EKeys::RightMouseButton))
     {
         float DX = 0.f, DY = 0.f;
         GetInputMouseDelta(DX, DY);
-        if (AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>())
-            GM->PanCamera(DX, DY);
+        GM->OrbitCamera(DX, DY);
+    }
+
+    // 좌클릭 드래그 = 지도 팬 (임계값 6px 넘으면 드래그로 승격 → 릴리즈 시 선택 억제)
+    if (bLeftDown && IsInputKeyDown(EKeys::LeftMouseButton))
+    {
+        float DX = 0.f, DY = 0.f;
+        GetInputMouseDelta(DX, DY);
+        LeftDragDist += FMath::Abs(DX) + FMath::Abs(DY);
+        if (LeftDragDist > 6.f)
+        {
+            bLeftDragged = true;
+            if (bMapActive) GM->PanCamera(DX, DY);
+        }
     }
 }
 
@@ -75,14 +95,30 @@ void AWCPlayerController::OnEndTurnPressed()
 
 void AWCPlayerController::OnClick()
 {
+    bLeftDown = false;
+    bLeftDragged = false;
+    LeftDragDist = 0.f;
+
     AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
     if (!GM) return;
 
-    // 클릭 우선순위: 전투 결과 → 리빌 → 컷씬 → (도시 화면이면 지도 클릭 무시)
+    // 오버레이는 누름 즉시 처리(즉각 반응): 전투 → 리빌 → 컷씬 → (도시면 지도 무시)
     if (GM->ActiveBattle.IsSet()) { GM->DismissBattle(); return; }
     if (GM->ActiveReveal.IsSet()) { GM->DismissReveal(); return; }
     if (GM->GetActiveCutsceneDef()) { GM->AdvanceCutscene(); return; }
     if (GM->UiInCity()) return;
+
+    // 지도: 선택은 릴리즈까지 보류(드래그면 팬으로 소비, 아니면 선택)
+    bLeftDown = true;
+}
+
+void AWCPlayerController::OnClickReleased()
+{
+    if (!bLeftDown) return;
+    bLeftDown = false;
+
+    AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
+    if (!GM || bLeftDragged) return;   // 드래그였으면 선택하지 않음(팬으로 소비)
 
     FHitResult Hit;
     if (GetHitResultUnderCursor(ECC_Visibility, false, Hit) && Hit.GetComponent())
