@@ -29,8 +29,18 @@ public:
 
     bool IsLoaded() const { return bLoaded; }
 
+    /** 거점 지역(east_asia·europe·middle_east·north_america …)에 맞는 배경 레벨을 로드/전환.
+        해당 팩이 없으면 동양 마을로 폴백한다 — 팩을 하나씩 늘려도 게임은 항상 돈다.
+        지역별 팩 등재표 = WCCityDiorama.cpp 의 DioramaTable(). */
+    void LoadForRegion(const FString& Region);
+
 private:
     bool bLoaded = false;
+
+    UPROPERTY()
+    TMap<FString, TObjectPtr<class ULevelStreamingDynamic>> Instances;   // 레벨경로 → 인스턴스(가시성 토글 재사용)
+    FString LoadedLevel;
+    FString CurrentRegion;
     FVector VillageCenter = FVector::ZeroVector;   // 배치 원점 보정용 (마을을 액터 원점으로 이동)
 
     UPROPERTY()

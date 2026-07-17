@@ -196,7 +196,7 @@ public:
     TMap<FString, FString> UnitNames;
 
     /** 노드 불변 정보 (도시 화면 헤더용 — static 파싱). */
-    struct FWCNodeInfo { int32 Population = 0; FString Terrain; bool bPort = false; int32 Gold = 0; int32 Food = 0; };
+    struct FWCNodeInfo { int32 Population = 0; FString Terrain; FString Region; bool bPort = false; int32 Gold = 0; int32 Food = 0; };
     TMap<FString, FWCNodeInfo> NodeInfos;
     TMap<FString, int32> CharacterRarity;       // 소속 무장 표시용
     AWCMapActor* GetMapActor() const { return MapActor; }

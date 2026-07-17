@@ -232,6 +232,7 @@ void AWCGameMode::ParseNames(const TSharedPtr<FJsonObject>& StaticJson)
 
         FWCNodeInfo Info;   // 도시 화면 헤더용 불변 정보
         Node->TryGetStringField(TEXT("terrain"), Info.Terrain);
+        Node->TryGetStringField(TEXT("region"), Info.Region);   // 거점 배경(디오라마) 선택 키
         Node->TryGetBoolField(TEXT("port"), Info.bPort);
         double Num = 0;
         if (Node->TryGetNumberField(TEXT("population"), Num)) Info.Population = static_cast<int32>(Num);
@@ -926,6 +927,14 @@ void AWCGameMode::EnterCity(const FString& NodeId)
     EnteredCityId = NodeId;
     OpenBuilding.Reset();     // 진입 시엔 패널 없이 거점 전경부터 보여준다 (ux-design §5.2)
     SelectedNodeId = NodeId;
+
+    // 거점 지역에 맞는 배경으로 전환 (뉴욕이 동양 마을로 보이던 문제).
+    // 팩이 없는 지역은 디오라마가 알아서 폴백한다 — WCCityDiorama::DioramaTable 에 한 줄 추가하면 붙는다.
+    if (Diorama)
+    {
+        const FWCNodeInfo* Info = NodeInfos.Find(NodeId);
+        Diorama->LoadForRegion(Info ? Info->Region : FString());
+    }
     UpdateSelectionInfo();
     RefreshRates();   // 주막 확률 공시 (§2.8.6)
 
