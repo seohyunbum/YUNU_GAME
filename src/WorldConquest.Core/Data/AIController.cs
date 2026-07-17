@@ -38,6 +38,8 @@ public sealed class AIController
         MergeStacks(faction);            // 같은 위치 소부대 병합 — 개별 threshold 교착 방지
         CaptureEmptyNeighbors(faction);
         ManageInternalAffairs(faction);  // 태수 파견·시설 투자 (§2.3.1 — 전선 행동 전 예산 배분)
+        // 외교는 군사 결정 **전**에 — 같은 턴의 공격 필터(IsHostile)·목표 스코어에 즉시 반영된다.
+        new AiDiplomat(_state, _db, _gm.Bus).Decide(faction);
 
         var landReachable = LandReachableEnemyExists(faction);
         if (landReachable)
@@ -77,6 +79,10 @@ public sealed class AIController
     /// <summary>영지 소유 세력 id (무주공산이면 null).</summary>
     private string? OwnerOf(string provinceId) =>
         _state.Factions.FirstOrDefault(f => f.OwnedProvinceIds.Contains(provinceId))?.Id;
+
+    /// <summary>관계도 조회 (§7.3 목표 스코어용).</summary>
+    private int Favor(FactionState self, string otherId) =>
+        new RelationLedger(_state, _db).Favor(self.Id, otherId);
 
     /// <summary>육로로 도달 가능한 (비동맹) 적 육상 영지가 존재하는가.</summary>
     private bool LandReachableEnemyExists(FactionState faction)
@@ -335,14 +341,24 @@ public sealed class AIController
                             IsHostile(faction, x.Owner!.Id))
                 .Select(x => (x.Id, Garrison: _state.Armies
                     .Where(a => a.FactionId == x.Owner!.Id && a.LocationNodeId == x.Id)
-                    .Sum(a => a.TotalTroops)))
-                .OrderBy(x => x.Garrison).ThenBy(x => x.Id, StringComparer.Ordinal)
+                    .Sum(a => a.TotalTroops), Owner: x.Owner!.Id))
+                // 관계도 반영 (외교 §7.3): garrison 의 **배수**로 정규화한다 — 절대 가산은 스케일이
+                // 안 맞는다(favor 항 최대 ±300 vs garrison 수십~수백 → 초반 압도/후반 무의미).
+                // 배수 = (100 + favor × w / 1000) / 100 → 적대일수록 작아져 우선, 우호일수록 커져 후순위.
+                // 전부 C# 정수 나눗셈 = **0 방향 절사**(내림 아님 — favor 는 음수 구간이 주 사용처이고
+                // C++ 도 절사라 Phase 3 오라클과 일치해야 한다).
+                .Select(x => (x.Id, x.Garrison, Score:
+                    (long)x.Garrison * (100 + Favor(faction, x.Owner) * _db.Rules.Diplomacy.Ai.TargetFavorWeight / 1000) / 100))
+                .OrderBy(x => x.Score).ThenBy(x => x.Id, StringComparer.Ordinal)
                 .ToList();
             if (target.Count == 0) continue;
 
-            var threshold = (long)target[0].Garrison * 150 / Math.Max(1, def.AiAggression);
-            if (army.TotalTroops > threshold)
-                _gm.Attack(faction.Id, army.Id, target[0].Id, out _);
+            // 문턱을 통과하는 **첫 후보**를 친다 — target[0] 단독 판정을 유지한 채 정렬 키에 증오를
+            // 넣으면, 증오 대상이 강할 때 옆의 무방비 영지를 두고 아무것도 안 하는 마비가 생긴다.
+            var pick = target.FirstOrDefault(t =>
+                army.TotalTroops > (long)t.Garrison * 150 / Math.Max(1, def.AiAggression));
+            if (pick.Id is not null)
+                _gm.Attack(faction.Id, army.Id, pick.Id, out _);
         }
     }
 

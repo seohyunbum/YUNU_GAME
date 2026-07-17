@@ -39,6 +39,9 @@ public sealed class GameState
     /// </summary>
     public List<RelationState> Relations { get; init; } = new();
 
+    /// <summary>미응답 외교 제안 (외교 E9) — additive. 수입 페이즈에서 만료 제거.</summary>
+    public List<Proposal> PendingProposals { get; init; } = new();
+
     /// <summary>이 상태가 로드될 때 정규화된 원본 세이브 버전 (신규 게임은 현재 버전).</summary>
     public int MigratedFromVersion { get; init; }
 }

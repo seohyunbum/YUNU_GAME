@@ -146,6 +146,22 @@ public sealed class SaveSystem
             })
             .ToList();
 
+        // 제안도 관계쌍과 동형으로 프루닝 — 당사자가 죽으면 응답 불가한 유령 제안이 된다.
+        var proposals = (dto.PendingProposals ?? new())
+            .Where(p => p.From is not null && p.To is not null && p.Kind is not null)
+            .Select(p => new Proposal
+            {
+                From = p.From!, To = p.To!, Kind = p.Kind!.Value, ExpiresOnTurn = p.ExpiresOnTurn ?? 0
+            })
+            .Where(p =>
+            {
+                if (db is null) return true;
+                if (liveFactionIds.Contains(p.From) && liveFactionIds.Contains(p.To)) return true;
+                skipped?.Add($"proposal:{p.From}->{p.To}");
+                return false;
+            })
+            .ToList();
+
         var armies = (dto.Armies ?? new())
             .Select(a =>
             {
@@ -252,6 +268,7 @@ public sealed class SaveSystem
             FiredCutsceneIds = (dto.FiredCutsceneIds ?? new()).ToHashSet(),   // 결번 id 잔존 무해(정의 없는 id 무시)
             CharacterOwners = dto.CharacterOwners ?? new(),
             Relations = relations,   // 외교 관계도 (additive — 구세이브는 빈 리스트)
+            PendingProposals = proposals,
             MigratedFromVersion = version
         };
     }
@@ -299,6 +316,12 @@ public sealed class SaveSystem
             {
                 FactionA = r.FactionA, FactionB = r.FactionB,
                 Favor = r.Favor, TruceUntilTurn = r.TruceUntilTurn
+            }).ToList(),
+        PendingProposals = s.PendingProposals
+            .OrderBy(p => p.From, StringComparer.Ordinal).ThenBy(p => p.To, StringComparer.Ordinal)
+            .Select(p => new ProposalDto
+            {
+                From = p.From, To = p.To, Kind = p.Kind, ExpiresOnTurn = p.ExpiresOnTurn
             }).ToList(),
         Armies = s.Armies.Select(a => new ArmyDto
         {

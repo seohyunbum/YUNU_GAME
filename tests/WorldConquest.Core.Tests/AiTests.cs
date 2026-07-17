@@ -136,6 +136,40 @@ public class AiTests
             "IsHostile 로 좁혀졌는지 확인 (IsNonAllied 여야 함)");
     }
 
+    /// <summary>
+    /// **요구사항 직결 게이트** (외교 §9 DoD): "AI 들이 지들끼리도 우호도에 따라 동맹을 맺는다".
+    /// 이전엔 AIController 가 Relations 에 쓰기를 0건 해서 국제정치 자체가 없었다.
+    /// §5.5 도달 산술이 실제로 성립하는지 확인한다 — CommonEnemy(+30/턴)가 유일한 양(+) 소스이고
+    /// Decay 는 음수 구간에만 걸리므로, 공동 교전 중인 쌍은 alliance_favor_min(300)에 ~10턴이면 닿는다.
+    /// </summary>
+    [Fact]
+    public void AI끼리_동맹을_맺는다()
+    {
+        var db = Db();
+        var s = GameSetup.AiCampaign(db, 1);
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();
+
+        while (s.Turn <= 60) gm.AdvancePhase();
+
+        Assert.Contains(s.Progress, p => p.StartsWith("alliance:"));
+    }
+
+    /// <summary>AI 가 외교 상태를 실제로 바꾼다 — 선전포고/불가침/동맹 중 무엇이든 (쓰기 0건 → 해소).</summary>
+    [Fact]
+    public void AI는_외교_상태를_실제로_변경한다()
+    {
+        var db = Db();
+        var s = GameSetup.AiCampaign(db, 3);
+        var gm = new GameManager(s, db);
+        gm.CollectIncome();
+
+        while (s.Turn <= 30) gm.AdvancePhase();
+
+        Assert.Contains(s.Factions, f => f.Relations.Count > 0);
+        Assert.NotEmpty(s.Relations);   // 관계도 레코드가 실제로 쌓였다
+    }
+
     [Fact]
     public void 배치_시뮬_같은_시드_같은_결과()   // §8 시드 고정 리플레이 — 게임 전체 수준
     {

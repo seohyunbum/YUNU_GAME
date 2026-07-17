@@ -23,6 +23,15 @@ internal sealed class SaveDto
     public List<string>? FiredCutsceneIds { get; set; }   // §2.7.12 fired=seen (additive)
     public Dictionary<string, string>? CharacterOwners { get; set; }   // §2.8 캐릭터 소속 (additive)
     public List<RelationStateDto>? Relations { get; set; }   // 외교 관계도 — 쌍 단위 (additive, E3)
+    public List<ProposalDto>? PendingProposals { get; set; }   // 미응답 외교 제안 (additive, E9)
+}
+
+internal sealed class ProposalDto
+{
+    public string? From { get; set; }
+    public string? To { get; set; }
+    public ProposalKind? Kind { get; set; }
+    public int? ExpiresOnTurn { get; set; }
 }
 
 /// <summary>쌍 단위 관계도 (외교 E3). PairKey 는 파생값이라 저장하지 않는다 — 두 id 를 직접 들고 있어야

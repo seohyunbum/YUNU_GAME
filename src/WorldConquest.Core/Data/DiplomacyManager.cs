@@ -164,6 +164,52 @@ public sealed class DiplomacyManager
         return DiplomacyOutcome.Success;
     }
 
+    // ── 제안/수락 (E9) — 상대 동의가 필요한 행위. 핫시트 인간 2인은 §1.2 '동석 구두 합의'
+    //    전제라 여전히 즉시 체결(FormAlliance/SetNonAggression/MakePeace)을 쓴다.
+
+    /// <summary>제안 등록 — 같은 (from,to,kind) 중복은 갱신. ExpiresOnTurn 까지 유효(포함).</summary>
+    public DiplomacyOutcome Propose(string from, string to, ProposalKind kind)
+    {
+        var (_, _, guard) = Pair(from, to);
+        if (guard != DiplomacyOutcome.Success) return guard;
+
+        var existing = _state.PendingProposals
+            .FirstOrDefault(p => p.From == from && p.To == to && p.Kind == kind);
+        if (existing is not null) existing.ExpiresOnTurn = _state.Turn + 1;
+        else _state.PendingProposals.Add(new Proposal
+        {
+            From = from, To = to, Kind = kind, ExpiresOnTurn = _state.Turn + 1
+        });
+        _bus?.Publish(GameEvent.Of("ProposalMade",
+            ("from", from), ("to", to), ("kind", kind.ToString())));
+        return DiplomacyOutcome.Success;
+    }
+
+    /// <summary>제안 응답 — 수락 시 해당 조약을 체결한다. 제안은 응답 여부와 무관하게 소비된다.</summary>
+    public DiplomacyOutcome RespondToProposal(string to, string from, ProposalKind kind, bool accept)
+    {
+        var p = _state.PendingProposals
+            .FirstOrDefault(x => x.From == from && x.To == to && x.Kind == kind);
+        if (p is null) return DiplomacyOutcome.NoSuchFaction;
+        _state.PendingProposals.Remove(p);
+
+        _bus?.Publish(GameEvent.Of("ProposalAnswered",
+            ("from", from), ("to", to), ("kind", kind.ToString()), ("accepted", accept ? "true" : "false")));
+        if (!accept) return DiplomacyOutcome.Success;
+
+        return kind switch
+        {
+            ProposalKind.Alliance => FormAlliance(from, to),
+            ProposalKind.NonAggression => SetNonAggression(from, to),
+            ProposalKind.Peace => MakePeace(from, to),
+            _ => DiplomacyOutcome.NoSuchFaction
+        };
+    }
+
+    /// <summary>만료 제안 제거 — 수입 페이즈에서 호출 (턴 경계 정산).</summary>
+    public void ExpireProposals() =>
+        _state.PendingProposals.RemoveAll(p => p.ExpiresOnTurn < _state.Turn);
+
     private RelationLedger Ledger => new(_state, _db);
 
     private FactionState? Find(string id) => _state.Factions.FirstOrDefault(f => f.Id == id);

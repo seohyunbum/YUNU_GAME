@@ -227,6 +227,7 @@ public sealed class InternalAffairsManager
         // 관계도 정산 (외교 §5.2) — 공동의 적 축적 + 적대 구간 감쇠.
         // 수입 페이즈에 두는 이유: 턴당 1회·전 세력 대상이고, 이 페이즈가 이미 턴 경계의 정산 지점이다.
         new RelationLedger(_state, _db).ProcessTurn();
+        new DiplomacyManager(_state, _db).ExpireProposals();   // 만료된 외교 제안 정리 (E9)
 
         foreach (var faction in _state.Factions)
         {
