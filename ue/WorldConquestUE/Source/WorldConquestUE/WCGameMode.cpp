@@ -56,31 +56,73 @@ void AWCGameMode::BootSequence()
     UWCApiSubsystem* Api = GetGameInstance()->GetSubsystem<UWCApiSubsystem>();
     HudLine = TEXT("게임 서버 시작 중...");
 
-    // M2: 서버가 없으면 자식 프로세스로 자동 스폰 — 가족용 원클릭 실행 (ue5-client-design §4)
+    // 서버가 없으면 자식 프로세스로 자동 스폰 — 가족용 원클릭 실행 (ue5-client-design §4)
     Api->EnsureServer([this, Api](TSharedPtr<FJsonObject> Info)
     {
         if (!Info.IsValid()) { HudLine = TEXT("✘ 게임 서버 실행 실패 — deploy-local.py 재실행 필요"); return; }
+        const bool bHasCampaign = Info->GetBoolField(TEXT("has_campaign"));
 
-        const auto BuildBoard = [this, Api]()
+        // static 은 캠페인 무관 — 이름·보드(중립색)·컷씬·세력 목록을 먼저 준비
+        Api->FetchStatic([this, bHasCampaign](TSharedPtr<FJsonObject> Static)
         {
-            Api->FetchStatic([this](TSharedPtr<FJsonObject> Static)
+            ParseNames(Static);
+            if (MapActor) MapActor->BuildFromStatic(Static);
+
+            if (bHasCampaign) { Phase = EWCPhase::Playing; RefreshState(); return; }
+
+            // QA 하네스는 세력 선택을 건너뛰고 solo 조선 자동 시작 (기존 QA 시나리오 호환).
+            // -WCShowSelect 는 예외 — 선택 화면 자체를 촬영.
+            const TCHAR* Cmd = FCommandLine::Get();
+            const bool bShowSelect = FParse::Param(Cmd, TEXT("WCShowSelect"));
+            if (!bShowSelect &&
+                (FParse::Param(Cmd, TEXT("WCShot")) || FString(Cmd).Contains(TEXT("WCCmd=")) ||
+                 FString(Cmd).Contains(TEXT("WCTurns="))))
             {
-                ParseNames(Static);
-                if (MapActor) MapActor->BuildFromStatic(Static);
-                RefreshState();
-            });
-        };
-
-        if (Info->GetBoolField(TEXT("has_campaign")))
-        {
-            BuildBoard();
-        }
-        else
-        {
-            // M2 임시: solo 조선 자동 시작 (세력 선택 화면은 M2 후반)
-            Api->NewCampaign(TEXT("joseon"), FString(), [BuildBoard](TSharedPtr<FJsonObject>) { BuildBoard(); });
-        }
+                StartCampaign(TEXT("joseon"), FString());
+                return;
+            }
+            Phase = EWCPhase::FactionSelect;
+            HudLine = TEXT("세력을 선택하십시오");
+            if (bShowSelect) ScheduleQaShotIfRequested();
+        });
     });
+}
+
+void AWCGameMode::StartCampaign(const FString& P1, const FString& P2)
+{
+    Phase = EWCPhase::Playing;
+    HudLine = TEXT("캠페인 생성 중...");
+    GetGameInstance()->GetSubsystem<UWCApiSubsystem>()->NewCampaign(P1, P2,
+        [this](TSharedPtr<FJsonObject> Snap)
+        {
+            if (!Snap.IsValid()) { HudLine = TEXT("✘ 캠페인 생성 실패"); return; }
+            OnState(Snap);
+        });
+}
+
+void AWCGameMode::SelectFactionByIndex(int32 Index)
+{
+    if (Phase != EWCPhase::FactionSelect || !SelectableFactions.IsValidIndex(Index)) return;
+    const FString Picked = SelectableFactions[Index];
+
+    if (!bHotseat) { StartCampaign(Picked, FString()); return; }
+
+    if (HotseatFirstPick.IsEmpty())
+    {
+        HotseatFirstPick = Picked;
+        HudLine = FString::Printf(TEXT("1P = %s — 2P 세력을 선택하십시오"), *NameOf(FactionNames, Picked));
+        return;
+    }
+    if (Picked == HotseatFirstPick) return;   // 같은 세력 불가 — 서버도 거부하지만 UI 에서 차단
+    StartCampaign(HotseatFirstPick, Picked);
+}
+
+void AWCGameMode::ToggleHotseat()
+{
+    if (Phase != EWCPhase::FactionSelect) return;
+    bHotseat = !bHotseat;
+    HotseatFirstPick.Empty();
+    HudLine = bHotseat ? TEXT("핫시트 2인 — 1P 세력을 선택하십시오") : TEXT("세력을 선택하십시오");
 }
 
 void AWCGameMode::ParseNames(const TSharedPtr<FJsonObject>& StaticJson)
@@ -89,7 +131,12 @@ void AWCGameMode::ParseNames(const TSharedPtr<FJsonObject>& StaticJson)
     for (const TSharedPtr<FJsonValue>& N : StaticJson->GetObjectField(TEXT("map"))->GetArrayField(TEXT("nodes")))
         ProvinceNames.Add(N->AsObject()->GetStringField(TEXT("id")), N->AsObject()->GetStringField(TEXT("name_ko")));
     for (const TSharedPtr<FJsonValue>& F : StaticJson->GetArrayField(TEXT("factions")))
-        FactionNames.Add(F->AsObject()->GetStringField(TEXT("id")), F->AsObject()->GetStringField(TEXT("name_ko")));
+    {
+        const TSharedPtr<FJsonObject> Faction = F->AsObject();
+        FactionNames.Add(Faction->GetStringField(TEXT("id")), Faction->GetStringField(TEXT("name_ko")));
+        if (Faction->GetBoolField(TEXT("player_selectable")))
+            SelectableFactions.Add(Faction->GetStringField(TEXT("id")));
+    }
     for (const TSharedPtr<FJsonValue>& C : StaticJson->GetArrayField(TEXT("characters")))
         CharacterNames.Add(C->AsObject()->GetStringField(TEXT("id")), C->AsObject()->GetStringField(TEXT("name_ko")));
 
@@ -101,8 +148,63 @@ void AWCGameMode::ParseNames(const TSharedPtr<FJsonObject>& StaticJson)
         if (Unit->GetStringField(TEXT("domain")) == TEXT("land"))
             LandUnitIds.Add(Unit->GetStringField(TEXT("id")));
     }
+    // 컷씬 대본 — CutsceneTriggered 이벤트의 id 로 조회해 오버레이 재생 (§5.7 Presentation 소비)
+    for (const TSharedPtr<FJsonValue>& C : StaticJson->GetArrayField(TEXT("cutscenes")))
+    {
+        const TSharedPtr<FJsonObject> Obj = C->AsObject();
+        FWCCutscene Scene;
+        Obj->TryGetStringField(TEXT("title_ko"), Scene.TitleKo);
+        Obj->TryGetStringField(TEXT("title_card"), Scene.TitleCard);
+        for (const TSharedPtr<FJsonValue>& L : Obj->GetArrayField(TEXT("lines")))
+        {
+            FWCCutsceneLine Line;
+            L->AsObject()->TryGetStringField(TEXT("speaker"), Line.Speaker);
+            L->AsObject()->TryGetStringField(TEXT("text_ko"), Line.TextKo);
+            if (!Line.TextKo.IsEmpty()) Scene.Lines.Add(Line);
+        }
+        Cutscenes.Add(Obj->GetStringField(TEXT("id")), Scene);
+    }
+
     QuickSavePath = FPlatformMisc::GetEnvironmentVariable(TEXT("USERPROFILE")) / TEXT("WorldConquest/saves/quick.json");
     UpdateModeLine();
+
+    // QA: -WCCutscene=<id> — 임의 컷씬 강제 재생 (표현층 시각 검증 전용, 게임 규칙 무관)
+    FString QaCutscene;
+    if (FParse::Value(FCommandLine::Get(), TEXT("WCCutscene="), QaCutscene) && !QaCutscene.IsEmpty())
+        StartCutscene(QaCutscene);
+}
+
+void AWCGameMode::StartCutscene(const FString& Id)
+{
+    if (!Cutscenes.Contains(Id)) return;
+    ActiveCutscene = FWCActiveCutscene{ Id, 0 };
+    // 라인당 3.5초 자동 진행 (클릭으로 즉시 다음)
+    GetWorld()->GetTimerManager().SetTimer(CutsceneTimer, this, &AWCGameMode::AdvanceCutscene, 3.5f, true);
+}
+
+void AWCGameMode::TryStartNextCutscene()
+{
+    if (ActiveCutscene.IsSet() || CutsceneQueue.Num() == 0) return;
+    const FString Next = CutsceneQueue[0];
+    CutsceneQueue.RemoveAt(0);
+    StartCutscene(Next);
+}
+
+void AWCGameMode::AdvanceCutscene()
+{
+    if (!ActiveCutscene.IsSet()) return;
+    const FWCCutscene* Def = GetActiveCutsceneDef();
+    if (!Def || ++ActiveCutscene->LineIndex >= Def->Lines.Num())
+    {
+        ActiveCutscene.Reset();
+        GetWorld()->GetTimerManager().ClearTimer(CutsceneTimer);
+        TryStartNextCutscene();
+    }
+}
+
+const FWCCutscene* AWCGameMode::GetActiveCutsceneDef() const
+{
+    return ActiveCutscene.IsSet() ? Cutscenes.Find(ActiveCutscene->Id) : nullptr;
 }
 
 void AWCGameMode::RefreshState()
@@ -212,8 +314,14 @@ void AWCGameMode::OnCommandResult(TSharedPtr<FJsonObject> Result)
 void AWCGameMode::AppendEvents(const TArray<TSharedPtr<FJsonValue>>& Events)
 {
     for (const TSharedPtr<FJsonValue>& E : Events)
-        EventLog.Insert(EventToLine(E->AsObject()), 0);
+    {
+        const TSharedPtr<FJsonObject> Event = E->AsObject();
+        EventLog.Insert(EventToLine(Event), 0);
+        if (Event->GetStringField(TEXT("type")) == TEXT("CutsceneTriggered"))
+            CutsceneQueue.Add(Event->GetObjectField(TEXT("data"))->GetStringField(TEXT("cutscene")));
+    }
     while (EventLog.Num() > EventLogMax) EventLog.RemoveAt(EventLog.Num() - 1);
+    TryStartNextCutscene();
 }
 
 FString AWCGameMode::EventToLine(const TSharedPtr<FJsonObject>& Event) const

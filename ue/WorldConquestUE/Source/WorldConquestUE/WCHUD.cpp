@@ -66,4 +66,64 @@ void AWCHUD::DrawHUD()
         Line.EnableShadow(FLinearColor::Black);
         Canvas->DrawItem(Line);
     }
+
+    // ── 세력 선택 화면 (지도 배경 위 패널) ──
+    if (GM->Phase == EWCPhase::FactionSelect)
+    {
+        const float PanelX = Canvas->ClipX * 0.5f - 300.f, PanelY = 140.f;
+        FCanvasTileItem Panel(FVector2D(PanelX, PanelY),
+            FVector2D(600.f, 120.f + 34.f * GM->SelectableFactions.Num()), FLinearColor(0.f, 0.f, 0.f, 0.75f));
+        Panel.BlendMode = SE_BLEND_Translucent;
+        Canvas->DrawItem(Panel);
+
+        FCanvasTextItem Head(FVector2D(PanelX + 30, PanelY + 20),
+            FText::FromString(FString::Printf(TEXT("세력 선택 — %s   [H] 모드 전환"),
+                GM->bHotseat ? TEXT("부자 2인 핫시트") : TEXT("1인 vs AI"))),
+            Large, FLinearColor(1.f, 0.85f, 0.4f));
+        Head.EnableShadow(FLinearColor::Black);
+        Head.Scale = FVector2D(1.3, 1.3);
+        Canvas->DrawItem(Head);
+
+        for (int32 i = 0; i < GM->SelectableFactions.Num(); ++i)
+        {
+            const FString& Id = GM->SelectableFactions[i];
+            FCanvasTextItem Row(FVector2D(PanelX + 40, PanelY + 70 + 34.f * i),
+                FText::FromString(FString::Printf(TEXT("[%d] %s"), i + 1, *GM->FactionNames.FindRef(Id))),
+                Large, FLinearColor::White);
+            Row.EnableShadow(FLinearColor::Black);
+            Canvas->DrawItem(Row);
+        }
+    }
+
+    // ── 컷씬 오버레이 (자막 스타일 — T0 대본을 3D 위에) ──
+    if (const FWCCutscene* Scene = GM->GetActiveCutsceneDef())
+    {
+        const int32 LineIdx = GM->ActiveCutscene->LineIndex;
+        if (Scene->Lines.IsValidIndex(LineIdx))
+        {
+            const float BoxY = Canvas->ClipY * 0.68f;
+            FCanvasTileItem Box(FVector2D(Canvas->ClipX * 0.5f - 560.f, BoxY),
+                FVector2D(1120.f, 130.f), FLinearColor(0.f, 0.f, 0.f, 0.8f));
+            Box.BlendMode = SE_BLEND_Translucent;
+            Canvas->DrawItem(Box);
+
+            FCanvasTextItem SceneTitle(FVector2D(Canvas->ClipX * 0.5f - 530.f, BoxY + 14),
+                FText::FromString(FString::Printf(TEXT("『%s』"), *Scene->TitleKo)), Small, FLinearColor(1.f, 0.8f, 0.3f));
+            SceneTitle.EnableShadow(FLinearColor::Black);
+            Canvas->DrawItem(SceneTitle);
+
+            const FWCCutsceneLine& L = Scene->Lines[LineIdx];
+            const FString SpeakerName = L.Speaker.IsEmpty() ? FString() :
+                FString::Printf(TEXT("%s:  "), *GM->CharacterNames.FindRef(L.Speaker));
+            FCanvasTextItem Text(FVector2D(Canvas->ClipX * 0.5f - 530.f, BoxY + 48),
+                FText::FromString(SpeakerName + L.TextKo), Large, FLinearColor::White);
+            Text.EnableShadow(FLinearColor::Black);
+            Text.Scale = FVector2D(1.35, 1.35);
+            Canvas->DrawItem(Text);
+
+            FCanvasTextItem Hint(FVector2D(Canvas->ClipX * 0.5f + 380.f, BoxY + 100),
+                FText::FromString(TEXT("(클릭 — 다음)")), Small, FLinearColor(0.7f, 0.7f, 0.7f));
+            Canvas->DrawItem(Hint);
+        }
+    }
 }

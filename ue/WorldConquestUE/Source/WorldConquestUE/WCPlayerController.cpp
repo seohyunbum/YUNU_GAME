@@ -40,6 +40,13 @@ void AWCPlayerController::SetupInputComponent()
     Bind(EKeys::Escape, [](AWCGameMode* G) { G->CancelMode(); });
     Bind(EKeys::F5, [](AWCGameMode* G) { G->QuickSave(); });
     Bind(EKeys::F9, [](AWCGameMode* G) { G->QuickLoad(); });
+
+    // 세력 선택 (숫자키 1~9) + 핫시트 토글
+    const FKey Digits[] = { EKeys::One, EKeys::Two, EKeys::Three, EKeys::Four,
+                            EKeys::Five, EKeys::Six, EKeys::Seven, EKeys::Eight, EKeys::Nine };
+    for (int32 i = 0; i < UE_ARRAY_COUNT(Digits); ++i)
+        Bind(Digits[i], [i](AWCGameMode* G) { G->SelectFactionByIndex(i); });
+    Bind(EKeys::H, [](AWCGameMode* G) { G->ToggleHotseat(); });
 }
 
 void AWCPlayerController::OnEndTurnPressed()
@@ -50,10 +57,15 @@ void AWCPlayerController::OnEndTurnPressed()
 
 void AWCPlayerController::OnClick()
 {
+    AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
+    if (!GM) return;
+
+    // 컷씬 재생 중엔 클릭 = 다음 라인 (지도 조작 차단)
+    if (GM->GetActiveCutsceneDef()) { GM->AdvanceCutscene(); return; }
+
     FHitResult Hit;
     if (GetHitResultUnderCursor(ECC_Visibility, false, Hit) && Hit.GetComponent())
-        if (AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>())
-            GM->HandleNodeClick(Hit.GetComponent());
+        GM->HandleNodeClick(Hit.GetComponent());
 }
 
 void AWCPlayerController::OnCapturePressed()

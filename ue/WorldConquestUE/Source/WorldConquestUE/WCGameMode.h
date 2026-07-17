@@ -11,6 +11,13 @@ class UPrimitiveComponent;
 /** 클릭 해석 모드 — 이동/공격은 "명령 키 → 목표 클릭" 2단계. */
 enum class EWCClickMode : uint8 { Normal, MoveTarget, AttackTarget };
 
+/** 클라이언트 화면 단계. */
+enum class EWCPhase : uint8 { Boot, FactionSelect, Playing };
+
+/** 컷씬 대본 (static 에서 파싱 — Presentation 소비 §5.7). */
+struct FWCCutsceneLine { FString Speaker; FString TextKo; };
+struct FWCCutscene { FString TitleKo; FString TitleCard; TArray<FWCCutsceneLine> Lines; };
+
 /**
  * WorldConquest 클라이언트 진입 게임모드 (ue5-client-design §3 — 코드 퍼스트, 로직 0).
  * M2: 서버 자식 스폰(원클릭) · 노드 클릭 선택 · 이벤트 로그 · 도시명 라벨 데이터.
@@ -46,6 +53,23 @@ public:
 
     FString HudModeLine;                          // 모드·병종 안내줄
 
+    // ── 세력 선택 (Boot → FactionSelect → Playing) ──
+    EWCPhase Phase = EWCPhase::Boot;
+    TArray<FString> SelectableFactions;           // player_selectable 순서 = 숫자키
+    bool bHotseat = false;                        // [H] 토글 — 2인 핫시트
+    FString HotseatFirstPick;
+    void SelectFactionByIndex(int32 Index);       // 숫자키 1~9
+    void ToggleHotseat();
+
+    // ── 컷씬 오버레이 (표현 전용 — fired 판정은 서버) ──
+    struct FWCActiveCutscene { FString Id; int32 LineIndex = 0; };
+    TMap<FString, FWCCutscene> Cutscenes;
+    TOptional<FWCActiveCutscene> ActiveCutscene;
+    TArray<FString> CutsceneQueue;
+    void AdvanceCutscene();                       // 클릭/자동 타이머 — 다음 라인
+    const FWCCutscene* GetActiveCutsceneDef() const;
+    FTimerHandle CutsceneTimer;
+
     // ── HUD 조회용 ──
     FString HudLine = TEXT("연결 중...");
     FString HudSelection;                       // 선택 정보 줄
@@ -63,6 +87,9 @@ private:
     void OnState(TSharedPtr<FJsonObject> State);
     void OnCommandResult(TSharedPtr<FJsonObject> Result);
     void ParseNames(const TSharedPtr<FJsonObject>& StaticJson);
+    void StartCampaign(const FString& P1, const FString& P2);
+    void StartCutscene(const FString& Id);
+    void TryStartNextCutscene();
     void UpdateSelectionInfo();
     void AppendEvents(const TArray<TSharedPtr<FJsonValue>>& Events);
     FString EventToLine(const TSharedPtr<FJsonObject>& Event) const;

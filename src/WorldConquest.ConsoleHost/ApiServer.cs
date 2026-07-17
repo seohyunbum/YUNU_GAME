@@ -170,6 +170,14 @@ public static class ApiServer
             atk = u.Atk, def = u.Def, speed = u.Speed,
             recruit_cost_gold = u.RecruitCostGold, upkeep_food = u.UpkeepFood,
         }),
+        // 컷씬 대본 — Presentation 소비 데이터 (§5.7). 클라가 CutsceneTriggered 이벤트의 id 로 조회해 재생.
+        cutscenes = db.CutsceneScripts.Values.Select(c => new
+        {
+            id = c.Id,
+            title_ko = c.TitleKo,
+            title_card = c.TitleCardText,
+            lines = c.Script.Select(b => new { beat = b.Beat, speaker = b.SpeakerRef, text_ko = b.TextKo ?? b.Text }),
+        }),
     };
 
     private static JsonNode? ReadBody(HttpListenerContext ctx)
