@@ -19,6 +19,13 @@ namespace
     const FLinearColor SeaEdgeColor(0.25f, 0.42f, 0.62f);   // 해로 = 흐린 청회색
     constexpr double EdgeThickness = 0.10;                  // 0.3 → 0.10 (거점 마커가 주인공)
     constexpr double TerritoryRadius = 1500.0;              // 세력 영역 데칼 반경(cm)
+
+    // Kenney 마커 스케일 — 원본 성탑 100x100x131, 깃발 10x43x86 (실측 bounds).
+    // 기존 도형 마커(폭 ~200, 높이 ~200)와 눈에 띄는 크기를 맞춘다.
+    constexpr double kTowerScale = 1.5;     // 100 → 150 폭 (지도에서 과하지 않게)
+    constexpr double kTowerTopZ  = 190.0;   // 깃발을 성탑 총안 위로
+    // 깃발이 세력 구분 전담이라 크게 — 작으면 세력색이 안 읽힌다(실측 1.6 은 점으로 보였음)
+    constexpr double kFlagScale  = 4.0;
     const FLinearColor RimColor(0.03f, 0.03f, 0.03f);       // 마커 테두리 = 흑
 }
 
@@ -60,6 +67,21 @@ UStaticMeshComponent* AWCMapActor::AddShape(UStaticMesh* Mesh, const FVector& Po
     return Comp;
 }
 
+UStaticMeshComponent* AWCMapActor::AddMesh(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
+                                           const FRotator& Rot)
+{
+    // 메시가 들고 온 머티리얼(Kenney colormap 아틀라스)을 그대로 쓴다 — 성벽·지붕 색이 원본대로 나온다.
+    UStaticMeshComponent* Comp = NewObject<UStaticMeshComponent>(this);
+    Comp->SetupAttachment(RootComponent);
+    Comp->RegisterComponent();
+    Comp->SetStaticMesh(Mesh);
+    Comp->SetRelativeLocation(Pos);
+    Comp->SetRelativeRotation(Rot);
+    Comp->SetRelativeScale3D(Scale);
+    Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    return Comp;
+}
+
 FVector AWCMapActor::BoardToWorld(double X, double Y)
 {
     // 직교 탑다운 카메라(-90 pitch, yaw 0)의 화면 정합: 화면 위 = 월드 +X, 화면 오른쪽 = 월드 +Y.
@@ -76,6 +98,12 @@ void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
         BaseMaterial = Unlit;
     else
         UE_LOG(LogWCMap, Warning, TEXT("M_UnlitColor 없음 — lit 폴백 (Scripts/import_worldmap.py 실행 필요)"));
+
+    // Kenney Castle Kit 마커 메시 (CC0). 없으면 기본 도형 폴백 — 크래시 없이 degrade.
+    TowerMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Markers/tower-square/StaticMeshes/SM_tower_square.SM_tower_square"));
+    FlagMesh  = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Markers/flag/StaticMeshes/SM_flag.SM_flag"));
+    if (!TowerMesh || !FlagMesh)
+        UE_LOG(LogWCMap, Warning, TEXT("마커 메시 없음 — 기본 도형 폴백 (Scripts/import_markers.py 실행 필요)"));
 
     // 세력 영역 데칼 머티리얼 (없으면 영역 표시 생략 — 크래시 없이 degrade)
     TerritoryMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorldMap/M_Territory.M_Territory"));
@@ -242,24 +270,41 @@ UStaticMeshComponent* AWCMapActor::MakeNodeMesh(const FString& NodeId, const FVe
         UMaterialInstanceDynamic* DiscMid = nullptr;
         PickTarget = AddShape(CylinderMesh, Pos, FVector(1.7, 1.7, 0.1), SeaColor, FRotator::ZeroRotator, &DiscMid);
         ColorTargets.Add(DiscMid);
-        AddShape(CylinderMesh, Pos + FVector(0, 0, 60), FVector(0.12, 0.12, 1.2), WallColor);
         UMaterialInstanceDynamic* FlagMid = nullptr;
-        AddShape(CubeMesh, Pos + FVector(0, 24, 108), FVector(0.04, 0.45, 0.3), SeaColor, FRotator::ZeroRotator, &FlagMid);
+        if (FlagMesh)
+        {
+            AddShape(FlagMesh, Pos, FVector(kFlagScale), SeaColor, FRotator(0, -35.f, 0), &FlagMid);
+        }
+        else
+        {
+            AddShape(CylinderMesh, Pos + FVector(0, 0, 60), FVector(0.12, 0.12, 1.2), WallColor);
+            AddShape(CubeMesh, Pos + FVector(0, 24, 108), FVector(0.04, 0.45, 0.3), SeaColor, FRotator::ZeroRotator, &FlagMid);
+        }
         ColorTargets.Add(FlagMid);
     }
     else
     {
-        // 도시 = 성벽 원판 + 성채(본체·지붕) + 세력 깃발 — 지붕·깃발이 세력색
-        AddShape(CylinderMesh, Pos - FVector(0, 0, 4), FVector(2.0, 2.0, 0.07), RimColor);          // 윤곽
-        AddShape(CylinderMesh, Pos, FVector(1.6, 1.6, 0.3), WallColor);                              // 성벽
-        PickTarget = AddShape(CubeMesh, Pos + FVector(0, 0, 34), FVector(1.05, 1.05, 0.8), StoneColor);   // 본체
-        UMaterialInstanceDynamic* RoofMid = nullptr;
-        AddShape(ConeMesh, Pos + FVector(0, 0, 82), FVector(1.35, 1.35, 0.7), NeutralColor, FRotator::ZeroRotator, &RoofMid);
-        ColorTargets.Add(RoofMid);                                                                    // 지붕 = 세력색
-        AddShape(CylinderMesh, Pos + FVector(28, 28, 95), FVector(0.10, 0.10, 1.9), WallColor);       // 깃대
-        UMaterialInstanceDynamic* FlagMid = nullptr;
-        AddShape(CubeMesh, Pos + FVector(28, 50, 172), FVector(0.04, 0.42, 0.28), NeutralColor, FRotator::ZeroRotator, &FlagMid);
-        ColorTargets.Add(FlagMid);                                                                    // 깃발 = 세력색
+        // 도시 = Kenney 성탑(원본 텍스처) + 세력색 깃발.
+        // 성탑은 아틀라스 텍스처를 그대로 써야 성벽·지붕 디테일이 살고, 세력 구분은 깃발이 맡는다
+        // (Kenney 메시는 머티리얼 슬롯이 1개뿐이라 부위별 틴트가 불가 — 실측 확인).
+        AddShape(CylinderMesh, Pos - FVector(0, 0, 4), FVector(2.0, 2.0, 0.07), RimColor);   // 지면 윤곽(가독)
+        if (TowerMesh && FlagMesh)
+        {
+            PickTarget = AddMesh(TowerMesh, Pos, FVector(kTowerScale));
+            UMaterialInstanceDynamic* FlagMid = nullptr;
+            // 깃발은 단색 세력기 — 아틀라스 대신 unlit 세력색(지도에서 멀리서도 세력이 읽힌다)
+            AddShape(FlagMesh, Pos + FVector(0, 0, kTowerTopZ), FVector(kFlagScale),
+                     NeutralColor, FRotator(0, -35.f, 0), &FlagMid);
+            ColorTargets.Add(FlagMid);
+        }
+        else
+        {   // 폴백 — 팩 미설치 시 기존 도형
+            AddShape(CylinderMesh, Pos, FVector(1.6, 1.6, 0.3), WallColor);
+            PickTarget = AddShape(CubeMesh, Pos + FVector(0, 0, 34), FVector(1.05, 1.05, 0.8), StoneColor);
+            UMaterialInstanceDynamic* RoofMid = nullptr;
+            AddShape(ConeMesh, Pos + FVector(0, 0, 82), FVector(1.35, 1.35, 0.7), NeutralColor, FRotator::ZeroRotator, &RoofMid);
+            ColorTargets.Add(RoofMid);
+        }
     }
 
     // 클릭 픽킹 대상 등록 (본체/원판)

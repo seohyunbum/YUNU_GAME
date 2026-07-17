@@ -35,3 +35,6 @@ ue/**/qa_*.png
 ue/**/Content/Asian_Village/
 ue/**/village_layout.json
 ue/**/*_out.txt
+
+# Kenney Castle Kit 원본 GLB — 임포트 결과(Content/Markers)만 추적한다
+ue/**/RawAssets/Markers/

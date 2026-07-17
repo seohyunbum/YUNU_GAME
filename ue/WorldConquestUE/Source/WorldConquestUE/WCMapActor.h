@@ -70,6 +70,17 @@ private:
                                    const FLinearColor& Color, const FRotator& Rot = FRotator::ZeroRotator,
                                    UMaterialInstanceDynamic** OutMid = nullptr);
 
+    /** Kenney Castle Kit (CC0) — 거점 성탑·깃발. 부재 시 기본 도형으로 폴백한다. */
+    UPROPERTY()
+    TObjectPtr<UStaticMesh> TowerMesh;
+
+    UPROPERTY()
+    TObjectPtr<UStaticMesh> FlagMesh;
+
+    /** 메시의 '자기 머티리얼'을 그대로 쓰는 배치 (AddShape 는 단색 MID 로 덮어쓴다). */
+    UStaticMeshComponent* AddMesh(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
+                                  const FRotator& Rot = FRotator::ZeroRotator);
+
     UPROPERTY()
     TObjectPtr<UStaticMesh> CubeMesh;
 
