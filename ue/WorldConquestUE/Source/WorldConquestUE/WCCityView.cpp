@@ -258,13 +258,16 @@ TSharedRef<SWidget> SWCCityView::MakeFacilityCard(const FString& Kind, const TCH
 // ── 건물 간판 — 클릭하면 그 건물 패널이 열린다 (다시 누르면 닫힘) ──
 TSharedRef<SWidget> SWCCityView::MakeSignboard(const FString& Kind, const TCHAR* IconName, const FText& Label)
 {
-    // 한글은 상하 여유가 필요하다 — 46 에선 글자가 칸을 뚫고 잘렸다(실측 2026-07-17)
-    return SNew(SBox).HeightOverride(56).Padding(FMargin(0, 0, 0, 7))
+    // 칸 높이를 **고정하지 않는다** — 버튼이 내용(아이콘·글자)에 맞춰 자동으로 커지게 둔다.
+    // 예전엔 HeightOverride(56) 로 높이를 고정했는데, 창을 최대화하면(2560x1440 = Slate DPI 스케일 ~1.5)
+    // 글자 라인박스가 56px 안에 안 들어가 버튼이 내용을 하단에서 잘랐다(2026-07-18 최대화 재현). 1600x1000
+    // (런처 기본)에선 스케일 1.0 이라 우연히 맞아 안 잘려 그동안 못 잡았다. 자동 높이면 어떤 DPI 든 안 잘린다.
+    return SNew(SBox).Padding(FMargin(0, 0, 0, 7))
     [
         SNew(SButton)
         .ButtonStyle(&FWCStyle::ButtonRef())
         .OnClicked_Lambda([this, Kind] { if (GM.IsValid()) GM->OpenCityBuilding(Kind); return FReply::Handled(); })
-        .HAlign(HAlign_Left).VAlign(VAlign_Center).ContentPadding(FMargin(12, 9))
+        .HAlign(HAlign_Left).VAlign(VAlign_Center).ContentPadding(FMargin(12, 11))
         [
             SNew(SHorizontalBox)
             + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
