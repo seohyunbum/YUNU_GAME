@@ -135,3 +135,11 @@
 - **함정 2건**: ①Slate 기본 Roboto 는 한글 글리프 없음 → `GEngine->GetLargeFont()->GetLegacySlateFontInfo()` (Canvas 에서 검증된 엔진 폰트) ②`FScreenshotRequest::RequestScreenshot(false)` 의 false = **UI 제외 캡처** — Slate 만 안 찍혀 "UI 미표시"로 오진할 뻔. QA 하네스는 true 필수 (Canvas HUD 는 뷰포트 렌더에 포함이라 false 에서도 찍혀 혼란 가중).
 - **함정 3**: 사용자가 게임 실행 중이면 Live Coding 세션이 UBT 빌드를 차단 ("Unable to build while Live Coding is active") — 빌드 전 UnrealEditor 프로세스 확인.
 - **다음 (M2 잔여)**: 세력 선택도 클릭 버튼화·컷씬 QA 샷 재검증·deploy-local.py 에 3D 갱신 통합·M3(전투/가챠 연출).
+
+## 2026-07-17 — 거점(도시) 화면: KOEI 식 2층 구조 (지도 ⇄ 도시)
+
+- **계기**: 사용자 피드백 — "거점 안으로 진입해서 내정 돌보고 상점에서 무장초빙도 하고, 세계지도와 별개로 UI 제대로".
+- **결과**: `SWCCityView` 전면 화면 — 헤더(도시명·소유·인구·항구 + 자원) / 3컬럼: **[내정]** 생산·시설 현황·건설 버튼 **[군사]** 주둔 부대·징병·병종 **[주막]** 천명·§2.8.6 확률 공시(서버 /api/rates 신설 — 판정과 동일 함수)·천장·소속 무장·초빙 버튼 / [◀ 세계지도로]. 진입 = 소유 도시 **더블클릭** 또는 영지 창 [도시 진입] 버튼(비소유 시 비활성), ESC = 복귀. 초빙·징병 후 천명·확률 자동 갱신.
+- **서버 확장**: /api/rates (SummonRates — 천명·비용·pity·풀·만분율 확률), /api/static nodes 에 population·production 추가. 테스트 170 유지.
+- **함정 3건**: ①UE 5.8 `FJsonObject::Values` 키 = FStringType(UTF8) — FString 파라미터에 바로 못 넘김, `FString(Pair.Key)` 명시 변환 ②Slate 기본 Border 브러시는 이미지 기반이라 BorderBackgroundColor 알파가 안 먹음 — 불투명 패널은 `.BorderImage(FCoreStyle WhiteBrush)` 필수 ③사용자가 게임 실행 중이면 Live Coding 이 UBT 를 차단해 **옛 바이너리로 QA 샷**이 찍힘 — QA 전 빌드 성공 확인 + UE 프로세스 정리 (2회 재발).
+- **QA**: -WCCity=<id> 도시 화면 자동 진입 촬영. 실증 샷 — 시장 Lv1(WCCmd 건설 반영)·창병 10·확률 공시·소속 무장.

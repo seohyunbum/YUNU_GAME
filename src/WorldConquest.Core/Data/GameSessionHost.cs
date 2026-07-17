@@ -105,6 +105,32 @@ public sealed class GameSessionHost
     public List<EventView> EventsSince(long cursor) =>
         _journal.Where(e => e.Seq >= cursor).ToList();
 
+    /// <summary>초빙 확률 공시 (§2.8.6 [MUST] — 판정과 동일 함수) + 천장·비용·풀 정보 (도시 주막 UI 용).</summary>
+    public Dictionary<string, object> SummonRates(string factionId)
+    {
+        var gm = RequireGame();
+        var faction = gm.State.Factions.FirstOrDefault(f => f.Id == factionId)
+            ?? throw new ArgumentException($"세력 없음: {factionId}");
+        var sys = new SummonSystem(gm.State, _db, gm.Bus);
+        var pool = sys.GetPool();
+        return new Dictionary<string, object>
+        {
+            ["mandate"] = faction.Mandate,
+            ["cost_single"] = _db.Rules.SummonCostSingle,
+            ["pity_count"] = faction.PityCount,
+            ["hard_pity"] = _db.Rules.SummonHardPity,
+            ["pool_total"] = pool.Count,
+            ["rates"] = sys.GetCurrentRates(factionId)
+                .OrderByDescending(kv => kv.Key)
+                .Select(kv => new Dictionary<string, object>
+                {
+                    ["rarity"] = kv.Key,
+                    ["permyriad"] = kv.Value,   // 만분율 (§4.4 정수 스케일)
+                    ["remaining"] = pool.Count(c => c.Rarity == kv.Key),
+                }).ToList(),
+        };
+    }
+
     // ---------- 명령 ----------
 
     /// <summary>

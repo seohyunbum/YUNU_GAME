@@ -20,5 +20,6 @@ protected:
 private:
     void OnEndTurnPressed();
     void OnClick();
+    void OnDoubleClick();
     void OnCapturePressed();
 };

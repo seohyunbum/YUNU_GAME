@@ -53,6 +53,7 @@ void SWCMainUI::Construct(const FArguments& InArgs)
 TSharedRef<SWidget> SWCMainUI::MakeTopBar()
 {
     return SNew(SBorder)
+        .BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
         .BorderBackgroundColor(FSlateColor(PanelBg))
         .Padding(FMargin(18, 8))
         [
@@ -78,6 +79,7 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
     return SNew(SBox).WidthOverride(280)
     [
         SNew(SBorder)
+        .BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
         .BorderBackgroundColor(FSlateColor(PanelBg))
         .Padding(FMargin(14, 12))
         .Visibility(this, &SWCMainUI::SelectionVisibility)
@@ -93,7 +95,20 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
                 SNew(STextBlock).Font(KFont(12)).AutoWrapText(true)
                 .Text_Lambda([this] { return GM.IsValid() ? GM->UiSelectionDetail() : FText::GetEmpty(); })
             ]
-            + SVerticalBox::Slot().AutoHeight()[ MakeButton(FText::FromString(TEXT("점령 (빈 영지)")),
+            + SVerticalBox::Slot().AutoHeight()
+            [
+                SNew(SBox).HeightOverride(40)
+                [
+                    SNew(SButton)
+                    .ButtonColorAndOpacity(FSlateColor(Gold))
+                    .IsEnabled_Lambda([this] { return GM.IsValid() && GM->UiCanEnterSelected(); })
+                    .OnClicked_Lambda([this] { if (GM.IsValid()) GM->EnterSelectedCity(); return FReply::Handled(); })
+                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                    [ SNew(STextBlock).Font(KFont(15)).ColorAndOpacity(FSlateColor(FLinearColor::Black))
+                        .Text(FText::FromString(TEXT("🏯 도시 진입"))) ]
+                ]
+            ]
+            + SVerticalBox::Slot().AutoHeight().Padding(0, 8, 0, 0)[ MakeButton(FText::FromString(TEXT("점령 (빈 영지)")),
                 [](AWCGameMode* G) { G->CaptureSelected(); }) ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 8, 0, 0)
             [
@@ -135,6 +150,7 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
 TSharedRef<SWidget> SWCMainUI::MakeGlobalPanel()
 {
     return SNew(SBorder)
+        .BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
         .BorderBackgroundColor(FSlateColor(PanelBg))
         .Padding(FMargin(12, 10))
         [
@@ -176,7 +192,8 @@ TSharedRef<SWidget> SWCMainUI::MakeButton(const FText& Label, TFunction<void(AWC
 
 EVisibility SWCMainUI::PlayingVisibility() const
 {
-    return GM.IsValid() && GM->UiIsPlaying() ? EVisibility::Visible : EVisibility::Collapsed;
+    // 도시 화면 중엔 지도용 UI 를 숨긴다 (도시 화면이 전면 대체)
+    return GM.IsValid() && GM->UiIsPlaying() && !GM->UiInCity() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SWCMainUI::SelectionVisibility() const

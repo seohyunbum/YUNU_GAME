@@ -37,6 +37,9 @@ public:
     /** 클릭 픽킹 결과 처리 — 노드 선택. */
     void HandleNodeClick(const UPrimitiveComponent* Component);
 
+    /** 더블클릭 — 소유 도시면 진입. */
+    void HandleNodeDoubleClick(const UPrimitiveComponent* Component);
+
     /** 선택 영지 점령 시도 (C 키). 로직 판정은 전부 서버 [MUST]. */
     void CaptureSelected();
 
@@ -75,6 +78,20 @@ public:
     const FWCCutscene* GetActiveCutsceneDef() const;
     FTimerHandle CutsceneTimer;
 
+    // ── 도시(거점) 화면 — 세계지도와 별개의 내정·군사·초빙 뷰 ──
+    void EnterCity(const FString& NodeId);   // 소유 도시만 (더블클릭 / [도시 진입] 버튼)
+    void LeaveCity();
+    bool UiInCity() const { return !EnteredCityId.IsEmpty(); }
+    bool UiCanEnterSelected() const;         // 선택 영지가 현재 차례 세력 소유인가
+    void EnterSelectedCity() { if (UiCanEnterSelected()) EnterCity(SelectedNodeId); }
+    FText UiCityHeader() const;              // "한성 — 조선 · 인구 180,000 · 도시 · 항구"
+    FText UiCityFacilities() const;          // 시설·생산
+    FText UiCityArmies() const;              // 주둔 부대 목록
+    FText UiCityCharacters() const;          // 소속 무장 목록
+    FText UiCityRates() const;               // 초빙 확률 공시 (서버 조회 캐시)
+    void RefreshRates();                     // 진입·초빙 후 갱신 (§2.8.6)
+    FString EnteredCityId;
+
     // ── Slate UI 뷰모델 (TAttribute 폴링 — 매 프레임 평가) ──
     FText UiTurnText() const;          // "3턴 · 조선 차례"
     FText UiResourceText() const;      // "금 1220 · 식량 960 · 천명 25"
@@ -94,6 +111,11 @@ public:
     TMap<FString, FString> FactionNames;
     TMap<FString, FString> CharacterNames;
     TMap<FString, FString> UnitNames;
+
+    /** 노드 불변 정보 (도시 화면 헤더용 — static 파싱). */
+    struct FWCNodeInfo { int32 Population = 0; FString Terrain; bool bPort = false; int32 Gold = 0; int32 Food = 0; };
+    TMap<FString, FWCNodeInfo> NodeInfos;
+    TMap<FString, int32> CharacterRarity;       // 소속 무장 표시용
     AWCMapActor* GetMapActor() const { return MapActor; }
 
 private:
@@ -124,6 +146,7 @@ private:
     TArray<FString> LandUnitIds;         // static 병종 (land) — U 순환
     int32 RecruitUnitIndex = 0;
     FString QuickSavePath;
+    FString CityRatesText;               // /api/rates 캐시 (진입·초빙 시 갱신)
     void UpdateModeLine();
     void RunQaCommandsIfRequested();     // -WCCmd="verb a b|verb c" QA 스크립트
     bool bQaCmdParsed = false;

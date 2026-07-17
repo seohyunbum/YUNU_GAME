@@ -105,6 +105,12 @@ public static class ApiServer
                 Write(ctx, 200, host.Snapshot());
                 return true;
 
+            case ("GET", "/api/rates"):
+            {
+                var faction = ctx.Request.QueryString["faction"] ?? throw new ArgumentException("faction 필수");
+                Write(ctx, 200, host.SummonRates(faction));
+                return true;
+            }
             case ("GET", "/api/events"):
             {
                 var cursor = long.TryParse(ctx.Request.QueryString["cursor"], out var c) ? c : 0;
@@ -149,6 +155,9 @@ public static class ApiServer
                 adjacent = n.Adjacent,
                 terrain = (n as Core.Domain.LandProvince)?.Terrain,
                 port = (n as Core.Domain.LandProvince)?.Port,
+                population = (n as Core.Domain.LandProvince)?.Population,
+                production = n is Core.Domain.LandProvince lp
+                    ? new { gold = lp.Produce().Gold, food = lp.Produce().Food } : null,
             }),
             edges = db.Map.Edges.Select(e => new { from = e.From, to = e.To, type = e.Type.ToString().ToLowerInvariant() }),
         },

@@ -2,6 +2,7 @@
 #include "WCApiSubsystem.h"
 #include "WCMapActor.h"
 #include "WCMainUI.h"
+#include "WCCityView.h"
 #include "WCPlayerController.h"
 #include "WCHUD.h"
 #include "Engine/GameViewportClient.h"
@@ -53,7 +54,10 @@ void AWCGameMode::BeginPlay()
 
     // KOEI 식 메인 UI (Slate — 코드 퍼스트). Playing 단계에서만 보임.
     if (GEngine && GEngine->GameViewport)
+    {
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCMainUI).GameMode(this), 10);
+        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCCityView).GameMode(this), 20);   // 도시 화면 — 최상위
+    }
 
     BootSequence();
 }
@@ -136,7 +140,24 @@ void AWCGameMode::ParseNames(const TSharedPtr<FJsonObject>& StaticJson)
 {
     if (!StaticJson.IsValid()) return;
     for (const TSharedPtr<FJsonValue>& N : StaticJson->GetObjectField(TEXT("map"))->GetArrayField(TEXT("nodes")))
-        ProvinceNames.Add(N->AsObject()->GetStringField(TEXT("id")), N->AsObject()->GetStringField(TEXT("name_ko")));
+    {
+        const TSharedPtr<FJsonObject> Node = N->AsObject();
+        const FString Id = Node->GetStringField(TEXT("id"));
+        ProvinceNames.Add(Id, Node->GetStringField(TEXT("name_ko")));
+
+        FWCNodeInfo Info;   // 도시 화면 헤더용 불변 정보
+        Node->TryGetStringField(TEXT("terrain"), Info.Terrain);
+        Node->TryGetBoolField(TEXT("port"), Info.bPort);
+        double Num = 0;
+        if (Node->TryGetNumberField(TEXT("population"), Num)) Info.Population = static_cast<int32>(Num);
+        const TSharedPtr<FJsonObject>* Prod = nullptr;
+        if (Node->TryGetObjectField(TEXT("production"), Prod) && Prod)
+        {
+            Info.Gold = static_cast<int32>((*Prod)->GetNumberField(TEXT("gold")));
+            Info.Food = static_cast<int32>((*Prod)->GetNumberField(TEXT("food")));
+        }
+        NodeInfos.Add(Id, Info);
+    }
     for (const TSharedPtr<FJsonValue>& F : StaticJson->GetArrayField(TEXT("factions")))
     {
         const TSharedPtr<FJsonObject> Faction = F->AsObject();
@@ -145,7 +166,11 @@ void AWCGameMode::ParseNames(const TSharedPtr<FJsonObject>& StaticJson)
             SelectableFactions.Add(Faction->GetStringField(TEXT("id")));
     }
     for (const TSharedPtr<FJsonValue>& C : StaticJson->GetArrayField(TEXT("characters")))
-        CharacterNames.Add(C->AsObject()->GetStringField(TEXT("id")), C->AsObject()->GetStringField(TEXT("name_ko")));
+    {
+        const TSharedPtr<FJsonObject> Ch = C->AsObject();
+        CharacterNames.Add(Ch->GetStringField(TEXT("id")), Ch->GetStringField(TEXT("name_ko")));
+        CharacterRarity.Add(Ch->GetStringField(TEXT("id")), static_cast<int32>(Ch->GetNumberField(TEXT("rarity"))));
+    }
 
     // 징병 병종 목록 (육상만 — 함선 건조 UI 는 후속)
     for (const TSharedPtr<FJsonValue>& U : StaticJson->GetArrayField(TEXT("units")))
@@ -244,7 +269,7 @@ void AWCGameMode::OnState(TSharedPtr<FJsonObject> State)
     }
     UE_LOG(LogWorldConquest, Log, TEXT("상태 갱신 — %s"), *HudLine);
 
-    // QA: -WCSelect=<id> — 첫 상태에서 자동 선택 (선택 UI 시각 검증)
+    // QA: -WCSelect=<id> 자동 선택 · -WCCity=<id> 도시 화면 자동 진입 (시각 검증)
     if (!bQaSelectDone)
     {
         bQaSelectDone = true;
@@ -254,6 +279,9 @@ void AWCGameMode::OnState(TSharedPtr<FJsonObject> State)
             SelectedNodeId = QaSelect;
             UpdateSelectionInfo();
         }
+        FString QaCity;
+        if (FParse::Value(FCommandLine::Get(), TEXT("WCCity="), QaCity) && !QaCity.IsEmpty())
+            EnterCity(QaCity);
     }
 
     // QA: -WCCmd="verb a b|verb c" — 명령 체인 자동 실행 (클릭 없이 명령 경로 시각 검증)
@@ -316,6 +344,7 @@ void AWCGameMode::OnCommandResult(TSharedPtr<FJsonObject> Result)
     if (Result->TryGetObjectField(TEXT("state"), StateObj) && StateObj)
         OnState(*StateObj);
     UpdateSelectionInfo();
+    if (UiInCity()) RefreshRates();   // 초빙·징병 후 주막 확률·천명 최신화
 }
 
 void AWCGameMode::AppendEvents(const TArray<TSharedPtr<FJsonValue>>& Events)
@@ -454,6 +483,7 @@ void AWCGameMode::SummonOnce()
 
 void AWCGameMode::BeginMoveMode()
 {
+    if (UiInCity()) return;   // 이동·공격 목표 지정은 지도 화면 전용
     if (SelectedArmyId.IsEmpty()) { EventLog.Insert(TEXT("✘ 먼저 아군 부대가 있는 영지를 선택"), 0); return; }
     ClickMode = EWCClickMode::MoveTarget;
     UpdateModeLine();
@@ -461,6 +491,7 @@ void AWCGameMode::BeginMoveMode()
 
 void AWCGameMode::BeginAttackMode()
 {
+    if (UiInCity()) return;
     if (SelectedArmyId.IsEmpty()) { EventLog.Insert(TEXT("✘ 먼저 아군 부대가 있는 영지를 선택"), 0); return; }
     ClickMode = EWCClickMode::AttackTarget;
     UpdateModeLine();
@@ -468,8 +499,19 @@ void AWCGameMode::BeginAttackMode()
 
 void AWCGameMode::CancelMode()
 {
+    if (UiInCity()) { LeaveCity(); return; }   // 도시 화면에서 ESC = 지도 복귀
     ClickMode = EWCClickMode::Normal;
     UpdateModeLine();
+}
+
+void AWCGameMode::HandleNodeDoubleClick(const UPrimitiveComponent* Component)
+{
+    if (!MapActor || !Component || UiInCity()) return;
+    const FString NodeId = MapActor->FindNodeIdByComponent(Component);
+    if (NodeId.IsEmpty()) return;
+    SelectedNodeId = NodeId;
+    UpdateSelectionInfo();
+    if (UiCanEnterSelected()) EnterCity(NodeId);
 }
 
 void AWCGameMode::QuickSave()
@@ -531,6 +573,156 @@ void AWCGameMode::CaptureSelected()
 {
     if (SelectedNodeId.IsEmpty()) return;
     SendVerb(TEXT("capture"), { SelectedNodeId });
+}
+
+// ───────── 도시(거점) 화면 ─────────
+
+bool AWCGameMode::UiCanEnterSelected() const
+{
+    if (SelectedNodeId.IsEmpty() || !LastState.IsValid() || PendingActor.IsEmpty()) return false;
+    for (const TSharedPtr<FJsonValue>& P : LastState->GetArrayField(TEXT("provinces")))
+    {
+        const TSharedPtr<FJsonObject> Province = P->AsObject();
+        if (Province->GetStringField(TEXT("id")) != SelectedNodeId) continue;
+        FString OwnerId;
+        return Province->TryGetStringField(TEXT("owner_faction_id"), OwnerId) && OwnerId == PendingActor;
+    }
+    return false;
+}
+
+void AWCGameMode::EnterCity(const FString& NodeId)
+{
+    EnteredCityId = NodeId;
+    SelectedNodeId = NodeId;
+    UpdateSelectionInfo();
+    RefreshRates();   // 주막 확률 공시 (§2.8.6)
+}
+
+void AWCGameMode::LeaveCity()
+{
+    EnteredCityId.Empty();
+}
+
+void AWCGameMode::RefreshRates()
+{
+    if (PendingActor.IsEmpty()) return;
+    GetGameInstance()->GetSubsystem<UWCApiSubsystem>()->FetchRates(PendingActor,
+        [this](TSharedPtr<FJsonObject> R)
+        {
+            if (!R.IsValid()) { CityRatesText = TEXT("(확률 조회 실패)"); return; }
+            FString Text = FString::Printf(TEXT("천명 %d · 1회 비용 %d\n"),
+                static_cast<int32>(R->GetNumberField(TEXT("mandate"))),
+                static_cast<int32>(R->GetNumberField(TEXT("cost_single"))));
+            const int32 PoolTotal = static_cast<int32>(R->GetNumberField(TEXT("pool_total")));
+            if (PoolTotal == 0)
+            {
+                Text += TEXT("천하의 인재를 모두 만났습니다 — 풀 소진");
+            }
+            else
+            {
+                for (const TSharedPtr<FJsonValue>& Rate : R->GetArrayField(TEXT("rates")))
+                {
+                    const TSharedPtr<FJsonObject> Obj = Rate->AsObject();
+                    const int32 Pm = static_cast<int32>(Obj->GetNumberField(TEXT("permyriad")));
+                    Text += FString::Printf(TEXT("★%d  %d.%02d%%  (잔여 %d명)\n"),
+                        static_cast<int32>(Obj->GetNumberField(TEXT("rarity"))), Pm / 100, Pm % 100,
+                        static_cast<int32>(Obj->GetNumberField(TEXT("remaining"))));
+                }
+                Text += FString::Printf(TEXT("천장: 다음 ★5까지 최대 %d회"),
+                    static_cast<int32>(R->GetNumberField(TEXT("hard_pity"))) -
+                    static_cast<int32>(R->GetNumberField(TEXT("pity_count"))));
+            }
+            CityRatesText = Text;
+        });
+}
+
+FText AWCGameMode::UiCityHeader() const
+{
+    if (EnteredCityId.IsEmpty()) return FText::GetEmpty();
+    const FWCNodeInfo* Info = NodeInfos.Find(EnteredCityId);
+    FString OwnerName = TEXT("공백지");
+    if (LastState.IsValid())
+        for (const TSharedPtr<FJsonValue>& P : LastState->GetArrayField(TEXT("provinces")))
+        {
+            const TSharedPtr<FJsonObject> Province = P->AsObject();
+            if (Province->GetStringField(TEXT("id")) != EnteredCityId) continue;
+            FString OwnerId;
+            if (Province->TryGetStringField(TEXT("owner_faction_id"), OwnerId) && !OwnerId.IsEmpty())
+                OwnerName = NameOf(FactionNames, OwnerId);
+            break;
+        }
+    return FText::FromString(FString::Printf(TEXT("%s — %s%s%s"),
+        *NameOf(ProvinceNames, EnteredCityId), *OwnerName,
+        Info && Info->Population > 0 ? *FString::Printf(TEXT(" · 인구 %s"), *FText::AsNumber(Info->Population).ToString()) : TEXT(""),
+        Info && Info->bPort ? TEXT(" · 항구") : TEXT("")));
+}
+
+FText AWCGameMode::UiCityFacilities() const
+{
+    if (EnteredCityId.IsEmpty() || !LastState.IsValid()) return FText::GetEmpty();
+    const FWCNodeInfo* Info = NodeInfos.Find(EnteredCityId);
+    FString Text = Info ? FString::Printf(TEXT("기본 생산: 금 %d · 식량 %d\n\n시설:\n"), Info->Gold, Info->Food) : TEXT("시설:\n");
+    bool bAny = false;
+    for (const TSharedPtr<FJsonValue>& P : LastState->GetArrayField(TEXT("provinces")))
+    {
+        const TSharedPtr<FJsonObject> Province = P->AsObject();
+        if (Province->GetStringField(TEXT("id")) != EnteredCityId) continue;
+        const TSharedPtr<FJsonObject>* Facilities = nullptr;
+        if (Province->TryGetObjectField(TEXT("facilities"), Facilities) && Facilities)
+            for (const auto& Pair : (*Facilities)->Values)
+            {
+                Text += FString::Printf(TEXT("  %s Lv%d\n"),
+                    Pair.Key == TEXT("market") ? TEXT("시장") : Pair.Key == TEXT("farm") ? TEXT("농지") : *Pair.Key,
+                    static_cast<int32>(Pair.Value->AsNumber()));
+                bAny = true;
+            }
+        break;
+    }
+    if (!bAny) Text += TEXT("  (없음 — 아래에서 건설)");
+    return FText::FromString(Text);
+}
+
+FText AWCGameMode::UiCityArmies() const
+{
+    if (EnteredCityId.IsEmpty() || !LastState.IsValid()) return FText::GetEmpty();
+    FString Text;
+    for (const TSharedPtr<FJsonValue>& A : LastState->GetArrayField(TEXT("armies")))
+    {
+        const TSharedPtr<FJsonObject> Army = A->AsObject();
+        if (Army->GetStringField(TEXT("location")) != EnteredCityId) continue;
+        FString Units;
+        const TSharedPtr<FJsonObject>* UnitsObj = nullptr;
+        if (Army->TryGetObjectField(TEXT("units"), UnitsObj) && UnitsObj)
+            for (const auto& Pair : (*UnitsObj)->Values)
+                Units += FString::Printf(TEXT("%s %d  "), *NameOf(UnitNames, FString(Pair.Key)),
+                    static_cast<int32>(Pair.Value->AsNumber()));
+        FString Commander;
+        Army->TryGetStringField(TEXT("commander_id"), Commander);
+        Text += FString::Printf(TEXT("⚔ %s — %s%s\n"), *Army->GetStringField(TEXT("id")), *Units,
+            Commander.IsEmpty() ? TEXT("") : *FString::Printf(TEXT("· 지휘 %s"), *NameOf(CharacterNames, Commander)));
+    }
+    return FText::FromString(Text.IsEmpty() ? TEXT("(주둔 부대 없음 — 아래에서 징병)") : Text);
+}
+
+FText AWCGameMode::UiCityCharacters() const
+{
+    if (!LastState.IsValid() || PendingActor.IsEmpty()) return FText::GetEmpty();
+    FString Text;
+    const TSharedPtr<FJsonObject>* Owners = nullptr;
+    if (LastState->TryGetObjectField(TEXT("character_owners"), Owners) && Owners)
+        for (const auto& Pair : (*Owners)->Values)
+            if (Pair.Value->AsString() == PendingActor)
+            {
+                const FString CharId(Pair.Key);   // UE5.8: Values 키 = FStringType(UTF8)
+                Text += FString::Printf(TEXT("★%d %s\n"), CharacterRarity.FindRef(CharId),
+                    *NameOf(CharacterNames, CharId));
+            }
+    return FText::FromString(Text.IsEmpty() ? TEXT("(소속 무장 없음)") : Text);
+}
+
+FText AWCGameMode::UiCityRates() const
+{
+    return FText::FromString(CityRatesText);
 }
 
 FText AWCGameMode::UiTurnText() const

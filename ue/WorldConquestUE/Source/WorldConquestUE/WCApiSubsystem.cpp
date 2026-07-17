@@ -203,6 +203,11 @@ void UWCApiSubsystem::LoadGame(const FString& Path, FWCJsonCallback Callback)
     Request(TEXT("POST"), TEXT("/api/load"), BodyText, MoveTemp(Callback));
 }
 
+void UWCApiSubsystem::FetchRates(const FString& Faction, FWCJsonCallback Callback)
+{
+    Request(TEXT("GET"), FString::Printf(TEXT("/api/rates?faction=%s"), *Faction), FString(), MoveTemp(Callback));
+}
+
 void UWCApiSubsystem::Request(const FString& Verb, const FString& Path, const FString& Body, FWCJsonCallback Callback)
 {
     const TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Req = FHttpModule::Get().CreateRequest();

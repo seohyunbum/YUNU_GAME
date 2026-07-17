@@ -17,6 +17,7 @@ void AWCPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::Enter, IE_Pressed, this, &AWCPlayerController::OnEndTurnPressed);
     InputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this, &AWCPlayerController::OnEndTurnPressed);
     InputComponent->BindKey(EKeys::LeftMouseButton, IE_Pressed, this, &AWCPlayerController::OnClick);
+    InputComponent->BindKey(EKeys::LeftMouseButton, IE_DoubleClick, this, &AWCPlayerController::OnDoubleClick);
     InputComponent->BindKey(EKeys::C, IE_Pressed, this, &AWCPlayerController::OnCapturePressed);
 
     // M2 명령 키 — FInputKeyBinding 수동 람다 (핸들러 메서드 폭발 방지)
@@ -77,12 +78,22 @@ void AWCPlayerController::OnClick()
     AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
     if (!GM) return;
 
-    // 컷씬 재생 중엔 클릭 = 다음 라인 (지도 조작 차단)
+    // 컷씬 재생 중엔 클릭 = 다음 라인 (지도 조작 차단). 도시 화면은 Slate 전면이라 지도 클릭 무시.
     if (GM->GetActiveCutsceneDef()) { GM->AdvanceCutscene(); return; }
+    if (GM->UiInCity()) return;
 
     FHitResult Hit;
     if (GetHitResultUnderCursor(ECC_Visibility, false, Hit) && Hit.GetComponent())
         GM->HandleNodeClick(Hit.GetComponent());
+}
+
+void AWCPlayerController::OnDoubleClick()
+{
+    AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
+    if (!GM || GM->GetActiveCutsceneDef() || GM->UiInCity()) return;
+    FHitResult Hit;
+    if (GetHitResultUnderCursor(ECC_Visibility, false, Hit) && Hit.GetComponent())
+        GM->HandleNodeDoubleClick(Hit.GetComponent());
 }
 
 void AWCPlayerController::OnCapturePressed()

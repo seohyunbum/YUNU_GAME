@@ -47,6 +47,9 @@ public:
     void SaveGame(const FString& Path, FWCJsonCallback Callback);
     void LoadGame(const FString& Path, FWCJsonCallback Callback);
 
+    /** /api/rates — 초빙 확률 공시 (§2.8.6, 판정과 동일 함수. 도시 주막 UI). */
+    void FetchRates(const FString& Faction, FWCJsonCallback Callback);
+
     /** 서버 포트 — 자식 스폰 stdout 핸드셰이크(WC_API_PORT=)는 M2. */
     int32 ServerPort = 8378;
 
