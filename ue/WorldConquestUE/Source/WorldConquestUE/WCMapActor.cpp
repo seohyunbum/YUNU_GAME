@@ -181,11 +181,13 @@ void AWCMapActor::ApplyState(const TSharedPtr<FJsonObject>& StateJson)
             const FLinearColor* Color = FactionColors.Find(OwnerId);
             SetNodeColor(Id, Color ? *Color : NeutralColor);
             SetTerritoryColor(Id, Color ? *Color : NeutralColor, true);   // 거점 주변에 소유 세력색 확산
+            NodeOwners.Add(Id, OwnerId);
         }
         else
         {
             SetNodeColor(Id, NeutralColor);
             SetTerritoryColor(Id, NeutralColor, false);                   // 공백지 = 영역 없음
+            NodeOwners.Remove(Id);
         }
     }
 

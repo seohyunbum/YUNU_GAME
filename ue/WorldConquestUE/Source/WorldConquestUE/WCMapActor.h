@@ -36,6 +36,9 @@ public:
     /** HUD 라벨용 — 노드 id → 월드 좌표. */
     const TMap<FString, FVector>& GetNodePositions() const { return NodePositions; }
 
+    /** HUD 라벨 우선순위용 — 노드 id → 소유 세력 id (미소유 노드는 키 없음). */
+    const TMap<FString, FString>& GetNodeOwners() const { return NodeOwners; }
+
     /** 세력 색 (부대 마커·HUD 공용). */
     FLinearColor GetFactionColor(const FString& FactionId) const;
 
@@ -111,6 +114,9 @@ private:
 
     /** 노드 id → map_pos 월드 좌표 (간선 연결용). */
     TMap<FString, FVector> NodePositions;
+
+    /** 노드 id → 소유 세력 id (미소유 제외). ApplyState 가 매 턴 갱신, HUD 라벨 우선순위가 읽음. */
+    TMap<FString, FString> NodeOwners;
 
     UPROPERTY()
     TObjectPtr<UStaticMesh> CylinderMesh;
