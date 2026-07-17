@@ -31,3 +31,4 @@ ue/**/*.sln
 ue/**/shot_*.png
 ue/**/citybg_out.txt
 ue/**/portraits_out.txt
+ue/**/qa_*.png
