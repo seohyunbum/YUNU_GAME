@@ -18,4 +18,6 @@ protected:
 
 private:
     void OnEndTurnPressed();
+    void OnClick();
+    void OnCapturePressed();
 };

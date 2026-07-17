@@ -30,6 +30,15 @@ public:
     /** map_pos(x, y) → 월드 좌표. 보드 중심이 원점. */
     static FVector BoardToWorld(double X, double Y);
 
+    /** 클릭 픽킹: 히트 컴포넌트 → 노드 id (아니면 빈 문자열). */
+    FString FindNodeIdByComponent(const UPrimitiveComponent* Component) const;
+
+    /** HUD 라벨용 — 노드 id → 월드 좌표. */
+    const TMap<FString, FVector>& GetNodePositions() const { return NodePositions; }
+
+    /** 세력 색 (부대 마커·HUD 공용). */
+    FLinearColor GetFactionColor(const FString& FactionId) const;
+
 private:
     UStaticMeshComponent* MakeNodeMesh(const FString& NodeId, const FVector& Pos, bool bSea);
     void MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRoute);
@@ -52,4 +61,10 @@ private:
 
     UPROPERTY()
     TObjectPtr<UMaterialInterface> BaseMaterial;
+
+    /** 부대·함대 마커 — ApplyState 마다 재생성. */
+    UPROPERTY()
+    TArray<TObjectPtr<UStaticMeshComponent>> UnitMarkers;
+
+    void MakeUnitMarker(const TSharedPtr<FJsonObject>& Force, bool bFleet, int32 IndexAtNode);
 };

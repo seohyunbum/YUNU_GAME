@@ -99,3 +99,12 @@
 - **함정**: UE C++ 지역변수명 `Owner` 는 AActor 멤버 가림(C4458=error). HTTP 비동기라 ExecCmds HighResShot 은 로드 전 촬영 — 상태 적용 후 코드 촬영(-WCShot)이 정답.
 - **다음**: M2 — 명령 UI(클릭 픽킹·징병·이동·공격·초빙)·이벤트 로그 연출·도시명 라벨(한글 폰트)·C# 서버 자식 스폰(Job Object)·세력 선택.
 - **관련**: `ue/WorldConquestUE/Source/WorldConquestUE/` WCMapActor·WCGameMode·WCPlayerController·WCHUD·WCApiSubsystem.
+
+## 2026-07-17 — M2 증분 1: 원클릭 스폰·클릭 선택·한글 라벨·이벤트 로그·고아 차단
+
+- **시도/상황**: M2(콘솔 기능 동등) 첫 증분 — 가족용 원클릭 실행(서버 자식 스폰)과 조작 기반.
+- **결과**: ①EnsureServer — 기존 서버 우선, 없으면 배포 exe 스폰(`server --port 0 --parent-pid <UE pid>`) + stdout `WC_API_PORT=` 파싱(동적 포트 55520 실증) ②노드 클릭 픽킹(GetHitResultUnderCursor→컴포넌트 역조회)·선택 강조 `[ 평양 ]`·선택 정보줄 ③도시명 한글 라벨 15개(Canvas Project — 엔진 폰트 한글 폴백, TextRender 회피) ④이벤트 로그 패널("귀살대 ▶ 도쿄 점령"·"⚔ 로마 공방전 — 수비 성공"·미지 타입 원형 폴백) ⑤부대·함대 마커(병력 비례 높이, 세력색) ⑥[C] 점령 명령.
+- **이벤트 키 계약 수정 (서버)**: 전투 점령 ProvinceCaptured 가 `by` 키, 무혈은 `faction` — **동일 타입 키 분열**을 faction 으로 통일. 소비자 검색 후 안전 확인. BattleEnded·DuelStarted 는 클라 정식 라인 승격.
+- **고아 차단 여정 (3회 실패 끝 확정)**: ①Deinitialize TerminateProc — 강제 킬 시 미호출 ②Windows Job Object(KILL_ON_JOB_CLOSE) — 이 실행 환경(상위 Job 존재)에서 무력 ③stdin EOF — **파이프 핸들이 자식에 상속되면 EOF 불발**(Win32 함정) ④**부모 PID 감시(`Process.GetProcessById(pid).WaitForExit()`) = 정답** — 격리 실험+UE 경유 양쪽 실증. 콘솔 직접 실행은 --parent-pid 미지정이라 무영향.
+- **검증 스크립트 함정 (오판 3회의 원인)**: `tasklist | grep pat | head -1 && ✘ || ✔` 은 **파이프 exit code 가 head(항상 0)** 라 매치 없어도 ✘ — 존재 판정은 반드시 `grep -q` 를 파이프 말단에. 고아 "잔존" 오판 전부 이것.
+- **관련**: WCApiSubsystem(스폰·핸드셰이크), WCGameMode(이벤트 라인·선택), WCHUD(라벨·로그), WCMapActor(마커·픽킹), ApiServer.cs(--parent-pid).

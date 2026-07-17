@@ -21,11 +21,24 @@ public static class ApiServer
         DictionaryKeyPolicy = null,   // id 키는 원형 유지
     };
 
-    public static void Run(GameDatabase db, string dataDir, int port)
+    public static void Run(GameDatabase db, string dataDir, int port, int parentPid = 0)
     {
         if (port == 0) port = FindFreePort();
         var host = new GameSessionHost(db);
         var gate = new object();
+
+        if (parentPid > 0)
+        {
+            // 부모(UE) 사망 감시 — PID 직접 감시 (고아 차단, ue5-client-design §4).
+            // stdin EOF 방식은 파이프 핸들이 자식에 상속되면 EOF 가 오지 않아(Win32 함정) PID 감시가 정본.
+            new Thread(() =>
+            {
+                try { System.Diagnostics.Process.GetProcessById(parentPid).WaitForExit(); }
+                catch { /* 이미 종료됨 */ }
+                Console.WriteLine($"부모(pid {parentPid}) 종료 감지 — 서버 자기 종료");
+                Environment.Exit(0);
+            }) { IsBackground = true }.Start();
+        }
 
         var listener = new HttpListener();
         listener.Prefixes.Add($"http://localhost:{port}/");

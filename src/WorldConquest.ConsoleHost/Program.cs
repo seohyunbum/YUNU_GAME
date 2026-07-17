@@ -40,10 +40,13 @@ if (panelMode)
 
 if (serverMode)
 {
-    // 그래픽 클라이언트용 게임 API (ue5-client-design §2): server [--port N] — 미지정/0 = 빈 포트 자동
+    // 그래픽 클라이언트용 게임 API (ue5-client-design §2): server [--port N] [--parent-pid P]
+    // --port 미지정/0 = 빈 포트 자동. --parent-pid = 해당 프로세스 종료 시 자기 종료(UE 스폰 전용).
     var portIdx = Array.IndexOf(args, "--port");
     var apiPort = portIdx >= 0 && portIdx + 1 < args.Length && int.TryParse(args[portIdx + 1], out var p) ? p : 8378;
-    WorldConquest.ConsoleHost.ApiServer.Run(db, dataDir, apiPort);
+    var pidIdx = Array.IndexOf(args, "--parent-pid");
+    var parentPid = pidIdx >= 0 && pidIdx + 1 < args.Length && int.TryParse(args[pidIdx + 1], out var pp) ? pp : 0;
+    WorldConquest.ConsoleHost.ApiServer.Run(db, dataDir, apiPort, parentPid);
     return 0;
 }
 

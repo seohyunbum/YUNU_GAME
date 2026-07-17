@@ -91,6 +91,62 @@ void AWCMapActor::ApplyState(const TSharedPtr<FJsonObject>& StateJson)
             SetNodeColor(Id, NeutralColor);
         }
     }
+
+    // 부대·함대 마커 재생성 (상태 스냅샷이 SSOT — 클라 캐시 없음)
+    for (UStaticMeshComponent* Marker : UnitMarkers)
+        if (Marker) Marker->DestroyComponent();
+    UnitMarkers.Reset();
+
+    TMap<FString, int32> CountAtNode;
+    for (const TSharedPtr<FJsonValue>& A : StateJson->GetArrayField(TEXT("armies")))
+    {
+        const TSharedPtr<FJsonObject> Force = A->AsObject();
+        MakeUnitMarker(Force, false, CountAtNode.FindOrAdd(Force->GetStringField(TEXT("location")))++);
+    }
+    for (const TSharedPtr<FJsonValue>& F : StateJson->GetArrayField(TEXT("fleets")))
+    {
+        const TSharedPtr<FJsonObject> Force = F->AsObject();
+        MakeUnitMarker(Force, true, CountAtNode.FindOrAdd(Force->GetStringField(TEXT("location")))++);
+    }
+}
+
+void AWCMapActor::MakeUnitMarker(const TSharedPtr<FJsonObject>& Force, bool bFleet, int32 IndexAtNode)
+{
+    const FVector* NodePos = NodePositions.Find(Force->GetStringField(TEXT("location")));
+    if (!NodePos) return;
+
+    // 같은 노드의 여러 부대는 노드 주위에 방사형 배치
+    const double Angle = IndexAtNode * PI / 3.0;
+    const FVector Pos = *NodePos + FVector(FMath::Cos(Angle) * 260.0, FMath::Sin(Angle) * 260.0, 40.0);
+
+    UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(this);
+    Mesh->SetupAttachment(RootComponent);
+    Mesh->RegisterComponent();
+    Mesh->SetStaticMesh(CylinderMesh);
+    Mesh->SetRelativeLocation(Pos);
+    // 병력 규모에 따라 마커 높이 가변 (시각 신호) — 육군=기둥, 함대=낮고 넓게
+    const double Troops = FMath::Max(1.0, Force->GetNumberField(TEXT("total_troops")));
+    const double Height = FMath::Clamp(0.6 + Troops / 200.0, 0.6, 3.0);
+    Mesh->SetRelativeScale3D(bFleet ? FVector(1.0, 1.0, 0.5) : FVector(0.55, 0.55, Height));
+    Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);   // 노드 클릭을 가리지 않게
+
+    UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+    Mat->SetVectorParameterValue(TEXT("Color"), GetFactionColor(Force->GetStringField(TEXT("faction_id"))));
+    Mesh->SetMaterial(0, Mat);
+    UnitMarkers.Add(Mesh);
+}
+
+FString AWCMapActor::FindNodeIdByComponent(const UPrimitiveComponent* Component) const
+{
+    for (const auto& Pair : NodeMeshes)
+        if (Pair.Value == Component) return Pair.Key;
+    return FString();
+}
+
+FLinearColor AWCMapActor::GetFactionColor(const FString& FactionId) const
+{
+    const FLinearColor* Color = FactionColors.Find(FactionId);
+    return Color ? *Color : NeutralColor;
 }
 
 UStaticMeshComponent* AWCMapActor::MakeNodeMesh(const FString& NodeId, const FVector& Pos, bool bSea)

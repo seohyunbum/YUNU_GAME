@@ -362,7 +362,8 @@ public sealed class GameManager
         occupier.LocationNodeId = provinceId;   // 점령군 진주
         if (State.Progress.Add($"captured:{provinceId}"))       // 캠페인 최초 점령 (§2.8.3)
             to.Mandate += _db.Rules.SummonIncomeFirstCapture;
-        Bus.Publish(GameEvent.Of("ProvinceCaptured", ("province", provinceId), ("by", to.Id), ("from", from.Id)));
+        // 키 계약: 무혈 점령(TryCapture)과 동일하게 faction 사용 — 표현층이 단일 경로로 소비 (§4.3)
+        Bus.Publish(GameEvent.Of("ProvinceCaptured", ("faction", to.Id), ("province", provinceId), ("from", from.Id)));
     }
 
     private Army CreateArmy(string factionId, string locationNodeId)

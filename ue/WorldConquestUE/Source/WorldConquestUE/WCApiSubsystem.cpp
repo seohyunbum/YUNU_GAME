@@ -6,7 +6,131 @@
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
 
+#if PLATFORM_WINDOWS
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include <windows.h>
+#include "Windows/HideWindowsPlatformTypes.h"
+#endif
+
 DEFINE_LOG_CATEGORY_STATIC(LogWCApi, Log, All);
+
+#if PLATFORM_WINDOWS
+namespace
+{
+    /**
+     * KILL_ON_JOB_CLOSE Job Object — UE 가 어떤 방식으로 죽든(크래시·taskkill 포함) OS 가
+     * 자식 C# 서버를 함께 종료한다. Deinitialize 의 TerminateProc 은 정상 종료용 1차,
+     * 이 Job 이 최후 방어선 (ue5-client-design §4 [MUST]).
+     */
+    HANDLE GServerJob = nullptr;
+
+    void AttachToKillJob(void* ProcessHandle)
+    {
+        if (!GServerJob)
+        {
+            GServerJob = ::CreateJobObjectW(nullptr, nullptr);
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION Info = {};
+            Info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            ::SetInformationJobObject(GServerJob, JobObjectExtendedLimitInformation, &Info, sizeof(Info));
+        }
+        if (GServerJob && ProcessHandle)
+            ::AssignProcessToJobObject(GServerJob, static_cast<HANDLE>(ProcessHandle));
+    }
+}
+#endif
+
+void UWCApiSubsystem::Deinitialize()
+{
+    CleanupServer();
+    Super::Deinitialize();
+}
+
+void UWCApiSubsystem::EnsureServer(FWCJsonCallback OnReady)
+{
+    // 이미 떠 있는 서버 우선 (개발 모드 — 수동 server 프로세스와 공존)
+    FetchInfo([this, OnReady](TSharedPtr<FJsonObject> Info)
+    {
+        if (Info.IsValid()) { if (OnReady) OnReady(Info); return; }
+        SpawnServer(OnReady);
+    });
+}
+
+void UWCApiSubsystem::SpawnServer(FWCJsonCallback OnReady)
+{
+    // exe 탐색: ①-WCServer= 인자 ②배포 표준 경로 (%USERPROFILE%\WorldConquest\app)
+    FString ExePath;
+    if (!FParse::Value(FCommandLine::Get(), TEXT("WCServer="), ExePath) || !FPaths::FileExists(ExePath))
+    {
+        ExePath = FPlatformMisc::GetEnvironmentVariable(TEXT("USERPROFILE"))
+                / TEXT("WorldConquest/app/WorldConquest.ConsoleHost.exe");
+    }
+    if (!FPaths::FileExists(ExePath))
+    {
+        UE_LOG(LogWCApi, Error, TEXT("게임 서버 exe 미발견: %s — scripts/deploy-local.py 재실행 필요"), *ExePath);
+        if (OnReady) OnReady(nullptr);
+        return;
+    }
+
+    FPlatformProcess::CreatePipe(PipeRead, PipeWrite);
+    // 고아 차단 = 부모 PID 감시 (stdin EOF 는 핸들 상속 시 불발 — work-history 참조)
+    const FString Args = FString::Printf(TEXT("server --port 0 --parent-pid %u"),
+        FPlatformProcess::GetCurrentProcessId());
+    ServerProc = FPlatformProcess::CreateProc(*ExePath, *Args,
+        /*bLaunchDetached*/ false, /*bLaunchHidden*/ true, /*bLaunchReallyHidden*/ true,
+        nullptr, 0, *FPaths::GetPath(ExePath), PipeWrite);
+    if (!ServerProc.IsValid())
+    {
+        UE_LOG(LogWCApi, Error, TEXT("게임 서버 스폰 실패: %s"), *ExePath);
+        CleanupServer();
+        if (OnReady) OnReady(nullptr);
+        return;
+    }
+#if PLATFORM_WINDOWS
+    AttachToKillJob(ServerProc.Get());   // UE 사망 시 OS 가 자식도 종료 — 고아 원천 차단
+#endif
+    UE_LOG(LogWCApi, Log, TEXT("게임 서버 스폰: %s (포트 핸드셰이크 대기)"), *ExePath);
+
+    // stdout 에서 "WC_API_PORT=<n>" 파싱 — 폴링 티커 (최대 15초)
+    const TSharedRef<FString> Buffer = MakeShared<FString>();
+    const TSharedRef<double> Deadline = MakeShared<double>(FPlatformTime::Seconds() + 15.0);
+    PipeTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda(
+        [this, Buffer, Deadline, OnReady](float) -> bool
+        {
+            *Buffer += FPlatformProcess::ReadPipe(PipeRead);
+            int32 Idx = Buffer->Find(TEXT("WC_API_PORT="));
+            if (Idx != INDEX_NONE)
+            {
+                ServerPort = FCString::Atoi(**Buffer + Idx + 12);
+                UE_LOG(LogWCApi, Log, TEXT("서버 포트 핸드셰이크: %d"), ServerPort);
+                FetchInfo(OnReady);
+                return false;   // 티커 종료
+            }
+            if (FPlatformTime::Seconds() > *Deadline || !FPlatformProcess::IsProcRunning(ServerProc))
+            {
+                UE_LOG(LogWCApi, Error, TEXT("서버 핸드셰이크 타임아웃/조기 종료"));
+                CleanupServer();
+                if (OnReady) OnReady(nullptr);
+                return false;
+            }
+            return true;   // 계속 폴링
+        }), 0.2f);
+}
+
+void UWCApiSubsystem::CleanupServer()
+{
+    if (PipeTicker.IsValid()) { FTSTicker::GetCoreTicker().RemoveTicker(PipeTicker); PipeTicker.Reset(); }
+    if (ServerProc.IsValid())
+    {
+        // 정중한 종료 시도 후 강제 — 고아 프로세스 차단 (ue5-client-design §4)
+        FPlatformProcess::TerminateProc(ServerProc, true);
+        FPlatformProcess::CloseProc(ServerProc);
+    }
+    if (PipeRead || PipeWrite)
+    {
+        FPlatformProcess::ClosePipe(PipeRead, PipeWrite);
+        PipeRead = PipeWrite = nullptr;
+    }
+}
 
 void UWCApiSubsystem::FetchInfo(FWCJsonCallback Callback)
 {

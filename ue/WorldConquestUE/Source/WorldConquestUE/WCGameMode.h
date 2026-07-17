@@ -6,11 +6,11 @@
 #include "WCGameMode.generated.h"
 
 class AWCMapActor;
+class UPrimitiveComponent;
 
 /**
  * WorldConquest 클라이언트 진입 게임모드 (ue5-client-design §3 — 코드 퍼스트, 로직 0).
- * M1 수직 슬라이스: 서버 핸드셰이크 → (캠페인 없으면 solo 생성) → static 보드 생성 →
- * 상태 색 반영 → 탑다운 카메라. Enter = 턴 종료.
+ * M2: 서버 자식 스폰(원클릭) · 노드 클릭 선택 · 이벤트 로그 · 도시명 라벨 데이터.
  */
 UCLASS()
 class WORLDCONQUESTUE_API AWCGameMode : public AGameModeBase
@@ -21,27 +21,47 @@ public:
     AWCGameMode();
     virtual void BeginPlay() override;
 
-    /** 현재 차례 세력으로 end 명령 전송 (WCPlayerController 의 Enter). */
+    /** 현재 차례 세력으로 end 명령 전송 (Enter/Space). */
     void EndTurn();
 
-    /** HUD 표시용 상태 요약 (WCHUD 가 읽음). */
+    /** 클릭 픽킹 결과 처리 — 노드 선택. */
+    void HandleNodeClick(const UPrimitiveComponent* Component);
+
+    /** 선택 영지 점령 시도 (C 키). 로직 판정은 전부 서버 [MUST]. */
+    void CaptureSelected();
+
+    // ── HUD 조회용 ──
     FString HudLine = TEXT("연결 중...");
+    FString HudSelection;                       // 선택 정보 줄
+    TArray<FString> EventLog;                   // 최근 이벤트 (아래에서 위로)
+    FString SelectedNodeId;
+    TMap<FString, FString> ProvinceNames;       // id → name_ko (라벨·로그 공용)
+    TMap<FString, FString> FactionNames;
+    TMap<FString, FString> CharacterNames;
+    AWCMapActor* GetMapActor() const { return MapActor; }
 
 private:
     void BootSequence();
     void RefreshState();
     void OnState(TSharedPtr<FJsonObject> State);
+    void OnCommandResult(TSharedPtr<FJsonObject> Result);
+    void ParseNames(const TSharedPtr<FJsonObject>& StaticJson);
+    void UpdateSelectionInfo();
+    void AppendEvents(const TArray<TSharedPtr<FJsonValue>>& Events);
+    FString EventToLine(const TSharedPtr<FJsonObject>& Event) const;
+    FString NameOf(const TMap<FString, FString>& Table, const FString& Id) const;
+    void SendVerb(const FString& Verb, const TArray<FString>& Args);
 
     UPROPERTY()
     TObjectPtr<AWCMapActor> MapActor;
 
-    FString PendingActor;   // 현재 입력 차례 세력 (명령의 faction 인자)
-    bool bBusy = false;     // 명령 중복 전송 방지
+    TSharedPtr<FJsonObject> LastState;   // 선택 정보 표시용 (소유·부대)
+    FString PendingActor;
+    bool bBusy = false;
 
-    /** QA 하네스 (-WCShot): 첫 상태 적용 후 스크린샷 → 종료. AI 시각 검증용 (ue5-client-design §3). */
+    /** QA 하네스 (-WCShot / -WCTurns=N / -WCSelect=id) — ue5-client-design §3. */
     bool bShotScheduled = false;
     void ScheduleQaShotIfRequested();
-
-    /** QA 하네스 (-WCTurns=N): 샷 전에 N턴 자동 end — 상태 갱신에 지도가 반응하는지 검증. */
-    int32 AutoTurnsRemaining = -1;   // -1 = 미파싱
+    int32 AutoTurnsRemaining = -1;
+    bool bQaSelectDone = false;
 };

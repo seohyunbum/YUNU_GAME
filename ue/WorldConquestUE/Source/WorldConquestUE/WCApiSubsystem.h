@@ -19,6 +19,15 @@ class WORLDCONQUESTUE_API UWCApiSubsystem : public UGameInstanceSubsystem
     GENERATED_BODY()
 
 public:
+    virtual void Deinitialize() override;
+
+    /**
+     * C# 서버 보장 (ue5-client-design §4): 이미 떠 있으면 그대로, 없으면 자식 프로세스로 스폰하고
+     * stdout 의 "WC_API_PORT=" 핸드셰이크로 포트를 얻는다. 완료 시 /api/info 결과를 콜백으로.
+     * 실패(exe 미발견·타임아웃) 시 nullptr 콜백.
+     */
+    void EnsureServer(FWCJsonCallback OnReady);
+
     /** /api/info — 프로토콜 버전·캠페인 유무 핸드셰이크. */
     void FetchInfo(FWCJsonCallback Callback = nullptr);
 
@@ -39,6 +48,14 @@ public:
 
 private:
     void Request(const FString& Verb, const FString& Path, const FString& Body, FWCJsonCallback Callback);
+    void SpawnServer(FWCJsonCallback OnReady);
+    void CleanupServer();
 
     int64 NextSeq = 0;   // 명령 멱등 seq (캠페인 교체 시 서버가 캐시 리셋)
+
+    // 자식 서버 프로세스 (스폰한 경우에만 소유·종료 책임 — 고아 차단은 --parent-pid 감시)
+    FProcHandle ServerProc;
+    void* PipeRead = nullptr;        // 자식 stdout → 포트 핸드셰이크 파싱
+    void* PipeWrite = nullptr;
+    FTSTicker::FDelegateHandle PipeTicker;
 };
