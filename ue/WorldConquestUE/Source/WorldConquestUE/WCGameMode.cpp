@@ -330,6 +330,20 @@ void AWCGameMode::OnState(TSharedPtr<FJsonObject> State)
         FString QaCity;
         if (FParse::Value(FCommandLine::Get(), TEXT("WCCity="), QaCity) && !QaCity.IsEmpty())
             EnterCity(QaCity);
+        // QA: -WCLook=<노드id>[,거리] — 카메라 근접 (마커 디테일 촬영)
+        FString QaLook;
+        if (FParse::Value(FCommandLine::Get(), TEXT("WCLook="), QaLook) && !QaLook.IsEmpty())
+        {
+            FString NodeId = QaLook, DistStr;
+            QaLook.Split(TEXT(","), &NodeId, &DistStr);
+            if (MapActor)
+                if (const FVector* NodePos = MapActor->GetNodePositions().Find(NodeId.IsEmpty() ? QaLook : NodeId))
+                {
+                    CamTarget = *NodePos;
+                    CamDist = DistStr.IsEmpty() ? 5000.f : FCString::Atof(*DistStr);
+                    UpdateBoardCamera();
+                }
+        }
         FString QaReveal;   // 리빌 연출 강제 (표현층 시각 검증 전용)
         if (FParse::Value(FCommandLine::Get(), TEXT("WCReveal="), QaReveal) && !QaReveal.IsEmpty())
         {

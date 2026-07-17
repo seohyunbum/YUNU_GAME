@@ -28,8 +28,31 @@ AWCMapActor::AWCMapActor()
     // 레지스트리 미준비로 실패할 수 있어 BuildFromStatic 의 런타임 LoadObject 로.
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
     CylinderMesh = Cylinder.Object;
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+    CubeMesh = Cube.Object;
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> Cone(TEXT("/Engine/BasicShapes/Cone.Cone"));
+    ConeMesh = Cone.Object;
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> Fallback(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
     BaseMaterial = Fallback.Object;
+}
+
+UStaticMeshComponent* AWCMapActor::AddShape(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
+                                            const FLinearColor& Color, const FRotator& Rot,
+                                            UMaterialInstanceDynamic** OutMid)
+{
+    UStaticMeshComponent* Comp = NewObject<UStaticMeshComponent>(this);
+    Comp->SetupAttachment(RootComponent);
+    Comp->RegisterComponent();
+    Comp->SetStaticMesh(Mesh);
+    Comp->SetRelativeLocation(Pos);
+    Comp->SetRelativeRotation(Rot);
+    Comp->SetRelativeScale3D(Scale);
+    Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+    Mid->SetVectorParameterValue(TEXT("Color"), Color);
+    Comp->SetMaterial(0, Mid);
+    if (OutMid) *OutMid = Mid;
+    return Comp;
 }
 
 FVector AWCMapActor::BoardToWorld(double X, double Y)
@@ -146,21 +169,24 @@ void AWCMapActor::MakeUnitMarker(const TSharedPtr<FJsonObject>& Force, bool bFle
     const double Angle = IndexAtNode * PI / 3.0;
     const FVector Pos = *NodePos + FVector(FMath::Cos(Angle) * 260.0, FMath::Sin(Angle) * 260.0, 40.0);
 
-    UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(this);
-    Mesh->SetupAttachment(RootComponent);
-    Mesh->RegisterComponent();
-    Mesh->SetStaticMesh(CylinderMesh);
-    Mesh->SetRelativeLocation(Pos);
-    // 병력 규모에 따라 마커 높이 가변 (시각 신호) — 육군=기둥, 함대=낮고 넓게
+    // 군기(軍旗) 마커 — 받침 + 깃대 + 세력색 깃발 (병력 비례 크기). 함대 = 선체 + 돛.
+    const FLinearColor FactionColor = GetFactionColor(Force->GetStringField(TEXT("faction_id")));
+    const FLinearColor PoleColor(0.15f, 0.13f, 0.11f);
     const double Troops = FMath::Max(1.0, Force->GetNumberField(TEXT("total_troops")));
-    const double Height = FMath::Clamp(0.6 + Troops / 200.0, 0.6, 3.0);
-    Mesh->SetRelativeScale3D(bFleet ? FVector(1.0, 1.0, 0.5) : FVector(0.55, 0.55, Height));
-    Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);   // 노드 클릭을 가리지 않게
+    const double Size = FMath::Clamp(0.8 + Troops / 220.0, 0.8, 2.2);   // 병력 비례
 
-    UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
-    Mat->SetVectorParameterValue(TEXT("Color"), GetFactionColor(Force->GetStringField(TEXT("faction_id"))));
-    Mesh->SetMaterial(0, Mat);
-    UnitMarkers.Add(Mesh);
+    if (bFleet)
+    {
+        UnitMarkers.Add(AddShape(CubeMesh, Pos + FVector(0, 0, 8), FVector(0.35, 0.9 * Size, 0.16), PoleColor));   // 선체
+        UnitMarkers.Add(AddShape(CylinderMesh, Pos + FVector(0, 0, 55), FVector(0.05, 0.05, 1.0), PoleColor));      // 돛대
+        UnitMarkers.Add(AddShape(CubeMesh, Pos + FVector(0, 0, 78), FVector(0.03, 0.55 * Size, 0.5 * Size), FactionColor));   // 돛
+    }
+    else
+    {
+        UnitMarkers.Add(AddShape(CylinderMesh, Pos, FVector(0.5, 0.5, 0.1), PoleColor));                            // 받침
+        UnitMarkers.Add(AddShape(CylinderMesh, Pos + FVector(0, 0, 60), FVector(0.05, 0.05, 1.25), PoleColor));     // 깃대
+        UnitMarkers.Add(AddShape(CubeMesh, Pos + FVector(0, 24 * Size, 108), FVector(0.03, 0.46 * Size, 0.34 * Size), FactionColor));   // 군기
+    }
 }
 
 double AWCMapActor::TerrainZ(const FVector& At) const
@@ -188,33 +214,45 @@ FLinearColor AWCMapActor::GetFactionColor(const FString& FactionId) const
 
 UStaticMeshComponent* AWCMapActor::MakeNodeMesh(const FString& NodeId, const FVector& Pos, bool bSea)
 {
-    // 테두리(흑) 원판 — 밝은 위성지도 위에서 마커 윤곽 확보
-    UStaticMeshComponent* Rim = NewObject<UStaticMeshComponent>(this);
-    Rim->SetupAttachment(RootComponent);
-    Rim->RegisterComponent();
-    Rim->SetStaticMesh(CylinderMesh);
-    Rim->SetRelativeLocation(Pos - FVector(0, 0, 3.0));
-    Rim->SetRelativeScale3D(bSea ? FVector(3.2, 3.2, 0.06) : FVector(2.6, 2.6, 0.4));
-    Rim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    UMaterialInstanceDynamic* RimMat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
-    RimMat->SetVectorParameterValue(TEXT("Color"), RimColor);
-    Rim->SetMaterial(0, RimMat);
+    TArray<TObjectPtr<UMaterialInstanceDynamic>> ColorTargets;
+    const FLinearColor StoneColor(0.42f, 0.40f, 0.36f);
+    const FLinearColor WallColor(0.30f, 0.28f, 0.25f);
 
-    UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(this, *FString::Printf(TEXT("node_%s"), *NodeId));
-    Mesh->SetupAttachment(RootComponent);
-    Mesh->RegisterComponent();
-    Mesh->SetStaticMesh(CylinderMesh);
-    Mesh->SetRelativeLocation(Pos);
-    // 지도 위 도시 마커 — 촘촘한 동아시아에서도 겹치지 않는 크기 (등장방형은 도시 간격이 좁음)
-    Mesh->SetRelativeScale3D(bSea ? FVector(2.6, 2.6, 0.08) : FVector(2.0, 2.0, 0.5));
-    Mesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);   // M2 클릭 픽킹 대비
+    UStaticMeshComponent* PickTarget = nullptr;
+    if (bSea)
+    {
+        // 해역 거점 = 청색 원판 + 부표 구조물
+        AddShape(CylinderMesh, Pos - FVector(0, 0, 4), FVector(2.1, 2.1, 0.06), RimColor);
+        UMaterialInstanceDynamic* DiscMid = nullptr;
+        PickTarget = AddShape(CylinderMesh, Pos, FVector(1.7, 1.7, 0.1), SeaColor, FRotator::ZeroRotator, &DiscMid);
+        ColorTargets.Add(DiscMid);
+        AddShape(CylinderMesh, Pos + FVector(0, 0, 60), FVector(0.12, 0.12, 1.2), WallColor);
+        UMaterialInstanceDynamic* FlagMid = nullptr;
+        AddShape(CubeMesh, Pos + FVector(0, 24, 108), FVector(0.04, 0.45, 0.3), SeaColor, FRotator::ZeroRotator, &FlagMid);
+        ColorTargets.Add(FlagMid);
+    }
+    else
+    {
+        // 도시 = 성벽 원판 + 성채(본체·지붕) + 세력 깃발 — 지붕·깃발이 세력색
+        AddShape(CylinderMesh, Pos - FVector(0, 0, 4), FVector(2.0, 2.0, 0.07), RimColor);          // 윤곽
+        AddShape(CylinderMesh, Pos, FVector(1.6, 1.6, 0.3), WallColor);                              // 성벽
+        PickTarget = AddShape(CubeMesh, Pos + FVector(0, 0, 34), FVector(1.05, 1.05, 0.8), StoneColor);   // 본체
+        UMaterialInstanceDynamic* RoofMid = nullptr;
+        AddShape(ConeMesh, Pos + FVector(0, 0, 82), FVector(1.35, 1.35, 0.7), NeutralColor, FRotator::ZeroRotator, &RoofMid);
+        ColorTargets.Add(RoofMid);                                                                    // 지붕 = 세력색
+        AddShape(CylinderMesh, Pos + FVector(28, 28, 95), FVector(0.10, 0.10, 1.9), WallColor);       // 깃대
+        UMaterialInstanceDynamic* FlagMid = nullptr;
+        AddShape(CubeMesh, Pos + FVector(28, 50, 172), FVector(0.04, 0.42, 0.28), NeutralColor, FRotator::ZeroRotator, &FlagMid);
+        ColorTargets.Add(FlagMid);                                                                    // 깃발 = 세력색
+    }
 
-    UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
-    Mat->SetVectorParameterValue(TEXT("Color"), bSea ? SeaColor : NeutralColor);
-    Mesh->SetMaterial(0, Mat);
-    NodeMaterials.Add(NodeId, Mat);
-    NodeMeshes.Add(NodeId, Mesh);
-    return Mesh;
+    // 클릭 픽킹 대상 등록 (본체/원판)
+    PickTarget->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    PickTarget->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+    PickTarget->Rename(*FString::Printf(TEXT("node_%s"), *NodeId));
+    NodeMaterials.Add(NodeId, ColorTargets);
+    NodeMeshes.Add(NodeId, PickTarget);
+    return PickTarget;
 }
 
 void AWCMapActor::MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRoute)
@@ -229,7 +267,7 @@ void AWCMapActor::MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRout
     Mesh->SetRelativeLocation(Mid);
     // 실린더 기본 축 = Z(높이 100) → 간선 방향으로 눕힌다
     Mesh->SetRelativeRotation(FRotationMatrix::MakeFromZ(B - A).Rotator());
-    Mesh->SetRelativeScale3D(FVector(0.5, 0.5, Length / 100.0));
+    Mesh->SetRelativeScale3D(FVector(0.3, 0.3, Length / 100.0));
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
     UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
@@ -239,6 +277,7 @@ void AWCMapActor::MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRout
 
 void AWCMapActor::SetNodeColor(const FString& NodeId, const FLinearColor& Color)
 {
-    if (UMaterialInstanceDynamic* Mat = NodeMaterials.FindRef(NodeId))
-        Mat->SetVectorParameterValue(TEXT("Color"), Color);
+    if (const TArray<TObjectPtr<UMaterialInstanceDynamic>>* Mats = NodeMaterials.Find(NodeId))
+        for (UMaterialInstanceDynamic* Mat : *Mats)
+            if (Mat) Mat->SetVectorParameterValue(TEXT("Color"), Color);
 }

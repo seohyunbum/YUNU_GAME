@@ -47,8 +47,19 @@ private:
     UPROPERTY()
     TMap<FString, TObjectPtr<UStaticMeshComponent>> NodeMeshes;
 
+    /** 노드별 세력색 대상 MID (지붕·깃발 등 복수) — ApplyState 가 일괄 갱신. */
+    TMap<FString, TArray<TObjectPtr<UMaterialInstanceDynamic>>> NodeMaterials;
+
+    /** 도형 배치 헬퍼 — 메시·위치·스케일·색·회전. 반환 = 컴포넌트 (픽킹 등록용). */
+    UStaticMeshComponent* AddShape(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
+                                   const FLinearColor& Color, const FRotator& Rot = FRotator::ZeroRotator,
+                                   UMaterialInstanceDynamic** OutMid = nullptr);
+
     UPROPERTY()
-    TMap<FString, TObjectPtr<UMaterialInstanceDynamic>> NodeMaterials;
+    TObjectPtr<UStaticMesh> CubeMesh;
+
+    UPROPERTY()
+    TObjectPtr<UStaticMesh> ConeMesh;
 
     /** faction id → 세력 색 (/api/static factions[].color). */
     TMap<FString, FLinearColor> FactionColors;

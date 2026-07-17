@@ -19,18 +19,21 @@ tools.import_asset_tasks([task])
 tex = unreal.load_asset(f"{PKG}/T_WorldMap")
 assert tex, "텍스처 임포트 실패"
 
-# 2) unlit 머티리얼 (지도는 조명 무관 — 균일 밝기)
+# 2) lit 머티리얼 — 지형 그림자·대기광 반응 (정본)
 if not unreal.EditorAssetLibrary.does_asset_exist(f"{PKG}/M_WorldMap"):
     mat = tools.create_asset("M_WorldMap", PKG, unreal.Material, unreal.MaterialFactoryNew())
 else:
     mat = unreal.load_asset(f"{PKG}/M_WorldMap")
-mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_DEFAULT_LIT)
 
 lib = unreal.MaterialEditingLibrary
 lib.delete_all_material_expressions(mat)
 ts = lib.create_material_expression(mat, unreal.MaterialExpressionTextureSample, -400, 0)
 ts.texture = tex
-lib.connect_material_property(ts, "RGB", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+lib.connect_material_property(ts, "RGB", unreal.MaterialProperty.MP_BASE_COLOR)
+rough = lib.create_material_expression(mat, unreal.MaterialExpressionConstant, -500, 260)
+rough.set_editor_property("r", 0.85)
+lib.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
 lib.recompile_material(mat)
 
 # 3) 마커·간선용 unlit 색 머티리얼 — Color 파라미터를 MID 로 지정 (조명에 씻기지 않는 선명한 세력색)
