@@ -181,3 +181,13 @@
 - **결과**: `WCCityDiorama` 가 `ULevelStreamingDynamic::LoadLevelInstance` 로 **아티스트 데모 맵(Asian_Village_Demo, 2944 액터)을 통째 로드** — 청록 기와지붕·붉은 목조·금 처마의 웅장한 궁궐 복합체. 도시 진입 시 전용 카메라 전환.
 - **핵심 판단(실측 여정)**: ①HISM 재구성 → 무채색 ②일반 액터도 무채색(=HISM 버그 아님) ③VT 아님·노출 아님·텍스처 컬러 정상 → **원인 = 우리 씬 조명에서 이 팩 재질이 안 뜸**. ④데모 맵 통째 로드 = 자체 라이팅으로 완벽 컬러. 재구성 포기, 레벨 인스턴스 채택.
 - **함정**: 데모 맵 전역 조명(directional/sky/fog)이 세계지도와 공존 → 세계지도 무해 확인. 화면 경고(라이팅 리빌드·다중 조명)는 GAreScreenMessagesEnabled=false 로 억제. 1GB 팩은 gitignore(repo 미포함), wc-game 엔 배포 시 복사. 절차 정본=docs/fab-assets.md.
+
+## 2026-07-17 — 내정 시스템 (§2.3.1) + 병행 세션 대규모 업데이트 통합
+
+- 상황: 다른 세션이 원격을 크게 전진(UE5 클라이언트·API 계층·MapPos·SessionDriver·port 시설·academy 직접가산 tech). 우리 내정 브랜치(태수·민심·세율·인구·반란·시설)와 game_rules/FacilityDef/DataLoader/Dtos/GameManager/AIController/PlaySession 에서 정면 충돌.
+- 판단: 강제 푸시 금지 — 원격을 새 기반으로 reset 후 우리 내정을 재적용. 우리 CA2021 커밋은 원격이 자체 해결(ToList/target[0])이라 폐기.
+- tech 시스템 포크 통합: 원격 academy 직접가산(`TechLevel += tech`, `TechBonusPerLevel`) vs 우리 누적(포인트→비용곡선→Lv5·태수 지력). 우리 누적 방식 채택(스펙 §2.3.1·풍부·태수 연동), 원격 직접가산 제거. `TechBonusPerLevel`이 UE/API 미참조 확인 후 `TechPointsPerLevel`로 통일 — UE 클라이언트 무영향.
+- 보존한 원격 자산: MapPos·port 시설·API 계층·SessionDriver·이벤트 확장(ProvinceCaptured/BattleEnded)·1인 플레이 모드. API 뷰에 민심·인구·태수·세율·기술점 additive 노출 + governor/dismiss/tax 명령 추가(콘솔 parity).
+- 검증: build -warnaserror 녹색, 테스트 170→198. 배치 시뮬 회귀 없음 — 기반 칼데아 98%(평균 200턴) → 내정 후 93%(무승부 1). 200턴 상한·편중은 원격 기존 전투/맵 밸런스 이슈(내정 무관, DoD [SHOULD]).
+- 함정: SnakeCaseLower 가 `Per100Pol`→`per100_pol` 로 변환 → JSON `per_100_pol` 과 어긋남. 숫자경계 키는 `[JsonPropertyName]` 명시. (리눅스 SDK 분석기 CA2021 오탐도 원격판이 이미 회피.)
+- 관련: InternalAffairsManager.cs · InternalAffairsTests.cs(28) · ApiDtos/GameSessionHost(내정 노출) · docs/GAME_DESIGN_SPEC §2.3.1
