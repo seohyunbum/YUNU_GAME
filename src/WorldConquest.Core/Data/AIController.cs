@@ -53,12 +53,32 @@ public sealed class AIController
         }
     }
 
+    // ── 관계 술어 (외교 설계 E13) ───────────────────────────────────────────────
+    // 두 술어는 의미가 다르다. 섞으면 AI 가 죽는다:
+    //  · IsHostile   = "공격해도 되는가" — 동맹·불가침 제외.
+    //  · IsNonAllied = "동맹이 아닌가"   — 동맹만 제외(불가침 포함).
+    // LandReachableEnemyExists 는 공격 필터가 아니라 **분기 게이트**다(false 면 징병 포함
+    // 육상 분기 전체를 건너뛰고 해상 원정으로 간다). 여기에 IsHostile 을 쓰면 육상 이웃
+    // 전부와 불가침인 세력이 '고립' 판정 → NavalOperations 도 목표 0 으로 즉시 return →
+    // 징병조차 못 하는 영구 무행동에 빠진다(불가침은 만료가 없어 회복 경로도 없음).
+    // 따라서 전선 판정(LandReachableEnemyExists·RecruitByDisposition 교두보)은 IsNonAllied 를 쓴다.
+
+    /// <summary>공격 대상으로 삼아도 되는가 — 동맹·불가침은 제외 (§1.2).</summary>
+    private static bool IsHostile(FactionState faction, string otherId)
+    {
+        var r = faction.Relations.GetValueOrDefault(otherId);
+        return r != DiplomaticState.Alliance && r != DiplomaticState.NonAggression;
+    }
+
+    /// <summary>동맹이 아닌가 — 전선·교두보 판정용(불가침 상대도 '전선'으로 센다).</summary>
+    private static bool IsNonAllied(FactionState faction, string otherId) =>
+        faction.Relations.GetValueOrDefault(otherId) != DiplomaticState.Alliance;
+
     /// <summary>육로로 도달 가능한 (비동맹) 적 육상 영지가 존재하는가.</summary>
     private bool LandReachableEnemyExists(FactionState faction)
     {
         var enemyLand = _state.Factions
-            .Where(f => f.Id != faction.Id &&
-                        faction.Relations.GetValueOrDefault(f.Id) != DiplomaticState.Alliance)
+            .Where(f => f.Id != faction.Id && IsNonAllied(faction, f.Id))
             .SelectMany(f => f.OwnedProvinceIds)
             .Where(id => _db.Map.GetNode(id) is LandProvince)
             .ToList();
@@ -101,8 +121,7 @@ public sealed class AIController
     private void NavalOperations(FactionState faction, Faction def)
     {
         var enemyTargets = _state.Factions
-            .Where(f => f.Id != faction.Id &&
-                        faction.Relations.GetValueOrDefault(f.Id) != DiplomaticState.Alliance)
+            .Where(f => f.Id != faction.Id && IsNonAllied(faction, f.Id))
             .SelectMany(f => f.OwnedProvinceIds)
             .Where(id => _db.Map.GetNode(id) is LandProvince)
             .OrderBy(id => id, StringComparer.Ordinal)
@@ -275,8 +294,7 @@ public sealed class AIController
             .OrderBy(id => id, StringComparer.Ordinal)
             .ToList();
         var enemyLand = _state.Factions
-            .Where(f => f.Id != faction.Id &&
-                        faction.Relations.GetValueOrDefault(f.Id) != DiplomaticState.Alliance)
+            .Where(f => f.Id != faction.Id && IsNonAllied(faction, f.Id))
             .SelectMany(f => f.OwnedProvinceIds)
             .Where(id => _db.Map.GetNode(id) is LandProvince)
             .ToList();
@@ -302,8 +320,7 @@ public sealed class AIController
                 .Where(n => _db.Map.GetNode(n) is LandProvince)
                 .Select(n => (Id: n, Owner: _state.Factions.FirstOrDefault(f => f.OwnedProvinceIds.Contains(n))))
                 .Where(x => x.Owner is not null && x.Owner.Id != faction.Id &&
-                            faction.Relations.GetValueOrDefault(x.Owner.Id) != DiplomaticState.Alliance &&
-                            faction.Relations.GetValueOrDefault(x.Owner.Id) != DiplomaticState.NonAggression)
+                            IsHostile(faction, x.Owner!.Id))
                 .Select(x => (x.Id, Garrison: _state.Armies
                     .Where(a => a.FactionId == x.Owner!.Id && a.LocationNodeId == x.Id)
                     .Sum(a => a.TotalTroops)))
@@ -321,8 +338,7 @@ public sealed class AIController
     private void AdvanceTowardEnemies(FactionState faction)
     {
         var enemyProvinces = _state.Factions
-            .Where(f => f.Id != faction.Id &&
-                        faction.Relations.GetValueOrDefault(f.Id) != DiplomaticState.Alliance)
+            .Where(f => f.Id != faction.Id && IsNonAllied(faction, f.Id))
             .SelectMany(f => f.OwnedProvinceIds)
             .Where(id => _db.Map.GetNode(id) is LandProvince)
             .OrderBy(id => id, StringComparer.Ordinal)

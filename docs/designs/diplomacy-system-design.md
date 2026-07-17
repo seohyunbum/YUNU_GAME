@@ -1,7 +1,14 @@
 # 외교 시스템 설계 — 관계도·조공·계략·AI 외교 (Phase 2 심화)
 
 > **상태**: 설계 (2026-07-17) — 구현 미착수. Phase 2 외교 구현분(`docs/roadmap.md:27`)의 **심화·확장**이지 신규 시스템 도입이 아니다.
-> **⚠ 코드 인용 기준 커밋 = `3aa413d`.** 본 문서의 모든 `파일:줄` 앵커는 이 커밋 기준이며 **줄번호는 반드시 썩는다** — 구현 착수 시 심볼(메서드·필드 이름)로 재확인하라. 앵커가 아니라 **인용된 사실**이 정본이다. (실측 예: `3aa413d` 이후 `claude/three-kingdoms-game-design-ipmajw` 의 시설 아이콘 작업으로 **`GameManager.cs` 가 +2줄 밀렸다** — `PublishBattleEvents` 호출 `:328`→`:330`, 정의 `:348`→`:350`, `CollectIncome` `:100`→`:99`. `DataLoader.cs` 앵커(`:278`·`:295`·`:329`·`:398`)는 유효.)
+> **⚠ 코드 인용 기준 커밋 = `d14f429`** (2026-07-17 리베이스). 본 문서의 `파일:줄` 앵커는 이 커밋 기준이며 **줄번호는 반드시 썩는다** — 구현 시 심볼(메서드·필드명)로 재확인하라. 앵커가 아니라 **인용된 사실**이 정본이다.
+> **⚠ 초안(`3aa413d` 기준) 이후 실제로 무효화된 앵커 — 재검증 결과**:
+> - **`InternalAffairsManager` 신규(466줄)로 수입 로직 이관** — `GameManager.CollectIncome()` 은 이제 `=> _internal.ProcessIncomePhase()` **위임 껍데기**(`GameManager.cs:82`)다. **턴당 카운터 리셋의 실제 위치 = `InternalAffairsManager.ProcessIncomePhase()` 첫 루프**(`:156-163`). 본 문서가 "`CollectIncome` 에 배선" 이라 적은 곳은 전부 **여기**를 뜻한다.
+> - `GameManager.Attack` `:267`→**`:165`**, 해상 조기 return `:284-288`→**`:182`**, 무저항 `:311-313`→**`:206`**, `ResolveAuto` `:322`→**`:220`**, `PublishBattleEvents` 호출 `:328`→**`:227`** 정의 `:348`→**`:247`**. **E8 의 3분기 구조 자체는 그대로 유효**(호출처는 여전히 육상 1곳).
+> - `AIController` 관계 읽기 **구조 보존**(Alliance 5곳 + NonAggression 1곳 = 6회). 새 앵커 = `:61`·`:105`·`:246`·`:272`·`:292`(Alliance) + `:273`(NonAggression). **F1·F2·E13 전부 유효.**
+> - `FactionState` 에 `TaxLevel`·`TechPoints` additive 추가됨 → 본 문서의 `SchemesThisTurn` 도 **같은 패턴**으로 붙인다.
+> - 세력 **7 → 10**(`joseon`·`wei`·`france`·`demon_slayer_corps`·`hunter_guild`·`avengers`·`chaldea`·`shu`·`wu`·`jujutsu`), 스펙 **v1.5 → v1.6**(§2.3.1 내정: 태수·민심·세율·인구·기술·반란), 테스트 **170 → 200**.
+> - **배치 시뮬 기준선이 98% → 93% 로 갱신**(내정 도입 후, 무승부 1). §9 의 '도입 전후 비교' 기준은 **93%** 다.
 > **선행 조건**: Phase 2 `DiplomacyManager` 구현 완료 — 동맹·선전포고·종전 양측 동기, 자원지원(턴당 상한·수입 페이즈 리셋), 공동 수비, 공동 승리 [MUST]. 콘솔 `ally`/`war`/`peace`/`send`.
 > **정본 관계**: `docs/GAME_DESIGN_SPEC.md` §1.2·§2.2·§2.4·§4.2·§4.4·§5 의 하위 상세. `docs/designs/combat-system-design.md`(Phase 2 전체) 중 **외교 축만 분가**해 심화한다 — C7(외교 상태 전이의 양측 동기화·자원지원 턴당 상한)은 그대로 유효하며 본 문서가 이를 상속한다. 전투·스킬·AI 군사 판단은 여전히 combat 문서가 정본.
 > **⚠ 스펙 개정을 요구하는 항목 (본 문서는 [MUST] 를 임의로 재정의하지 않는다)**: 아래 2건은 **[MUST] 의 적용 범위를 바꾸므로 사용자 승인 전 해당 단계 착수 불가**. §10 에 등재.
@@ -112,7 +119,8 @@
 | `Domain/RngStreams.cs` | `diplomacy` 명명 스트림 상수 (⚠ **U-D2 승인 선행**) |
 | `Data/DiplomacyManager.cs` | `SendTribute`·`SetNonAggression`·`ProposeX`/`RespondToProposal` 추가, 배신 판정, `Canonical` **이전**(→`RelationLedger`), `RelationLedger` 위임 |
 | `Data/AIController.cs` | `IsHostile`/`HasLandFront` 술어 분리·중앙화(F1·F2), `AiDiplomat` 호출, 목표 선정 Favor 반영 |
-| `Data/GameManager.cs` | 전투 **3분기** Favor 훅, `CollectIncome` 에 감쇠·`CommonEnemy`·카운터 리셋·제안 만료 |
+| `Data/GameManager.cs` | 전투 **3분기** Favor 훅 (`Attack` `:165` 내 해상 `:182` / 무저항 `:206` / 육상 `:227`) |
+| `Data/InternalAffairsManager.cs` | **수입 페이즈 배선** — `ProcessIncomePhase()` 첫 루프(`:156-163`, 기존 `Transferred*ThisTurn`·`SummonsThisTurn` 리셋 자리)에 `SchemesThisTurn` 리셋 추가 + 그 뒤에 `Decay`·`CommonEnemy`·제안 만료. **`GameManager.CollectIncome` 은 위임 껍데기라 여기가 실제 지점** |
 | `Data/DataLoader.cs` | `diplomacy` 블록 Need/Check/매핑 3중 훅 + `SupportedSchemaVersion` 2 |
 | `Data/SaveDto.cs`·`SaveSystem.cs` | additive **6점** 배선 + D9 프루닝 확장 (§6.2) |
 | `Data/GameSessionHost.cs`·`PlaySession.cs` | 콘솔 명령 표면 |
@@ -428,7 +436,7 @@ score = garrison * (100 + favor(self, owner) * ai.target_favor_weight / 1000) / 
 
 - [ ] `dotnet build -warnaserror` + `dotnet test` 녹색 (전 단계)
 - [ ] **AI vs AI 캠페인에서 AI 간 동맹이 `turnCap` 내 1회 이상 체결** (`GameSetup.AiCampaign` + `Progress` 의 `alliance:` 항목) ← **요구사항 직결 게이트.** §5.5 가 산술 근거를 제시한다 (10턴 도달)
-- [ ] **배치 시뮬 회귀 — 절대 70% 가 아니라 '도입 전후 비교'.** 스펙 §7 Phase 2 DoD 원문은 "특정 세력 승률 70% 초과 없음 [SHOULD]" 이나 **이 게이트는 외교와 무관하게 이미 실패 중**이다 — `docs/roadmap.md:30`: "100판 결과: **칼데아 98%** — 샘플 맵 지리 불균형 검출(12영지 샘플 한계, 맵 확장 §2.1 시 시작 조건 재밸런스 필요)". 판정 = **①최고 승률이 도입 전(98%) 대비 악화 없음 ②`simulate 100 --assert` 가 크래시·비결정 없이 완주**. 절대 70% 달성은 **맵 확장(§2.1)의 책임**이지 외교의 책임이 아니다
+- [ ] **배치 시뮬 회귀 — 절대 70% 가 아니라 '도입 전후 비교'.** 스펙 §7 Phase 2 DoD 원문은 "특정 세력 승률 70% 초과 없음 [SHOULD]" 이나 **이 게이트는 외교와 무관하게 이미 실패 중**이다 — 기준선 = **칼데아 93%**(내정 도입 후 실측, 무승부 1. 그 전 98%). 원인은 샘플 맵 지리 불균형이며 "200턴 상한·편중은 기존 전투/맵 밸런스 이슈(내정 무관)" 로 이미 판정됨. 판정 = **①최고 승률이 도입 전(93%) 대비 악화 없음 ②`simulate 100 --assert` 가 크래시·비결정 없이 완주**. 절대 70% 달성은 **맵 확장(§2.1)의 책임**이지 외교의 책임이 아니다
 - [ ] **조공이 §1.2 캡을 우회하지 못한다** [MUST] — 동맹 A 지원 500 → **비동맹 B** 조공 시도가 `TransferCapExceeded`
 - [ ] 조공 품목에 천명이 **없다** [MUST] — API 시그니처에 `Mandate` 인자 부재로 컴파일 수준 보장
 - [ ] 계략이 **동일 (시드·턴·시전자·대상) 에서 재현**되고 `combat` 스트림 소비량이 **불변**(무상태 해시 파생 — E10)
