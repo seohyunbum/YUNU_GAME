@@ -38,3 +38,13 @@ ue/**/*_out.txt
 
 # Kenney Castle Kit 원본 GLB — 임포트 결과(Content/Markers)만 추적한다
 ue/**/RawAssets/Markers/
+
+# Fab 지역 배경 팩 (각 0.6~1.2GB) — 런처에서 프로젝트에 추가하는 것이라 git 추적 안 함.
+# 등재표 = ue/WorldConquestUE/Source/WorldConquestUE/WCCityDiorama.cpp DioramaTable()
+ue/**/Content/Fantastic_Village_Pack/
+ue/**/Content/Stylized_Egypt/
+ue/**/Content/AssetsvilleTown/
+
+# 팩 중심 실측 산출물 (dump_pack_centers.py) — 재생성 가능
+ue/**/pack_centers.txt
+ue/**/markers_out.txt

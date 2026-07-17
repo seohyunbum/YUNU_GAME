@@ -934,6 +934,12 @@ void AWCGameMode::EnterCity(const FString& NodeId)
     {
         const FWCNodeInfo* Info = NodeInfos.Find(NodeId);
         Diorama->LoadForRegion(Info ? Info->Region : FString());
+        // 배경마다 마을 규모가 달라 부감 거리도 다르다 → 카메라를 새 배경 기준으로 다시 맞춘다
+        if (CityCamera)
+        {
+            const FTransform Vp = Diorama->GetViewpoint();
+            CityCamera->SetActorLocationAndRotation(Vp.GetLocation(), Vp.Rotator());
+        }
     }
     UpdateSelectionInfo();
     RefreshRates();   // 주막 확률 공시 (§2.8.6)

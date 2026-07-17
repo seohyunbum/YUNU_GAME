@@ -41,6 +41,7 @@ private:
     TMap<FString, TObjectPtr<class ULevelStreamingDynamic>> Instances;   // 레벨경로 → 인스턴스(가시성 토글 재사용)
     FString LoadedLevel;
     FString CurrentRegion;
+    double CurrentCamDist = 9000.0;   // 현재 배경 팩 규모에 맞춘 부감 거리
     FVector VillageCenter = FVector::ZeroVector;   // 배치 원점 보정용 (마을을 액터 원점으로 이동)
 
     UPROPERTY()
