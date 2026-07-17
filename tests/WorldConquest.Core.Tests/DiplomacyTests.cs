@@ -196,6 +196,124 @@ public class DiplomacyTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    // ── 계략 — 이간계 (E10·E12, U-D2 승인분) ────────────────────────────────────
+
+    [Fact]
+    public void 이간계는_제3자_둘만_대상으로_한다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var sc = new SchemeSystem(s, db);
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 10000;
+
+        Assert.Equal(SchemeOutcome.SelfTarget, sc.SowDiscord("joseon", "joseon", "wei"));
+        Assert.Equal(SchemeOutcome.SelfTarget, sc.SowDiscord("joseon", "wei", "joseon"));
+        Assert.Equal(SchemeOutcome.SameTarget, sc.SowDiscord("joseon", "wei", "wei"));
+        Assert.Equal(SchemeOutcome.NoSuchFaction, sc.SowDiscord("joseon", "wei", "ghost"));
+    }
+
+    [Fact]
+    public void 이간계는_비용과_턴당_캡을_소비한다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var sc = new SchemeSystem(s, db);
+        var r = db.Rules.Diplomacy.Scheme;
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        joseon.Treasury = r.CostGold * 10;
+
+        var first = sc.SowDiscord("joseon", "wei", "france");
+        Assert.True(first is SchemeOutcome.Success or SchemeOutcome.Exposed);
+        Assert.Equal(r.CostGold * 10 - r.CostGold, joseon.Treasury);
+        Assert.Equal(1, joseon.SchemesThisTurn);
+
+        Assert.Equal(SchemeOutcome.SchemeCapExceeded, sc.SowDiscord("joseon", "wei", "shu"));   // per_turn=1
+        gm.CollectIncome();   // 수입 페이즈 리셋
+        Assert.Equal(0, joseon.SchemesThisTurn);
+        Assert.True(sc.SowDiscord("joseon", "wei", "shu") is SchemeOutcome.Success or SchemeOutcome.Exposed);
+    }
+
+    [Fact]
+    public void 이간계_비용이_없으면_거부()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var sc = new SchemeSystem(s, db);
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 0;
+        Assert.Equal(SchemeOutcome.InsufficientResources, sc.SowDiscord("joseon", "wei", "france"));
+    }
+
+    [Fact]
+    public void 이간계_성공은_두_대상의_관계를_실패는_시전자의_관계를_떨어뜨린다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var sc = new SchemeSystem(s, db);
+        var led = new RelationLedger(s, db);
+        var r = db.Rules.Diplomacy.Scheme;
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 10000;
+
+        var outcome = sc.SowDiscord("joseon", "wei", "france");
+
+        if (outcome == SchemeOutcome.Success)
+        {
+            Assert.Equal(r.DiscordFavor, led.Favor("wei", "france"));   // 대상끼리 갈라짐
+            Assert.Equal(0, led.Favor("joseon", "wei"));                // 시전자는 무사
+        }
+        else
+        {
+            Assert.Equal(SchemeOutcome.Exposed, outcome);
+            Assert.Equal(0, led.Favor("wei", "france"));
+            Assert.Equal(r.ExposedFavor, led.Favor("joseon", "wei"));   // 발각 — 양쪽에서 신뢰 상실
+            Assert.Equal(r.ExposedFavor, led.Favor("joseon", "france"));
+        }
+    }
+
+    /// <summary>
+    /// E10·U-D2 의 핵심 근거: 무상태 해시 파생이라 ①같은 시드·턴·대상은 재현되고
+    /// ②**combat 스트림 소비량이 불변**이다(전투 골든 리플레이 무오염) → 소비 격리 [MUST] 위반 불가.
+    /// </summary>
+    [Fact]
+    public void 이간계는_결정적이고_combat_스트림을_오염시키지_않는다()
+    {
+        var db = Db();
+
+        SchemeOutcome Run(ulong seed)
+        {
+            var s = GameSetup.NewCampaign(db, seed, "joseon", "wei");
+            s.Factions.Single(f => f.Id == "joseon").Treasury = 10000;
+            return new SchemeSystem(s, db).SowDiscord("joseon", "wei", "france");
+        }
+
+        Assert.Equal(Run(999), Run(999));   // 재현
+
+        // combat 스트림 상태 불변 — 계략이 굴려도 전투 시퀀스는 그대로
+        var s2 = GameSetup.NewCampaign(db, 5, "joseon", "wei");
+        s2.Factions.Single(f => f.Id == "joseon").Treasury = 10000;
+        var before = s2.Rng.Stream(RngStreams.Combat).NextInt(1000);
+        new SchemeSystem(s2, db).SowDiscord("joseon", "wei", "france");
+        var after = s2.Rng.Stream(RngStreams.Combat).NextInt(1000);
+
+        var s3 = GameSetup.NewCampaign(db, 5, "joseon", "wei");
+        var expectedFirst = s3.Rng.Stream(RngStreams.Combat).NextInt(1000);
+        var expectedSecond = s3.Rng.Stream(RngStreams.Combat).NextInt(1000);
+        Assert.Equal(expectedFirst, before);
+        Assert.Equal(expectedSecond, after);   // 계략이 combat 소비를 전혀 전진시키지 않았다
+    }
+
+    [Fact]
+    public void 이간계_대상_순서는_결과를_바꾸지_않는다()   // Canonical 정규화 — 인자 순서로 재굴림 불가
+    {
+        var db = Db();
+        int P(string a, string b)
+        {
+            var s = GameSetup.NewCampaign(db, 7, "joseon", "wei");
+            return new SchemeSystem(s, db).SuccessPermyriad("joseon", a, b);
+        }
+        Assert.Equal(P("wei", "france"), P("france", "wei"));
+    }
+
     // ── 조공 (E6·E7) / 배신 (E9) / 불가침 (G6) ──────────────────────────────────
 
     [Fact]
