@@ -143,3 +143,10 @@
 - **서버 확장**: /api/rates (SummonRates — 천명·비용·pity·풀·만분율 확률), /api/static nodes 에 population·production 추가. 테스트 170 유지.
 - **함정 3건**: ①UE 5.8 `FJsonObject::Values` 키 = FStringType(UTF8) — FString 파라미터에 바로 못 넘김, `FString(Pair.Key)` 명시 변환 ②Slate 기본 Border 브러시는 이미지 기반이라 BorderBackgroundColor 알파가 안 먹음 — 불투명 패널은 `.BorderImage(FCoreStyle WhiteBrush)` 필수 ③사용자가 게임 실행 중이면 Live Coding 이 UBT 를 차단해 **옛 바이너리로 QA 샷**이 찍힘 — QA 전 빌드 성공 확인 + UE 프로세스 정리 (2회 재발).
 - **QA**: -WCCity=<id> 도시 화면 자동 진입 촬영. 실증 샷 — 시장 Lv1(WCCmd 건설 반영)·창병 10·확률 공시·소속 무장.
+
+## 2026-07-17 — 도시 화면 고급화: 위성 배경·금색 프레임·무장 카드 (사용자 "빡세게" 요구)
+
+- **결과**: ①**도시별 실제 위성 배경** — 고해상 NASA(21600×10800)에서 도시 주변 ±8°크롭+다크+비네팅 15장 자동 생성(`scratchpad make_city_bg.py` → RawAssets/CityBg) → 에디터 Python 일괄 임포트(`Scripts/import_citybg.py` → /Game/CityBg/T_<id>) → SImage lazy 브러시 교체(진입 도시 변경 감지) ②헤더 세력색 배너 + 금색 이중 프레임 패널(WhiteBrush 1.5px 골드 외곽+다크 내부) ③시설 레벨 ●●○ 표시 ④확률 공시 **희귀도 색상 행**(★5 금·★4 자·★3 은) + **천장 SProgressBar** ⑤소속 무장 **카드 그리드**(SWrapBox, 희귀도색 테두리) — 초빙 시 카드 수 변화 감지로 자동 재구성.
+- **구조화 뷰모델**: FText 덩어리 → FWCCharCard/FWCArmyCard/FWCFacilityRow/FWCRateRow 배열 (카드 UI 전제). RefreshRates 가 구조 캐시.
+- **판단**: Slate 동적 콘텐츠(카드 그리드)는 TAttribute 로 불가 — SWrapBox 재구성 함수 + 저비용 변경 감지(카드 수 비교)를 브러시 어트리뷰트 평가에 편승(게임 스레드 보장).
+- **다음 후보**: 무장 초상화 드롭인(Content/Portraits — 카드에 이미지), 도시 화면에서 지휘관 임명, 초빙 리빌 전용 연출(M3).

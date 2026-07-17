@@ -610,30 +610,106 @@ void AWCGameMode::RefreshRates()
         [this](TSharedPtr<FJsonObject> R)
         {
             if (!R.IsValid()) { CityRatesText = TEXT("(확률 조회 실패)"); return; }
-            FString Text = FString::Printf(TEXT("천명 %d · 1회 비용 %d\n"),
-                static_cast<int32>(R->GetNumberField(TEXT("mandate"))),
-                static_cast<int32>(R->GetNumberField(TEXT("cost_single"))));
-            const int32 PoolTotal = static_cast<int32>(R->GetNumberField(TEXT("pool_total")));
-            if (PoolTotal == 0)
+            RateMandate = static_cast<int32>(R->GetNumberField(TEXT("mandate")));
+            RateCost = static_cast<int32>(R->GetNumberField(TEXT("cost_single")));
+            RatePity = static_cast<int32>(R->GetNumberField(TEXT("pity_count")));
+            RateHardPity = static_cast<int32>(R->GetNumberField(TEXT("hard_pity")));
+            RatePool = static_cast<int32>(R->GetNumberField(TEXT("pool_total")));
+            RateRows.Reset();
+            for (const TSharedPtr<FJsonValue>& Rate : R->GetArrayField(TEXT("rates")))
             {
-                Text += TEXT("천하의 인재를 모두 만났습니다 — 풀 소진");
+                const TSharedPtr<FJsonObject> Obj = Rate->AsObject();
+                FWCRateRow Row;
+                Row.Rarity = static_cast<int32>(Obj->GetNumberField(TEXT("rarity")));
+                Row.Permyriad = static_cast<int32>(Obj->GetNumberField(TEXT("permyriad")));
+                Row.Remaining = static_cast<int32>(Obj->GetNumberField(TEXT("remaining")));
+                RateRows.Add(Row);
             }
-            else
-            {
-                for (const TSharedPtr<FJsonValue>& Rate : R->GetArrayField(TEXT("rates")))
-                {
-                    const TSharedPtr<FJsonObject> Obj = Rate->AsObject();
-                    const int32 Pm = static_cast<int32>(Obj->GetNumberField(TEXT("permyriad")));
-                    Text += FString::Printf(TEXT("★%d  %d.%02d%%  (잔여 %d명)\n"),
-                        static_cast<int32>(Obj->GetNumberField(TEXT("rarity"))), Pm / 100, Pm % 100,
-                        static_cast<int32>(Obj->GetNumberField(TEXT("remaining"))));
-                }
-                Text += FString::Printf(TEXT("천장: 다음 ★5까지 최대 %d회"),
-                    static_cast<int32>(R->GetNumberField(TEXT("hard_pity"))) -
-                    static_cast<int32>(R->GetNumberField(TEXT("pity_count"))));
-            }
-            CityRatesText = Text;
+            CityRatesText = RatePool == 0 ? TEXT("천하의 인재를 모두 만났습니다 — 풀 소진") : TEXT("");
         });
+}
+
+FText AWCGameMode::UiPityText() const
+{
+    if (RatePool == 0) return FText::FromString(TEXT("풀 소진"));
+    return FText::FromString(FString::Printf(TEXT("천장 %d / %d — 다음 ★5까지 최대 %d회"),
+        RatePity, RateHardPity, RateHardPity - RatePity));
+}
+
+FText AWCGameMode::UiMandateText() const
+{
+    return FText::FromString(FString::Printf(TEXT("천명 %d · 초빙 1회 %d"), RateMandate, RateCost));
+}
+
+FLinearColor AWCGameMode::UiFactionColor() const
+{
+    return MapActor ? MapActor->GetFactionColor(PendingActor) : FLinearColor::Gray;
+}
+
+TArray<AWCGameMode::FWCCharCard> AWCGameMode::UiMyCharacterCards() const
+{
+    TArray<FWCCharCard> Cards;
+    if (!LastState.IsValid() || PendingActor.IsEmpty()) return Cards;
+    const TSharedPtr<FJsonObject>* Owners = nullptr;
+    if (LastState->TryGetObjectField(TEXT("character_owners"), Owners) && Owners)
+        for (const auto& Pair : (*Owners)->Values)
+            if (Pair.Value->AsString() == PendingActor)
+            {
+                FWCCharCard Card;
+                Card.Id = FString(Pair.Key);
+                Card.Name = NameOf(CharacterNames, Card.Id);
+                Card.Rarity = CharacterRarity.FindRef(Card.Id);
+                Cards.Add(Card);
+            }
+    Cards.Sort([](const FWCCharCard& A, const FWCCharCard& B) { return A.Rarity > B.Rarity; });
+    return Cards;
+}
+
+TArray<AWCGameMode::FWCArmyCard> AWCGameMode::UiCityArmyCards() const
+{
+    TArray<FWCArmyCard> Cards;
+    if (EnteredCityId.IsEmpty() || !LastState.IsValid()) return Cards;
+    for (const TSharedPtr<FJsonValue>& A : LastState->GetArrayField(TEXT("armies")))
+    {
+        const TSharedPtr<FJsonObject> Army = A->AsObject();
+        if (Army->GetStringField(TEXT("location")) != EnteredCityId) continue;
+        FWCArmyCard Card;
+        Card.Id = Army->GetStringField(TEXT("id"));
+        Card.Troops = static_cast<int32>(Army->GetNumberField(TEXT("total_troops")));
+        const TSharedPtr<FJsonObject>* UnitsObj = nullptr;
+        if (Army->TryGetObjectField(TEXT("units"), UnitsObj) && UnitsObj)
+            for (const auto& Pair : (*UnitsObj)->Values)
+                Card.Detail += FString::Printf(TEXT("%s %d   "), *NameOf(UnitNames, FString(Pair.Key)),
+                    static_cast<int32>(Pair.Value->AsNumber()));
+        FString Commander;
+        if (Army->TryGetStringField(TEXT("commander_id"), Commander) && !Commander.IsEmpty())
+            Card.Commander = NameOf(CharacterNames, Commander);
+        Cards.Add(Card);
+    }
+    return Cards;
+}
+
+TArray<AWCGameMode::FWCFacilityRow> AWCGameMode::UiCityFacilityRows() const
+{
+    TArray<FWCFacilityRow> Rows;
+    if (EnteredCityId.IsEmpty() || !LastState.IsValid()) return Rows;
+    for (const TSharedPtr<FJsonValue>& P : LastState->GetArrayField(TEXT("provinces")))
+    {
+        const TSharedPtr<FJsonObject> Province = P->AsObject();
+        if (Province->GetStringField(TEXT("id")) != EnteredCityId) continue;
+        const TSharedPtr<FJsonObject>* Facilities = nullptr;
+        if (Province->TryGetObjectField(TEXT("facilities"), Facilities) && Facilities)
+            for (const auto& Pair : (*Facilities)->Values)
+            {
+                const FString Kind(Pair.Key);
+                FWCFacilityRow Row;
+                Row.NameKo = Kind == TEXT("market") ? TEXT("시장") : Kind == TEXT("farm") ? TEXT("농지") : Kind;
+                Row.Level = static_cast<int32>(Pair.Value->AsNumber());
+                Rows.Add(Row);
+            }
+        break;
+    }
+    return Rows;
 }
 
 FText AWCGameMode::UiCityHeader() const

@@ -92,6 +92,20 @@ public:
     void RefreshRates();                     // 진입·초빙 후 갱신 (§2.8.6)
     FString EnteredCityId;
 
+    // ── 구조화 뷰모델 (카드·표 UI 용) ──
+    struct FWCCharCard { FString Id; FString Name; int32 Rarity = 3; };
+    struct FWCArmyCard { FString Id; FString Detail; FString Commander; int32 Troops = 0; };
+    struct FWCFacilityRow { FString NameKo; int32 Level = 0; };
+    struct FWCRateRow { int32 Rarity = 3; int32 Permyriad = 0; int32 Remaining = 0; };
+    TArray<FWCCharCard> UiMyCharacterCards() const;
+    TArray<FWCArmyCard> UiCityArmyCards() const;
+    TArray<FWCFacilityRow> UiCityFacilityRows() const;
+    const TArray<FWCRateRow>& UiRateRows() const { return RateRows; }
+    float UiPityProgress() const { return RateHardPity > 0 ? float(RatePity) / RateHardPity : 0.f; }
+    FText UiPityText() const;
+    FText UiMandateText() const;             // "천명 5 · 1회 100"
+    FLinearColor UiFactionColor() const;     // 현재 차례 세력 색 (헤더 배너)
+
     // ── Slate UI 뷰모델 (TAttribute 폴링 — 매 프레임 평가) ──
     FText UiTurnText() const;          // "3턴 · 조선 차례"
     FText UiResourceText() const;      // "금 1220 · 식량 960 · 천명 25"
@@ -147,6 +161,8 @@ private:
     int32 RecruitUnitIndex = 0;
     FString QuickSavePath;
     FString CityRatesText;               // /api/rates 캐시 (진입·초빙 시 갱신)
+    TArray<FWCRateRow> RateRows;         // 구조화 확률 캐시
+    int32 RatePity = 0, RateHardPity = 30, RateMandate = 0, RateCost = 100, RatePool = 0;
     void UpdateModeLine();
     void RunQaCommandsIfRequested();     // -WCCmd="verb a b|verb c" QA 스크립트
     bool bQaCmdParsed = false;
