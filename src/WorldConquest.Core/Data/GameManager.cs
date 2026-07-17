@@ -181,6 +181,10 @@ public sealed class GameManager
 
             battle = new CombatManager(_db).ResolveNaval(force, enemyFleets, sea, State.Rng.Stream(RngStreams.Combat));
             State.Fleets.RemoveAll(f => f.TotalTroops == 0);
+            // 관계도 (외교 §5.2·E8): 해상전도 전투다. 이 분기는 PublishBattleEvents 를 호출하지 않고
+            // 조기 return 하므로 훅을 여기 직접 건다 — 이벤트 발행 함수 안에 넣으면 누락된다.
+            // 해상 방어측은 소유·동맹 필터가 없어 여러 세력이 섞일 수 있다(F3) → distinct 각각 적용.
+            ApplyBattleFavor(factionId, enemyFleets.Select(f => f.FactionId));
             if (!battle.AttackerWon) return AttackOutcome.DefenderHeld;
             force.LocationNodeId = targetNodeId;   // 해역 장악 — 진출
             return AttackOutcome.AttackerWon;
@@ -207,6 +211,9 @@ public sealed class GameManager
         {
             // 주둔군 없는 적 영지 — 무저항 함락
             battle = new BattleResult(true, 0, 0, 0, Array.Empty<SkillEvent>());
+            // 관계도 (외교 §5.2·E8): 이 분기도 조기 return 이라 훅을 직접 건다. 피 흘리진 않았어도
+            // 영지를 빼앗겼으니 관계는 상한다(전투분보다 약하게).
+            new RelationLedger(State, _db).Apply(factionId, owner.Id, FavorSource.BloodlessCapture);
             TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetNodeId, force);
             return AttackOutcome.AttackerWon;
         }
@@ -227,6 +234,11 @@ public sealed class GameManager
         PublishBattleEvents(battle, targetNodeId, factionId, owner.Id,
             atkTroopsBefore, defTroopsBefore, atkCommander, defCommander);
 
+        // 관계도 (외교 §5.2·E8): 공격자 ↔ **병력을 낸 모든 방어 세력** 각각.
+        // 소유자 단독이 아니다 — 공동 수비(§1.2)로 동맹을 도와 피 흘린 세력이 어느 쌍에도
+        // 안 걸리면 "동맹을 도와 싸워도 공격자와 관계가 나빠지지 않는" 구멍이 생긴다.
+        ApplyBattleFavor(factionId, defenders.Select(d => d.FactionId));
+
         // 천명 보상 (§2.8.3): 전투 승자 + 일기토 승자
         var winnerFaction = battle.AttackerWon ? factionId : owner.Id;
         var wf = State.Factions.FirstOrDefault(f => f.Id == winnerFaction);
@@ -239,8 +251,24 @@ public sealed class GameManager
         }
 
         if (!battle.AttackerWon) return AttackOutcome.DefenderHeld;
+        // 영지 상실은 소유자 관계만 추가로 악화 (§5.2 — 도우러 온 동맹은 땅을 잃은 게 아니다)
+        new RelationLedger(State, _db).Apply(factionId, owner.Id, FavorSource.ProvinceLost);
         TransferProvince(owner, State.Factions.First(f => f.Id == factionId), targetNodeId, force);
         return AttackOutcome.AttackerWon;
+    }
+
+    /// <summary>
+    /// 전투 관계도 하락 — 공격자 ↔ 방어에 참여한 각 세력(distinct, ordinal 순으로 결정적).
+    /// 자기 자신은 제외(공격자 함대가 방어측에 섞이는 F3 상황 방어).
+    /// </summary>
+    private void ApplyBattleFavor(string attackerId, IEnumerable<string> defenderFactionIds)
+    {
+        var led = new RelationLedger(State, _db);
+        foreach (var d in defenderFactionIds
+                     .Where(id => id != attackerId)
+                     .Distinct()
+                     .OrderBy(id => id, StringComparer.Ordinal))
+            led.Apply(attackerId, d, FavorSource.BattleFought);
     }
 
     /// <summary>전투 결과를 불변 이벤트로 발행 (§4.3) — 컷씬 트리거·콘솔/UE5 결과 화면의 원천.</summary>

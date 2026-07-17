@@ -220,8 +220,13 @@ public sealed class InternalAffairsManager
             faction.RecruitsThisTurn = 0;          // 등용 턴당 캡 리셋 (§2.8 recruit)
             faction.SearchesThisTurn = 0;          // 탐색 턴당 캡 리셋 (§2.8 search)
             faction.ActedCharacterIds.Clear();     // 파견 행동 소진 리셋 (§2.3.2 무장 1명 턴당 1회)
+            faction.SchemesThisTurn = 0;           // 계략 턴당 캡 리셋 (외교 §5.4)
             faction.Mandate += _db.Rules.SummonIncomeBasePerTurn;   // 천명 기본 수입 (§2.8.3)
         }
+
+        // 관계도 정산 (외교 §5.2) — 공동의 적 축적 + 적대 구간 감쇠.
+        // 수입 페이즈에 두는 이유: 턴당 1회·전 세력 대상이고, 이 페이즈가 이미 턴 경계의 정산 지점이다.
+        new RelationLedger(_state, _db).ProcessTurn();
 
         foreach (var faction in _state.Factions)
         {

@@ -82,4 +82,5 @@ internal sealed class FactionStateDto
     public string? TaxLevel { get; set; }        // 세율 단계 (§2.3, additive)
     public int? TechPoints { get; set; }         // 기술 포인트 (§2.3, additive)
     public List<string>? ActedCharacterIds { get; set; }   // 이번 턴 파견 소진 무장 (§2.3.2, additive)
+    public int? SchemesThisTurn { get; set; }    // 계략 턴당 캡 (외교 §5.4, additive)
 }

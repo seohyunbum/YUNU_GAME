@@ -196,6 +196,101 @@ public class DiplomacyTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    // ── 전투 → 관계도 훅 (E8: Attack 의 3분기 각각. PublishBattleEvents 는 육상에서만 호출된다) ──
+
+    [Fact]
+    public void 육상전을_하면_우호도가_떨어진다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var led = new RelationLedger(s, db);
+        var r = db.Rules.Diplomacy;
+
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 100000;
+        s.Factions.Single(f => f.Id == "wei").Treasury = 100000;
+        gm.Recruit("joseon", "hanseong", "spearman", 200);   // hanseong 은 pyongyang 과 육상 인접
+        gm.Recruit("wei", "beijing", "spearman", 5);
+        var army = s.Armies.Single(a => a.FactionId == "joseon");
+        s.Factions.Single(f => f.Id == "wei").OwnedProvinceIds.Add("pyongyang");
+        s.Armies.Single(a => a.FactionId == "wei").LocationNodeId = "pyongyang";   // 주둔군
+
+        gm.Attack("joseon", army.Id, "pyongyang", out var battle);
+
+        Assert.NotNull(battle);
+        // 전투(-120) + 승리 시 영지 상실(-80)
+        var expected = r.OnBattleFought + (battle!.AttackerWon ? r.OnProvinceLost : 0);
+        Assert.Equal(expected, led.Favor("joseon", "wei"));
+    }
+
+    /// <summary>
+    /// §5.2 구멍 방지: 방어측은 단일 세력이 아니다. 공동 수비(§1.2)로 동맹을 도와 피 흘린 세력이
+    /// 어느 쌍에도 안 걸리면 "동맹을 도와 싸워도 공격자와 관계가 나빠지지 않는" 모순이 생긴다.
+    /// </summary>
+    [Fact]
+    public void 공동수비로_참전한_동맹국도_공격자와_관계가_나빠진다()
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var dip = new DiplomacyManager(s, db);
+        var led = new RelationLedger(s, db);
+
+        // france 가 pyongyang 소유, wei 는 france 의 동맹이라 주둔군을 함께 낸다
+        dip.FormAlliance("wei", "france");
+        var france = s.Factions.Single(f => f.Id == "france");
+        france.OwnedProvinceIds.Add("pyongyang");
+        foreach (var f in new[] { "joseon", "wei", "france" }) s.Factions.Single(x => x.Id == f).Treasury = 100000;
+        gm.Recruit("france", "pyongyang", "spearman", 3);
+        gm.Recruit("wei", "beijing", "spearman", 3);
+        s.Armies.Single(a => a.FactionId == "wei").LocationNodeId = "pyongyang";   // 동맹 주둔군
+        gm.Recruit("joseon", "hanseong", "spearman", 100);   // hanseong → pyongyang 육상 인접
+        var atk = s.Armies.Single(a => a.FactionId == "joseon");
+
+        gm.Attack("joseon", atk.Id, "pyongyang", out var battle);
+
+        Assert.NotNull(battle);
+        Assert.True(led.Favor("joseon", "france") < 0, "영지 소유자와의 관계가 안 나빠짐");
+        Assert.Equal(db.Rules.Diplomacy.OnBattleFought, led.Favor("joseon", "wei"));   // 도우러 온 동맹도
+    }
+
+    [Fact]
+    public void 무저항_함락도_우호도를_떨어뜨린다()   // E8 분기 ② — BattleEnded 조차 발행 안 되는 경로
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var led = new RelationLedger(s, db);
+
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 100000;
+        s.Factions.Single(f => f.Id == "wei").OwnedProvinceIds.Add("pyongyang");   // 주둔군 없음
+        gm.Recruit("joseon", "hanseong", "spearman", 10);
+        var army = s.Armies.Single(a => a.FactionId == "joseon");
+
+        Assert.Equal(AttackOutcome.AttackerWon, gm.Attack("joseon", army.Id, "pyongyang", out _));
+        Assert.Equal(db.Rules.Diplomacy.OnBloodlessCapture, led.Favor("joseon", "wei"));
+    }
+
+    [Fact]
+    public void 해상전도_우호도를_떨어뜨린다()   // E8 분기 ① — 조기 return 이라 이벤트 훅으로는 못 잡는다
+    {
+        var db = Db();
+        var s = GameSetup.NewCampaign(db, 42, "joseon", "wei");
+        var gm = new GameManager(s, db);
+        var led = new RelationLedger(s, db);
+
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 100000;
+        gm.Recruit("joseon", "hanseong", "medium_ship", 20);
+        var enemy = new Fleet("wei_fleet_1", "wei", "sea_east_asia");
+        enemy.AddUnits("small_ship", 2);
+        s.Fleets.Add(enemy);
+
+        gm.Attack("joseon", "joseon_fleet_1", "sea_east_asia", out var battle);
+
+        Assert.NotNull(battle);
+        Assert.Equal(db.Rules.Diplomacy.OnBattleFought, led.Favor("joseon", "wei"));
+    }
+
     [Fact]
     public void 동맹은_양측_관계가_동기화()
     {

@@ -41,4 +41,6 @@ public sealed class FactionState
 
     /// <summary>이번 턴 파견 행동을 마친 무장 id (§2.3.2 — 무장 1명 턴당 1회: 개발·징병·등용·탐색. 수입 페이즈 리셋. additive 세이브).</summary>
     public HashSet<string> ActedCharacterIds { get; init; } = new();
+    /// <summary>이번 턴 시전한 계략 횟수 (외교 §5.4 — diplomacy.scheme.per_turn 캡). 수입 페이즈에서 리셋.</summary>
+    public int SchemesThisTurn { get; set; }
 }
