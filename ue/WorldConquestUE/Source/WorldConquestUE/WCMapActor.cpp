@@ -56,10 +56,10 @@ AWCMapActor::AWCMapActor()
 
 UStaticMeshComponent* AWCMapActor::AddShape(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
                                             const FLinearColor& Color, const FRotator& Rot,
-                                            UMaterialInstanceDynamic** OutMid)
+                                            UMaterialInstanceDynamic** OutMid, USceneComponent* Parent)
 {
     UStaticMeshComponent* Comp = NewObject<UStaticMeshComponent>(this);
-    Comp->SetupAttachment(RootComponent);
+    Comp->SetupAttachment(Parent ? Parent : ToRawPtr(RootComponent));
     Comp->RegisterComponent();
     Comp->SetStaticMesh(Mesh);
     Comp->SetRelativeLocation(Pos);
@@ -74,11 +74,11 @@ UStaticMeshComponent* AWCMapActor::AddShape(UStaticMesh* Mesh, const FVector& Po
 }
 
 UStaticMeshComponent* AWCMapActor::AddMesh(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
-                                           const FRotator& Rot)
+                                           const FRotator& Rot, USceneComponent* Parent)
 {
     // 메시가 들고 온 머티리얼(Kenney colormap 아틀라스)을 그대로 쓴다 — 성벽·지붕 색이 원본대로 나온다.
     UStaticMeshComponent* Comp = NewObject<UStaticMeshComponent>(this);
-    Comp->SetupAttachment(RootComponent);
+    Comp->SetupAttachment(Parent ? Parent : ToRawPtr(RootComponent));
     Comp->RegisterComponent();
     Comp->SetStaticMesh(Mesh);
     Comp->SetRelativeLocation(Pos);
@@ -153,8 +153,6 @@ void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
         World.Z = TerrainZ(World) + 14.0;   // 지형 표면 부착 (바다=0, 산악 도시=능선 위)
         NodePositions.Add(Id, World);
         MakeNodeMesh(Id, World, bSea);
-        // 세력 영역 원판 — 거점 주변에 소유 세력색을 깐다 (해역은 소유 개념이 약해 제외).
-        if (!bSea) MakeTerritoryDecal(Id, World);
     }
 
     for (const TSharedPtr<FJsonValue>& E : Map->GetArrayField(TEXT("edges")))
@@ -266,23 +264,37 @@ UStaticMeshComponent* AWCMapActor::MakeNodeMesh(const FString& NodeId, const FVe
     const FLinearColor StoneColor(0.42f, 0.40f, 0.36f);
     const FLinearColor WallColor(0.30f, 0.28f, 0.25f);
 
+    // 노드 루트 — 이 아래 모든 마커를 상대좌표로 붙인다. 줌 스케일은 이 하나만 건드리면
+    // 깃발 오프셋까지 함께 따라와 성탑에서 떨어지지 않는다.
+    USceneComponent* NodeRoot = NewObject<USceneComponent>(this);
+    NodeRoot->SetupAttachment(RootComponent);
+    NodeRoot->RegisterComponent();
+    NodeRoot->SetRelativeLocation(Pos);
+    NodeRoot->SetRelativeScale3D(FVector(MarkerZoom));
+    NodeRoots.Add(NodeRoot);
+
+    const FVector O = FVector::ZeroVector;   // 이제 위치는 노드 루트 기준
     UStaticMeshComponent* PickTarget = nullptr;
     if (bSea)
     {
-        // 해역 거점 = 청색 원판 + 부표 구조물
-        AddShape(CylinderMesh, Pos - FVector(0, 0, 4), FVector(2.1, 2.1, 0.06), RimColor);
+        // 해역 거점 = 청색 원판 + 세력기
+        AddShape(CylinderMesh, O - FVector(0, 0, 4), FVector(2.1, 2.1, 0.06), RimColor,
+                 FRotator::ZeroRotator, nullptr, NodeRoot);
         UMaterialInstanceDynamic* DiscMid = nullptr;
-        PickTarget = AddShape(CylinderMesh, Pos, FVector(1.7, 1.7, 0.1), SeaColor, FRotator::ZeroRotator, &DiscMid);
+        PickTarget = AddShape(CylinderMesh, O, FVector(1.7, 1.7, 0.1), SeaColor,
+                              FRotator::ZeroRotator, &DiscMid, NodeRoot);
         ColorTargets.Add(DiscMid);
         UMaterialInstanceDynamic* FlagMid = nullptr;
         if (FlagMesh)
         {
-            AddShape(FlagMesh, Pos, FVector(kFlagScale), SeaColor, FRotator(0, -35.f, 0), &FlagMid);
+            AddShape(FlagMesh, O, FVector(kFlagScale), SeaColor, FRotator(0, -35.f, 0), &FlagMid, NodeRoot);
         }
         else
         {
-            AddShape(CylinderMesh, Pos + FVector(0, 0, 60), FVector(0.12, 0.12, 1.2), WallColor);
-            AddShape(CubeMesh, Pos + FVector(0, 24, 108), FVector(0.04, 0.45, 0.3), SeaColor, FRotator::ZeroRotator, &FlagMid);
+            AddShape(CylinderMesh, O + FVector(0, 0, 60), FVector(0.12, 0.12, 1.2), WallColor,
+                     FRotator::ZeroRotator, nullptr, NodeRoot);
+            AddShape(CubeMesh, O + FVector(0, 24, 108), FVector(0.04, 0.45, 0.3), SeaColor,
+                     FRotator::ZeroRotator, &FlagMid, NodeRoot);
         }
         ColorTargets.Add(FlagMid);
     }
@@ -291,23 +303,44 @@ UStaticMeshComponent* AWCMapActor::MakeNodeMesh(const FString& NodeId, const FVe
         // 도시 = Kenney 성탑(원본 텍스처) + 세력색 깃발.
         // 성탑은 아틀라스 텍스처를 그대로 써야 성벽·지붕 디테일이 살고, 세력 구분은 깃발이 맡는다
         // (Kenney 메시는 머티리얼 슬롯이 1개뿐이라 부위별 틴트가 불가 — 실측 확인).
-        AddShape(CylinderMesh, Pos - FVector(0, 0, 4), FVector(2.0, 2.0, 0.07), RimColor);   // 지면 윤곽(가독)
+        AddShape(CylinderMesh, O - FVector(0, 0, 4), FVector(2.0, 2.0, 0.07), RimColor,
+                 FRotator::ZeroRotator, nullptr, NodeRoot);
         if (TowerMesh && FlagMesh)
         {
-            PickTarget = AddMesh(TowerMesh, Pos, FVector(kTowerScale));
+            PickTarget = AddMesh(TowerMesh, O, FVector(kTowerScale), FRotator::ZeroRotator, NodeRoot);
             UMaterialInstanceDynamic* FlagMid = nullptr;
-            // 깃발은 단색 세력기 — 아틀라스 대신 unlit 세력색(지도에서 멀리서도 세력이 읽힌다)
-            AddShape(FlagMesh, Pos + FVector(0, 0, kTowerTopZ), FVector(kFlagScale),
-                     NeutralColor, FRotator(0, -35.f, 0), &FlagMid);
+            AddShape(FlagMesh, O + FVector(0, 0, kTowerTopZ), FVector(kFlagScale),
+                     NeutralColor, FRotator(0, -35.f, 0), &FlagMid, NodeRoot);
             ColorTargets.Add(FlagMid);
         }
         else
         {   // 폴백 — 팩 미설치 시 기존 도형
-            AddShape(CylinderMesh, Pos, FVector(1.6, 1.6, 0.3), WallColor);
-            PickTarget = AddShape(CubeMesh, Pos + FVector(0, 0, 34), FVector(1.05, 1.05, 0.8), StoneColor);
+            AddShape(CylinderMesh, O, FVector(1.6, 1.6, 0.3), WallColor,
+                     FRotator::ZeroRotator, nullptr, NodeRoot);
+            PickTarget = AddShape(CubeMesh, O + FVector(0, 0, 34), FVector(1.05, 1.05, 0.8), StoneColor,
+                                  FRotator::ZeroRotator, nullptr, NodeRoot);
             UMaterialInstanceDynamic* RoofMid = nullptr;
-            AddShape(ConeMesh, Pos + FVector(0, 0, 82), FVector(1.35, 1.35, 0.7), NeutralColor, FRotator::ZeroRotator, &RoofMid);
+            AddShape(ConeMesh, O + FVector(0, 0, 82), FVector(1.35, 1.35, 0.7), NeutralColor,
+                     FRotator::ZeroRotator, &RoofMid, NodeRoot);
             ColorTargets.Add(RoofMid);
+        }
+
+        // 세력 영역 — 같은 노드 루트에 붙여 함께 스케일된다
+        if (TerritoryMaterial)
+        {
+            UStaticMeshComponent* Zone = NewObject<UStaticMeshComponent>(this);
+            Zone->SetupAttachment(NodeRoot);
+            Zone->RegisterComponent();
+            Zone->SetStaticMesh(PlaneMesh);
+            // Z 는 **양수**여야 한다 — 음수면 줌 배율(최대 3.5배)에 곱해져 지형 아래로 파묻힌다(실측).
+            Zone->SetRelativeLocation(FVector(0, 0, 2));
+            Zone->SetRelativeScale3D(FVector(TerritoryRadius * 2.0 / 100.0, TerritoryRadius * 2.0 / 100.0, 1.0));
+            Zone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+            UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(TerritoryMaterial, this);
+            Zone->SetMaterial(0, Mid);
+            TerritoryDecals.Add(NodeId, Zone);
+            TerritoryMids.Add(NodeId, Mid);
+            Zone->SetVisibility(false);   // 소유 확정 전엔 숨김 (ApplyState 가 켬)
         }
     }
 
@@ -318,6 +351,16 @@ UStaticMeshComponent* AWCMapActor::MakeNodeMesh(const FString& NodeId, const FVe
     NodeMaterials.Add(NodeId, ColorTargets);
     NodeMeshes.Add(NodeId, PickTarget);
     return PickTarget;
+}
+
+void AWCMapActor::ApplyMarkerZoom(double ZoomFactor)
+{
+    if (FMath::IsNearlyEqual(MarkerZoom, ZoomFactor, 0.01)) return;   // 미세 변화는 무시(매 프레임 호출 방지)
+    MarkerZoom = ZoomFactor;
+    for (USceneComponent* Root : NodeRoots)
+        if (Root) Root->SetRelativeScale3D(FVector(ZoomFactor));
+    for (UStaticMeshComponent* Marker : UnitMarkers)
+        if (Marker) Marker->SetRelativeScale3D(Marker->GetRelativeScale3D().GetSafeNormal() * ZoomFactor);
 }
 
 void AWCMapActor::MakeTerritoryDecal(const FString& NodeId, const FVector& Pos)

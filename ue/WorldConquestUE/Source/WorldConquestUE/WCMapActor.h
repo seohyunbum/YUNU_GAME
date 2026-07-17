@@ -39,6 +39,16 @@ public:
     /** 세력 색 (부대 마커·HUD 공용). */
     FLinearColor GetFactionColor(const FString& FactionId) const;
 
+    /**
+     * 마커·영역을 **화면상 크기가 일정**하도록 재조정한다 (카메라 줌 변화 시 호출).
+     *
+     * 왜 필요한가: 지도는 세계 스케일(20000 유닛)인데 거점 간격은 동아시아에서 113 유닛뿐이라,
+     * 월드 고정 크기로 두면 세계 조망에서 마커·영토가 점으로 사라진다(실측). 대부분의 전략게임처럼
+     * 마커를 카메라 거리에 비례해 키워 화면 점유율을 고정한다.
+     * ZoomFactor = CurrentCamDist / kMarkerRefDist.
+     */
+    void ApplyMarkerZoom(double ZoomFactor);
+
 private:
     UStaticMeshComponent* MakeNodeMesh(const FString& NodeId, const FVector& Pos, bool bSea);
     void MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRoute);
@@ -62,13 +72,21 @@ private:
     UPROPERTY()
     TMap<FString, TObjectPtr<UStaticMeshComponent>> NodeMeshes;
 
+    /** 노드별 마커 루트 — 성탑·깃발·영역이 전부 이 아래 붙는다. 줌 스케일은 이것만 건드린다. */
+    UPROPERTY()
+    TArray<TObjectPtr<USceneComponent>> NodeRoots;
+
+    double MarkerZoom = 1.0;   // 현재 적용된 줌 배율 (부대 마커 재생성 시 재적용)
+
     /** 노드별 세력색 대상 MID (지붕·깃발 등 복수) — ApplyState 가 일괄 갱신. */
     TMap<FString, TArray<TObjectPtr<UMaterialInstanceDynamic>>> NodeMaterials;
 
-    /** 도형 배치 헬퍼 — 메시·위치·스케일·색·회전. 반환 = 컴포넌트 (픽킹 등록용). */
+    /** 도형 배치 헬퍼 — 메시·위치·스케일·색·회전. 반환 = 컴포넌트 (픽킹 등록용).
+        Parent 를 주면 그 아래 붙는다(노드 마커는 노드 루트에 붙여 통째로 스케일한다). */
     UStaticMeshComponent* AddShape(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
                                    const FLinearColor& Color, const FRotator& Rot = FRotator::ZeroRotator,
-                                   UMaterialInstanceDynamic** OutMid = nullptr);
+                                   UMaterialInstanceDynamic** OutMid = nullptr,
+                                   USceneComponent* Parent = nullptr);
 
     /** Kenney Castle Kit (CC0) — 거점 성탑·깃발. 부재 시 기본 도형으로 폴백한다. */
     UPROPERTY()
@@ -79,7 +97,8 @@ private:
 
     /** 메시의 '자기 머티리얼'을 그대로 쓰는 배치 (AddShape 는 단색 MID 로 덮어쓴다). */
     UStaticMeshComponent* AddMesh(UStaticMesh* Mesh, const FVector& Pos, const FVector& Scale,
-                                  const FRotator& Rot = FRotator::ZeroRotator);
+                                  const FRotator& Rot = FRotator::ZeroRotator,
+                                  USceneComponent* Parent = nullptr);
 
     UPROPERTY()
     TObjectPtr<UStaticMesh> CubeMesh;

@@ -26,6 +26,10 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogWorldConquest, Log, All);
 
+// 마커 크기의 기준 카메라 거리 — 이 거리에서 마커가 '적당해 보이도록' 튠된 값이 원본 스케일이다.
+// 다른 거리에서는 CamDist/이 값 만큼 비례 확대해 화면 점유율을 고정한다.
+static constexpr double kMarkerRefDist = 4000.0;
+
 namespace
 {
     constexpr int32 EventLogMax = 10;
@@ -162,7 +166,13 @@ void AWCGameMode::BootSequence()
         Api->FetchStatic([this, bHasCampaign](TSharedPtr<FJsonObject> Static)
         {
             ParseNames(Static);
-            if (MapActor) MapActor->BuildFromStatic(Static);
+            if (MapActor)
+            {
+                MapActor->BuildFromStatic(Static);
+                // 보드가 만들어진 뒤에 줌 배율을 다시 먹인다 — 카메라 갱신은 이미 끝났고
+                // 그때는 마커가 존재하지 않아 스케일이 안 걸린다(실측: 마커가 원본 크기로 남음).
+                UpdateBoardCamera();
+            }
 
             if (bHasCampaign) { Phase = EWCPhase::Playing; RefreshState(); return; }
 
@@ -1236,6 +1246,13 @@ void AWCGameMode::UpdateBoardCamera()
     CamPitch = FMath::Clamp(AutoPitch + CamPitchManual, -80.f, -18.f);
     const FRotator ViewRot(CamPitch, CamYaw, 0.f);   // 요 회전 포함
     BoardCamera->SetActorLocationAndRotation(CamTarget - ViewRot.Vector() * CamDist, ViewRot);
+
+    // 마커·영토를 화면상 크기 일정하게 — 카메라가 멀어진 만큼 키운다.
+    // 안 하면 세계 조망에서 거점·판도가 점으로 사라진다(지도 20000 유닛 vs 거점 간격 113).
+    // 완전 선형(화면 크기 고정)이면 세계 조망에서 마커가 지도를 덮는다 → 지수 0.65 로 완만하게 키운다.
+    // 줌아웃할수록 커지되 지도보다 튀지는 않는 절충 (실측 튜닝).
+    if (MapActor)
+        MapActor->ApplyMarkerZoom(FMath::Pow(CamDist / kMarkerRefDist, 0.65));
 }
 
 void AWCGameMode::ZoomCamera(float WheelDelta)
