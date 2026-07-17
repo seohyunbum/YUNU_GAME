@@ -18,7 +18,13 @@ namespace
     const FLinearColor LandEdgeColor(0.42f, 0.34f, 0.22f);  // 육로 = 흐린 갈색
     const FLinearColor SeaEdgeColor(0.25f, 0.42f, 0.62f);   // 해로 = 흐린 청회색
     constexpr double EdgeThickness = 0.10;                  // 0.3 → 0.10 (거점 마커가 주인공)
-    constexpr double TerritoryRadius = 1500.0;              // 세력 영역 데칼 반경(cm)
+    // 세력 영역 원판 반경. **성탑(150 폭)보다 크고 거점 간격(최소 113)에 준하는** 값이어야 한다.
+    //  - 1500 은 26배 과대라 12개가 통째로 겹쳐 지도가 동심원 호로 뭉개졌다(실측).
+    //  - 42 는 성탑 밑에 가려 안 보였다(실측).
+    // 이웃 영역이 살짝 겹치는 건 정상 — 인접 영토가 맞닿는 것으로 읽힌다.
+    // 링이 아니라 '번짐' 이라 이웃과 겹쳐도 자연스럽다(같은 세력=합쳐진 영토, 다른 세력=색 경계).
+    // 덕분에 거점 간격(최소 113)보다 크게 잡아 세계 줌에서도 영토가 읽히게 할 수 있다.
+    constexpr double TerritoryRadius = 420.0;
 
     // Kenney 마커 스케일 — 원본 성탑 100x100x131, 깃발 10x43x86 (실측 bounds).
     // 기존 도형 마커(폭 ~200, 높이 ~200)와 눈에 띄는 크기를 맞춘다.
@@ -147,10 +153,8 @@ void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
         World.Z = TerrainZ(World) + 14.0;   // 지형 표면 부착 (바다=0, 산악 도시=능선 위)
         NodePositions.Add(Id, World);
         MakeNodeMesh(Id, World, bSea);
-        // 세력 영역 원판 — [WIP] 기본 비활성. 현재 원판의 UV/링이 잘못 렌더되어 지도 전체에
-        // 거대한 동심원 호가 번진다(2026-07-17 실측: 끄면 사라짐). 원인 규명 전까지 -WCTerritory 로만 켠다.
-        if (!bSea && FParse::Param(FCommandLine::Get(), TEXT("WCTerritory")))
-            MakeTerritoryDecal(Id, World);
+        // 세력 영역 원판 — 거점 주변에 소유 세력색을 깐다 (해역은 소유 개념이 약해 제외).
+        if (!bSea) MakeTerritoryDecal(Id, World);
     }
 
     for (const TSharedPtr<FJsonValue>& E : Map->GetArrayField(TEXT("edges")))
