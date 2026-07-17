@@ -8,10 +8,16 @@ class AWCGameMode;
 class SWrapBox;
 
 /**
- * 거점(도시) 화면 (KOEI 식 — 세계지도와 별개의 내정 뷰).
- * 배경 = 해당 도시의 실제 위성 이미지(/Game/CityBg — RawAssets 에서 에디터 Python 임포트).
- * 3컬럼: [내정 — 생산·시설 레벨·건설] [군사 — 부대·징병] [주막 — 확률 공시·천장 바·무장 카드·초빙].
- * 전면 오버레이라 지도 입력을 자연 차단. 모든 판정은 서버 [MUST].
+ * 거점(도시) 화면 — 배경은 3D 디오라마, 그 위에 **건물 간판**이 서 있다.
+ *
+ * ux-design §5: 3컬럼 동시표시(내정|군사|주막)를 폐기했다. 좁고 겹쳤으며 KOEI 어느 작품에도 없다.
+ * 대신 **건물 간판을 클릭하면 그 건물 패널 하나만** 우측에 뜬다(한 번에 하나 — §1 P-1).
+ * 아무것도 안 열면 디오라마 전경이 다 보인다.
+ *
+ * 여기 없는 것 (의도적):
+ *  - 주막/초빙 → 초빙은 노드 인자가 없는 **세력 명령**이라 지도 좌측에 산다(§0). 거점에 두면 1→4클릭 퇴보.
+ *  - 징병·건설 → 지도 선택 패널에서 이미 2클릭. 고빈도는 지도(§1 P-3).
+ * 모든 판정은 서버 [MUST].
  */
 class SWCCityView : public SCompoundWidget
 {
@@ -26,11 +32,16 @@ private:
     TWeakObjectPtr<AWCGameMode> GM;
 
     TSharedRef<SWidget> MakeFramedPanel(const FText& Title, TSharedRef<SWidget> Content);
-    TSharedRef<SWidget> MakeDomesticPanel();
-    TSharedRef<SWidget> MakeMilitaryPanel();
-    TSharedRef<SWidget> MakeTavernPanel();
     TSharedRef<SWidget> MakeRateRow(int32 Index);
     TSharedRef<SWidget> MakeButton(const FText& Label, TFunction<void(AWCGameMode*)> Action);
+
+    /** 디오라마 위의 건물 간판 — 클릭하면 그 건물 패널이 열린다(다시 누르면 닫힘). */
+    TSharedRef<SWidget> MakeSignboard(const FString& Kind, const TCHAR* IconName, const FText& Label);
+    /** 열린 건물 하나의 패널 (우측 도킹). Kind 별 내용. */
+    TSharedRef<SWidget> MakeBuildingPanel();
+    TSharedRef<SWidget> MakeFacilityBody(const FString& Kind);   // 시설 공통: 효과 + 크게 만들기
+    TSharedRef<SWidget> MakeBarracksBody();                      // 병영: 부대 목록
+    TSharedRef<SWidget> MakeCharactersBody();                    // 무장: 초상 그리드
 
     /** 시설 카드 (아이콘 · 이름 · 레벨 핍 · 건설/증축). Kind = 서버 시설 종류(market/farm/port/academy). */
     TSharedRef<SWidget> MakeFacilityCard(const FString& Kind, const TCHAR* IconName, const FText& Label);

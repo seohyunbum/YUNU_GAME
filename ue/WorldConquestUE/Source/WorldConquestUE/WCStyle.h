@@ -45,6 +45,11 @@ public:
     static FButtonStyle Button();
     static FButtonStyle PrimaryButton();
 
+    /** SButton 은 스타일 '포인터' 를 보관한다 → 위젯보다 오래 사는 참조를 준다 [MUST].
+        지역 변수 스타일을 넘기면 파괴 후 죽은 포인터를 읽는다. */
+    static const FButtonStyle& ButtonRef();
+    static const FButtonStyle& PrimaryButtonRef();
+
 private:
     static const FSlateBrush* Box(const TCHAR* Path, float Margin, const FLinearColor& Fallback);
 };

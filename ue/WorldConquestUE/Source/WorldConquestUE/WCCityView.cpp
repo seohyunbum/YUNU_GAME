@@ -96,28 +96,49 @@ void SWCCityView::Construct(const FArguments& InArgs)
                 ]
             ]
 
-            // 상단 여백 = 디오라마(천수각)가 보이는 구간
-            + SVerticalBox::Slot().FillHeight(1)
-            [ SNullWidget::NullWidget ]
-
-            // 3컬럼 패널 — 하단 스트립 (KOEI 식: 3D 도시 위에 명령 패널)
-            + SVerticalBox::Slot().AutoHeight()
+            // 디오라마가 보이는 구간 — 좌측에 건물 간판, 우측에 열린 패널 하나
+            + SVerticalBox::Slot().FillHeight(1).Padding(0, 18, 0, 0)
             [
-                SNew(SBox).HeightOverride(452)   // 시설 카드 4종 + 무장 그리드가 잘리지 않는 최소 높이
+                SNew(SHorizontalBox)
+
+                // ── 건물 간판 (클릭 = 그 건물 패널) ──
+                + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top)
                 [
-                    SNew(SHorizontalBox)
-                    + SHorizontalBox::Slot().FillWidth(1).Padding(0, 0, 12, 0)[ MakeDomesticPanel() ]
-                    + SHorizontalBox::Slot().FillWidth(1).Padding(0, 0, 12, 0)[ MakeMilitaryPanel() ]
-                    + SHorizontalBox::Slot().FillWidth(1)[ MakeTavernPanel() ]
+                    SNew(SBox).WidthOverride(216)
+                    [
+                        SNew(SVerticalBox)
+                        + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 8)
+                        [ SNew(STextBlock).Font(CityFont(13)).ColorAndOpacity(FSlateColor(TextDim))
+                            .Text(FText::FromString(TEXT("건물을 눌러보세요"))) ]
+                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("market"),   TEXT("market"),   FText::FromString(TEXT("시장"))) ]
+                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("farm"),     TEXT("farm"),     FText::FromString(TEXT("농지"))) ]
+                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("barracks"), TEXT("barracks"), FText::FromString(TEXT("병영"))) ]
+                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("academy"),  TEXT("academy"),  FText::FromString(TEXT("학당"))) ]
+                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("walls"),    TEXT("walls"),    FText::FromString(TEXT("성벽"))) ]
+                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("port"),     TEXT("port"),     FText::FromString(TEXT("항구"))) ]
+                        + SVerticalBox::Slot().AutoHeight()[ MakeSignboard(TEXT("chars"),    TEXT("recruit"),  FText::FromString(TEXT("우리 무장"))) ]
+                    ]
+                ]
+
+                // 가운데 = 디오라마 전경 (아무것도 안 열면 다 보인다)
+                + SHorizontalBox::Slot().FillWidth(1)[ SNullWidget::NullWidget ]
+
+                // ── 열린 건물 패널 하나 (우측 도킹) ──
+                + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top)
+                [
+                    SNew(SBox).WidthOverride(360)
+                    .Visibility_Lambda([this]
+                    { return GM.IsValid() && GM->UiAnyBuildingOpen() ? EVisibility::Visible : EVisibility::Collapsed; })
+                    [ MakeBuildingPanel() ]
                 ]
             ]
 
-            // 하단 복귀
+            // 하단: 성문 = 지도로 나가기
             + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 12, 0, 0)
             [
                 SNew(SBox).WidthOverride(300).HeightOverride(44)
                 [
-                    MakeButton(FText::FromString(TEXT("◀ 세계지도로  (ESC)")),
+                    MakeButton(FText::FromString(TEXT("성문 — 세계지도로  (ESC)")),
                         [](AWCGameMode* G) { G->LeaveCity(); })
                 ]
             ]
@@ -234,153 +255,228 @@ TSharedRef<SWidget> SWCCityView::MakeFacilityCard(const FString& Kind, const TCH
         ];
 }
 
-TSharedRef<SWidget> SWCCityView::MakeDomesticPanel()
+// ── 건물 간판 — 클릭하면 그 건물 패널이 열린다 (다시 누르면 닫힘) ──
+TSharedRef<SWidget> SWCCityView::MakeSignboard(const FString& Kind, const TCHAR* IconName, const FText& Label)
 {
-    return MakeFramedPanel(FText::FromString(TEXT("내정")),
-        SNew(SVerticalBox)
-        // 생산 스트립 (아이콘) — 이 거점의 기본 생산
-        + SVerticalBox::Slot().AutoHeight()
+    return SNew(SBox).HeightOverride(46).Padding(FMargin(0, 0, 0, 6))
+    [
+        SNew(SButton)
+        .ButtonStyle(&FWCStyle::ButtonRef())
+        .OnClicked_Lambda([this, Kind] { if (GM.IsValid()) GM->OpenCityBuilding(Kind); return FReply::Handled(); })
+        .HAlign(HAlign_Left).VAlign(VAlign_Center).ContentPadding(FMargin(10, 6))
         [
             SNew(SHorizontalBox)
-            + SHorizontalBox::Slot().AutoWidth()
-            [ MakeIconStat(TEXT("gold"), Gold, [this]
-              {
-                  const auto* I = GM.IsValid() ? GM->NodeInfos.Find(GM->EnteredCityId) : nullptr;
-                  return FText::FromString(I ? FString::Printf(TEXT("금 %d"), I->Gold) : TEXT("-"));
-              }) ]
-            + SHorizontalBox::Slot().AutoWidth().Padding(18, 0, 0, 0)
-            [ MakeIconStat(TEXT("food"), FLinearColor(0.62f, 0.82f, 0.45f), [this]
-              {
-                  const auto* I = GM.IsValid() ? GM->NodeInfos.Find(GM->EnteredCityId) : nullptr;
-                  return FText::FromString(I ? FString::Printf(TEXT("식량 %d"), I->Food) : TEXT("-"));
-              }) ]
-            + SHorizontalBox::Slot().AutoWidth().Padding(18, 0, 0, 0)
-            [ MakeIconStat(TEXT("pop"), FLinearColor(0.72f, 0.78f, 0.88f), [this]
-              {
-                  const auto* I = GM.IsValid() ? GM->NodeInfos.Find(GM->EnteredCityId) : nullptr;
-                  return FText::FromString(I && I->Population > 0
-                      ? FString::Printf(TEXT("인구 %s"), *FText::AsNumber(I->Population).ToString()) : TEXT("-"));
-              }) ]
-        ]
-        + SVerticalBox::Slot().AutoHeight().Padding(0, 12, 0, 6)
-        [ SNew(STextBlock).Font(CityFont(15)).ColorAndOpacity(FSlateColor(Gold))
-            .Text(FText::FromString(TEXT("시설  (슬롯 4)"))) ]
-        // 시설 카드 4종 (§2.3 경제 시설 — 병영·성벽은 전투 Phase 2)
-        + SVerticalBox::Slot().FillHeight(1)
-        [
-            SNew(SScrollBox)
-            + SScrollBox::Slot()
+            + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
             [
-                SNew(SVerticalBox)
-                + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 5)
-                [ MakeFacilityCard(TEXT("market"), TEXT("market"), FText::FromString(TEXT("시장  — 금 +25%/Lv"))) ]
-                + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 5)
-                [ MakeFacilityCard(TEXT("farm"), TEXT("farm"), FText::FromString(TEXT("농지  — 식량 +25%/Lv"))) ]
-                + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 5)
-                [ MakeFacilityCard(TEXT("port"), TEXT("port"), FText::FromString(TEXT("항구  — 교역 금+18% 식량+10%"))) ]
-                + SVerticalBox::Slot().AutoHeight()
-                [ MakeFacilityCard(TEXT("academy"), TEXT("academy"), FText::FromString(TEXT("학당  — 기술 +2/Lv 매턴"))) ]
-            ]
-        ]);
-}
-
-TSharedRef<SWidget> SWCCityView::MakeMilitaryPanel()
-{
-    return MakeFramedPanel(FText::FromString(TEXT("군사")),
-        SNew(SVerticalBox)
-        + SVerticalBox::Slot().FillHeight(1)
-        [
-            SNew(SScrollBox)
-            + SScrollBox::Slot()
-            [
-                SNew(STextBlock).Font(CityFont(14))
-                .Text_Lambda([this]
-                {
-                    if (!GM.IsValid()) return FText::GetEmpty();
-                    const auto Cards = GM->UiCityArmyCards();
-                    if (Cards.Num() == 0) return FText::FromString(TEXT("(주둔 부대 없음 — 아래에서 징병)"));
-                    FString Text;
-                    for (const auto& Card : Cards)
+                SNew(SBox).WidthOverride(26).HeightOverride(26)
+                [
+                    SNew(SImage).Image_Lambda([this, Kind, IconName]
                     {
-                        Text += FString::Printf(TEXT("▶ %s  —  총 %d\n    %s\n"), *Card.Id, Card.Troops, *Card.Detail);
-                        if (!Card.Commander.IsEmpty())
-                            Text += FString::Printf(TEXT("    지휘: %s\n"), *Card.Commander);
-                        Text += TEXT("\n");
-                    }
-                    return FText::FromString(Text);
+                        // 열린 건물은 금색, 나머지는 흐리게 — 지금 뭘 보고 있는지 표시
+                        const bool bOpen = GM.IsValid() && GM->UiBuildingOpen(Kind);
+                        return FWCStyle::Icon(IconName, bOpen ? FWCStyle::GoldHi : GoldDim, 26);
+                    })
+                ]
+            ]
+            + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(9, 0, 0, 0)
+            [
+                SNew(STextBlock).Font(CityFont(15)).Text(Label)
+                .ColorAndOpacity_Lambda([this, Kind]
+                {
+                    const bool bOpen = GM.IsValid() && GM->UiBuildingOpen(Kind);
+                    return FSlateColor(bOpen ? FWCStyle::GoldHi : FWCStyle::Ink);
+                })
+            ]
+            // 시설이면 레벨(●○○) — 미건설이면 "아직 없음"
+            + SHorizontalBox::Slot().FillWidth(1).HAlign(HAlign_Right).VAlign(VAlign_Center).Padding(10, 0, 0, 0)
+            [
+                SNew(STextBlock).Font(CityFont(11)).ColorAndOpacity(FSlateColor(TextDim))
+                .Text_Lambda([this, Kind]
+                {
+                    if (Kind == TEXT("chars")) return FText::GetEmpty();
+                    const int32 Lv = FacilityLevelOf(Kind);
+                    if (Lv <= 0) return FText::FromString(TEXT("아직 없음"));
+                    FString Pips;
+                    for (int32 i = 1; i <= 3; ++i) Pips += (i <= Lv) ? TEXT("●") : TEXT("○");
+                    return FText::FromString(Pips);
                 })
             ]
         ]
-        + SVerticalBox::Slot().AutoHeight().Padding(0, 8, 0, 0)
-        [
-            SNew(SHorizontalBox)
-            + SHorizontalBox::Slot().FillWidth(1)[ MakeButton(FText::FromString(TEXT("징병 10")),
-                [](AWCGameMode* G) { G->RecruitSelected(10); }) ]
-            + SHorizontalBox::Slot().FillWidth(1).Padding(8, 0, 0, 0)[ MakeButton(FText::FromString(TEXT("징병 50")),
-                [](AWCGameMode* G) { G->RecruitSelected(50); }) ]
-        ]
-        + SVerticalBox::Slot().AutoHeight().Padding(0, 6, 0, 0)
-        [
-            SNew(SButton)
-            .OnClicked_Lambda([this] { if (GM.IsValid()) GM->CycleRecruitUnit(); return FReply::Handled(); })
-            .HAlign(HAlign_Center)
-            [ SNew(STextBlock).Font(CityFont(13))
-                .Text_Lambda([this] { return GM.IsValid() ? GM->UiRecruitUnitText() : FText::GetEmpty(); }) ]
-        ]);
+    ];
 }
 
-TSharedRef<SWidget> SWCCityView::MakeTavernPanel()
+// ── 열린 건물 패널 하나 (우측 도킹, ux-design §5.2 — 한 번에 하나) ──
+TSharedRef<SWidget> SWCCityView::MakeBuildingPanel()
 {
-    return MakeFramedPanel(FText::FromString(TEXT("주막 — 무장 초빙")),
+    return SNew(SBorder).BorderImage(FWCStyle::Panel()).Padding(FMargin(20, 16))
+    [
         SNew(SVerticalBox)
-        + SVerticalBox::Slot().AutoHeight()
-        [ SNew(STextBlock).Font(CityFont(15)).ColorAndOpacity(FSlateColor(Gold))
-            .Text_Lambda([this] { return GM.IsValid() ? GM->UiMandateText() : FText::GetEmpty(); }) ]
 
-        // 확률 공시 (§2.8.6) — 희귀도 색상 행
-        + SVerticalBox::Slot().AutoHeight().Padding(0, 10, 0, 0)
+        // 제목 + 닫기
+        + SVerticalBox::Slot().AutoHeight()
+        [
+            SNew(SHorizontalBox)
+            + SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center)
+            [
+                SNew(STextBlock).Font(FWCStyle::Title(21)).ColorAndOpacity(FSlateColor(FWCStyle::GoldHi))
+                .Text_Lambda([this]
+                {
+                    if (!GM.IsValid()) return FText::GetEmpty();
+                    const FString K = GM->OpenBuilding;
+                    if (K == TEXT("chars")) return FText::FromString(TEXT("우리 무장"));
+                    return FText::FromString(AWCGameMode::FacilityNameKo(K));
+                })
+            ]
+            + SHorizontalBox::Slot().AutoWidth()
+            [
+                SNew(SBox).WidthOverride(34).HeightOverride(28)
+                [
+                    SNew(SButton).ButtonStyle(&FWCStyle::ButtonRef())
+                    .OnClicked_Lambda([this] { if (GM.IsValid()) GM->CloseCityBuilding(); return FReply::Handled(); })
+                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                    [
+                        SNew(STextBlock).Font(CityFont(13)).ColorAndOpacity(FSlateColor(FWCStyle::Ink))
+                        .Text(FText::FromString(TEXT("✕")))
+                    ]
+                ]
+            ]
+        ]
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 7, 0, 11)
+        [
+            SNew(SBox).HeightOverride(2)
+            [ SNew(SImage).Image(White()).ColorAndOpacity(FSlateColor(FWCStyle::Gold * 0.6f)) ]
+        ]
+
+        // 본문 — 건물별. 전부 만들어두고 해당하는 것만 보인다(전환 비용 0).
+        + SVerticalBox::Slot().FillHeight(1)
         [
             SNew(SVerticalBox)
-            + SVerticalBox::Slot().AutoHeight()[ MakeRateRow(0) ]
-            + SVerticalBox::Slot().AutoHeight()[ MakeRateRow(1) ]
-            + SVerticalBox::Slot().AutoHeight()[ MakeRateRow(2) ]
+            + SVerticalBox::Slot().AutoHeight()
+            [
+                SNew(SBox).Visibility_Lambda([this]
+                { return GM.IsValid() && GM->UiBuildingOpen(TEXT("barracks")) ? EVisibility::Visible : EVisibility::Collapsed; })
+                [ MakeBarracksBody() ]
+            ]
+            + SVerticalBox::Slot().FillHeight(1)
+            [
+                SNew(SBox).Visibility_Lambda([this]
+                { return GM.IsValid() && GM->UiBuildingOpen(TEXT("chars")) ? EVisibility::Visible : EVisibility::Collapsed; })
+                [ MakeCharactersBody() ]
+            ]
+            + SVerticalBox::Slot().AutoHeight()
+            [
+                SNew(SBox).Visibility_Lambda([this]
+                {
+                    if (!GM.IsValid()) return EVisibility::Collapsed;
+                    const FString K = GM->OpenBuilding;
+                    const bool bFacility = !K.IsEmpty() && K != TEXT("chars") && K != TEXT("barracks");
+                    return bFacility ? EVisibility::Visible : EVisibility::Collapsed;
+                })
+                [ MakeFacilityBody(FString()) ]
+            ]
         ]
+    ];
+}
 
-        // 천장 진행 바
+// 시설 공통 — 효과 설명 + 짓기/크게 만들기. 대상은 런타임의 OpenBuilding.
+TSharedRef<SWidget> SWCCityView::MakeFacilityBody(const FString& /*Unused*/)
+{
+    return SNew(SVerticalBox)
+        + SVerticalBox::Slot().AutoHeight()
+        [
+            SNew(STextBlock).Font(CityFont(14)).AutoWrapText(true).ColorAndOpacity(FSlateColor(FWCStyle::Ink))
+            .Text_Lambda([this]
+            {
+                if (!GM.IsValid()) return FText::GetEmpty();
+                const FString K = GM->OpenBuilding;
+                if (K == TEXT("market"))  return FText::FromString(TEXT("장사를 해서 금을 더 벌어요. 크게 만들수록 금이 늘어나요."));
+                if (K == TEXT("farm"))    return FText::FromString(TEXT("농사를 지어 식량을 더 거둬요. 크게 만들수록 식량이 늘어나요."));
+                if (K == TEXT("academy")) return FText::FromString(TEXT("공부하는 곳이에요. 기술이 올라가요."));
+                if (K == TEXT("walls"))   return FText::FromString(TEXT("성벽이 높으면 쳐들어와도 잘 버텨요."));
+                if (K == TEXT("port"))    return FText::FromString(TEXT("배가 드나들어요. 교역으로 금·식량을 벌어요."));
+                return FText::GetEmpty();
+            })
+        ]
         + SVerticalBox::Slot().AutoHeight().Padding(0, 10, 0, 0)
         [
-            SNew(SBox).HeightOverride(10)
-            [ SNew(SProgressBar).Percent_Lambda([this] { return GM.IsValid() ? GM->UiPityProgress() : 0.f; })
-              .FillColorAndOpacity(FSlateColor(Gold)) ]
+            SNew(STextBlock).Font(CityFont(13)).ColorAndOpacity(FSlateColor(TextDim))
+            .Text_Lambda([this]
+            {
+                if (!GM.IsValid()) return FText::GetEmpty();
+                const int32 Lv = FacilityLevelOf(GM->OpenBuilding);
+                return FText::FromString(Lv <= 0 ? FString(TEXT("아직 없어요. 지어 보세요."))
+                                                 : FString::Printf(TEXT("지금 크기: %d단계 / 3단계"), Lv));
+            })
         ]
-        + SVerticalBox::Slot().AutoHeight().Padding(0, 3, 0, 0)
-        [ SNew(STextBlock).Font(CityFont(12)).ColorAndOpacity(FSlateColor(TextDim))
-            .Text_Lambda([this] { return GM.IsValid() ? GM->UiPityText() : FText::GetEmpty(); }) ]
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 14, 0, 0)
+        [
+            SNew(SBox).HeightOverride(44)
+            [
+                SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
+                .OnClicked_Lambda([this]
+                {
+                    if (GM.IsValid() && !GM->OpenBuilding.IsEmpty()) GM->BuildSelected(GM->OpenBuilding);
+                    return FReply::Handled();
+                })
+                .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                [
+                    SNew(STextBlock).Font(CityFont(15)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
+                    .Text_Lambda([this]
+                    {
+                        const int32 Lv = GM.IsValid() ? FacilityLevelOf(GM->OpenBuilding) : 0;
+                        return FText::FromString(Lv <= 0 ? TEXT("짓기") : TEXT("크게 만들기"));
+                    })
+                ]
+            ]
+        ];
+}
 
-        // 소속 무장 카드 그리드
-        + SVerticalBox::Slot().AutoHeight().Padding(0, 14, 0, 6)
-        [ SNew(STextBlock).Font(CityFont(15)).ColorAndOpacity(FSlateColor(Gold)).Text(FText::FromString(TEXT("소속 무장"))) ]
+// 병영 — 주둔 부대 + 병사 모으기 (지도에도 있다 — 고빈도, ux-design §1 P-3)
+TSharedRef<SWidget> SWCCityView::MakeBarracksBody()
+{
+    return SNew(SVerticalBox)
+        + SVerticalBox::Slot().AutoHeight()
+        [
+            SNew(STextBlock).Font(CityFont(13)).AutoWrapText(true).ColorAndOpacity(FSlateColor(TextDim))
+            .Text(FText::FromString(TEXT("병사를 모으고 부대를 두는 곳이에요. (지도에서도 모을 수 있어요)")))
+        ]
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 12, 0, 6)
+        [
+            SNew(STextBlock).Font(CityFont(14)).ColorAndOpacity(FSlateColor(Gold))
+            .Text(FText::FromString(TEXT("여기 있는 부대")))
+        ]
+        + SVerticalBox::Slot().AutoHeight()
+        [
+            SNew(STextBlock).Font(CityFont(13)).AutoWrapText(true).ColorAndOpacity(FSlateColor(FWCStyle::Ink))
+            .Text_Lambda([this] { return GM.IsValid() ? GM->UiCityArmies() : FText::GetEmpty(); })
+        ]
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 14, 0, 0)
+        [
+            SNew(SHorizontalBox)
+            + SHorizontalBox::Slot().FillWidth(1)
+            [ MakeButton(FText::FromString(TEXT("병사 모으기 10")), [](AWCGameMode* G) { G->RecruitSelected(10); }) ]
+            + SHorizontalBox::Slot().FillWidth(1).Padding(6, 0, 0, 0)
+            [ MakeButton(FText::FromString(TEXT("50")), [](AWCGameMode* G) { G->RecruitSelected(50); }) ]
+        ]
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 12, 0, 0)
+        [ MakeFacilityBody(FString()) ];
+}
+
+// 우리 무장 — 초상 카드 그리드
+TSharedRef<SWidget> SWCCityView::MakeCharactersBody()
+{
+    return SNew(SVerticalBox)
+        + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 8)
+        [
+            SNew(STextBlock).Font(CityFont(13)).AutoWrapText(true).ColorAndOpacity(FSlateColor(TextDim))
+            .Text(FText::FromString(TEXT("이 거점에 있는 우리 무장이에요. (새로 부르기는 지도에서 ★ 사람 부르기)")))
+        ]
         + SVerticalBox::Slot().FillHeight(1)
         [
             SNew(SScrollBox)
             + SScrollBox::Slot()
-            [
-                SAssignNew(CharacterGrid, SWrapBox).UseAllottedSize(true)
-            ]
-        ]
-
-        // 초빙 버튼 (금색 강조 스킨)
-        + SVerticalBox::Slot().AutoHeight().Padding(0, 10, 0, 0)
-        [
-            SNew(SBox).HeightOverride(48)
-            [
-                SNew(SButton).ButtonStyle(&PrimaryStyle)
-                .OnClicked_Lambda([this] { if (GM.IsValid()) GM->SummonOnce(); return FReply::Handled(); })
-                .HAlign(HAlign_Center).VAlign(VAlign_Center)
-                [ SNew(STextBlock).Font(FWCStyle::Font(18)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
-                    .Text(FText::FromString(TEXT("★ 무장 초빙 (1회)"))) ]
-            ]
-        ]);
+            [ SAssignNew(CharacterGrid, SWrapBox).UseAllottedSize(true) ]
+        ];
 }
 
 TSharedRef<SWidget> SWCCityView::MakeRateRow(int32 Index)

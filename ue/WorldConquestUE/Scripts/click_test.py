@@ -104,7 +104,7 @@ def main():
     print("게임 기동 (창모드, 한성 진입)…")
     # -WCTurns=0 이 있어야 세력선택을 건너뛰고 solo 조선 자동 시작 → -WCCity 로 거점 진입.
     p = subprocess.Popen([UE, UPROJ, "-game", "-WINDOWED", f"-ResX={W}", f"-ResY={H}",
-                          "-WCTurns=0", "-WCCity=hanseong", "-WCInputProbe", "-nosplash", "-nosound"])
+                          "-WCTurns=0", "-WCCity=hanseong", "-nosplash", "-nosound"])
     hwnd = None
     for _ in range(60):                       # 최대 60s 대기 (디오라마 로드·셰이더)
         time.sleep(1)
@@ -116,7 +116,7 @@ def main():
     if not hwnd:
         p.kill(); sys.exit("게임 창을 찾지 못함")
 
-    time.sleep(14)                            # 도시 진입·디오라마 스트리밍 여유
+    time.sleep(30)                            # 도시 진입·디오라마 스트리밍·셰이더 컴파일 여유
     force_foreground(hwnd)
     if not assert_foreground(hwnd, "before-shot"):
         p.kill(); sys.exit("무효 — 다른 창이 앞에 있음. 해당 앱을 닫고 재실행")

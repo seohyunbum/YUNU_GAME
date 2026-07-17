@@ -127,6 +127,14 @@ public:
     void RefreshRates();                     // 진입·초빙 후 갱신 (§2.8.6)
     FString EnteredCityId;
 
+    /** 거점에서 지금 열려 있는 건물 패널 (ux-design §5.2 — 한 번에 하나).
+        빈 문자열 = 아무 패널도 안 열림 → 디오라마가 다 보인다. */
+    FString OpenBuilding;
+    void OpenCityBuilding(const FString& Kind) { OpenBuilding = (OpenBuilding == Kind) ? FString() : Kind; }
+    void CloseCityBuilding() { OpenBuilding.Reset(); }
+    bool UiBuildingOpen(const FString& Kind) const { return OpenBuilding == Kind; }
+    bool UiAnyBuildingOpen() const { return !OpenBuilding.IsEmpty(); }
+
     // ── 구조화 뷰모델 (카드·표 UI 용) ──
     struct FWCCharCard { FString Id; FString Name; int32 Rarity = 3; };
     struct FWCArmyCard { FString Id; FString Detail; FString Commander; int32 Troops = 0; };
@@ -152,6 +160,30 @@ public:
     bool UiHasSelection() const { return !SelectedNodeId.IsEmpty(); }
     bool UiArmyReady() const { return !SelectedArmyId.IsEmpty(); }
     bool UiIsPlaying() const { return Phase == EWCPhase::Playing; }
+
+    // ── 턴 흐름 안내 (ux-design §3) ──
+    FText UiNextUpText() const;         // "턴을 끝내면: 다른 나라 ▶ 이동·전투 ▶ 사건"
+    FText UiFreeActionHint() const;     // 자원 툴팁 — "횟수 제한 없어요"
+    /** 이번 달에 내가 한 일 (턴 시작 시 비고, 명령 성공마다 한 줄). 행동력이 없으므로
+        '남은 기회'가 아니라 '한 일'을 보여준다 — ux-design §3.1. */
+    TArray<FString> MyTurnActions;
+    FText UiMyTurnActionsText() const;
+
+    // ── 턴 종료 확인 (ux-design §3.3) ──
+    bool bConfirmEndTurn = false;
+    void RequestEndTurn();             // 확인창 띄우기
+    void ConfirmEndTurn();             // 실제 종료
+    void CancelEndTurn() { bConfirmEndTurn = false; }
+    bool UiConfirmingEndTurn() const { return bConfirmEndTurn; }
+
+    // ── 턴 리포트 (ux-design §4) — 내 턴 밖에서 벌어진 일 ──
+    struct FWCReport { TArray<FString> Battle, World, Home; };
+    FWCReport Report;
+    bool bShowReport = false;
+    bool UiShowingReport() const { return bShowReport; }
+    void DismissReport() { bShowReport = false; }
+    FText UiReportTitle() const;
+    const FWCReport& UiReport() const { return Report; }
 
     // ── HUD 조회용 ──
     FString HudLine = TEXT("연결 중...");
@@ -190,6 +222,10 @@ private:
     TSharedPtr<FJsonObject> LastState;   // 선택 정보 표시용 (소유·부대)
     FString PendingActor;
     bool bBusy = false;
+    FString LastVerb;                    // 직전 명령 — "end" 응답의 이벤트가 곧 턴 리포트 재료
+    int32 LastTurn = -1;                 // 턴 바뀜 감지 (한 일 로그 리셋)
+    void RouteReportEvent(const TSharedPtr<FJsonObject>& Event);   // 이벤트 → 리포트 섹션
+    FString VerbToKoreanAction(const FString& Verb) const;          // 명령 → "한 일" 문장 (아이 말)
 
     // 명령 상태 (표현 전용 — 게임 규칙 아님)
     EWCClickMode ClickMode = EWCClickMode::Normal;

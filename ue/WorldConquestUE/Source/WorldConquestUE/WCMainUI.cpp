@@ -42,7 +42,13 @@ void SWCMainUI::Construct(const FArguments& InArgs)
             MakeProvincePanel()
         ]
 
-        // ── 우하단 전역 버튼 ──
+        // ── 좌측: 세력 명령 + 이번 달에 한 일 (ux-design §3.1·§5.3) ──
+        + SOverlay::Slot().HAlign(HAlign_Left).VAlign(VAlign_Top).Padding(14, 56, 0, 0)
+        [
+            MakeFactionPanel()
+        ]
+
+        // ── 우하단: 턴 종료 **단독** — 유일한 진행 수단이라 이웃을 두지 않는다 ──
         + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(0, 0, 14, 14)
         [
             MakeGlobalPanel()
@@ -68,7 +74,17 @@ TSharedRef<SWidget> SWCMainUI::MakeTopBar()
             [
                 SNew(STextBlock)
                 .Font(KFont(15))
+                // 행동력이 없다는 사실을 여기서 말한다 (ux-design §3.1)
+                .ToolTipText_Lambda([this] { return GM.IsValid() ? GM->UiFreeActionHint() : FText::GetEmpty(); })
                 .Text_Lambda([this] { return GM.IsValid() ? GM->UiResourceText() : FText::GetEmpty(); })
+            ]
+            // 턴을 끝내면 무슨 일이 벌어지는지 예고 (ux-design §3.2)
+            + SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center).HAlign(HAlign_Right)
+            [
+                SNew(STextBlock)
+                .Font(KFont(12))
+                .ColorAndOpacity(FSlateColor(FWCStyle::InkDim))
+                .Text_Lambda([this] { return GM.IsValid() ? GM->UiNextUpText() : FText::GetEmpty(); })
             ]
         ];
 }
@@ -147,13 +163,36 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
 
 TSharedRef<SWidget> SWCMainUI::MakeGlobalPanel()
 {
-    return SNew(SBorder)
-        .BorderImage(FWCStyle::Panel())
-        .Padding(FMargin(18, 16))
+    // 턴 종료 단독 [MUST] — 유일한 진행 수단이므로 오조작할 이웃을 두지 않는다 (ux-design §3.3).
+    return SNew(SBox).WidthOverride(230).HeightOverride(56)
+    [
+        SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
+        .OnClicked_Lambda([this] { if (GM.IsValid()) GM->RequestEndTurn(); return FReply::Handled(); })
+        .HAlign(HAlign_Center).VAlign(VAlign_Center)
+        [ SNew(STextBlock).Font(KFont(18)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
+            .Text(FText::FromString(TEXT("▶ 이번 달 끝내기"))) ]
+    ];
+}
+
+TSharedRef<SWidget> SWCMainUI::MakeFactionPanel()
+{
+    // 세력 명령 = 거점이 아니라 여기 (초빙은 노드 인자가 없는 세력 명령 — ux-design §0·§5.1)
+    return SNew(SBox).WidthOverride(250)
+    [
+        SNew(SBorder).BorderImage(FWCStyle::Panel()).Padding(FMargin(16, 14))
         [
             SNew(SVerticalBox)
-            + SVerticalBox::Slot().AutoHeight()[ MakeButton(FText::FromString(TEXT("★ 무장 초빙")),
-                [](AWCGameMode* G) { G->SummonOnce(); }) ]
+            + SVerticalBox::Slot().AutoHeight()
+            [
+                SNew(SBox).HeightOverride(44)
+                [
+                    SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
+                    .OnClicked_Lambda([this] { if (GM.IsValid()) GM->SummonOnce(); return FReply::Handled(); })
+                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                    [ SNew(STextBlock).Font(KFont(15)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
+                        .Text(FText::FromString(TEXT("★ 사람 부르기"))) ]
+                ]
+            ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 6, 0, 0)
             [
                 SNew(SHorizontalBox)
@@ -162,24 +201,22 @@ TSharedRef<SWidget> SWCMainUI::MakeGlobalPanel()
                 + SHorizontalBox::Slot().FillWidth(1).Padding(6, 0, 0, 0)[ MakeButton(FText::FromString(TEXT("이어하기")),
                     [](AWCGameMode* G) { G->QuickLoad(); }) ]
             ]
-            + SVerticalBox::Slot().AutoHeight().Padding(0, 10, 0, 0)
-            [
-                SNew(SBox).HeightOverride(48)
-                [
-                    SNew(SButton).ButtonStyle(&PrimaryStyle)
-                    .OnClicked_Lambda([this] { if (GM.IsValid()) GM->EndTurn(); return FReply::Handled(); })
-                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
-                    [ SNew(STextBlock).Font(KFont(17)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
-                        .Text(FText::FromString(TEXT("▶ 턴 종료"))) ]
-                ]
-            ]
-        ];
+            // 이번 달에 한 일 — 행동력이 없으므로 '남은 기회'가 아니라 '한 일'을 보여준다
+            + SVerticalBox::Slot().AutoHeight().Padding(0, 14, 0, 4)
+            [ SNew(STextBlock).Font(KFont(13)).ColorAndOpacity(FSlateColor(Gold))
+                .Text(FText::FromString(TEXT("이번 달에 한 일"))) ]
+            + SVerticalBox::Slot().AutoHeight()
+            [ SNew(STextBlock).Font(KFont(12)).AutoWrapText(true)
+                .ColorAndOpacity(FSlateColor(FWCStyle::InkDim))
+                .Text_Lambda([this] { return GM.IsValid() ? GM->UiMyTurnActionsText() : FText::GetEmpty(); }) ]
+        ]
+    ];
 }
 
 TSharedRef<SWidget> SWCMainUI::MakeButton(const FText& Label, TFunction<void(AWCGameMode*)> Action,
                                           TAttribute<bool> Enabled)
 {
-    return SNew(SButton).ButtonStyle(&ButtonStyle)
+    return SNew(SButton).ButtonStyle(&FWCStyle::ButtonRef())
         .IsEnabled(Enabled)
         .OnClicked_Lambda([this, Action] { if (GM.IsValid()) Action(GM.Get()); return FReply::Handled(); })
         .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(8, 6))

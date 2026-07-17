@@ -25,6 +25,7 @@ private:
     TSharedRef<SWidget> MakeTopBar();
     TSharedRef<SWidget> MakeProvincePanel();
     TSharedRef<SWidget> MakeGlobalPanel();
+    TSharedRef<SWidget> MakeFactionPanel();
     TSharedRef<SWidget> MakeButton(const FText& Label, TFunction<void(AWCGameMode*)> Action,
                                    TAttribute<bool> Enabled = true);
 

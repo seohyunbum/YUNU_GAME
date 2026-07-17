@@ -154,3 +154,16 @@ FButtonStyle FWCStyle::PrimaryButton()
     S.SetPressedPadding(FMargin(6, 7, 6, 5));
     return S;
 }
+
+const FButtonStyle& FWCStyle::ButtonRef()
+{
+    // 지연 초기화 — 텍스처 LoadObject 를 정적 초기화 시점이 아니라 첫 사용 시점에.
+    static const FButtonStyle S = Button();
+    return S;
+}
+
+const FButtonStyle& FWCStyle::PrimaryButtonRef()
+{
+    static const FButtonStyle S = PrimaryButton();
+    return S;
+}

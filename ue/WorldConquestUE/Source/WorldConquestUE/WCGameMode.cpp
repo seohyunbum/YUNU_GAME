@@ -5,6 +5,7 @@
 #include "WCMainUI.h"
 #include "WCCityView.h"
 #include "WCRevealOverlay.h"
+#include "WCTurnModals.h"
 #include "WCBattleOverlay.h"
 #include "WCPlayerController.h"
 #include "WCHUD.h"
@@ -137,6 +138,8 @@ void AWCGameMode::BeginPlay()
     {
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCMainUI).GameMode(this), 10);
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCCityView).GameMode(this), 20);   // 도시 화면
+        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCTurnReport).GameMode(this), 26);      // 턴 리포트
+        GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCEndTurnConfirm).GameMode(this), 27);   // 턴 종료 확인
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCBattleOverlay).GameMode(this), 28);   // 전투 결과
         GEngine->GameViewport->AddViewportWidgetContent(SNew(SWCRevealOverlay).GameMode(this), 30);   // 리빌 — 최상위
     }
@@ -457,11 +460,27 @@ void AWCGameMode::OnCommandResult(TSharedPtr<FJsonObject> Result)
     if (Result->TryGetArrayField(TEXT("events"), Events) && Events)
         AppendEvents(*Events);
 
+    // 성공한 내 명령을 "이번 달에 한 일" 로 (ux-design §3.1 — 행동력이 없으니 '한 일'을 보여준다)
+    const bool bOk = Result->GetStringField(TEXT("status")) == TEXT("ok");
+    if (bOk && LastVerb != TEXT("end") && LastVerb != TEXT("save") && LastVerb != TEXT("load"))
+    {
+        const FString Did = VerbToKoreanAction(LastVerb);
+        if (!Did.IsEmpty()) MyTurnActions.Add(Did);
+    }
+
     const TSharedPtr<FJsonObject>* StateObj = nullptr;
     if (Result->TryGetObjectField(TEXT("state"), StateObj) && StateObj)
         OnState(*StateObj);
     UpdateSelectionInfo();
     if (UiInCity()) RefreshRates();   // 초빙·징병 후 주막 확률·천명 최신화
+
+    // 턴 종료 응답 → 그 사이 벌어진 일이 있으면 리포트를 띄운다 (없으면 띄우지 않는다)
+    if (LastVerb == TEXT("end"))
+    {
+        MyTurnActions.Reset();
+        bShowReport = Report.Battle.Num() + Report.World.Num() + Report.Home.Num() > 0;
+        if (!bShowReport) EventLog.Insert(TEXT("조용한 한 달이었어요."), 0);
+    }
 }
 
 void AWCGameMode::AppendEvents(const TArray<TSharedPtr<FJsonValue>>& Events)
@@ -470,6 +489,8 @@ void AWCGameMode::AppendEvents(const TArray<TSharedPtr<FJsonValue>>& Events)
     {
         const TSharedPtr<FJsonObject> Event = E->AsObject();
         EventLog.Insert(EventToLine(Event), 0);
+        // 턴 종료 응답의 이벤트 = [4]AI·[5]해결·[6]이벤트에서 벌어진 일 → 턴 리포트 재료
+        if (LastVerb == TEXT("end")) RouteReportEvent(Event);
         const FString Type = Event->GetStringField(TEXT("type"));
         if (Type == TEXT("CutsceneTriggered"))
             CutsceneQueue.Add(Event->GetObjectField(TEXT("data"))->GetStringField(TEXT("cutscene")));
@@ -789,6 +810,7 @@ void AWCGameMode::UpdateModeLine()
 
 void AWCGameMode::SendVerb(const FString& Verb, const TArray<FString>& Args)
 {
+    LastVerb = Verb;
     if (bBusy || PendingActor.IsEmpty()) return;
     bBusy = true;
     GetGameInstance()->GetSubsystem<UWCApiSubsystem>()->SendCommand(
@@ -800,7 +822,82 @@ void AWCGameMode::EndTurn()
 {
     if (bBusy || PendingActor.IsEmpty()) return;
     HudLine = TEXT("턴 진행 중... (AI 세력 행동)");
+    Report = FWCReport();       // 이번 종료로 새로 벌어질 일만 담는다
     SendVerb(TEXT("end"), {});
+}
+
+// ── 턴 종료 확인 (ux-design §3.3) — 차단하지 않는다. 되돌릴 수 없음을 한 번 알릴 뿐 ──
+void AWCGameMode::RequestEndTurn()
+{
+    if (bBusy || PendingActor.IsEmpty()) return;
+    bConfirmEndTurn = true;
+}
+
+void AWCGameMode::ConfirmEndTurn()
+{
+    bConfirmEndTurn = false;
+    EndTurn();
+}
+
+// ── 턴 흐름 안내 (ux-design §3.2) ──
+// 페이즈 진행 애니메이션은 만들지 않는다 — 서버가 [4]~[1]을 한 응답에 원자 처리해
+// 클라가 중간을 관측할 수 없다. 대신 "끝내면 무슨 일이 벌어지는지" 를 글로 예고한다.
+FText AWCGameMode::UiNextUpText() const
+{
+    if (!UiIsPlaying() || PendingActor.IsEmpty()) return FText::GetEmpty();
+    return FText::FromString(TEXT("턴을 끝내면 → 다른 나라들이 움직이고 → 부대 이동·전투 → 사건이 일어나요"));
+}
+
+FText AWCGameMode::UiFreeActionHint() const
+{
+    // 스펙 §2.2 — 행동력 개념 없음. 유일한 캡은 초빙(천명).
+    return FText::FromString(TEXT("금·식량이 있으면 얼마든지 명령할 수 있어요. 횟수 제한은 없어요.\n(사람 부르기만 한 달에 10번까지)"));
+}
+
+FText AWCGameMode::UiMyTurnActionsText() const
+{
+    if (MyTurnActions.Num() == 0)
+        return FText::FromString(TEXT("아직 아무것도 안 했어요."));
+    FString S;
+    for (const FString& A : MyTurnActions) S += FString::Printf(TEXT("· %s\n"), *A);
+    return FText::FromString(S.TrimEnd());
+}
+
+FText AWCGameMode::UiReportTitle() const
+{
+    const int32 Turn = LastState.IsValid() ? static_cast<int32>(LastState->GetNumberField(TEXT("turn"))) : 0;
+    return FText::FromString(FString::Printf(TEXT("%d턴 소식"), Turn));
+}
+
+// 명령 → "이번 달에 한 일" 문장. 한자어·약어를 쓰지 않는다 (ux-design §7 — 아들이 주 플레이어).
+FString AWCGameMode::VerbToKoreanAction(const FString& Verb) const
+{
+    const FString Where = SelectedNodeId.IsEmpty() ? FString() :
+        FString::Printf(TEXT(" (%s)"), *NameOf(ProvinceNames, SelectedNodeId));
+    if (Verb == TEXT("recruit")) return FString::Printf(TEXT("병사 모으기%s"), *Where);
+    if (Verb == TEXT("build"))   return FString::Printf(TEXT("건물 짓기%s"), *Where);
+    if (Verb == TEXT("capture")) return FString::Printf(TEXT("땅 차지하기%s"), *Where);
+    if (Verb == TEXT("move"))    return TEXT("부대 옮기기");
+    if (Verb == TEXT("attack"))  return TEXT("공격하기");
+    if (Verb == TEXT("summon"))  return TEXT("사람 부르기");
+    return FString();   // 그 밖의 명령은 기록하지 않는다
+}
+
+// 이벤트 → 리포트 섹션 (ux-design §4). 재료는 기존 13종 — 신규 이벤트 발행 없음.
+void AWCGameMode::RouteReportEvent(const TSharedPtr<FJsonObject>& Event)
+{
+    const FString Type = Event->GetStringField(TEXT("type"));
+    const FString Line = EventToLine(Event);
+
+    if (Type == TEXT("BattleEnded") || Type == TEXT("DuelStarted") || Type == TEXT("DuelEnded")
+        || Type == TEXT("SkillExecuted") || Type == TEXT("ProvinceCaptured"))
+        Report.Battle.Add(Line);
+    else if (Type == TEXT("AllianceFormed") || Type == TEXT("CharacterJoined")
+        || Type == TEXT("TechLevelUp") || Type == TEXT("CutsceneTriggered"))
+        Report.World.Add(Line);
+    else if (Type == TEXT("ProvinceRebelled"))
+        Report.Home.Add(Line);
+    // TurnStarted·SaveLoaded·GameEnded 는 리포트에 넣지 않는다 (각각 헤더·시스템·종료화면)
 }
 
 void AWCGameMode::CaptureSelected()
@@ -827,6 +924,7 @@ bool AWCGameMode::UiCanEnterSelected() const
 void AWCGameMode::EnterCity(const FString& NodeId)
 {
     EnteredCityId = NodeId;
+    OpenBuilding.Reset();     // 진입 시엔 패널 없이 거점 전경부터 보여준다 (ux-design §5.2)
     SelectedNodeId = NodeId;
     UpdateSelectionInfo();
     RefreshRates();   // 주막 확률 공시 (§2.8.6)
@@ -856,6 +954,7 @@ void AWCGameMode::EnterCity(const FString& NodeId)
 
 void AWCGameMode::LeaveCity()
 {
+    OpenBuilding.Reset();
     EnteredCityId.Empty();
     if (BoardCamera)
         if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
