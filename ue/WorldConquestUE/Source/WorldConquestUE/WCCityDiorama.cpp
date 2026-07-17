@@ -45,6 +45,11 @@ namespace
             // 카이로 — 이집트 팩이 지리적으로 정확 (africa 지만 나일 문명권)
             { TEXT("africa"),      { TEXT("/Game/Stylized_Egypt/Maps/Stylized_Egypt_Demo"),
                                      FVector(-2865, -500, 855),  6500.0 } },
+            // 델리·뭄바이·방콕·싱가포르·자카르타 — 전용 팩이 없어 동양 마을 공용(폴백에 의존하지 않고 명시).
+            { TEXT("south_asia"),     { TEXT("/Game/Asian_Village/maps/Asian_Village_Demo"),
+                                       FVector(24140, 5135, 2240), 9000.0 } },
+            { TEXT("southeast_asia"), { TEXT("/Game/Asian_Village/maps/Asian_Village_Demo"),
+                                       FVector(24140, 5135, 2240), 9000.0 } },
             // 뉴욕·리우 — Assetsville Town. 저폴리 만화풍 소도시(마천루 아님)
             { TEXT("america"),     { TEXT("/Game/AssetsvilleTown/Maps/Demonstration"),
                                      FVector(680, -2400, 85),    7000.0 } },

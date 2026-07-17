@@ -52,7 +52,9 @@
     "africa",
     "america",
     "oceania",
-    "ocean"
+    "ocean",
+    "south_asia",
+    "southeast_asia"
   ],
   "valid_origins": [
     "history_korea",
