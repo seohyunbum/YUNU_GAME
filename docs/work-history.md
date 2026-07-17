@@ -90,3 +90,12 @@
 - **UE 프로젝트 골격**: `ue/WorldConquestUE/` — uproject(플러그인 0)·C++ 모듈(HTTP/Json/UMG 내장만)·WCGameMode·WCApiSubsystem(/api/info)·엔진 내장 Entry 맵 부팅(.umap 저작 없음, 코드-퍼스트).
 - **함정 3건 (재발 방지)**: ①스크래치패드 워크트리 경로가 UE 중간산출물에서 **260자 초과** → junction `C:\Users\Public\WCUE`(python `_winapi.CreateJunction` — cmd mklink 는 MSYS 인자변환 충돌) ②UE 첫 실행이 **무음으로 수 분**(Defender 스캔 추정) — `-stdout -FullStdOutLogOutput -unattended` 없이는 진행 판별 불가 ③엔진 설치 완료 직후엔 파일이 덜 풀려 UBT 룰 어셈블리 오류 — 설치 안정화 후 재시도.
 - **다음**: M1 수직 슬라이스 — /api/static 지도 절차 생성 렌더 + 소유 색 + end turn + 스크린샷 QA.
+
+## 2026-07-17 — M1 수직 슬라이스: UE5 세계지도 렌더 + 자동 턴 QA 하네스
+
+- **시도/상황**: Day-0 직후 M1 — /api/static 절차 생성 보드 + 소유 색 + end turn + 스크린샷 QA.
+- **결과**: ①WCMapActor — 노드(map_pos→월드, 육상=원판·해역=넓은 원판)·간선(육로 베이지/해로 파랑 실린더)·세력색 MaterialInstanceDynamic ②WCGameMode 부팅 시퀀스(핸드셰이크→캠페인 자동 생성→보드→상태) ③직교 탑다운 카메라(OrthoWidth 23000) ④WCPlayerController(Enter=end)·WCHUD(턴/차례 Canvas) ⑤**QA 하네스 내장**: `-WCShot`(첫 상태 후 자동 촬영·종료)+`-WCTurns=N`(촬영 전 N턴 자동 진행). 실증: 1턴 지도 → 5턴 자동 진행 → **6턴 지도에서 AI 점령 색 변화 시각 확인** (유럽→프랑스 보라, 동아시아 확장).
+- **시각 QA 루프가 잡은 결함**: 첫 판은 원근 카메라로 지도 기울음+우측 잘림 → 직교 전환+BoardToWorld 재매핑(화면 위=북)으로 해소. 하네스 없었으면 "컴파일 되니 OK"로 넘어갔을 것.
+- **함정**: UE C++ 지역변수명 `Owner` 는 AActor 멤버 가림(C4458=error). HTTP 비동기라 ExecCmds HighResShot 은 로드 전 촬영 — 상태 적용 후 코드 촬영(-WCShot)이 정답.
+- **다음**: M2 — 명령 UI(클릭 픽킹·징병·이동·공격·초빙)·이벤트 로그 연출·도시명 라벨(한글 폰트)·C# 서버 자식 스폰(Job Object)·세력 선택.
+- **관련**: `ue/WorldConquestUE/Source/WorldConquestUE/` WCMapActor·WCGameMode·WCPlayerController·WCHUD·WCApiSubsystem.

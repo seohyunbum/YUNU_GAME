@@ -9,7 +9,7 @@
 - [x] 맵 보드지도 좌표(map_pos) 데이터+로더 검증+테스트 (163 통과) — 그래픽 배치 전제
 - [x] **M0** — SessionDriver Core 추출(PlaySession 도 공유 — 플로우 단일화 [MUST])·GameSessionHost(이벤트 저널 seq·명령 멱등·스냅샷)·ApiServer `server` 모드(WC_API_PORT stdout 핸드셰이크·/api/static 에 map_pos·color)·계약 테스트 7종(170 통과). **라이브 E2E**: new solo→capture(이벤트)→멱등 재전송(천명 불변)→차례 게이트 422→end(AI 3점령 관측)→커서 재동기→한글경로 save→shutdown 전부 실증
 - [x] **Day-0 (U6 해소)** — Fortnite 삭제(+96GB)→UE **5.8.0**+VS2022(17.14·MSVC 14.44) 설치. AI 검증: UBT CLI 빌드 Succeeded → 오프스크린 부팅 → **UE→C# HTTP 핸드셰이크 OK(protocol v1)** → HighResShot→AI 이미지 판독 왕복 성립. 함정: 긴 경로 260자 → junction `C:/Users/Public/WCUE` · 첫 실행 무음 지연 → `-stdout -FullStdOutLogOutput -unattended` 필수 (work-history 참조)
-- [ ] **M1** — 수직 슬라이스: 절차 생성 지도 렌더 + 소유 색 + end turn + 세이브/로드 (스크린샷 QA 하네스 포함)
+- [x] **M1** — 수직 슬라이스 완성: /api/static 절차 생성 보드(노드·간선·세력색)+직교 탑다운+HUD+Enter 턴종료. QA 하네스 `-WCShot`/`-WCTurns=N` 내장 — 5턴 자동 진행 후 AI 점령 색 변화를 스크린샷으로 실증 (6턴 지도)
 - [ ] **M2** — 명령 UI 전체 + 이벤트 로그 연출 (콘솔과 기능 동등)
 - [ ] **M3** — 전투 씬·가챠 리빌·컷씬 T1 승격
 - [x] self-contained 단일 파일 publish 전환 — 67.8MB exe 단일, DOTNET_ROOT·배치 인코딩 의존 제거. .NET 환경변수 없이 실행 실증
