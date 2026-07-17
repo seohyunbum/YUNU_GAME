@@ -14,8 +14,11 @@ namespace
 
     const FLinearColor NeutralColor(0.75f, 0.73f, 0.68f);   // 지도 위 중립 마커 = 회백
     const FLinearColor SeaColor(0.15f, 0.4f, 0.85f);        // 해역 거점 = 청색
-    const FLinearColor LandEdgeColor(0.35f, 0.25f, 0.12f);  // 육로 = 진갈색 (밝은 지도 위 대비)
-    const FLinearColor SeaEdgeColor(0.06f, 0.2f, 0.45f);    // 해로 = 진남색
+    // 간선은 '보조 정보' — 거점보다 튀면 안 된다. 얇고 흐리게 (2026-07-17: 선만 보인다는 피드백)
+    const FLinearColor LandEdgeColor(0.42f, 0.34f, 0.22f);  // 육로 = 흐린 갈색
+    const FLinearColor SeaEdgeColor(0.25f, 0.42f, 0.62f);   // 해로 = 흐린 청회색
+    constexpr double EdgeThickness = 0.10;                  // 0.3 → 0.10 (거점 마커가 주인공)
+    constexpr double TerritoryRadius = 1500.0;              // 세력 영역 데칼 반경(cm)
     const FLinearColor RimColor(0.03f, 0.03f, 0.03f);       // 마커 테두리 = 흑
 }
 
@@ -32,6 +35,8 @@ AWCMapActor::AWCMapActor()
     CubeMesh = Cube.Object;
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cone(TEXT("/Engine/BasicShapes/Cone.Cone"));
     ConeMesh = Cone.Object;
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> Plane(TEXT("/Engine/BasicShapes/Plane.Plane"));
+    PlaneMesh = Plane.Object;
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> Fallback(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
     BaseMaterial = Fallback.Object;
 }
@@ -72,6 +77,11 @@ void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
     else
         UE_LOG(LogWCMap, Warning, TEXT("M_UnlitColor 없음 — lit 폴백 (Scripts/import_worldmap.py 실행 필요)"));
 
+    // 세력 영역 데칼 머티리얼 (없으면 영역 표시 생략 — 크래시 없이 degrade)
+    TerritoryMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WorldMap/M_Territory.M_Territory"));
+    if (!TerritoryMaterial)
+        UE_LOG(LogWCMap, Warning, TEXT("M_Territory 없음 — 세력 영역 미표시 (Scripts/import_worldmap.py 실행 필요)"));
+
     // 바닥 = NASA 고도 기반 3D 지형 (SM_Terrain — OBJ 가 UE 월드 좌표로 생성됨, RTK 식 릴리프)
     if (UStaticMesh* TerrainMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/WorldMap/SM_Terrain.SM_Terrain")))
     {
@@ -109,6 +119,10 @@ void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
         World.Z = TerrainZ(World) + 14.0;   // 지형 표면 부착 (바다=0, 산악 도시=능선 위)
         NodePositions.Add(Id, World);
         MakeNodeMesh(Id, World, bSea);
+        // 세력 영역 원판 — [WIP] 기본 비활성. 현재 원판의 UV/링이 잘못 렌더되어 지도 전체에
+        // 거대한 동심원 호가 번진다(2026-07-17 실측: 끄면 사라짐). 원인 규명 전까지 -WCTerritory 로만 켠다.
+        if (!bSea && FParse::Param(FCommandLine::Get(), TEXT("WCTerritory")))
+            MakeTerritoryDecal(Id, World);
     }
 
     for (const TSharedPtr<FJsonValue>& E : Map->GetArrayField(TEXT("edges")))
@@ -119,7 +133,7 @@ void AWCMapActor::BuildFromStatic(const TSharedPtr<FJsonObject>& StaticJson)
         if (A && B) MakeEdgeMesh(*A, *B, Edge->GetStringField(TEXT("type")) != TEXT("land"));
     }
 
-    UE_LOG(LogWCMap, Log, TEXT("보드 생성: 노드 %d · 간선 연결 완료"), NodePositions.Num());
+    UE_LOG(LogWCMap, Log, TEXT("보드 생성: 노드 %d · 간선 연결 완료 · 세력영역 데칼 %d"), NodePositions.Num(), TerritoryDecals.Num());
 }
 
 void AWCMapActor::ApplyState(const TSharedPtr<FJsonObject>& StateJson)
@@ -135,10 +149,12 @@ void AWCMapActor::ApplyState(const TSharedPtr<FJsonObject>& StateJson)
         {
             const FLinearColor* Color = FactionColors.Find(OwnerId);
             SetNodeColor(Id, Color ? *Color : NeutralColor);
+            SetTerritoryColor(Id, Color ? *Color : NeutralColor, true);   // 거점 주변에 소유 세력색 확산
         }
         else
         {
             SetNodeColor(Id, NeutralColor);
+            SetTerritoryColor(Id, NeutralColor, false);                   // 공백지 = 영역 없음
         }
     }
 
@@ -255,6 +271,34 @@ UStaticMeshComponent* AWCMapActor::MakeNodeMesh(const FString& NodeId, const FVe
     return PickTarget;
 }
 
+void AWCMapActor::MakeTerritoryDecal(const FString& NodeId, const FVector& Pos)
+{
+    if (!TerritoryMaterial) return;
+
+    // Plane(100x100, +Z 향함, UV 0~1) 을 지형 살짝 위에 눕힌다 — UV 가 깔끔해 방사 그라데이션이 정확히 맵핑.
+    UStaticMeshComponent* Zone = NewObject<UStaticMeshComponent>(this);
+    Zone->SetupAttachment(RootComponent);
+    Zone->RegisterComponent();
+    Zone->SetStaticMesh(PlaneMesh);
+    Zone->SetRelativeLocation(Pos + FVector(0, 0, 6));    // 지도 표면 바로 위 (마커보다 아래)
+    Zone->SetRelativeScale3D(FVector(TerritoryRadius * 2.0 / 100.0, TerritoryRadius * 2.0 / 100.0, 1.0));
+    Zone->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    UMaterialInstanceDynamic* Mid = UMaterialInstanceDynamic::Create(TerritoryMaterial, this);
+    Zone->SetMaterial(0, Mid);
+    TerritoryDecals.Add(NodeId, Zone);
+    TerritoryMids.Add(NodeId, Mid);
+    Zone->SetVisibility(false);         // 소유 확정 전엔 숨김 (ApplyState 가 켬)
+}
+
+void AWCMapActor::SetTerritoryColor(const FString& NodeId, const FLinearColor& Color, bool bOwned)
+{
+    if (TObjectPtr<UStaticMeshComponent>* Decal = TerritoryDecals.Find(NodeId))
+        if (*Decal) (*Decal)->SetVisibility(bOwned);
+    if (TObjectPtr<UMaterialInstanceDynamic>* Mid = TerritoryMids.Find(NodeId))
+        if (*Mid) (*Mid)->SetVectorParameterValue(TEXT("Color"), Color);
+}
+
 void AWCMapActor::MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRoute)
 {
     const FVector Mid = (A + B) * 0.5 - FVector(0, 0, 4.0);   // 노드 원판보다 살짝 아래
@@ -267,7 +311,7 @@ void AWCMapActor::MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRout
     Mesh->SetRelativeLocation(Mid);
     // 실린더 기본 축 = Z(높이 100) → 간선 방향으로 눕힌다
     Mesh->SetRelativeRotation(FRotationMatrix::MakeFromZ(B - A).Rotator());
-    Mesh->SetRelativeScale3D(FVector(0.3, 0.3, Length / 100.0));
+    Mesh->SetRelativeScale3D(FVector(EdgeThickness, EdgeThickness, Length / 100.0));
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
     UMaterialInstanceDynamic* Mat = UMaterialInstanceDynamic::Create(BaseMaterial, this);

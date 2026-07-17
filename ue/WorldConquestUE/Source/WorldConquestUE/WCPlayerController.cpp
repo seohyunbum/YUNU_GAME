@@ -108,26 +108,36 @@ void AWCPlayerController::PlayerTick(float DeltaTime)
     const bool bMapActive = !GM->UiInCity() && !GM->ActiveBattle.IsSet()
         && !GM->ActiveReveal.IsSet() && !GM->GetActiveCutsceneDef();
 
-    // 우클릭 드래그 = 오빗(요/틸트 회전)
-    if (bMapActive && IsInputKeyDown(EKeys::RightMouseButton))
-    {
-        float DX = 0.f, DY = 0.f;
-        GetInputMouseDelta(DX, DY);
-        GM->OrbitCamera(DX, DY);
-    }
 
     // 좌클릭 드래그 = 지도 팬 (임계값 6px 넘으면 드래그로 승격 → 릴리즈 시 선택 억제)
-    if (bLeftDown && IsInputKeyDown(EKeys::LeftMouseButton))
+    FVector2D D;
+    const bool bMoved = ReadCursorDelta(D);
+
+    // 우클릭 드래그 = 오빗(요/틸트 회전) — 커서 델타 기반
+    if (bMapActive && bMoved && IsInputKeyDown(EKeys::RightMouseButton))
+        GM->OrbitCamera(D.X, D.Y);
+
+    if (bLeftDown && IsInputKeyDown(EKeys::LeftMouseButton) && bMoved)
     {
-        float DX = 0.f, DY = 0.f;
-        GetInputMouseDelta(DX, DY);
-        LeftDragDist += FMath::Abs(DX) + FMath::Abs(DY);
+        LeftDragDist += FMath::Abs(D.X) + FMath::Abs(D.Y);
         if (LeftDragDist > 6.f)
         {
             bLeftDragged = true;
-            if (bMapActive) GM->PanCamera(DX, DY);
+            if (bMapActive) GM->PanCamera(D.X, D.Y);
         }
     }
+}
+
+bool AWCPlayerController::ReadCursorDelta(FVector2D& OutDelta)
+{
+    float MX = 0.f, MY = 0.f;
+    if (!GetMousePosition(MX, MY)) { bHasLastCursor = false; return false; }   // 커서가 뷰포트 밖
+    const FVector2D Cur(MX, MY);
+    const bool bValid = bHasLastCursor;
+    OutDelta = bValid ? Cur - LastCursor : FVector2D::ZeroVector;
+    LastCursor = Cur;
+    bHasLastCursor = true;
+    return bValid && !OutDelta.IsNearlyZero();
 }
 
 void AWCPlayerController::OnEndTurnPressed()

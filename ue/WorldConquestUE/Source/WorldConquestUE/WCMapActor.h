@@ -44,6 +44,21 @@ private:
     void MakeEdgeMesh(const FVector& A, const FVector& B, bool bSeaRoute);
     void SetNodeColor(const FString& NodeId, const FLinearColor& Color);
 
+    /** 거점 주변 세력 영역 원판 (누가 점령했는지 한눈에). 미소유면 숨김. */
+    void MakeTerritoryDecal(const FString& NodeId, const FVector& Pos);
+    void SetTerritoryColor(const FString& NodeId, const FLinearColor& Color, bool bOwned);
+
+    UPROPERTY()
+    TMap<FString, TObjectPtr<UStaticMeshComponent>> TerritoryDecals;
+
+    UPROPERTY()
+    TObjectPtr<UStaticMesh> PlaneMesh;
+
+    TMap<FString, TObjectPtr<UMaterialInstanceDynamic>> TerritoryMids;
+
+    UPROPERTY()
+    TObjectPtr<UMaterialInterface> TerritoryMaterial;
+
     UPROPERTY()
     TMap<FString, TObjectPtr<UStaticMeshComponent>> NodeMeshes;
 

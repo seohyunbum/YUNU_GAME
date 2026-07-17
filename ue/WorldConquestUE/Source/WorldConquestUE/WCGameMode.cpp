@@ -1135,16 +1135,26 @@ void AWCGameMode::PanCamera(float DeltaX, float DeltaY)
 {
     if (!BoardCamera) return;
     const float Scale = CamDist / 220.f;   // 줌 비례 감도 (5배 — 이전 /1100 은 너무 느렸음)
-    // 화면 기준 팬 — 카메라 요를 반영해 "끌리는" 방향이 시야와 일치
+    // 화면 기준 팬 — 카메라 요를 반영해 "끌리는" 방향이 시야와 일치.
+    // [grab-and-pull] 지도를 손으로 잡아 끄는 감각 = 드래그한 방향으로 '지도가' 따라온다.
+    // → 카메라는 그 반대로 움직여야 한다. (2026-07-17 드래그 주입 실측: 이전 부호는 지도가 반대로 밀렸음)
     const float Yaw = FMath::DegreesToRadians(CamYaw);
     const float S = FMath::Sin(Yaw), C = FMath::Cos(Yaw);
-    const float MoveRight = -DeltaX * Scale;   // 화면 오른쪽
-    const float MoveFwd   =  DeltaY * Scale;   // 화면 위(=지도 안쪽)
+    // 입력은 '커서 화면 좌표 델타' (오른쪽 +X, 아래쪽 +Y).
+    // grab-and-pull = 지도가 커서를 따라온다 → 카메라는 반대로 움직인다.
+    //   커서 오른쪽(+X) → 카메라 왼쪽(-Y, 화면오른쪽=월드+Y)
+    //   커서 아래(+Y)   → 카메라 위(+X, 화면위=월드+X)
+    const float MoveRight = -DeltaX * Scale;
+    const float MoveFwd   =  DeltaY * Scale;
     CamTarget.X += MoveFwd * C - MoveRight * S;
     CamTarget.Y += MoveFwd * S + MoveRight * C;
     CamTarget.X = FMath::Clamp(CamTarget.X, -6000.0, 6000.0);
     CamTarget.Y = FMath::Clamp(CamTarget.Y, -10500.0, 10500.0);
     UpdateBoardCamera();
+
+    if (FParse::Param(FCommandLine::Get(), TEXT("WCInputProbe")))   // 드래그 방향 실측용
+        UE_LOG(LogWorldConquest, Warning, TEXT("[PAN] dx=%.2f dy=%.2f -> CamTarget=(%.0f, %.0f)"),
+            DeltaX, DeltaY, CamTarget.X, CamTarget.Y);
 }
 
 void AWCGameMode::OrbitCamera(float DeltaX, float DeltaY)

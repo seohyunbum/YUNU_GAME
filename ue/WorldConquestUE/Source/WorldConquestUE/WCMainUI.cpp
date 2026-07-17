@@ -188,8 +188,12 @@ TSharedRef<SWidget> SWCMainUI::MakeButton(const FText& Label, TFunction<void(AWC
 
 EVisibility SWCMainUI::PlayingVisibility() const
 {
-    // 도시 화면 중엔 지도용 UI 를 숨긴다 (도시 화면이 전면 대체)
-    return GM.IsValid() && GM->UiIsPlaying() && !GM->UiInCity() ? EVisibility::Visible : EVisibility::Collapsed;
+    // 도시 화면 중엔 지도용 UI 를 숨긴다 (도시 화면이 전면 대체).
+    // [MUST] Visible 이 아니라 SelfHitTestInvisible — 이 SOverlay 는 전체 화면을 덮으므로 Visible 이면
+    // 빈 지도 영역의 클릭·드래그까지 삼켜 지도 선택/팬이 죽는다(2026-07-17 실측: keyDown=0).
+    // SelfHitTestInvisible = 이 컨테이너는 통과, 자식 패널·버튼만 클릭 대상.
+    return GM.IsValid() && GM->UiIsPlaying() && !GM->UiInCity()
+        ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed;
 }
 
 EVisibility SWCMainUI::SelectionVisibility() const
