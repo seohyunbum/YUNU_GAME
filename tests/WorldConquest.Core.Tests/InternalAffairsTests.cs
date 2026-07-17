@@ -86,14 +86,15 @@ public class InternalAffairsTests
         var p = gm.Internal.PreviewIncome("hanseong");
         Assert.Equal(10, p.GovernorGoldPct);   // 70 × 15 / 100 = 10 (내림)
         Assert.Equal(7, p.GovernorFoodPct);    // 70 × 10 / 100 = 7
-        Assert.Equal(132, p.FinalGold);        // 120 × 110% = 132 (민심 70→100%·세율 100%)
-        Assert.Equal(96, p.FinalFood);         // 90 × 107% = 96 (내림)
+        // 한성 총생산 금 220(기본120+상업100)·식 126(기본90+농업36) — §2.3.2 수치제
+        Assert.Equal(242, p.FinalGold);        // 220 × 110% = 242 (민심 70→100%·세율 100%)
+        Assert.Equal(134, p.FinalFood);        // 126 × 107% = 134 (내림)
 
         var joseon = s.Factions.Single(f => f.Id == "joseon");
         var g0 = joseon.Treasury; var f0 = joseon.Food;
         gm.CollectIncome();
-        Assert.Equal(g0 + 132 + 100, joseon.Treasury);   // 한성 132 + 부산 100
-        Assert.Equal(f0 + 96 + 70, joseon.Food);
+        Assert.Equal(g0 + 242 + 184, joseon.Treasury);   // 한성 242 + 부산 184
+        Assert.Equal(f0 + 134 + 98, joseon.Food);
     }
 
     [Fact]
@@ -106,10 +107,10 @@ public class InternalAffairsTests
 
         var joseon = s.Factions.Single(f => f.Id == "joseon");
         joseon.Treasury = 1000;
-        Assert.Equal(FacilityOutcome.Success, gm.BuildFacility("joseon", "hanseong", "market"));
-        // 96 × 20 / 100 = 19% 할인 (상한 30% 미만) → 300 × 81% = 243
-        Assert.Equal(1000 - 243, joseon.Treasury);
-        Assert.Equal(1, s.Provinces.Single(p => p.Id == "hanseong").Facilities["market"]);
+        Assert.Equal(FacilityOutcome.Success, gm.BuildFacility("joseon", "hanseong", "academy"));
+        // 96 × 20 / 100 = 19% 할인 (상한 30% 미만) → 400(학당) × 81% = 324
+        Assert.Equal(1000 - 324, joseon.Treasury);
+        Assert.Equal(1, s.Provinces.Single(p => p.Id == "hanseong").Facilities["academy"]);
     }
 
     // ═══════════════ 징병 (§2.3 병력 = 인구에서 징병) ═══════════════
@@ -189,8 +190,8 @@ public class InternalAffairsTests
 
         var p = gm.Internal.PreviewIncome("hanseong");
         Assert.Equal(130, p.TaxGoldPct);
-        Assert.Equal(156, p.FinalGold);   // 120 × 130%
-        Assert.Equal(90, p.FinalFood);    // 식량은 세율 무관
+        Assert.Equal(286, p.FinalGold);   // 총생산 220 × 130%
+        Assert.Equal(126, p.FinalFood);   // 식량은 세율 무관 (기본90+농업36)
 
         gm.CollectIncome();
         Assert.Equal(65, gm.Internal.GetPublicOrder("hanseong"));   // 70 − 5 (고세율 드리프트)
@@ -198,8 +199,115 @@ public class InternalAffairsTests
         gm.Internal.SetTaxLevel("joseon", "low");
         gm.CollectIncome();
         Assert.Equal(68, gm.Internal.GetPublicOrder("hanseong"));   // 65 + 3 (저세율 회복)
-        // 민심 68 → 승수 99% (65+34): 120 × 99% = 118 → × 70% = 82
-        Assert.Equal(82, gm.Internal.PreviewIncome("hanseong").FinalGold);
+        // 민심 68 → 승수 99% (65+34): 220 × 99% = 217 → × 70% = 151
+        Assert.Equal(151, gm.Internal.PreviewIncome("hanseong").FinalGold);
+    }
+
+    // ═══════════════ 개발 파견 (§2.3.2 — 무장 능력치 의존 수치 개발) ═══════════════
+
+    [Fact]
+    public void 개발_파견은_정치력_비례로_상업을_올리고_무장을_소진한다()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        joseon.Treasury = 1000;
+        var c0 = gm.Internal.GetCommerce("hanseong");   // 시작값 = 1008 × 40% = 403
+
+        // yi_sunsin 정치 70 → gain = 15(base) + 70 × 60 / 100 = 57
+        var r = gm.Internal.Develop("joseon", "hanseong", "commerce", "yi_sunsin");
+        Assert.Equal(DevelopOutcome.Success, r.Outcome);
+        Assert.Equal(57, r.Gain);
+        Assert.Equal(c0 + 57, r.NewValue);
+        Assert.Equal(c0 + 57, gm.Internal.GetCommerce("hanseong"));
+        Assert.Equal(1000 - 120, joseon.Treasury);                       // dev_cost_gold 120
+
+        // 같은 무장은 이번 턴 재파견 불가 (한 무장 = 턴당 1행동)
+        Assert.Equal(DevelopOutcome.GeneralAlreadyActed,
+            gm.Internal.Develop("joseon", "hanseong", "agriculture", "yi_sunsin").Outcome);
+
+        // 수입 페이즈에서 소진 리셋 → 다시 파견 가능
+        gm.CollectIncome();
+        Assert.Equal(DevelopOutcome.Success,
+            gm.Internal.Develop("joseon", "hanseong", "commerce", "yi_sunsin").Outcome);
+    }
+
+    [Fact]
+    public void 개발은_거점_상한에서_클램프되고_최대면_거부()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 1000;
+        var max = gm.Internal.CommerceMax("hanseong");   // 1008
+
+        // 상한 8 아래로 세팅 → gain 57 이어도 상한에서 clamp (applied = 8)
+        Province(s, "hanseong").Commerce = max - 8;
+        var r = gm.Internal.Develop("joseon", "hanseong", "commerce", "yi_sunsin");
+        Assert.Equal(DevelopOutcome.Success, r.Outcome);
+        Assert.Equal(8, r.Gain);
+        Assert.Equal(max, r.NewValue);
+
+        // 이미 최대 → AlreadyMaxed (같은 턴 다른 무장으로)
+        s.CharacterOwners["cao_cao"] = "joseon";
+        Assert.Equal(DevelopOutcome.AlreadyMaxed,
+            gm.Internal.Develop("joseon", "hanseong", "commerce", "cao_cao").Outcome);
+    }
+
+    [Fact]
+    public void 개발_파견_검증_케이스()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 1000;
+        Assert.Equal(DevelopOutcome.NotOwnedLandProvince, gm.Internal.Develop("joseon", "beijing", "commerce", "yi_sunsin").Outcome);
+        Assert.Equal(DevelopOutcome.UnknownKind, gm.Internal.Develop("joseon", "hanseong", "tourism", "yi_sunsin").Outcome);
+        Assert.Equal(DevelopOutcome.UnknownGeneral, gm.Internal.Develop("joseon", "hanseong", "commerce", "nobody").Outcome);
+        Assert.Equal(DevelopOutcome.NotYourGeneral, gm.Internal.Develop("joseon", "hanseong", "commerce", "cao_cao").Outcome);   // 위 소속
+        s.Factions.Single(f => f.Id == "joseon").Treasury = 0;
+        Assert.Equal(DevelopOutcome.InsufficientGold, gm.Internal.Develop("joseon", "hanseong", "commerce", "yi_sunsin").Outcome);
+    }
+
+    [Fact]
+    public void 태수는_수입_페이즈마다_상업_농업을_자동_개발한다()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        gm.Internal.AppointGovernor("joseon", "hanseong", "yi_sunsin");   // 정치 70
+        var c0 = gm.Internal.GetCommerce("hanseong");
+        var a0 = gm.Internal.GetAgriculture("hanseong");
+
+        gm.CollectIncome();
+        // 자동개발 step = 70 × governor_dev_gain_per_100_pol(20) / 100 = 14
+        Assert.Equal(c0 + 14, gm.Internal.GetCommerce("hanseong"));
+        Assert.Equal(a0 + 14, gm.Internal.GetAgriculture("hanseong"));
+    }
+
+    [Fact]
+    public void 징병_군수_파견은_통솔로_비용을_추가_할인하고_소진시킨다()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+
+        // 군수 없이 징병 비용
+        joseon.Treasury = 100_000;
+        Assert.Equal(RecruitOutcome.Success, gm.Recruit("joseon", "hanseong", "spearman", 1000));
+        var costNoMuster = 100_000 - joseon.Treasury;
+
+        // 군수(yi_sunsin) 파견 시 통솔 할인으로 더 싸야 한다 (§2.3.2)
+        var (s2, gm2) = NewGame(db);
+        var joseon2 = s2.Factions.Single(f => f.Id == "joseon");
+        joseon2.Treasury = 100_000;
+        Assert.Equal(RecruitOutcome.Success, gm2.Recruit("joseon", "hanseong", "spearman", 1000, "yi_sunsin"));
+        var costMuster = 100_000 - joseon2.Treasury;
+        Assert.True(costMuster < costNoMuster, $"군수 통솔 할인이 적용돼야 함: {costMuster} < {costNoMuster}");
+
+        // 군수는 파견 소진 → 같은 턴 개발 파견 불가
+        Assert.Equal(DevelopOutcome.GeneralAlreadyActed,
+            gm2.Internal.Develop("joseon", "hanseong", "commerce", "yi_sunsin").Outcome);
+
+        // 외부/미소속 군수는 거부
+        Assert.Equal(RecruitOutcome.MusterGeneralInvalid, gm2.Recruit("joseon", "hanseong", "spearman", 1, "cao_cao"));
     }
 
     // ═══════════════ 민심 ═══════════════
@@ -212,8 +320,8 @@ public class InternalAffairsTests
         Province(s, "hanseong").PublicOrder = 20;
         var p = gm.Internal.PreviewIncome("hanseong");
         Assert.Equal(75, p.PoOutputPct);   // 65 + 20 × 50 / 100
-        Assert.Equal(90, p.FinalGold);     // 120 × 75%
-        Assert.Equal(67, p.FinalFood);     // 90 × 75% = 67 (내림)
+        Assert.Equal(165, p.FinalGold);    // 총생산 220 × 75%
+        Assert.Equal(94, p.FinalFood);     // 126 × 75% = 94 (내림)
     }
 
     [Fact]
@@ -387,9 +495,9 @@ public class InternalAffairsTests
             var owner = s.Factions.First(f => f.OwnedProvinceIds.Contains(p.Id));
             Assert.Equal(owner.Id, s.CharacterOwners[p.GovernorId!]);
         }
-        // 여유 자금(≥ 비용×3) 세력은 시장부터 건설
-        Assert.True(s.Provinces.Any(p => p.Facilities.GetValueOrDefault("market") >= 1),
-            "AI가 시설을 1건 이상 건설해야 함");
+        // AI 는 유휴 무장을 상업·농업 개발에 파견한다 (§2.3.2 수치제 경제) — 개발 수치가 설정됨
+        Assert.True(s.Provinces.Any(p => p.Commerce.HasValue || p.Agriculture.HasValue),
+            "AI가 개발 파견(상업·농업)을 1건 이상 수행해야 함");
     }
 
     // ═══════════════ 세이브 (additive 왕복·fail-soft) ═══════════════
@@ -419,6 +527,35 @@ public class InternalAffairsTests
             Assert.Equal(55, lp.PublicOrder);
             Assert.Equal(123_456, lp.Population);
             Assert.Equal("yi_sunsin", lp.GovernorId);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void 세이브_왕복_개발수치와_파견소진_보존()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        joseon.SearchesThisTurn = 2;
+        joseon.ActedCharacterIds.Add("yi_sunsin");
+        joseon.ActedCharacterIds.Add("jang_yeongsil");
+        var ps = Province(s, "hanseong");
+        ps.Commerce = 555;
+        ps.Agriculture = 222;
+
+        var path = Path.Combine(AppContext.BaseDirectory, "fixtures", $"dev_{Guid.NewGuid():N}.json");
+        try
+        {
+            new SaveSystem().Save(s, path);
+            var loaded = new SaveSystem().Load(path);
+            var lj = loaded.Factions.Single(f => f.Id == "joseon");
+            Assert.Equal(2, lj.SearchesThisTurn);
+            Assert.Contains("yi_sunsin", lj.ActedCharacterIds);
+            Assert.Contains("jang_yeongsil", lj.ActedCharacterIds);
+            var lp = loaded.Provinces.Single(p => p.Id == "hanseong");
+            Assert.Equal(555, lp.Commerce);
+            Assert.Equal(222, lp.Agriculture);
         }
         finally { File.Delete(path); }
     }

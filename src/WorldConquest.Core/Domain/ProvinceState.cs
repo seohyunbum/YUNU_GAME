@@ -17,4 +17,10 @@ public sealed class ProvinceState
 
     /// <summary>파견된 태수(무장 id). 정치→생산·건설, 매력→민심·징병, 지력→기술 (§2.3 태수).</summary>
     public string? GovernorId { get; set; }
+
+    /// <summary>상업 개발 수치 (§2.3.2). null = 시작값(commerce_max×start_pct). 금 수입의 주 동력, 거점별 max 상한.</summary>
+    public int? Commerce { get; set; }
+
+    /// <summary>농업 개발 수치 (§2.3.2). null = 시작값(agriculture_max×start_pct). 식량 수입의 주 동력, 거점별 max 상한.</summary>
+    public int? Agriculture { get; set; }
 }

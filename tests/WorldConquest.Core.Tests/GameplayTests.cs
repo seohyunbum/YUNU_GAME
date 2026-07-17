@@ -60,9 +60,11 @@ public class GameplayTests
 
         gm.CollectIncome();
 
-        // joseon 소유 = 한성(금120/식90) + 부산(금100/식70) → +220/+160
-        Assert.Equal(gold0 + 220, joseon.Treasury);
-        Assert.Equal(food0 + 160, joseon.Food);
+        // §2.3.2 수치제 경제: 기본생산 floor + 상업/농업 개발분(시작 = max×40%, ×250permil).
+        // 한성 금 120+(1008×40%=403→100) =220 · 식 90+(360×40%=144→36) =126
+        // 부산 금 100+(840×40%=336→84)  =184 · 식 70+(280×40%=112→28) =98
+        Assert.Equal(gold0 + 220 + 184, joseon.Treasury);   // +404
+        Assert.Equal(food0 + 126 + 98, joseon.Food);        // +224
     }
 
     [Fact]
@@ -152,20 +154,20 @@ public class GameplayTests
         var gm = new GameManager(s, db);
         var joseon = s.Factions.Single(f => f.Id == "joseon");
 
-        // 시장 건설 (비용 300) — 한성 소유
-        Assert.Equal(FacilityOutcome.Success, gm.BuildFacility("joseon", "hanseong", "market"));
-        Assert.Equal(1, s.Provinces.Single(p => p.Id == "hanseong").Facilities["market"]);
+        // 항구 건설 (비용 350) — 한성 소유. 경제 시설(금 +18%/lv, §2.3.2 개발과 별개의 % 보정)
+        Assert.Equal(FacilityOutcome.Success, gm.BuildFacility("joseon", "hanseong", "port"));
+        Assert.Equal(1, s.Provinces.Single(p => p.Id == "hanseong").Facilities["port"]);
 
-        // 시장 1레벨(+25%) → 한성 금생산 120 → 150. 부산은 시설 없어 100 그대로. 합 250.
+        // 항구 1레벨(+18% 금) → 한성 총생산(기본120+상업100=220) × 118% = 259. 부산 184(시설 없음). 합 443.
         joseon.Treasury = 0;
         gm.CollectIncome();
-        Assert.Equal(150 + 100, joseon.Treasury);   // 한성 120*125% + 부산 100
+        Assert.Equal(259 + 184, joseon.Treasury);
 
         // 최대 레벨(3)까지 증축 (증축 비용 확보)
         joseon.Treasury = 10000;
-        gm.BuildFacility("joseon", "hanseong", "market");   // lv2
-        gm.BuildFacility("joseon", "hanseong", "market");   // lv3 = max
-        Assert.Equal(FacilityOutcome.MaxLevelReached, gm.BuildFacility("joseon", "hanseong", "market"));
+        gm.BuildFacility("joseon", "hanseong", "port");   // lv2
+        gm.BuildFacility("joseon", "hanseong", "port");   // lv3 = max
+        Assert.Equal(FacilityOutcome.MaxLevelReached, gm.BuildFacility("joseon", "hanseong", "port"));
     }
 
     [Fact]
@@ -174,10 +176,10 @@ public class GameplayTests
         var db = Db();
         var s = GameSetup.NewCampaign(db, 1, "joseon", "wei");
         var gm = new GameManager(s, db);
-        Assert.Equal(FacilityOutcome.NotOwnedLandProvince, gm.BuildFacility("joseon", "beijing", "market"));
+        Assert.Equal(FacilityOutcome.NotOwnedLandProvince, gm.BuildFacility("joseon", "beijing", "port"));
         Assert.Equal(FacilityOutcome.UnknownFacility, gm.BuildFacility("joseon", "hanseong", "casino"));
         s.Factions.Single(f => f.Id == "joseon").Treasury = 10;
-        Assert.Equal(FacilityOutcome.InsufficientGold, gm.BuildFacility("joseon", "hanseong", "market"));
+        Assert.Equal(FacilityOutcome.InsufficientGold, gm.BuildFacility("joseon", "hanseong", "port"));
     }
 
     [Fact]

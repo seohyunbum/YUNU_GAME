@@ -22,6 +22,23 @@ public sealed record RecruitAttempt(
     RecruitGeneralOutcome Outcome, string TargetId, string EnvoyId,
     int Cost, int ChancePermyriad, int RollPermyriad, bool Joined);
 
+/// <summary>탐색 시도 결과 (§2.8 search — 지력 기반 재보 발굴).</summary>
+public enum SearchOutcome
+{
+    Success,              // 발굴 성공 (금 보상)
+    Failed,               // 소득 없음
+    NoSuchFaction,
+    NoEnvoy,              // 사신 무장이 존재하지 않음
+    EnvoyBusyOrForeign,   // 사신이 자기 세력 무장이 아님
+    EnvoyAlreadyActed,    // 사신이 이번 턴 이미 파견 행동을 함 (§2.3.2)
+    TurnCapExceeded       // search.max_per_turn 초과
+}
+
+/// <summary>탐색 1건 결과 상세 (콘솔·API 표시·성공률 공시).</summary>
+public sealed record SearchAttempt(
+    SearchOutcome Outcome, string EnvoyId,
+    int ChancePermyriad, int RollPermyriad, int GoldReward);
+
 /// <summary>
 /// 등용(招聘·recruit) — 재야(미소속·recruit 채널) 무장을 금 + 사신 매력으로 영입 (설계문서 §2.8 recruit 채널).
 /// 초빙(SummonSystem, 가챠)과 별개 경로: 특정 대상을 지목해 사신을 보낸다. KOEI 등용 관례.
@@ -108,5 +125,51 @@ public sealed class RecruitmentSystem
         return new RecruitAttempt(
             joined ? RecruitGeneralOutcome.Success : RecruitGeneralOutcome.Failed,
             targetId, envoyId, cost, chance, roll, joined);
+    }
+
+    /// <summary>탐색 성공률(만분율) — 사신 지력↑ 일수록 높다. 표시와 판정이 공유하는 단일 산식 (§4.4).</summary>
+    public int SearchChanceFor(Character envoy)
+    {
+        var r = _db.Rules;
+        var raw = r.SearchBaseChancePermyriad + envoy.Stats.Int * r.SearchEnvoyIntPermyriadPer100 / 100;
+        return Math.Clamp(raw, r.SearchChanceMinPermyriad, r.SearchChanceMaxPermyriad);
+    }
+
+    /// <summary>
+    /// 탐색(探索·search) — 소속 무장(사신)을 보내 재보를 발굴한다 (설계문서 §2.8 search 채널).
+    /// 사신 지력이 성공률을 좌우(§2.3.2 능력치 의존). 성공 시 금(search.gold_reward) 획득.
+    /// 결정론·세이브스컴 방지: 세력별 명명 스트림 search:{factionId} — 시도 1회 = 난수 1소비.
+    /// 사신은 이번 턴 파견 소진(ActedCharacterIds). 세력당 search.max_per_turn 캡.
+    /// </summary>
+    public SearchAttempt Search(string factionId, string envoyId)
+    {
+        SearchAttempt Fail(SearchOutcome o) => new(o, envoyId, 0, 0, 0);
+
+        var faction = _state.Factions.FirstOrDefault(f => f.Id == factionId);
+        if (faction is null) return Fail(SearchOutcome.NoSuchFaction);
+        if (!_db.Characters.TryGetValue(envoyId, out var envoy)) return Fail(SearchOutcome.NoEnvoy);
+        if (_state.CharacterOwners.GetValueOrDefault(envoyId) != factionId)
+            return Fail(SearchOutcome.EnvoyBusyOrForeign);
+        if (faction.ActedCharacterIds.Contains(envoyId)) return Fail(SearchOutcome.EnvoyAlreadyActed);
+        if (faction.SearchesThisTurn >= _db.Rules.SearchMaxPerTurn) return Fail(SearchOutcome.TurnCapExceeded);
+
+        faction.SearchesThisTurn++;
+        faction.ActedCharacterIds.Add(envoyId);   // 사신 파견 소진 (§2.3.2)
+
+        var chance = SearchChanceFor(envoy);
+        var roll = _state.Rng.Stream(RngStreams.Search(factionId)).NextInt(10000);   // 시도 1회 = 1소비
+        var success = roll < chance;
+
+        if (success)
+        {
+            var reward = _db.Rules.SearchGoldReward;
+            faction.Treasury += reward;
+            _bus.Publish(GameEvent.Of("SearchSucceeded",
+                ("faction", factionId), ("envoy", envoyId), ("gold", reward.ToString())));
+            return new SearchAttempt(SearchOutcome.Success, envoyId, chance, roll, reward);
+        }
+
+        _bus.Publish(GameEvent.Of("SearchFailed", ("faction", factionId), ("envoy", envoyId)));
+        return new SearchAttempt(SearchOutcome.Failed, envoyId, chance, roll, 0);
     }
 }

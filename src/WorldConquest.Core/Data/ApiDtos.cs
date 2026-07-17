@@ -39,7 +39,8 @@ public sealed record FactionView(
 /// </summary>
 public sealed record ProvinceOwnershipView(
     string Id, string? OwnerFactionId, Dictionary<string, int> Facilities,
-    int PublicOrder = 0, int Population = 0, string? GovernorId = null);
+    int PublicOrder = 0, int Population = 0, string? GovernorId = null,
+    int Commerce = 0, int CommerceMax = 0, int Agriculture = 0, int AgricultureMax = 0);   // §2.3.2 개발 수치 (additive)
 
 public sealed record ForceView(
     string Id, string FactionId, string Location, string? CommanderId,

@@ -125,6 +125,8 @@ internal sealed class MapNodeDto
     public string? CurrentDirection { get; set; }
     public List<string>? Adjacent { get; set; }
     public MapPosDto? MapPos { get; set; }
+    public int? CommerceMax { get; set; }      // §2.3.2 상업 개발 상한 (선택 — 미지정 시 base_production.gold×5)
+    public int? AgricultureMax { get; set; }   // §2.3.2 농업 개발 상한 (선택 — 미지정 시 base_production.food×5)
 }
 
 internal sealed class MapPosDto
@@ -201,6 +203,33 @@ internal sealed class RecruitGeneralRulesDto
     public int? ChanceMinPermyriad { get; set; }
     public int? ChanceMaxPermyriad { get; set; }
     public int? JoinLoyalty { get; set; }
+    public int? MaxPerTurn { get; set; }
+}
+
+internal sealed class EconomyRulesDto
+{
+    public int? GoldPerCommercePermil { get; set; }
+    public int? FoodPerAgriculturePermil { get; set; }
+    public int? DevStartPctOfMax { get; set; }
+    public int? DevCostGold { get; set; }
+    public int? DevBaseGain { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("dev_pol_gain_per_100")]
+    public int? DevPolGainPer100 { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("governor_dev_gain_per_100_pol")]
+    public int? GovernorDevGainPer100Pol { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("muster_ldr_discount_per_100")]
+    public int? MusterLdrDiscountPer100 { get; set; }
+    public int? MusterDiscountMaxPct { get; set; }
+}
+
+internal sealed class SearchRulesDto
+{
+    public int? BaseChancePermyriad { get; set; }
+    [System.Text.Json.Serialization.JsonPropertyName("envoy_int_permyriad_per_100")]
+    public int? EnvoyIntPermyriadPer100 { get; set; }
+    public int? ChanceMinPermyriad { get; set; }
+    public int? ChanceMaxPermyriad { get; set; }
+    public int? GoldReward { get; set; }
     public int? MaxPerTurn { get; set; }
 }
 
@@ -383,6 +412,8 @@ internal sealed class GameRulesDto
     public DuelRulesDto? Duel { get; set; }       // 일기토 상수 (§2.6, 2026-07-16 구현 확정)
     public SummonRulesDto? Summon { get; set; }
     public RecruitGeneralRulesDto? RecruitGeneral { get; set; }   // 초빙 상수 (§2.8)
+    public EconomyRulesDto? Economy { get; set; }                 // 개발 상수 (§2.3.2)
+    public SearchRulesDto? Search { get; set; }                   // 탐색 상수 (§2.8)
     public List<string>? ValidTerrains { get; set; }
     public List<string>? ValidClimates { get; set; }
     public List<string>? ValidRegions { get; set; }

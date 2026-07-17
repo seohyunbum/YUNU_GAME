@@ -62,6 +62,25 @@ public sealed class GameRules
     public required int RecruitJoinLoyalty { get; init; }
     public required int RecruitMaxPerTurn { get; init; }
 
+    // ── 경제 개발 (§2.3.2 — 농업·상업 수치제. 파견 무장 정치력이 개발량 결정) ──
+    public required int GoldPerCommercePermil { get; init; }      // 금 수입 = 상업 × 이 값 / 1000
+    public required int FoodPerAgriculturePermil { get; init; }   // 식량 수입 = 농업 × 이 값 / 1000
+    public required int DevStartPctOfMax { get; init; }           // 시작 개발 수치 = max × 이 % / 100
+    public required int DevCostGold { get; init; }                // 개발 파견 1회 비용
+    public required int DevBaseGain { get; init; }                // 개발 파견 1회 기본 증가량
+    public required int DevPolGainPer100 { get; init; }           // 파견 무장 정치 100당 추가 증가량
+    public required int GovernorDevGainPer100Pol { get; init; }   // 태수 정치 100당 턴당 자동 개발량
+    public required int MusterLdrDiscountPer100 { get; init; }    // 징병 파견 무장 통솔 100당 비용 할인 %
+    public required int MusterDiscountMaxPct { get; init; }
+
+    // ── 탐색 (§2.8 search — 지력 기반 재야 발굴·재보) ──
+    public required int SearchBaseChancePermyriad { get; init; }
+    public required int SearchEnvoyIntPermyriadPer100 { get; init; }  // 파견 무장 지력 100당 성공률 가산
+    public required int SearchChanceMinPermyriad { get; init; }
+    public required int SearchChanceMaxPermyriad { get; init; }
+    public required int SearchGoldReward { get; init; }               // 성공 시(재야 소진 등) 금 보상
+    public required int SearchMaxPerTurn { get; init; }
+
     public required IReadOnlySet<string> ValidTerrains { get; init; }
     public required IReadOnlySet<string> ValidClimates { get; init; }
     public required IReadOnlySet<string> ValidRegions { get; init; }

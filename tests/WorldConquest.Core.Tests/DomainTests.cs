@@ -211,9 +211,11 @@ public class ProvinceTests
     {
         var p = new LandProvince(
             "hanseong", "한성", "east_asia", new[] { "busan" },
-            "urban", 180000, new ResourceYield(120, 90), 4, 3, true, "temperate");
+            "urban", 180000, new ResourceYield(120, 90), 4, 3, true, "temperate", 1008, 360);
         var yield = p.Produce();
         Assert.Equal(120, yield.Gold);
         Assert.Equal(90, yield.Food);
+        Assert.Equal(1008, p.CommerceMax);
+        Assert.Equal(360, p.AgricultureMax);
     }
 }

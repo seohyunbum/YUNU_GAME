@@ -47,6 +47,21 @@ public class PlaySessionTests
     }
 
     [Fact]
+    public void 개발_파견과_탐색_명령이_동작한다()
+    {
+        var db = Db();
+        // yi_sunsin(리더) 상업 개발 → jang_yeongsil 탐색 → 영지 상세 확인
+        var (state, output) = RunScript(
+            "develop hanseong commerce yi_sunsin\nsearch jang_yeongsil\nprovince hanseong\nquit\n", db);
+
+        var hanseong = state.Provinces.Single(p => p.Id == "hanseong");
+        Assert.True(hanseong.Commerce.HasValue, "개발 파견으로 상업 수치가 설정돼야 함");
+        Assert.Contains("파견", output);        // 개발 파견 안내
+        Assert.Contains("상업", output);        // province 상세에 개발 표시
+        Assert.Contains("탐색", output);        // 탐색 결과 안내
+    }
+
+    [Fact]
     public void 점령_실패도_안내된다()
     {
         var db = Db();

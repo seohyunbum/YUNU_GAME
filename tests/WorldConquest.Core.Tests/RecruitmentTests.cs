@@ -255,4 +255,76 @@ public class RecruitmentTests
         var ex = Assert.Throws<DataValidationException>(() => new DataLoader().Load(dir.Path));
         Assert.Contains(ex.Errors, e => e.Entry.Contains("base_chance_permyriad"));
     }
+
+    // ═══════════════ 탐색 (§2.8 search — 지력 기반 재보 발굴) ═══════════════
+
+    [Fact]
+    public void 탐색_성공률은_사신_지력에_비례한다()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        s.CharacterOwners["iron_man"] = "joseon";   // 지력 110
+        var rs = new RecruitmentSystem(s, db, gm.Bus);
+        // base_chance 3000 + 110 × envoy_int_permyriad_per_100(4500) / 100 = 3000 + 4950 = 7950
+        Assert.Equal(7950, rs.SearchChanceFor(db.Characters["iron_man"]));
+    }
+
+    [Fact]
+    public void 탐색_성공시_재보_금을_획득하고_사신을_소진한다()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        s.CharacterOwners["iron_man"] = "joseon";
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        var rs = new RecruitmentSystem(s, db, gm.Bus);
+        var reward = db.Rules.SearchGoldReward;
+
+        var before = joseon.Treasury;
+        var successes = 0;
+        // 소득을 격리하기 위해 수입 페이즈 대신 파견 소진만 수동 리셋 (다른 수입 유입 없음)
+        for (var i = 0; i < 20; i++)
+        {
+            joseon.ActedCharacterIds.Clear();
+            joseon.SearchesThisTurn = 0;
+            var r = rs.Search("joseon", "iron_man");
+            Assert.Contains(r.Outcome, new[] { SearchOutcome.Success, SearchOutcome.Failed });
+            if (r.Outcome == SearchOutcome.Success) { successes++; Assert.Equal(reward, r.GoldReward); }
+        }
+        Assert.True(successes > 0, "지력 110 사신은 20회 중 최소 1회 발굴에 성공해야 함(결정적 시드)");
+        Assert.Equal(before + successes * reward, joseon.Treasury);
+    }
+
+    [Fact]
+    public void 탐색_사신은_턴당_1회_그리고_세력_캡_적용()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        s.CharacterOwners["iron_man"] = "joseon";
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
+        var rs = new RecruitmentSystem(s, db, gm.Bus);
+
+        // 같은 사신 재파견 불가 (파견 소진)
+        Assert.Contains(rs.Search("joseon", "iron_man").Outcome, new[] { SearchOutcome.Success, SearchOutcome.Failed });
+        Assert.Equal(SearchOutcome.EnvoyAlreadyActed, rs.Search("joseon", "iron_man").Outcome);
+
+        // 세력 캡(max_per_turn) — 서로 다른 사신으로도 캡까지만
+        joseon.ActedCharacterIds.Clear();
+        joseon.SearchesThisTurn = 0;
+        var envoys = new[] { "yi_sunsin", "jang_yeongsil", "iron_man" };   // 3명 = 캡
+        foreach (var e in envoys)
+            Assert.Contains(rs.Search("joseon", e).Outcome, new[] { SearchOutcome.Success, SearchOutcome.Failed });
+        s.CharacterOwners["cao_cao"] = "joseon";   // 4번째 사신
+        Assert.Equal(SearchOutcome.TurnCapExceeded, rs.Search("joseon", "cao_cao").Outcome);
+    }
+
+    [Fact]
+    public void 탐색_사신_검증_케이스()
+    {
+        var db = Db();
+        var (s, gm) = NewGame(db);
+        var rs = new RecruitmentSystem(s, db, gm.Bus);
+        Assert.Equal(SearchOutcome.NoSuchFaction, rs.Search("nope", "yi_sunsin").Outcome);
+        Assert.Equal(SearchOutcome.NoEnvoy, rs.Search("joseon", "nobody").Outcome);
+        Assert.Equal(SearchOutcome.EnvoyBusyOrForeign, rs.Search("joseon", "cao_cao").Outcome);   // 위 소속
+    }
 }

@@ -31,6 +31,8 @@ internal sealed class ProvinceStateDto
     public int? PublicOrder { get; set; }     // 민심 (§2.3, additive)
     public int? Population { get; set; }      // 현재 인구 (additive — null=정의값)
     public string? GovernorId { get; set; }   // 태수 (additive)
+    public int? Commerce { get; set; }        // 상업 개발 수치 (§2.3.2, additive — null=시작값)
+    public int? Agriculture { get; set; }     // 농업 개발 수치 (§2.3.2, additive — null=시작값)
 }
 
 internal sealed class ArmyDto
@@ -65,6 +67,8 @@ internal sealed class FactionStateDto
     public int? PityCount { get; set; }          // 5성 천장 카운터
     public int? SummonsThisTurn { get; set; }
     public int? RecruitsThisTurn { get; set; }   // 등용 턴당 시도 (§2.8, additive)
+    public int? SearchesThisTurn { get; set; }   // 탐색 턴당 시도 (§2.8 search, additive)
     public string? TaxLevel { get; set; }        // 세율 단계 (§2.3, additive)
     public int? TechPoints { get; set; }         // 기술 포인트 (§2.3, additive)
+    public List<string>? ActedCharacterIds { get; set; }   // 이번 턴 파견 소진 무장 (§2.3.2, additive)
 }

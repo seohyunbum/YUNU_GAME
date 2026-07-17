@@ -19,6 +19,18 @@
 
 ---
 
+## 2026-07-17 — 수치제 경제 + 파견 모델 (§2.3.2): 시장·농지 시설 폐지, 등용 사신 소진은 채택 안 함
+
+- **시도/상황**: T14 — "내정·징병·등용·탐색 모두 무장 파견 + 능력치 의존, 상업·농업은 수치제(거점별 max)". 상업/농업을 시장·농지 시설(레벨 1~3)에서 **수치 개발**로 전환하고, 개발(POL)·징병 군수(LDR)·탐색(INT)을 파견 행동으로 구현.
+- **결과**: game_rules `internal_affairs.governor_*_pct` 는 유지(태수 즉시 생산 % 보정)하되, 시장·농지 FacilityDef 는 제거하고 `economy`/`search` 블록 신설(schema_version 2→3). ProvinceState.Commerce/Agriculture·FactionState.ActedCharacterIds/SearchesThisTurn additive. 빌드·226 테스트 녹색.
+- **이유 / 기각한 대안**:
+  - **등용(recruit) 사신을 ActedCharacterIds 로 소진 처리하려다 기각** — 기존 `recruit_general.max_per_turn`(반복형 외교 캡)·다회 시도 테스트와 충돌. 등용은 이미 사신 매력이 성공률을 좌우해 "능력치 의존" 요건을 만족하므로 소진 대상에서 제외. 소진은 영구 자산을 만드는 개발·징병군수·탐색에만 적용.
+  - **태수 생산 % 보정 제거 검토 → 유지** — InternalAffairsRules·DTO·검증 churn 회피 + "태수는 즉시 효율(%) + 장기 자동개발" 2층 해석이 자연스러움.
+- **밸런스 관측 (하지 않기로 한 것)**: 병행 세션의 지도 확장(육상 18→42거점)과 리베이스 후 배치 시뮬 100판 = 최고 58%(어벤져스) — DoD 70% [SHOULD] 통과. (리베이스 전 소형 18거점 맵에서는 칼데아 100% 편중이 나왔으나 지도 확장으로 해소된 소형 맵 아티팩트.) 수치제 경제는 세력 공통이라 *상대* 균형을 바꾸지 않음 — **경제 계수로 편중을 쫓지 않음**. 남은 이슈는 "전 판 200턴 판정승 교착"(정복 종결 미달성)이며 이는 지도/전투 부채(§9)로 §5.6 밸런스 패널 안건, 경제와 무관.
+- **리베이스 통합 함정**: 병행 세션이 world_map.json 을 대폭 확장(신규 도시 24개+)해 위상 의존 테스트 `분리된_그래프_검출` 이 깨짐(끊으려던 chengdu/nanjing 이 신규 도시로 재연결). → 특정 도시쌍 대신 **대상 노드(sydney)의 전 간선·인접을 프로그램적으로 제거**하는 위상 독립 방식으로 재작성. 신규 도시 24개는 commerce_max/agriculture_max 미지정이나 DataLoader base×5 fallback 으로 정상 로드.
+- **다음 작업자가 반복하지 말 판단**: (1) 등용 사신을 턴당 1행동으로 묶지 말 것(다회 시도 캡과 이중 제약·테스트 회귀). (2) 세력 편중을 경제 계수로 고치려 하지 말 것(원인은 지도/전투). (3) UE5 도시화면 build 버튼의 `market`/`farm` 은 이제 UnknownFacility(fail-soft) — 개발(`develop`) 액션으로 재배선 필요(UE5 세션 작업, Core 무영향). (4) 위상 의존 맵 테스트는 도시쌍 대신 단일 노드 완전 고립으로 작성(맵 확장 내성).
+- **관련 파일·테스트·커밋**: InternalAffairsManager/RecruitmentSystem/AIController/PlaySession/GameSessionHost, GameRules/ProvinceState/FactionState/LandProvince, DataLoader/Dtos/SaveDto/SaveSystem, data/config/game_rules.json·data/map/world_map.json; InternalAffairsTests·RecruitmentTests·GameplayTests·PlaySessionTests·ValidationTests·DomainTests.
+
 ## 2026-07-16 — 시네마틱·초빙(가챠) 설계 시 §4.4 단일 Random 이 blocker 로 판명
 
 - **시도/상황**: 시네마틱 `chance_permyriad` 트리거·가챠 뽑기를 스펙 §4.4 문구 그대로 '시드 주입 Random 하나'로 설계.

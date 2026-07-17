@@ -65,7 +65,7 @@ public sealed class PlaySession
         if (actor is null) { _gm.AdvancePhase(); return true; }   // 행동 세력 부재(fail-soft 삭제 등) → 페이즈 스킵(크래시 방지)
         _out.WriteLine($"\n=== {s.Turn}턴 · {FactionName(actor.Id)} ({actor.Controller}) ===");
         PrintStatus(actor);
-        _out.WriteLine("명령: status / armies / chars / recruits / enlist <대상무장id> <사신무장id> / province [영지id] / capture <영지id> / recruit <영지id> <병종id> <수> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / governor <영지id> <캐릭터id> / dismiss <영지id> / tax <단계> / attack <부대id> <목표id> / build <영지id> <시설> / summon [n] / rates / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
+        _out.WriteLine("명령: status / armies / chars / recruits / enlist <대상무장id> <사신무장id> / search <사신무장id> / province [영지id] / capture <영지id> / recruit <영지id> <병종id> <수> [군수무장id] / develop <영지id> <commerce|agriculture> <무장id> / move <부대id> <목적지id> / assign <부대id> <캐릭터id> / governor <영지id> <캐릭터id> / dismiss <영지id> / tax <단계> / attack <부대id> <목표id> / build <영지id> <시설: port|academy|barracks|walls> / summon [n] / rates / ally|war|peace <세력id> / send <세력id> <금> <식량> / save <경로> / end / quit");
 
         while (true)
         {
@@ -94,12 +94,36 @@ public sealed class PlaySession
 
                 case "recruit":
                     if (t.Length < 4 || !int.TryParse(t[3], out var count))
-                    { _out.WriteLine("사용법: recruit <영지id> <병종id> <수>"); break; }
-                    var ro = _gm.Recruit(actor.Id, t[1], t[2], count);
+                    { _out.WriteLine("사용법: recruit <영지id> <병종id> <수> [군수무장id]"); break; }
+                    var muster = t.Length > 4 ? t[4] : null;   // 군수 파견 시 통솔 할인 (§2.3.2)
+                    var ro = _gm.Recruit(actor.Id, t[1], t[2], count, muster);
                     _out.WriteLine(ro == RecruitOutcome.Success
-                        ? $"✔ {ProvinceName(t[1])}에서 {t[2]} {count} 징병"
+                        ? $"✔ {ProvinceName(t[1])}에서 {t[2]} {count} 징병" +
+                          (muster is null ? "" : $" (군수 {CharacterName(muster)} 통솔 할인)")
                         : $"✘ 징병 실패: {ro}");
                     break;
+
+                case "develop":
+                    if (t.Length < 4) { _out.WriteLine("사용법: develop <영지id> <commerce|agriculture> <무장id>"); break; }
+                    var dv = _gm.Internal.Develop(actor.Id, t[1], t[2], t[3]);
+                    _out.WriteLine(dv.Outcome == DevelopOutcome.Success
+                        ? $"✔ {CharacterName(t[3])} 파견 — {ProvinceName(t[1])} {(t[2] == "commerce" ? "상업" : "농업")} +{dv.Gain} (→ {dv.NewValue}/{dv.Max})"
+                        : $"✘ 개발 실패: {dv.Outcome}");
+                    break;
+
+                case "search":
+                {
+                    if (t.Length < 2) { _out.WriteLine("사용법: search <사신무장id>  (지력이 발굴 성공률↑)"); break; }
+                    var rs = new RecruitmentSystem(s, _db, _gm.Bus);
+                    var res = rs.Search(actor.Id, t[1]);
+                    _out.WriteLine(res.Outcome switch
+                    {
+                        SearchOutcome.Success => $"✔ {CharacterName(t[1])} 탐색 성공 — 재보 발굴! 금 +{res.GoldReward} (성공률 {res.ChancePermyriad / 100}%)",
+                        SearchOutcome.Failed  => $"✘ {CharacterName(t[1])} 탐색 — 소득 없음 (성공률 {res.ChancePermyriad / 100}%)",
+                        _ => $"✘ 탐색 불가: {res.Outcome}"
+                    });
+                    break;
+                }
 
                 case "summon":
                 {
@@ -245,7 +269,7 @@ public sealed class PlaySession
                     break;
 
                 case "build":
-                    if (t.Length < 3) { _out.WriteLine("사용법: build <영지id> <시설: market|farm>"); break; }
+                    if (t.Length < 3) { _out.WriteLine($"사용법: build <영지id> <시설: {string.Join("|", _db.Rules.Facilities.Keys.OrderBy(k => k, StringComparer.Ordinal))}>"); break; }
                     var fo = _gm.BuildFacility(actor.Id, t[1], t[2]);
                     _out.WriteLine(fo == FacilityOutcome.Success
                         ? $"✔ {ProvinceName(t[1])}에 {t[2]} 건설/증축"
@@ -331,9 +355,10 @@ public sealed class PlaySession
         _out.WriteLine($"── {ProvinceName(pid)} [{pid}] ──");
         _out.WriteLine($"  민심 {p.PublicOrder} (생산 승수 {p.PoOutputPct}%) · 인구 {ia.GetPopulation(pid):N0}");
         _out.WriteLine($"  시설: {facilities}");
+        _out.WriteLine($"  개발: 상업 {p.Commerce}/{p.CommerceMax} (금 +{p.CommerceGold}) · 농업 {p.Agriculture}/{p.AgricultureMax} (식량 +{p.AgricultureFood})");
         _out.WriteLine($"  태수: {(gov is null ? "(공석)" : $"{gov.NameKo} — 정치 {gov.Stats.Pol}·매력 {gov.Stats.Cha}·지력 {gov.Stats.Int}")}");
-        _out.WriteLine($"  수입: 금 {p.BaseGold}→{p.FinalGold} (시설 +{p.FacilityGoldPct}% · 태수 +{p.GovernorGoldPct}% · 민심 {p.PoOutputPct}% · 세율 {p.TaxGoldPct}%)");
-        _out.WriteLine($"       식량 {p.BaseFood}→{p.FinalFood} (시설 +{p.FacilityFoodPct}% · 태수 +{p.GovernorFoodPct}% · 민심 {p.PoOutputPct}%)");
+        _out.WriteLine($"  수입: 금 {p.BaseGold}+{p.CommerceGold}→{p.FinalGold} (시설 +{p.FacilityGoldPct}% · 태수 +{p.GovernorGoldPct}% · 민심 {p.PoOutputPct}% · 세율 {p.TaxGoldPct}%)");
+        _out.WriteLine($"       식량 {p.BaseFood}+{p.AgricultureFood}→{p.FinalFood} (시설 +{p.FacilityFoodPct}% · 태수 +{p.GovernorFoodPct}% · 민심 {p.PoOutputPct}%)");
         _out.WriteLine($"  징병 할인 {ia.RecruitDiscountPct(pid)}% · 수비 보정 +{ia.DefenseBonusPct(pid)}%");
     }
 

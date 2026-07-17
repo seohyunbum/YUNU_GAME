@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "stat_min": 1,
   "stat_max": 120,
   "rarity_min": 1,
@@ -148,18 +148,6 @@
     "NW"
   ],
   "facilities": {
-    "market": {
-      "cost_gold": 300,
-      "max_level": 3,
-      "gold_bonus_pct_per_level": 25,
-      "food_bonus_pct_per_level": 0
-    },
-    "farm": {
-      "cost_gold": 300,
-      "max_level": 3,
-      "gold_bonus_pct_per_level": 0,
-      "food_bonus_pct_per_level": 25
-    },
     "port": {
       "cost_gold": 350,
       "max_level": 3,
@@ -265,6 +253,25 @@
     "chance_min_permyriad": 500,
     "chance_max_permyriad": 9500,
     "join_loyalty": 80,
+    "max_per_turn": 3
+  },
+  "economy": {
+    "gold_per_commerce_permil": 250,
+    "food_per_agriculture_permil": 250,
+    "dev_start_pct_of_max": 40,
+    "dev_cost_gold": 120,
+    "dev_base_gain": 15,
+    "dev_pol_gain_per_100": 60,
+    "governor_dev_gain_per_100_pol": 20,
+    "muster_ldr_discount_per_100": 20,
+    "muster_discount_max_pct": 40
+  },
+  "search": {
+    "base_chance_permyriad": 3000,
+    "envoy_int_permyriad_per_100": 4500,
+    "chance_min_permyriad": 500,
+    "chance_max_permyriad": 9500,
+    "gold_reward": 300,
     "max_per_turn": 3
   }
 }

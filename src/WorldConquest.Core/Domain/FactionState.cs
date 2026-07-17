@@ -30,9 +30,15 @@ public sealed class FactionState
     /// <summary>이번 턴 등용 시도 횟수 (§2.8 recruit — recruit_general.max_per_turn 캡. 수입 페이즈 리셋. additive 세이브).</summary>
     public int RecruitsThisTurn { get; set; }
 
+    /// <summary>이번 턴 탐색 시도 횟수 (§2.8 search — search.max_per_turn 캡. 수입 페이즈 리셋. additive 세이브).</summary>
+    public int SearchesThisTurn { get; set; }
+
     /// <summary>세율 단계 id (§2.3 — internal_affairs.tax_levels 키). 빈 값·미인식 = 기본 세율 해석 (additive 세이브).</summary>
     public string TaxLevel { get; set; } = "";
 
     /// <summary>기술 포인트 누적 (§2.3 기술 — 학당 + 태수 지력. 임계 도달 시 TechLevel 상승. additive 세이브).</summary>
     public int TechPoints { get; set; }
+
+    /// <summary>이번 턴 파견 행동을 마친 무장 id (§2.3.2 — 무장 1명 턴당 1회: 개발·징병·등용·탐색. 수입 페이즈 리셋. additive 세이브).</summary>
+    public HashSet<string> ActedCharacterIds { get; init; } = new();
 }

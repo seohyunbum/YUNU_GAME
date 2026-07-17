@@ -157,8 +157,9 @@ public sealed class AIController
     }
 
     /// <summary>
-    /// 1.5) 내정 (§2.3.1): ①보직 없는 소속 무장을 정치 순으로 태수 공석 영지(생산 순)에 파견
-    /// ②여유 자금(비용 3배 보유) 시 최고 생산 영지부터 시설 우선순위대로 턴당 1건 건설.
+    /// 1.5) 내정 (§2.3.1·§2.3.2): ①보직 없는 소속 무장을 정치 순으로 태수 공석 영지(생산 순)에 파견
+    /// ②여유 자금(비용 3배 보유) 시 최고 생산 영지부터 시설 우선순위대로 턴당 1건 건설
+    /// ③남은 유휴 무장을 상업·농업 개발에 파견(정치 순, 여유 자금 가드) — 수치제 경제 성장 (§2.3.2).
     /// 전부 ordinal 정렬 — 난수 없이 결정적.
     /// </summary>
     private void ManageInternalAffairs(FactionState faction)
@@ -166,15 +167,6 @@ public sealed class AIController
         var ia = _gm.Internal;
 
         // ① 태수 파견 — 후보: 소속 && 지휘관 아님 && 태수 아님, 정치 내림차순
-        var idle = _state.CharacterOwners
-            .Where(kv => kv.Value == faction.Id && _db.Characters.ContainsKey(kv.Key))
-            .Select(kv => kv.Key)
-            .Where(id => !_state.Armies.Any(a => a.CommanderId == id) &&
-                         !_state.Fleets.Any(f => f.CommanderId == id) &&
-                         ia.GovernorProvinceOf(id) is null)
-            .OrderByDescending(id => _db.Characters[id].Stats.Pol)
-            .ThenBy(id => id, StringComparer.Ordinal)
-            .ToList();
         var vacant = faction.OwnedProvinceIds
             .Where(pid => _db.Map.GetNode(pid) is LandProvince && ia.GovernorOf(pid) is null)
             .OrderByDescending(pid =>
@@ -184,7 +176,7 @@ public sealed class AIController
             })
             .ThenBy(pid => pid, StringComparer.Ordinal)
             .ToList();
-        foreach (var (pid, cid) in vacant.Zip(idle))
+        foreach (var (pid, cid) in vacant.Zip(IdleGenerals(faction)))
             ia.AppointGovernor(faction.Id, pid, cid);
 
         // ② 시설 투자 — 경제·기술 우선, 여유 자금일 때만 (전비 잠식 방지), 턴당 1건
@@ -197,7 +189,35 @@ public sealed class AIController
             })
             .ThenBy(pid => pid, StringComparer.Ordinal)
             .ToList();
-        foreach (var ftype in new[] { "market", "farm", "port", "academy", "barracks", "walls" })
+        BuildOneFacility(faction, provincesByYield);   // 턴당 1건 (건설했으면 그걸로, 없으면 스킵)
+
+        // ③ 개발 파견 (§2.3.2): 남은 유휴 무장을 상업·농업이 상한 미달인 영지에 정치 순으로 파견.
+        // 여유 자금 가드(비용 3배) — 전비 잠식 방지. 무장 1명 = 1영지(ActedCharacterIds 로 자동 제한).
+        var candidates = provincesByYield
+            .SelectMany(pid => new[]
+            {
+                (pid, kind: "commerce", head: ia.CommerceMax(pid) - ia.GetCommerce(pid)),
+                (pid, kind: "agriculture", head: ia.AgricultureMax(pid) - ia.GetAgriculture(pid))
+            })
+            .Where(x => x.head > 0)
+            .OrderByDescending(x => x.head).ThenBy(x => x.pid, StringComparer.Ordinal).ThenBy(x => x.kind, StringComparer.Ordinal)
+            .ToList();
+        if (candidates.Count == 0) return;
+        var ci = 0;
+        foreach (var cid in IdleGenerals(faction))
+        {
+            if (faction.Treasury < (long)_db.Rules.DevCostGold * 3) break;   // 여유 자금 가드
+            var pick = candidates[ci % candidates.Count];
+            ia.Develop(faction.Id, pick.pid, pick.kind, cid);
+            ci++;
+        }
+    }
+
+    /// <summary>여유 자금(비용 3배) 시 생산 높은 영지부터 시설 우선순위대로 턴당 1건 건설.</summary>
+    private void BuildOneFacility(FactionState faction, List<string> provincesByYield)
+    {
+        var ia = _gm.Internal;
+        foreach (var ftype in new[] { "port", "academy", "barracks", "walls" })
         {
             if (!_db.Rules.Facilities.TryGetValue(ftype, out var def)) continue;
             if (faction.Treasury < (long)def.CostGold * 3) continue;   // 여유 자금 가드
@@ -206,6 +226,19 @@ public sealed class AIController
                     return;   // 턴당 1건
         }
     }
+
+    /// <summary>보직 없는(지휘관·태수 아님) && 이번 턴 미행동 소속 무장 — 정치 내림차순·ordinal. 파견 후보.</summary>
+    private IEnumerable<string> IdleGenerals(FactionState faction) =>
+        _state.CharacterOwners
+            .Where(kv => kv.Value == faction.Id && _db.Characters.ContainsKey(kv.Key))
+            .Select(kv => kv.Key)
+            .Where(id => !_state.Armies.Any(a => a.CommanderId == id) &&
+                         !_state.Fleets.Any(f => f.CommanderId == id) &&
+                         _gm.Internal.GovernorProvinceOf(id) is null &&
+                         !faction.ActedCharacterIds.Contains(id))
+            .OrderByDescending(id => _db.Characters[id].Stats.Pol)
+            .ThenBy(id => id, StringComparer.Ordinal)
+            .ToList();
 
     /// <summary>1) 인접 빈 육상 영지 무혈 점령 — 모든 성향 공통 (확장은 공짜).</summary>
     private void CaptureEmptyNeighbors(FactionState faction)

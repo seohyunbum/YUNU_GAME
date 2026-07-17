@@ -107,9 +107,9 @@ public sealed class GameManager
         return CaptureOutcome.Success;
     }
 
-    /// <summary>징병 (§2.3 병력 = 인구에서 징병) — InternalAffairsManager 위임.</summary>
-    public RecruitOutcome Recruit(string factionId, string provinceId, string unitTypeId, int count) =>
-        _internal.Recruit(factionId, provinceId, unitTypeId, count);
+    /// <summary>징병 (§2.3 병력 = 인구에서 징병) — InternalAffairsManager 위임. musterGeneralId 지정 시 군수 통솔 할인 (§2.3.2).</summary>
+    public RecruitOutcome Recruit(string factionId, string provinceId, string unitTypeId, int count, string? musterGeneralId = null) =>
+        _internal.Recruit(factionId, provinceId, unitTypeId, count, musterGeneralId);
 
     /// <summary>
     /// 부대·함대 이동 (§2.1): 육군 = 육로·목적지 육상 / 함대 = 해로·항구 간선, 목적지 해역 또는 항구 육상(정박).

@@ -88,8 +88,10 @@ public sealed class SaveSystem
             PityCount = f.PityCount ?? 0,
             SummonsThisTurn = f.SummonsThisTurn ?? 0,
             RecruitsThisTurn = f.RecruitsThisTurn ?? 0,
+            SearchesThisTurn = f.SearchesThisTurn ?? 0,
             TaxLevel = f.TaxLevel ?? "",   // 빈 값 = 기본 세율 해석 (§2.3, additive)
-            TechPoints = Math.Max(f.TechPoints ?? 0, 0)
+            TechPoints = Math.Max(f.TechPoints ?? 0, 0),
+            ActedCharacterIds = (f.ActedCharacterIds ?? new()).ToHashSet()   // 파견 소진 (§2.3.2, additive)
         })
         .Where(f =>
         {
@@ -179,7 +181,9 @@ public sealed class SaveSystem
                 Facilities = p.Facilities ?? new(),
                 PublicOrder = p.PublicOrder is { } po ? Math.Clamp(po, 0, 100) : null,   // §2.3 (additive)
                 Population = p.Population is { } pop and >= 0 ? pop : null,
-                GovernorId = p.GovernorId
+                GovernorId = p.GovernorId,
+                Commerce = p.Commerce is { } c and >= 0 ? c : null,          // §2.3.2 (additive)
+                Agriculture = p.Agriculture is { } a and >= 0 ? a : null
             })
             .Where(p =>
             {
@@ -253,8 +257,12 @@ public sealed class SaveSystem
             PityCount = f.PityCount,
             SummonsThisTurn = f.SummonsThisTurn,
             RecruitsThisTurn = f.RecruitsThisTurn,
+            SearchesThisTurn = f.SearchesThisTurn,
             TaxLevel = f.TaxLevel.Length > 0 ? f.TaxLevel : null,   // 기본값은 미기록 (세이브 슬림)
-            TechPoints = f.TechPoints
+            TechPoints = f.TechPoints,
+            ActedCharacterIds = f.ActedCharacterIds.Count > 0
+                ? f.ActedCharacterIds.OrderBy(x => x, StringComparer.Ordinal).ToList()   // 결정적 직렬화
+                : null   // 빈 집합은 미기록 (세이브 슬림)
         }).ToList(),
         // ordinal 정렬 직렬화 — 동일 상태 = 동일 바이트(세이브 §2.7.12, 왕복 비교 단순화).
         Progress = s.Progress.OrderBy(x => x, StringComparer.Ordinal).ToList(),
@@ -279,7 +287,9 @@ public sealed class SaveSystem
             Facilities = p.Facilities.ToDictionary(kv => kv.Key, kv => kv.Value),
             PublicOrder = p.PublicOrder,
             Population = p.Population,
-            GovernorId = p.GovernorId
+            GovernorId = p.GovernorId,
+            Commerce = p.Commerce,
+            Agriculture = p.Agriculture
         }).ToList()
     };
 

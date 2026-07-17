@@ -15,6 +15,8 @@
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 1008,
+      "agriculture_max": 360,
       "adjacent": [
         "pyongyang",
         "busan",
@@ -40,6 +42,8 @@
       "defense_level": 2,
       "port": false,
       "climate": "temperate",
+      "commerce_max": 240,
+      "agriculture_max": 840,
       "adjacent": [
         "hanseong",
         "beijing"
@@ -64,6 +68,8 @@
       "defense_level": 2,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 840,
+      "agriculture_max": 280,
       "adjacent": [
         "hanseong",
         "sea_east_asia"
@@ -88,6 +94,8 @@
       "defense_level": 4,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 672,
+      "agriculture_max": 1050,
       "adjacent": [
         "pyongyang",
         "sea_east_asia",
@@ -114,6 +122,8 @@
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 1260,
+      "agriculture_max": 320,
       "adjacent": [
         "kyoto",
         "sea_pacific"
@@ -138,6 +148,8 @@
       "defense_level": 3,
       "port": false,
       "climate": "temperate",
+      "commerce_max": 210,
+      "agriculture_max": 180,
       "adjacent": [
         "tokyo",
         "osaka"
@@ -162,6 +174,8 @@
       "defense_level": 3,
       "port": false,
       "climate": "temperate",
+      "commerce_max": 910,
+      "agriculture_max": 400,
       "adjacent": [
         "rome",
         "london",
@@ -188,6 +202,8 @@
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 1008,
+      "agriculture_max": 360,
       "adjacent": [
         "paris",
         "baghdad",
@@ -217,6 +233,8 @@
       "defense_level": 2,
       "port": false,
       "climate": "desert",
+      "commerce_max": 440,
+      "agriculture_max": 120,
       "adjacent": [
         "rome",
         "cairo",
@@ -245,6 +263,8 @@
       "defense_level": 2,
       "port": true,
       "climate": "desert",
+      "commerce_max": 432,
+      "agriculture_max": 160,
       "adjacent": [
         "baghdad",
         "sea_atlantic",
@@ -272,6 +292,8 @@
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 1344,
+      "agriculture_max": 360,
       "adjacent": [
         "sea_atlantic",
         "chicago",
@@ -297,6 +319,8 @@
       "defense_level": 1,
       "port": true,
       "climate": "oceanic",
+      "commerce_max": 384,
+      "agriculture_max": 770,
       "adjacent": [
         "sea_pacific",
         "auckland"
@@ -390,6 +414,8 @@
       "defense_level": 3,
       "port": false,
       "climate": "temperate",
+      "commerce_max": 270,
+      "agriculture_max": 300,
       "adjacent": [
         "beijing",
         "nanjing",
@@ -416,6 +442,8 @@
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 624,
+      "agriculture_max": 840,
       "adjacent": [
         "chengdu",
         "sea_east_asia",
@@ -441,6 +469,8 @@
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 1176,
+      "agriculture_max": 340,
       "adjacent": [
         "kyoto",
         "sea_pacific"
@@ -465,6 +495,8 @@
       "defense_level": 3,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 1260,
+      "agriculture_max": 380,
       "adjacent": [
         "paris",
         "sea_atlantic"
@@ -489,6 +521,8 @@
       "defense_level": 2,
       "port": true,
       "climate": "temperate",
+      "commerce_max": 440,
+      "agriculture_max": 630,
       "adjacent": [
         "rome",
         "baghdad",
@@ -518,6 +552,8 @@
       "defense_level": 2,
       "port": true,
       "climate": "tropical",
+      "commerce_max": 528,
+      "agriculture_max": 840,
       "adjacent": [
         "sea_atlantic",
         "buenos_aires"

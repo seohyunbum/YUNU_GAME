@@ -36,7 +36,7 @@ public sealed class DataLoader
     private static readonly HashSet<string> KnownBeats = new() { "line", "narration", "title_card", "pause" };
 
     /// <summary>지원하는 데이터 스키마 버전 (game_rules.json:schema_version). 미래 버전은 로드 거부 (§5.5).</summary>
-    public const int SupportedSchemaVersion = 2;
+    public const int SupportedSchemaVersion = 3;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -300,6 +300,8 @@ public sealed class DataLoader
         Need(dto.Duel, "duel");
         Need(dto.Summon, "summon");
         Need(dto.RecruitGeneral, "recruit_general");
+        Need(dto.Economy, "economy");
+        Need(dto.Search, "search");
         Need(dto.ValidTerrains, "valid_terrains"); Need(dto.ValidClimates, "valid_climates");
         Need(dto.ValidRegions, "valid_regions"); Need(dto.ValidOrigins, "valid_origins");
         Need(dto.ValidEffectTypes, "valid_effect_types"); Need(dto.ValidSkillTargets, "valid_skill_targets");
@@ -361,6 +363,24 @@ public sealed class DataLoader
         Check((rg?.ChanceMinPermyriad ?? 0) <= (rg?.ChanceMaxPermyriad ?? 10000), "recruit_general.chance_min_permyriad", "min 은 max 이하여야 합니다.");
         Check(rg?.JoinLoyalty is >= 0 and <= 100, "recruit_general.join_loyalty", "0~100 이어야 합니다.");
         Check(rg?.MaxPerTurn is >= 1, "recruit_general.max_per_turn", "1 이상이어야 합니다.");
+        var ec = dto.Economy;
+        Check(ec?.GoldPerCommercePermil is >= 0, "economy.gold_per_commerce_permil", "0 이상이어야 합니다.");
+        Check(ec?.FoodPerAgriculturePermil is >= 0, "economy.food_per_agriculture_permil", "0 이상이어야 합니다.");
+        Check(ec?.DevStartPctOfMax is >= 0 and <= 100, "economy.dev_start_pct_of_max", "0~100 이어야 합니다.");
+        Check(ec?.DevCostGold is >= 0, "economy.dev_cost_gold", "0 이상이어야 합니다.");
+        Check(ec?.DevBaseGain is >= 0, "economy.dev_base_gain", "0 이상이어야 합니다.");
+        Check(ec?.DevPolGainPer100 is >= 0, "economy.dev_pol_gain_per_100", "0 이상이어야 합니다.");
+        Check(ec?.GovernorDevGainPer100Pol is >= 0, "economy.governor_dev_gain_per_100_pol", "0 이상이어야 합니다.");
+        Check(ec?.MusterLdrDiscountPer100 is >= 0, "economy.muster_ldr_discount_per_100", "0 이상이어야 합니다.");
+        Check(ec?.MusterDiscountMaxPct is >= 0 and <= 90, "economy.muster_discount_max_pct", "0~90 이어야 합니다.");
+        var se = dto.Search;
+        Check(se?.BaseChancePermyriad is >= 0 and <= 10000, "search.base_chance_permyriad", "0~10000 이어야 합니다.");
+        Check(se?.EnvoyIntPermyriadPer100 is >= 0, "search.envoy_int_permyriad_per_100", "0 이상이어야 합니다.");
+        Check(se?.ChanceMinPermyriad is >= 0 and <= 10000, "search.chance_min_permyriad", "0~10000 이어야 합니다.");
+        Check(se?.ChanceMaxPermyriad is >= 0 and <= 10000, "search.chance_max_permyriad", "0~10000 이어야 합니다.");
+        Check((se?.ChanceMinPermyriad ?? 0) <= (se?.ChanceMaxPermyriad ?? 10000), "search.chance_min_permyriad", "min 은 max 이하여야 합니다.");
+        Check(se?.GoldReward is >= 0, "search.gold_reward", "0 이상이어야 합니다.");
+        Check(se?.MaxPerTurn is >= 1, "search.max_per_turn", "1 이상이어야 합니다.");
         Check(dto.Summon.MaxSummonsPerTurn is >= 1, "summon.max_summons_per_turn", "1 이상이어야 합니다.");
         foreach (var (atk, row) in dto.UnitClassAdvantage!)
         {
@@ -452,6 +472,21 @@ public sealed class DataLoader
             RecruitChanceMaxPermyriad = dto.RecruitGeneral.ChanceMaxPermyriad ?? 10000,
             RecruitJoinLoyalty = dto.RecruitGeneral.JoinLoyalty ?? 80,
             RecruitMaxPerTurn = dto.RecruitGeneral.MaxPerTurn ?? 1,
+            GoldPerCommercePermil = dto.Economy!.GoldPerCommercePermil ?? 0,
+            FoodPerAgriculturePermil = dto.Economy.FoodPerAgriculturePermil ?? 0,
+            DevStartPctOfMax = dto.Economy.DevStartPctOfMax ?? 40,
+            DevCostGold = dto.Economy.DevCostGold ?? 0,
+            DevBaseGain = dto.Economy.DevBaseGain ?? 0,
+            DevPolGainPer100 = dto.Economy.DevPolGainPer100 ?? 0,
+            GovernorDevGainPer100Pol = dto.Economy.GovernorDevGainPer100Pol ?? 0,
+            MusterLdrDiscountPer100 = dto.Economy.MusterLdrDiscountPer100 ?? 0,
+            MusterDiscountMaxPct = dto.Economy.MusterDiscountMaxPct ?? 0,
+            SearchBaseChancePermyriad = dto.Search!.BaseChancePermyriad ?? 0,
+            SearchEnvoyIntPermyriadPer100 = dto.Search.EnvoyIntPermyriadPer100 ?? 0,
+            SearchChanceMinPermyriad = dto.Search.ChanceMinPermyriad ?? 0,
+            SearchChanceMaxPermyriad = dto.Search.ChanceMaxPermyriad ?? 10000,
+            SearchGoldReward = dto.Search.GoldReward ?? 0,
+            SearchMaxPerTurn = dto.Search.MaxPerTurn ?? 1,
             ValidTerrains = dto.ValidTerrains!.ToHashSet(),
             ValidClimates = dto.ValidClimates!.ToHashSet(),
             ValidRegions = dto.ValidRegions!.ToHashSet(),
@@ -824,6 +859,8 @@ public sealed class DataLoader
                         errors.Add(new(MapFile, entry, $"climate '{n.Climate}'는 허용 목록에 없습니다."));
                     if (n.CurrentDirection is not null)
                         errors.Add(new(MapFile, entry, "육상 노드에는 current_direction을 정의할 수 없습니다."));
+                    if (n.CommerceMax is < 1) errors.Add(new(MapFile, entry, "commerce_max는 1 이상이어야 합니다 (미지정 시 base×5 파생, §2.3.2)."));
+                    if (n.AgricultureMax is < 1) errors.Add(new(MapFile, entry, "agriculture_max는 1 이상이어야 합니다 (미지정 시 base×5)."));
                     break;
                 case "sea":
                     if (n.CurrentDirection is null || !rules.ValidCurrentDirections.Contains(n.CurrentDirection))
@@ -1082,7 +1119,9 @@ public sealed class DataLoader
                 n.Id!, n.NameKo!, n.Region!, n.Adjacent!,
                 n.Terrain!, n.Population!.Value,
                 new ResourceYield(n.BaseProduction!.Gold!.Value, n.BaseProduction.Food!.Value),
-                n.FacilitySlots!.Value, n.DefenseLevel!.Value, n.Port!.Value, n.Climate!)
+                n.FacilitySlots!.Value, n.DefenseLevel!.Value, n.Port!.Value, n.Climate!,
+                n.CommerceMax ?? n.BaseProduction.Gold!.Value * 5,        // 미지정 시 base×5 파생 (§2.3.2)
+                n.AgricultureMax ?? n.BaseProduction.Food!.Value * 5)
                 { MapPos = new MapPos(n.MapPos!.X!.Value, n.MapPos.Y!.Value) }
             : new SeaZone(n.Id!, n.NameKo!, n.Region!, n.Adjacent!, n.CurrentDirection!)
                 { MapPos = new MapPos(n.MapPos!.X!.Value, n.MapPos.Y!.Value) }).ToList();

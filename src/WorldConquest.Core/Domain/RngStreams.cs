@@ -11,6 +11,7 @@ public sealed class RngStreams
     public const string WorldEvents = "world_events";
     public static string Summon(string factionId) => $"summon:{factionId}";
     public static string Recruit(string factionId) => $"recruit:{factionId}";
+    public static string Search(string factionId) => $"search:{factionId}";
 
     private readonly ulong _masterSeed;
     private readonly Dictionary<string, Pcg32> _streams = new();

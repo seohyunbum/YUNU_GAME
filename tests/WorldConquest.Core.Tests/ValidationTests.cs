@@ -210,32 +210,27 @@ public class ValidationTests
         using var dir = new MutableDataDir();
         dir.Mutate(DataLoader.MapFile, n =>
         {
-            // chengdu-beijing 과 nanjing-해역 을 끊으면 {chengdu,nanjing} 이 본토에서 분리된다
-            // (둘은 chengdu-nanjing 간선으로 서로만 연결 — 도달 불가 성분).
+            // 대상 노드(sydney)의 모든 간선·인접 참조를 제거해 본토에서 완전 고립시킨다.
+            // 특정 도시쌍 위상에 의존하지 않으므로 맵이 확장돼도(신규 도시 추가) 안정적으로 도달 불가 성분을 만든다.
+            const string target = "sydney";
             var edges = n["edges"]!.AsArray();
-            void CutEdge(string a, string b)
-            {
-                var idx = edges.Select((e, i) => (e, i)).First(x =>
-                    (((string?)x.e!["from"] == a && (string?)x.e!["to"] == b) ||
-                     ((string?)x.e!["from"] == b && (string?)x.e!["to"] == a))).i;
-                edges.RemoveAt(idx);
-            }
-            void CutAdj(JsonArray nodes, string node, string neighbor)
-            {
-                var adj = nodes.First(x => (string?)x!["id"] == node)!["adjacent"]!.AsArray();
-                adj.RemoveAt(adj.Select((a, i) => (a, i)).First(x => (string?)x.a == neighbor).i);
-            }
-            CutEdge("chengdu", "beijing");
-            CutEdge("nanjing", "sea_east_asia");
+            for (var i = edges.Count - 1; i >= 0; i--)
+                if ((string?)edges[i]!["from"] == target || (string?)edges[i]!["to"] == target)
+                    edges.RemoveAt(i);
             var nodes = n["nodes"]!.AsArray();
-            CutAdj(nodes, "chengdu", "beijing");
-            CutAdj(nodes, "beijing", "chengdu");
-            CutAdj(nodes, "nanjing", "sea_east_asia");
-            CutAdj(nodes, "sea_east_asia", "nanjing");
-            nodes.First(x => (string?)x!["id"] == "nanjing")!["port"] = false;   // 해역 단절 후 port 정합
+            foreach (var node in nodes)
+            {
+                var adj = node!["adjacent"]?.AsArray();
+                if (adj is null) continue;
+                for (var i = adj.Count - 1; i >= 0; i--)
+                    if ((string?)adj[i] == target) adj.RemoveAt(i);
+            }
+            var t = nodes.First(x => (string?)x!["id"] == target)!;
+            t["adjacent"] = new JsonArray();
+            t["port"] = false;   // 항구 간선 제거 후 port 정합
         });
         var ex = LoadFails(dir);
-        AssertError(ex, DataLoader.MapFile, "chengdu", "도달 불가");
+        AssertError(ex, DataLoader.MapFile, "sydney", "도달 불가");
     }
 
     [Fact]
@@ -290,9 +285,9 @@ public class ValidationTests
     public void 시설_정의_null_이면_크래시없이_검출()   // QA high: facilities 값 null → NRE
     {
         using var dir = new MutableDataDir();
-        dir.Mutate(DataLoader.RulesFile, n => n["facilities"]!["market"] = null);
+        dir.Mutate(DataLoader.RulesFile, n => n["facilities"]!["port"] = null);
         var ex = LoadFails(dir);
-        AssertError(ex, DataLoader.RulesFile, "facilities.market", "null");
+        AssertError(ex, DataLoader.RulesFile, "facilities.port", "null");
     }
 
     [Fact]

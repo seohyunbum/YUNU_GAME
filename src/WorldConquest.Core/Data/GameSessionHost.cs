@@ -94,7 +94,8 @@ public sealed class GameSessionHost
                 p.Id,
                 owners.TryGetValue(p.Id, out var o) ? o : null,
                 facilities.TryGetValue(p.Id, out var fc) ? fc : new Dictionary<string, int>(),
-                ia.GetPublicOrder(p.Id), ia.GetPopulation(p.Id), ia.GovernorOf(p.Id)?.Id)).ToList(),
+                ia.GetPublicOrder(p.Id), ia.GetPopulation(p.Id), ia.GovernorOf(p.Id)?.Id,
+                ia.GetCommerce(p.Id), ia.CommerceMax(p.Id), ia.GetAgriculture(p.Id), ia.AgricultureMax(p.Id))).ToList(),
             s.Armies.Select(ForceView).ToList(),
             s.Fleets.Select(ForceView).ToList(),
             new Dictionary<string, string>(s.CharacterOwners),
@@ -195,11 +196,28 @@ public sealed class GameSessionHost
             }
             case "recruit":
             {
-                Require(args, 3, "recruit <영지id> <병종id> <수>");
+                Require(args, 3, "recruit <영지id> <병종id> <수> [군수무장id]");
                 if (!int.TryParse(args[2], out var count)) { ok = false; return "수는 정수여야 합니다."; }
-                var o = gm.Recruit(factionId, args[0], args[1], count);
+                var muster = args.Length > 3 ? args[3] : null;   // 군수 파견 시 통솔 할인 (§2.3.2)
+                var o = gm.Recruit(factionId, args[0], args[1], count, muster);
                 if (o != RecruitOutcome.Success) { ok = false; return $"징병 실패: {o}"; }
                 return $"{args[0]}에서 {args[1]} {count} 징병";
+            }
+            case "develop":
+            {
+                Require(args, 3, "develop <영지id> <commerce|agriculture> <무장id>");
+                var res = gm.Internal.Develop(factionId, args[0], args[1], args[2]);
+                if (res.Outcome != DevelopOutcome.Success) { ok = false; return $"개발 실패: {res.Outcome}"; }
+                return $"{args[0]} {args[1]} +{res.Gain} (→ {res.NewValue}/{res.Max})";
+            }
+            case "search":
+            {
+                Require(args, 1, "search <사신무장id>");
+                var rs = new RecruitmentSystem(s, _db, gm.Bus);
+                var res = rs.Search(factionId, args[0]);
+                if (res.Outcome == SearchOutcome.Success) return $"{args[0]} 탐색 성공 — 금 +{res.GoldReward} (성공률 {res.ChancePermyriad / 100}%)";
+                if (res.Outcome == SearchOutcome.Failed) return $"{args[0]} 탐색 — 소득 없음 (성공률 {res.ChancePermyriad / 100}%)";
+                ok = false; return $"탐색 불가: {res.Outcome}";
             }
             case "move":
             {
