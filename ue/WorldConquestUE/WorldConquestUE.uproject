@@ -1,0 +1,14 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "WorldConquest UE5 presentation client - C# authoritative sim (ue5-client-design)",
+	"Modules": [
+		{
+			"Name": "WorldConquestUE",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": []
+}

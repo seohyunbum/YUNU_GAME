@@ -82,3 +82,11 @@
 - **함정 (재발 방지)**: Git Bash 의 curl.exe 는 `-d '한글'` 인자를 CP949 로 전송해 서버(UTF-8 리더)에서 mojibake — API 검증 시 **한글 본문은 UTF-8 파일로 만들어 `--data-binary @file`** 로 보낼 것. `curl -X POST` 본문 없음 = HTTP.SYS 411 → `-d '{}'` 필수. 서버 결함 아님(UE 클라는 Content-Length 정상 부착).
 - **다음**: Day-0(U6 — 사용자: 디스크 확보+UE5.5+VS2022 C++ 설치) → AI 가 CLI 빌드·오프스크린 샷 왕복 검증 → M1 수직 슬라이스.
 - **관련**: `src/WorldConquest.Core/Data/SessionDriver.cs`·`GameSessionHost.cs`·`ApiDtos.cs`, `src/WorldConquest.ConsoleHost/ApiServer.cs`, `tests/.../ApiContractTests.cs`, 설계 정본 `docs/designs/ue5-client-design.md`.
+
+## 2026-07-17 — Day-0 게이트 통과: UE 5.8 + VS2022 설치, 빌드·스크린샷·핸드셰이크 왕복
+
+- **시도/상황**: U6(디스크·설치) 해소 — Fortnite 96GB 삭제(사용자), VS2022 CLI 무인 설치(AI, 부트스트래퍼 --passive), UE 5.8.0 런처 설치(사용자 클릭). AI가 Day-0 게이트 검증.
+- **결과**: ①UBT CLI 빌드 Succeeded(49s) ②오프스크린 부팅(-game -RenderOffscreen) ③**UE 클라 → C# 게임서버 HTTP 핸드셰이크 성공** ("서버 핸드셰이크 OK — protocol v1") ④HighResShot 1280×720 → AI 이미지 판독(Entry 맵=순흑, 예상 일치). 시각 QA 하네스 성립 — 이후 모든 UE 반복이 자가검증 가능.
+- **UE 프로젝트 골격**: `ue/WorldConquestUE/` — uproject(플러그인 0)·C++ 모듈(HTTP/Json/UMG 내장만)·WCGameMode·WCApiSubsystem(/api/info)·엔진 내장 Entry 맵 부팅(.umap 저작 없음, 코드-퍼스트).
+- **함정 3건 (재발 방지)**: ①스크래치패드 워크트리 경로가 UE 중간산출물에서 **260자 초과** → junction `C:\Users\Public\WCUE`(python `_winapi.CreateJunction` — cmd mklink 는 MSYS 인자변환 충돌) ②UE 첫 실행이 **무음으로 수 분**(Defender 스캔 추정) — `-stdout -FullStdOutLogOutput -unattended` 없이는 진행 판별 불가 ③엔진 설치 완료 직후엔 파일이 덜 풀려 UBT 룰 어셈블리 오류 — 설치 안정화 후 재시도.
+- **다음**: M1 수직 슬라이스 — /api/static 지도 절차 생성 렌더 + 소유 색 + end turn + 스크린샷 QA.
