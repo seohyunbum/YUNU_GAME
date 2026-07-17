@@ -22,6 +22,17 @@ internal sealed class SaveDto
     public List<ProvinceStateDto>? Provinces { get; set; }
     public List<string>? FiredCutsceneIds { get; set; }   // §2.7.12 fired=seen (additive)
     public Dictionary<string, string>? CharacterOwners { get; set; }   // §2.8 캐릭터 소속 (additive)
+    public List<RelationStateDto>? Relations { get; set; }   // 외교 관계도 — 쌍 단위 (additive, E3)
+}
+
+/// <summary>쌍 단위 관계도 (외교 E3). PairKey 는 파생값이라 저장하지 않는다 — 두 id 를 직접 들고 있어야
+/// D9 프루닝이 "{a}+{b}" 역파싱 없이 동작한다(세력 id 문자 제약이 없으므로).</summary>
+internal sealed class RelationStateDto
+{
+    public string? FactionA { get; set; }
+    public string? FactionB { get; set; }
+    public int? Favor { get; set; }
+    public int? TruceUntilTurn { get; set; }
 }
 
 internal sealed class ProvinceStateDto

@@ -105,6 +105,7 @@ public sealed class DiplomacyManager
         return (fa, fb, DiplomacyOutcome.Success);
     }
 
-    private static string Canonical(string a, string b) =>
-        StringComparer.Ordinal.Compare(a, b) <= 0 ? $"{a}+{b}" : $"{b}+{a}";
+    // Canonical 은 RelationLedger 로 이관됐다 (외교 E3) — private static 이라 별개 클래스에서
+    // 호출할 수 없었기 때문. `alliance:{canonical}` Progress 규약은 동일 함수를 계속 쓴다.
+    private static string Canonical(string a, string b) => RelationLedger.Canonical(a, b);
 }

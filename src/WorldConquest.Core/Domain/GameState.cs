@@ -32,6 +32,13 @@ public sealed class GameState
     /// <summary>캐릭터 소속 (charId → factionId, §2.8 — 미기록 = 재야. 초빙 풀은 여기서 파생, 이중 장부 금지).</summary>
     public Dictionary<string, string> CharacterOwners { get; init; } = new();
 
+    /// <summary>
+    /// 쌍 단위 관계도 (외교 E3) — additive, 구세이브는 빈 리스트로 로드(SaveVersion 유지).
+    /// 세력별이 아니라 **루트에** 두는 이유: 쌍 상태를 세력별로 쪼개면 양측 이중 장부가 된다.
+    /// 쓰기는 RelationLedger 단독 (E5 화이트리스트).
+    /// </summary>
+    public List<RelationState> Relations { get; init; } = new();
+
     /// <summary>이 상태가 로드될 때 정규화된 원본 세이브 버전 (신규 게임은 현재 버전).</summary>
     public int MigratedFromVersion { get; init; }
 }

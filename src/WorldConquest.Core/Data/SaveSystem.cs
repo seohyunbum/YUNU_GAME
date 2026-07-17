@@ -124,6 +124,27 @@ public sealed class SaveSystem
                 }
             }
 
+        // 쌍 단위 관계도(Favor) — 위 세력별 Relations 프루닝과 **동형**으로 처리한다 (외교 E3·D9).
+        // 술어는 db.Factions 가 아니라 liveFactionIds 여야 한다: db 정의엔 있으나 세이브 Factions
+        // 목록에서 이미 스킵된 세력을 가리키는 쌍이 살아남으면 dangling RelationState 가 된다.
+        var relations = (dto.Relations ?? new())
+            .Where(r => r.FactionA is not null && r.FactionB is not null)
+            .Select(r => new RelationState
+            {
+                FactionA = r.FactionA!,
+                FactionB = r.FactionB!,
+                Favor = r.Favor ?? 0,
+                TruceUntilTurn = r.TruceUntilTurn
+            })
+            .Where(r =>
+            {
+                if (db is null) return true;
+                if (liveFactionIds.Contains(r.FactionA) && liveFactionIds.Contains(r.FactionB)) return true;
+                skipped?.Add($"relation_pair:{r.PairKey}");
+                return false;
+            })
+            .ToList();
+
         var armies = (dto.Armies ?? new())
             .Select(a =>
             {
@@ -229,6 +250,7 @@ public sealed class SaveSystem
             Provinces = provinces,
             FiredCutsceneIds = (dto.FiredCutsceneIds ?? new()).ToHashSet(),   // 결번 id 잔존 무해(정의 없는 id 무시)
             CharacterOwners = dto.CharacterOwners ?? new(),
+            Relations = relations,   // 외교 관계도 (additive — 구세이브는 빈 리스트)
             MigratedFromVersion = version
         };
     }
@@ -269,6 +291,13 @@ public sealed class SaveSystem
         FiredCutsceneIds = s.FiredCutsceneIds.OrderBy(x => x, StringComparer.Ordinal).ToList(),
         CharacterOwners = s.CharacterOwners.OrderBy(kv => kv.Key, StringComparer.Ordinal)
             .ToDictionary(kv => kv.Key, kv => kv.Value),
+        // 관계도도 ordinal 정렬 직렬화 — 동일 상태 = 동일 바이트 (위 규약과 동형)
+        Relations = s.Relations.OrderBy(r => r.PairKey, StringComparer.Ordinal)
+            .Select(r => new RelationStateDto
+            {
+                FactionA = r.FactionA, FactionB = r.FactionB,
+                Favor = r.Favor, TruceUntilTurn = r.TruceUntilTurn
+            }).ToList(),
         Armies = s.Armies.Select(a => new ArmyDto
         {
             Id = a.Id, FactionId = a.FactionId, LocationNodeId = a.LocationNodeId,
