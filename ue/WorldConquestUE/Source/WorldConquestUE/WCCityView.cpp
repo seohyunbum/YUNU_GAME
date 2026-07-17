@@ -53,10 +53,11 @@ void SWCCityView::Construct(const FArguments& InArgs)
         SNew(SOverlay)
         .Visibility(this, &SWCCityView::CityVisibility)
 
-        // ── 배경: 도시 위성 이미지 (진입 시 lazy 교체) ──
-        + SOverlay::Slot()
+        // 배경 = 3D 디오라마(뷰포트가 직접 렌더). 하단 그라데이션 대신 상/하 살짝 어둡게만.
+        + SOverlay::Slot().VAlign(VAlign_Top)
         [
-            SNew(SImage).Image(this, &SWCCityView::GetBgBrush)
+            SNew(SBox).HeightOverride(96)
+            [ SNew(SImage).Image(this, &SWCCityView::GetBgBrush) ]   // 헤더 가독용 다크 바 (브러시는 단색)
         ]
 
         // ── 콘텐츠 ──
@@ -88,23 +89,26 @@ void SWCCityView::Construct(const FArguments& InArgs)
                 ]
             ]
 
-            // 금색 구분선
-            + SVerticalBox::Slot().AutoHeight().Padding(0, 12, 0, 16)
-            [ SNew(SBox).HeightOverride(2)[ SNew(SBorder).BorderImage(White()).BorderBackgroundColor(FSlateColor(GoldDim)) ] ]
-
-            // 3컬럼
+            // 상단 여백 = 디오라마(천수각)가 보이는 구간
             + SVerticalBox::Slot().FillHeight(1)
+            [ SNullWidget::NullWidget ]
+
+            // 3컬럼 패널 — 하단 스트립 (KOEI 식: 3D 도시 위에 명령 패널)
+            + SVerticalBox::Slot().AutoHeight()
             [
-                SNew(SHorizontalBox)
-                + SHorizontalBox::Slot().FillWidth(1).Padding(0, 0, 12, 0)[ MakeDomesticPanel() ]
-                + SHorizontalBox::Slot().FillWidth(1).Padding(0, 0, 12, 0)[ MakeMilitaryPanel() ]
-                + SHorizontalBox::Slot().FillWidth(1)[ MakeTavernPanel() ]
+                SNew(SBox).HeightOverride(360)
+                [
+                    SNew(SHorizontalBox)
+                    + SHorizontalBox::Slot().FillWidth(1).Padding(0, 0, 12, 0)[ MakeDomesticPanel() ]
+                    + SHorizontalBox::Slot().FillWidth(1).Padding(0, 0, 12, 0)[ MakeMilitaryPanel() ]
+                    + SHorizontalBox::Slot().FillWidth(1)[ MakeTavernPanel() ]
+                ]
             ]
 
             // 하단 복귀
-            + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 16, 0, 0)
+            + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 12, 0, 0)
             [
-                SNew(SBox).WidthOverride(280).HeightOverride(42)
+                SNew(SBox).WidthOverride(280).HeightOverride(40)
                 [
                     SNew(SButton)
                     .OnClicked_Lambda([this] { if (GM.IsValid()) GM->LeaveCity(); return FReply::Handled(); })
@@ -344,26 +348,18 @@ void SWCCityView::RebuildCharacterGrid() const
 
 const FSlateBrush* SWCCityView::GetBgBrush() const
 {
-    // 진입 도시가 바뀌면 배경 텍스처 lazy 교체 (/Game/CityBg/T_<id>)
+    // 배경은 3D 디오라마가 렌더 — 이 브러시는 헤더 가독용 상단 다크 그라데이션 바.
+    static FSlateBrush DarkBar;
+    DarkBar.TintColor = FSlateColor(FLinearColor(0.02f, 0.02f, 0.03f, 0.72f));
+    // 진입 도시 변경·무장 수 변화 감지로 카드 그리드 갱신 (어트리뷰트 평가 = 게임 스레드)
     if (GM.IsValid() && GM->EnteredCityId != BgLoadedCity)
     {
         BgLoadedCity = GM->EnteredCityId;
-        RebuildCharacterGrid();   // 도시 진입 시 무장 그리드도 갱신
-        if (UTexture2D* Tex = LoadObject<UTexture2D>(nullptr,
-                *FString::Printf(TEXT("/Game/CityBg/T_%s.T_%s"), *BgLoadedCity, *BgLoadedCity)))
-        {
-            BgBrush->SetResourceObject(Tex);
-            BgBrush->ImageSize = FVector2D(Tex->GetSizeX(), Tex->GetSizeY());
-        }
-        else
-        {
-            BgBrush->SetResourceObject(nullptr);
-        }
+        RebuildCharacterGrid();
     }
-    // 무장 수가 바뀌면(초빙) 그리드 갱신 — 카드 수 비교로 저비용 감지
     if (GM.IsValid() && CharacterGrid.IsValid() && CharacterGrid->GetChildren()->Num() != GM->UiMyCharacterCards().Num())
         RebuildCharacterGrid();
-    return BgBrush.Get();
+    return &DarkBar;
 }
 
 TSharedRef<SWidget> SWCCityView::MakeButton(const FText& Label, TFunction<void(AWCGameMode*)> Action)

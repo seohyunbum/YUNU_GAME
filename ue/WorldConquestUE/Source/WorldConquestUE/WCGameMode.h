@@ -111,6 +111,8 @@ public:
     // ── 도시(거점) 화면 — 세계지도와 별개의 내정·군사·초빙 뷰 ──
     void EnterCity(const FString& NodeId);   // 소유 도시만 (더블클릭 / [도시 진입] 버튼)
     void LeaveCity();
+    TObjectPtr<class AWCCityDiorama> Diorama;   // 도시 3D 배경 (먼 위치, 도시 화면 카메라 전용)
+    TObjectPtr<class ACameraActor> CityCamera;
     bool UiInCity() const { return !EnteredCityId.IsEmpty(); }
     bool UiCanEnterSelected() const;         // 선택 영지가 현재 차례 세력 소유인가
     void EnterSelectedCity() { if (UiCanEnterSelected()) EnterCity(SelectedNodeId); }

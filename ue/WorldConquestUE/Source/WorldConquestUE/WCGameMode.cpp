@@ -1,6 +1,7 @@
 #include "WCGameMode.h"
 #include "WCApiSubsystem.h"
 #include "WCMapActor.h"
+#include "WCCityDiorama.h"
 #include "WCMainUI.h"
 #include "WCCityView.h"
 #include "WCRevealOverlay.h"
@@ -98,6 +99,20 @@ void AWCGameMode::BeginPlay()
     }
 
     MapActor = GetWorld()->SpawnActor<AWCMapActor>(FVector::ZeroVector, FRotator::ZeroRotator);
+
+    // 도시 디오라마 — 지도에서 멀리 떨어진 곳(간섭 방지)에 1회 스폰. 도시 진입 시 전용 카메라가 비춤.
+    const FVector DioramaOrigin(0, 0, 200000);
+    Diorama = GetWorld()->SpawnActor<AWCCityDiorama>(DioramaOrigin, FRotator::ZeroRotator);
+    CityCamera = GetWorld()->SpawnActor<ACameraActor>();
+    if (CityCamera)
+    {
+        CityCamera->GetCameraComponent()->SetFieldOfView(50.f);
+        const FTransform Vp = Diorama->GetViewpoint();   // 액터 월드 위치 기준 절대 트랜스폼
+        CityCamera->SetActorLocationAndRotation(Vp.GetLocation(), Vp.Rotator());
+    }
+
+    // (디오라마 채움광 없음 — directional light 는 위치 무관 전역 조명이라 지도 태양이 이미 비춘다.
+    //  두 번째 directional light 는 "다중 주광 경쟁" 경고를 유발하므로 스폰하지 않는다.)
 
     // KOEI 식 메인 UI (Slate — 코드 퍼스트). Playing 단계에서만 보임.
     if (GEngine && GEngine->GameViewport)
@@ -797,11 +812,36 @@ void AWCGameMode::EnterCity(const FString& NodeId)
     SelectedNodeId = NodeId;
     UpdateSelectionInfo();
     RefreshRates();   // 주막 확률 공시 (§2.8.6)
+
+    // 디오라마 갱신 + 카메라 전환 (도시 3D 배경)
+    if (Diorama)
+    {
+        FString OwnerId;
+        if (LastState.IsValid())
+            for (const TSharedPtr<FJsonValue>& P : LastState->GetArrayField(TEXT("provinces")))
+                if (P->AsObject()->GetStringField(TEXT("id")) == NodeId)
+                { P->AsObject()->TryGetStringField(TEXT("owner_faction_id"), OwnerId); break; }
+        int32 MarketLv = 0, FarmLv = 0;
+        for (const auto& Row : UiCityFacilityRows())
+        {
+            if (Row.NameKo == TEXT("시장")) MarketLv = Row.Level;
+            else if (Row.NameKo == TEXT("농지")) FarmLv = Row.Level;
+        }
+        const FWCNodeInfo* Info = NodeInfos.Find(NodeId);
+        Diorama->Configure(MapActor ? MapActor->GetFactionColor(OwnerId) : FLinearColor::Gray,
+            MarketLv, FarmLv, Info && Info->bPort);
+    }
+    if (CityCamera)
+        if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+            PC->SetViewTargetWithBlend(CityCamera, 0.6f);   // 부드러운 진입 전환
 }
 
 void AWCGameMode::LeaveCity()
 {
     EnteredCityId.Empty();
+    if (BoardCamera)
+        if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+            PC->SetViewTargetWithBlend(BoardCamera, 0.5f);   // 지도 복귀
 }
 
 void AWCGameMode::RefreshRates()
