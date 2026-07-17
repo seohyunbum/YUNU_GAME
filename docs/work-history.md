@@ -108,3 +108,9 @@
 - **고아 차단 여정 (3회 실패 끝 확정)**: ①Deinitialize TerminateProc — 강제 킬 시 미호출 ②Windows Job Object(KILL_ON_JOB_CLOSE) — 이 실행 환경(상위 Job 존재)에서 무력 ③stdin EOF — **파이프 핸들이 자식에 상속되면 EOF 불발**(Win32 함정) ④**부모 PID 감시(`Process.GetProcessById(pid).WaitForExit()`) = 정답** — 격리 실험+UE 경유 양쪽 실증. 콘솔 직접 실행은 --parent-pid 미지정이라 무영향.
 - **검증 스크립트 함정 (오판 3회의 원인)**: `tasklist | grep pat | head -1 && ✘ || ✔` 은 **파이프 exit code 가 head(항상 0)** 라 매치 없어도 ✘ — 존재 판정은 반드시 `grep -q` 를 파이프 말단에. 고아 "잔존" 오판 전부 이것.
 - **관련**: WCApiSubsystem(스폰·핸드셰이크), WCGameMode(이벤트 라인·선택), WCHUD(라벨·로그), WCMapActor(마커·픽킹), ApiServer.cs(--parent-pid).
+
+## 2026-07-17 — 바탕화면 [세계정복 3D] 바로가기 (영구 경로)
+
+- **핵심 판단**: 개발 worktree 는 임시 scratchpad 라 바로가기 대상 부적합 → **영구 detached 체크아웃** `C:\Users\Public\wc-game` (origin 브랜치 추적, 짧은 ASCII 경로라 junction 불필요). 갱신 = `git fetch + reset --hard origin/<브랜치>` + UE 재빌드.
+- **결과**: WorldConquest3D.bat → UnrealEditor.exe -game (서버는 UE 가 자식 스폰·고아 차단 포함). 영구 경로에서 스폰→핸드셰이크→지도 스크린샷→정리 전 사이클 실증. 바탕화면 4종: 게임(콘솔2인)·1인플레이(콘솔)·3D(UE)·밸런스관리.
+- **다음 작업자**: 코드 갱신 후 3D 반영은 wc-game 에서 fetch+reset+Build.bat. deploy-local.py 통합은 M2 증분2.
