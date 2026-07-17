@@ -16,6 +16,69 @@ public class ValidationTests
         Assert.Contains(ex.Errors, e =>
             e.File == file && e.Entry.Contains(entryContains) && e.Message.Contains(messageContains));
 
+    // ── 외교 diplomacy 블록 (외교 설계 §6.1 — DataLoader 3중 훅 중 Need·Check) ──
+
+    [Fact]
+    public void 외교_블록_누락_검출()
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.RulesFile, n => n.AsObject().Remove("diplomacy"));
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "diplomacy", "필수 필드 누락");
+    }
+
+    [Fact]
+    public void 외교_태도_임계값_순서_위반_검출()
+    {
+        using var dir = new MutableDataDir();
+        // friendly(200) > devoted 가 되도록 뒤집기 → nemesis < hostile < 0 < friendly < devoted 파괴
+        dir.Mutate(DataLoader.RulesFile, n => n["diplomacy"]!["attitude_thresholds"]!["devoted"] = 100);
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "diplomacy.attitude_thresholds", "순서 필수");
+    }
+
+    /// <summary>
+    /// §5.5 도달 산술 보호: common_enemy_per_turn 이 0 이면 비동맹 AI 쌍에 걸리는 지속적 양(+) 소스가
+    /// 사라져 AI 간 동맹이 영영 성립하지 않는다 — 요구사항 게이트가 데이터만으로 죽는 것을 로더가 막는다.
+    /// </summary>
+    [Fact]
+    public void 외교_공동의적_축적이_0이면_거부()
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.RulesFile, n => n["diplomacy"]!["common_enemy_per_turn"] = 0);
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "diplomacy.common_enemy_per_turn", "0 초과");
+    }
+
+    [Fact]
+    public void 외교_전투_우호도_변화가_양수면_거부()
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.RulesFile, n => n["diplomacy"]!["on_battle_fought"] = 50);
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "diplomacy.on_battle_fought", "음수 필수");
+    }
+
+    [Fact]
+    public void 외교_계략_확률_만분율_범위_위반_검출()
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.RulesFile, n => n["diplomacy"]!["scheme"]!["base_success_permyriad"] = 20000);
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "diplomacy.scheme.base_success_permyriad", "만분율");
+    }
+
+    /// <summary>성향 델타 키는 valid_ai_dispositions 와 일치해야 한다 — 누락 시 AI 가 조용히 기본값을 쓰게 된다.</summary>
+    [Fact]
+    public void 외교_성향_델타에_유효성향_누락_검출()
+    {
+        using var dir = new MutableDataDir();
+        dir.Mutate(DataLoader.RulesFile,
+            n => n["diplomacy"]!["ai"]!["disposition_war_favor_delta"]!.AsObject().Remove("aggressive"));
+        var ex = LoadFails(dir);
+        AssertError(ex, DataLoader.RulesFile, "diplomacy.ai.disposition_war_favor_delta", "aggressive");
+    }
+
     [Fact]
     public void 존재하지_않는_스킬_참조_검출()
     {

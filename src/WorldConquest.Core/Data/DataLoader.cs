@@ -36,6 +36,10 @@ public sealed class DataLoader
     private static readonly HashSet<string> KnownBeats = new() { "line", "narration", "title_card", "pause" };
 
     /// <summary>지원하는 데이터 스키마 버전 (game_rules.json:schema_version). 미래 버전은 로드 거부 (§5.5).</summary>
+    // schema_version 3 = 병렬 additive 2건 합류: 경제·파견 모델(3)과 diplomacy 블록.
+    // 둘 다 additive(필드 추가)라 §0.3-7 대로 각자 2→3 을 올렸고, 병합 후에도 3 로 수렴한다
+    // (배포본이 없어 '3-경제' 와 '3-외교' 를 구분할 필요가 없음). 검사는 >= 1 and <= 이 값이라
+    // 구버전(1·2) 데이터는 그대로 통과 — 마이그레이션 0줄.
     public const int SupportedSchemaVersion = 3;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -294,6 +298,12 @@ public sealed class DataLoader
         Need(dto.LandingDebuffTurns, "landing_debuff_turns");
         Need(dto.AllianceTransferCapPerTurn, "alliance_transfer_cap_per_turn");
         Need(dto.InternalAffairs, "internal_affairs");
+        Need(dto.Diplomacy, "diplomacy");
+        Need(dto.Diplomacy?.AttitudeThresholds, "diplomacy.attitude_thresholds");
+        Need(dto.Diplomacy?.Tribute, "diplomacy.tribute");
+        Need(dto.Diplomacy?.Scheme, "diplomacy.scheme");
+        Need(dto.Diplomacy?.Ai, "diplomacy.ai");
+        Need(dto.Diplomacy?.Ai?.DispositionWarFavorDelta, "diplomacy.ai.disposition_war_favor_delta");
         Need(dto.UnitClassAdvantage, "unit_class_advantage");
         Need(dto.Facilities, "facilities");
         Need(dto.Combat, "combat");
@@ -332,6 +342,7 @@ public sealed class DataLoader
         Check(dto.AllianceTransferCapPerTurn!.Gold is >= 0 && dto.AllianceTransferCapPerTurn.Food is >= 0,
             "alliance_transfer_cap_per_turn", "gold/food는 0 이상 필수입니다.");
         ValidateInternalAffairs(dto.InternalAffairs!, Check);
+        ValidateDiplomacy(dto.Diplomacy!, dto.ValidAiDispositions, Check);
         Check(dto.LoyaltyMin!.Value <= dto.LoyaltyMax!.Value, "loyalty_min/loyalty_max", "loyalty_min <= loyalty_max 이어야 합니다.");
         Check(dto.MoraleMax!.Value >= 1, "morale_max", "1 이상이어야 합니다.");
         Check(dto.Combat!.VariancePct is >= 0 and <= 100, "combat.variance_pct", "0 ~ 100 범위여야 합니다.");
@@ -432,6 +443,7 @@ public sealed class DataLoader
             AllianceTransferCapPerTurn = new ResourceYield(
                 dto.AllianceTransferCapPerTurn.Gold ?? 0, dto.AllianceTransferCapPerTurn.Food ?? 0),   // null 은 위 Check 가 잡음
             InternalAffairs = BuildInternalAffairs(dto.InternalAffairs!),
+            Diplomacy = BuildDiplomacy(dto.Diplomacy!),
             UnitClassAdvantage = dto.UnitClassAdvantage.ToDictionary(
                 kv => kv.Key, kv => (IReadOnlyDictionary<string, int>)kv.Value),
             // 값 자체(kv.Value)·필드 null 은 위 Check 가 errors 로 잡아 Load 가 기동 실패시킨다 — 매핑은 NRE 방지용 기본값.
@@ -503,6 +515,117 @@ public sealed class DataLoader
             ValidCurrentDirections = dto.ValidCurrentDirections!.ToHashSet()
         };
     }
+
+    /// <summary>
+    /// diplomacy 블록 검증 (외교 설계 §6.1·§5.5 — 필수·범위·상호관계).
+    /// 확률은 전부 만분율(0~10000), 계수는 정수 (§4.4).
+    /// </summary>
+    private static void ValidateDiplomacy(DiplomacyDto d, List<string>? validDispositions,
+                                          Action<bool, string, string> check)
+    {
+        check(d.FavorMin is < 0, "diplomacy.favor_min", "0 미만 필수입니다 (적대 구간이 있어야 합니다).");
+        check(d.FavorMax is > 0, "diplomacy.favor_max", "0 초과 필수입니다 (우호 구간이 있어야 합니다).");
+        check(d.FavorInitial >= d.FavorMin && d.FavorInitial <= d.FavorMax,
+            "diplomacy.favor_initial", "favor_min ~ favor_max 범위 필수입니다.");
+
+        var t = d.AttitudeThresholds;
+        check(t?.Nemesis < t?.Hostile && t?.Hostile < 0 && 0 < t?.Friendly && t?.Friendly < t?.Devoted,
+            "diplomacy.attitude_thresholds", "nemesis < hostile < 0 < friendly < devoted 순서 필수입니다.");
+        check(t?.Nemesis >= d.FavorMin && t?.Devoted <= d.FavorMax,
+            "diplomacy.attitude_thresholds", "favor_min ~ favor_max 범위 안이어야 합니다.");
+
+        // Decay 는 0 방향으로 끌어당기는 크기(부호 없음), CommonEnemy 는 양수 축적.
+        check(d.DecayPerTurn is >= 0, "diplomacy.decay_per_turn", "0 이상 필수입니다 (0 방향 감쇠 크기).");
+        check(d.CommonEnemyPerTurn is > 0, "diplomacy.common_enemy_per_turn",
+            "0 초과 필수입니다 — 0 이면 AI 간 동맹이 성립할 경로가 사라집니다 (설계 §5.5 도달 산술).");
+
+        check(d.OnBattleFought is < 0, "diplomacy.on_battle_fought", "음수 필수입니다 (전투는 관계를 악화).");
+        check(d.OnProvinceLost is < 0, "diplomacy.on_province_lost", "음수 필수입니다.");
+        check(d.OnBloodlessCapture is < 0, "diplomacy.on_bloodless_capture", "음수 필수입니다.");
+        check(d.OnAllianceFormed is > 0, "diplomacy.on_alliance_formed", "양수 필수입니다.");
+        check(d.OnPeaceMade is > 0, "diplomacy.on_peace_made", "양수 필수입니다.");
+        check(d.OnBetrayal is < 0, "diplomacy.on_betrayal", "음수 필수입니다.");
+        check(d.OnBetrayalReputation is < 0, "diplomacy.on_betrayal_reputation", "음수 필수입니다.");
+
+        var tr = d.Tribute;
+        check(tr?.GoldPerFavor is >= 1, "diplomacy.tribute.gold_per_favor", "1 이상 필수입니다 (0 이면 나눗셈 불가).");
+        check(tr?.FoodPerFavor is >= 1, "diplomacy.tribute.food_per_favor", "1 이상 필수입니다.");
+        check(tr?.FavorCeiling >= 0 && tr?.FavorCeiling <= d.FavorMax,
+            "diplomacy.tribute.favor_ceiling", "0 ~ favor_max 범위 필수입니다.");
+
+        var sc = d.Scheme;
+        check(sc?.CostGold is >= 0, "diplomacy.scheme.cost_gold", "0 이상 필수입니다.");
+        check(sc?.PerTurn is >= 1, "diplomacy.scheme.per_turn", "1 이상 필수입니다.");
+        void Permyriad(int? v, string name) =>
+            check(v is >= 0 and <= 10000, $"diplomacy.scheme.{name}", "0~10000(만분율) 필수입니다.");
+        Permyriad(sc?.BaseSuccessPermyriad, "base_success_permyriad");
+        Permyriad(sc?.SuccessPermyriadMin, "success_permyriad_min");
+        Permyriad(sc?.SuccessPermyriadMax, "success_permyriad_max");
+        check(sc?.SuccessPermyriadMin <= sc?.SuccessPermyriadMax,
+            "diplomacy.scheme.success_permyriad_min", "success_permyriad_max 이하 필수입니다.");
+        check(sc?.IntDiffPermyriadPerPoint is >= 0, "diplomacy.scheme.int_diff_permyriad_per_point", "0 이상 필수입니다.");
+        check(sc?.DiscordFavor is < 0, "diplomacy.scheme.discord_favor", "음수 필수입니다 (이간계는 관계를 악화).");
+        check(sc?.ExposedFavor is < 0, "diplomacy.scheme.exposed_favor", "음수 필수입니다.");
+
+        var ai = d.Ai;
+        check(ai?.ActionsPerTurn is >= 1, "diplomacy.ai.actions_per_turn", "1 이상 필수입니다.");
+        check(ai?.MaxAlliances is >= 0, "diplomacy.ai.max_alliances", "0 이상 필수입니다.");
+        check(ai?.AllianceFavorMin > 0 && ai?.AllianceFavorMin <= d.FavorMax,
+            "diplomacy.ai.alliance_favor_min", "0 초과 favor_max 이하 필수입니다.");
+        check(ai?.NonAggressionFavorMin > 0 && ai?.NonAggressionFavorMin <= ai?.AllianceFavorMin,
+            "diplomacy.ai.non_aggression_favor_min", "0 초과이며 alliance_favor_min 이하 필수입니다.");
+        check(ai?.WarFavorMax is < 0, "diplomacy.ai.war_favor_max", "음수 필수입니다.");
+        check(ai?.PowerMetricProvinceWeight is >= 0, "diplomacy.ai.power_metric_province_weight", "0 이상 필수입니다.");
+        void Ratio(int? v, string name) =>
+            check(v is > 0, $"diplomacy.ai.{name}", "0 초과 필수입니다 (백분율 ×100).");
+        Ratio(ai?.PeacePowerRatio, "peace_power_ratio");
+        Ratio(ai?.WarPowerRatio, "war_power_ratio");
+        Ratio(ai?.TributePowerRatio, "tribute_power_ratio");
+        // §7.3 스코어 배수 = (100 + favor × w / 1000) / 100 이 양수여야 정렬이 뒤집히지 않는다.
+        // favor 최저 = favor_min 이므로 100 + favor_min × w / 1000 > 0 → w < 100000 / |favor_min|.
+        check(ai?.TargetFavorWeight is >= 0 and <= 300, "diplomacy.ai.target_favor_weight",
+            "0~300 범위 필수입니다 (§7.3 스코어 배수가 음수가 되면 우선순위가 뒤집힙니다).");
+
+        var deltas = ai?.DispositionWarFavorDelta;
+        if (deltas is null || validDispositions is null) return;
+        foreach (var id in validDispositions)
+            check(deltas.ContainsKey(id), "diplomacy.ai.disposition_war_favor_delta",
+                $"valid_ai_dispositions 의 '{id}' 에 대한 항목이 필요합니다.");
+        foreach (var id in deltas.Keys)
+            check(validDispositions.Contains(id), "diplomacy.ai.disposition_war_favor_delta",
+                $"valid_ai_dispositions 에 없는 성향입니다: '{id}'");
+    }
+
+    private static DiplomacyRules BuildDiplomacy(DiplomacyDto d) => new()
+    {
+        FavorMin = d.FavorMin!.Value,
+        FavorMax = d.FavorMax!.Value,
+        FavorInitial = d.FavorInitial!.Value,
+        Thresholds = new AttitudeThresholds(
+            d.AttitudeThresholds!.Devoted!.Value, d.AttitudeThresholds.Friendly!.Value,
+            d.AttitudeThresholds.Hostile!.Value, d.AttitudeThresholds.Nemesis!.Value),
+        DecayPerTurn = d.DecayPerTurn!.Value,
+        CommonEnemyPerTurn = d.CommonEnemyPerTurn!.Value,
+        OnBattleFought = d.OnBattleFought!.Value,
+        OnProvinceLost = d.OnProvinceLost!.Value,
+        OnBloodlessCapture = d.OnBloodlessCapture!.Value,
+        OnAllianceFormed = d.OnAllianceFormed!.Value,
+        OnPeaceMade = d.OnPeaceMade!.Value,
+        OnBetrayal = d.OnBetrayal!.Value,
+        OnBetrayalReputation = d.OnBetrayalReputation!.Value,
+        Tribute = new TributeRules(d.Tribute!.GoldPerFavor!.Value, d.Tribute.FoodPerFavor!.Value,
+            d.Tribute.FavorCeiling!.Value),
+        Scheme = new SchemeRules(d.Scheme!.CostGold!.Value, d.Scheme.PerTurn!.Value,
+            d.Scheme.BaseSuccessPermyriad!.Value, d.Scheme.IntDiffPermyriadPerPoint!.Value,
+            d.Scheme.SuccessPermyriadMin!.Value, d.Scheme.SuccessPermyriadMax!.Value,
+            d.Scheme.DiscordFavor!.Value, d.Scheme.ExposedFavor!.Value),
+        Ai = new AiDiplomacyRules(d.Ai!.ActionsPerTurn!.Value, d.Ai.AllianceFavorMin!.Value,
+            d.Ai.NonAggressionFavorMin!.Value, d.Ai.WarFavorMax!.Value, d.Ai.PeaceFavorMin!.Value,
+            d.Ai.MaxAlliances!.Value, d.Ai.PowerMetricProvinceWeight!.Value,
+            d.Ai.PeacePowerRatio!.Value, d.Ai.WarPowerRatio!.Value, d.Ai.TributePowerRatio!.Value,
+            d.Ai.TargetFavorWeight!.Value,
+            new Dictionary<string, int>(d.Ai.DispositionWarFavorDelta!)),
+    };
 
     /// <summary>internal_affairs 블록 검증 (§2.3.1·§5.5 — 필수·범위. 민심은 0~100 고정 스케일).</summary>
     private static void ValidateInternalAffairs(InternalAffairsDto ia, Action<bool, string, string> check)

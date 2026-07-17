@@ -385,6 +385,72 @@ internal sealed class RetiredIdsDto
     public List<string>? RetiredIds { get; set; }
 }
 
+// ── 외교 (game_rules.json:diplomacy — 외교 설계 §6.1) ──
+// 전 필드 nullable: DataLoader.BuildRules 의 Need() 가 누락을 전건 수집해 기동 실패시킨다 [MUST].
+
+internal sealed class AttitudeThresholdsDto
+{
+    public int? Devoted { get; set; }
+    public int? Friendly { get; set; }
+    public int? Hostile { get; set; }
+    public int? Nemesis { get; set; }
+}
+
+internal sealed class TributeDto
+{
+    public int? GoldPerFavor { get; set; }
+    public int? FoodPerFavor { get; set; }
+    public int? FavorCeiling { get; set; }
+}
+
+internal sealed class SchemeDto
+{
+    public int? CostGold { get; set; }
+    public int? PerTurn { get; set; }
+    public int? BaseSuccessPermyriad { get; set; }
+    public int? IntDiffPermyriadPerPoint { get; set; }
+    public int? SuccessPermyriadMin { get; set; }
+    public int? SuccessPermyriadMax { get; set; }
+    public int? DiscordFavor { get; set; }
+    public int? ExposedFavor { get; set; }
+}
+
+internal sealed class AiDiplomacyDto
+{
+    public int? ActionsPerTurn { get; set; }
+    public int? AllianceFavorMin { get; set; }
+    public int? NonAggressionFavorMin { get; set; }
+    public int? WarFavorMax { get; set; }
+    public int? PeaceFavorMin { get; set; }
+    public int? MaxAlliances { get; set; }
+    public int? PowerMetricProvinceWeight { get; set; }
+    public int? PeacePowerRatio { get; set; }
+    public int? WarPowerRatio { get; set; }
+    public int? TributePowerRatio { get; set; }
+    public int? TargetFavorWeight { get; set; }
+    public Dictionary<string, int>? DispositionWarFavorDelta { get; set; }
+}
+
+internal sealed class DiplomacyDto
+{
+    public int? FavorMin { get; set; }
+    public int? FavorMax { get; set; }
+    public int? FavorInitial { get; set; }
+    public AttitudeThresholdsDto? AttitudeThresholds { get; set; }
+    public int? DecayPerTurn { get; set; }
+    public int? CommonEnemyPerTurn { get; set; }
+    public int? OnBattleFought { get; set; }
+    public int? OnProvinceLost { get; set; }
+    public int? OnBloodlessCapture { get; set; }
+    public int? OnAllianceFormed { get; set; }
+    public int? OnPeaceMade { get; set; }
+    public int? OnBetrayal { get; set; }
+    public int? OnBetrayalReputation { get; set; }
+    public TributeDto? Tribute { get; set; }
+    public SchemeDto? Scheme { get; set; }
+    public AiDiplomacyDto? Ai { get; set; }
+}
+
 internal sealed class GameRulesDto
 {
     public int? SchemaVersion { get; set; }   // 데이터 스키마 버전 앵커 (§5.5). 미래 버전 로드 거부.
@@ -406,6 +472,7 @@ internal sealed class GameRulesDto
     public int? LandingDebuffTurns { get; set; }
     public ResourceAmountDto? AllianceTransferCapPerTurn { get; set; }
     public InternalAffairsDto? InternalAffairs { get; set; }   // 내정 상수 (§2.3.1)
+    public DiplomacyDto? Diplomacy { get; set; }               // 외교 상수 (관계도·조공·계략·AI 외교)
     public Dictionary<string, Dictionary<string, int>>? UnitClassAdvantage { get; set; }   // 배율 ×100
     public Dictionary<string, FacilityDefDto>? Facilities { get; set; }   // 시설 정의 (§2.3)
     public CombatRulesDto? Combat { get; set; }   // 전투 상수 (§2.6)

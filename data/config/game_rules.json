@@ -274,4 +274,58 @@
     "gold_reward": 300,
     "max_per_turn": 3
   }
+  ,
+  "diplomacy": {
+    "favor_min": -1000,
+    "favor_max": 1000,
+    "favor_initial": 0,
+    "attitude_thresholds": {
+      "devoted": 600,
+      "friendly": 200,
+      "hostile": -200,
+      "nemesis": -600
+    },
+    "decay_per_turn": 5,
+    "common_enemy_per_turn": 30,
+    "on_battle_fought": -120,
+    "on_province_lost": -80,
+    "on_bloodless_capture": -40,
+    "on_alliance_formed": 200,
+    "on_peace_made": 50,
+    "on_betrayal": -600,
+    "on_betrayal_reputation": -100,
+    "tribute": {
+      "gold_per_favor": 10,
+      "food_per_favor": 20,
+      "favor_ceiling": 500
+    },
+    "scheme": {
+      "cost_gold": 300,
+      "per_turn": 1,
+      "base_success_permyriad": 4000,
+      "int_diff_permyriad_per_point": 60,
+      "success_permyriad_min": 500,
+      "success_permyriad_max": 9000,
+      "discord_favor": -250,
+      "exposed_favor": -100
+    },
+    "ai": {
+      "actions_per_turn": 1,
+      "alliance_favor_min": 300,
+      "non_aggression_favor_min": 200,
+      "war_favor_max": -200,
+      "peace_favor_min": -100,
+      "max_alliances": 2,
+      "power_metric_province_weight": 100,
+      "peace_power_ratio": 60,
+      "war_power_ratio": 130,
+      "tribute_power_ratio": 150,
+      "target_favor_weight": 30,
+      "disposition_war_favor_delta": {
+        "aggressive": 100,
+        "defensive": -100,
+        "expansionist": 0
+      }
+    }
+  }
 }

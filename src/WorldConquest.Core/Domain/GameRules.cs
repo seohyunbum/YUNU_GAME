@@ -24,6 +24,7 @@ public sealed class GameRules
     public required int LandingDebuffTurns { get; init; }
     public required ResourceYield AllianceTransferCapPerTurn { get; init; }
     public required InternalAffairsRules InternalAffairs { get; init; }   // 내정 상수 (§2.3 — 세율·민심·태수·인구·기술)
+    public required DiplomacyRules Diplomacy { get; init; }               // 외교 상수 (관계도·조공·계략·AI 외교)
     public required IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> UnitClassAdvantage { get; init; }   // 배율 ×100 (150 = ×1.5)
     public required IReadOnlyDictionary<string, FacilityDef> Facilities { get; init; }   // 시설 종류 → 정의 (§2.3)
     public required int CombatVariancePct { get; init; }        // 전투 라운드 데미지 변동 ±% (§2.6)
