@@ -1,6 +1,27 @@
 #include "WCPlayerController.h"
 #include "WCGameMode.h"
 #include "Components/PrimitiveComponent.h"
+#include "Framework/Application/SlateApplication.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogWCInput, Log, All);
+
+// -WCInputProbe : 커서 아래 위젯 경로·마우스 캡처 상태를 주기 로그.
+// UI 클릭이 안 먹을 때 범인(화면을 덮은 오버레이 등)을 즉시 특정하는 상시 진단 도구.
+// (2026-07-17: SWCRevealOverlay 가 전 화면을 막던 버그를 이 방법으로 확정)
+static void WCLogInputProbe(APlayerController* PC)
+{
+    if (!FParse::Param(FCommandLine::Get(), TEXT("WCInputProbe")) || !FSlateApplication::IsInitialized()) return;
+    static int32 N = 0;
+    if ((N++ % 120) != 0) return;
+
+    FSlateApplication& S = FSlateApplication::Get();
+    FWidgetPath Path = S.LocateWindowUnderMouse(S.GetCursorPos(), S.GetInteractiveTopLevelWindows());
+    FString Chain;
+    for (int32 i = 0; i < Path.Widgets.Num(); ++i) Chain += Path.Widgets[i].Widget->GetTypeAsString() + TEXT(" > ");
+    UE_LOG(LogWCInput, Warning, TEXT("[PROBE] captor=%d cursor=%s UNDER: %s"),
+        (int32)S.HasAnyMouseCaptor(), *S.GetCursorPos().ToString(),
+        Chain.IsEmpty() ? TEXT("(히트 없음)") : *Chain);
+}
 
 AWCPlayerController::AWCPlayerController()
 {
@@ -13,15 +34,20 @@ void AWCPlayerController::BeginPlay()
 {
     Super::BeginPlay();
 
-    // GameAndUI — Slate 위젯과 게임 픽킹이 마우스를 함께 받게 한다(기본 GameOnly 는 뷰포트가 영구 캡처).
-    // 주의: 이것만으로는 부족했다 — 거점 클릭 전멸의 실제 범인은 오버레이 위젯 자신의 기본 Visibility 였다.
-    // (SCompoundWidget 기본값 Visible → 내용이 Collapsed 여도 전체 화면을 덮는 투명 벽. WCStyle 계열
-    //  오버레이는 Construct 에서 SelfHitTestInvisible 로 해제. 2026-07-17 위젯 경로 계측으로 확정)
+    // UI 클릭이 살아있으려면 아래 3개가 **모두** 필요하다 (2026-07-17 실측으로 원인 2개 확정).
+    //  ① Config/DefaultInput.ini: bCaptureMouseOnLaunch=False — 런치 시 뷰포트가 마우스를 영구 캡처하는 것 차단.
+    //  ② 여기: GameAndUI + 잔류 캡처 해제. SetMouseCaptureMode 는 '필드만' 바꾸고 이미 잡힌 캡처를 풀지 않아,
+    //     창 활성화 타이밍에 따라 캡처가 남으면 Slate 가 히트테스트를 건너뛰어 버튼이 죽는다(간헐 증상의 정체).
+    //  ③ 전체화면 오버레이 위젯의 SetVisibility(SelfHitTestInvisible) — 자신이 투명 벽이 되어 클릭을 삼키는 것 방지.
     FInputModeGameAndUI Mode;
     Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
     Mode.SetHideCursorDuringCapture(false);
     SetInputMode(Mode);
     bShowMouseCursor = true;
+
+    // 지연 FReply(SlateOperations)에 의존하지 말고 즉시 해제 — 캡처가 남아 있으면 커서가 화면 중앙으로 끌려간다.
+    if (FSlateApplication::IsInitialized())
+        FSlateApplication::Get().ReleaseAllPointerCapture();
 }
 
 void AWCPlayerController::SetupInputComponent()
@@ -73,7 +99,7 @@ void AWCPlayerController::SetupInputComponent()
 void AWCPlayerController::PlayerTick(float DeltaTime)
 {
     Super::PlayerTick(DeltaTime);
-
+    WCLogInputProbe(this);   // -WCInputProbe 일 때만 동작
 
     AWCGameMode* GM = GetWorld()->GetAuthGameMode<AWCGameMode>();
     if (!GM) return;

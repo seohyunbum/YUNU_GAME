@@ -98,7 +98,14 @@
 - WCUE 로 QA 찍고 "됐다" 판단 → 유저는 wc-game 실행 (2026-07-17).
 - **⚠ 배포는 실행 중인 게임을 강제 종료한다** (DLL 잠금 해제용 taskkill). **가족이 플레이 중일 땐 배포 금지** — 갑자기 꺼진다.
 - **Slate 브러시가 미루팅 UTexture2D 참조 → GC 후 크래시** (`UObjectArray.h` "Index >= 0" assertion, SlateCore 스택). 초상·아이콘 등 모든 텍스처는 **AddToRoot 한 static 캐시**(`FWCStyle::Icon/Portrait`)로만 로드. 위젯에서 직접 `LoadObject`+`SetResourceObject` 금지 [MUST].
-- **입력 모드 기본값 GameOnly → 뷰포트가 마우스를 영구 캡처**. PlayerController::BeginPlay 에서 `FInputModeGameAndUI` 필수 [MUST].
+- **★ UI 클릭이 죽는 원인은 2개이고 둘 다 고쳐야 한다** (2026-07-17, 하나만 고쳐서 "간헐적으로 되는" 착시에 두 번 속음).
+  **(A) 런치 시 뷰포트 마우스 캡처** — UE 기본값 `bCaptureMouseOnLaunch=True`. 캡처가 있으면 Slate 는 **히트테스트를 건너뛰고**
+  캡처 위젯(SViewport)에만 이벤트를 보낸다 → 버튼 전멸 + **커서가 화면 중앙으로 끌려감**(증상 식별자).
+  `SetInputMode`/`SetMouseCaptureMode` 는 **필드만 바꾸고 이미 잡힌 캡처를 풀지 않는다** → 창 활성화 타이밍에 따라 캡처가
+  남기도/안 남기도 해서 **간헐 증상**이 된다. 조치: `Config/DefaultInput.ini` 에 `bCaptureMouseOnLaunch=False` +
+  BeginPlay 에서 `FInputModeGameAndUI` + **`FSlateApplication::Get().ReleaseAllPointerCapture()`** [MUST].
+  **(B) 오버레이 위젯 자신의 Visibility** — 아래 항목 참조.
+  진단: `-WCInputProbe` 로 띄우면 `captor=?` 와 커서 아래 위젯 경로가 로그에 찍힌다 (WCPlayerController).
 - **★ 오버레이 위젯 자신의 Visibility 가 클릭을 전부 삼킨다** (거점·지도 버튼 전멸의 진짜 원인, 2026-07-17 확정).
   `SCompoundWidget` 기본 Visibility = `Visible` → **자식만 Collapsed 로 숨기면 위젯 자신은 전체 화면을 덮는 '투명한 벽'** 이 되어
   아래 ZOrder 위젯의 클릭을 전부 가로챈다. 최상단 `SWCRevealOverlay`(ZOrder 30)가 리빌이 없을 때도 모든 버튼을 막고 있었다.

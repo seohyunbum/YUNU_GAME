@@ -66,7 +66,11 @@ def main() -> int:
             shutil.copy2(s, DST / "Binaries/Win64" / f)
             print(f"  bin: {f}")
 
-    # 2) Content — 하위 폴더 자동 열거 미러 (신규 폴더 누락 방지)
+    # 2) Config — ini 도 실행본에 반영 [MUST]. DefaultInput.ini(런치 마우스 캡처 차단)가 누락되면
+    #    뷰포트가 마우스를 캡처해 UI 버튼이 전부 죽는다 (2026-07-17 실측).
+    mirror_dir(SRC / "Config", DST / "Config")
+
+    # 3) Content — 하위 폴더 자동 열거 미러 (신규 폴더 누락 방지)
     subdirs = sorted(p.name for p in (SRC / "Content").iterdir() if p.is_dir())
     for name in subdirs:
         if name in CONTENT_LAZY:
