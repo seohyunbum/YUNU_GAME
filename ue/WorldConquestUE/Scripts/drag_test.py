@@ -35,7 +35,7 @@ time.sleep(10)
 force_foreground(hwnd)
 x, y, w, h = client_box(hwnd)
 before = ImageGrab.grab(bbox=(x, y, x + w, y + h), all_screens=True); before.save(f"{OUT}\drag_before.png")
-drag(hwnd, 640, 360, +25)       # 오른쪽으로 25px (팬 5배라 화면상 크게 움직임)
+drag(hwnd, 640, 360, +120, steps=60)   # 120px 드래그 → 1:1 이면 화면도 ~120px 이동
 after = ImageGrab.grab(bbox=(x, y, x + w, y + h), all_screens=True); after.save(f"{OUT}\drag_after.png")
 p.kill()
 

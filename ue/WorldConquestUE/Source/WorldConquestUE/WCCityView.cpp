@@ -258,12 +258,13 @@ TSharedRef<SWidget> SWCCityView::MakeFacilityCard(const FString& Kind, const TCH
 // ── 건물 간판 — 클릭하면 그 건물 패널이 열린다 (다시 누르면 닫힘) ──
 TSharedRef<SWidget> SWCCityView::MakeSignboard(const FString& Kind, const TCHAR* IconName, const FText& Label)
 {
-    return SNew(SBox).HeightOverride(46).Padding(FMargin(0, 0, 0, 6))
+    // 한글은 상하 여유가 필요하다 — 46 에선 글자가 칸을 뚫고 잘렸다(실측 2026-07-17)
+    return SNew(SBox).HeightOverride(56).Padding(FMargin(0, 0, 0, 7))
     [
         SNew(SButton)
         .ButtonStyle(&FWCStyle::ButtonRef())
         .OnClicked_Lambda([this, Kind] { if (GM.IsValid()) GM->OpenCityBuilding(Kind); return FReply::Handled(); })
-        .HAlign(HAlign_Left).VAlign(VAlign_Center).ContentPadding(FMargin(10, 6))
+        .HAlign(HAlign_Left).VAlign(VAlign_Center).ContentPadding(FMargin(12, 9))
         [
             SNew(SHorizontalBox)
             + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)

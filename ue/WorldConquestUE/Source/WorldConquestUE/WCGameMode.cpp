@@ -1233,7 +1233,18 @@ void AWCGameMode::ZoomCamera(float WheelDelta)
 void AWCGameMode::PanCamera(float DeltaX, float DeltaY)
 {
     if (!BoardCamera) return;
-    const float Scale = CamDist / 220.f;   // 줌 비례 감도 (5배 — 이전 /1100 은 너무 느렸음)
+    // [1:1 grab-and-pull] 임의 배율이 아니라 **실제 투영**으로 환산한다 —
+    // 커서 아래 지점이 커서를 그대로 따라오는 것이 가장 직관적이고, 줌·화면크기가 바뀌어도 감각이 같다.
+    //   화면폭 = 2·D·tan(FOV/2)  →  1픽셀당 월드 거리 = 그 값 / 뷰포트폭
+    // (배율 상수를 손으로 튜닝하면 "너무 느림 → 너무 빠름" 을 반복하게 된다. 2026-07-17 실제로 그랬다)
+    FVector2D Viewport(1280.f, 720.f);
+    if (GEngine && GEngine->GameViewport) GEngine->GameViewport->GetViewportSize(Viewport);
+    const float Fov = BoardCamera->GetCameraComponent()->FieldOfView;
+    const double UnitsPerPx = 2.0 * CamDist * FMath::Tan(FMath::DegreesToRadians(Fov * 0.5f))
+                              / FMath::Max(1.0, (double)Viewport.X);
+    // 세로는 지형이 기울어 보이는 만큼(틸트) 더 움직여야 커서를 따라온다
+    const double TiltComp = FMath::Max(0.35, FMath::Sin(FMath::DegreesToRadians(FMath::Abs(CamPitch))));
+    const float Scale = UnitsPerPx;   // 가로 기준
     // 화면 기준 팬 — 카메라 요를 반영해 "끌리는" 방향이 시야와 일치.
     // [grab-and-pull] 지도를 손으로 잡아 끄는 감각 = 드래그한 방향으로 '지도가' 따라온다.
     // → 카메라는 그 반대로 움직여야 한다. (2026-07-17 드래그 주입 실측: 이전 부호는 지도가 반대로 밀렸음)
@@ -1244,7 +1255,7 @@ void AWCGameMode::PanCamera(float DeltaX, float DeltaY)
     //   커서 오른쪽(+X) → 카메라 왼쪽(-Y, 화면오른쪽=월드+Y)
     //   커서 아래(+Y)   → 카메라 위(+X, 화면위=월드+X)
     const float MoveRight = -DeltaX * Scale;
-    const float MoveFwd   =  DeltaY * Scale;
+    const float MoveFwd   =  DeltaY * Scale / TiltComp;
     CamTarget.X += MoveFwd * C - MoveRight * S;
     CamTarget.Y += MoveFwd * S + MoveRight * C;
     CamTarget.X = FMath::Clamp(CamTarget.X, -6000.0, 6000.0);
