@@ -38,17 +38,26 @@ public class SummonTests
     [Fact]
     public void 초빙은_비복원_전원_유일()
     {
-        var (s, _, sys) = Setup(42);
+        var (s, _, sys) = Setup(42, mandate: 1_000_000);
+        var joseon = s.Factions.Single(f => f.Id == "joseon");
         var poolSize = sys.GetPool().Count;
         var cap = Db().Rules.SummonMaxPerTurn;
-        Assert.True(poolSize <= cap, $"풀({poolSize})이 턴 캡({cap}) 이내라야 한 배치로 소진 검증 가능");
-        var outcome = sys.DrawBatch("joseon", poolSize, out var results);
 
-        Assert.Equal(SummonOutcome.Success, outcome);
-        Assert.Equal(poolSize, results.Count);
-        Assert.Equal(poolSize, results.Select(r => r.CharacterId).Distinct().Count());   // 중복 없음 (비복원)
-        Assert.All(results, r => Assert.Equal("joseon", s.CharacterOwners[r.CharacterId]));
+        // 풀이 턴 캡보다 크므로 여러 턴에 걸쳐 소진 (턴마다 SummonsThisTurn 리셋)
+        var drawn = new List<string>();
+        while (sys.GetPool().Count > 0)
+        {
+            joseon.SummonsThisTurn = 0;   // 새 턴
+            var batch = Math.Min(cap, sys.GetPool().Count);
+            var outcome = sys.DrawBatch("joseon", batch, out var results);
+            Assert.Equal(SummonOutcome.Success, outcome);
+            drawn.AddRange(results.Select(r => r.CharacterId));
+        }
+        Assert.Equal(poolSize, drawn.Count);
+        Assert.Equal(poolSize, drawn.Distinct().Count());                         // 중복 없음 (비복원)
+        Assert.All(drawn, id => Assert.Equal("joseon", s.CharacterOwners[id]));
         Assert.Empty(sys.GetPool());                                              // 풀 소진
+        joseon.SummonsThisTurn = 0;
         Assert.Equal(SummonOutcome.PoolExhausted, sys.DrawBatch("joseon", 1, out _));
     }
 

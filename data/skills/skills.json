@@ -735,5 +735,1065 @@
         "scaling_stat": "int"
       }
     ]
+  },
+  {
+    "id": "pas_sima_yi",
+    "name_ko": "심모원려",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "scheme_success",
+        "amount": 25,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_sima_yi",
+    "name_ko": "천라지망",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_sima_yi",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 275,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "pas_xiahou_dun",
+    "name_ko": "맹장의 기세",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "land_atk",
+        "amount": 14,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_xiahou_dun",
+    "name_ko": "발시담정",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_xiahou_dun",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 250,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_lu_bu",
+    "name_ko": "비장",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "duel_power",
+        "amount": 35,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_lu_bu",
+    "name_ko": "방천화극",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_lu_bu",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 400,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_dianwei",
+    "name_ko": "철벽호위",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "damage_reduction",
+        "amount": 16,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_dianwei",
+    "name_ko": "쌍극사투",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_dianwei",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 240,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_kim_yusin",
+    "name_ko": "화랑의 기백",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "land_atk",
+        "amount": 16,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_kim_yusin",
+    "name_ko": "삼국통일",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_kim_yusin",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 345,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_gang_gamchan",
+    "name_ko": "귀주의 방벽",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "def",
+        "amount": 15,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_gang_gamchan",
+    "name_ko": "귀주대첩",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_gang_gamchan",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 260,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "pas_eulji_mundeok",
+    "name_ko": "유인술",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "evasion",
+        "amount": 13,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_eulji_mundeok",
+    "name_ko": "살수대첩",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_eulji_mundeok",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 225,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "pas_sejong",
+    "name_ko": "애민정신",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "exp_gain_rate",
+        "amount": 25,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_sejong",
+    "name_ko": "태평성대",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_sejong",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "morale",
+        "amount": 30,
+        "duration_turns": 3
+      }
+    ]
+  },
+  {
+    "id": "pas_zhang_fei",
+    "name_ko": "萬人敵",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "atk",
+        "amount": 20,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_zhang_fei",
+    "name_ko": "장팔사모 일격",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_zhang_fei",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 400,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_zhao_yun",
+    "name_ko": "一身是膽",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "damage_reduction",
+        "amount": 18,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_zhao_yun",
+    "name_ko": "칠종칠입",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_zhao_yun",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 340,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_zhou_yu",
+    "name_ko": "赤壁水戰",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "naval_def",
+        "amount": 18,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_zhou_yu",
+    "name_ko": "적벽대화",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_zhou_yu",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 275,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "pas_lu_xun",
+    "name_ko": "書生大都督",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "scheme_success",
+        "amount": 20,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_lu_xun",
+    "name_ko": "이릉 연영 화공",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_lu_xun",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 235,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "pas_alexander",
+    "name_ko": "정복왕의 위엄",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "morale",
+        "amount": 25,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_alexander",
+    "name_ko": "헤타이로이 돌격",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_alexander",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 340,
+        "scaling_stat": "ldr"
+      }
+    ]
+  },
+  {
+    "id": "pas_caesar",
+    "name_ko": "전격 행군",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "gauge_charge_rate",
+        "amount": 15,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_caesar",
+    "name_ko": "루비콘 도하",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_caesar",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "atk",
+        "amount": 30,
+        "duration_turns": 3
+      }
+    ]
+  },
+  {
+    "id": "pas_hannibal",
+    "name_ko": "칸나이 포위진",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "scheme_success",
+        "amount": 20,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_hannibal",
+    "name_ko": "이중 포위섬멸",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_hannibal",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 240,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "pas_richard_lionheart",
+    "name_ko": "사자의 심장",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "duel_power",
+        "amount": 25,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_richard_lionheart",
+    "name_ko": "사자심왕의 일격",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_richard_lionheart",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 275,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_rengoku",
+    "name_ko": "꺼지지 않는 불꽃",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "morale",
+        "amount": 20,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_rengoku",
+    "name_ko": "염의 호흡 · 연옥",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_rengoku",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 360,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_tomioka_giyu",
+    "name_ko": "물의 평정",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "damage_reduction",
+        "amount": 15,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_tomioka_giyu",
+    "name_ko": "수의 호흡 · 나기",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_tomioka_giyu",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 250,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_agatsuma_zenitsu",
+    "name_ko": "뇌속 신족",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "evasion",
+        "amount": 16,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_agatsuma_zenitsu",
+    "name_ko": "뇌의 호흡 · 벽력일섬",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_agatsuma_zenitsu",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 270,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_hashibira_inosuke",
+    "name_ko": "짐승의 광란",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "atk",
+        "amount": 16,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_hashibira_inosuke",
+    "name_ko": "짐승의 호흡 · 광란 베기",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_hashibira_inosuke",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_front_row",
+        "power": 230,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_captain_america",
+    "name_ko": "불굴의 방패",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "damage_reduction",
+        "amount": 12,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_captain_america",
+    "name_ko": "어벤저스 어셈블",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_captain_america",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "damage_reduction",
+        "amount": 30,
+        "duration_turns": 3
+      }
+    ]
+  },
+  {
+    "id": "pas_thor",
+    "name_ko": "천둥의 격노",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "atk",
+        "amount": 18,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_thor",
+    "name_ko": "묠니르의 심판",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_thor",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 320,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_spider_man",
+    "name_ko": "스파이더 센스",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "evasion",
+        "amount": 20,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_spider_man",
+    "name_ko": "궁극의 웹 스트라이크",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_spider_man",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 270,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_doctor_strange",
+    "name_ko": "시간의 안배",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "gauge_charge_rate",
+        "amount": 15,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_doctor_strange",
+    "name_ko": "아가모토의 눈",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_doctor_strange",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_back_row",
+        "power": 310,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "pas_fushiguro_megumi",
+    "name_ko": "십종영법술",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self_army",
+        "stat": "atk",
+        "amount": 14,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_fushiguro_megumi",
+    "name_ko": "십종영법술: 총전개",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_fushiguro_megumi",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 230,
+        "scaling_stat": "int"
+      }
+    ]
+  },
+  {
+    "id": "pas_kugisaki_nobara",
+    "name_ko": "추령술의 담력",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "crit_rate",
+        "amount": 16,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_kugisaki_nobara",
+    "name_ko": "추령술: 공명",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_kugisaki_nobara",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 250,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_ryomen_sukuna",
+    "name_ko": "저주의 왕",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "atk",
+        "amount": 30,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_ryomen_sukuna",
+    "name_ko": "영역전개: 복마어주자",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_ryomen_sukuna",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 340,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_zenin_maki",
+    "name_ko": "천여주박",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "evasion",
+        "amount": 18,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_zenin_maki",
+    "name_ko": "특급 주구 난무",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_zenin_maki",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 270,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_gilgamesh",
+    "name_ko": "영웅왕의 위광",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "morale",
+        "amount": 18,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_gilgamesh",
+    "name_ko": "왕의 재보",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_gilgamesh",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "aoe_damage",
+        "target": "enemy_all",
+        "power": 280,
+        "scaling_stat": "cha"
+      }
+    ]
+  },
+  {
+    "id": "pas_cu_chulainn",
+    "name_ko": "전투 속행",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "crit_rate",
+        "amount": 14,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_cu_chulainn",
+    "name_ko": "찌르는 사극의 창",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_cu_chulainn",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 270,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_cha_haein",
+    "name_ko": "S급 검격",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "atk",
+        "amount": 15,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_cha_haein",
+    "name_ko": "발도·참철",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_cha_haein",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "single_damage",
+        "target": "enemy_single",
+        "power": 330,
+        "scaling_stat": "str"
+      }
+    ]
+  },
+  {
+    "id": "pas_baek_yoonho",
+    "name_ko": "백호의 완력",
+    "type": "passive",
+    "gauge_cost": 0,
+    "cutscene_id": null,
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "self",
+        "stat": "atk",
+        "amount": 14,
+        "duration_turns": null
+      }
+    ]
+  },
+  {
+    "id": "ult_baek_yoonho",
+    "name_ko": "백호 화신",
+    "type": "ultimate",
+    "gauge_cost": 100,
+    "cutscene_id": "cs_baek_yoonho",
+    "conditions": [],
+    "effects": [
+      {
+        "type": "buff",
+        "target": "ally_all",
+        "stat": "atk",
+        "amount": 28,
+        "duration_turns": 2
+      }
+    ]
   }
 ]

@@ -674,6 +674,614 @@
           "text_ko": "빛의 왕자, 합류!"
         }
       ]
+    },
+    {
+      "id": "cs_sima_yi",
+      "title_ko": "천라지망",
+      "title_card": {
+        "text": "天羅地網"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "사마의가 오래 짜둔 천라지망이 적 진영을 통째로 옭아매 사방에서 불길로 태운다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "천라지망!"
+        }
+      ]
+    },
+    {
+      "id": "cs_xiahou_dun",
+      "title_ko": "발시담정",
+      "title_card": {
+        "text": "拔矢啖睛"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "하후돈이 화살에 뚫린 눈알을 뽑아 삼키고, 광기 어린 창격을 적장에게 내리꽂는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "발시담정!"
+        }
+      ]
+    },
+    {
+      "id": "cs_lu_bu",
+      "title_ko": "방천화극",
+      "title_card": {
+        "text": "方天畫戟"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "적토마를 몰아친 여포가 방천화극을 크게 휘둘러 적장을 단숨에 두 동강 낸다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "방천화극!"
+        }
+      ]
+    },
+    {
+      "id": "cs_dianwei",
+      "title_ko": "쌍극사투",
+      "title_card": {
+        "text": "雙戟死鬪"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "전위가 쌍철극을 휘두르며 진문을 몸으로 막아, 밀려드는 적을 홀로 베어 넘긴다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "쌍극사투!"
+        }
+      ]
+    },
+    {
+      "id": "cs_kim_yusin",
+      "title_ko": "삼국통일",
+      "title_card": {
+        "text": "三國統一"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "김유신이 화랑도를 앞세워 적진 한복판을 단칼에 꿰뚫는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "삼국통일!"
+        }
+      ]
+    },
+    {
+      "id": "cs_gang_gamchan",
+      "title_ko": "귀주대첩",
+      "title_card": {
+        "text": "龜州大捷"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "강감찬이 흥화진의 물길을 터뜨려 거란 대군을 단숨에 휩쓸어 버린다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "귀주대첩!"
+        }
+      ]
+    },
+    {
+      "id": "cs_eulji_mundeok",
+      "title_ko": "살수대첩",
+      "title_card": {
+        "text": "薩水大捷"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "을지문덕이 살수의 둑을 무너뜨려 수나라 대군을 물속에 수장시킨다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "살수대첩!"
+        }
+      ]
+    },
+    {
+      "id": "cs_sejong",
+      "title_ko": "태평성대",
+      "title_card": {
+        "text": "太平聖代"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "세종이 백성을 위한 정음을 반포하니 온 군세의 사기가 하늘을 찌른다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "태평성대!"
+        }
+      ]
+    },
+    {
+      "id": "cs_zhang_fei",
+      "title_ko": "장팔사모 일격",
+      "title_card": {
+        "text": "萬人敵"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "장비가 장팔사모를 고쳐 잡고 단 한 번의 내리침으로 적장을 말 위에서 두 동강 낸다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "장팔사모 일격!"
+        }
+      ]
+    },
+    {
+      "id": "cs_zhao_yun",
+      "title_ko": "칠종칠입",
+      "title_card": {
+        "text": "七進七出"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "조운이 어린 주공을 품에 안고 조조의 대군을 일곱 번 뚫고 나오며 앞을 막는 적들을 모조리 베어 넘긴다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "칠종칠입!"
+        }
+      ]
+    },
+    {
+      "id": "cs_zhou_yu",
+      "title_ko": "적벽대화",
+      "title_card": {
+        "text": "赤壁火攻"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "주유가 동남풍을 타 화선을 풀어놓으니 강 위 조조의 연환 함대가 일시에 불바다로 변한다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "적벽대화!"
+        }
+      ]
+    },
+    {
+      "id": "cs_lu_xun",
+      "title_ko": "이릉 연영 화공",
+      "title_card": {
+        "text": "夷陵火攻"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "육손이 때를 기다렸다 일제히 불을 놓으니 칠백 리에 늘어선 촉군의 영채가 연달아 불타 오른다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "이릉 연영 화공!"
+        }
+      ]
+    },
+    {
+      "id": "cs_alexander",
+      "title_ko": "헤타이로이 돌격",
+      "title_card": {
+        "text": "征服王"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "동방의 끝을 향해, 마케도니아의 창끝이 적진 최전열을 관통한다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "헤타이로이 돌격!"
+        }
+      ]
+    },
+    {
+      "id": "cs_caesar",
+      "title_ko": "루비콘 도하",
+      "title_card": {
+        "text": "ALEA IACTA EST"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "주사위는 던져졌다 — 군단이 하나의 의지로 강을 건넌다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "루비콘 도하!"
+        }
+      ]
+    },
+    {
+      "id": "cs_hannibal",
+      "title_ko": "이중 포위섬멸",
+      "title_card": {
+        "text": "CANNAE"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "양익이 오므라들고, 로마 군단은 자신의 대열 속에 갇혀 무너진다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "이중 포위섬멸!"
+        }
+      ]
+    },
+    {
+      "id": "cs_richard_lionheart",
+      "title_ko": "사자심왕의 일격",
+      "title_card": {
+        "text": "COEUR DE LION"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "아르수프의 태양 아래, 사자심왕의 검이 적장을 단칼에 베어낸다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "사자심왕의 일격!"
+        }
+      ]
+    },
+    {
+      "id": "cs_rengoku",
+      "title_ko": "염의 호흡 · 연옥",
+      "title_card": {
+        "text": "煉獄"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "타오르는 화염이 전열을 집어삼키고, 그의 검이 아홉 번째 형을 그려낸다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "염의 호흡 · 연옥!"
+        }
+      ]
+    },
+    {
+      "id": "cs_tomioka_giyu",
+      "title_ko": "수의 호흡 · 나기",
+      "title_card": {
+        "text": "凪"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "물결 한 점 일지 않는 고요 속에서, 단 한 번의 참격이 적을 베어낸다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "수의 호흡 · 나기!"
+        }
+      ]
+    },
+    {
+      "id": "cs_agatsuma_zenitsu",
+      "title_ko": "뇌의 호흡 · 벽력일섬",
+      "title_card": {
+        "text": "霹靂一閃"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "눈으로 좇을 수 없는 일섬, 번개가 되어 적 하나를 꿰뚫는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "뇌의 호흡 · 벽력일섬!"
+        }
+      ]
+    },
+    {
+      "id": "cs_hashibira_inosuke",
+      "title_ko": "짐승의 호흡 · 광란 베기",
+      "title_card": {
+        "text": "伍ノ牙"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "두 자루 톱니검이 야수처럼 날뛰며 적 전열을 갈기갈기 찢는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "짐승의 호흡 · 광란 베기!"
+        }
+      ]
+    },
+    {
+      "id": "cs_captain_america",
+      "title_ko": "어벤저스 어셈블",
+      "title_card": {
+        "text": "ASSEMBLE"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "캡틴이 비브라늄 방패를 높이 치켜들자 흩어졌던 전열이 하나로 뭉쳐 적의 맹공을 막아선다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "어벤저스 어셈블!"
+        }
+      ]
+    },
+    {
+      "id": "cs_thor",
+      "title_ko": "묠니르의 심판",
+      "title_card": {
+        "text": "God of Thunder"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "먹구름이 갈라지며 묠니르에서 내리친 벼락이 적진 전체를 관통한다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "묠니르의 심판!"
+        }
+      ]
+    },
+    {
+      "id": "cs_spider_man",
+      "title_ko": "궁극의 웹 스트라이크",
+      "title_card": {
+        "text": "THWIP"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "벽을 박차고 솟구친 스파이더맨이 거미줄로 적을 옭아맨 뒤 온 체중을 실어 내리꽂는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "궁극의 웹 스트라이크!"
+        }
+      ]
+    },
+    {
+      "id": "cs_doctor_strange",
+      "title_ko": "아가모토의 눈",
+      "title_card": {
+        "text": "時間逆行"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "닥터 스트레인지가 시간을 되감으며 무수한 마법 룬으로 적진 후열을 짓누른다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "아가모토의 눈!"
+        }
+      ]
+    },
+    {
+      "id": "cs_fushiguro_megumi",
+      "title_ko": "십종영법술: 총전개",
+      "title_card": {
+        "text": "十種影法術"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "그림자에서 튀어나온 옥견·복사·만상이 일제히 적진을 짓밟는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "십종영법술: 총전개!"
+        }
+      ]
+    },
+    {
+      "id": "cs_kugisaki_nobara",
+      "title_ko": "추령술: 공명",
+      "title_card": {
+        "text": "共鳴"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "짚인형에 박힌 못이 공명하며, 적의 몸속에서 수십 개의 못이 폭발한다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "추령술: 공명!"
+        }
+      ]
+    },
+    {
+      "id": "cs_ryomen_sukuna",
+      "title_ko": "영역전개: 복마어주자",
+      "title_card": {
+        "text": "伏魔御廚子"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "료멘 스쿠나의 영역이 전장을 집어삼키고, 참격의 파도가 모든 것을 해체한다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "영역전개: 복마어주자!"
+        }
+      ]
+    },
+    {
+      "id": "cs_zenin_maki",
+      "title_ko": "특급 주구 난무",
+      "title_card": {
+        "text": "呪具乱舞"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "천여주박으로 벼려진 육체가 특급 주구를 휘둘러, 단 한 명의 적을 반드시 베어낸다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "특급 주구 난무!"
+        }
+      ]
+    },
+    {
+      "id": "cs_gilgamesh",
+      "title_ko": "왕의 재보",
+      "title_card": {
+        "text": "王の財宝"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "황금빛 균열이 하늘을 뒤덮고, 무수한 보구가 빗발쳐 전장 전체를 관통한다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "왕의 재보!"
+        }
+      ]
+    },
+    {
+      "id": "cs_cu_chulainn",
+      "title_ko": "찌르는 사극의 창",
+      "title_card": {
+        "text": "GÁE BOLG"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "붉은 창이 인과를 거슬러 날아, 적의 심장 한 점만을 정확히 꿰뚫는다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "찌르는 사극의 창!"
+        }
+      ]
+    },
+    {
+      "id": "cs_cha_haein",
+      "title_ko": "발도·참철",
+      "title_card": {
+        "text": "斬鉄"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "단 한 호흡에 뽑아낸 검격이 공기째 적을 두 동강 낸다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "발도·참철!"
+        }
+      ]
+    },
+    {
+      "id": "cs_baek_yoonho",
+      "title_ko": "백호 화신",
+      "title_card": {
+        "text": "白虎化身"
+      },
+      "script": [
+        {
+          "beat": "narration",
+          "text_ko": "포효와 함께 백호의 형상이 덧씌워지고, 아군 전체의 투기가 들끓어 오른다."
+        }
+      ],
+      "short_script": [
+        {
+          "beat": "narration",
+          "text_ko": "백호 화신!"
+        }
+      ]
     }
   ]
 }

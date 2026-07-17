@@ -692,5 +692,1125 @@
       ],
       "initial_status": "unaffiliated"
     }
+  },
+  {
+    "id": "sima_yi",
+    "name_ko": "사마의",
+    "origin": "history_china",
+    "rarity": 5,
+    "stats": {
+      "ldr": 96,
+      "str": 42,
+      "int": 120,
+      "pol": 100,
+      "cha": 82,
+      "nav": 55
+    },
+    "growth_rates": {
+      "ldr": 120,
+      "str": 30,
+      "int": 165,
+      "pol": 140,
+      "cha": 90,
+      "nav": 50
+    },
+    "passive_skill_id": "pas_sima_yi",
+    "ultimate_skill_id": "ult_sima_yi",
+    "unique_unit_id": null,
+    "start_faction": "wei",
+    "voice_set": "cc0_male_cn_00",
+    "portrait_asset": "portraits/sima_yi.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "xiahou_dun",
+    "name_ko": "하후돈",
+    "origin": "history_china",
+    "rarity": 4,
+    "stats": {
+      "ldr": 92,
+      "str": 96,
+      "int": 55,
+      "pol": 60,
+      "cha": 70,
+      "nav": 45
+    },
+    "growth_rates": {
+      "ldr": 140,
+      "str": 150,
+      "int": 40,
+      "pol": 45,
+      "cha": 60,
+      "nav": 40
+    },
+    "passive_skill_id": "pas_xiahou_dun",
+    "ultimate_skill_id": "ult_xiahou_dun",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_cn_01",
+    "portrait_asset": "portraits/xiahou_dun.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "lu_bu",
+    "name_ko": "여포",
+    "origin": "history_china",
+    "rarity": 5,
+    "stats": {
+      "ldr": 110,
+      "str": 120,
+      "int": 45,
+      "pol": 38,
+      "cha": 100,
+      "nav": 67
+    },
+    "growth_rates": {
+      "ldr": 130,
+      "str": 170,
+      "int": 25,
+      "pol": 25,
+      "cha": 110,
+      "nav": 60
+    },
+    "passive_skill_id": "pas_lu_bu",
+    "ultimate_skill_id": "ult_lu_bu",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_cn_02",
+    "portrait_asset": "portraits/lu_bu.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "dianwei",
+    "name_ko": "전위",
+    "origin": "history_china",
+    "rarity": 4,
+    "stats": {
+      "ldr": 82,
+      "str": 97,
+      "int": 45,
+      "pol": 42,
+      "cha": 70,
+      "nav": 50
+    },
+    "growth_rates": {
+      "ldr": 120,
+      "str": 150,
+      "int": 35,
+      "pol": 40,
+      "cha": 55,
+      "nav": 40
+    },
+    "passive_skill_id": "pas_dianwei",
+    "ultimate_skill_id": "ult_dianwei",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_cn_03",
+    "portrait_asset": "portraits/dianwei.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "kim_yusin",
+    "name_ko": "김유신",
+    "origin": "history_korea",
+    "rarity": 5,
+    "stats": {
+      "ldr": 108,
+      "str": 98,
+      "int": 82,
+      "pol": 78,
+      "cha": 88,
+      "nav": 40
+    },
+    "growth_rates": {
+      "ldr": 160,
+      "str": 150,
+      "int": 75,
+      "pol": 55,
+      "cha": 80,
+      "nav": 25
+    },
+    "passive_skill_id": "pas_kim_yusin",
+    "ultimate_skill_id": "ult_kim_yusin",
+    "unique_unit_id": null,
+    "start_faction": "joseon",
+    "voice_set": "cc0_male_kr_04",
+    "portrait_asset": "portraits/kim_yusin.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "gang_gamchan",
+    "name_ko": "강감찬",
+    "origin": "history_korea",
+    "rarity": 5,
+    "stats": {
+      "ldr": 105,
+      "str": 62,
+      "int": 110,
+      "pol": 90,
+      "cha": 78,
+      "nav": 48
+    },
+    "growth_rates": {
+      "ldr": 150,
+      "str": 40,
+      "int": 165,
+      "pol": 78,
+      "cha": 65,
+      "nav": 35
+    },
+    "passive_skill_id": "pas_gang_gamchan",
+    "ultimate_skill_id": "ult_gang_gamchan",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_kr_05",
+    "portrait_asset": "portraits/gang_gamchan.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "eulji_mundeok",
+    "name_ko": "을지문덕",
+    "origin": "history_korea",
+    "rarity": 4,
+    "stats": {
+      "ldr": 92,
+      "str": 60,
+      "int": 100,
+      "pol": 72,
+      "cha": 68,
+      "nav": 42
+    },
+    "growth_rates": {
+      "ldr": 130,
+      "str": 40,
+      "int": 155,
+      "pol": 60,
+      "cha": 60,
+      "nav": 30
+    },
+    "passive_skill_id": "pas_eulji_mundeok",
+    "ultimate_skill_id": "ult_eulji_mundeok",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_kr_06",
+    "portrait_asset": "portraits/eulji_mundeok.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "sejong",
+    "name_ko": "세종대왕",
+    "origin": "history_korea",
+    "rarity": 5,
+    "stats": {
+      "ldr": 70,
+      "str": 22,
+      "int": 115,
+      "pol": 118,
+      "cha": 108,
+      "nav": 55
+    },
+    "growth_rates": {
+      "ldr": 65,
+      "str": 20,
+      "int": 160,
+      "pol": 170,
+      "cha": 145,
+      "nav": 45
+    },
+    "passive_skill_id": "pas_sejong",
+    "ultimate_skill_id": "ult_sejong",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_kr_07",
+    "portrait_asset": "portraits/sejong.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "zhang_fei",
+    "name_ko": "장비",
+    "origin": "history_china",
+    "rarity": 5,
+    "stats": {
+      "ldr": 98,
+      "str": 120,
+      "int": 62,
+      "pol": 45,
+      "cha": 82,
+      "nav": 73
+    },
+    "growth_rates": {
+      "ldr": 130,
+      "str": 165,
+      "int": 40,
+      "pol": 30,
+      "cha": 70,
+      "nav": 55
+    },
+    "passive_skill_id": "pas_zhang_fei",
+    "ultimate_skill_id": "ult_zhang_fei",
+    "unique_unit_id": null,
+    "start_faction": "shu",
+    "voice_set": "cc0_male_cn_08",
+    "portrait_asset": "portraits/zhang_fei.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "zhao_yun",
+    "name_ko": "조운",
+    "origin": "history_china",
+    "rarity": 5,
+    "stats": {
+      "ldr": 100,
+      "str": 108,
+      "int": 76,
+      "pol": 65,
+      "cha": 92,
+      "nav": 60
+    },
+    "growth_rates": {
+      "ldr": 145,
+      "str": 150,
+      "int": 70,
+      "pol": 55,
+      "cha": 120,
+      "nav": 50
+    },
+    "passive_skill_id": "pas_zhao_yun",
+    "ultimate_skill_id": "ult_zhao_yun",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_cn_09",
+    "portrait_asset": "portraits/zhao_yun.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "zhou_yu",
+    "name_ko": "주유",
+    "origin": "history_china",
+    "rarity": 5,
+    "stats": {
+      "ldr": 102,
+      "str": 66,
+      "int": 106,
+      "pol": 84,
+      "cha": 92,
+      "nav": 108
+    },
+    "growth_rates": {
+      "ldr": 145,
+      "str": 45,
+      "int": 155,
+      "pol": 75,
+      "cha": 80,
+      "nav": 150
+    },
+    "passive_skill_id": "pas_zhou_yu",
+    "ultimate_skill_id": "ult_zhou_yu",
+    "unique_unit_id": null,
+    "start_faction": "wu",
+    "voice_set": "cc0_male_cn_10",
+    "portrait_asset": "portraits/zhou_yu.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "lu_xun",
+    "name_ko": "육손",
+    "origin": "history_china",
+    "rarity": 4,
+    "stats": {
+      "ldr": 90,
+      "str": 45,
+      "int": 103,
+      "pol": 78,
+      "cha": 62,
+      "nav": 74
+    },
+    "growth_rates": {
+      "ldr": 130,
+      "str": 40,
+      "int": 150,
+      "pol": 78,
+      "cha": 55,
+      "nav": 80
+    },
+    "passive_skill_id": "pas_lu_xun",
+    "ultimate_skill_id": "ult_lu_xun",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_cn_11",
+    "portrait_asset": "portraits/lu_xun.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "alexander",
+    "name_ko": "알렉산더",
+    "origin": "history_europe",
+    "rarity": 5,
+    "stats": {
+      "ldr": 118,
+      "str": 108,
+      "int": 82,
+      "pol": 68,
+      "cha": 112,
+      "nav": 60
+    },
+    "growth_rates": {
+      "ldr": 165,
+      "str": 150,
+      "int": 90,
+      "pol": 60,
+      "cha": 155,
+      "nav": 45
+    },
+    "passive_skill_id": "pas_alexander",
+    "ultimate_skill_id": "ult_alexander",
+    "unique_unit_id": null,
+    "start_faction": "france",
+    "voice_set": "cc0_male_eu_12",
+    "portrait_asset": "portraits/alexander.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "caesar",
+    "name_ko": "카이사르",
+    "origin": "history_europe",
+    "rarity": 5,
+    "stats": {
+      "ldr": 112,
+      "str": 64,
+      "int": 96,
+      "pol": 118,
+      "cha": 110,
+      "nav": 58
+    },
+    "growth_rates": {
+      "ldr": 150,
+      "str": 55,
+      "int": 110,
+      "pol": 168,
+      "cha": 155,
+      "nav": 50
+    },
+    "passive_skill_id": "pas_caesar",
+    "ultimate_skill_id": "ult_caesar",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_eu_13",
+    "portrait_asset": "portraits/caesar.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "hannibal",
+    "name_ko": "한니발",
+    "origin": "history_europe",
+    "rarity": 4,
+    "stats": {
+      "ldr": 96,
+      "str": 66,
+      "int": 110,
+      "pol": 62,
+      "cha": 72,
+      "nav": 52
+    },
+    "growth_rates": {
+      "ldr": 138,
+      "str": 55,
+      "int": 158,
+      "pol": 50,
+      "cha": 65,
+      "nav": 45
+    },
+    "passive_skill_id": "pas_hannibal",
+    "ultimate_skill_id": "ult_hannibal",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_eu_14",
+    "portrait_asset": "portraits/hannibal.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "richard_lionheart",
+    "name_ko": "사자심왕 리처드",
+    "origin": "history_europe",
+    "rarity": 4,
+    "stats": {
+      "ldr": 100,
+      "str": 108,
+      "int": 66,
+      "pol": 48,
+      "cha": 82,
+      "nav": 56
+    },
+    "growth_rates": {
+      "ldr": 140,
+      "str": 160,
+      "int": 45,
+      "pol": 35,
+      "cha": 70,
+      "nav": 55
+    },
+    "passive_skill_id": "pas_richard_lionheart",
+    "ultimate_skill_id": "ult_richard_lionheart",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_eu_15",
+    "portrait_asset": "portraits/richard_lionheart.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "rengoku",
+    "name_ko": "렌고쿠 쿄쥬로",
+    "origin": "ip_kimetsu",
+    "rarity": 5,
+    "stats": {
+      "ldr": 105,
+      "str": 115,
+      "int": 72,
+      "pol": 60,
+      "cha": 118,
+      "nav": 40
+    },
+    "growth_rates": {
+      "ldr": 130,
+      "str": 160,
+      "int": 70,
+      "pol": 55,
+      "cha": 165,
+      "nav": 30
+    },
+    "passive_skill_id": "pas_rengoku",
+    "ultimate_skill_id": "ult_rengoku",
+    "unique_unit_id": null,
+    "start_faction": "demon_slayer_corps",
+    "voice_set": "cc0_male_jp_16",
+    "portrait_asset": "portraits/rengoku.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "tomioka_giyu",
+    "name_ko": "토미오카 기유",
+    "origin": "ip_kimetsu",
+    "rarity": 4,
+    "stats": {
+      "ldr": 88,
+      "str": 108,
+      "int": 80,
+      "pol": 45,
+      "cha": 40,
+      "nav": 55
+    },
+    "growth_rates": {
+      "ldr": 100,
+      "str": 150,
+      "int": 95,
+      "pol": 45,
+      "cha": 35,
+      "nav": 70
+    },
+    "passive_skill_id": "pas_tomioka_giyu",
+    "ultimate_skill_id": "ult_tomioka_giyu",
+    "unique_unit_id": null,
+    "start_faction": "demon_slayer_corps",
+    "voice_set": "cc0_male_jp_17",
+    "portrait_asset": "portraits/tomioka_giyu.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "agatsuma_zenitsu",
+    "name_ko": "아가츠마 젠이츠",
+    "origin": "ip_kimetsu",
+    "rarity": 4,
+    "stats": {
+      "ldr": 55,
+      "str": 116,
+      "int": 58,
+      "pol": 40,
+      "cha": 78,
+      "nav": 45
+    },
+    "growth_rates": {
+      "ldr": 55,
+      "str": 155,
+      "int": 55,
+      "pol": 35,
+      "cha": 90,
+      "nav": 40
+    },
+    "passive_skill_id": "pas_agatsuma_zenitsu",
+    "ultimate_skill_id": "ult_agatsuma_zenitsu",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_jp_18",
+    "portrait_asset": "portraits/agatsuma_zenitsu.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "hashibira_inosuke",
+    "name_ko": "하시바라 이노스케",
+    "origin": "ip_kimetsu",
+    "rarity": 4,
+    "stats": {
+      "ldr": 50,
+      "str": 118,
+      "int": 55,
+      "pol": 32,
+      "cha": 72,
+      "nav": 62
+    },
+    "growth_rates": {
+      "ldr": 50,
+      "str": 160,
+      "int": 50,
+      "pol": 30,
+      "cha": 80,
+      "nav": 70
+    },
+    "passive_skill_id": "pas_hashibira_inosuke",
+    "ultimate_skill_id": "ult_hashibira_inosuke",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_jp_19",
+    "portrait_asset": "portraits/hashibira_inosuke.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "captain_america",
+    "name_ko": "캡틴 아메리카",
+    "origin": "ip_marvel",
+    "rarity": 5,
+    "stats": {
+      "ldr": 115,
+      "str": 88,
+      "int": 78,
+      "pol": 82,
+      "cha": 110,
+      "nav": 40
+    },
+    "growth_rates": {
+      "ldr": 150,
+      "str": 100,
+      "int": 70,
+      "pol": 90,
+      "cha": 145,
+      "nav": 30
+    },
+    "passive_skill_id": "pas_captain_america",
+    "ultimate_skill_id": "ult_captain_america",
+    "unique_unit_id": null,
+    "start_faction": "avengers",
+    "voice_set": "cc0_male_us_20",
+    "portrait_asset": "portraits/captain_america.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "thor",
+    "name_ko": "토르",
+    "origin": "ip_marvel",
+    "rarity": 5,
+    "stats": {
+      "ldr": 110,
+      "str": 120,
+      "int": 62,
+      "pol": 55,
+      "cha": 90,
+      "nav": 58
+    },
+    "growth_rates": {
+      "ldr": 140,
+      "str": 165,
+      "int": 50,
+      "pol": 45,
+      "cha": 95,
+      "nav": 45
+    },
+    "passive_skill_id": "pas_thor",
+    "ultimate_skill_id": "ult_thor",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_us_21",
+    "portrait_asset": "portraits/thor.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "spider_man",
+    "name_ko": "스파이더맨",
+    "origin": "ip_marvel",
+    "rarity": 4,
+    "stats": {
+      "ldr": 70,
+      "str": 95,
+      "int": 82,
+      "pol": 55,
+      "cha": 100,
+      "nav": 30
+    },
+    "growth_rates": {
+      "ldr": 70,
+      "str": 135,
+      "int": 85,
+      "pol": 45,
+      "cha": 140,
+      "nav": 25
+    },
+    "passive_skill_id": "pas_spider_man",
+    "ultimate_skill_id": "ult_spider_man",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_us_22",
+    "portrait_asset": "portraits/spider_man.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "doctor_strange",
+    "name_ko": "닥터 스트레인지",
+    "origin": "ip_marvel",
+    "rarity": 5,
+    "stats": {
+      "ldr": 88,
+      "str": 55,
+      "int": 120,
+      "pol": 95,
+      "cha": 92,
+      "nav": 40
+    },
+    "growth_rates": {
+      "ldr": 80,
+      "str": 40,
+      "int": 165,
+      "pol": 120,
+      "cha": 100,
+      "nav": 30
+    },
+    "passive_skill_id": "pas_doctor_strange",
+    "ultimate_skill_id": "ult_doctor_strange",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_us_23",
+    "portrait_asset": "portraits/doctor_strange.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "fushiguro_megumi",
+    "name_ko": "후시구로 메구미",
+    "origin": "ip_jjk",
+    "rarity": 4,
+    "stats": {
+      "ldr": 78,
+      "str": 82,
+      "int": 95,
+      "pol": 55,
+      "cha": 70,
+      "nav": 30
+    },
+    "growth_rates": {
+      "ldr": 75,
+      "str": 130,
+      "int": 155,
+      "pol": 40,
+      "cha": 70,
+      "nav": 22
+    },
+    "passive_skill_id": "pas_fushiguro_megumi",
+    "ultimate_skill_id": "ult_fushiguro_megumi",
+    "unique_unit_id": null,
+    "start_faction": "jujutsu",
+    "voice_set": "cc0_male_jp_24",
+    "portrait_asset": "portraits/fushiguro_megumi.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "kugisaki_nobara",
+    "name_ko": "쿠기사키 노바라",
+    "origin": "ip_jjk",
+    "rarity": 4,
+    "stats": {
+      "ldr": 65,
+      "str": 92,
+      "int": 62,
+      "pol": 52,
+      "cha": 90,
+      "nav": 28
+    },
+    "growth_rates": {
+      "ldr": 60,
+      "str": 145,
+      "int": 55,
+      "pol": 40,
+      "cha": 130,
+      "nav": 20
+    },
+    "passive_skill_id": "pas_kugisaki_nobara",
+    "ultimate_skill_id": "ult_kugisaki_nobara",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_jp_25",
+    "portrait_asset": "portraits/kugisaki_nobara.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "ryomen_sukuna",
+    "name_ko": "료멘 스쿠나",
+    "origin": "ip_jjk",
+    "rarity": 5,
+    "stats": {
+      "ldr": 95,
+      "str": 120,
+      "int": 115,
+      "pol": 70,
+      "cha": 88,
+      "nav": 42
+    },
+    "growth_rates": {
+      "ldr": 78,
+      "str": 170,
+      "int": 155,
+      "pol": 55,
+      "cha": 72,
+      "nav": 35
+    },
+    "passive_skill_id": "pas_ryomen_sukuna",
+    "ultimate_skill_id": "ult_ryomen_sukuna",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_jp_26",
+    "portrait_asset": "portraits/ryomen_sukuna.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "zenin_maki",
+    "name_ko": "젠인 마키",
+    "origin": "ip_jjk",
+    "rarity": 4,
+    "stats": {
+      "ldr": 88,
+      "str": 95,
+      "int": 55,
+      "pol": 48,
+      "cha": 68,
+      "nav": 35
+    },
+    "growth_rates": {
+      "ldr": 135,
+      "str": 150,
+      "int": 45,
+      "pol": 38,
+      "cha": 62,
+      "nav": 28
+    },
+    "passive_skill_id": "pas_zenin_maki",
+    "ultimate_skill_id": "ult_zenin_maki",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_jp_27",
+    "portrait_asset": "portraits/zenin_maki.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "gilgamesh",
+    "name_ko": "길가메시",
+    "origin": "ip_fate",
+    "rarity": 5,
+    "stats": {
+      "ldr": 95,
+      "str": 110,
+      "int": 88,
+      "pol": 92,
+      "cha": 118,
+      "nav": 25
+    },
+    "growth_rates": {
+      "ldr": 110,
+      "str": 160,
+      "int": 90,
+      "pol": 100,
+      "cha": 165,
+      "nav": 30
+    },
+    "passive_skill_id": "pas_gilgamesh",
+    "ultimate_skill_id": "ult_gilgamesh",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_eu_28",
+    "portrait_asset": "portraits/gilgamesh.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "cu_chulainn",
+    "name_ko": "쿠 훌린",
+    "origin": "ip_fate",
+    "rarity": 4,
+    "stats": {
+      "ldr": 78,
+      "str": 105,
+      "int": 62,
+      "pol": 38,
+      "cha": 70,
+      "nav": 45
+    },
+    "growth_rates": {
+      "ldr": 80,
+      "str": 155,
+      "int": 55,
+      "pol": 25,
+      "cha": 60,
+      "nav": 40
+    },
+    "passive_skill_id": "pas_cu_chulainn",
+    "ultimate_skill_id": "ult_cu_chulainn",
+    "unique_unit_id": null,
+    "start_faction": "player_selectable",
+    "voice_set": "cc0_male_eu_29",
+    "portrait_asset": "portraits/cu_chulainn.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "cha_haein",
+    "name_ko": "차해인",
+    "origin": "ip_solo_leveling",
+    "rarity": 5,
+    "stats": {
+      "ldr": 112,
+      "str": 115,
+      "int": 80,
+      "pol": 70,
+      "cha": 95,
+      "nav": 30
+    },
+    "growth_rates": {
+      "ldr": 150,
+      "str": 165,
+      "int": 70,
+      "pol": 55,
+      "cha": 90,
+      "nav": 30
+    },
+    "passive_skill_id": "pas_cha_haein",
+    "ultimate_skill_id": "ult_cha_haein",
+    "unique_unit_id": null,
+    "start_faction": "hunter_guild",
+    "voice_set": "cc0_male_kr_30",
+    "portrait_asset": "portraits/cha_haein.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
+  },
+  {
+    "id": "baek_yoonho",
+    "name_ko": "백윤호",
+    "origin": "ip_solo_leveling",
+    "rarity": 4,
+    "stats": {
+      "ldr": 90,
+      "str": 108,
+      "int": 60,
+      "pol": 55,
+      "cha": 72,
+      "nav": 30
+    },
+    "growth_rates": {
+      "ldr": 95,
+      "str": 150,
+      "int": 45,
+      "pol": 40,
+      "cha": 60,
+      "nav": 30
+    },
+    "passive_skill_id": "pas_baek_yoonho",
+    "ultimate_skill_id": "ult_baek_yoonho",
+    "unique_unit_id": null,
+    "start_faction": "hunter_guild",
+    "voice_set": "cc0_male_kr_31",
+    "portrait_asset": "portraits/baek_yoonho.png",
+    "acquisition": {
+      "channels": [
+        "summon",
+        "recruit"
+      ],
+      "initial_status": "unaffiliated"
+    }
   }
 ]

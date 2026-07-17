@@ -11,7 +11,8 @@
       "busan"
     ],
     "start_characters": [
-      "jang_yeongsil"
+      "jang_yeongsil",
+      "kim_yusin"
     ],
     "start_resources": {
       "gold": 1000,
@@ -34,7 +35,8 @@
       "beijing"
     ],
     "start_characters": [
-      "guo_jia"
+      "guo_jia",
+      "sima_yi"
     ],
     "start_resources": {
       "gold": 1200,
@@ -56,6 +58,10 @@
     "start_provinces": [
       "paris"
     ],
+    "start_characters": [
+      "jeanne_darc",
+      "alexander"
+    ],
     "start_resources": {
       "gold": 1100,
       "food": 900
@@ -76,6 +82,10 @@
     "start_provinces": [
       "kyoto"
     ],
+    "start_characters": [
+      "rengoku",
+      "tomioka_giyu"
+    ],
     "start_resources": {
       "gold": 800,
       "food": 700
@@ -95,6 +105,10 @@
     "leader_character_id": "sung_jinwoo",
     "start_provinces": [
       "tokyo"
+    ],
+    "start_characters": [
+      "cha_haein",
+      "baek_yoonho"
     ],
     "start_resources": {
       "gold": 1000,
@@ -117,7 +131,8 @@
       "new_york"
     ],
     "start_characters": [
-      "hulk"
+      "hulk",
+      "captain_america"
     ],
     "start_resources": {
       "gold": 1500,
@@ -140,7 +155,8 @@
       "rome"
     ],
     "start_characters": [
-      "mash_kyrielight"
+      "mash_kyrielight",
+      "archer_emiya"
     ],
     "start_resources": {
       "gold": 1000,
@@ -163,7 +179,8 @@
       "chengdu"
     ],
     "start_characters": [
-      "guan_yu"
+      "guan_yu",
+      "zhang_fei"
     ],
     "start_resources": {
       "gold": 1000,
@@ -186,7 +203,8 @@
       "nanjing"
     ],
     "start_characters": [
-      "taishi_ci"
+      "taishi_ci",
+      "zhou_yu"
     ],
     "start_resources": {
       "gold": 1100,
@@ -207,6 +225,10 @@
     "leader_character_id": "gojo_satoru",
     "start_provinces": [
       "osaka"
+    ],
+    "start_characters": [
+      "yuji_itadori",
+      "fushiguro_megumi"
     ],
     "start_resources": {
       "gold": 1000,
