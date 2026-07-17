@@ -26,6 +26,16 @@ void AWCHUD::DrawHUD()
         Canvas->DrawItem(Sel);
     }
 
+    // ── 하단: 명령·모드 안내줄 (이벤트 로그 바로 위에 동적 배치) ──
+    if (!GM->HudModeLine.IsEmpty())
+    {
+        const float LogHeight = 30.f + 24.f * GM->EventLog.Num();
+        FCanvasTextItem Mode(FVector2D(24, Canvas->ClipY - LogHeight - 36.f),
+                             FText::FromString(GM->HudModeLine), Large, FLinearColor(0.7f, 0.9f, 1.f));
+        Mode.EnableShadow(FLinearColor::Black);
+        Canvas->DrawItem(Mode);
+    }
+
     // ── 도시명 라벨: 월드 → 화면 투영 (엔진 폰트의 한글 폴백 사용 — TextRender 한글 문제 회피) ──
     if (const AWCMapActor* Map = GM->GetMapActor())
     {

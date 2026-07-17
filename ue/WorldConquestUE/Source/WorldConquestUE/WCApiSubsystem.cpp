@@ -183,6 +183,26 @@ void UWCApiSubsystem::SendCommand(const FString& Faction, const FString& Verb, c
     Request(TEXT("POST"), TEXT("/api/command"), BodyText, MoveTemp(Callback));
 }
 
+void UWCApiSubsystem::SaveGame(const FString& Path, FWCJsonCallback Callback)
+{
+    const TSharedRef<FJsonObject> Body = MakeShared<FJsonObject>();
+    Body->SetStringField(TEXT("path"), Path);
+    FString BodyText;
+    const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&BodyText);
+    FJsonSerializer::Serialize(Body, Writer);
+    Request(TEXT("POST"), TEXT("/api/save"), BodyText, MoveTemp(Callback));
+}
+
+void UWCApiSubsystem::LoadGame(const FString& Path, FWCJsonCallback Callback)
+{
+    const TSharedRef<FJsonObject> Body = MakeShared<FJsonObject>();
+    Body->SetStringField(TEXT("path"), Path);
+    FString BodyText;
+    const TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&BodyText);
+    FJsonSerializer::Serialize(Body, Writer);
+    Request(TEXT("POST"), TEXT("/api/load"), BodyText, MoveTemp(Callback));
+}
+
 void UWCApiSubsystem::Request(const FString& Verb, const FString& Path, const FString& Body, FWCJsonCallback Callback)
 {
     const TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Req = FHttpModule::Get().CreateRequest();

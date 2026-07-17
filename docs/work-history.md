@@ -114,3 +114,9 @@
 - **핵심 판단**: 개발 worktree 는 임시 scratchpad 라 바로가기 대상 부적합 → **영구 detached 체크아웃** `C:\Users\Public\wc-game` (origin 브랜치 추적, 짧은 ASCII 경로라 junction 불필요). 갱신 = `git fetch + reset --hard origin/<브랜치>` + UE 재빌드.
 - **결과**: WorldConquest3D.bat → UnrealEditor.exe -game (서버는 UE 가 자식 스폰·고아 차단 포함). 영구 경로에서 스폰→핸드셰이크→지도 스크린샷→정리 전 사이클 실증. 바탕화면 4종: 게임(콘솔2인)·1인플레이(콘솔)·3D(UE)·밸런스관리.
 - **다음 작업자**: 코드 갱신 후 3D 반영은 wc-game 에서 fetch+reset+Build.bat. deploy-local.py 통합은 M2 증분2.
+
+## 2026-07-17 — M2 증분 2: 명령 조작 전체 (클릭+단축키, 콘솔 동등 근접)
+
+- **결과**: ①클릭 해석 모드 — [M]이동/[A]공격 → 목표 클릭 2단계, ESC 취소 ②영지 선택 시 아군 부대 자동 선택(이동·공격의 주어) ③[R/T]징병 10/50·[U]병종 순환·[B/N]건설·[S]초빙·[F5/F9] 퀵세이브/로드(서버 로컬 %USERPROFILE%/WorldConquest/saves/quick.json) ④명령 안내줄 HUD ⑤**QA -WCCmd="verb a b|verb c"** 명령 체인 러너 — 클릭 없이 명령 경로 시각 검증. 실증: 점령→징병20(주둔 20·아군부대 표시)→건설·초빙 서버 거부 라인 표시.
+- **함정**: `UInputComponent::BindKeyLambda` 는 존재하지 않는 API — 람다 키 바인딩은 `FInputKeyBinding` + `KeyDelegate.GetDelegateForManualSet().BindLambda` + `KeyBindings.Add` 패턴.
+- **잔여 (M2 마감 항목)**: 세력 선택 화면(현재 solo 조선 고정)·컷씬 대사 표시(현재 id 만)·deploy-local.py 에 3D 바로가기·wc-game 갱신 통합·병종별 징병 비용 표시.

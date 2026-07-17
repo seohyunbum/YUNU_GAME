@@ -92,6 +92,17 @@ void AWCGameMode::ParseNames(const TSharedPtr<FJsonObject>& StaticJson)
         FactionNames.Add(F->AsObject()->GetStringField(TEXT("id")), F->AsObject()->GetStringField(TEXT("name_ko")));
     for (const TSharedPtr<FJsonValue>& C : StaticJson->GetArrayField(TEXT("characters")))
         CharacterNames.Add(C->AsObject()->GetStringField(TEXT("id")), C->AsObject()->GetStringField(TEXT("name_ko")));
+
+    // 징병 병종 목록 (육상만 — 함선 건조 UI 는 후속)
+    for (const TSharedPtr<FJsonValue>& U : StaticJson->GetArrayField(TEXT("units")))
+    {
+        const TSharedPtr<FJsonObject> Unit = U->AsObject();
+        UnitNames.Add(Unit->GetStringField(TEXT("id")), Unit->GetStringField(TEXT("name_ko")));
+        if (Unit->GetStringField(TEXT("domain")) == TEXT("land"))
+            LandUnitIds.Add(Unit->GetStringField(TEXT("id")));
+    }
+    QuickSavePath = FPlatformMisc::GetEnvironmentVariable(TEXT("USERPROFILE")) / TEXT("WorldConquest/saves/quick.json");
+    UpdateModeLine();
 }
 
 void AWCGameMode::RefreshState()
@@ -136,6 +147,10 @@ void AWCGameMode::OnState(TSharedPtr<FJsonObject> State)
         }
     }
 
+    // QA: -WCCmd="verb a b|verb c" — 명령 체인 자동 실행 (클릭 없이 명령 경로 시각 검증)
+    RunQaCommandsIfRequested();
+    if (QaCommands.Num() > 0) return;   // 명령 소진 후에야 턴·샷
+
     // QA: -WCTurns=N — 샷 전에 N턴 자동 소화
     if (AutoTurnsRemaining < 0)
     {
@@ -150,6 +165,27 @@ void AWCGameMode::OnState(TSharedPtr<FJsonObject> State)
         return;
     }
     ScheduleQaShotIfRequested();
+}
+
+void AWCGameMode::RunQaCommandsIfRequested()
+{
+    if (!bQaCmdParsed)
+    {
+        bQaCmdParsed = true;
+        FString Script;
+        FParse::Value(FCommandLine::Get(), TEXT("WCCmd="), Script);
+        if (!Script.IsEmpty()) Script.ParseIntoArray(QaCommands, TEXT("|"));
+    }
+    if (QaCommands.Num() == 0 || bBusy || PendingActor.IsEmpty()) return;
+
+    TArray<FString> Tokens;
+    QaCommands[0].ParseIntoArray(Tokens, TEXT(" "));
+    QaCommands.RemoveAt(0);
+    if (Tokens.Num() == 0) return;
+    const FString Verb = Tokens[0];
+    Tokens.RemoveAt(0);
+    UE_LOG(LogWorldConquest, Log, TEXT("QA 명령: %s (%d args, 잔여 %d)"), *Verb, Tokens.Num(), QaCommands.Num());
+    SendVerb(Verb, Tokens);   // 콜백 → OnCommandResult → OnState → 다음 QA 명령
 }
 
 void AWCGameMode::OnCommandResult(TSharedPtr<FJsonObject> Result)
@@ -223,6 +259,23 @@ void AWCGameMode::HandleNodeClick(const UPrimitiveComponent* Component)
     if (!MapActor || !Component) return;
     const FString NodeId = MapActor->FindNodeIdByComponent(Component);
     if (NodeId.IsEmpty()) return;
+
+    // 이동·공격 모드: 이번 클릭 = 목표 지정 (주어 = 선택 부대)
+    if (ClickMode == EWCClickMode::MoveTarget && !SelectedArmyId.IsEmpty())
+    {
+        ClickMode = EWCClickMode::Normal;
+        UpdateModeLine();
+        SendVerb(TEXT("move"), { SelectedArmyId, NodeId });
+        return;
+    }
+    if (ClickMode == EWCClickMode::AttackTarget && !SelectedArmyId.IsEmpty())
+    {
+        ClickMode = EWCClickMode::Normal;
+        UpdateModeLine();
+        SendVerb(TEXT("attack"), { SelectedArmyId, NodeId });
+        return;
+    }
+
     SelectedNodeId = NodeId;
     UpdateSelectionInfo();
 }
@@ -242,14 +295,105 @@ void AWCGameMode::UpdateSelectionInfo()
             OwnerName = NameOf(FactionNames, OwnerId);
         break;
     }
+    // 선택 영지의 "내(현재 차례 세력) 부대" 자동 선택 — 이동·공격의 주어
+    SelectedArmyId.Empty();
     int32 Troops = 0;
     for (const TSharedPtr<FJsonValue>& A : LastState->GetArrayField(TEXT("armies")))
-        if (A->AsObject()->GetStringField(TEXT("location")) == SelectedNodeId)
-            Troops += static_cast<int32>(A->AsObject()->GetNumberField(TEXT("total_troops")));
+    {
+        const TSharedPtr<FJsonObject> Army = A->AsObject();
+        if (Army->GetStringField(TEXT("location")) != SelectedNodeId) continue;
+        Troops += static_cast<int32>(Army->GetNumberField(TEXT("total_troops")));
+        if (SelectedArmyId.IsEmpty() && Army->GetStringField(TEXT("faction_id")) == PendingActor)
+            SelectedArmyId = Army->GetStringField(TEXT("id"));
+    }
 
-    HudSelection = FString::Printf(TEXT("▶ %s — 소유: %s%s"),
+    HudSelection = FString::Printf(TEXT("▶ %s — 소유: %s%s%s"),
         *NameOf(ProvinceNames, SelectedNodeId), *OwnerName,
-        Troops > 0 ? *FString::Printf(TEXT(" · 주둔 %d"), Troops) : TEXT(""));
+        Troops > 0 ? *FString::Printf(TEXT(" · 주둔 %d"), Troops) : TEXT(""),
+        SelectedArmyId.IsEmpty() ? TEXT("") : *FString::Printf(TEXT(" · 아군부대 %s"), *SelectedArmyId));
+}
+
+void AWCGameMode::RecruitSelected(int32 Count)
+{
+    if (SelectedNodeId.IsEmpty() || LandUnitIds.Num() == 0) return;
+    SendVerb(TEXT("recruit"), { SelectedNodeId, LandUnitIds[RecruitUnitIndex], FString::FromInt(Count) });
+}
+
+void AWCGameMode::CycleRecruitUnit()
+{
+    if (LandUnitIds.Num() == 0) return;
+    RecruitUnitIndex = (RecruitUnitIndex + 1) % LandUnitIds.Num();
+    UpdateModeLine();
+}
+
+void AWCGameMode::BuildSelected(const FString& Facility)
+{
+    if (SelectedNodeId.IsEmpty()) return;
+    SendVerb(TEXT("build"), { SelectedNodeId, Facility });
+}
+
+void AWCGameMode::SummonOnce()
+{
+    SendVerb(TEXT("summon"), { TEXT("1") });
+}
+
+void AWCGameMode::BeginMoveMode()
+{
+    if (SelectedArmyId.IsEmpty()) { EventLog.Insert(TEXT("✘ 먼저 아군 부대가 있는 영지를 선택"), 0); return; }
+    ClickMode = EWCClickMode::MoveTarget;
+    UpdateModeLine();
+}
+
+void AWCGameMode::BeginAttackMode()
+{
+    if (SelectedArmyId.IsEmpty()) { EventLog.Insert(TEXT("✘ 먼저 아군 부대가 있는 영지를 선택"), 0); return; }
+    ClickMode = EWCClickMode::AttackTarget;
+    UpdateModeLine();
+}
+
+void AWCGameMode::CancelMode()
+{
+    ClickMode = EWCClickMode::Normal;
+    UpdateModeLine();
+}
+
+void AWCGameMode::QuickSave()
+{
+    GetGameInstance()->GetSubsystem<UWCApiSubsystem>()->SaveGame(QuickSavePath,
+        [this](TSharedPtr<FJsonObject> R)
+        {
+            EventLog.Insert(R.IsValid() && R->GetStringField(TEXT("status")) == TEXT("ok")
+                ? TEXT("💾 저장 완료 (quick)") : TEXT("✘ 저장 실패"), 0);
+        });
+}
+
+void AWCGameMode::QuickLoad()
+{
+    GetGameInstance()->GetSubsystem<UWCApiSubsystem>()->LoadGame(QuickSavePath,
+        [this](TSharedPtr<FJsonObject> State)
+        {
+            if (!State.IsValid()) { EventLog.Insert(TEXT("✘ 로드 실패 (저장 파일 없음?)"), 0); return; }
+            EventLog.Insert(TEXT("📂 이어하기 (quick)"), 0);
+            OnState(State);
+            UpdateSelectionInfo();
+        });
+}
+
+void AWCGameMode::UpdateModeLine()
+{
+    const FString UnitName = LandUnitIds.IsValidIndex(RecruitUnitIndex)
+        ? NameOf(UnitNames, LandUnitIds[RecruitUnitIndex]) : TEXT("-");
+    switch (ClickMode)
+    {
+        case EWCClickMode::MoveTarget:
+            HudModeLine = FString::Printf(TEXT("🎯 이동 목표를 클릭하십시오 (%s)  [ESC] 취소"), *SelectedArmyId); break;
+        case EWCClickMode::AttackTarget:
+            HudModeLine = FString::Printf(TEXT("⚔ 공격 목표를 클릭하십시오 (%s)  [ESC] 취소"), *SelectedArmyId); break;
+        default:
+            HudModeLine = FString::Printf(
+                TEXT("[R]징병10 [T]50 (병종:%s [U]변경) [M]이동 [A]공격 [B]시장 [N]농지 [S]초빙 [F5]저장 [F9]로드"), *UnitName);
+            break;
+    }
 }
 
 void AWCGameMode::SendVerb(const FString& Verb, const TArray<FString>& Args)

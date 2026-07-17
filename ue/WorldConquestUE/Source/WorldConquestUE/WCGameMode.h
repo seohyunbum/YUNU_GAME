@@ -8,6 +8,9 @@
 class AWCMapActor;
 class UPrimitiveComponent;
 
+/** 클릭 해석 모드 — 이동/공격은 "명령 키 → 목표 클릭" 2단계. */
+enum class EWCClickMode : uint8 { Normal, MoveTarget, AttackTarget };
+
 /**
  * WorldConquest 클라이언트 진입 게임모드 (ue5-client-design §3 — 코드 퍼스트, 로직 0).
  * M2: 서버 자식 스폰(원클릭) · 노드 클릭 선택 · 이벤트 로그 · 도시명 라벨 데이터.
@@ -30,6 +33,19 @@ public:
     /** 선택 영지 점령 시도 (C 키). 로직 판정은 전부 서버 [MUST]. */
     void CaptureSelected();
 
+    // ── M2 명령 (전부 서버 판정 — 클라는 인자만 만든다) ──
+    void RecruitSelected(int32 Count);            // R=10 · T=50, 병종은 U 로 순환
+    void CycleRecruitUnit();                      // U
+    void BuildSelected(const FString& Facility);  // B=market · N=farm
+    void SummonOnce();                            // S
+    void BeginMoveMode();                         // M → 목표 클릭
+    void BeginAttackMode();                       // A → 목표 클릭
+    void CancelMode();                            // ESC
+    void QuickSave();                             // F5
+    void QuickLoad();                             // F9
+
+    FString HudModeLine;                          // 모드·병종 안내줄
+
     // ── HUD 조회용 ──
     FString HudLine = TEXT("연결 중...");
     FString HudSelection;                       // 선택 정보 줄
@@ -38,6 +54,7 @@ public:
     TMap<FString, FString> ProvinceNames;       // id → name_ko (라벨·로그 공용)
     TMap<FString, FString> FactionNames;
     TMap<FString, FString> CharacterNames;
+    TMap<FString, FString> UnitNames;
     AWCMapActor* GetMapActor() const { return MapActor; }
 
 private:
@@ -58,6 +75,17 @@ private:
     TSharedPtr<FJsonObject> LastState;   // 선택 정보 표시용 (소유·부대)
     FString PendingActor;
     bool bBusy = false;
+
+    // 명령 상태 (표현 전용 — 게임 규칙 아님)
+    EWCClickMode ClickMode = EWCClickMode::Normal;
+    FString SelectedArmyId;              // 선택 영지의 내 부대 (이동·공격의 주어)
+    TArray<FString> LandUnitIds;         // static 병종 (land) — U 순환
+    int32 RecruitUnitIndex = 0;
+    FString QuickSavePath;
+    void UpdateModeLine();
+    void RunQaCommandsIfRequested();     // -WCCmd="verb a b|verb c" QA 스크립트
+    bool bQaCmdParsed = false;
+    TArray<FString> QaCommands;          // 남은 QA 명령 큐 (소진 후에야 WCTurns·WCShot)
 
     /** QA 하네스 (-WCShot / -WCTurns=N / -WCSelect=id) — ue5-client-design §3. */
     bool bShotScheduled = false;

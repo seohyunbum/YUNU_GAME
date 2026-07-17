@@ -43,6 +43,10 @@ public:
     /** /api/command — 명령 실행. Args 는 verb 인자 배열. */
     void SendCommand(const FString& Faction, const FString& Verb, const TArray<FString>& Args, FWCJsonCallback Callback);
 
+    /** /api/save · /api/load — 세이브 왕복 (경로는 서버 로컬 절대경로). */
+    void SaveGame(const FString& Path, FWCJsonCallback Callback);
+    void LoadGame(const FString& Path, FWCJsonCallback Callback);
+
     /** 서버 포트 — 자식 스폰 stdout 핸드셰이크(WC_API_PORT=)는 M2. */
     int32 ServerPort = 8378;
 
