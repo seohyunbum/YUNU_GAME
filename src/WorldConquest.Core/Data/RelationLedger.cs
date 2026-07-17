@@ -94,7 +94,12 @@ public sealed class RelationLedger
         }
     }
 
-    /// <summary>a·b 가 동시에 전쟁 중인 제3국이 있는가 (양측 시점 모두 War 인 상대).</summary>
+    /// <summary>
+    /// a·b 가 동시에 전쟁 중인 **살아있는** 제3국이 있는가 (양측 시점 모두 War).
+    /// 멸망 세력을 세면 안 된다 [MUST]: 멸망해도 Relations 항목은 남으므로, 죽은 적을 '공유' 한다는
+    /// 이유로 최후의 두 세력이 우호를 영원히 축적하게 된다(실측: 100판 중 98 무승부 — 마지막 둘이
+    /// 동맹으로 굳어 8:8 동결). 죽은 적은 더 이상 '공동의 적' 이 아니다.
+    /// </summary>
     private bool SharesEnemy(string a, string b)
     {
         var fa = _state.Factions.FirstOrDefault(f => f.Id == a);
@@ -102,6 +107,7 @@ public sealed class RelationLedger
         if (fa is null || fb is null) return false;
         return _state.Factions.Any(t =>
             t.Id != a && t.Id != b &&
+            t.OwnedProvinceIds.Count > 0 &&
             fa.Relations.GetValueOrDefault(t.Id) == DiplomaticState.War &&
             fb.Relations.GetValueOrDefault(t.Id) == DiplomaticState.War);
     }
@@ -109,7 +115,9 @@ public sealed class RelationLedger
     /// <summary>살아있는 세력 쌍 전체 — ordinal 순 (결정적).</summary>
     private IEnumerable<(string A, string B)> AllPairs()
     {
-        var ids = _state.Factions.Select(f => f.Id).OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var ids = _state.Factions
+            .Where(f => f.OwnedProvinceIds.Count > 0)
+            .Select(f => f.Id).OrderBy(x => x, StringComparer.Ordinal).ToList();
         for (var i = 0; i < ids.Count; i++)
             for (var j = i + 1; j < ids.Count; j++)
                 yield return (ids[i], ids[j]);

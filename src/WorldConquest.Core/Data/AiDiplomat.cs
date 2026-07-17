@@ -40,7 +40,7 @@ public sealed class AiDiplomat
         _r = _d.Ai;
     }
 
-    private enum Act { Respond, Peace, GrowTribute, Alliance, NonAggression, AppeaseTribute, Scheme, War }
+    private enum Act { Respond, Peace, GrowTribute, Alliance, NonAggression, AppeaseTribute, Scheme, War, EndgameBetrayal }
 
     /// <summary>
     /// 성향별 행위 우선순위 — **순열**이다(§7.2). 순서 재배치는 수치가 아니라 규칙이므로 코드에 둔다;
@@ -50,12 +50,12 @@ public sealed class AiDiplomat
     private static Act[] Order(string disposition) => disposition switch
     {
         // 공격적: 조공으로 돈 쓰지 않는다 — 문턱 완화는 데이터 델타로.
-        "aggressive" => new[] { Act.Peace, Act.Alliance, Act.NonAggression, Act.Scheme, Act.War },
+        "aggressive" => new[] { Act.Peace, Act.Alliance, Act.NonAggression, Act.Scheme, Act.War, Act.EndgameBetrayal },
         // 방어적: 불가침·조공으로 전쟁을 회피한다.
-        "defensive" => new[] { Act.Peace, Act.NonAggression, Act.AppeaseTribute, Act.GrowTribute, Act.Alliance, Act.Scheme, Act.War },
+        "defensive" => new[] { Act.Peace, Act.NonAggression, Act.AppeaseTribute, Act.GrowTribute, Act.Alliance, Act.Scheme, Act.War, Act.EndgameBetrayal },
         // 팽창형: 계략을 선호한다.
-        "expansionist" => new[] { Act.Peace, Act.Scheme, Act.GrowTribute, Act.Alliance, Act.NonAggression, Act.AppeaseTribute, Act.War },
-        _ => new[] { Act.Peace, Act.GrowTribute, Act.Alliance, Act.NonAggression, Act.AppeaseTribute, Act.Scheme, Act.War }
+        "expansionist" => new[] { Act.Peace, Act.Scheme, Act.GrowTribute, Act.Alliance, Act.NonAggression, Act.AppeaseTribute, Act.War, Act.EndgameBetrayal },
+        _ => new[] { Act.Peace, Act.GrowTribute, Act.Alliance, Act.NonAggression, Act.AppeaseTribute, Act.Scheme, Act.War, Act.EndgameBetrayal }
     };
 
     /// <summary>AI 1세력의 외교 턴. 첫 매칭 1건만 실행하고 종료 (actions_per_turn).</summary>
@@ -161,6 +161,24 @@ public sealed class AiDiplomat
 
         Act.Scheme => TryScheme(self),
 
+        // 최후의 결별 — 조약 상대 말고는 칠 상대가 없을 때만.
+        // 승리 조건(§1.1 전 세계 정복)과 조약의 **영속성**이 구조적으로 충돌한다: 조약에 만료도
+        // 파기 경로도 없어서 마지막 두 세력이 동맹/불가침이면 판이 영구 동결된다
+        // (실측: 100판 중 98 무승부, 최종 8:8).
+        // **동맹과 불가침을 모두** 대상으로 해야 한다 — 동맹만 풀면 둘은 불가침으로 굳는다(실측).
+        // 조약은 공동의 적이 있을 때의 계약이므로, 적이 다 사라지고 전력 우위까지 있으면 갈라선다.
+        // 동맹 파기는 배신 대가(Betrayal + 제3국 평판)를 그대로 치른다(DeclareWar 내부 판정).
+        // 중반 조약의 가치를 지키려 조건을 '칠 상대가 아예 없을 때' 로 좁혔다.
+        // 전력 우위를 요구하지 않는다 [MUST]: 여긴 이미 '칠 상대가 조약 상대뿐' 인 상황이라
+        // 싸우지 않으면 **무조건 무승부**다. 8:8 대칭에서 양쪽 다 우위가 없어 아무도 결별하지
+        // 못하는 완벽한 교착이 실측됐다(전력비 130% 요구 시 100판 중 98 무승부 유지).
+        // 이기려면 싸울 수밖에 없는 국면에서 전력비를 따지는 것은 비합리적이다.
+        Act.EndgameBetrayal => !HasHostileTarget(self)
+                               && First(self, t => Rel(self, t) is DiplomaticState.Alliance
+                                                       or DiplomaticState.NonAggression
+                                                   && !SharesEnemy(self.Id, t),
+                                   t => _dip.DeclareWar(self.Id, t)),
+
         Act.War => First(self, t => _led.Favor(self.Id, t) <= WarThreshold(def)
                                     && Rel(self, t) == DiplomaticState.Neutral
                                     && Power(self.Id) > Power(t) * _r.WarPowerRatio / 100,
@@ -231,14 +249,24 @@ public sealed class AiDiplomat
         _state.Factions.Count(f => f.Id != id &&
                                    f.Relations.GetValueOrDefault(id) == DiplomaticState.Alliance);
 
+    /// <summary>
+    /// 공동의 적 — **살아있는** 제3국만 (RelationLedger.SharesEnemy 와 같은 규약 [MUST]).
+    /// 멸망 세력의 Relations 항목은 남으므로 죽은 적을 세면 동맹의 명분이 영원히 유지되어
+    /// 최후의 두 세력이 갈라서지 못한다.
+    /// </summary>
     private bool SharesEnemy(string a, string b)
     {
         var fa = _state.Factions.First(f => f.Id == a);
         var fb = _state.Factions.First(f => f.Id == b);
         return _state.Factions.Any(t => t.Id != a && t.Id != b &&
+                                        t.OwnedProvinceIds.Count > 0 &&
                                         fa.Relations.GetValueOrDefault(t.Id) == DiplomaticState.War &&
                                         fb.Relations.GetValueOrDefault(t.Id) == DiplomaticState.War);
     }
+
+    /// <summary>동맹·불가침이 아닌 살아있는 상대가 하나라도 있는가 — 없으면 정복이 더 진행될 수 없다.</summary>
+    private bool HasHostileTarget(FactionState self) => Others(self).Any(t =>
+        Rel(self, t) is not (DiplomaticState.Alliance or DiplomaticState.NonAggression));
 
     private DiplomaticState Rel(FactionState self, string t) => self.Relations.GetValueOrDefault(t);
     private bool Allied(FactionState self, string t) => Rel(self, t) == DiplomaticState.Alliance;
