@@ -111,15 +111,12 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
             ]
             + SVerticalBox::Slot().AutoHeight()
             [
-                SNew(SBox).HeightOverride(42)
-                [
-                    SNew(SButton).ButtonStyle(&PrimaryStyle)
-                    .IsEnabled_Lambda([this] { return GM.IsValid() && GM->UiCanEnterSelected(); })
-                    .OnClicked_Lambda([this] { if (GM.IsValid()) GM->EnterSelectedCity(); return FReply::Handled(); })
-                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
-                    [ SNew(STextBlock).Font(KFont(15)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
-                        .Text(FText::FromString(TEXT("도시 진입 ▶"))) ]
-                ]
+                SNew(SButton).ButtonStyle(&PrimaryStyle)   // 높이 고정 제거 — ContentPadding 11 로 자동높이+여유
+                .IsEnabled_Lambda([this] { return GM.IsValid() && GM->UiCanEnterSelected(); })
+                .OnClicked_Lambda([this] { if (GM.IsValid()) GM->EnterSelectedCity(); return FReply::Handled(); })
+                .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 11))
+                [ SNew(STextBlock).Font(KFont(15)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
+                    .Text(FText::FromString(TEXT("도시 진입 ▶"))) ]
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 8, 0, 0)[ MakeButton(FText::FromString(TEXT("점령 (빈 영지)")),
                 [](AWCGameMode* G) { G->CaptureSelected(); }) ]
@@ -163,11 +160,11 @@ TSharedRef<SWidget> SWCMainUI::MakeProvincePanel()
 TSharedRef<SWidget> SWCMainUI::MakeGlobalPanel()
 {
     // 턴 종료 단독 [MUST] — 유일한 진행 수단이므로 오조작할 이웃을 두지 않는다 (ux-design §3.3).
-    return SNew(SBox).WidthOverride(230).HeightOverride(56)
+    return SNew(SBox).WidthOverride(230)   // 높이 고정 제거 — ContentPadding 12 로 자동높이+여유
     [
         SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
         .OnClicked_Lambda([this] { if (GM.IsValid()) GM->RequestEndTurn(); return FReply::Handled(); })
-        .HAlign(HAlign_Center).VAlign(VAlign_Center)
+        .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 12))
         [ SNew(STextBlock).Font(KFont(18)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
             .Text(FText::FromString(TEXT("▶ 이번 달 끝내기"))) ]
     ];
@@ -183,14 +180,11 @@ TSharedRef<SWidget> SWCMainUI::MakeFactionPanel()
             SNew(SVerticalBox)
             + SVerticalBox::Slot().AutoHeight()
             [
-                SNew(SBox).HeightOverride(44)
-                [
-                    SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
-                    .OnClicked_Lambda([this] { if (GM.IsValid()) GM->SummonOnce(); return FReply::Handled(); })
-                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
-                    [ SNew(STextBlock).Font(KFont(15)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
-                        .Text(FText::FromString(TEXT("★ 사람 부르기"))) ]
-                ]
+                SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())   // 높이 고정 제거 — ContentPadding 11
+                .OnClicked_Lambda([this] { if (GM.IsValid()) GM->SummonOnce(); return FReply::Handled(); })
+                .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 11))
+                [ SNew(STextBlock).Font(KFont(15)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
+                    .Text(FText::FromString(TEXT("★ 사람 부르기"))) ]
             ]
             + SVerticalBox::Slot().AutoHeight().Padding(0, 6, 0, 0)
             [
@@ -218,7 +212,7 @@ TSharedRef<SWidget> SWCMainUI::MakeButton(const FText& Label, TFunction<void(AWC
     return SNew(SButton).ButtonStyle(&FWCStyle::ButtonRef())
         .IsEnabled(Enabled)
         .OnClicked_Lambda([this, Action] { if (GM.IsValid()) Action(GM.Get()); return FReply::Handled(); })
-        .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(8, 6))
+        .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(8, 10))   // 상하 10 = 고 DPI 글자 여유
         [ SNew(STextBlock).Font(KFont(14)).ColorAndOpacity(FSlateColor(FWCStyle::Ink)).Text(Label) ];
 }
 

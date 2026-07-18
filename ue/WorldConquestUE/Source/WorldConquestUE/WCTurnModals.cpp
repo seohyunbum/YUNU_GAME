@@ -69,11 +69,11 @@ void SWCTurnReport::Construct(const FArguments& InArgs)
 
                     + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 22, 0, 0)
                     [
-                        SNew(SBox).WidthOverride(260).HeightOverride(48)
+                        SNew(SBox).WidthOverride(260)   // 높이 고정 제거 — ContentPadding 11(고 DPI 짤림 방지)
                         [
                             SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
                             .OnClicked_Lambda([this] { if (GM.IsValid()) GM->DismissReport(); return FReply::Handled(); })
-                            .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                            .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 11))
                             [ SNew(STextBlock).Font(FWCStyle::Font(17))
                                 .ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
                                 .Text(FText::FromString(TEXT("확인 · 내 차례"))) ]
@@ -166,22 +166,22 @@ void SWCEndTurnConfirm::Construct(const FArguments& InArgs)
                         SNew(SHorizontalBox)
                         + SHorizontalBox::Slot().FillWidth(1)
                         [
-                            SNew(SBox).HeightOverride(46)
+                            SNew(SBox)   // 높이 고정 제거 — ContentPadding 11(고 DPI 짤림 방지)
                             [
                                 SNew(SButton).ButtonStyle(&FWCStyle::ButtonRef())
                                 .OnClicked_Lambda([this] { if (GM.IsValid()) GM->CancelEndTurn(); return FReply::Handled(); })
-                                .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                                .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 11))
                                 [ SNew(STextBlock).Font(FWCStyle::Font(16)).ColorAndOpacity(FSlateColor(FWCStyle::Ink))
                                     .Text(FText::FromString(TEXT("더 할래요"))) ]
                             ]
                         ]
                         + SHorizontalBox::Slot().FillWidth(1).Padding(10, 0, 0, 0)
                         [
-                            SNew(SBox).HeightOverride(46)
+                            SNew(SBox)   // 높이 고정 제거 — ContentPadding 11(고 DPI 짤림 방지)
                             [
                                 SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
                                 .OnClicked_Lambda([this] { if (GM.IsValid()) GM->ConfirmEndTurn(); return FReply::Handled(); })
-                                .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                                .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 11))
                                 [ SNew(STextBlock).Font(FWCStyle::Font(16))
                                     .ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
                                     .Text(FText::FromString(TEXT("이번 달 끝내기"))) ]

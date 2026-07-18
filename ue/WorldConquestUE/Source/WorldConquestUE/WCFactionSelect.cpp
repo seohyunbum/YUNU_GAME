@@ -38,7 +38,8 @@ TSharedRef<SWidget> SWCFactionSelect::MakeModeButton(const FString& Label, bool 
         };
     };
 
-    return SNew(SBox).WidthOverride(230).HeightOverride(58)
+    // 높이 고정 금지 — 내용맞춤 자동높이 + 상하 ContentPadding 11 로 글자 여유 확보(고 DPI 하단 짤림 방지).
+    return SNew(SBox).WidthOverride(230)
     [
         SNew(SOverlay)
         // 선택됨 — 밝은 금색 Primary + 진한 글씨
@@ -46,7 +47,7 @@ TSharedRef<SWidget> SWCFactionSelect::MakeModeButton(const FString& Label, bool 
         [
             SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
             .Visibility_Lambda(VisWhen(true)).OnClicked_Lambda(OnClick)
-            .HAlign(HAlign_Center).VAlign(VAlign_Center)
+            .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 11))
             [ SNew(STextBlock).Font(FWCStyle::Bold(16))
                 .ColorAndOpacity(FSlateColor(FLinearColor(0.10f, 0.07f, 0.02f)))
                 .Text(FText::FromString(Label)) ]
@@ -56,7 +57,7 @@ TSharedRef<SWidget> SWCFactionSelect::MakeModeButton(const FString& Label, bool 
         [
             SNew(SButton).ButtonStyle(&FWCStyle::ButtonRef())
             .Visibility_Lambda(VisWhen(false)).OnClicked_Lambda(OnClick)
-            .HAlign(HAlign_Center).VAlign(VAlign_Center)
+            .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 11))
             [ SNew(STextBlock).Font(FWCStyle::Font(16))
                 .ColorAndOpacity(FSlateColor(FWCStyle::Ink))
                 .Text(FText::FromString(Label)) ]
@@ -165,11 +166,11 @@ EVisibility SWCFactionSelect::SelectVisibility() const
             const FLinearColor Color = Map ? Map->GetFactionColor(Id) : FLinearColor::Gray;
             FactionList->AddSlot().AutoHeight().Padding(0, 0, 0, 6)
             [
-                SNew(SBox).HeightOverride(52)
+                SNew(SBox)   // 높이 고정 금지 — ContentPadding 11 이 자동높이 + 글자 여유 담당(고 DPI 짤림 방지)
                 [
                     SNew(SButton).ButtonStyle(&FWCStyle::ButtonRef())
                     .OnClicked_Lambda([this, i] { if (GM.IsValid()) GM->SelectFactionByIndex(i); return FReply::Handled(); })
-                    .HAlign(HAlign_Fill).VAlign(VAlign_Center).ContentPadding(FMargin(14, 8))
+                    .HAlign(HAlign_Fill).VAlign(VAlign_Center).ContentPadding(FMargin(14, 11))
                     [
                         SNew(SHorizontalBox)
                         // 세력색 배너 — 지도 깃발 색과 같아서 어느 나라인지 바로 이어진다

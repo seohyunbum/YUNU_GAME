@@ -134,7 +134,7 @@ void SWCCityView::Construct(const FArguments& InArgs)
             // 하단: 성문 = 지도로 나가기
             + SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 12, 0, 0)
             [
-                SNew(SBox).WidthOverride(300).HeightOverride(44)
+                SNew(SBox).WidthOverride(300)   // 높이 고정 제거 — MakeButton 이 자동높이(고 DPI 짤림 방지)
                 [
                     MakeButton(FText::FromString(TEXT("성문 — 세계지도로  (ESC)")),
                         [](AWCGameMode* G) { G->LeaveCity(); })
@@ -233,13 +233,13 @@ TSharedRef<SWidget> SWCCityView::MakeFacilityCard(const FString& Kind, const TCH
             // 건설/증축 (레벨 3 = 최대)
             + SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
             [
-                SNew(SBox).WidthOverride(62).HeightOverride(30)
+                SNew(SBox).WidthOverride(62)   // 높이 고정 제거 — ContentPadding 8 로 자동높이+여유
                 [
                     SNew(SButton).ButtonStyle(&BtnStyle())
                     .IsEnabled_Lambda([this, Kind] { return FacilityLevelOf(Kind) < 3; })
                     .OnClicked_Lambda([this, Kind]
                     { if (GM.IsValid()) GM->BuildSelected(Kind); return FReply::Handled(); })
-                    .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                    .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(6, 8))
                     [
                         SNew(STextBlock).Font(CityFont(12)).ColorAndOpacity(FSlateColor(FWCStyle::Ink))
                         .Text_Lambda([this, Kind]
@@ -410,15 +410,13 @@ TSharedRef<SWidget> SWCCityView::MakeFacilityBody(const FString& /*Unused*/)
         ]
         + SVerticalBox::Slot().AutoHeight().Padding(0, 14, 0, 0)
         [
-            SNew(SBox).HeightOverride(44)
-            [
-                SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())
+            SNew(SButton).ButtonStyle(&FWCStyle::PrimaryButtonRef())   // 높이 고정 제거 — ContentPadding 11
                 .OnClicked_Lambda([this]
                 {
                     if (GM.IsValid() && !GM->OpenBuilding.IsEmpty()) GM->BuildSelected(GM->OpenBuilding);
                     return FReply::Handled();
                 })
-                .HAlign(HAlign_Center).VAlign(VAlign_Center)
+                .HAlign(HAlign_Center).VAlign(VAlign_Center).ContentPadding(FMargin(0, 11))
                 [
                     SNew(STextBlock).Font(CityFont(15)).ColorAndOpacity(FSlateColor(FLinearColor(0.1f, 0.07f, 0.02f)))
                     .Text_Lambda([this]
@@ -427,7 +425,6 @@ TSharedRef<SWidget> SWCCityView::MakeFacilityBody(const FString& /*Unused*/)
                         return FText::FromString(Lv <= 0 ? TEXT("짓기") : TEXT("크게 만들기"));
                     })
                 ]
-            ]
         ];
 }
 
@@ -594,7 +591,7 @@ TSharedRef<SWidget> SWCCityView::MakeButton(const FText& Label, TFunction<void(A
     return SNew(SButton).ButtonStyle(&Style)
         .OnClicked_Lambda([this, Action] { if (GM.IsValid()) Action(GM.Get()); return FReply::Handled(); })
         .HAlign(HAlign_Center).VAlign(VAlign_Center)
-        .ContentPadding(FMargin(8, 7))
+        .ContentPadding(FMargin(8, 10))   // 상하 10 = 고 DPI 글자 여유(하단 짤림 방지)
         [ SNew(STextBlock).Font(FWCStyle::Font(14)).ColorAndOpacity(FSlateColor(FWCStyle::Ink)).Text(Label) ];
 }
 
