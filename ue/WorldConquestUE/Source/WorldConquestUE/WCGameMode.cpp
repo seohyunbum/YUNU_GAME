@@ -831,7 +831,7 @@ void AWCGameMode::UpdateModeLine()
             HudModeLine = FString::Printf(TEXT("✕ 공격 목표를 클릭하십시오 (%s)  [ESC] 취소"), *SelectedArmyId); break;
         default:
             HudModeLine = FString::Printf(
-                TEXT("[R]징병10 [T]50 (병종:%s [U]변경) [M]이동 [A]공격 [B]시장 [N]농지 [S]초빙 [F5]저장 [F9]로드"), *UnitName);
+                TEXT("[R]징병10 [T]50 (병종:%s [U]변경) [M]이동 [A]공격 [B]도시(개발·무장) [S]초빙 [F5]저장 [F9]로드"), *UnitName);
             break;
     }
 }
