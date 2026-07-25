@@ -1726,3 +1726,23 @@
     사용자 PC 게이트에서 정상. 씬 카운트는 구조상 불변이라 perf 회귀 없음.
   후속 후보(미적용, 위험/범위): 실루엣 프레넬 림라이트(flatShading 상 페이싯 노이즈 우려), 접지 블롭 그림자
     (메시 예산), 컴포저 비네트/채도 패스(PC-high·main 배선). 사용자 확인 후 별도 진행.
+
+- 그래픽 "완전히" 개편 2차 — 시네마틱 무디 룩(사용자 선택: 시네마틱 무디):
+  방향 결정: 사용자가 아트 스타일 4지선다에서 "시네마틱 무디" 선택. 성능 실측 불가(원격 샌드박스
+  networkidle/Firebase 차단)라 렌더패스 증설은 배제하고, 위험 0 레버만 사용.
+  핵심 판단 — 컴포저(bloom+GTAO)는 재활성 금지: main.ts:2801 주석대로 UnrealBloom threshold 가 절차적
+  Sky 의 HDR 픽셀을 통째로 번지게 해 화면 과노출(하얗게) 되는 회귀가 있어 postProcessingEnabled=false 로
+  꺼둔 상태. 여기 손대면 그 버그 재발 → 손대지 않음. 대신 CSS grade + 정적 비네팅 + leaf 조명으로 달성.
+  조치(전부 CSS/leaf + main net-zero, 신규 메시 0·핫패스 alloc 0·전 디바이스):
+  ▪style.css .game-canvas filter: saturate(1.24) contrast(1.07) → contrast(1.16) saturate(1.06) sepia(0.06)
+    — 필름 대비↑·채도 절제(캔디 탈피)·미세 세피아 필름 틴트. 밝기는 CSS 미개입(노출 일원화 유지).
+  ▪style.css #game::after 비네팅 심화: transparent 54%→40%, 코너 0.4→0.64. HUD(z:3)는 위라 무영향.
+  ▪timeOfDay.ts: 그림자 바운스(hemisphere groundColor) 0x39542c→0x2b4550(차가운 청록) — 따뜻한 sunTint 와
+    teal-orange 색 분리. 한낮 ambient 2.0/2.25→1.86/2.04(플랫 밝음 완화)·sun 2.28/2.72→2.34/2.82(키/필 대비↑
+    =입체감)·fogFar 465/480→438/452(대기 헤이즈·깊이감, 드로우 거리도 소폭↓=perf 이득).
+  ▪visuals.ts tuneMaterial 채도 +0.052→+0.024(필름 룩, 대비는 CSS 담당).
+  ▪main.ts toneMappingExposure 1.05→0.98(무디, net-zero 값편집).
+  검증: typecheck·check:size(9486)·check:methods(481)·check:architecture·check:hotpath(신규 alloc 0)·build 녹색.
+  헤드리스 실측(dawn/noon/dusk): 비네팅 프레임 + 필름 대비 + teal 그림자/warm 키 + 세피아 틴트로 영화 같은
+  분위기. 한낮도 가독성 유지(과도하게 어둡지 않음), HUD 는 비네팅 위라 무손상.
+  메시/객체 0 증가 → perf 예산 무영향. ※ perf-check/visual-check 는 이 샌드박스 미기동(환경), 사용자 PC 정상.

@@ -1145,7 +1145,7 @@ class WildernessGame {
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05; // 0.98→1.05 살짝 밝고 화사하게(juice)
+    this.renderer.toneMappingExposure = 0.98; // 시네마틱 무디 — 노출 절제(대비·비네팅은 CSS, 색조는 timeOfDay). 과노출 마진 확보.
     this.renderer.shadowMap.enabled = false;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.shadowMap.autoUpdate = false;

@@ -48,8 +48,8 @@ const TIME_OF_DAY_STOPS: TimeOfDayStop[] = [
   { hour: 0, sky: 0x06101f, fog: 0x050814, ambient: 0.36, sun: 0.02, sunTint: 0x3a4e86, cloud: 0x8695b6, opacity: 0.45, fogNear: 38, fogFar: 310 },
   { hour: 4.6, sky: 0x233659, fog: 0x182944, ambient: 0.64, sun: 0.12, sunTint: 0x7c6aa8, cloud: 0xaab7d6, opacity: 0.58, fogNear: 40, fogFar: 340 },
   { hour: 6.2, sky: 0xf3a45f, fog: 0xbe7f60, ambient: 1.42, sun: 1.2, sunTint: 0xffb968, cloud: 0xffd0a0, opacity: 0.78, fogNear: 44, fogFar: 410 },
-  { hour: 8.5, sky: 0x9fd8ff, fog: 0x9fd8ff, ambient: 2.0, sun: 2.28, sunTint: 0xfff0dc, cloud: 0xffffff, opacity: 0.84, fogNear: 74, fogFar: 465 },
-  { hour: 13.0, sky: 0xaed8ff, fog: 0xaed8ff, ambient: 2.25, sun: 2.72, sunTint: 0xfff6ec, cloud: 0xffffff, opacity: 0.86, fogNear: 92, fogFar: 480 },
+  { hour: 8.5, sky: 0x9fd8ff, fog: 0x9fd8ff, ambient: 1.86, sun: 2.34, sunTint: 0xfff0dc, cloud: 0xffffff, opacity: 0.84, fogNear: 70, fogFar: 438 },
+  { hour: 13.0, sky: 0xaed8ff, fog: 0xaed8ff, ambient: 2.04, sun: 2.82, sunTint: 0xfff6ec, cloud: 0xffffff, opacity: 0.86, fogNear: 86, fogFar: 452 },
   { hour: 17.8, sky: 0xf4914f, fog: 0xac6656, ambient: 1.48, sun: 1.12, sunTint: 0xff9d47, cloud: 0xffb87f, opacity: 0.76, fogNear: 46, fogFar: 405 },
   { hour: 20.4, sky: 0x14213d, fog: 0x101827, ambient: 0.56, sun: 0.07, sunTint: 0x5a5a94, cloud: 0x8796b7, opacity: 0.5, fogNear: 38, fogFar: 320 },
   { hour: 24, sky: 0x06101f, fog: 0x050814, ambient: 0.36, sun: 0.02, sunTint: 0x3a4e86, cloud: 0x8695b6, opacity: 0.45, fogNear: 38, fogFar: 310 },
@@ -145,7 +145,7 @@ export function applyOverworldTimeOfDay(context: TimeOfDayContext) {
   context.sky.visible = !tint?.hideSky; // 짙은 무드(묘지 등)는 하늘 돔을 끄고 배경색을 그대로 드러낸다
   context.ambientLight.intensity = ambientScaled;
   context.ambientLight.color.copy(ambientColor.setHex(0xeaf7ff).lerp(skyColor, 0.24));
-  context.ambientLight.groundColor.copy(groundColor.setHex(0x39542c).lerp(fogColor, 0.22));
+  context.ambientLight.groundColor.copy(groundColor.setHex(0x2b4550).lerp(fogColor, 0.22)); // 차가운 청록 그림자 바운스 — 따뜻한 태양광(sunTint)과 대비되는 시네마틱 색 분리(teal-orange)
   context.sunLight.intensity = sunIntensity;
   sunTintColor.setHex(before.sunTint).lerp(sunTintTarget.setHex(after.sunTint), t); // 시각별 태양광 색조 — 세계를 제 하늘색과 어울리게 물들인다
   if (tint) sunTintColor.lerp(fogColor, tint.cloudBlend * 0.5); // 짙은 무드(용암/늪 등)면 키라이트도 그 색을 살짝 머금는다
