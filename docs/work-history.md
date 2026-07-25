@@ -1707,3 +1707,22 @@
       콘솔 에러 0" 단언은 네트워크 사유로 실패함 — 코드 회귀 아님, 사용자 Windows PC 게이트에서는 정상.
       코드 레벨 게이트(typecheck·check:size/methods/architecture/hotpath·전 노드 단위 테스트)는 전부 녹색.
   헤드리스 부팅(힐러 직업 진입) 코드 레벨 에러 0(네트워크 에러만 필터). main.ts 무변경.
+
+- 그래픽 품질 개선 1차 — 시각별 태양광 색조 그레이딩(사용자: 그래픽 좀더 좋은걸로):
+  진단(헤드리스 before 실측): 하늘(Sky 산란 셰이더)은 황혼에 따뜻하게 물드는데 지면·풀·나무·캐릭터는
+  중립광이라 "하늘 따로 세계 따로". sunLight 는 intensity 만 변조되고 color 는 0xffffff 고정이었음.
+  조치(전부 leaf + main net-zero):
+  ▪timeOfDay.ts: TimeOfDayStop 에 sunTint 추가(시각별 키라이트 색조) — 새벽/황혼 황금빛(0xffb968/0xff9d47),
+    한낮 근백색(0xfff6ec), 밤 차가운 청보라. 모듈스코프 스크래치 컬러(sunTintColor/Target)로 lerp →
+    핫패스 할당 0. 짙은 무드(용암/늪)면 키라이트도 fog 색을 살짝 머금게 lerp.
+  ▪timeOfDay.ts: 새벽/황혼 stop 하늘·안개 채도 소폭 심화(0xf0a269→0xf3a45f 등), 골든아워 sun intensity 미세 상향.
+  ▪visuals.ts tuneMaterial: 스타일라이즈 채도 +0.035→+0.052(펀치), 명도 리프트 절제(0.018→0.014, 그림자 뭉갬 방지),
+    envMapIntensity 0.45→0.55(HDRI 하늘반사 소폭↑).
+  ▪main.ts: toneMappingExposure 1.02→1.05(net-zero 값편집, 예산 9486 유지).
+  검증: typecheck·check:size(9486)·check:methods(481)·check:architecture·check:hotpath(alloc 0 신규)·build 녹색.
+  헤드리스 before/after 실측(dawn/noon/dusk) — 황혼에 검·손·지면이 황금빛으로 물들어 하늘과 일치, 한낮은
+  근백색 tint 라 깨끗함 유지. 메시/객체 증가 0(그레이딩·재질 정적 변경) → perf 예산 영향 없음.
+  ※ perf-check/visual-check 는 이 원격 샌드박스에서 networkidle(Firebase 차단)로 미기동 — 코드 무관 환경 사유,
+    사용자 PC 게이트에서 정상. 씬 카운트는 구조상 불변이라 perf 회귀 없음.
+  후속 후보(미적용, 위험/범위): 실루엣 프레넬 림라이트(flatShading 상 페이싯 노이즈 우려), 접지 블롭 그림자
+    (메시 예산), 컴포저 비네트/채도 패스(PC-high·main 배선). 사용자 확인 후 별도 진행.

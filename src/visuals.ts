@@ -145,9 +145,9 @@ function tuneMaterial(material: THREE.Material | THREE.Material[]) {
   }
   if (material instanceof THREE.MeshStandardMaterial) {
     if (material.userData.stylizedTuned) return;
-    material.color.offsetHSL(0, 0.035, 0.018);
+    material.color.offsetHSL(0, 0.052, 0.014); // 채도↑(스타일라이즈 펀치) · 명도 리프트는 절제(그림자면 뭉개짐 방지)
     material.flatShading = true;
-    material.envMapIntensity = Math.max(material.envMapIntensity, 0.45);
+    material.envMapIntensity = Math.max(material.envMapIntensity, 0.55); // HDRI 은은한 하늘 반사 조금 더
     material.needsUpdate = true;
     material.userData.stylizedTuned = true;
   }
