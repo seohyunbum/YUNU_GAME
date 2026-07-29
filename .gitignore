@@ -1,0 +1,9 @@
+node_modules/
+.next/
+dist/
+.wrangler/
+coverage/
+*.log
+*.tsbuildinfo
+.env*
+!.env.example
