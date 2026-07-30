@@ -6,6 +6,7 @@ import {
   makeToonMaterial,
 } from "../visuals";
 import { applyMonsterDifficulty, type DifficultyModifiers } from "./difficulty";
+import { buildStrikeArm } from "./guardMotion";
 import type { ObjectType, WalkCycle, WalkPartSetup, WorldObject } from "./types";
 
 export interface GuardSpawnContext {
@@ -46,6 +47,8 @@ export function spawnKnight(context: GuardSpawnContext, position: THREE.Vector3,
   plume.position.set(0, 2.34, -0.04);
   group.add(torso, chestPlate, crest, belt, neck, head, helmet, visor, plume);
 
+  let knightArm: THREE.Object3D | null = null;
+  let knightGauntlet: THREE.Object3D | null = null;
   for (const side of [-1, 1]) {
     const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 6), darkSteel);
     pauldron.position.set(side * 0.62, 1.52, 0);
@@ -61,6 +64,7 @@ export function spawnKnight(context: GuardSpawnContext, position: THREE.Vector3,
     boot.position.set(side * 0.23, 0.03, 0.06);
     walkParts.push({ object: leg, side, axis: "x" }, { object: boot, side, axis: "x" });
     group.add(pauldron, arm, gauntlet, leg, boot);
+    if (side === 1) { knightArm = arm; knightGauntlet = gauntlet; }
   }
 
   const shield = new THREE.Mesh(
@@ -85,6 +89,8 @@ export function spawnKnight(context: GuardSpawnContext, position: THREE.Vector3,
   swordGrip.position.set(0.64, 0.62, 0.22);
   swordGrip.rotation.z = -0.22;
   group.add(shield, shieldBoss, swordBlade, swordGuard, swordGrip);
+  // 검을 든 오른팔 + 검을 어깨 피벗으로 묶어 공격 시 내려친다(방패 팔은 몸에 고정).
+  if (knightArm && knightGauntlet) buildStrikeArm(group, [0.62, 1.52, 0], [knightArm, knightGauntlet, swordBlade, swordGuard, swordGrip]);
   group.position.copy(position);
   const knight = context.addWorldObject("villageKnight", "마을기사", group, {
     hp: 90,
@@ -132,16 +138,18 @@ export function spawnGolem(context: GuardSpawnContext, position: THREE.Vector3, 
     eye.scale.z = 0.55;
   }
 
+  const golemArm: THREE.Object3D[] = [];
   for (const side of [-1, 1]) {
-    addBlock(new THREE.BoxGeometry(0.86, 0.42, 0.78), darkStone, side * 1.18, 2.38, 0, 0, 0, side * 0.12);
-    addBlock(new THREE.BoxGeometry(0.42, 1.18, 0.44), stone, side * 1.42, 1.68, 0, 0, 0, side * 0.14);
-    addBlock(new THREE.BoxGeometry(0.5, 1.02, 0.48), darkStone, side * 1.5, 0.85, 0.04, 0, 0, side * -0.1);
-    addBlock(new THREE.BoxGeometry(0.74, 0.48, 0.64), stone, side * 1.56, 0.28, 0.08, 0, side * 0.04, side * -0.05);
+    const shoulderBlock = addBlock(new THREE.BoxGeometry(0.86, 0.42, 0.78), darkStone, side * 1.18, 2.38, 0, 0, 0, side * 0.12);
+    const upperArm = addBlock(new THREE.BoxGeometry(0.42, 1.18, 0.44), stone, side * 1.42, 1.68, 0, 0, 0, side * 0.14);
+    const foreArm = addBlock(new THREE.BoxGeometry(0.5, 1.02, 0.48), darkStone, side * 1.5, 0.85, 0.04, 0, 0, side * -0.1);
+    const fist = addBlock(new THREE.BoxGeometry(0.74, 0.48, 0.64), stone, side * 1.56, 0.28, 0.08, 0, side * 0.04, side * -0.05);
     addBlock(new THREE.BoxGeometry(0.54, 1.0, 0.55), stone, side * 0.52, 0.58, 0, 0, 0, side * 0.04);
     addBlock(new THREE.BoxGeometry(0.7, 0.28, 0.72), darkStone, side * 0.54, 0.08, 0.14);
-    addBlock(new THREE.ConeGeometry(0.16, 0.46, 4), darkStone, side * 1.2, 2.84, 0.03, 0, side * 0.55, side * -0.22);
-    addBlock(new THREE.BoxGeometry(0.08, 0.42, 0.08), glow, side * 1.14, 2.32, 0.43, 0, 0, side * 0.1);
-    addBlock(new THREE.BoxGeometry(0.08, 0.38, 0.08), glow, side * 1.55, 1.22, 0.34, 0, 0, side * -0.1);
+    const spike = addBlock(new THREE.ConeGeometry(0.16, 0.46, 4), darkStone, side * 1.2, 2.84, 0.03, 0, side * 0.55, side * -0.22);
+    const runeA = addBlock(new THREE.BoxGeometry(0.08, 0.42, 0.08), glow, side * 1.14, 2.32, 0.43, 0, 0, side * 0.1);
+    const runeB = addBlock(new THREE.BoxGeometry(0.08, 0.38, 0.08), glow, side * 1.55, 1.22, 0.34, 0, 0, side * -0.1);
+    if (side === 1) golemArm.push(shoulderBlock, upperArm, foreArm, fist, spike, runeA, runeB);
   }
 
   addBlock(new THREE.BoxGeometry(1.1, 0.08, 1.04), moss, -0.18, 2.72, 0.04);
@@ -151,6 +159,8 @@ export function spawnGolem(context: GuardSpawnContext, position: THREE.Vector3, 
   addBlock(new THREE.BoxGeometry(0.1, 0.5, 0.08), glow, 0, 1.18, 0.58);
   addBlock(new THREE.ConeGeometry(0.1, 0.38, 4), darkStone, -0.42, 3.82, 0.02, 0, 0.2, 0);
   addBlock(new THREE.ConeGeometry(0.1, 0.38, 4), darkStone, 0.42, 3.82, 0.02, 0, -0.2, 0);
+  // 오른팔 전체를 어깨 피벗으로 묶어 공격 시 묵직하게 내려찍는다(golem = heavy 프로파일).
+  buildStrikeArm(group, [1.18, 2.38, 0], golemArm);
   group.position.copy(position);
   const golem = context.addWorldObject("villageGolem", "마을 수호신 골렘", group, {
     hp: 180,

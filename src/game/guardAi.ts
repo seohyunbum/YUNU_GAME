@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { PLAYER_RADIUS } from "./constants";
+import { animateGuardStrike, triggerGuardStrike } from "./guardMotion";
 import { partyDamageRemotePlayer, partyHostCombatTargets } from "./partyWorldSync";
 import type { WorldObject } from "./types";
 
@@ -75,6 +76,7 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     // 추격·공격 중에는 플레이어를 정면으로 바라본다 (+Z 정면 모델 → atan2(dx, dz))
     if (centerDistance > 0.01) guard.root.rotation.y = lerpAngle(guard.root.rotation.y, Math.atan2(dx, dz), Math.min(1, delta * 10));
     context.runWalkCycle(guard, delta, movementSpeed);
+    animateGuardStrike(guard, now); // 무기 팔 스윙 진행(공격 발동 시각 기준) — 발동 없으면 휴식 포즈
 
     // 골렘 — 5초마다 바위 던지기(원거리). 일반 공격은 근접 유지.
     if (guard.type === "villageGolem") {
@@ -82,6 +84,7 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
       if (guard.skillCooldown <= 0 && centerDistance > 4 && centerDistance <= 22) {
         context.fireProjectile(guard.root.position.x, guard.root.position.y + (guard.collisionHeight ?? 3.9) * 0.7, guard.root.position.z, targetX, targetZ, guard.attackDamage ?? 14, "rock");
         guard.skillCooldown = 5;
+        triggerGuardStrike(guard, now, "heavy"); // 바위 투척 = 묵직한 내려찍기 모션
         context.playHandAction();
       }
     }
@@ -98,17 +101,20 @@ export function updateVillageGuards(context: GuardAiContext, delta: number) {
     if (remoteTarget !== null) {
       // 같은 맵 게스트 타격 — 패널(인벤토리) 열림이면 보류 (로컬과 같은 보호). 피해는 그 게스트가 적용.
       if (!remotePanelOpen) partyDamageRemotePlayer(remoteTarget, damage, guard.name ?? "경비");
+      triggerGuardStrike(guard, now, mode === "ranged" ? "ranged" : guard.type === "villageGolem" ? "heavy" : "melee");
       context.playHandAction();
       continue;
     }
     if (mode === "ranged") {
       // 원거리 가드 — 눈에 보이는 투사체 발사(즉시 피해 → 착탄 피해, 회피 가능). 어디서 쏘는지 보이게.
       context.fireProjectile(guard.root.position.x, guard.root.position.y + (guard.collisionHeight ?? 2) * 0.82, guard.root.position.z, targetX, targetZ, damage, guard.type === "villageMage" ? "magic" : "arrow");
+      triggerGuardStrike(guard, now, "ranged"); // 발사 = 당김→내지름 모션
       context.playHandAction();
       continue; // 피해는 투사체 착탄 시 적용
     }
     // 여기부터는 근접 가드만 도달(원거리는 위에서 투사체 발사 후 continue)
     const died = context.damagePlayer(damage, true, `${guard.name}의 근거리 공격을 받아 체력이 모두 떨어졌습니다.`, guard);
+    triggerGuardStrike(guard, now, guard.type === "villageGolem" ? "heavy" : "melee"); // 근접 타격 = 무기 내려치기
     context.playHandAction();
     if (died) continue;
     const lastDamage = context.getLastDamage();

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { buildStrikeArm } from "./guardMotion";
 import type { ObjectType, WalkPartSetup } from "./types";
 
 export interface RangedGuardVisual {
@@ -73,6 +74,8 @@ export function createRangedGuardVisual(type: Extract<ObjectType, "villageArcher
       group.add(eye);
     }
 
+    let mageArm: THREE.Object3D | null = null;
+    let mageHand: THREE.Object3D | null = null;
     for (const side of [-1, 1]) {
       const sleeve = new THREE.Mesh(
         new THREE.BoxGeometry(0.18, 0.7, 0.2),
@@ -91,6 +94,7 @@ export function createRangedGuardVisual(type: Extract<ObjectType, "villageArcher
       robeHem.position.set(side * 0.18, 0.27, 0.02);
       walkParts.push({ object: robeHem, side, axis: "x" }, { object: foot, side, axis: "x" });
       group.add(sleeve, hand, robeHem, foot);
+      if (side === 1) { mageArm = sleeve; mageHand = hand; }
     }
 
     const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 1.55, 8), wood);
@@ -108,6 +112,8 @@ export function createRangedGuardVisual(type: Extract<ObjectType, "villageArcher
     halo.position.copy(orb.position);
     halo.rotation.x = Math.PI / 2;
     group.add(staff, orb, halo);
+    // 시전 팔(오른쪽) + 지팡이·오브를 어깨 피벗으로 묶어 공격 시 앞으로 내지른다.
+    if (mageArm && mageHand) buildStrikeArm(group, [0.5, 1.32, 0.05], [mageArm, mageHand, staff, orb, halo]);
   } else {
     const tunic = new THREE.Mesh(
       new THREE.BoxGeometry(0.74, 1.08, 0.44),
@@ -139,6 +145,8 @@ export function createRangedGuardVisual(type: Extract<ObjectType, "villageArcher
       group.add(eye);
     }
 
+    let archerArm: THREE.Object3D | null = null;
+    let archerHand: THREE.Object3D | null = null;
     for (const side of [-1, 1]) {
       const arm = new THREE.Mesh(
         new THREE.BoxGeometry(0.16, 0.72, 0.18),
@@ -154,6 +162,7 @@ export function createRangedGuardVisual(type: Extract<ObjectType, "villageArcher
       boot.position.set(side * 0.18, 0.04, 0.04);
       walkParts.push({ object: leg, side, axis: "x" }, { object: boot, side, axis: "x" });
       group.add(arm, hand, leg, boot);
+      if (side === 1) { archerArm = arm; archerHand = hand; }
     }
 
     const bowTop = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.78, 8), wood);
@@ -188,6 +197,8 @@ export function createRangedGuardVisual(type: Extract<ObjectType, "villageArcher
       group.add(quiverArrow);
     }
     group.add(bowTop, bowBottom, string, arrow, quiver);
+    // 활을 든 오른팔 + 활·화살을 어깨 피벗으로 묶어 발사 시 앞으로 내지른다(당김→방출).
+    if (archerArm && archerHand) buildStrikeArm(group, [0.52, 1.32, 0.09], [archerArm, archerHand, bowTop, bowBottom, string, arrow]);
   }
 
   return {
