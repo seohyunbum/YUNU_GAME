@@ -31,7 +31,7 @@
     "check:size": "node scripts/check-main-size.mjs",
     "check:methods": "node scripts/check-method-count.mjs",
     "check:hotpath": "node scripts/check-hotpath-allocations.mjs",
-    "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run check:hotpath && npm run check:admin && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:systems && npm run test:balance && npm run test:mobile && npm run test:party-ledger && npm run test:difficulty && npm run test:leaderboard && npm run test:spirits && npm run test:samurai && npm run test:illia && npm run test:telegraph && npm run test:fortress-boss && npm run test:rune-stones && npm run test:gun-reload && npm run test:monster-motion && npm run test:damage-variance && npm run test:nickname",
+    "verify": "npm run typecheck && npm run check:size && npm run check:methods && npm run check:architecture && npm run check:hotpath && npm run check:admin && npm run test:combat && npm run test:save-migration && npm run test:save-roundtrip && npm run test:save-repository && npm run test:content && npm run test:systems && npm run test:balance && npm run test:mobile && npm run test:party-ledger && npm run test:difficulty && npm run test:leaderboard && npm run test:spirits && npm run test:samurai && npm run test:illia && npm run test:telegraph && npm run test:fortress-boss && npm run test:rune-stones && npm run test:gun-reload && npm run test:monster-motion && npm run test:guard-motion && npm run test:damage-variance && npm run test:nickname",
     "verify:full": "npm run verify && node scripts/check-server.mjs && npm run visual-check && npm run visual:weapons && npm run perf-check",
     "admin-report": "node scripts/admin-report.mjs",
     "build:admin": "node scripts/build-admin-html.mjs",
@@ -41,7 +41,8 @@
     "test:fortress-boss": "node scripts/fortress-boss-test.mjs",
     "test:rune-stones": "node scripts/rune-stones-test.mjs",
     "test:gun-reload": "node scripts/gun-reload-test.mjs",
-    "test:monster-motion": "node scripts/monster-motion-test.mjs"
+    "test:monster-motion": "node scripts/monster-motion-test.mjs",
+    "test:guard-motion": "node scripts/guard-motion-test.mjs"
   },
   "dependencies": {
     "firebase": "^12.14.0",

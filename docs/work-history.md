@@ -1746,3 +1746,26 @@
   헤드리스 실측(dawn/noon/dusk): 비네팅 프레임 + 필름 대비 + teal 그림자/warm 키 + 세피아 틴트로 영화 같은
   분위기. 한낮도 가독성 유지(과도하게 어둡지 않음), HUD 는 비네팅 위라 무손상.
   메시/객체 0 증가 → perf 예산 무영향. ※ perf-check/visual-check 는 이 샌드박스 미기동(환경), 사용자 PC 정상.
+
+- 마을 경비병 공격 모션 신설 + 무기 팔 유기화(사용자: 움직임 자연스럽게·공격모션 입혀줘):
+  진단: 몬스터·보스·파티 아바타는 앞선 작업으로 유기 모션이 있으나, 마을 경비병(기사·궁수·마법사·골렘)은
+  걷기 사이클만 있고 자기 공격 모션이 전무 — 본체는 정지한 채 데미지만 들어가고 playHandAction()(플레이어 손)만
+  흔들렸음. "공격모션 입혀줘"의 대상.
+  설계 판단: 경비 모델 정면은 +Z(눈 z=+0.27)라 predatorAi(정면 +X·몸통 도약)를 그대로 못 씀 → 어깨 피벗을
+  x축으로 스윙하는 전용 모션을 신설. main.ts 무변경(전부 leaf).
+  조치:
+  ▪신규 leaf `game/guardMotion.ts`: buildStrikeArm(무기 팔+무기를 어깨 피벗으로 재부모화 — world 좌표 보존,
+    healer 지팡이 분리 사고와 동일 해법) + triggerGuardStrike/animateGuardStrike(예열→내려침→0 원복, 무할당).
+    프로파일 3종: melee(기사)·heavy(골렘, 느리고 큼)·ranged(궁수·마법사, 당김→내지름). 미발동 센티넬 -1e9로
+    부팅 초반 헛스윙 방지.
+  ▪guardVisuals.ts(궁수·마법사): 오른팔+손+무기(활·화살 / 지팡이·오브·헤일로)를 buildStrikeArm 으로 묶음.
+  ▪guardSpawns.ts(기사·골렘): 기사=오른팔+건틀릿+검, 골렘=오른팔 블록 7개를 어깨 피벗으로 묶음.
+  ▪guardAi.ts: 매 프레임 animateGuardStrike + 공격 발동(근접·원거리·골렘 바위투척·원격 타격)마다 triggerGuardStrike.
+    기존 playHandAction()·데미지 경로는 보존.
+  ▪회귀 가드 신설: scripts/guard-motion-test.mjs(재부모화 world 좌표 보존·스윙/원복·미태깅 안전·실모델 배선) +
+    verify 체인 편입.
+  검증: typecheck·check:size(9486 불변)·check:methods(481 불변)·check:architecture·check:hotpath(신규 alloc 0)·
+    build·guard-motion·monster-motion·combat·systems·content·save-repository 전부 녹색.
+  헤드리스 프리뷰(4종 idle vs 공격 피크) 실측: 기사 검 내려치기·마법사 지팡이 내지름·궁수 당김·골렘 우완 슬램
+    — 무기가 손에 붙은 채 어깨에서 스윙됨(분리 없음). main.ts 0 변경 · 메시 증가 0 → perf 예산 무영향.
+  ※ 걷기는 기존 animateWalkCycle(다리 스윙+머리 끄덕임) 유지 — 팔 스윙과 축이 달라 공존.
