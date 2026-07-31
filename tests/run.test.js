@@ -89,7 +89,7 @@ test('코스 끝까지 가면 보스 단계로 넘어가고 전진이 멈춘다'
   const reached = simulateUntil(LW, run, (r) => r.phase === 'boss', 90, pilot.smart);
   assert.ok(reached, '보스까지 못 갔다: ' + run.phase);
   assert.ok(run.boss, '보스가 없다');
-  assert.ok(run.dist <= run.plan.bossY - 11.9, '보스 단계에서도 계속 전진한다');
+  assert.ok(run.dist <= run.plan.bossY - LW.config.boss.standoff + 0.01, '보스 단계에서도 계속 전진한다');
   const before = run.dist;
   simulate(LW, run, 0.5, pilot.smart);
   assert.equal(run.dist, before, '보스전에서는 제자리에서 싸운다');

@@ -11,13 +11,35 @@
     cameraFront: 19, // 플레이어 앞으로 보이는 거리
   };
 
+  /** 부대 뒤 어깨 시점(광고에서 보던 그 앵글) — 원근 투영 파라미터. */
+  const camera = {
+    back: 4.2, // 부대 선두에서 카메라까지 (월드 단위)
+    height: 7.6, // 카메라 높이 — 크면 위에서 내려다보는 각이 된다
+    focalRatio: 0.4, // 초점 거리 = focalRatio * min(화면폭, 화면높이*0.62)
+    horizonRatio: 0.3, // 지평선이 화면 위에서 몇 %인가
+    near: 1.0, // 이보다 가까운 건 그리지 않는다
+    far: 260, // 도로가 여기까지 뻗어 보인다
+    drawDistance: 150, // 노면 무늬를 그리는 거리
+  };
+
+  /** 오브젝트 세로 높이(월드 단위) — 원근에서 "서 있는" 느낌을 만든다. */
+  const heights = {
+    unit: 0.82,
+    enemy: 0.95,
+    brute: 1.45,
+    boss: 3.5,
+    gate: 2.7,
+    barricade: 1.05,
+    coin: 0.45,
+  };
+
   const squad = {
     baseCount: 10,
     maxCount: 999,
     basePerRow: 3,
     maxPerRow: 16, // 병력이 늘면 진형이 도로를 채운다 -> 회피가 어려워진다
-    spacingX: 0.52,
-    spacingY: 0.62,
+    spacingX: 0.42,
+    spacingY: 0.4,
     maxDrawn: 54, // 이 이상은 그리지 않고 숫자 배지로 표시
     unitRadius: 0.2,
     moveSpeed: 7.6, // 좌우 이동 (월드 단위/초)
@@ -37,9 +59,10 @@
   };
 
   const boss = {
-    hp: 480,
-    radius: 1.35,
-    speed: 0.62,
+    hp: 570,
+    radius: 1.6,
+    speed: 0.5,
+    standoff: 8, // 부대가 보스 앞 이 거리에서 멈춰 정면 승부를 벌인다
     contactCost: 8, // 보스가 스쿼드에 닿으면 잃는 병력
     spawnInterval: 3.4,
     fireInterval: 1.55,
@@ -52,7 +75,7 @@
 
   const scaling = {
     /** 구역이 오를수록 적 체력·수량이 는다. */
-    enemyHp: (stage) => 1 + 0.26 * (stage - 1),
+    enemyHp: (stage) => 1 + 0.29 * (stage - 1),
     enemyCount: (stage) => 1 + 0.14 * (stage - 1),
     bossHp: (stage) => 1 + 0.72 * (stage - 1),
     length: (stage) => 250 + 26 * (stage - 1),
@@ -61,16 +84,16 @@
 
   /** 구역 테마 — 배경색과 등장 적 구성. 넘어가면 마지막 테마를 반복(엔드리스). */
   const stages = [
-    { name: '1구역 · 폐차장', road: '#2a2f3a', side: '#3c3226', kinds: ['grunt'] },
-    { name: '2구역 · 고물 야드', road: '#282f3d', side: '#33402c', kinds: ['grunt', 'runner'] },
-    { name: '3구역 · 컨테이너 항', road: '#243040', side: '#25404a', kinds: ['grunt', 'runner', 'brute'] },
-    { name: '4구역 · 발전소 터', road: '#2c2836', side: '#432c3a', kinds: ['grunt', 'runner', 'shooter'] },
-    { name: '5구역 · 지하 통로', road: '#20242e', side: '#2a2c3a', kinds: ['grunt', 'brute', 'shooter'] },
-    { name: '6구역 · 사막 국도', road: '#332d26', side: '#5a4a2f', kinds: ['runner', 'brute', 'shooter'] },
-    { name: '7구역 · 눈 덮인 다리', road: '#2b323c', side: '#5c6a78', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
-    { name: '8구역 · 용광로', road: '#33262a', side: '#5a2c22', kinds: ['runner', 'brute', 'shooter'] },
-    { name: '9구역 · 폐허 도심', road: '#262a33', side: '#3a3a44', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
-    { name: '10구역 · 사령부', road: '#1e2432', side: '#2d3a52', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
+    { name: '1구역 · 폐차장', road: '#3a4050', side: '#4d4130', sky: ['#1b2740', '#4a5b7d'], far: '#2a3450', kinds: ['grunt'] },
+    { name: '2구역 · 고물 야드', road: '#374051', side: '#42522f', sky: ['#1a2c3c', '#5a7a6a'], far: '#27423a', kinds: ['grunt', 'runner'] },
+    { name: '3구역 · 컨테이너 항', road: '#324256', side: '#2c505c', sky: ['#12283c', '#3f7d92'], far: '#1e4453', kinds: ['grunt', 'runner', 'brute'] },
+    { name: '4구역 · 발전소 터', road: '#3a3648', side: '#553748', sky: ['#241a34', '#6e4666'], far: '#3b2540', kinds: ['grunt', 'runner', 'shooter'] },
+    { name: '5구역 · 지하 통로', road: '#2b303c', side: '#383b4c', sky: ['#0d1018', '#2a3040'], far: '#1a1e28', kinds: ['grunt', 'brute', 'shooter'] },
+    { name: '6구역 · 사막 국도', road: '#443b31', side: '#7a663f', sky: ['#3d2a18', '#c08a4a'], far: '#6b5230', kinds: ['runner', 'brute', 'shooter'] },
+    { name: '7구역 · 눈 덮인 다리', road: '#3a424e', side: '#7d8b99', sky: ['#20303f', '#8fa8ba'], far: '#5b6c7c', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
+    { name: '8구역 · 용광로', road: '#453036', side: '#75382a', sky: ['#3a1410', '#b8482a'], far: '#63241c', kinds: ['runner', 'brute', 'shooter'] },
+    { name: '9구역 · 폐허 도심', road: '#333844', side: '#4c4c58', sky: ['#181c26', '#4a4f5e'], far: '#2c3040', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
+    { name: '10구역 · 사령부', road: '#2c3446', side: '#3c4c68', sky: ['#101a2c', '#3e5a86'], far: '#22304a', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
   ];
 
   const pools = { bullets: 220, bolts: 80, enemies: 90, particles: 220 };
@@ -92,6 +115,8 @@
 
   LW.config = {
     world,
+    camera,
+    heights,
     squad,
     enemyKinds,
     boss,

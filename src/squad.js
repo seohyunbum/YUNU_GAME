@@ -29,9 +29,10 @@
       const rowWidth = (inRow - 1) * cfg.spacingX;
       for (let c = 0; c < inRow; c++) {
         let slot = out[i];
-        if (!slot) slot = out[i] = { x: 0, y: 0 };
+        if (!slot) slot = out[i] = { x: 0, y: 0, i: 0 };
         slot.x = -rowWidth / 2 + c * cfg.spacingX;
         slot.y = -row * cfg.spacingY;
+        slot.i = i; // 달리기 애니메이션 위상용
         i++;
       }
       row++;

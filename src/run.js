@@ -393,6 +393,14 @@
     }
   }
 
+  /** 뒤로 흘러간 오브젝트는 버린다 — 배열이 무한히 길어지지 않게. */
+  function cleanupPassed(run) {
+    const behind = run.dist - 14;
+    for (let i = run.gates.length - 1; i >= 0; i--) if (run.gates[i].y < behind) run.gates.splice(i, 1);
+    for (let i = run.coins.length - 1; i >= 0; i--) if (run.coins[i].y < behind) run.coins.splice(i, 1);
+    for (let i = run.barricades.length - 1; i >= 0; i--) if (run.barricades[i].y < behind) run.barricades.splice(i, 1);
+  }
+
   function updateParticles(run, dt) {
     for (const p of run.particles) {
       if (!p.active) continue;
@@ -429,8 +437,8 @@
     const prevDist = run.dist;
     if (run.phase === 'run') {
       run.dist += cfg.squad.advanceSpeed * dt;
-      if (run.dist >= run.plan.bossY - 12) {
-        run.dist = run.plan.bossY - 12;
+      if (run.dist >= run.plan.bossY - cfg.boss.standoff) {
+        run.dist = run.plan.bossY - cfg.boss.standoff;
         run.phase = 'boss';
         // 큰 부대를 데려오면 보스도 그만큼 단단해진다 — 체력바가 늘 의미 있게.
         const p = LW.config.pressure;
@@ -463,6 +471,7 @@
     updateBarricades(run, prevDist, dt);
     updateBoss(run, dt);
     updateParticles(run, dt);
+    cleanupPassed(run);
     if (squad.count > run.peak) run.peak = squad.count;
 
     return run.out;
@@ -474,7 +483,7 @@
       if (!run.boss) return 1;
       return 1; // 보스 단계는 보스 체력바가 진행도 역할을 한다
     }
-    return U.clamp(run.dist / Math.max(1, run.plan.bossY - 12), 0, 1);
+    return U.clamp(run.dist / Math.max(1, run.plan.bossY - LW.config.boss.standoff), 0, 1);
   }
 
   /** 결과 집계 — 세이브에 넘길 값. */

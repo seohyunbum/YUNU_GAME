@@ -66,6 +66,7 @@
     LW.audio.unlock();
     const mods = LW.upgrades.resolve(save.levels);
     run = LW.run.create(Math.max(1, stage), mods);
+    LW.fx.reset();
     input.targetX = 0;
     mode = 'play';
     ui.beginRun(run);
@@ -150,14 +151,19 @@
         if (keys.left) input.targetX -= dt * 9;
         if (keys.right) input.targetX += dt * 9;
         const events = LW.run.update(run, dt, input);
-        if (events.length) LW.audio.play(events, now);
+        if (events.length) {
+          LW.audio.play(events, now);
+          LW.fx.handle(events, run);
+        }
+        LW.fx.update(dt);
         ui.updateHud(run);
         if (run.phase === 'won' || run.phase === 'lost') {
           mode = 'over';
           overTimer = run.phase === 'won' ? 0.9 : 1.2;
         }
       } else if (mode === 'over') {
-        LW.run.update(run, dt, input); // 파티클 잔상만 진행
+        LW.fx.handle(LW.run.update(run, dt, input), run); // 파티클·연출 잔상만 진행
+        LW.fx.update(dt);
         overTimer -= dt;
         if (overTimer <= 0) finishRun();
       }
@@ -174,7 +180,7 @@
     state: () => ({ mode: mode, run: run, save: save }),
     start: (stage) => startRun(stage),
     skipToBoss: () => {
-      if (run) run.dist = run.plan.bossY - 12.1;
+      if (run) run.dist = run.plan.bossY - LW.config.boss.standoff - 0.1;
     },
     finishBoss: () => {
       if (run && run.boss) run.boss.hp = 0.01;

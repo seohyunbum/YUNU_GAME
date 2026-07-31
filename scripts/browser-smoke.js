@@ -72,6 +72,19 @@ async function main() {
     });
     check('캔버스에 장면이 그려진다', painted > 6, painted + '가지 색');
 
+    // 원근 시점 확인: 위쪽은 하늘, 아래쪽은 도로 — 색이 뚜렷히 달라야 한다
+    const layers = await page.evaluate(() => {
+      const c = document.getElementById('stage');
+      const ctx = c.getContext('2d');
+      const at = (fy) => {
+        const d = ctx.getImageData(Math.floor(c.width / 2), Math.floor(c.height * fy), 1, 1).data;
+        return [d[0], d[1], d[2]];
+      };
+      return { sky: at(0.08), road: at(0.92) };
+    });
+    const diff = Math.abs(layers.sky[0] - layers.road[0]) + Math.abs(layers.sky[1] - layers.road[1]) + Math.abs(layers.sky[2] - layers.road[2]);
+    check('하늘과 도로가 원근으로 나뉜다', diff > 24, 'sky=' + layers.sky + ' road=' + layers.road);
+
     // 좌우 이동
     await page.keyboard.down('ArrowLeft');
     await wait(400);
