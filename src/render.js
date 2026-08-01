@@ -742,7 +742,8 @@
       if (d < LW.config.camera.near) continue;
       const s = scaleAt(cam, d);
       const x = px(cam, p.x, s);
-      const y = py(cam, s, 1.5) - p.rise;
+      // 화면 아래 HUD(병력 수·버프 칩)와 겹치지 않게 위로 올려 잡는다
+      const y = Math.min(py(cam, s, 1.5), cam.h * 0.74) - p.rise;
       const t = p.life / p.maxLife;
       const fs = Math.max(14, cam.w * 0.075 * p.size * (1.25 - t * 0.25));
       ctx.globalAlpha = Math.min(1, t * 2.2);

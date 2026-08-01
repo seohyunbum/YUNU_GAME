@@ -42,18 +42,18 @@
         expected = Math.max(3, expected - 1);
       }
 
-      // 드럼통 — 쏴서 터뜨리면 위의 총을 얻는다 (첫 블록에도 하나 준다)
-      if (y === FIRST_GATE || rng.chance(0.55)) {
-        const count = rng.int(1, 2);
-        const bx = rng.range(-2.8, 2.8);
-        for (let i = 0; i < count; i++) {
-          events.push({
-            type: 'barrel',
-            y: y + 18 + i * 4 + rng.range(-1.5, 1.5),
-            x: LW.util.clamp(bx + i * rng.range(-1.6, 1.6), -3.4, 3.4),
-            hp: Math.round(cfg.barrel.hp * (1 + 0.12 * (stage - 1))),
-          });
-        }
+      // 드럼통 — 쏴서 터뜨리면 위의 총을 얻는다. 게이트 구간마다 반드시 나온다.
+      const barrelCount = rng.int(2, 3);
+      const bx = rng.range(-2.8, 2.8);
+      for (let i = 0; i < barrelCount; i++) {
+        const by = y + 10 + i * rng.range(5, 9) + rng.range(-1.5, 1.5);
+        if (by > bossY - 6) break;
+        events.push({
+          type: 'barrel',
+          y: by,
+          x: LW.util.clamp(bx + i * rng.range(-2.2, 2.2), -3.4, 3.4),
+          hp: Math.round(cfg.barrel.hp * (1 + 0.12 * (stage - 1))),
+        });
       }
 
       // 가끔 바리케이드(부수거나 피해야 함)와 부품 뭉치
