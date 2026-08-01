@@ -72,29 +72,30 @@ async function main() {
     const progress2 = await page.$eval('#hud-progress-fill', (el) => parseFloat(el.style.width));
     check('진행도가 올라간다', progress2 > progress1, progress1 + '% -> ' + progress2 + '%');
 
-    // 캔버스가 실제로 뭔가 그렸는지 (단색이 아닌지)
-    const painted = await page.evaluate(() => {
-      const c = document.getElementById('stage');
-      const ctx = c.getContext('2d');
-      const d = ctx.getImageData(0, 0, c.width, Math.min(c.height, 400)).data;
-      const seen = new Set();
-      for (let i = 0; i < d.length; i += 4 * 97) seen.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]);
-      return seen.size;
-    });
-    check('캔버스에 장면이 그려진다', painted > 6, painted + '가지 색');
+    // 어떤 렌더러로 그리고 있나 (3D 가 가능하면 3D, 아니면 2D 폴백)
+    const gfxMode = await page.evaluate(() => window.LW.debug.state().gfx);
+    check('렌더러가 붙었다', gfxMode === '3d' || gfxMode === '2d', gfxMode);
 
-    // 원근 시점 확인: 위쪽은 하늘, 아래쪽은 도로 — 색이 뚜렷히 달라야 한다
-    const layers = await page.evaluate(() => {
-      const c = document.getElementById('stage');
-      const ctx = c.getContext('2d');
-      const at = (fy) => {
-        const d = ctx.getImageData(Math.floor(c.width / 2), Math.floor(c.height * fy), 1, 1).data;
-        return [d[0], d[1], d[2]];
-      };
-      return { sky: at(0.08), road: at(0.92) };
-    });
-    const diff = Math.abs(layers.sky[0] - layers.road[0]) + Math.abs(layers.sky[1] - layers.road[1]) + Math.abs(layers.sky[2] - layers.road[2]);
-    check('하늘과 도로가 원근으로 나뉜다', diff > 24, 'sky=' + layers.sky + ' road=' + layers.road);
+    if (gfxMode === '3d') {
+      // WebGL 캔버스는 픽셀을 바로 읽을 수 없다 — 무엇을 몇 개 그렸는지로 확인한다
+      const p3 = await page.evaluate(() => window.LW.render3d.probe());
+      check('3D: 부대가 장면에 들어간다', p3.unitBody.count > 0, p3.unitBody.count + '명');
+      check('3D: 병사 머리도 함께 그린다', p3.unitHead.count === p3.unitBody.count);
+      check('3D: 게이트가 3D 로 만들어진다', p3.gate.used > 0, p3.gate.used + '개');
+      // 실제로 화면에 색이 찍혔는지 (스크린샷 픽셀로 확인)
+      const shot = await page.screenshot({ clip: { x: 0, y: 300, width: 200, height: 200 } });
+      check('3D: 화면이 비어 있지 않다', shot.length > 2000, shot.length + 'B PNG');
+    } else {
+      const painted = await page.evaluate(() => {
+        const c = document.getElementById('stage');
+        const ctx = c.getContext('2d');
+        const d = ctx.getImageData(0, 0, c.width, Math.min(c.height, 400)).data;
+        const seen = new Set();
+        for (let i = 0; i < d.length; i += 4 * 97) seen.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]);
+        return seen.size;
+      });
+      check('2D: 캔버스에 장면이 그려진다', painted > 6, painted + '가지 색');
+    }
 
     // 좌우 이동
     await page.keyboard.down('ArrowLeft');
@@ -126,16 +127,23 @@ async function main() {
     check('코스에 미니건 병사가 배치된다', gunnerInfo.onCourse >= 1, gunnerInfo.onCourse + '명');
     await wait(300);
     await page.screenshot({ path: path.join(OUT_DIR, '11-gunner-wait.png') });
-    await wait(1500);
+    // 소프트웨어 렌더링에서는 프레임이 느려 게임 시간도 느리게 흐른다 — 조건으로 기다린다
+    let gunnerJoined = true;
+    try {
+      await page.waitForFunction(() => window.LW.debug.state().run.squad.gunners >= 1, null, { timeout: 20000 });
+    } catch (err) {
+      gunnerJoined = false;
+    }
     const joined = await page.evaluate(() => {
       const run = window.LW.debug.state().run;
       return { gunners: run.squad.gunners, chip: !document.getElementById('hud-gunner').classList.contains('hidden') };
     });
-    check('지나가면 미니건 병사가 합류한다', joined.gunners >= 1, joined.gunners + '명');
+    check('지나가면 미니건 병사가 합류한다', gunnerJoined && joined.gunners >= 1, joined.gunners + '명');
     check('HUD 에 미니건 칩이 뜬다', joined.chip);
     await page.screenshot({ path: path.join(OUT_DIR, '12-gunner-joined.png') });
 
     // 1챕터: 코스 끝까지 버티면 돌파 (보스 없음)
+    // (3D 소프트웨어 렌더링에서는 프레임이 느리므로 결과는 waitForSelector 로 기다린다)
     await page.evaluate(() => {
       const run = window.LW.debug.state().run;
       window.LW.debug.boost(60);
@@ -303,6 +311,33 @@ async function main() {
     check('엔딩에서 기지로 돌아온다', await page.isVisible('#screen-home'));
 
     check('콘솔 에러가 없다', errors.length === 0, errors.join(' | '));
+
+    /* ---------- 2D 폴백: three.js 를 못 받는 기기에서도 게임이 돌아야 한다 ---------- */
+    const page2 = await browser.newPage({ viewport: { width: 480, height: 900 } });
+    const errors2 = [];
+    page2.on('pageerror', (err) => errors2.push('pageerror: ' + err.message));
+    await page2.route('**/three.min.js', (r) => r.abort());
+    await page2.goto('http://localhost:' + PORT + '/', { waitUntil: 'load' });
+    await page2.click('#btn-play');
+    await wait(1500);
+    const fb = await page2.evaluate(() => {
+      const c = document.getElementById('stage');
+      const ctx = c.getContext('2d');
+      let colors = 0;
+      if (ctx) {
+        const d = ctx.getImageData(0, 0, c.width, Math.min(c.height, 400)).data;
+        const seen = new Set();
+        for (let i = 0; i < d.length; i += 4 * 97) seen.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]);
+        colors = seen.size;
+      }
+      return { gfx: window.LW.debug.state().gfx, colors: colors, dist: window.LW.debug.state().run.dist };
+    });
+    check('3D 를 못 쓰면 2D 로 되돌아간다', fb.gfx === '2d', fb.gfx);
+    check('2D 폴백도 장면을 그린다', fb.colors > 6, fb.colors + '가지 색');
+    check('2D 폴백에서도 전투가 진행된다', fb.dist > 1, 'dist=' + fb.dist.toFixed(1));
+    check('2D 폴백에 스크립트 에러가 없다', errors2.length === 0, errors2.join(' | '));
+    await page2.screenshot({ path: path.join(OUT_DIR, '13-2d-fallback.png') });
+    await page2.close();
   } finally {
     await browser.close();
     server.kill();

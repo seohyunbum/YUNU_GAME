@@ -99,6 +99,12 @@
         case 'weapon':
           sweep(700, 1500, 0.22, 'square');
           break;
+        case 'bossPattern':
+          sweep(300, 620, 0.2, 'square');
+          break;
+        case 'bossFire':
+          blip(200, 0.07, 'sawtooth', 0.16);
+          break;
         case 'bossStart':
           sweep(120, 320, 0.6, 'sawtooth');
           break;

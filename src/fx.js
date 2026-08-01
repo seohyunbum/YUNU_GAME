@@ -55,6 +55,9 @@
           ev.total > 0 ? '🔫 ×' + ev.total : '',
           '#9ff0ff', 1.25, 1.2
         );
+      } else if (ev.type === 'bossPattern') {
+        // 다음에 뭐가 오는지 미리 알려 준다 — 패턴은 외워서 대응하는 재미다
+        push(0, run.dist + 7, ev.label, '', '#ffd0d6', 1.3, 1.5);
       } else if (ev.type === 'bossStart') {
         push(0, run.dist + 9, '대장 로봇!', '', '#ffd0d6', 1.5, 1.6);
       } else if (ev.type === 'win') {

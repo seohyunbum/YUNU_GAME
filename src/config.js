@@ -150,8 +150,33 @@
     name: '최종 결전 · 고철 군단 심부',
     road: '#3a2b34', side: '#5c2f3c', sky: ['#2a0d18', '#96324a'], far: '#551f2e',
     kinds: ['grunt', 'runner', 'brute', 'shooter'],
-    bossHpMult: 1.7, // 11구역 대장보다 훨씬 단단하다
+    bossHpMult: 5.5, // 패턴을 여러 번 보여줄 만큼 오래 버텨야 한다 (보스전 목표 40~70초)
+    bossRadiusMult: 1.35, // 덩치도 크다
     lengthMult: 1.15,
+  };
+
+  /** 최종 보스 패턴 — 체력이 줄면 쓸 수 있는 패턴이 늘어난다.
+   *  패턴은 정해진 순서로 돌아간다(아이가 배울 수 있게). */
+  const finalBoss = {
+    labels: {
+      summon: '부하 소환!',
+      fan: '부채꼴 사격! 구멍으로!',
+      charge: '돌진! 옆으로 피해!',
+      sweep: '좌우 난사! 달려!',
+    },
+    // 남은 체력 비율이 upTo 이하일 때 이 단계 (위에서 아래로 갈수록 험해진다)
+    phases: [
+      { upTo: 1.0, use: ['summon', 'fan'] },
+      { upTo: 0.68, use: ['fan', 'charge', 'summon'] },
+      { upTo: 0.36, use: ['charge', 'sweep', 'fan', 'summon'] },
+    ],
+    durations: { summon: 2.6, fan: 2.6, charge: 3.4, sweep: 2.4 },
+    rest: [1.5, 1.1, 0.75], // 단계별 숨 돌리는 시간
+    introRest: 1.8, // 등장 직후 첫 패턴까지
+    summon: { rows: 2, perRow: 3, span: 6.4, interval: 0.7 },
+    fan: { bolts: 7, shots: 3, interval: 0.75 }, // 한 칸은 비운다 (살 구멍)
+    charge: { windup: 0.85, windupBack: 1.6, speed: 15, contactCost: 12 },
+    sweep: { bolts: 16, interval: 0.13 },
   };
 
   /** 챕터 — 한 구역에 3챕터. 3챕터마다 그 구역의 대장 로봇이 기다린다. */
@@ -197,6 +222,7 @@
     starThresholds,
     pressure,
     finalStage,
+    finalBoss,
     chapters,
     zoneCount: stages.length,
     stageCount: stages.length, // 예전 이름 (구역 수)

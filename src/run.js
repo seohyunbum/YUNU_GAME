@@ -521,12 +521,31 @@
     }
   }
 
+  /** boss.js 가 세계를 건드릴 때 쓰는 통로 — 스폰·피해는 여기 소관이다. */
+  const BOSS_API = {
+    spawnEnemy: spawnEnemy,
+    spawnBolt: function (run, x, y, tx, ty) {
+      spawnBolt(run, x, y, tx, ty);
+    },
+    hurtSquad: function (run, n, x, y) {
+      hurtSquad(run, n, x, y);
+    },
+    emit: emit,
+    pressureContact: pressureContact,
+  };
+
   function updateBoss(run, dt) {
     const cfgBoss = LW.config.boss;
     const boss = run.boss;
     if (!boss || boss.dead) return;
     boss.flash = Math.max(0, boss.flash - dt);
     boss.bob += dt * 2.2;
+
+    // 최종 보스는 패턴 상태 기계가 움직인다
+    if (boss.final) {
+      LW.boss.update(run, boss, dt, BOSS_API);
+      return;
+    }
 
     // 플레이어 쪽으로 천천히 접근 + 좌우 추적
     boss.y -= cfgBoss.speed * dt;
@@ -626,13 +645,16 @@
           y: run.plan.bossY,
           hp: bossHp,
           maxHp: bossHp,
-          radius: cfg.boss.radius,
+          radius: cfg.boss.radius * (run.plan.isFinal ? cfg.finalStage.bossRadiusMult : 1),
           spawnTimer: 1.6,
           fireTimer: 2.2,
           flash: 0,
           bob: 0,
           dead: false,
+          final: false,
         };
+        // 최종 보스는 패턴을 번갈아 쓴다 (src/boss.js)
+        if (run.plan.isFinal) LW.boss.attach(run.boss);
         emit(run, 'bossStart');
       }
     }

@@ -330,6 +330,12 @@
       const boss = run.boss;
       if (boss && !boss.dead) {
         el.bossBar.classList.remove('hidden');
+        // 최종 보스는 지금 쓰는 패턴을 이름으로 보여준다
+        if (boss.final && el.bossName) {
+          const label = boss.patternLabel ? ' · ' + boss.patternLabel : '';
+          const text = '최종 대장 로봇' + label;
+          if (el.bossName.textContent !== text) el.bossName.textContent = text;
+        }
         const ratio = boss.hp / boss.maxHp;
         if (Math.abs(ratio - lastBossRatio) > 0.002) {
           el.bossFill.style.width = (ratio * 100).toFixed(1) + '%';

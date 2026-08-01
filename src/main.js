@@ -4,8 +4,12 @@
   const LW = global.LW;
 
   const canvas = document.getElementById('stage');
-  const ctx = canvas.getContext('2d');
-  const camera = LW.render.makeCamera(canvas);
+  // 진짜 3D(WebGL) 를 먼저 시도하고, 안 되면 2D 렌더러로 돌아간다.
+  // 캔버스는 컨텍스트를 하나만 가질 수 있어서 순서가 중요하다 — 3D 를 먼저 물어본다.
+  const use3d = !!(LW.render3d && LW.render3d.init(canvas));
+  const gfx = use3d ? LW.render3d : LW.render;
+  const ctx = use3d ? null : canvas.getContext('2d');
+  const camera = gfx.makeCamera(canvas);
   const repo = LW.save.makeRepository(safeStorage());
   let save = repo.load();
 
@@ -45,6 +49,7 @@
 
   function resize() {
     const dpr = Math.min(global.devicePixelRatio || 1, 2);
+    if (use3d) return; // 3D 렌더러가 자기 크기를 직접 맞춘다
     canvas.width = Math.floor(canvas.clientWidth * dpr);
     canvas.height = Math.floor(canvas.clientHeight * dpr);
   }
@@ -189,7 +194,7 @@
     const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016);
     last = now;
 
-    if (canvas.width !== Math.floor(canvas.clientWidth * Math.min(global.devicePixelRatio || 1, 2))) resize();
+    if (!use3d && canvas.width !== Math.floor(canvas.clientWidth * Math.min(global.devicePixelRatio || 1, 2))) resize();
 
     if (run) {
       if (mode === 'play') {
@@ -212,8 +217,8 @@
         overTimer -= dt;
         if (overTimer <= 0) finishRun();
       }
-      LW.render.draw(ctx, camera, run);
-    } else {
+      gfx.draw(ctx, camera, run);
+    } else if (ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
@@ -222,7 +227,7 @@
 
   /* 자동 테스트(브라우저 smoke)·디버그용 최소 손잡이. 게임 규칙은 여기서 만지지 않는다. */
   LW.debug = {
-    state: () => ({ mode: mode, run: run, save: save }),
+    state: () => ({ mode: mode, run: run, save: save, gfx: use3d ? '3d' : '2d' }),
     start: (chapter) => startRun(chapter),
     startSurvival: () => startSurvival(),
     startFinal: () => startFinal(),
