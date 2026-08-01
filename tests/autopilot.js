@@ -169,15 +169,17 @@ function makeAutopilot(LW) {
       }
     }
 
-    // 그 외: 멀리 있는 드럼통을 미리 쏴 둔다 — 총을 먹어야 오래 버틴다
-    let target = null;
+    // 그 외: 안전한 왼쪽 차선에 자리를 잡고, 사선에 들어온 드럼통만 계속 쏜다.
+    // (단단한 드럼통을 쫓아 오른쪽 차선까지 들어가면 깔리기만 한다 — 실제 플레이도 그렇다.)
+    let aligned = null;
     for (const barrel of run.barrels) {
       if (barrel.broken || barrel.passed) continue;
       const ahead = barrel.y - run.dist;
-      if (ahead < 11 || ahead > 24) continue;
-      if (!target || ahead < target.ahead) target = { ahead: ahead, x: barrel.x };
+      if (ahead < 6 || ahead > 26) continue;
+      if (Math.abs(barrel.x - squad.x) > squad.halfWidth() + 1.2) continue;
+      if (!aligned || ahead < aligned.ahead) aligned = { ahead: ahead, x: barrel.x };
     }
-    input.targetX = target ? clampRoad(target.x) : -1.5;
+    input.targetX = aligned ? clampRoad(aligned.x) : -1.6;
   }
 
   return { smart, dumb, gatesOnly, survivor };

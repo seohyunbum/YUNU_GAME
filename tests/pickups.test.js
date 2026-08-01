@@ -122,6 +122,17 @@ test('드럼통에 적힌 수만큼 맞혀야 터진다 (화력과 무관하게 
   }
 });
 
+test('버티기 드럼통은 구역보다 무르다 (즉사라 부술 수 있어야 한다)', () => {
+  const plan = LW.survival.build({ startCount: 10 });
+  plan.extend(200, 0);
+  const first = plan.events.filter((e) => e.type === 'barrel')[0];
+  assert.equal(first.hits, LW.config.survival.barrelHits, '버티기 기준 타격 수가 아니다');
+  assert.ok(
+    LW.config.survival.barrelHits < LW.config.barrel.hits,
+    '버티기 드럼통이 구역 드럼통보다 단단하면 부술 수 없어 피하기만 하게 된다'
+  );
+});
+
 test('구역이 오르면 드럼통에 적힌 수가 커진다 (상한까지)', () => {
   const atZone = (zone) =>
     LW.stage.build(LW.config.chapterOf(zone, 1), 10).events.filter((e) => e.type === 'barrel')[0].hits;

@@ -658,6 +658,10 @@
     for (const gate of run.gates) {
       const ahead = gate.y - run.dist;
       if (ahead < -3 || ahead > 95) continue;
+      // 이미 지난 문(또는 코앞의 문)은 그리지 않는다 — 카메라 앞을 덮어 부대를 가린다
+      if (ahead < 0.6 || (gate.used && ahead < 1.5)) continue;
+      // 가까워지면 라벨을 흐리게 — 판단은 이미 끝난 시점이다
+      const nearFade = LW.util.clamp((ahead - 0.6) / 5, 0, 1);
       const doors = gate.solo ? 1 : 2;
       for (let side = 0; side < doors; side++) {
         const door = gate.doors[side];
@@ -677,7 +681,7 @@
         wall.scale.set(w * 0.96, h, 1);
         wall.position.set(0, h / 2, 0);
         wall.material.color = color;
-        wall.material.opacity = gate.used ? 0.12 : 0.4;
+        wall.material.opacity = (gate.used ? 0.1 : 0.4) * (0.35 + 0.65 * nearFade);
         const frame = g.userData.frame;
         frame.scale.set(w * 0.96, 0.16, 0.16);
         frame.position.set(0, h, 0);
@@ -690,7 +694,7 @@
           label.material.needsUpdate = true;
           label.position.set(cx, h * 0.55, -gate.y + 0.1);
           label.scale.set(2.6, 1.3, 1);
-          label.material.opacity = gate.used ? 0.3 : 1;
+          label.material.opacity = (gate.used ? 0.25 : 1) * nearFade;
         }
       }
     }
@@ -710,7 +714,7 @@
         label.material.map = textTexture(String(Math.max(0, b.hits)), b.flash > 0 ? '#fff2c0' : '#ffffff');
         label.material.needsUpdate = true;
         label.position.set(b.x, 0.8, -b.y + 0.95); // 앞(카메라 쪽)은 +z 다
-        label.scale.set(1.35, 0.68, 1);
+        label.scale.set(1.6, 0.8, 1); // 아이가 멀리서도 읽게 크게
         label.material.opacity = 1;
       }
       // 위에 얹힌 총

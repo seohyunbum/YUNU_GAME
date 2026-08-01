@@ -75,7 +75,7 @@
           type: 'barrel',
           y: c.barrel,
           x: barrelX(),
-          hits: Math.min(LW.config.barrel.maxHits, LW.config.barrel.hits + Math.floor((tier - 1) / 2)),
+          hits: Math.min(LW.config.barrel.maxHits, sv.barrelHits + Math.floor((tier - 1) / 2)),
           lethal: true, // 깔리면 즉시 끝 — 버티기 모드의 유일한 즉사 요소
         });
         c.barrel += rng.range(sv.barrelGap[0], sv.barrelGap[1]);
