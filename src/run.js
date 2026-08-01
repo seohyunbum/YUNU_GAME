@@ -15,11 +15,14 @@
     return null; // 풀 소진 — 상한이 곧 성능 예산이다
   }
 
-  function create(stageIndex, mods) {
+  /** @param opts {{endless?:boolean}} endless 면 버티기 모드(끝없는 코스, 보스 없음). */
+  function create(stageIndex, mods, opts) {
     const cfg = LW.config;
-    const plan = LW.stage.build(stageIndex, mods.startCount);
+    const endless = !!(opts && opts.endless);
+    const plan = endless ? LW.survival.build(mods) : LW.stage.build(stageIndex, mods.startCount);
     const run = {
       plan: plan,
+      endless: endless,
       mods: mods,
       squad: LW.squad.makeSquad(mods.startCount, mods),
       dist: 0,
@@ -84,7 +87,7 @@
     return 1 + Math.min(p.maxContactBonus, run.squad.count * p.contactPerUnit);
   }
 
-  function spawnEnemy(run, kind, x, y) {
+  function spawnEnemy(run, kind, x, y, hpMult) {
     const def = LW.config.enemyKinds[kind];
     const e = takeFrom(run.enemies);
     if (!e) return null;
@@ -92,7 +95,8 @@
     e.kind = kind;
     e.x = U.clamp(x, -LW.config.world.roadHalfWidth + 0.4, LW.config.world.roadHalfWidth - 0.4);
     e.y = y;
-    e.maxHp = e.hp = Math.max(1, Math.round(def.hp * run.plan.enemyHpMult * pressureHp(run)));
+    const mult = Number.isFinite(hpMult) ? hpMult : run.plan.enemyHpMult;
+    e.maxHp = e.hp = Math.max(1, Math.round(def.hp * mult * pressureHp(run)));
     e.speed = def.speed;
     e.radius = def.radius;
     e.cost = Math.max(1, Math.round(def.cost * pressureContact(run)));
@@ -106,20 +110,26 @@
   /** 카메라 앞쪽으로 들어온 이벤트를 실제 오브젝트로 만든다. */
   function spawnAhead(run) {
     const limit = run.dist + LW.config.world.cameraFront + 6;
+    // 버티기 모드는 코스가 끝이 없다 — 필요한 만큼만 앞을 만들어 둔다.
+    if (run.plan.extend) run.plan.extend(limit + 80, run.eventIndex);
     const events = run.plan.events;
     while (run.eventIndex < events.length && events[run.eventIndex].y <= limit) {
       const ev = events[run.eventIndex++];
       if (ev.type === 'gate') {
-        run.gates.push({ y: ev.y, doors: ev.doors, used: false, flash: 0 });
+        // solo 게이트(버티기 모드)는 문 하나다 — x·w 로 들어갈 자리를 정한다.
+        run.gates.push({
+          y: ev.y, doors: ev.doors, used: false, flash: 0,
+          solo: !!ev.solo, x: ev.x || 0, w: ev.w || 0,
+        });
       } else if (ev.type === 'wave') {
         // 부대가 커진 만큼 적도 겹쳐서 몰려온다 (스폰 시점의 병력 기준)
         const p = LW.config.pressure;
         const extra = Math.min(p.maxExtraWaves, Math.floor(run.squad.count / p.extraWavePer));
         for (const entry of ev.entries) {
-          spawnEnemy(run, entry.kind, entry.x, entry.y);
+          spawnEnemy(run, entry.kind, entry.x, entry.y, ev.hpMult);
           for (let k = 1; k <= extra; k++) {
             const side = k % 2 === 0 ? 1 : -1;
-            spawnEnemy(run, entry.kind, entry.x + side * (0.7 + k * 0.35), entry.y + k * 1.9);
+            spawnEnemy(run, entry.kind, entry.x + side * (0.7 + k * 0.35), entry.y + k * 1.9, ev.hpMult);
           }
         }
       } else if (ev.type === 'barricade') {
@@ -129,7 +139,7 @@
       } else if (ev.type === 'barrel') {
         run.barrels.push({
           x: ev.x, y: ev.y, hits: ev.hits, maxHits: ev.hits, broken: false, passed: false,
-          flash: 0, bob: Math.random() * 6,
+          flash: 0, bob: Math.random() * 6, lethal: !!ev.lethal,
         });
       } else if (ev.type === 'coin') {
         run.coins.push({ x: ev.x, y: ev.y, taken: false, bob: Math.random() * 6 });
@@ -276,9 +286,18 @@
         barrel.passed = true;
         // 안 터뜨리고 박으면 병력을 잃는다 (총도 놓친다)
         if (Math.abs(squad.x - barrel.x) <= cfgBar.radius + squad.halfWidth()) {
-          hurtSquad(run, cfgBar.crushCost, barrel.x, barrel.y);
           barrel.broken = true;
-          spawnParticles(run, barrel.x, barrel.y, 10, '#c8d4e6', 3);
+          spawnParticles(run, barrel.x, barrel.y, 18, '#c8d4e6', 4.2);
+          if (barrel.lethal) {
+            // 버티기 모드: 깔리면 병력이 남아 있어도 끝난다.
+            run.squad.count = 0;
+            run.shake = Math.max(run.shake, 0.6);
+            run.phase = 'lost';
+            emit(run, 'crush');
+            emit(run, 'lose');
+            continue;
+          }
+          hurtSquad(run, cfgBar.crushCost, barrel.x, barrel.y);
         }
       }
     }
@@ -378,12 +397,26 @@
       gate.flash = Math.max(0, gate.flash - 0.02);
       if (gate.used) continue;
       if (prevDist < gate.y && run.dist >= gate.y) {
-        const door = squad.x < 0 ? gate.doors[0] : gate.doors[1];
+        let door;
+        if (gate.solo) {
+          // 문이 하나뿐 — 부대 중심이 문 안에 있어야 적용된다. 진형 폭으로 판정하면
+          // 병력이 많을 때 스치기만 해도 함정 문에 빨려들어 불공평하다.
+          if (Math.abs(squad.x - gate.x) > gate.w / 2) {
+            gate.used = true;
+            gate.chosen = -1;
+            continue;
+          }
+          door = gate.doors[0];
+        } else {
+          door = squad.x < 0 ? gate.doors[0] : gate.doors[1];
+        }
         const before = squad.count;
         squad.count = LW.gates.apply(squad.count, door);
+        // 버티기 모드에는 전용 상한이 있다 — 진형이 도로를 막으면 즉사를 피할 수 없다.
+        if (run.endless) squad.count = Math.min(squad.count, LW.config.survival.maxCount);
         gate.used = true;
         gate.flash = 1;
-        gate.chosen = squad.x < 0 ? 0 : 1;
+        gate.chosen = gate.solo ? 0 : squad.x < 0 ? 0 : 1;
         const delta = squad.count - before;
         spawnParticles(run, squad.x, gate.y, 12, delta >= 0 ? '#7dffa8' : '#ff8b96', 3.4);
         emit(run, 'gate', { delta: delta, buff: delta >= 0, count: squad.count });
@@ -552,6 +585,10 @@
 
   /** 진행도 0..1 — HUD 게이지용. */
   function progress(run) {
+    if (run.endless) {
+      const per = LW.config.survival.tierEvery;
+      return U.clamp((run.dist % per) / per, 0, 1);
+    }
     if (run.phase === 'boss' || run.phase === 'won') {
       if (!run.boss) return 1;
       return 1; // 보스 단계는 보스 체력바가 진행도 역할을 한다
@@ -561,6 +598,7 @@
 
   /** 결과 집계 — 세이브에 넘길 값. */
   function result(run) {
+    if (run.endless) return survivalResult(run);
     const win = run.phase === 'won';
     const survived = run.squad.count;
     // 별은 "얼마나 안 잃고 끝냈나" — 시작 인원이 아니라 최대 인원 대비로 본다.
@@ -579,6 +617,30 @@
       stage: run.plan.stage,
       stars: stars,
       survived: survived,
+      startCount: run.startCount,
+      peak: run.peak,
+      kills: run.kills,
+      coins: coins,
+    };
+  }
+
+  /** 버티기 결과 — 이기는 게 없으니 버틴 시간이 점수다. */
+  function survivalResult(run) {
+    const sv = LW.config.survival;
+    const seconds = run.time;
+    const tier = LW.survival.tierAt(run.dist);
+    let stars = 1;
+    if (seconds >= sv.starSeconds[0]) stars = 2;
+    if (seconds >= sv.starSeconds[1]) stars = 3;
+    const coins = Math.round((run.parts + tier * sv.rewardPerTier + seconds * 0.4) * run.mods.lootMult);
+    return {
+      win: false,
+      endless: true,
+      stage: 0,
+      stars: stars,
+      seconds: seconds,
+      tier: tier,
+      survived: run.squad.count,
       startCount: run.startCount,
       peak: run.peak,
       kills: run.kills,

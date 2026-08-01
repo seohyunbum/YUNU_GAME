@@ -518,10 +518,14 @@
     const yt = py(cam, s, cfg.heights.gate);
     const H = yb - yt;
 
-    for (let side = 0; side < 2; side++) {
+    // solo 게이트(버티기 모드)는 문이 하나 — 도로 왼쪽에 폭 w 로 떠 있다.
+    const sides = gate.solo ? 1 : 2;
+    for (let side = 0; side < sides; side++) {
       const door = gate.doors[side];
-      const x0 = px(cam, side === 0 ? -half : 0, s);
-      const x1 = px(cam, side === 0 ? 0 : half, s);
+      const wx0 = gate.solo ? gate.x - gate.w / 2 : side === 0 ? -half : 0;
+      const wx1 = gate.solo ? gate.x + gate.w / 2 : side === 0 ? 0 : half;
+      const x0 = px(cam, wx0, s);
+      const x1 = px(cam, wx1, s);
       const w = x1 - x0;
       const buff = LW.gates.looksBuff(door); // 페이크는 초록으로 보인다
       const used = gate.used;

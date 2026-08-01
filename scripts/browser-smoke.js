@@ -141,6 +141,55 @@ async function main() {
     await wait(200);
     const cards = await page.$$eval('.stage-card', (els) => els.length);
     check('구역 목록이 나온다', cards >= 10, cards + '개');
+
+    /* ---------- 버티기 모드 ---------- */
+    await page.click('#screen-stages [data-back]');
+    await page.click('#btn-survival');
+    await wait(1500);
+    check('버티기 모드로 들어간다', await page.isVisible('#hud'));
+    const sv = await page.evaluate(() => {
+      const run = window.LW.debug.state().run;
+      const gates = run.plan.events.filter((e) => e.type === 'gate');
+      const barrels = run.plan.events.filter((e) => e.type === 'barrel');
+      return {
+        endless: run.endless,
+        boss: !!run.boss,
+        gatesLeft: gates.length > 0 && gates.every((g) => g.solo && g.x + g.w / 2 <= 0),
+        barrelsRight: barrels.length > 0 && barrels.every((b) => b.x > 0 && b.lethal),
+        onRoad: run.gates.length,
+      };
+    });
+    check('버티기는 끝없는 코스다', sv.endless && !sv.boss);
+    check('게이트가 왼쪽에만 나온다', sv.gatesLeft);
+    check('드럼통이 오른쪽에만, 즉사로 나온다', sv.barrelsRight);
+    check('버티기 게이트가 화면에 뜬다', sv.onRoad >= 1, sv.onRoad + '개');
+    const svTime = await page.textContent('#hud-stage-name');
+    check('HUD 에 버틴 시간이 나온다', svTime.includes('버팀'), svTime);
+    await page.screenshot({ path: path.join(OUT_DIR, '05-survival.png') });
+
+    // 즉사 확인: 드럼통 앞으로 들어간다
+    await page.evaluate(() => {
+      const run = window.LW.debug.state().run;
+      run.barrels.length = 0;
+      run.barrels.push({
+        x: run.squad.x, y: run.dist + 3, hits: 9999, maxHits: 9999,
+        broken: false, passed: false, flash: 0, bob: 0, lethal: true,
+      });
+    });
+    let svResult = true;
+    try {
+      await page.waitForSelector('#screen-result', { state: 'visible', timeout: 8000 });
+    } catch (err) {
+      svResult = false;
+    }
+    check('드럼통에 깔리면 즉시 끝난다', svResult);
+    const svTitle = await page.textContent('#result-title');
+    check('버티기 결과 화면이 뜬다', svTitle.includes('버티기'), svTitle);
+    const svBest = await page.evaluate(() => window.LW.debug.state().save);
+    check('버티기 기록이 저장된다', svBest.bestTime > 0, svBest.bestTime.toFixed(1) + '초');
+    check('버티기가 구역을 해금하지 않는다', svBest.bestStage === best, 'bestStage=' + svBest.bestStage);
+    await page.screenshot({ path: path.join(OUT_DIR, '06-survival-result.png') });
+
     check('콘솔 에러가 없다', errors.length === 0, errors.join(' | '));
   } finally {
     await browser.close();

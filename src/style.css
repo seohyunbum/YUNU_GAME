@@ -268,6 +268,14 @@ html, body {
   box-shadow: 0 8px 22px rgba(245, 166, 35, 0.32);
 }
 
+/* 버티기 모드 — 출동 버튼과 헷갈리지 않게 청록 계열로 구분한다 */
+.btn-survival {
+  background: linear-gradient(180deg, #58e2c2, #1f9f92);
+  color: #05231f;
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 8px 22px rgba(41, 190, 170, 0.3);
+}
+
 .btn-big {
   font-size: 20px;
   padding: 16px 40px;

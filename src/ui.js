@@ -25,6 +25,7 @@
       homeCoin: $('home-coin'),
       homeBest: $('home-best'),
       homeStart: $('home-start'),
+      homeBestTime: $('home-best-time'),
       playStage: $('btn-play-stage'),
       upgrade: $('screen-upgrade'),
       upgradeCoin: $('upgrade-coin'),
@@ -43,6 +44,7 @@
     const screens = [el.home, el.upgrade, el.stages, el.result];
     let lastCount = -1;
     let lastBossRatio = -1;
+    let lastSeconds = -1;
 
     function hideAll() {
       for (const s of screens) s.classList.add('hidden');
@@ -64,6 +66,7 @@
       el.homeCoin.textContent = save.coins;
       el.homeBest.textContent = save.bestStage;
       el.homeStart.textContent = mods.startCount;
+      el.homeBestTime.textContent = LW.util.formatTime(save.bestTime || 0);
       el.playStage.textContent = LW.config.stageName(save.bestStage).split(' ')[0];
       show(el.home);
     }
@@ -138,15 +141,25 @@
     }
 
     function showResult(result, save) {
-      el.resultTitle.textContent = result.win ? '구역 돌파!' : '병력 전멸…';
-      el.resultStars.textContent = result.win ? starText(result.stars) : '☆☆☆';
+      const endless = !!result.endless;
+      el.resultTitle.textContent = endless ? '버티기 종료' : result.win ? '구역 돌파!' : '병력 전멸…';
+      el.resultStars.textContent = endless || result.win ? starText(result.stars) : '☆☆☆';
       el.resultLines.innerHTML = '';
-      const lines = [
-        ['생존 병력', '👥 ' + result.survived],
-        ['최대 병력', '📈 ' + (result.peak || result.startCount)],
-        ['처치한 로봇', '🤖 ' + result.kills],
-        ['획득 부품', '🔩 ' + result.coins],
-      ];
+      const lines = endless
+        ? [
+            ['버틴 시간', '⏱️ ' + LW.util.formatTime(result.seconds)],
+            ['최고 기록', '🏆 ' + LW.util.formatTime(save.bestTime || 0)],
+            ['도달 단계', '🔥 ' + result.tier + '단계'],
+            ['최대 병력', '📈 ' + (result.peak || result.startCount)],
+            ['처치한 로봇', '🤖 ' + result.kills],
+            ['획득 부품', '🔩 ' + result.coins],
+          ]
+        : [
+            ['생존 병력', '👥 ' + result.survived],
+            ['최대 병력', '📈 ' + (result.peak || result.startCount)],
+            ['처치한 로봇', '🤖 ' + result.kills],
+            ['획득 부품', '🔩 ' + result.coins],
+          ];
       for (const [k, v] of lines) {
         const row = document.createElement('div');
         row.className = 'rl';
@@ -154,13 +167,19 @@
         el.resultLines.appendChild(row);
       }
       const nextStage = result.stage + 1;
-      el.resultMain.textContent = result.win
-        ? '다음 구역 (' + nextStage + ')'
-        : '🔧 병력 강화';
-      el.resultMain.onclick = result.win
-        ? () => handlers.onPlay(nextStage)
-        : () => handlers.onUpgrade();
-      el.resultRetry.onclick = () => handlers.onPlay(result.stage);
+      if (endless) {
+        el.resultMain.textContent = '🛡️ 다시 버티기';
+        el.resultMain.onclick = () => handlers.onSurvival();
+        el.resultRetry.textContent = '🔧 병력 강화';
+        el.resultRetry.onclick = () => handlers.onUpgrade();
+      } else {
+        el.resultMain.textContent = result.win ? '다음 구역 (' + nextStage + ')' : '🔧 병력 강화';
+        el.resultMain.onclick = result.win
+          ? () => handlers.onPlay(nextStage)
+          : () => handlers.onUpgrade();
+        el.resultRetry.textContent = '🔄 다시 도전';
+        el.resultRetry.onclick = () => handlers.onPlay(result.stage);
+      }
       el.resultHome.onclick = () => handlers.onHome();
       show(el.result);
     }
@@ -182,6 +201,15 @@
       }
       el.progress.style.width = (LW.run.progress(run) * 100).toFixed(1) + '%';
       el.coin.textContent = run.parts;
+
+      // 버티기 모드는 "구역 이름" 자리에 버틴 시간을 초 단위로 갱신한다
+      if (run.endless) {
+        const sec = Math.floor(run.time);
+        if (sec !== lastSeconds) {
+          lastSeconds = sec;
+          el.stageName.textContent = '🛡️ ' + LW.util.formatTime(sec) + ' 버팀';
+        }
+      }
 
       // 총 픽업 버프
       const squad = run.squad;
@@ -210,9 +238,14 @@
     function beginRun(run) {
       lastCount = -1;
       lastBossRatio = -1;
+      lastSeconds = -1;
       el.stageName.textContent = run.plan.name;
       el.bossBar.classList.add('hidden');
-      setTip('드래그 · ← → 로 이동 · 좋은 문을 골라라');
+      setTip(
+        run.endless
+          ? '왼쪽 문으로 병력을 불려라 · 오른쪽 드럼통에 깔리면 끝'
+          : '드래그 · ← → 로 이동 · 좋은 문을 골라라'
+      );
       showHud();
       updateHud(run);
     }
@@ -221,6 +254,7 @@
     $('btn-play').addEventListener('click', () => handlers.onPlayLatest());
     $('btn-upgrade').addEventListener('click', () => handlers.onUpgrade());
     $('btn-stages').addEventListener('click', () => handlers.onStages());
+    $('btn-survival').addEventListener('click', () => handlers.onSurvival());
     for (const back of document.querySelectorAll('[data-back]')) {
       back.addEventListener('click', () => handlers.onHome());
     }

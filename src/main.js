@@ -54,6 +54,7 @@
     onPlay: (stage) => startRun(stage),
     onUpgrade: () => ui.showUpgrade(save),
     onStages: () => ui.showStages(save),
+    onSurvival: () => startSurvival(),
     onHome: () => goHome(),
     onBuy: (id) => buy(id),
   });
@@ -78,6 +79,16 @@
     LW.audio.unlock();
     const mods = LW.upgrades.resolve(save.levels);
     run = LW.run.create(Math.max(1, stage), mods);
+    LW.fx.reset();
+    input.targetX = 0;
+    mode = 'play';
+    ui.beginRun(run);
+  }
+
+  /** 버티기 모드 — 제자리에서 좌우로 밀려오는 게이트·드럼통을 버틴다. */
+  function startSurvival() {
+    LW.audio.unlock();
+    run = LW.run.create(1, LW.upgrades.resolve(save.levels), { endless: true });
     LW.fx.reset();
     input.targetX = 0;
     mode = 'play';
@@ -191,6 +202,7 @@
   LW.debug = {
     state: () => ({ mode: mode, run: run, save: save }),
     start: (stage) => startRun(stage),
+    startSurvival: () => startSurvival(),
     skipToBoss: () => {
       if (run) run.dist = run.plan.bossY - LW.config.boss.standoff - 0.1;
     },

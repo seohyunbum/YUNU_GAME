@@ -11,6 +11,7 @@
       version: SAVE_VERSION,
       coins: 0,
       bestStage: 1, // 해금된 최고 구역
+      bestTime: 0, // 버티기 모드 최고 기록(초)
       levels: { start: 0, damage: 0, fire: 0, speed: 0, loot: 0 },
       stars: {}, // stage -> 0..3
     };
@@ -23,6 +24,7 @@
     const out = base;
     if (Number.isFinite(raw.coins)) out.coins = Math.max(0, Math.floor(raw.coins));
     if (Number.isFinite(raw.bestStage)) out.bestStage = Math.max(1, Math.floor(raw.bestStage));
+    if (Number.isFinite(raw.bestTime)) out.bestTime = Math.max(0, raw.bestTime);
     if (raw.levels && typeof raw.levels === 'object') {
       for (const def of LW.upgrades.defs) {
         const v = raw.levels[def.id];
@@ -70,6 +72,11 @@
   /** 결과를 세이브에 반영 — 얻은 부품·별·해금 구역. */
   function applyResult(data, result) {
     data.coins += result.coins;
+    // 버티기는 구역 해금·별과 무관하다 — 기록만 남긴다.
+    if (result.endless) {
+      if (result.seconds > data.bestTime) data.bestTime = result.seconds;
+      return data;
+    }
     if (result.win) {
       const prev = data.stars[result.stage] || 0;
       if (result.stars > prev) data.stars[result.stage] = result.stars;

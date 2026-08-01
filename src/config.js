@@ -86,6 +86,26 @@
     duration: 7, // 초
   };
 
+  /** 버티기 모드 — 부대는 제자리에서 버티고, 왼쪽에서 게이트 · 오른쪽에서 드럼통이 계속 밀려온다.
+   *  드럼통에 깔리면 병력이 남아 있어도 즉시 끝난다. */
+  const survival = {
+    gateGap: [15, 24], // 게이트 간 거리 (월드 단위)
+    barrelGap: [7, 12],
+    waveGap: [17, 25],
+    coinGap: [26, 44],
+    gateWidth: 2.1, // 문 하나 너비 — 여기로 들어가면 연산이 적용된다
+    barrelLaneMin: 0.8, // 드럼통은 이보다 오른쪽에만 — 가운데도 위험하게 두되 왼쪽 탈출로는 남긴다
+    maxCount: 60, // 버티기 전용 병력 상한. 이보다 커지면 진형이 도로를 막아 못 피한다
+    laneMargin: 0.5, // 좌우 절반 안에서 이만큼 여백을 둔다
+    tierEvery: 190, // 이 거리마다 난이도 한 단계
+    maxTier: 12,
+    firstGate: 20, // 첫 게이트까지 몸풀기
+    firstBarrel: 34, // 드럼통은 조금 더 뒤부터 (규칙을 먼저 익히게)
+    firstWave: 46,
+    rewardPerTier: 18, // 한 단계 버틸 때마다 받는 부품
+    starSeconds: [60, 150], // ★2 / ★3 기준 버틴 시간
+  };
+
   const scaling = {
     /** 구역이 오를수록 적 체력·수량이 는다. */
     enemyHp: (stage) => 1 + 0.36 * (stage - 1),
@@ -137,6 +157,7 @@
     barricade,
     barrel,
     weapon,
+    survival,
     scaling,
     stages,
     pools,

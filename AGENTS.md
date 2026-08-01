@@ -14,14 +14,14 @@
 
 **새 기능 코드를 `src/main.js` 에 넣지 않는다.**
 
-- 게임 규칙·데이터 → `src/run.js`, `src/squad.js`, `src/gates.js`, `src/stage.js`
+- 게임 규칙·데이터 → `src/run.js`, `src/squad.js`, `src/gates.js`, `src/stage.js`(구역), `src/survival.js`(버티기)
 - 숫자(밸런스) → `src/config.js` **한 곳에만**. 다른 파일에 상수를 흘리지 않는다.
 - 그리기 → `src/render.js` (상태를 절대 바꾸지 않는다 — 읽기만). 원근 투영 파라미터는 `config.camera`
 - 화면 연출(떠오르는 숫자 등) → `src/fx.js` (뷰 전용. 게임 규칙을 넣지 않는다)
 - 화면·버튼 → `src/ui.js` (게임 규칙을 넣지 않는다. 콜백으로만 알린다)
 - `main.js` 는 **지휘자**: 캔버스 부팅·입력·루프·화면 전환 배선만.
 
-의존 방향: `main.js → (ui, render, run) → (squad, gates, stage) → (config, util)`.
+의존 방향: `main.js → (ui, render, run) → (squad, gates, stage, survival) → (config, util)`.
 아래 계층이 위를 참조하면 안 된다. 모든 모듈은 `globalThis.LW` 에 자기 것만 붙인다.
 
 ## 2. 전투 로직은 브라우저를 몰라야 한다
@@ -41,8 +41,20 @@
 
 - 숫자를 바꿨으면 `npm run balance` 와 `npm run balance 4`, `npm run balance 9` 를 보고
   **"잘 고르면 이긴다 / 막 달리면 진다"** 가 유지되는지 확인한다.
+- 버티기 모드는 **"움직이면 오래 버틴다 / 가만히 있으면 짧다"** 가 유지되어야 한다.
+  가운데 가만히 있는 쪽이 더 오래 버티면 아이가 움직일 이유가 없다 — 그건 버그로 본다.
 - 병력이 커질수록 압박도 커져야 한다(`config.pressure`). 이게 없으면 후반이 산책이 된다.
 - 세이브 구조를 바꾸면 `save.SAVE_VERSION` 을 올리고 `normalize()` 로 옛 세이브를 살린다.
+
+## 4-1. 두 가지 모드
+
+- **구역 모드**(`stage.js`): 정해진 코스를 달려 보스를 잡는다. 문은 좌우 한 쌍.
+- **버티기 모드**(`survival.js`): 끝없는 코스. 왼쪽에서 문 하나씩, 오른쪽에서 드럼통이 밀려온다.
+  드럼통에 깔리면 **즉사**(`barrel.lethal`) — 병력이 남아 있어도 끝난다.
+  전용 병력 상한(`config.survival.maxCount`)이 있다. 이게 없으면 진형이 도로를 막아
+  즉사를 피할 방법이 사라진다. 상한을 올리려면 `tests/survival.test.js` 의
+  "상한 병력으로도 드럼통 차선을 피할 수 있다" 검사를 반드시 통과해야 한다.
+- 두 모드는 부품·강화를 공유하고, 버티기는 구역 해금·별을 건드리지 않는다.
 
 ## 5. 연령 가드레일 (하드 룰)
 

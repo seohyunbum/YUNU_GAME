@@ -2,7 +2,7 @@
 'use strict';
 const path = require('path');
 
-const LOGIC_FILES = ['util', 'config', 'upgrades', 'save', 'squad', 'gates', 'stage', 'run'];
+const LOGIC_FILES = ['util', 'config', 'upgrades', 'save', 'squad', 'gates', 'stage', 'survival', 'run'];
 
 function loadGame() {
   delete globalThis.LW;
