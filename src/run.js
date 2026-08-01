@@ -15,11 +15,20 @@
     return null; // 풀 소진 — 상한이 곧 성능 예산이다
   }
 
-  /** @param opts {{endless?:boolean}} endless 면 버티기 모드(끝없는 코스, 보스 없음). */
-  function create(stageIndex, mods, opts) {
+  /**
+   * @param chapter 챕터 번호 1..33
+   * @param opts {{endless?:boolean, final?:boolean}}
+   *        endless: 버티기 모드(끝없는 코스, 보스 없음) · final: 최종 결전
+   */
+  function create(chapter, mods, opts) {
     const cfg = LW.config;
     const endless = !!(opts && opts.endless);
-    const plan = endless ? LW.survival.build(mods) : LW.stage.build(stageIndex, mods.startCount);
+    const isFinal = !endless && !!(opts && opts.final);
+    const plan = endless
+      ? LW.survival.build(mods)
+      : isFinal
+        ? LW.stage.buildFinal(mods.startCount)
+        : LW.stage.build(chapter, mods.startCount);
     const run = {
       plan: plan,
       endless: endless,
@@ -540,7 +549,14 @@
     const prevDist = run.dist;
     if (run.phase === 'run') {
       run.dist += cfg.squad.advanceSpeed * dt;
-      if (run.dist >= run.plan.bossY - cfg.boss.standoff) {
+      // 대장 로봇이 없는 챕터(1·2챕터)는 코스 끝까지 버티면 돌파다.
+      if (run.plan.hasBoss === false) {
+        if (run.dist >= run.plan.bossY) {
+          run.dist = run.plan.bossY;
+          run.phase = 'won';
+          emit(run, 'win');
+        }
+      } else if (run.dist >= run.plan.bossY - cfg.boss.standoff) {
         run.dist = run.plan.bossY - cfg.boss.standoff;
         run.phase = 'boss';
         // 큰 부대를 데려오면 보스도 그만큼 단단해진다 — 체력바가 늘 의미 있게.
@@ -614,6 +630,10 @@
     const coins = Math.round((base + run.parts + (win ? survived * 0.4 : 0)) * run.mods.lootMult);
     return {
       win: win,
+      chapter: run.plan.chapter,
+      zone: run.plan.zone,
+      part: run.plan.part,
+      isFinal: !!run.plan.isFinal,
       stage: run.plan.stage,
       stars: stars,
       survived: survived,

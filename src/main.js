@@ -50,11 +50,13 @@
   }
 
   const ui = LW.ui.create({
-    onPlayLatest: () => startRun(save.bestStage),
-    onPlay: (stage) => startRun(stage),
+    onPlayLatest: () => startRun(ui.nextChapter(save)),
+    onPlay: (chapter) => startRun(chapter),
     onUpgrade: () => ui.showUpgrade(save),
     onStages: () => ui.showStages(save),
     onSurvival: () => startSurvival(),
+    onFinal: () => startFinal(),
+    onEnding: () => showEnding(),
     onHome: () => goHome(),
     onBuy: (id) => buy(id),
   });
@@ -75,14 +77,34 @@
     ui.showUpgrade(save);
   }
 
-  function startRun(stage) {
+  function startRun(chapter) {
     LW.audio.unlock();
     const mods = LW.upgrades.resolve(save.levels);
-    run = LW.run.create(Math.max(1, stage), mods);
+    const ch = LW.util.clamp(Math.round(chapter) || 1, 1, LW.config.chapterCount);
+    run = LW.run.create(ch, mods);
     LW.fx.reset();
     input.targetX = 0;
     mode = 'play';
     ui.beginRun(run);
+  }
+
+  /** 최종 결전 — 33챕터를 모두 깨면 열린다. */
+  function startFinal() {
+    LW.audio.unlock();
+    const mods = LW.upgrades.resolve(save.levels);
+    run = LW.run.create(LW.config.chapterCount, mods, { final: true });
+    LW.fx.reset();
+    input.targetX = 0;
+    mode = 'play';
+    ui.beginRun(run);
+  }
+
+  function showEnding() {
+    save.endingSeen = true;
+    repo.save(save);
+    mode = 'ending';
+    run = null;
+    ui.showEnding(save);
   }
 
   /** 버티기 모드 — 제자리에서 좌우로 밀려오는 게이트·드럼통을 버틴다. */
@@ -149,7 +171,7 @@
     if (e.key === 'Escape' && mode === 'play') goHome();
     if (e.key === ' ' && mode === 'home') {
       e.preventDefault();
-      startRun(save.bestStage);
+      startRun(ui.nextChapter(save));
     }
   });
 
@@ -201,10 +223,23 @@
   /* 자동 테스트(브라우저 smoke)·디버그용 최소 손잡이. 게임 규칙은 여기서 만지지 않는다. */
   LW.debug = {
     state: () => ({ mode: mode, run: run, save: save }),
-    start: (stage) => startRun(stage),
+    start: (chapter) => startRun(chapter),
     startSurvival: () => startSurvival(),
+    startFinal: () => startFinal(),
+    unlockAll: () => {
+      for (let ch = 1; ch <= LW.config.chapterCount; ch++) save.stars[ch] = 3;
+      save.bestChapter = LW.config.chapterCount;
+      repo.save(save);
+      goHome();
+    },
     skipToBoss: () => {
-      if (run) run.dist = run.plan.bossY - LW.config.boss.standoff - 0.1;
+      if (!run || !run.plan.hasBoss) return;
+      // 남은 코스 이벤트를 건너뛴다 — 거리만 옮기면 코스의 웨이브가 한꺼번에 쏟아져
+      // 보스 앞에서 부대가 몰살당한다 (보스전만 보려는 손잡이의 의도가 아니다).
+      run.eventIndex = run.plan.events.length;
+      run.dist = run.plan.bossY - LW.config.boss.standoff - 0.1;
+      for (const e of run.enemies) e.active = false;
+      for (const b of run.bolts) b.active = false;
     },
     finishBoss: () => {
       if (run && run.boss) run.boss.hp = 0.01;

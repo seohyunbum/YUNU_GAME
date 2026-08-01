@@ -123,10 +123,16 @@ test('드럼통에 적힌 수만큼 맞혀야 터진다 (화력과 무관하게 
 });
 
 test('구역이 오르면 드럼통에 적힌 수가 커진다 (상한까지)', () => {
-  const at = (stage) => LW.stage.build(stage, 10).events.filter((e) => e.type === 'barrel')[0].hits;
-  assert.equal(at(1), LW.config.barrel.hits, '1구역은 기본 타격 수여야 한다');
-  assert.ok(at(5) > at(1), '후반 드럼통이 더 단단해지지 않는다');
-  assert.ok(at(12) <= LW.config.barrel.maxHits, '상한을 넘겼다');
+  const atZone = (zone) =>
+    LW.stage.build(LW.config.chapterOf(zone, 1), 10).events.filter((e) => e.type === 'barrel')[0].hits;
+  assert.equal(atZone(1), LW.config.barrel.hits, '1구역은 기본 타격 수여야 한다');
+  assert.ok(atZone(5) > atZone(1), '후반 드럼통이 더 단단해지지 않는다');
+  assert.ok(atZone(11) <= LW.config.barrel.maxHits, '상한을 넘겼다');
+  // 같은 구역 안 3챕터는 같은 타격 수 — 구역이 바뀔 때만 오른다
+  const z3 = [1, 2, 3].map((part) =>
+    LW.stage.build(LW.config.chapterOf(3, part), 10).events.filter((e) => e.type === 'barrel')[0].hits
+  );
+  assert.equal(new Set(z3).size, 1, '같은 구역 안에서 타격 수가 달라진다: ' + z3);
 });
 
 test('드럼통을 안 터뜨리고 박으면 병력을 잃는다', () => {

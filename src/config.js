@@ -127,7 +127,24 @@
     { name: '8구역 · 용광로', road: '#453036', side: '#75382a', sky: ['#3a1410', '#b8482a'], far: '#63241c', kinds: ['runner', 'brute', 'shooter'] },
     { name: '9구역 · 폐허 도심', road: '#333844', side: '#4c4c58', sky: ['#181c26', '#4a4f5e'], far: '#2c3040', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
     { name: '10구역 · 사령부', road: '#2c3446', side: '#3c4c68', sky: ['#101a2c', '#3e5a86'], far: '#22304a', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
+    { name: '11구역 · 하늘 요새', road: '#2a2f44', side: '#464063', sky: ['#160f2a', '#5b4a8e'], far: '#2e2450', kinds: ['grunt', 'runner', 'brute', 'shooter'] },
   ];
+
+  /** 최종 결전 — 33챕터를 모두 깨면 열린다. */
+  const finalStage = {
+    name: '최종 결전 · 고철 군단 심부',
+    road: '#3a2b34', side: '#5c2f3c', sky: ['#2a0d18', '#96324a'], far: '#551f2e',
+    kinds: ['grunt', 'runner', 'brute', 'shooter'],
+    bossHpMult: 1.7, // 11구역 대장보다 훨씬 단단하다
+    lengthMult: 1.15,
+  };
+
+  /** 챕터 — 한 구역에 3챕터. 3챕터마다 그 구역의 대장 로봇이 기다린다. */
+  const chapters = {
+    perZone: 3,
+    // 챕터 1·2 는 코스를 끝까지 버티면 돌파, 3챕터는 대장 로봇을 잡아야 돌파
+    lengthMult: [0.55, 0.62, 0.85],
+  };
 
   const pools = { bullets: 220, bolts: 80, enemies: 90, particles: 220 };
 
@@ -163,13 +180,47 @@
     pools,
     starThresholds,
     pressure,
-    stageCount: stages.length,
-    stageTheme(stage) {
-      return stages[Math.min(stage, stages.length) - 1];
+    finalStage,
+    chapters,
+    zoneCount: stages.length,
+    stageCount: stages.length, // 예전 이름 (구역 수)
+    chapterCount: stages.length * chapters.perZone, // 11구역 × 3 = 33
+    stageTheme(zone) {
+      return stages[LW.util.clamp(Math.round(zone), 1, stages.length) - 1];
     },
-    stageName(stage) {
-      if (stage <= stages.length) return stages[stage - 1].name;
-      return stage + '구역 · 무한 전선';
+    stageName(zone) {
+      if (zone <= stages.length) return stages[zone - 1].name;
+      return zone + '구역 · 무한 전선';
+    },
+
+    /* ---- 챕터 번호(1..33) 변환 — 여기가 정본이다 ---- */
+
+    /** 챕터 -> 구역 (1..11) */
+    zoneOf(chapter) {
+      return Math.floor((Math.max(1, chapter) - 1) / chapters.perZone) + 1;
+    },
+    /** 챕터 -> 구역 안에서 몇 번째 (1..3) */
+    partOf(chapter) {
+      return ((Math.max(1, chapter) - 1) % chapters.perZone) + 1;
+    },
+    /** 구역·챕터 -> 전체 챕터 번호 */
+    chapterOf(zone, part) {
+      return (zone - 1) * chapters.perZone + part;
+    },
+    /** 밸런스 스케일용 연속 난이도 값 — 1, 1.33, 1.67, 2, ... 구역 안에서도 조금씩 오른다 */
+    difficultyOf(chapter) {
+      return LW.config.zoneOf(chapter) + (LW.config.partOf(chapter) - 1) / chapters.perZone;
+    },
+    /** 3챕터에만 대장 로봇이 있다 */
+    hasBossAt(chapter) {
+      return LW.config.partOf(chapter) === chapters.perZone;
+    },
+    chapterName(chapter) {
+      const zone = LW.config.zoneOf(chapter);
+      const part = LW.config.partOf(chapter);
+      const zoneName = LW.config.stageName(zone);
+      const place = zoneName.split(' · ')[1] || '전선';
+      return zone + '구역 ' + part + '챕터 · ' + place;
     },
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -12,6 +12,17 @@ function wait(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+  /** 거리를 건너뛰면 코스의 모든 웨이브가 한꺼번에 스폰된다 — 보스전만 보려고 치운다. */
+  async function isolateBossFight(page, count) {
+    await page.evaluate((n) => {
+      const run = window.LW.debug.state().run;
+      for (const e of run.enemies) e.active = false;
+      for (const b of run.bolts) b.active = false;
+      window.LW.debug.boost(n);
+    }, count);
+  }
+
+
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const server = spawn(process.execPath, [path.join(__dirname, 'serve.js')], {
@@ -95,18 +106,41 @@ async function main() {
     // 게이트를 최소 하나는 통과했는지 (코스 구성 확인)
     const gateInfo = await page.evaluate(async () => {
       const run = window.LW.debug.state().run;
-      return { gates: run.gates.length, count: run.squad.count };
+      return { gates: run.gates.length, count: run.squad.count, hasBoss: run.plan.hasBoss, name: run.plan.name };
     });
     check('게이트가 코스에 등장한다', gateInfo.gates >= 1, gateInfo.gates + '개');
+    check('1챕터는 대장 로봇이 없다', gateInfo.hasBoss === false, gateInfo.name);
 
     await page.screenshot({ path: path.join(OUT_DIR, '01-battle.png') });
 
-    // 보스 단계 -> 승리 -> 결과 화면 (게이트를 잘 골라 병력을 불린 상태를 가정)
+    // 1챕터: 코스 끝까지 버티면 돌파 (보스 없음)
     await page.evaluate(() => {
-      window.LW.debug.boost(120);
+      const run = window.LW.debug.state().run;
+      window.LW.debug.boost(60);
+      run.dist = run.plan.bossY - 2;
+    });
+    let ch1Result = true;
+    try {
+      await page.waitForSelector('#screen-result', { state: 'visible', timeout: 6000 });
+    } catch (err) {
+      ch1Result = false;
+    }
+    check('1챕터는 코스 끝까지 가면 돌파된다', ch1Result);
+    check('챕터 돌파 문구가 나온다', (await page.textContent('#result-title')).includes('챕터 돌파'));
+    const bestAfterCh1 = await page.evaluate(() => window.LW.debug.state().save.bestChapter);
+    check('다음 챕터가 해금된다', bestAfterCh1 >= 2, 'bestChapter=' + bestAfterCh1);
+
+    // 3챕터: 대장 로봇 -> 승리 -> 결과 화면
+    await page.evaluate(() => window.LW.debug.start(3));
+    await wait(600);
+    const ch3 = await page.evaluate(() => window.LW.debug.state().run.plan);
+    check('3챕터에는 대장 로봇이 있다', ch3.hasBoss === true, ch3.name);
+    await page.evaluate(() => {
+      window.LW.debug.boost(150);
       window.LW.debug.skipToBoss();
     });
     await wait(900);
+    await isolateBossFight(page, 150);
     check('보스 체력바가 뜬다', await page.isVisible('#boss-bar'));
     await page.screenshot({ path: path.join(OUT_DIR, '02-boss.png') });
 
@@ -119,13 +153,12 @@ async function main() {
     }
     check('결과 화면이 뜬다', resultShown);
     const resultTitle = await page.textContent('#result-title');
-    check('승리로 처리된다', resultTitle.includes('돌파'), resultTitle);
+    check('대장 격파로 처리된다', resultTitle.includes('격파'), resultTitle);
     check('별이 표시된다', (await page.textContent('#result-stars')).length >= 3);
     await page.screenshot({ path: path.join(OUT_DIR, '03-result.png') });
 
-    // 세이브 확인: 다음 구역 해금
-    const best = await page.evaluate(() => window.LW.debug.state().save.bestStage);
-    check('다음 구역이 해금된다', best >= 2, 'bestStage=' + best);
+    const best = await page.evaluate(() => window.LW.debug.state().save.bestChapter);
+    check('보스 챕터도 다음을 해금한다', best >= 4, 'bestChapter=' + best);
 
     // 업그레이드 화면
     await page.click('#btn-result-home');
@@ -135,12 +168,17 @@ async function main() {
     check('강화 항목이 모두 나온다', rows === 5, rows + '개');
     await page.screenshot({ path: path.join(OUT_DIR, '04-upgrade.png') });
 
-    // 구역 선택
+    // 챕터 선택 — 11구역 × 3챕터 = 33
     await page.click('[data-back]');
     await page.click('#btn-stages');
     await wait(200);
-    const cards = await page.$$eval('.stage-card', (els) => els.length);
-    check('구역 목록이 나온다', cards >= 10, cards + '개');
+    const zones = await page.$$eval('.zone-row', (els) => els.length);
+    const chapterCards = await page.$$eval('.chapter-card', (els) => els.length);
+    check('구역이 11개 나온다', zones === 11, zones + '개');
+    check('챕터가 33개 나온다', chapterCards === 33, chapterCards + '개');
+    const finalLocked = await page.$eval('.final-card', (el) => el.className + '|' + el.textContent);
+    check('최종 결전이 잠겨 있다', finalLocked.includes('locked'), finalLocked.split('|')[1].trim());
+    await page.screenshot({ path: path.join(OUT_DIR, '07-chapters.png') });
 
     /* ---------- 버티기 모드 ---------- */
     await page.click('#screen-stages [data-back]');
@@ -187,8 +225,60 @@ async function main() {
     check('버티기 결과 화면이 뜬다', svTitle.includes('버티기'), svTitle);
     const svBest = await page.evaluate(() => window.LW.debug.state().save);
     check('버티기 기록이 저장된다', svBest.bestTime > 0, svBest.bestTime.toFixed(1) + '초');
-    check('버티기가 구역을 해금하지 않는다', svBest.bestStage === best, 'bestStage=' + svBest.bestStage);
+    check('버티기가 챕터를 해금하지 않는다', svBest.bestChapter === best, 'bestChapter=' + svBest.bestChapter);
     await page.screenshot({ path: path.join(OUT_DIR, '06-survival-result.png') });
+
+    /* ---------- 최종 결전 · 엔딩 ---------- */
+    await page.evaluate(() => window.LW.debug.unlockAll());
+    await page.click('#btn-stages');
+    await wait(200);
+    const finalReady = await page.$eval('.final-card', (el) => !el.className.includes('locked'));
+    check('33챕터를 다 깨면 최종 결전이 열린다', finalReady);
+    await page.screenshot({ path: path.join(OUT_DIR, '08-final-unlocked.png') });
+
+    await page.click('.final-card');
+    await wait(700);
+    const finalPlan = await page.evaluate(() => window.LW.debug.state().run.plan);
+    check('최종 결전이 시작된다', finalPlan.isFinal === true, finalPlan.name);
+    check('최종 보스가 33챕터보다 단단하다', finalPlan.bossHp > 6000, 'hp=' + finalPlan.bossHp);
+
+    await page.evaluate(() => {
+      window.LW.debug.boost(400);
+      window.LW.debug.skipToBoss();
+    });
+    await wait(800);
+    await isolateBossFight(page, 400);
+    await page.screenshot({ path: path.join(OUT_DIR, '09-final-boss.png') });
+    check('최종 보스전으로 넘어간다', await page.isVisible('#boss-bar'));
+    await page.evaluate(() => window.LW.debug.finishBoss());
+    let finalResult = true;
+    try {
+      await page.waitForSelector('#screen-result', { state: 'visible', timeout: 8000 });
+    } catch (err) {
+      finalResult = false;
+    }
+    check('최종 결전 결과 화면이 뜬다', finalResult);
+    const finalTitle = await page.textContent('#result-title');
+    check('격파 문구가 나온다', finalTitle.includes('격파'), finalTitle);
+    const finalSave = await page.evaluate(() => window.LW.debug.state().save);
+    check('최종 클리어가 저장된다', finalSave.finalCleared === true);
+
+    await page.click('#btn-result-main');
+    let endingShown = true;
+    try {
+      await page.waitForSelector('#screen-ending', { state: 'visible', timeout: 5000 });
+    } catch (err) {
+      endingShown = false;
+    }
+    check('엔딩이 나온다', endingShown);
+    check(
+      '엔딩 문구가 보인다',
+      endingShown && (await page.textContent('#screen-ending')).includes('부대는 집으로')
+    );
+    await page.screenshot({ path: path.join(OUT_DIR, '10-ending.png') });
+    await page.click('#btn-ending-home');
+    await wait(300);
+    check('엔딩에서 기지로 돌아온다', await page.isVisible('#screen-home'));
 
     check('콘솔 에러가 없다', errors.length === 0, errors.join(' | '));
   } finally {
