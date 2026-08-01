@@ -120,9 +120,10 @@ test('×0 은 이득 문이 아니다 (색만 초록이다)', () => {
   assert.equal(LW.gates.label(fake), '×0');
 });
 
-test('페이크 문의 병력 미리보기는 정직하다', () => {
+test('페이크는 색만 거짓이고 문에 적힌 연산은 정직하다', () => {
   const fake = { op: 'div', value: 3, fake: true };
-  assert.equal(LW.gates.apply(30, fake), 10, '미리보기 숫자는 실제 결과와 같아야 공정하다');
+  assert.equal(LW.gates.label(fake), '÷3', '적힌 연산이 거짓이면 읽어도 알 수 없다');
+  assert.equal(LW.gates.apply(30, fake), 10, '적힌 대로 계산되어야 공정하다');
 });
 
 test('페이크는 3구역부터, 구역당 최대 하나', () => {

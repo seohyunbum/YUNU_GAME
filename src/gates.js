@@ -96,8 +96,8 @@
     const buff = rng.pick(buffs);
     let nerf = rng.pick(nerfs);
 
-    // 페이크 문: 초록으로 보이지만 실제로는 손해다. 문 아래 병력 미리보기는 정직하다
-    // — "색이 아니라 숫자를 읽어라" 를 가르치는 장치.
+    // 페이크 문: 초록으로 보이지만 실제로는 손해다. 색만 거짓이고 문에 적힌
+    // 연산(×0, −7, ÷2)은 정직하다 — "색이 아니라 숫자를 읽어라" 를 가르치는 장치.
     if (opts && opts.allowFake && stage >= 3 && rng.chance(0.6)) {
       nerf = rng.chance(0.5)
         ? { op: 'mul', value: 0, fake: true } // ×0 — 통과하면 전멸
