@@ -24,10 +24,17 @@
     let expected = Math.max(4, startCount);
 
     let fakeLeft = stage >= 3 ? 1 : 0; // 페이크 문은 구역당 최대 1개
+    let bothGoodLeft = stage >= 2 ? 2 : 1; // 둘 다 초록인 문은 구역당 최대 2개
 
     for (let y = FIRST_GATE; y < bossY - 30; y += GATE_GAP) {
-      const pair = LW.gates.makePair(rng, expected, stage, { allowFake: fakeLeft > 0 && y > FIRST_GATE });
+      const allowFake = fakeLeft > 0 && y > FIRST_GATE;
+      const pair = LW.gates.makePair(rng, expected, stage, {
+        allowFake: allowFake,
+        // 페이크와 겹치지 않게 — 한 게이트는 하나의 교훈만 준다.
+        allowBothGood: !allowFake && bothGoodLeft > 0 && rng.chance(0.35),
+      });
       if (pair.some((door) => door.fake)) fakeLeft--;
+      if (pair.every((door) => LW.gates.isBuff(door))) bothGoodLeft--;
       events.push({ type: 'gate', y: y, doors: pair });
       // 아이가 좋은 문을 고른다고 가정하고 예상치를 갱신
       const best = Math.max(LW.gates.apply(expected, pair[0]), LW.gates.apply(expected, pair[1]));

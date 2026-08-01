@@ -136,13 +136,31 @@ test('페이크는 3구역부터, 구역당 최대 하나', () => {
   }
 });
 
-test('페이크가 있어도 반대쪽엔 진짜 이득 문이 있다', () => {
-  for (let stage = 3; stage <= 12; stage++) {
+test('어느 게이트에도 살 길이 있다 (이득 문이 최소 하나)', () => {
+  for (let stage = 1; stage <= 12; stage++) {
     for (const gate of LW.stage.build(stage, 20).events.filter((e) => e.type === 'gate')) {
       const buffs = gate.doors.filter((door) => LW.gates.isBuff(door));
-      assert.equal(buffs.length, 1, stage + '구역에 살 길이 없는 게이트가 있다');
+      assert.ok(buffs.length >= 1, stage + '구역에 살 길이 없는 게이트가 있다');
+      // 페이크는 반드시 손해 쪽에만 붙는다 — 둘 다 초록이면 둘 다 진짜다.
+      if (buffs.length === 2) assert.ok(!gate.doors.some((d) => d.fake), stage + '구역: 둘 다 초록인데 페이크가 있다');
     }
   }
+});
+
+test('둘 다 초록인 게이트가 실제로 코스에 나온다 (구역당 최대 2개)', () => {
+  for (let stage = 1; stage <= 12; stage++) {
+    const gates = LW.stage.build(stage, 20).events.filter((e) => e.type === 'gate');
+    const bothGood = gates.filter((g) => g.doors.every((d) => LW.gates.isBuff(d)));
+    assert.ok(bothGood.length <= 2, stage + '구역에 둘 다 초록인 게이트가 ' + bothGood.length + '개나 있다');
+  }
+  // 여러 구역을 합쳐 보면 반드시 등장한다
+  let total = 0;
+  for (let stage = 1; stage <= 12; stage++) {
+    total += LW.stage
+      .build(stage, 20)
+      .events.filter((e) => e.type === 'gate' && e.doors.every((d) => LW.gates.isBuff(d))).length;
+  }
+  assert.ok(total >= 6, '둘 다 초록인 게이트가 너무 드물다: ' + total);
 });
 
 test('×0 을 통과하면 전멸한다 (진짜로 위험하다)', () => {

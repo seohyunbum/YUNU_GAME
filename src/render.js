@@ -556,10 +556,16 @@
       ctx.fillText(LW.gates.label(door), cx, cy);
 
       if (!used) {
+        // 통과했을 때의 병력 — 색은 속일 수 있어도 이 숫자는 정직하다.
+        // 둘 다 초록인 문에서는 이게 유일한 판단 근거라 크게 그린다.
         const preview = LW.gates.apply(run.squad.count, door);
-        ctx.font = '800 ' + Math.max(9, fs * 0.34) + 'px system-ui, sans-serif';
-        ctx.fillStyle = buff ? '#dcffe9' : '#ffdde1';
-        ctx.fillText('👥 ' + LW.util.formatCount(preview), cx, cy + fs * 0.6);
+        const ps = Math.max(11, fs * 0.5);
+        const pyy = cy + fs * 0.66;
+        ctx.font = '900 ' + ps + 'px system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillText('👥 ' + LW.util.formatCount(preview), cx, pyy + Math.max(1, ps * 0.08));
+        ctx.fillStyle = buff ? '#e8fff1' : '#ffe6e9';
+        ctx.fillText('👥 ' + LW.util.formatCount(preview), cx, pyy);
       }
       ctx.globalAlpha = 1;
     }

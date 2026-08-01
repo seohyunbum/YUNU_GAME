@@ -55,11 +55,32 @@
   }
 
   /**
+   * 둘 다 초록(진짜 이득)인 한 쌍. 아무 쪽이나 이득이지만 한쪽이 더 크게 이득이라
+   * 색이 아니라 숫자를 비교해야 한다 — ×2 와 +N 은 병력 수에 따라 유불리가 뒤집힌다.
+   */
+  function makeBothGood(rng, expected, stage) {
+    const mul = { op: 'mul', value: rng.chance(0.15 + stage * 0.02) ? 3 : 2 };
+    const grow = apply(expected, mul) - expected; // 곱하기로 늘어나는 양
+    const gap = Math.max(3, Math.round(expected * 0.3)); // 결과가 확실히 벌어지게
+    // 절반은 더하기가 유리하고 절반은 곱하기가 유리하다 — 매번 새로 읽어야 한다.
+    const value = rng.chance(0.5)
+      ? grow + gap
+      : Math.max(3, Math.min(grow - gap, Math.round(grow * 0.7)));
+    const pair = [mul, { op: 'add', value: value }];
+    return rng.chance(0.5) ? pair : [pair[1], pair[0]];
+  }
+
+  /**
    * 현재 예상 병력에 맞춰 문 두 개를 만든다.
-   * 한쪽은 확실히 이득, 한쪽은 확실히 손해 — 고민할 가치가 있게 값을 맞춘다.
+   * 기본은 이득 하나 + 손해 하나, 때때로 둘 다 초록(더 큰 쪽 고르기)이다.
    * expected 가 커지면 더하기 값도 같이 커져서 후반에도 의미가 있다.
    */
   function makePair(rng, expected, stage, opts) {
+    if (opts && opts.allowBothGood) {
+      const pair = makeBothGood(rng, expected, stage);
+      // 두 문의 결과가 같으면 선택이 무의미하다 — 그럴 때만 보통 쌍으로 되돌린다.
+      if (apply(expected, pair[0]) !== apply(expected, pair[1])) return pair;
+    }
     const scale = Math.max(4, Math.round(expected * 0.45));
     const buffs = [
       { op: 'add', value: rng.int(Math.max(3, Math.round(scale * 0.5)), Math.max(6, scale)) },
@@ -86,5 +107,5 @@
     return rng.chance(0.5) ? [buff, nerf] : [nerf, buff];
   }
 
-  LW.gates = { OPS, apply, label, isBuff, looksBuff, makePair };
+  LW.gates = { OPS, apply, label, isBuff, looksBuff, makePair, makeBothGood };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
