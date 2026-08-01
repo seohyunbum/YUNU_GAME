@@ -23,8 +23,11 @@
     // 게이트 값 스케일을 잡기 위한 "예상 병력" 추적치. 실제 플레이와 정확히 같을 필요는 없다.
     let expected = Math.max(4, startCount);
 
+    let fakeLeft = stage >= 3 ? 1 : 0; // 페이크 문은 구역당 최대 1개
+
     for (let y = FIRST_GATE; y < bossY - 30; y += GATE_GAP) {
-      const pair = LW.gates.makePair(rng, expected, stage);
+      const pair = LW.gates.makePair(rng, expected, stage, { allowFake: fakeLeft > 0 && y > FIRST_GATE });
+      if (pair.some((door) => door.fake)) fakeLeft--;
       events.push({ type: 'gate', y: y, doors: pair });
       // 아이가 좋은 문을 고른다고 가정하고 예상치를 갱신
       const best = Math.max(LW.gates.apply(expected, pair[0]), LW.gates.apply(expected, pair[1]));
@@ -37,6 +40,20 @@
         if (wy > bossY - 8) break;
         events.push(makeWave(rng, wy, theme.kinds, expected, countMult, stage));
         expected = Math.max(3, expected - 1);
+      }
+
+      // 드럼통 — 쏴서 터뜨리면 위의 총을 얻는다 (첫 블록에도 하나 준다)
+      if (y === FIRST_GATE || rng.chance(0.55)) {
+        const count = rng.int(1, 2);
+        const bx = rng.range(-2.8, 2.8);
+        for (let i = 0; i < count; i++) {
+          events.push({
+            type: 'barrel',
+            y: y + 18 + i * 4 + rng.range(-1.5, 1.5),
+            x: LW.util.clamp(bx + i * rng.range(-1.6, 1.6), -3.4, 3.4),
+            hp: Math.round(cfg.barrel.hp * (1 + 0.12 * (stage - 1))),
+          });
+        }
       }
 
       // 가끔 바리케이드(부수거나 피해야 함)와 부품 뭉치
@@ -56,7 +73,11 @@
     }
 
     // 보스 직전 마지막 선택 — 여기서 문 하나가 승패를 가른다.
-    events.push({ type: 'gate', y: bossY - 22, doors: LW.gates.makePair(rng, expected, stage) });
+    events.push({
+      type: 'gate',
+      y: bossY - 22,
+      doors: LW.gates.makePair(rng, expected, stage, { allowFake: fakeLeft > 0 }),
+    });
 
     events.sort((a, b) => a.y - b.y);
 
