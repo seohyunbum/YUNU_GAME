@@ -43,7 +43,7 @@
       shake: 0,
       startCount: mods.startCount,
       peak: mods.startCount, // 이번 전투에서 가장 많았던 병력 (별 계산 기준)
-      bullets: pool(cfg.pools.bullets, () => ({ active: false, x: 0, y: 0, dmg: 0 })),
+      bullets: pool(cfg.pools.bullets, () => ({ active: false, x: 0, y: 0, vx: 0, dmg: 0 })),
       bolts: pool(cfg.pools.bolts, () => ({ active: false, x: 0, y: 0, vx: 0, vy: 0 })),
       enemies: pool(cfg.pools.enemies, () => ({
         active: false, kind: 'grunt', x: 0, y: 0, hp: 0, maxHp: 1,
@@ -56,6 +56,7 @@
       barricades: [],
       barrels: [],
       guns: [], // 드럼통에서 떨어진 총 픽업
+      gunnerPickups: [], // 길에서 기다리는 미니건 병사 (지나가면 합류)
       gates: [],
       boss: null,
       out: [], // 이번 프레임에 벌어진 일 (사운드·HUD 용)
@@ -152,6 +153,8 @@
         });
       } else if (ev.type === 'coin') {
         run.coins.push({ x: ev.x, y: ev.y, taken: false, bob: Math.random() * 6 });
+      } else if (ev.type === 'gunner') {
+        run.gunnerPickups.push({ x: ev.x, y: ev.y, taken: false, bob: Math.random() * 6, wave: 0 });
       }
     }
   }
@@ -172,9 +175,59 @@
       b.active = true;
       b.x = squad.x - spread + i * step;
       b.y = run.dist + 0.25;
+      b.vx = 0;
       b.dmg = dmg;
     }
     emit(run, 'shoot');
+  }
+
+  /** 미니건 병사 사격 — 병력 수와 무관하게 자기 화력을 빠르게 쏟는다. */
+  function fireGunners(run, dt) {
+    const squad = run.squad;
+    if (squad.gunners <= 0) return;
+    const cfg = LW.config.gunner;
+    squad.gunnerTimer -= dt;
+    if (squad.gunnerTimer > 0) return;
+    squad.gunnerTimer += cfg.fireInterval;
+    const dmg = squad.gunnerDamage();
+    const boss = run.boss && !run.boss.dead ? run.boss : null;
+    for (let i = 0; i < squad.gunners; i++) {
+      const b = takeFrom(run.bullets);
+      if (!b) break;
+      const bx = squad.gunnerX(i);
+      const by = run.dist + 0.3;
+      b.active = true;
+      b.x = bx;
+      b.y = by;
+      b.dmg = dmg;
+      // 미니건 병사는 진형 바깥에 선다 — 곧게만 쏘면 가운데 있는 대장을 스쳐 지나간다.
+      // 대장이 있으면 비스듬히 조준한다.
+      if (boss) {
+        const dy = Math.max(1, boss.y - by);
+        b.vx = ((boss.x - bx) / dy) * LW.config.squad.bulletSpeed;
+      } else {
+        b.vx = 0;
+      }
+    }
+    emit(run, 'minigun');
+  }
+
+  function updateGunnerPickups(run, dt) {
+    const squad = run.squad;
+    const hw = squad.halfWidth() + LW.config.gunner.pickupRadius;
+    for (const p of run.gunnerPickups) {
+      if (p.taken) continue;
+      p.bob += dt * 3.2;
+      p.wave += dt * 6;
+      if (p.y <= run.dist + 0.5 && p.y > run.dist - 3 && Math.abs(p.x - squad.x) <= hw) {
+        p.taken = true;
+        const total = squad.addGunner();
+        spawnParticles(run, p.x, p.y, 14, '#9ff0ff', 3.2);
+        // 이미 꽉 찼으면 부품으로 바꿔 준다 — 지나쳤다는 허탈함을 남기지 않는다
+        if (total === 0) run.parts += 6;
+        emit(run, 'gunner', { total: total });
+      }
+    }
   }
 
   function killEnemy(run, e) {
@@ -206,6 +259,7 @@
     for (const b of run.bullets) {
       if (!b.active) continue;
       b.y += speed * dt;
+      if (b.vx) b.x += b.vx * dt; // 미니건처럼 비스듬히 조준한 총알
       if (b.y > maxY) {
         b.active = false;
         continue;
@@ -511,6 +565,9 @@
     for (let i = run.barricades.length - 1; i >= 0; i--) if (run.barricades[i].y < behind) run.barricades.splice(i, 1);
     for (let i = run.barrels.length - 1; i >= 0; i--) if (run.barrels[i].y < behind) run.barrels.splice(i, 1);
     for (let i = run.guns.length - 1; i >= 0; i--) if (run.guns[i].y < behind) run.guns.splice(i, 1);
+    for (let i = run.gunnerPickups.length - 1; i >= 0; i--) {
+      if (run.gunnerPickups[i].y < behind) run.gunnerPickups.splice(i, 1);
+    }
   }
 
   function updateParticles(run, dt) {
@@ -582,6 +639,7 @@
 
     spawnAhead(run);
     fire(run, dt);
+    fireGunners(run, dt);
     updateBullets(run, dt);
     updateEnemies(run, dt);
     updateBolts(run, dt);
@@ -590,6 +648,7 @@
     updateBarricades(run, prevDist, dt);
     updateBarrels(run, prevDist, dt);
     updateGuns(run, dt);
+    updateGunnerPickups(run, dt);
     if (squad.tickBuff(dt)) emit(run, 'weaponEnd');
     updateBoss(run, dt);
     updateParticles(run, dt);
@@ -652,7 +711,7 @@
     let stars = 1;
     if (seconds >= sv.starSeconds[0]) stars = 2;
     if (seconds >= sv.starSeconds[1]) stars = 3;
-    const coins = Math.round((run.parts + tier * sv.rewardPerTier + seconds * 0.4) * run.mods.lootMult);
+    const coins = Math.round((run.parts + tier * sv.rewardPerTier + seconds * 0.25) * run.mods.lootMult);
     return {
       win: false,
       endless: true,

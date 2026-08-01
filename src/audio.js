@@ -7,6 +7,7 @@
   let master = null;
   let enabled = true;
   let lastShot = 0;
+  let lastMinigun = 0;
 
   function ensure() {
     if (ctx) return ctx;
@@ -83,6 +84,17 @@
           break;
         case 'barrel':
           blip(140, 0.14, 'sawtooth', 0.32);
+          break;
+        case 'gunner':
+          // 아군 합류 — 짧게 올라가는 두 음
+          sweep(420, 1050, 0.26, 'triangle');
+          break;
+        case 'minigun':
+          // 매 발 소리를 내면 시끄럽다 — 간격을 두고 아주 작게 깔아 준다
+          if (now - lastMinigun > 110) {
+            lastMinigun = now;
+            blip(150 + Math.random() * 50, 0.04, 'square', 0.05);
+          }
           break;
         case 'weapon':
           sweep(700, 1500, 0.22, 'square');

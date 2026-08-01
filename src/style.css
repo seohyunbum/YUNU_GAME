@@ -358,6 +358,18 @@ html, body {
 .stage-card .sc-name { font-size: 11px; color: var(--ink-dim); }
 .stage-card .sc-stars { font-size: 11px; margin-top: 3px; letter-spacing: 1px; }
 
+/* 미니건 병사 칩 — 연사 칩과 색을 구분한다 */
+.gunner-chip {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 800;
+  color: #d8f4ff;
+  background: rgba(24, 62, 82, 0.92);
+  border: 1px solid rgba(120, 220, 255, 0.5);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
 /* ---------- 챕터 목록 (구역별 3개) ---------- */
 
 .chapter-list {

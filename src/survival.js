@@ -33,7 +33,10 @@
       bossHp: 0,
       rewardBase: 0,
       // 다음에 만들 이벤트의 y 위치
-      cursor: { gate: sv.firstGate, barrel: sv.firstBarrel, wave: sv.firstWave, coin: sv.coinGap[0] },
+      cursor: {
+        gate: sv.firstGate, barrel: sv.firstBarrel, wave: sv.firstWave,
+        coin: sv.coinGap[0], gunner: sv.gunnerGap[0],
+      },
       expected: Math.max(4, mods.startCount),
     };
 
@@ -91,7 +94,15 @@
           });
         }
         out.push({ type: 'wave', y: c.wave, entries: entries, hpMult: LW.config.scaling.enemyHp(tier) });
-        c.wave += rng.range(sv.waveGap[0], sv.waveGap[1]);
+        // 단계가 오르면 웨이브 간격이 좁아진다 — 안 그러면 강해진 뒤로는 산책이 된다
+        const tighten = Math.max(0.45, 1 - sv.waveGapTighten * (tier - 1));
+        c.wave += rng.range(sv.waveGap[0], sv.waveGap[1]) * tighten;
+      }
+
+      while (c.gunner <= untilY) {
+        // 미니건 병사는 도로 어디서나 기다린다 — 드럼통 차선에 있으면 위험을 무릅쓰게 된다
+        out.push({ type: 'gunner', y: c.gunner, x: rng.range(-half + 0.8, half - 0.8) });
+        c.gunner += rng.range(sv.gunnerGap[0], sv.gunnerGap[1]);
       }
 
       while (c.coin <= untilY) {

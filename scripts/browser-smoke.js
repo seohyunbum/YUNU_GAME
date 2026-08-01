@@ -113,6 +113,28 @@ async function main() {
 
     await page.screenshot({ path: path.join(OUT_DIR, '01-battle.png') });
 
+    // 미니건 병사 — 길에서 기다리다 지나가면 합류한다
+    const gunnerInfo = await page.evaluate(async () => {
+      const LW = window.LW;
+      const run = LW.debug.state().run;
+      const waiting = run.plan.events.filter((e) => e.type === 'gunner');
+      // 눈앞으로 한 명 불러 세운다
+      run.gunnerPickups.length = 0;
+      run.gunnerPickups.push({ x: run.squad.x, y: run.dist + 7, taken: false, bob: 0, wave: 0 });
+      return { onCourse: waiting.length, before: run.squad.gunners };
+    });
+    check('코스에 미니건 병사가 배치된다', gunnerInfo.onCourse >= 1, gunnerInfo.onCourse + '명');
+    await wait(300);
+    await page.screenshot({ path: path.join(OUT_DIR, '11-gunner-wait.png') });
+    await wait(1500);
+    const joined = await page.evaluate(() => {
+      const run = window.LW.debug.state().run;
+      return { gunners: run.squad.gunners, chip: !document.getElementById('hud-gunner').classList.contains('hidden') };
+    });
+    check('지나가면 미니건 병사가 합류한다', joined.gunners >= 1, joined.gunners + '명');
+    check('HUD 에 미니건 칩이 뜬다', joined.chip);
+    await page.screenshot({ path: path.join(OUT_DIR, '12-gunner-joined.png') });
+
     // 1챕터: 코스 끝까지 버티면 돌파 (보스 없음)
     await page.evaluate(() => {
       const run = window.LW.debug.state().run;

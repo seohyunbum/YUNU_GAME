@@ -74,6 +74,22 @@ function makeAutopilot(LW) {
       input.targetX = clampRoad(squad.x + dir * 2.2);
       return;
     }
+
+    // 위협이 없으면 미니건 병사를 주우러 간다 — 화력이 확 오른다
+    if (squad.gunners < LW.config.gunner.max) {
+      let pick = null;
+      for (const p of run.gunnerPickups) {
+        if (p.taken) continue;
+        const ahead = p.y - run.dist;
+        if (ahead < 0.5 || ahead > 20) continue;
+        if (!pick || p.y < pick.y) pick = p;
+      }
+      if (pick) {
+        input.targetX = clampRoad(pick.x);
+        return;
+      }
+    }
+
     input.targetX = squad.x * 0.9;
   }
 
@@ -139,6 +155,18 @@ function makeAutopilot(LW) {
         input.targetX = leftEsc >= -lim ? leftEsc : Math.min(rightEsc, lim);
       }
       return;
+    }
+
+    // 미니건 병사가 근처에 있으면 주우러 간다 (버티기에서는 화력이 곧 생존이다)
+    if (squad.gunners < LW.config.gunner.max) {
+      for (const p of run.gunnerPickups) {
+        if (p.taken) continue;
+        const ahead = p.y - run.dist;
+        if (ahead > 1 && ahead < 16) {
+          input.targetX = clampRoad(p.x);
+          return;
+        }
+      }
     }
 
     // 그 외: 멀리 있는 드럼통을 미리 쏴 둔다 — 총을 먹어야 오래 버틴다

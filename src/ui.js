@@ -19,6 +19,8 @@
       bossBar: $('boss-bar'),
       bossName: document.querySelector('#boss-bar .boss-name'),
       buff: $('hud-buff'),
+      gunner: $('hud-gunner'),
+      gunnerCount: $('hud-gunner-count'),
       buffMult: $('hud-buff-mult'),
       buffTime: $('hud-buff-time'),
       bossFill: $('boss-fill'),
@@ -317,6 +319,14 @@
         el.buff.classList.add('hidden');
       }
 
+      // 미니건 병사
+      if (squad.gunners > 0) {
+        el.gunner.classList.remove('hidden');
+        el.gunnerCount.textContent = squad.gunners;
+      } else {
+        el.gunner.classList.add('hidden');
+      }
+
       const boss = run.boss;
       if (boss && !boss.dead) {
         el.bossBar.classList.remove('hidden');
@@ -337,6 +347,7 @@
       lastSeconds = -1;
       el.stageName.textContent = run.plan.name;
       el.bossBar.classList.add('hidden');
+      el.gunner.classList.add('hidden');
       setTip(
         run.endless
           ? '왼쪽 문으로 병력을 불려라 · 오른쪽 드럼통에 깔리면 끝'

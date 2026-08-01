@@ -38,6 +38,9 @@
     // 게이트 값 스케일을 잡기 위한 "예상 병력" 추적치. 실제 플레이와 정확히 같을 필요는 없다.
     let expected = Math.max(4, startCount);
 
+    // 미니건 병사는 챕터당 1명 (보스 챕터·최종은 2명 — 정면 싸움에 힘이 된다)
+    let gunnersLeft = isFinal ? 2 : hasBoss ? 2 : 1;
+
     let fakeLeft = zone >= 3 || isFinal ? 1 : 0; // 페이크 문은 챕터당 최대 1개
     let bothGoodLeft = zone >= 2 || isFinal ? 2 : 1; // 둘 다 초록인 문은 챕터당 최대 2개
 
@@ -91,6 +94,16 @@
         const cx = rng.range(-3.2, 3.2);
         const cy = y + 6 + rng.range(0, 6);
         for (let i = 0; i < 4; i++) events.push({ type: 'coin', y: cy + i * 1.5, x: cx });
+      }
+
+      // 미니건 병사 — 길에 서서 기다린다. 지나가면 합류해 함께 쏜다.
+      if (gunnersLeft > 0 && rng.chance(0.55)) {
+        gunnersLeft--;
+        events.push({
+          type: 'gunner',
+          y: y + 20 + rng.range(-3, 3),
+          x: rng.range(-3.2, 3.2),
+        });
       }
     }
 

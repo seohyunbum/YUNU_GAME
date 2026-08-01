@@ -25,6 +25,7 @@
   /** 오브젝트 세로 높이(월드 단위) — 원근에서 "서 있는" 느낌을 만든다. */
   const heights = {
     unit: 0.82,
+    gunner: 1.02,
     enemy: 0.95,
     brute: 1.45,
     boss: 3.5,
@@ -78,6 +79,18 @@
    *  화력 강화와 무관하게 "한 발 = 한 번" 이라 아이가 세면서 쏠 수 있다. */
   const barrel = { hits: 3, maxHits: 6, radius: 0.62, height: 1.4, crushCost: 4, gunZ: 1.95 };
 
+  /** 미니건 병사 — 길에서 구해 합류시키는 아군. 병력 수와 별개로 자기 화력을 쏜다.
+   *  게이트 연산(×0·÷2 등)에 영향받지 않는다. 한 번 합류하면 그 챕터 끝까지 함께 싸운다. */
+  const gunner = {
+    max: 3, // 동시에 데릴 수 있는 수
+    fireInterval: 0.1, // 아주 빠른 연사
+    damage: 8, // 한 발 피해 (화력 강화가 곱해진다)
+    flankGap: 0.5, // 진형 바깥으로 이만큼 떨어져 선다
+    pickupRadius: 0.62,
+    height: 1.02, // 일반 병사보다 살짝 크게 그린다
+    standZ: 0.1,
+  };
+
   /** 총 픽업 — 먹으면 일정 시간 연사가 빨라진다 (겹쳐 먹으면 더 빨라짐). */
   const weapon = {
     pickupRadius: 0.55,
@@ -92,17 +105,19 @@
     gateGap: [15, 24], // 게이트 간 거리 (월드 단위)
     barrelGap: [7, 12],
     waveGap: [17, 25],
+    waveGapTighten: 0.035, // 단계마다 웨이브 간격이 이만큼 좁아진다
     coinGap: [26, 44],
+    gunnerGap: [130, 190], // 미니건 병사가 기다리는 간격 (화력이 세니 드물게)
     gateWidth: 2.1, // 문 하나 너비 — 여기로 들어가면 연산이 적용된다
     barrelLaneMin: 0.8, // 드럼통은 이보다 오른쪽에만 — 가운데도 위험하게 두되 왼쪽 탈출로는 남긴다
     maxCount: 60, // 버티기 전용 병력 상한. 이보다 커지면 진형이 도로를 막아 못 피한다
     laneMargin: 0.5, // 좌우 절반 안에서 이만큼 여백을 둔다
-    tierEvery: 190, // 이 거리마다 난이도 한 단계
-    maxTier: 12,
+    tierEvery: 150, // 이 거리마다 난이도 한 단계
+    maxTier: 30, // 단계가 평평해지면 강한 플레이어가 무한히 버틴다 — 계속 오르게 둔다
     firstGate: 20, // 첫 게이트까지 몸풀기
     firstBarrel: 34, // 드럼통은 조금 더 뒤부터 (규칙을 먼저 익히게)
     firstWave: 46,
-    rewardPerTier: 18, // 한 단계 버틸 때마다 받는 부품
+    rewardPerTier: 10, // 한 단계 버틸 때마다 받는 부품
     starSeconds: [60, 150], // ★2 / ★3 기준 버틴 시간
   };
 
@@ -174,6 +189,7 @@
     barricade,
     barrel,
     weapon,
+    gunner,
     survival,
     scaling,
     stages,
