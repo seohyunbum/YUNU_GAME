@@ -56,17 +56,17 @@
     grunt: { hp: 9, speed: 1.7, radius: 0.3, cost: 1, color: '#8d97a8', bounty: 1 },
     runner: { hp: 6, speed: 3.6, radius: 0.26, cost: 1, color: '#c98a4b', bounty: 1 },
     brute: { hp: 36, speed: 1.05, radius: 0.52, cost: 3, color: '#6f7d95', bounty: 4 },
-    shooter: { hp: 14, speed: 1.15, radius: 0.32, cost: 2, color: '#a26bb5', bounty: 3, fireInterval: 2.1 },
+    shooter: { hp: 14, speed: 1.15, radius: 0.32, cost: 2, color: '#a26bb5', bounty: 3, fireInterval: 1.85 },
   };
 
   const boss = {
-    hp: 570,
+    hp: 600,
     radius: 1.6,
     speed: 0.5,
     standoff: 8, // 부대가 보스 앞 이 거리에서 멈춰 정면 승부를 벌인다
     contactCost: 8, // 보스가 스쿼드에 닿으면 잃는 병력
-    spawnInterval: 3.4,
-    fireInterval: 1.55,
+    spawnInterval: 3.05,
+    fireInterval: 1.4,
     boltSpeed: 7.5,
   };
 
@@ -74,8 +74,9 @@
 
   const barricade = { hp: 60, halfWidth: 1.15, thickness: 0.5, crushCost: 6 };
 
-  /** 드럼통: 쏘면 터지고 위에 얹힌 총이 노면에 떨어진다. 그냥 박으면 병력을 잃는다. */
-  const barrel = { hp: 22, radius: 0.62, height: 1.4, crushCost: 4, gunZ: 1.95 };
+  /** 드럼통: 몸통에 적힌 횟수만큼 맞히면 터지고 위에 얹힌 총이 떨어진다.
+   *  화력 강화와 무관하게 "한 발 = 한 번" 이라 아이가 세면서 쏠 수 있다. */
+  const barrel = { hits: 3, maxHits: 6, radius: 0.62, height: 1.4, crushCost: 4, gunZ: 1.95 };
 
   /** 총 픽업 — 먹으면 일정 시간 연사가 빨라진다 (겹쳐 먹으면 더 빨라짐). */
   const weapon = {
@@ -87,9 +88,9 @@
 
   const scaling = {
     /** 구역이 오를수록 적 체력·수량이 는다. */
-    enemyHp: (stage) => 1 + 0.29 * (stage - 1),
-    enemyCount: (stage) => 1 + 0.14 * (stage - 1),
-    bossHp: (stage) => 1 + 0.72 * (stage - 1),
+    enemyHp: (stage) => 1 + 0.36 * (stage - 1),
+    enemyCount: (stage) => 1 + 0.2 * (stage - 1),
+    bossHp: (stage) => 1 + 0.85 * (stage - 1),
     length: (stage) => 250 + 26 * (stage - 1),
     reward: (stage) => 26 + 12 * (stage - 1),
   };
@@ -115,8 +116,8 @@
 
   /** 병력이 커지면 적도 함께 몰려온다 — 안 그러면 후반이 그냥 산책이 된다. */
   const pressure = {
-    extraWavePer: 20, // 병력 20명마다 웨이브 적이 한 겹 더
-    maxExtraWaves: 6,
+    extraWavePer: 16, // 병력 16명마다 웨이브 적이 한 겹 더
+    maxExtraWaves: 7,
     enemyHpPerUnit: 1 / 150, // 병력 150명이면 적 체력 +100%
     maxEnemyHpBonus: 4,
     bossHpPerUnit: 1 / 45, // 큰 부대로 가면 보스도 그만큼 단단해진다

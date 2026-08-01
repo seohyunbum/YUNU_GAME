@@ -619,14 +619,17 @@
     ctx.fillStyle = 'rgba(20,24,32,0.45)';
     ctx.fillRect(x - w / 2, yt + H * 0.3, w, Math.max(1, H * 0.08));
     ctx.fillRect(x - w / 2, yt + H * 0.62, w, Math.max(1, H * 0.08));
-    // 체력
-    if (barrel.hp < barrel.maxHp) {
-      const bh = Math.max(2, s * 0.04);
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(x - w / 2, yt - bh * 2.2, w, bh);
-      ctx.fillStyle = '#ffd05e';
-      ctx.fillRect(x - w / 2, yt - bh * 2.2, (w * Math.max(0, barrel.hp)) / barrel.maxHp, bh);
-    }
+    // 남은 타격 횟수 — 이만큼 맞히면 터진다. 맞을 때마다 줄어든다.
+    const left = Math.max(0, barrel.hits);
+    const nfs = Math.max(9, w * 0.62);
+    ctx.font = '900 ' + nfs + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const ny = yt + H * 0.47;
+    ctx.fillStyle = 'rgba(20,12,8,0.65)';
+    ctx.fillText(String(left), x, ny + Math.max(1, nfs * 0.08));
+    ctx.fillStyle = barrel.flash > 0 ? '#fff2c0' : '#ffffff';
+    ctx.fillText(String(left), x, ny);
 
     // 위에 얹힌 총 (쏴서 터뜨리면 떨어진다)
     drawGunIcon(ctx, cam, barrel.x, cfg.barrel.gunZ + Math.sin(barrel.bob) * 0.06, s, 1);

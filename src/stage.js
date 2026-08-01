@@ -59,7 +59,7 @@
           type: 'barrel',
           y: by,
           x: LW.util.clamp(bx + i * rng.range(-2.2, 2.2), -3.4, 3.4),
-          hp: Math.round(cfg.barrel.hp * (1 + 0.12 * (stage - 1))),
+          hits: Math.min(cfg.barrel.maxHits, cfg.barrel.hits + Math.floor((stage - 1) / 2)),
         });
       }
 

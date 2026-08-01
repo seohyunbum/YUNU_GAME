@@ -128,7 +128,7 @@
         });
       } else if (ev.type === 'barrel') {
         run.barrels.push({
-          x: ev.x, y: ev.y, hp: ev.hp, maxHp: ev.hp, broken: false, passed: false,
+          x: ev.x, y: ev.y, hits: ev.hits, maxHits: ev.hits, broken: false, passed: false,
           flash: 0, bob: Math.random() * 6,
         });
       } else if (ev.type === 'coin') {
@@ -234,10 +234,11 @@
         if (barrel.broken) continue;
         const cfgBar = LW.config.barrel;
         if (U.hitCircle(b.x, b.y, br, barrel.x, barrel.y, cfgBar.radius)) {
-          barrel.hp -= b.dmg;
-          barrel.flash = 0.08;
+          // 화력과 무관하게 한 발에 한 번 — 드럼통에 적힌 수만큼 맞혀야 터진다.
+          barrel.hits -= 1;
+          barrel.flash = 0.12;
           spawnParticles(run, b.x, b.y, 2, '#ffd08a', 1.6);
-          if (barrel.hp <= 0) breakBarrel(run, barrel);
+          if (barrel.hits <= 0) breakBarrel(run, barrel);
           hit = true;
           break;
         }
