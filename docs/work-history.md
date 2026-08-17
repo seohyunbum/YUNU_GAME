@@ -1792,3 +1792,12 @@
   ※ 로컬 함정 2건 기록: (1) vite.config base 가 command==="build" 조건이라 `vite preview` 는 base "/" → 로컬
     테스트는 `--base /YUNU_GAME/` 강제 필요(Pages 실제 배포는 정상). (2) `pkill -f "vite preview"`/`pgrep -f`
     가 자기 명령줄을 매칭해 셸을 SIGTERM(exit 144) — 대상 프로세스 kill 은 PID 파일로.
+
+- PWA 원탭 설치 버튼 추가(사용자: 깔아줘 — 폰 설치는 기기에서 하는 동작이라 대신 최대한 쉽게):
+  물리적 설치는 사용자 기기에서만 가능 → "앱 설치" 원탭 버튼으로 대체(브라우저 메뉴 탐색 불필요).
+  index.html 만 변경(main.ts·src 무변경):
+  ▪#pwa-install 버튼(fixed 상단중앙, z:9999, safe-area 대응) — 기본 hidden.
+  ▪beforeinstallprompt(안드로이드/데스크톱 크롬) 잡아 preventDefault→버튼 노출, 클릭 시 native prompt().
+    appinstalled·standalone 시 숨김. iOS(사파리)는 이벤트 미지원이라 안내 버튼 + 공유→홈추가 alert.
+  검증(헤드리스 preview /YUNU_GAME/): 기본 hidden=true, 합성 beforeinstallprompt 후 노출·라벨 "📲 앱 설치",
+    코드에러 0. build·check:size(9486)·hotpath 녹색.
