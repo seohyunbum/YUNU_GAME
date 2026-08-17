@@ -1769,3 +1769,26 @@
   헤드리스 프리뷰(4종 idle vs 공격 피크) 실측: 기사 검 내려치기·마법사 지팡이 내지름·궁수 당김·골렘 우완 슬램
     — 무기가 손에 붙은 채 어깨에서 스윙됨(분리 없음). main.ts 0 변경 · 메시 증가 0 → perf 예산 무영향.
   ※ 걷기는 기존 animateWalkCycle(다리 스윙+머리 끄덕임) 유지 — 팔 스윙과 축이 달라 공존.
+
+- PWA(설치형 웹앱) 전환 — 핸드폰 홈 화면 앱화(사용자: 핸드폰에서 할수있는 앱으로):
+  판단: 이미 Vite+Three.js 웹게임이 Pages(https://seohyunbum.github.io/YUNU_GAME/)에 배포돼 있고 모바일
+  터치 컨트롤·iOS 웹앱 메타도 있으나 manifest·아이콘·서비스워커가 없어 "설치"가 안 됨. 네이티브 래핑
+  (Capacitor→APK/스토어)은 과함 → PWA 로 홈 화면 설치 + 전체화면 + 오프라인(재방문) 제공. main.ts 무변경.
+  빌드가 Rolldown-Vite(v8)라 vite-plugin-pwa 호환 위험 → 플러그인 없이 정적 파일로 수작업(안전).
+  조치(index.html + public/ 만, 소스 TS 무변경):
+  ▪public/manifest.webmanifest: name·short_name·display standalone·theme/bg #15202e·아이콘 3종.
+    start_url/scope="."(상대) → Pages 하위경로(/YUNU_GAME/)에서 자동 정합, dev(루트)도 동작.
+  ▪public/sw.js: 런타임 캐시 SW — HTML network-first(새 배포 즉시), 해시자산 stale-while-revalidate,
+    오디오·range·교차출처(파이어베이스) 통과. activate 에서 옛 캐시 정리. 내용해시 파일명이라 URL 캐시 안전.
+  ▪아이콘 4종(192·512·maskable512·apple180) — 헤드리스 canvas 로 생성(하늘+언덕+검 엠블럼, 시네마틱 톤).
+    maskable 은 안전영역(중앙 68%) 확보.
+  ▪index.html: manifest·theme-color·apple-touch-icon·apple-mobile-web-app-title 추가 + SW 등록 인라인
+    스크립트. 등록 가드 = location.protocol==="https:"(배포에서만 등록 → 로컬 dev HMR 미간섭).
+    자산 href 는 선행 슬래시(/manifest.webmanifest)로 두어 Vite 가 빌드 시 base(/YUNU_GAME/) 접두.
+  검증: 빌드 후 dist 확인 — index.html href 가 /YUNU_GAME/... 로 정합, manifest 200 application/manifest+json,
+    sw.js 200, 아이콘 200. 헤드리스(preview --base /YUNU_GAME/): SW 등록·active·shell 캐시(yunu-village-v1) 확인,
+    캔버스 렌더·코드에러 0. (__wildernessGame 은 import.meta.env.DEV 게이트라 prod preview 에선 미노출 — 정상.)
+  typecheck·check:size(9486 불변)·check:hotpath(alloc 0)·build 녹색. main.ts 0 변경.
+  ※ 로컬 함정 2건 기록: (1) vite.config base 가 command==="build" 조건이라 `vite preview` 는 base "/" → 로컬
+    테스트는 `--base /YUNU_GAME/` 강제 필요(Pages 실제 배포는 정상). (2) `pkill -f "vite preview"`/`pgrep -f`
+    가 자기 명령줄을 매칭해 셸을 SIGTERM(exit 144) — 대상 프로세스 kill 은 PID 파일로.

@@ -6,7 +6,11 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="icon" href="data:," />
+    <meta name="apple-mobile-web-app-title" content="야생 마을" />
+    <meta name="theme-color" content="#15202e" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>1인칭 야생 마을</title>
     <script>
       // 일부 모바일 브라우저(삼성 인터넷 등)에서 100dvh 가 하단 툴바를 못 빼 화면 하단이 잘리는 문제 →
@@ -26,5 +30,13 @@
     </main>
     <script src="/studio-ident.js"></script>
     <script type="module" src="/src/main.ts"></script>
+    <script>
+      // PWA — 홈 화면 설치 + 오프라인. https(배포)에서만 등록(로컬 dev/HMR 미간섭).
+      if ("serviceWorker" in navigator && location.protocol === "https:") {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(function () {});
+        });
+      }
+    </script>
   </body>
 </html>
