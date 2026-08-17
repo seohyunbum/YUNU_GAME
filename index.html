@@ -43,24 +43,31 @@
         var btn = document.getElementById("pwa-install");
         if (!btn) return;
         var deferred = null;
-        var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        var ua = navigator.userAgent || "";
+        var isIOS = /iphone|ipad|ipod/i.test(ua) || (/Macintosh/.test(ua) && "ontouchend" in document);
+        var isInApp = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|FB_IAB|Line\/|DaumApps|; wv\)/i.test(ua); // 카톡·네이버·인스타·페북·라인 등 인앱 브라우저
         var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-        // 안드로이드/데스크톱 크롬 — 설치 가능 시 프롬프트 이벤트를 잡아 버튼 노출.
-        window.addEventListener("beforeinstallprompt", function (e) {
-          e.preventDefault();
-          deferred = e;
-          if (!standalone) btn.hidden = false;
-        });
+        // 브라우저에서 보는 중이면(=설치 전) 버튼을 항상 노출 — 프롬프트 이벤트가 안 떠도 안내를 받게.
+        if (!standalone) btn.hidden = false;
+        // 안드로이드/데스크톱 크롬 — 설치 가능 시 네이티브 프롬프트 확보.
+        window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; if (!standalone) btn.hidden = false; });
         window.addEventListener("appinstalled", function () { btn.hidden = true; deferred = null; });
-        // iOS 사파리는 beforeinstallprompt 미지원 → 설치 전·브라우저에서만 안내 버튼 노출.
-        if (isIOS && !standalone) btn.hidden = false;
         btn.addEventListener("click", function () {
-          if (deferred) {
+          if (deferred) { // 안드로이드 크롬: 바로 설치 창
             deferred.prompt();
             deferred.userChoice.finally(function () { deferred = null; btn.hidden = true; });
-          } else if (isIOS) {
-            alert('사파리 아래 공유 버튼(⬆️)을 누른 뒤 "홈 화면에 추가"를 선택하면 앱으로 설치됩니다.');
+            return;
           }
+          if (isInApp) { // 카톡·네이버 등 인앱 브라우저 → 설치 불가, 외부 브라우저로 열기
+            alert("카톡·네이버 같은 앱 안에서는 설치가 안 돼요.\n\n오른쪽 위 ⋮(더보기) → '다른 브라우저로 열기'를 눌러\n크롬(안드로이드) 또는 사파리(아이폰)로 연 다음, 이 버튼을 다시 눌러주세요.");
+            return;
+          }
+          if (isIOS) { // 아이폰은 사파리 공유 시트로만 설치
+            alert("아이폰은 '사파리' 브라우저에서만 설치돼요.\n\n사파리 화면 아래(또는 위) 공유 버튼 ⬆️ 을 누른 뒤\n'홈 화면에 추가'를 선택하면 앱으로 설치됩니다.");
+            return;
+          }
+          // 안드로이드/데스크톱인데 프롬프트가 아직 안 뜬 경우 폴백
+          alert("브라우저 오른쪽 위 ⋮(더보기) 메뉴를 열고\n'앱 설치' 또는 '홈 화면에 추가'를 누르면 설치됩니다.");
         });
       })();
     </script>
