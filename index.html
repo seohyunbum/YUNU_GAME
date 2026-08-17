@@ -28,15 +28,41 @@
     <main id="app">
       <div id="game"></div>
     </main>
+    <button id="pwa-install" type="button" hidden aria-label="앱 설치"
+      style="position:fixed;top:calc(env(safe-area-inset-top, 0px) + 8px);left:50%;transform:translateX(-50%);z-index:9999;padding:8px 16px;border:0;border-radius:999px;background:#3f8f52;color:#fff;font:600 14px/1.2 system-ui,-apple-system,sans-serif;box-shadow:0 3px 10px rgba(0,0,0,.35);cursor:pointer;-webkit-tap-highlight-color:transparent;">📲 앱 설치</button>
     <script src="/studio-ident.js"></script>
     <script type="module" src="/src/main.ts"></script>
     <script>
-      // PWA — 홈 화면 설치 + 오프라인. https(배포)에서만 등록(로컬 dev/HMR 미간섭).
-      if ("serviceWorker" in navigator && location.protocol === "https:") {
-        window.addEventListener("load", function () {
-          navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(function () {});
+      // PWA — 서비스워커 등록(https 배포에서만, 로컬 dev/HMR 미간섭) + "앱 설치" 원탭 버튼.
+      (function () {
+        if ("serviceWorker" in navigator && location.protocol === "https:") {
+          window.addEventListener("load", function () {
+            navigator.serviceWorker.register(new URL("sw.js", document.baseURI)).catch(function () {});
+          });
+        }
+        var btn = document.getElementById("pwa-install");
+        if (!btn) return;
+        var deferred = null;
+        var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+        // 안드로이드/데스크톱 크롬 — 설치 가능 시 프롬프트 이벤트를 잡아 버튼 노출.
+        window.addEventListener("beforeinstallprompt", function (e) {
+          e.preventDefault();
+          deferred = e;
+          if (!standalone) btn.hidden = false;
         });
-      }
+        window.addEventListener("appinstalled", function () { btn.hidden = true; deferred = null; });
+        // iOS 사파리는 beforeinstallprompt 미지원 → 설치 전·브라우저에서만 안내 버튼 노출.
+        if (isIOS && !standalone) btn.hidden = false;
+        btn.addEventListener("click", function () {
+          if (deferred) {
+            deferred.prompt();
+            deferred.userChoice.finally(function () { deferred = null; btn.hidden = true; });
+          } else if (isIOS) {
+            alert('사파리 아래 공유 버튼(⬆️)을 누른 뒤 "홈 화면에 추가"를 선택하면 앱으로 설치됩니다.');
+          }
+        });
+      })();
     </script>
   </body>
 </html>
