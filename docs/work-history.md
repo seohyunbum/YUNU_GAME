@@ -1801,3 +1801,16 @@
     appinstalled·standalone 시 숨김. iOS(사파리)는 이벤트 미지원이라 안내 버튼 + 공유→홈추가 alert.
   검증(헤드리스 preview /YUNU_GAME/): 기본 hidden=true, 합성 beforeinstallprompt 후 노출·라벨 "📲 앱 설치",
     코드에러 0. build·check:size(9486)·hotpath 녹색.
+
+- PWA 설치 버튼 견고화(사용자: "걸치(설치) 안돼있어" — 라이브 진단 불가: 샌드박스 egress 가 github.io 차단):
+  원인 후보: 인앱 브라우저(카톡·네이버 등 PWA 설치 불가)·아이폰(사파리 전용, 버튼 자동설치 불가)·
+  안드로이드에서 beforeinstallprompt 미발화 시 버튼이 아예 안 보여 안내 부재. 라이브 사이트는 프록시
+  정책(403 CONNECT)으로 curl·WebFetch 모두 차단돼 원격 진단 불가 → 로컬 dist + 로직으로 견고화.
+  index.html 만 변경(main.ts·src 무변경):
+  ▪버튼을 브라우저(비-standalone)면 항상 노출(프롬프트 이벤트 유무와 무관) → "버튼 안 보임" 해소.
+  ▪클릭 분기: 네이티브 프롬프트 있으면 즉시 설치 / 인앱 브라우저면 "다른 브라우저로 열기" 안내 /
+    iOS 면 "사파리 공유→홈 화면에 추가" 안내 / 안드로이드 폴백은 "⋮ → 앱 설치/홈 화면에 추가".
+    UA 로 iOS·인앱(KAKAOTALK·NAVER·Instagram·FBAN·Line·wv) 판별.
+  검증(헤드리스 preview, 안드로이드 UA): 버튼 기본 노출, 프롬프트 없을 때 폴백 alert 표기, 코드에러 0.
+    build·check:size(9486)·hotpath 녹색.
+  ※ 최우선 사용자 안내: 카톡/네이버 인앱이면 외부 브라우저로, 아이폰이면 사파리로 열 것.
