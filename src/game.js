@@ -71,6 +71,7 @@
     const world0 = this.world;
     this.fx.groundAt = function (x, z) { return world0.heightAt(x, z); };
     this.enemies = new L.Enemies(this.scene, this.fx, this.world);
+    this.weather = new L.Weather(this.scene);
     this.hands = new L.Hands(this.camera);
     this.hud = new L.HUD();
     this.input = new L.Input(canvas);
@@ -93,6 +94,7 @@
     this.best = Number(localStorage.getItem('legocity-best') || 0);
     this.time = 0;
     this.regionVisited = {};
+    this.bossesDown = {};        // 지역별 보스 격파 여부
 
     // 스크래치(핫패스에서 새 객체 만들지 않기)
     this._dir = new THREE.Vector3();
@@ -143,6 +145,7 @@
         self.hud.pauseStats({
           regionName: self.world.current ? self.world.current.name : '들판',
           score: self.player.score, kills: self.player.kills, best: self.best,
+          bosses: self.bossCount(),
         });
         self.hud.screen('pause');
       }
@@ -188,6 +191,8 @@
     p.ammo.blaster = 24;
     p.ammo.bomb = 4;
     p.score = 0; p.kills = 0; p.deaths = 0; p.combo = 0; p.comboTimer = 0;
+    this.bossesDown = {};
+    this.regionVisited = {};
     p.invuln = 0; p.weaponCd = 0; p.channelTimer = 0; p.channelSkill = null;
     this.skillCd.dragonfire = this.skillCd.meteor = this.skillCd.fireball = 0;
     this.enemies.clear();
@@ -230,7 +235,21 @@
     }
     this.hud.comboPop();
     this.sfx.pop();
-    if (e.isBoss) this.hud.toast((e.bossName || '보스') + ' 격파! 🎉', 2.4);
+    if (e.isBoss) {
+      this.hud.toast((e.bossName || '보스') + ' 격파! 🎉', 2.4);
+      if (e.region) this.bossesDown[e.region] = true;
+      p.score += 800;
+      if (this.bossCount() >= 4) {
+        this.hud.toast('사냥터 네 곳의 보스를 모두 잡았다! 🏆\n레고 시티의 영웅!', 4.0);
+      }
+    }
+  };
+
+  /** 잡은 보스 수 */
+  Game.prototype.bossCount = function () {
+    let n = 0;
+    for (const k in this.bossesDown) if (this.bossesDown[k]) n++;
+    return n;
   };
 
   Game.prototype.hurtPlayer = function (dmg) {
@@ -530,6 +549,11 @@
     const dark = amb.dark || this.world.inTunnel(p.x, p.z, this.camera.position.y);
     const want = dark ? 1.7 : 0;
     this.torch.intensity += (want - this.torch.intensity) * Math.min(1, dt * 3);
+
+    // 지역 분위기 입자(눈 · 반딧불 · 동굴 먼지)
+    const region = this.world.current;
+    this.weather.set(region && region.particles ? region.particles : 'none');
+    this.weather.update(dt, this.camera.position);
   };
 
   // ------------------------------------------------------------------ 도시 연출

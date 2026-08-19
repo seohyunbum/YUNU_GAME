@@ -28,6 +28,8 @@
     {
       id: 'zombie', name: '좀비 마을', label: '사냥터 · 쉬움', cx: 0, cz: -430, r: 155,
       edge: 60, icon: '🧟', level: 1,
+      boss: { type: 'zombie', name: '좀비 두목', scale: 2.4, hpMul: 6, speedMul: 0.8 },
+      particles: 'none',
       spawn: { types: ['zombie', 'zombie', 'zombie', 'slime'], max: 11, near: 46, far: 96 },
       height: function (x, z, api, d) {
         const n = api.fbm(x, z, 3, 70) - 0.5;
@@ -52,6 +54,8 @@
     {
       id: 'cave', name: '깊은 동굴 협곡', label: '사냥터 · 보통', cx: -380, cz: -60, r: 175,
       edge: 65, icon: '💎', level: 2, floorY: -24,
+      boss: { type: 'crystal', name: '크리스탈 골렘 왕', scale: 2.2, hpMul: 5, speedMul: 0.8 },
+      particles: 'dust',
       spawn: { types: ['crystal', 'bat', 'bat', 'golem'], max: 10, near: 44, far: 92 },
       height: function (x, z, api, d) {
         const rim = 20 + (api.fbm(x, z, 3, 55) - 0.5) * 16;
@@ -81,6 +85,8 @@
     {
       id: 'mount', name: '높은 산', label: '사냥터 · 어려움', cx: 400, cz: -260, r: 200,
       edge: 80, icon: '🏔️', level: 3,
+      boss: { type: 'dragon', name: '브릭 드래곤', scale: 1, hpMul: 1, speedMul: 1 },
+      particles: 'snow',
       spawn: { types: ['ice', 'ice', 'bat', 'golem'], max: 9, near: 48, far: 100 },
       height: function (x, z, api, d) {
         const t = api.clamp(1 - d / 200, 0, 1);
@@ -102,6 +108,8 @@
     {
       id: 'swamp', name: '늪지대 폐가', label: '사냥터 · 보통', cx: 300, cz: 230, r: 165,
       edge: 65, icon: '🪵', level: 2, waterY: -3.2,
+      boss: { type: 'toxic', name: '늪의 왕', scale: 3.0, hpMul: 6, speedMul: 0.9 },
+      particles: 'firefly',
       spawn: { types: ['toxic', 'toxic', 'wisp', 'zombie'], max: 11, near: 42, far: 92 },
       height: function (x, z, api, d) {
         const n = api.fbm(x, z, 3, 46);
@@ -162,12 +170,39 @@
       viewRadius: 330,
     });
 
+    this.gates = this._buildGates();
     this.content = {};       // regionId → {group, data, built}
     this.current = this.byId.city;
     this.previous = null;
     this.colliders = city ? city.colliders : [];
     this._tmp = new THREE.Vector3();
   }
+
+  /** 도시 성문 표지판 — 아이가 길을 잃지 않게 방향과 이름을 적어둔다 */
+  World.prototype._buildGates = function () {
+    const g = new THREE.Group();
+    const signs = [
+      { x: 0, z: -244, ry: 0, text: 'ZOMBIE VILLAGE ^', label: '좀비 마을' },
+      { x: -104, z: -50, ry: Math.PI / 2, text: '< CRYSTAL CAVE', label: '동굴 협곡' },
+      { x: 104, z: -150, ry: -Math.PI / 2, text: 'FROST PEAK >', label: '높은 산' },
+      { x: 24, z: 64, ry: Math.PI, text: 'SWAMP RUIN v', label: '늪지대 폐가' },
+    ];
+    for (let i = 0; i < signs.length; i++) {
+      const s = signs[i];
+      const post = L.parts.signPost(s.text, 17);
+      post.position.set(s.x, 0.55, s.z);
+      post.rotation.y = s.ry;
+      g.add(post);
+      // 옆에 노란 등불을 세워 밤에도 눈에 띄게
+      const lamp = L.parts.lantern(0xffd166);
+      lamp.position.set(s.x + 5, 0.55, s.z);
+      g.add(lamp);
+    }
+    g.updateMatrixWorld(true);
+    g.traverse((o) => { o.matrixAutoUpdate = false; });
+    this.scene.add(g);
+    return g;
+  };
 
   World.prototype.heightAt = function (x, z) {
     return this.terrain.heightAt(x, z);

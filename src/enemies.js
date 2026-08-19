@@ -474,14 +474,13 @@
       const d = Math.hypot(playerPos.x - s.x, playerPos.z - s.z);
       if (d > 70) continue;
       const y = this.world.heightAt(s.x, s.z);
-      const type = region.id === 'mount' ? 'dragon' : 'crystal';
-      const boss = this.spawnAt(type, this._spawnPos.set(s.x, y, s.z), {
+      const def = region.boss || { type: 'crystal', name: '보스', scale: 2, hpMul: 5, speedMul: 0.8 };
+      const boss = this.spawnAt(def.type, this._spawnPos.set(s.x, y, s.z), {
         boss: true, level: (region.level || 1) + 1, region: region.id,
-        scale: type === 'crystal' ? 2.2 : 1, hpMul: type === 'crystal' ? 5 : 1,
-        speedMul: type === 'crystal' ? 0.8 : 1,
+        scale: def.scale, hpMul: def.hpMul, speedMul: def.speedMul,
       });
       if (boss) {
-        boss.bossName = type === 'mount' ? '브릭 드래곤' : (type === 'dragon' ? '브릭 드래곤' : '크리스탈 골렘 왕');
+        boss.bossName = def.name;
         this.bossCooldown[region.id] = 150;
       }
       return;

@@ -116,9 +116,10 @@
       spawns.push({ x: x + Math.cos(ry) * (w + 6), z: z + Math.sin(ry) * (d + 6) });
     }
 
-    // 큰 헛간
+    // 큰 헛간 — 이 앞이 좀비 두목이 나오는 자리
     const barn = abandonedHouse(26, 20, 2, { wall: 0x7a3b2c });
     place(group, barn, cx + 62, h(cx + 62, cz - 52) - 0.4, cz - 52, -0.6, colliders, 14, 11);
+    spawns.push({ x: cx + 62, z: cz - 34, boss: true });
 
     // 삐뚤어진 울타리로 마을 경계를 두른다
     for (let i = 0; i < 16; i++) {
@@ -347,6 +348,8 @@
       const a = rnd(i, 71) * Math.PI * 2, r = 30 + rnd(i, 72) * 80;
       spawns.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r });
     }
+    // 폐가 뒤편이 늪의 왕 자리
+    spawns.push({ x: cx - 6, z: cz - 34, boss: true });
 
     return {
       colliders, spawns, water,

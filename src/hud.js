@@ -44,6 +44,7 @@
       pauseRegion: el('pause-region'),
       pauseScore: el('pause-score'),
       pauseKills: el('pause-kills'),
+      pauseBosses: el('pause-bosses'),
       pauseBest: el('pause-best'),
     };
     this.slots = { right: [], left: [] };
@@ -201,6 +202,7 @@
     this.dom.pauseRegion.textContent = s.regionName;
     this.dom.pauseScore.textContent = s.score;
     this.dom.pauseKills.textContent = s.kills;
+    this.dom.pauseBosses.textContent = (s.bosses || 0) + ' / 4';
     this.dom.pauseBest.textContent = s.best;
   };
 

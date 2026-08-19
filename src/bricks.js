@@ -415,7 +415,9 @@ window.LEGO = window.LEGO || {};
     const g = cv.getContext('2d');
     g.fillStyle = bg; g.fillRect(0, 0, W, H);
     g.fillStyle = fg;
-    g.font = 'bold 84px Arial, Helvetica, sans-serif';
+    // 글자가 길면 자동으로 줄여서 판 밖으로 넘치지 않게
+    const size = Math.max(34, Math.min(84, Math.floor(780 / Math.max(6, text.length))));
+    g.font = 'bold ' + size + 'px Arial, Helvetica, sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.letterSpacing = '10px';
     g.fillText(text, W / 2, H / 2 + 4);
