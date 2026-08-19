@@ -444,6 +444,135 @@
     return g;
   }
 
+  /** 모닥불 — 돌 테두리 + 장작 + 흔들리는 불 (userData.flames 로 애니메이션) */
+  function campfire() {
+    const g = new THREE.Group();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const stone = mesh(L.box(1.1, 0.7, 1.1), i % 2 ? P.stone : P.darkStone, 'matte');
+      put(g, stone, Math.cos(a) * 2.2, 0.35, Math.sin(a) * 2.2, 0, a, 0);
+    }
+    for (let i = 0; i < 4; i++) {
+      const log = mesh(L.cyl(0.32, 0.36, 3.2, 7), P.rottenWood, 'matte');
+      put(g, log, 0, 0.5 + i * 0.15, 0, Math.PI / 2 - 0.25, i * 0.8, 0);
+    }
+    const flames = new THREE.Group();
+    for (let i = 0; i < 5; i++) {
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.7 - i * 0.09, 1.8 + i * 0.4, 5),
+        new THREE.MeshBasicMaterial({ color: i % 2 ? 0xff7a18 : 0xffc23a, transparent: true, opacity: 0.85 }));
+      f.position.set(Math.cos(i * 1.3) * 0.5, 1.4 + i * 0.35, Math.sin(i * 1.3) * 0.5);
+      flames.add(f);
+    }
+    g.add(flames);
+    g.userData.flames = flames;
+    return g;
+  }
+
+  /** 허수아비 — 밭을 지키던 것이 이제 마을을 지킨다 */
+  function scarecrow() {
+    const g = new THREE.Group();
+    const post = mesh(L.box(0.6, 8, 0.6), P.rottenWood, 'matte');
+    put(g, post, 0, 4, 0);
+    const arms = mesh(L.box(7, 0.5, 0.5), P.rottenWood, 'matte');
+    put(g, arms, 0, 6.0, 0, 0, 0, 0.06);
+    const body = mesh(L.box(2.6, 3.2, 1.4), 0x8a6a3a, 'matte');
+    put(g, body, 0, 5.2, 0);
+    const head = mesh(L.sph(1.1, 10), 0xd9b23c, 'matte');
+    put(g, head, 0, 7.4, 0);
+    const hat = mesh(L.cyl(0.1, 1.7, 1.4, 8), P.darkWood, 'matte');
+    put(g, hat, 0, 8.5, 0, 0.12, 0, 0.1);
+    const brim = mesh(L.cyl(2.1, 2.1, 0.16, 10), P.darkWood, 'matte');
+    put(g, brim, 0, 8.0, 0, 0.12, 0, 0.1);
+    for (const sx of [-1, 1]) {
+      const eye = new THREE.Mesh(L.box(0.3, 0.3, 0.1), new THREE.MeshBasicMaterial({ color: 0x2a1c10 }));
+      put(g, eye, sx * 0.4, 7.5, 1.0);
+    }
+    // 늘어진 지푸라기
+    for (let i = 0; i < 5; i++) {
+      const straw = mesh(L.box(0.2, 1.4, 0.2), 0xd9b23c, 'matte');
+      put(g, straw, (i - 2) * 0.5, 3.6, 0.3, 0.2 * (i - 2), 0, 0.1 * (i - 2));
+    }
+    return g;
+  }
+
+  /** 삼각 텐트 — 산 중턱 야영지 */
+  function tent(color) {
+    const g = new THREE.Group();
+    for (const side of [-1, 1]) {
+      const slope = mesh(L.box(0.35, 6.5, 8), color === undefined ? C.red : color);
+      put(g, slope, side * 2.1, 2.6, 0, 0, 0, side * 0.62);
+    }
+    const ridge = mesh(L.cyl(0.16, 0.16, 8.4, 6), P.darkWood, 'matte');
+    put(g, ridge, 0, 5.1, 0, Math.PI / 2, 0, 0);
+    const back = mesh(L.box(6.6, 5.0, 0.3), color === undefined ? C.darkRed : color, 'matte');
+    put(g, back, 0, 2.5, -4.0);
+    for (const sx of [-1, 1]) {
+      const peg = mesh(L.box(0.25, 1.2, 0.25), P.darkWood, 'matte');
+      put(g, peg, sx * 4.2, 0.6, 3.4);
+      const rope = mesh(L.cyl(0.07, 0.07, 5.2, 5), C.tan, 'matte');
+      put(g, rope, sx * 2.4, 3.0, 2.0, 0.7, sx * 0.5, 0);
+    }
+    return g;
+  }
+
+  /** 나무 망루 — 산길 중간의 이정표 겸 전망대 */
+  function watchtower() {
+    const g = new THREE.Group();
+    const H = 16;
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const leg = mesh(L.box(1.0, H, 1.0), P.darkWood, 'matte');
+        put(g, leg, sx * 3.4, H / 2, sz * 3.4, 0, 0, 0);
+      }
+    }
+    for (let i = 1; i <= 3; i++) {
+      const brace = mesh(L.box(7.6, 0.5, 0.5), P.rottenWood, 'matte');
+      put(g, brace, 0, i * 4.2, -3.4);
+      const brace2 = mesh(L.box(0.5, 0.5, 7.6), P.rottenWood, 'matte');
+      put(g, brace2, 3.4, i * 4.2, 0);
+    }
+    const deck = mesh(L.box(9.5, 0.7, 9.5), P.plank, 'matte');
+    put(g, deck, 0, H, 0);
+    for (const sx of [-1, 1]) {
+      const rail = mesh(L.box(9.5, 1.4, 0.4), P.rottenWood, 'matte');
+      put(g, rail, 0, H + 1.2, sx * 4.5);
+      const rail2 = mesh(L.box(0.4, 1.4, 9.5), P.rottenWood, 'matte');
+      put(g, rail2, sx * 4.5, H + 1.2, 0);
+    }
+    const roof = brokenRoof(11, 11, P.plank, false);
+    put(g, roof, 0, H + 4.6, 0);
+    for (const sx of [-1, 1]) {
+      const post = mesh(L.box(0.5, 4.2, 0.5), P.darkWood, 'matte');
+      put(g, post, sx * 4.0, H + 2.4, 0);
+    }
+    // 사다리
+    for (let i = 0; i < 8; i++) {
+      const rung = mesh(L.box(2.4, 0.22, 0.22), P.rottenWood, 'matte');
+      put(g, rung, 0, 1.6 + i * 1.8, 4.6);
+    }
+    for (const sx of [-1, 1]) {
+      const rail3 = mesh(L.box(0.22, 15, 0.22), P.rottenWood, 'matte');
+      put(g, rail3, sx * 1.1, 7.5, 4.6);
+    }
+    return g;
+  }
+
+  /** 종탑용 종 */
+  function bell() {
+    const g = new THREE.Group();
+    const frame = mesh(L.box(0.5, 3.4, 0.5), P.darkWood, 'matte');
+    put(g, frame, -1.6, 1.7, 0);
+    const frame2 = mesh(L.box(0.5, 3.4, 0.5), P.darkWood, 'matte');
+    put(g, frame2, 1.6, 1.7, 0);
+    const bar = mesh(L.cyl(0.2, 0.2, 3.6, 6), P.darkWood, 'matte');
+    put(g, bar, 0, 3.3, 0, 0, 0, Math.PI / 2);
+    const body = mesh(L.cyl(0.9, 1.5, 2.2, 12), C.gold, 'metal');
+    put(g, body, 0, 2.0, 0);
+    const lip = mesh(L.cyl(1.6, 1.6, 0.3, 12), C.gold, 'metal');
+    put(g, lip, 0, 1.0, 0);
+    return g;
+  }
+
   /** 산 정상 사당(얼음 신전) */
   function iceShrine() {
     const g = new THREE.Group();
@@ -475,5 +604,6 @@
     plankWall, mixWood, boardedWindow, brokenRoof, door, crookedFence, well, signPost,
     lantern, crate, barrel, brokenCart, hayBale, pumpkin,
     mineRail, mineCart, mineSupport, snowRock, iceShrine,
+    campfire, scarecrow, tent, watchtower, bell,
   };
 })(window.LEGO);

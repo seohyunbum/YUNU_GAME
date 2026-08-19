@@ -550,6 +550,21 @@
     const want = dark ? 1.7 : 0;
     this.torch.intensity += (want - this.torch.intensity) * Math.min(1, dt * 3);
 
+    // 모닥불 불꽃 흔들기 (지역 소품 중 userData.flames 를 가진 것)
+    const cur = this.world.current;
+    const content = cur ? this.world.content[cur.id] : null;
+    if (content && content.data) {
+      const t2 = this.time;
+      const shake = (obj) => {
+        if (!obj || !obj.userData.flames) return;
+        const f = obj.userData.flames;
+        f.rotation.y = t2 * 1.6;
+        f.scale.set(1 + Math.sin(t2 * 9) * 0.12, 1 + Math.sin(t2 * 7 + 1) * 0.18, 1 + Math.cos(t2 * 8) * 0.12);
+      };
+      shake(content.data.fire);
+      shake(content.data.camp);
+    }
+
     // 지역 분위기 입자(눈 · 반딧불 · 동굴 먼지)
     const region = this.world.current;
     this.weather.set(region && region.particles ? region.particles : 'none');

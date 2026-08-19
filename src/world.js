@@ -233,6 +233,11 @@
     const data = L.REGION_BUILDERS[region.id](group, ctx);
     group.updateMatrixWorld(true);
     group.traverse((o) => { o.matrixAutoUpdate = false; });
+    // 움직이는 소품(모닥불 불꽃 등)은 행렬 갱신을 다시 켜준다
+    const moving = [data && data.fire, data && data.camp].concat((data && data.animated) || []);
+    for (let i = 0; i < moving.length; i++) {
+      if (moving[i]) moving[i].traverse((o) => { o.matrixAutoUpdate = true; });
+    }
     this.scene.add(group);
     c = { group, data };
     this.content[region.id] = c;

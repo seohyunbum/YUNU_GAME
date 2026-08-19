@@ -152,6 +152,15 @@
     }
     place(group, T.brokenCart(), cx + 18, h(cx + 18, cz + 14), cz + 14, 0.7, colliders, 3.5, 2);
 
+    // 마을 광장 모닥불 (아직 누군가 불을 지피고 있다…)
+    const fire = T.campfire();
+    place(group, fire, cx - 14, h(cx - 14, cz + 16), cz + 16, 0, colliders, 2.4);
+    // 호박밭을 지키는 허수아비 둘
+    place(group, T.scarecrow(), cx - 40, h(cx - 40, cz + 74), cz + 74, 0.4, colliders, 1);
+    place(group, T.scarecrow(), cx - 20, h(cx - 20, cz + 78), cz + 78, -0.8, colliders, 1);
+    // 헛간 옆 종탑 — 종을 울려 좀비를 불러 모으던 자리
+    place(group, T.bell(), cx + 48, h(cx + 48, cz - 36), cz - 36, 0.6, colliders, 2);
+
     // 초록 등불 — 으스스한 분위기
     const lanterns = [];
     for (let i = 0; i < 9; i++) {
@@ -167,7 +176,7 @@
     place(group, T.signPost('ZOMBIE VILLAGE', 16), sx, h(sx, sz), sz, Math.PI, colliders, 1);
 
     return {
-      colliders, spawns, lanterns,
+      colliders, spawns, lanterns, fire,
       ambience: { fog: 0x6f7a5e, fogNear: 40, fogFar: 190, sun: 0.62, hemi: 0.55, sky: 0x8a9376 },
     };
   }
@@ -430,6 +439,33 @@
       const drip = T.dripstone(6 + rnd(i, 94) * 5, false, P.caveStone);
       T.put(hall, drip, (rnd(i, 95) - 0.5) * 40, 24, (rnd(i, 96) - 0.5) * 40);
     }
+    // 방 한가운데 거대 크리스탈 군락 + 빛나는 웅덩이(보스 자리)
+    const bigCluster = new THREE.Group();
+    // 가장자리에 둘러 세워 가운데(보스 싸움터)는 비워 둔다
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2;
+      const r = 13 + (i % 3) * 2.5;
+      const cr = T.crystal(1.1 + (i % 3) * 0.5, i % 2 ? P.crystalPurple : P.crystalCyan);
+      cr.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+      cr.rotation.z = (i % 2 ? 0.14 : -0.12);
+      bigCluster.add(cr);
+    }
+    const core = T.crystal(1.9, P.crystalCyan);
+    core.position.set(0, 0, -20);
+    bigCluster.add(core);
+    T.put(hall, bigCluster, 0, 0.2, 0);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(16, 32), new THREE.MeshPhongMaterial({
+      color: 0x2f6f86, emissive: 0x1b4f5f, specular: 0xbfe8ff, shininess: 180,
+      transparent: true, opacity: 0.72,
+    }));
+    pool.rotation.x = -Math.PI / 2;
+    T.put(hall, pool, 0, 0.12, 0);
+    // 벽을 따라 늘어선 광부 등불
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.4;
+      T.put(hall, T.lantern(0xffb03a), Math.cos(a) * (hallR - 8), 0, Math.sin(a) * (hallR - 8));
+    }
+
     hall.position.set(cx, floorY, hallZ);
     group.add(hall);
     spawns.push({ x: cx, z: hallZ, boss: true });
@@ -533,6 +569,21 @@
     const bx = cx + 40, bz = cz + 46;
     place(group, bridge, bx, h(bx, bz) + 1.2, bz, 0.7);
 
+    // 산길 중턱 망루 — 멀리서도 보이는 이정표
+    const twX = cx + 78, twZ = cz + 34;
+    place(group, T.watchtower(), twX, h(twX, twZ), twZ, 0.5, colliders, 5);
+
+    // 야영지: 텐트 두 동 + 모닥불 + 짐
+    const campX = cx + 30, campZ = cz + 92;
+    place(group, T.tent(C.red), campX, h(campX, campZ), campZ, 0.3, colliders, 4, 5);
+    place(group, T.tent(C.blue), campX + 12, h(campX + 12, campZ + 6), campZ + 6, -0.6, colliders, 4, 5);
+    const camp = T.campfire();
+    place(group, camp, campX + 6, h(campX + 6, campZ + 14), campZ + 14, 0, colliders, 2.4);
+    for (let i = 0; i < 4; i++) {
+      const x = campX + 2 + i * 3.5, z = campZ + 20;
+      place(group, i % 2 ? T.crate(0.9) : T.barrel(0.9), x, h(x, z), z, rnd(i, 161) * 3, colliders, 1.2);
+    }
+
     // 정상 얼음 사당
     const shrine = T.iceShrine();
     place(group, shrine, cx, h(cx, cz), cz, 0.4, colliders, 12);
@@ -541,7 +592,7 @@
     place(group, T.signPost('FROST PEAK', 14), cx - 6, h(cx - 6, cz + 128), cz + 128, Math.PI, colliders, 1);
 
     return {
-      colliders, spawns, shrine,
+      colliders, spawns, shrine, camp,
       ambience: { fog: 0xcfe3ef, fogNear: 60, fogFar: 280, sun: 1.25, hemi: 0.85, sky: 0xbcd8ea, snow: true },
     };
   }
