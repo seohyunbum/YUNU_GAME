@@ -29,9 +29,10 @@
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.4, 900);
     this.camera.rotation.order = 'YXZ';
 
-    const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x54703f, 0.62);
+    const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x54703f, 0.70);
     this.scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xfff3dc, 1.55);
+    // 사진의 맑은 햇빛: 약간 따뜻하고, 그림자 경계는 살짝 부드럽게
+    const sun = new THREE.DirectionalLight(0xffeec8, 1.5);
     sun.position.set(58, 96, 62);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1536, 1536);
@@ -39,9 +40,13 @@
     sc.left = -58; sc.right = 58; sc.top = 58; sc.bottom = -58;
     sc.near = 20; sc.far = 240;
     sun.shadow.bias = -0.0006;
+    sun.shadow.radius = 4;
     this.scene.add(sun);
     this.sun = sun;
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.16));
+    this.scene.add(new THREE.AmbientLight(0xfff4e6, 0.13));
+
+    // ---------------- 매크로 사진 느낌 후처리(심도 흐림·비네팅)
+    this.post = new L.PostFX(this.renderer, this.camera);
 
     // ---------------- 도시
     this.city = L.buildCity(this.scene);
@@ -85,6 +90,13 @@
     this.hud.show(false);
     this.hud.screen('start');
     if (this.input.touchMode) this.hud.showTouch(false);
+
+    // 느린 기기 자동 보호: 프레임이 낮으면 후처리 품질을 단계적으로 낮춘다
+    this._fpsAccum = 0;
+    this._fpsFrames = 0;
+    this._qualityStep = 0;
+    this._slowWindows = 0;
+    this.autoQuality = true;   // 테스트에서 끌 수 있게 열어둔다
 
     this._lastT = 0;
     this._loop = this._loop.bind(this);
@@ -136,6 +148,7 @@
     this.camera.fov = w / h < 1 ? 82 : 70;
     this.camera.updateProjectionMatrix();
     this.hands.resize(w / h, this.camera.fov);
+    this.post.resize(w, h, this.renderer.getPixelRatio());
   };
 
   // ------------------------------------------------------------------ 흐름
@@ -460,6 +473,25 @@
     }
   };
 
+  /** 조준선 앞에 있는 몬스터까지의 거리(없으면 0) — 접사 초점을 맞추는 데 쓴다 */
+  Game.prototype.aimDistance = function () {
+    const dir = this.aimDir();
+    const p = this.player.pos;
+    let best = 0, bestDot = 0.986;   // 화면 가운데 근처만
+    const list = this.enemies.list;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (!e.alive) continue;
+      this._tmp2.set(e.pos.x - p.x, (e.pos.y + e.radius * 0.6) - p.y, e.pos.z - p.z);
+      const d = this._tmp2.length();
+      if (d < 3) continue;
+      this._tmp2.divideScalar(d);
+      const dot = this._tmp2.dot(dir);
+      if (dot > bestDot) { bestDot = dot; best = d; }
+    }
+    return best;
+  };
+
   // ------------------------------------------------------------------ 루프
   Game.prototype._loop = function (nowMs) {
     requestAnimationFrame(this._loop);
@@ -467,6 +499,7 @@
     let dt = this._lastT ? now - this._lastT : 0.016;
     this._lastT = now;
     if (dt > 0.06) dt = 0.06;      // 탭 전환 후 튀는 것 방지
+    this._checkQuality(dt);
 
     if (this.state === 'playing') {
       const speed01 = this.updatePlayer(dt);
@@ -522,13 +555,38 @@
       }
     }
 
-    // ---- 렌더: 월드 → (깊이만 지우고) 손
+    // ---- 렌더: 도시(후처리) → 깊이만 지우고 두 팔(또렷하게)
     this._shadowTick = (this._shadowTick + 1) % 2;
     this.renderer.shadowMap.needsUpdate = this._shadowTick === 0;
-    this.renderer.clear();
-    this.renderer.render(this.scene, this.camera);
+    // 접사 초점: 조준한 몬스터가 있으면 거기, 없으면 길 저편(34)
+    const aimD = this.state === 'playing' ? this.aimDistance() : 0;
+    this.post.setFocus(aimD || 34, dt);
+    this.post.renderWorld(this.scene);
     this.renderer.clearDepth();
     this.renderer.render(this.hands.scene, this.hands.camera);
+  };
+
+  /** 2초마다 평균 프레임을 보고 무거우면 품질을 내린다 */
+  Game.prototype._checkQuality = function (dt) {
+    if (!this.autoQuality || this._qualityStep >= 2 || dt <= 0) return;
+    this._fpsAccum += dt;
+    this._fpsFrames++;
+    if (this._fpsAccum < 2.2) return;
+    const fps = this._fpsFrames / this._fpsAccum;
+    this._fpsAccum = 0;
+    this._fpsFrames = 0;
+    if (fps >= 42) { this._slowWindows = 0; return; }
+    // 두 번 연속 느릴 때만 내린다(로딩 직후 한 번 튀는 건 무시)
+    this._slowWindows++;
+    if (this._slowWindows < 2) return;
+    this._slowWindows = 0;
+    this._qualityStep++;
+    if (this._qualityStep === 1) {
+      this.post.setScale(0.7);
+    } else {
+      this.post.enabled = false;
+      this.renderer.shadowMap.enabled = false;
+    }
   };
 
   Game.prototype.collectStud = function (kind) {

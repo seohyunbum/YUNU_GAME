@@ -49,12 +49,16 @@
       g.fillStyle = rg;
       g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
     }
+    // 캔버스 v 좌표: 위(y=0)가 천정, 아래가 지평선 아래.
+    // 사진처럼 지평선 조금 위(y 130~250)에 뭉게구름을 띄운다.
     const clouds = [
-      [120, 300, 60], [165, 285, 45], [80, 312, 40],
-      [420, 250, 55], [470, 262, 40], [385, 268, 34],
-      [700, 300, 70], [760, 288, 48], [655, 312, 40],
-      [930, 240, 52], [980, 258, 38],
-      [280, 360, 46], [560, 350, 40], [850, 358, 44],
+      [120, 170, 62], [168, 156, 46], [78, 182, 40], [205, 176, 30],
+      [420, 138, 56], [472, 152, 42], [382, 158, 34], [510, 166, 28],
+      [700, 168, 70], [764, 156, 50], [652, 184, 40], [810, 178, 30],
+      [930, 132, 54], [982, 148, 40], [886, 152, 30],
+      [280, 226, 46], [318, 236, 32], [560, 218, 40], [600, 228, 30],
+      [850, 224, 44], [896, 234, 30], [60, 232, 34], [1000, 220, 36],
+      [230, 120, 34], [640, 112, 30],
     ];
     for (let i = 0; i < clouds.length; i++) puff(clouds[i][0], clouds[i][1], clouds[i][2], 0.95);
     const tex = new THREE.CanvasTexture(cv);
@@ -71,25 +75,31 @@
   function ground(scene) {
     // 도로(사진처럼 매끈한 진회색 아스팔트 판 — 스터드 없음, 이음선만)
     const road = L.plate(0x33383c, ROAD_HALF * 2, Z_NEAR - Z_FAR, {
-      height: 0.5, kind: 'tile', tileScale: 4, finish: 'matte',
+      height: 0.5, kind: 'tile', tileScale: 2, finish: 'matte',
     });
     add(scene, road, 0, 0.25, (Z_NEAR + Z_FAR) / 2);
 
     // 중앙 차선(흰 점선)
     for (let z = Z_NEAR - 6; z > Z_FAR; z -= 12) {
-      const dash = L.plate(C.white, 1, 6, { height: 0.12, kind: 'flat' });
+      const dash = L.plate(C.white, 1, 6, { height: 0.12, kind: 'tile', tileScale: 1 });
       add(scene, dash, 0, 0.53, z);
     }
 
     // 횡단보도(굵은 흰 띠)
-    for (let x = -11.5; x <= 11.5; x += 3.6) {
-      const stripe = L.plate(C.white, 2.2, CROSS_Z1 - CROSS_Z0, { height: 0.14, kind: 'flat' });
+    for (let x = -11.5; x <= 11.5; x += 2.9) {
+      const stripe = L.plate(C.white, 1.9, CROSS_Z1 - CROSS_Z0, { height: 0.14, kind: 'tile', tileScale: 1 });
       add(scene, stripe, x, 0.55, (CROSS_Z0 + CROSS_Z1) / 2);
     }
     // 횡단보도 앞 정지선
     for (const z of [CROSS_Z1 + 1.6, CROSS_Z0 - 1.6]) {
-      const stop = L.plate(C.white, ROAD_HALF, 1.1, { height: 0.13, kind: 'flat' });
+      const stop = L.plate(C.white, ROAD_HALF, 1.1, { height: 0.13, kind: 'tile', tileScale: 1 });
       add(scene, stop, z > 0 ? -6.5 : 6.5, 0.55, z);
+    }
+
+    // 도로 양쪽의 회색 판 띠 — 사진에서 스터드가 깔린 그 부분
+    for (const side of [-1, 1]) {
+      const lane = L.plate(C.lightGray, 3.2, Z_NEAR - Z_FAR, { height: 0.52 });
+      add(scene, lane, side * (ROAD_HALF - 1.6), 0.26, (Z_NEAR + Z_FAR) / 2);
     }
 
     // 인도(연회색, 살짝 높음)
@@ -102,7 +112,7 @@
     }
 
     // 플레이어가 서 있는 앞쪽 광장(매끈한 타일 — 사진 맨 앞 회색 타일)
-    const plaza = L.plate(C.lightGray, WALK_OUT * 2, 20, { height: CURB_Y, kind: 'tile', tileScale: 2 });
+    const plaza = L.plate(C.lightGray, WALK_OUT * 2, 20, { height: CURB_Y, kind: 'tile', tileScale: 1 });
     add(scene, plaza, 0, CURB_Y / 2 + 0.01, Z_NEAR - 10);
 
     // 아주 먼 곳까지 이어지는 바탕(초록 베이스플레이트)
@@ -111,38 +121,72 @@
   }
 
   // --------------------------------------------------------------- 나무
+  /**
+   * 사진의 나무: 갈색 줄기 + 초록 "잎 판"이 빽빽하게 얹힌 덩어리.
+   * 잎은 InstancedMesh 한 개(드로우콜 1)로 심고 두 가지 초록을 섞는다.
+   */
   function tree(scene, x, z, scale, colliders) {
     const s = scale || 1;
     const g = new THREE.Group();
-    const trunk = new THREE.Mesh(L.cyl(0.85 * s, 1.05 * s, 6.5 * s, 10), L.mat(C.brown, 'matte'));
-    trunk.position.y = 3.2 * s;
+    const trunk = new THREE.Mesh(L.cyl(0.8 * s, 1.05 * s, 6.4 * s, 10), L.mat(C.brown, 'matte'));
+    trunk.position.y = 3.1 * s;
     trunk.castShadow = true;
     g.add(trunk);
-    // 잎: 초록 스터드 판 뭉치 (레고 잎 판을 겹쳐 쌓은 느낌)
-    const leafSpots = [
-      [0, 7.4, 0, 10, 9], [-3.6, 6.9, 1.6, 7, 6], [3.4, 7.2, -1.8, 7, 6],
-      [0.6, 9.2, 0.8, 8, 7], [-2.2, 10.2, -1.6, 5, 4.5],
-      [1.4, 10.6, 1.4, 5, 4.5], [0, 12.0, 0, 4.2, 3.6],
+    const knob = new THREE.Mesh(L.cyl(0.5 * s, 0.6 * s, 1.2 * s, 8), L.mat(C.reddishBrown, 'matte'));
+    knob.position.set(0.7 * s, 4.6 * s, -0.5 * s);
+    knob.rotation.z = 0.6;
+    g.add(knob);
+
+    // 잎 덩어리: 두 개의 구 껍질에 판을 흩뿌린다
+    const leaves = [];
+    const shells = [
+      { r: 4.4, y: 8.0, n: 26, sz: 2.6 },
+      { r: 3.2, y: 10.6, n: 16, sz: 2.2 },
+      { r: 2.0, y: 12.2, n: 8, sz: 1.8 },
     ];
-    for (let i = 0; i < leafSpots.length; i++) {
-      const sp = leafSpots[i];
-      const leaf = L.plate(i % 3 === 0 ? C.green : C.brightGreen, sp[3], sp[4], { height: 1.1 });
-      leaf.position.set(sp[0] * s, sp[1] * s, sp[2] * s);
-      leaf.rotation.y = i * 0.7;
-      leaf.castShadow = i < 3;
-      leaf.scale.setScalar(s);
-      g.add(leaf);
+    for (let si = 0; si < shells.length; si++) {
+      const sh = shells[si];
+      for (let i = 0; i < sh.n; i++) {
+        // 나선 분포(황금각) — 규칙적이지 않게 퍼진다
+        const t = (i + 0.5) / sh.n;
+        const phi = Math.acos(1 - 1.35 * t);
+        const th = i * 2.39996323;
+        const rr = sh.r * (0.82 + (i % 3) * 0.09);
+        leaves.push({
+          x: Math.sin(phi) * Math.cos(th) * rr,
+          y: sh.y + Math.cos(phi) * rr * 0.55,
+          z: Math.sin(phi) * Math.sin(th) * rr,
+          s: sh.sz * (0.8 + (i % 4) * 0.1),
+          ry: th,
+          tone: (i + si) % 3,
+        });
+      }
     }
-    // 잎 사이를 채우는 둥근 덩어리 — 실루엣이 덜 납작해진다
-    const blobs = [[0, 8.4, 0, 4.8], [-2.8, 7.6, 1.2, 3.2], [0.8, 10.4, 0.6, 3.4]];
-    for (let i = 0; i < blobs.length; i++) {
-      const b = blobs[i];
-      const blob = new THREE.Mesh(L.sph(b[3], 12), L.mat(i % 2 ? C.green : C.brightGreen, 'matte'));
-      blob.position.set(b[0] * s, b[1] * s, b[2] * s);
-      blob.scale.set(s, s * 0.72, s);
-      blob.castShadow = true;
-      g.add(blob);
+    const inst = new THREE.InstancedMesh(
+      L.box(1, 0.42, 1), L.studAllMaterial(0xffffff, 2), leaves.length);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const e = new THREE.Euler();
+    const pos = new THREE.Vector3();
+    const sc = new THREE.Vector3();
+    const col = new THREE.Color();
+    const tones = [0x2c6e3a, 0x3f8f43, 0x57a34a];
+    for (let i = 0; i < leaves.length; i++) {
+      const lf = leaves[i];
+      pos.set(lf.x * s, lf.y * s, lf.z * s);
+      e.set(0.06 * ((i % 5) - 2), lf.ry, 0.05 * ((i % 3) - 1));
+      q.setFromEuler(e);
+      sc.set(lf.s * s, (0.9 + (i % 3) * 0.25) * s, lf.s * s);
+      m.compose(pos, q, sc);
+      inst.setMatrixAt(i, m);
+      inst.setColorAt(i, col.setHex(tones[lf.tone]));
     }
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    inst.castShadow = true;
+    inst.receiveShadow = true;
+    g.add(inst);
+
     add(scene, g, x, 0, z);
     if (colliders) colliders.push({ x, z, hx: 1.4 * s, hz: 1.4 * s });
     return g;
@@ -179,8 +223,8 @@
     bodyM.position.y = 1.3;
     const cap = new THREE.Mesh(L.sph(0.66, 12), L.mat(C.red));
     cap.position.y = 2.3;
-    const top = new THREE.Mesh(L.cyl(0.22, 0.26, 0.4, 8), L.mat(C.red));
-    top.position.y = 2.7;
+    const top = new THREE.Mesh(L.cyl(0.14, 0.3, 0.55, 8), L.mat(C.red));
+    top.position.y = 2.75;
     for (const side of [-1, 1]) {
       const nozzle = new THREE.Mesh(L.cyl(0.24, 0.24, 0.5, 8), L.mat(C.red));
       nozzle.rotation.z = Math.PI / 2;
@@ -289,9 +333,19 @@
     const hex = (n) => '#' + ('000000' + n.toString(16)).slice(-6);
     g.fillStyle = hex(wall);
     g.fillRect(0, 0, S, S);
-    // 층 사이 이음선
-    g.fillStyle = 'rgba(0,0,0,0.10)';
+    // 브릭 한 단마다 가로 이음선 (쌓아 만든 벽처럼)
+    g.fillStyle = 'rgba(0,0,0,0.055)';
+    for (let i = 1; i < 7; i++) g.fillRect(0, Math.round(i * S / 7), S, 2);
+    // 층 사이 굵은 이음선
+    g.fillStyle = 'rgba(0,0,0,0.13)';
     g.fillRect(0, S - 5, S, 5);
+    // 세로 이음선(브릭 엇쌓기)
+    g.fillStyle = 'rgba(0,0,0,0.05)';
+    for (let i = 0; i < 7; i++) {
+      const y = Math.round(i * S / 7);
+      g.fillRect(i % 2 ? Math.round(S * 0.5) : 0, y, 2, Math.round(S / 7));
+      g.fillRect(i % 2 ? 0 : Math.round(S * 0.5), y, 2, Math.round(S / 7));
+    }
     // 창틀 + 유리
     g.fillStyle = hex(trim);
     g.fillRect(S * 0.18, S * 0.20, S * 0.64, S * 0.56);
@@ -308,11 +362,50 @@
     g.beginPath(); g.moveTo(S * 0.5, S * 0.26); g.lineTo(S * 0.5, S * 0.66); g.stroke();
     g.fillStyle = hex(trim);
     g.fillRect(S * 0.14, S * 0.76, S * 0.72, S * 0.06);
+    // 창턱 아래 그림자 — 창이 벽에서 튀어나와 보인다
+    g.fillStyle = 'rgba(0,0,0,0.18)';
+    g.fillRect(S * 0.14, S * 0.82, S * 0.72, S * 0.04);
+    g.fillStyle = 'rgba(0,0,0,0.10)';
+    g.fillRect(S * 0.16, S * 0.16, S * 0.68, S * 0.04);
     const t = new THREE.CanvasTexture(cv);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.encoding = THREE.sRGBEncoding;
     facadeCache.set(key, t);
     return t;
+  }
+
+  /** 창문 없이 브릭 단 이음선만 있는 벽 텍스처 (경찰서·난간처럼 넓은 흰 벽) */
+  const brickCache = new Map();
+  function brickTexture(color) {
+    if (brickCache.has(color)) return brickCache.get(color);
+    const S = 128;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = S;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#' + ('000000' + color.toString(16)).slice(-6);
+    g.fillRect(0, 0, S, S);
+    g.fillStyle = 'rgba(0,0,0,0.06)';
+    for (let i = 1; i < 4; i++) g.fillRect(0, Math.round(i * S / 4), S, 2);
+    g.fillStyle = 'rgba(0,0,0,0.05)';
+    for (let i = 0; i < 4; i++) {
+      const y = Math.round(i * S / 4);
+      g.fillRect(i % 2 ? Math.round(S * 0.5) : 0, y, 2, Math.round(S / 4));
+    }
+    g.fillStyle = 'rgba(255,255,255,0.05)';
+    g.fillRect(0, 0, S, 3);
+    const t = new THREE.CanvasTexture(cv);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.encoding = THREE.sRGBEncoding;
+    brickCache.set(color, t);
+    return t;
+  }
+
+  /** 브릭 벽 머티리얼 (w,h 는 스터드 단위 — 이음선 간격을 맞추려고 받는다) */
+  function brickMaterial(color, w, h) {
+    const t = brickTexture(color).clone();
+    t.needsUpdate = true;
+    t.repeat.set(Math.max(1, Math.round(w / 4)), Math.max(1, Math.round(h / 4)));
+    return new THREE.MeshPhongMaterial({ color: 0xffffff, map: t, specular: 0x9a9a9a, shininess: 70 });
   }
 
   /** 박스 6면 머티리얼: 지정한 면에만 파사드 무늬 */
@@ -344,7 +437,7 @@
     const roof = L.plate(o.roof, w, d, { height: 1.0 });
     roof.position.y = h + 0.5;
     g.add(roof);
-    const parapet = new THREE.Mesh(L.box(w + 0.6, 1.4, d + 0.6), L.mat(o.trim));
+    const parapet = new THREE.Mesh(L.box(w + 0.6, 1.4, d + 0.6), brickMaterial(o.trim, w, 1.4));
     parapet.position.y = h + 1.4;
     g.add(parapet);
 
@@ -376,13 +469,13 @@
     const g = new THREE.Group();
     const w = 26, d = 30, h = 15;
 
-    const wall = new THREE.Mesh(L.box(w, h, d), L.mat(C.white));
+    const wall = new THREE.Mesh(L.box(w, h, d), brickMaterial(C.white, w, h));
     wall.position.y = h / 2;
     wall.castShadow = true; wall.receiveShadow = true;
     g.add(wall);
 
     // 파란 지붕 띠 + 지붕 판
-    const band = new THREE.Mesh(L.box(w + 1.2, 2.6, d + 1.2), L.mat(C.blue));
+    const band = new THREE.Mesh(L.box(w + 1.2, 2.6, d + 1.2), brickMaterial(C.blue, w, 2.6));
     band.position.y = h + 0.6;
     g.add(band);
     const roof = L.plate(C.lightGray, w, d, { height: 1.0 });
@@ -397,6 +490,13 @@
       const frame = new THREE.Mesh(L.box(0.55, 9.4, 0.6), L.mat(C.white));
       frame.position.set(-w / 2 - 0.15, 5.6, -8 + i * 8.5 - 3.4);
       g.add(frame);
+      // 유리 가운데 흰 창살 — 큰 유리가 회색 판처럼 보이지 않게
+      const mullion = new THREE.Mesh(L.box(0.6, 9.4, 0.35), L.mat(C.white));
+      mullion.position.set(-w / 2 - 0.18, 5.6, -8 + i * 8.5);
+      g.add(mullion);
+      const sill = new THREE.Mesh(L.box(0.9, 0.6, 7.0), L.mat(C.lightGray));
+      sill.position.set(-w / 2 - 0.3, 1.1, -8 + i * 8.5);
+      g.add(sill);
     }
     // 유리 자동문
     const door = new THREE.Mesh(L.box(0.5, 7.5, 5.2), L.mat(0x3a749c, 'glass'));
@@ -462,8 +562,8 @@
       g.add(panel);
     }
 
-    add(scene, g, 30, CURB_Y, 6);
-    if (colliders) colliders.push({ x: 30, z: 6, hx: w / 2 + 0.5, hz: d / 2 + 0.5 });
+    add(scene, g, 34, CURB_Y, 6);
+    if (colliders) colliders.push({ x: 34, z: 6, hx: w / 2 + 0.5, hz: d / 2 + 0.5 });
     return g;
   }
 
@@ -644,123 +744,195 @@
   }
 
   // --------------------------------------------------------------- 자동차
-  function carWheels(g, w, len) {
+  /** 바퀴 네 개 (타이어 + 은색 휠 + 휠 아치) */
+  function carWheels(g, w, len, r) {
+    r = r || 1.25;
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) {
-        const tyre = new THREE.Mesh(L.cyl(1.25, 1.25, 0.9, 14), L.mat(C.black, 'matte'));
+        const tyre = new THREE.Mesh(L.cyl(r, r, 1.0, 16), L.mat(C.black, 'matte'));
         tyre.rotation.z = Math.PI / 2;
-        tyre.position.set(sx * (w / 2 + 0.1), 1.25, sz * (len / 2 - 1.9));
+        tyre.position.set(sx * (w / 2 - 0.1), r, sz * (len / 2 - 2.1));
         tyre.castShadow = true;
         g.add(tyre);
-        const hub = new THREE.Mesh(L.cyl(0.62, 0.62, 1.0, 12), L.mat(C.silver, 'metal'));
+        const hub = new THREE.Mesh(L.cyl(r * 0.5, r * 0.5, 1.05, 12), L.mat(C.silver, 'metal'));
         hub.rotation.z = Math.PI / 2;
-        hub.position.copy(tyre.position);
-        hub.position.x += sx * 0.1;
+        hub.position.set(sx * (w / 2 - 0.05), r, tyre.position.z);
         g.add(hub);
       }
     }
   }
 
-  /** 빨간 SUV (사진 왼쪽 차선) */
+  /**
+   * 사진의 빨간 SUV: 낮은 차체 + 높은 캐빈 + 비스듬한 앞유리 +
+   * 은색 범퍼·둥근 전조등 + 스터드 얹힌 지붕.
+   */
   function redSuv(scene, x, z, ry, colliders) {
     const g = new THREE.Group();
-    const w = 7.5, len = 14;
-    const lower = new THREE.Mesh(L.box(w, 2.6, len), L.mat(C.red));
-    lower.position.y = 2.4; lower.castShadow = true;
+    const w = 6.8, len = 13.5;
+
+    // 차대 + 차체
+    const chassis = new THREE.Mesh(L.box(w - 0.6, 1.0, len - 1), L.mat(C.darkGray, 'matte'));
+    chassis.position.y = 1.1;
+    g.add(chassis);
+    const lower = new THREE.Mesh(L.box(w, 2.0, len), L.mat(C.red));
+    lower.position.y = 2.5;
+    lower.castShadow = true;
     g.add(lower);
-    const cabin = new THREE.Mesh(L.box(w - 0.4, 3.2, len - 5), L.mat(C.red));
-    cabin.position.set(0, 5.2, -0.8); cabin.castShadow = true;
-    g.add(cabin);
-    const roof = L.plate(C.red, 7, 9, { height: 0.7 });
-    roof.position.set(0, 6.9, -0.8);
-    g.add(roof);
-    // 앞유리/측면 유리
-    const wind = new THREE.Mesh(L.box(w - 0.8, 2.6, 0.4), L.mat(0x1f3b4d, 'glass'));
-    wind.position.set(0, 5.3, len / 2 - 4.6);
-    g.add(wind);
-    const rear = wind.clone(); rear.position.z = -len / 2 + 2.6; g.add(rear);
+    // 문 손잡이 라인
     for (const sx of [-1, 1]) {
-      const side = new THREE.Mesh(L.box(0.3, 2.2, len - 6.4), L.mat(0x1f3b4d, 'glass'));
-      side.position.set(sx * (w / 2 - 0.3), 5.3, -0.8);
+      const line = new THREE.Mesh(L.box(0.16, 0.3, 4.2), L.mat(C.darkRed, 'matte'));
+      line.position.set(sx * (w / 2 + 0.02), 2.9, -0.6);
+      g.add(line);
+    }
+    // 보닛(낮은 앞부분)
+    const hood = new THREE.Mesh(L.box(w - 0.3, 1.2, 4.0), L.mat(C.red));
+    hood.position.set(0, 4.0, len / 2 - 2.2);
+    hood.castShadow = true;
+    g.add(hood);
+    // 캐빈
+    const cabin = new THREE.Mesh(L.box(w - 0.5, 3.0, len - 6.2), L.mat(C.red));
+    cabin.position.set(0, 5.0, -1.3);
+    cabin.castShadow = true;
+    g.add(cabin);
+    // 앞유리(비스듬히)
+    const wind = new THREE.Mesh(L.box(w - 1.0, 3.3, 0.35), L.mat(0x1f3b4d, 'glass'));
+    wind.position.set(0, 5.1, len / 2 - 4.1);
+    wind.rotation.x = -0.42;
+    g.add(wind);
+    const windFrame = new THREE.Mesh(L.box(w - 0.6, 3.5, 0.2), L.mat(C.red));
+    windFrame.position.set(0, 5.05, len / 2 - 4.35);
+    windFrame.rotation.x = -0.42;
+    g.add(windFrame);
+    // 측면 유리 + 뒷유리
+    for (const sx of [-1, 1]) {
+      const side = new THREE.Mesh(L.box(0.3, 1.9, len - 7.0), L.mat(0x1f3b4d, 'glass'));
+      side.position.set(sx * (w / 2 - 0.35), 5.5, -1.3);
       g.add(side);
     }
-    // 그릴/범퍼/전조등
-    const grille = new THREE.Mesh(L.box(w - 0.6, 1.2, 0.5), L.mat(C.darkGray, 'metal'));
-    grille.position.set(0, 3.4, len / 2 + 0.1);
+    const rear = new THREE.Mesh(L.box(w - 1.2, 2.0, 0.3), L.mat(0x1f3b4d, 'glass'));
+    rear.position.set(0, 5.5, -len / 2 + 2.5);
+    g.add(rear);
+    // 지붕(스터드 판) + 루프랙
+    const roof = L.plate(C.red, 6, 6, { height: 0.6 });
+    roof.position.set(0, 6.7, -1.3);
+    g.add(roof);
+    for (const sx of [-1, 1]) {
+      const rack = new THREE.Mesh(L.box(0.3, 0.3, 5.4), L.mat(C.black, 'matte'));
+      rack.position.set(sx * 2.2, 7.1, -1.3);
+      g.add(rack);
+    }
+    // 앞: 그릴 · 범퍼 · 전조등 · 방향지시등 · 번호판
+    const grille = new THREE.Mesh(L.box(w - 1.2, 1.0, 0.4), L.mat(C.black, 'matte'));
+    grille.position.set(0, 3.9, len / 2 + 0.1);
     g.add(grille);
-    const bumper = new THREE.Mesh(L.box(w + 0.2, 1.0, 0.8), L.mat(C.lightGray, 'metal'));
-    bumper.position.set(0, 1.9, len / 2 + 0.2);
+    const bumper = new THREE.Mesh(L.box(w + 0.1, 1.1, 0.9), L.mat(C.lightGray, 'metal'));
+    bumper.position.set(0, 2.1, len / 2 + 0.25);
+    bumper.castShadow = true;
     g.add(bumper);
     for (const sx of [-1, 1]) {
-      const lamp = new THREE.Mesh(L.cyl(0.75, 0.75, 0.35, 12), L.mat(0xfff6d0, 'glow'));
+      const lamp = new THREE.Mesh(L.cyl(0.62, 0.62, 0.3, 14), L.mat(0xfff6d0, 'glow'));
       lamp.rotation.x = Math.PI / 2;
-      lamp.position.set(sx * 2.5, 3.5, len / 2 + 0.3);
+      lamp.position.set(sx * 2.3, 3.9, len / 2 + 0.28);
       g.add(lamp);
+      const blink = new THREE.Mesh(L.box(0.7, 0.4, 0.2), L.mat(C.orange, 'glow'));
+      blink.position.set(sx * 2.3, 3.1, len / 2 + 0.3);
+      g.add(blink);
+      const tail = new THREE.Mesh(L.box(0.8, 0.7, 0.2), L.mat(0x8c1b0a, 'glow'));
+      tail.position.set(sx * 2.2, 3.4, -len / 2 - 0.12);
+      g.add(tail);
     }
-    const plate = new THREE.Mesh(L.box(2.4, 0.8, 0.2), L.mat(C.white));
-    plate.position.set(0, 2.2, len / 2 + 0.6);
+    const plate = new THREE.Mesh(L.box(2.6, 0.9, 0.16), L.mat(C.white));
+    plate.position.set(0, 2.4, len / 2 + 0.75);
     g.add(plate);
-    carWheels(g, w, len);
-    add(scene, g, x, CURB_Y - 0.55, z, ry);
+
+    carWheels(g, w, len, 1.3);
+    add(scene, g, x, CURB_Y - 0.5, z, ry);
     if (colliders) colliders.push({ x, z, hx: w / 2 + 0.6, hz: len / 2 + 0.4 });
     return g;
   }
 
-  /** 파랑/흰 경찰차 (사진 오른쪽 차선) */
+  /** 사진의 경찰차: 흰 차체 + 파란 보닛/문 + POLICE 인쇄 + 파란 경광등 바 */
   function policeCar(scene, x, z, ry, colliders) {
     const g = new THREE.Group();
-    const w = 7.2, len = 14.5;
-    const lower = new THREE.Mesh(L.box(w, 2.4, len), L.mat(C.blue));
-    lower.position.y = 2.3; lower.castShadow = true;
+    const w = 6.8, len = 14.0;
+
+    const chassis = new THREE.Mesh(L.box(w - 0.6, 1.0, len - 1), L.mat(C.darkGray, 'matte'));
+    chassis.position.y = 1.05;
+    g.add(chassis);
+    const lower = new THREE.Mesh(L.box(w, 1.6, len), L.mat(C.blue));
+    lower.position.y = 2.3;
+    lower.castShadow = true;
     g.add(lower);
-    const cabin = new THREE.Mesh(L.box(w - 0.4, 3.0, len - 5.6), L.mat(C.white));
-    cabin.position.set(0, 5.0, -1.0); cabin.castShadow = true;
+    const upper = new THREE.Mesh(L.box(w, 1.5, len), L.mat(C.white));
+    upper.position.y = 3.7;
+    upper.castShadow = true;
+    g.add(upper);
+    // 보닛(파랑) + 흰 지붕
+    const hood = new THREE.Mesh(L.box(w - 0.3, 1.0, 3.8), L.mat(C.blue));
+    hood.position.set(0, 4.7, len / 2 - 2.2);
+    hood.castShadow = true;
+    g.add(hood);
+    const cabin = new THREE.Mesh(L.box(w - 0.5, 2.8, len - 6.4), L.mat(C.white));
+    cabin.position.set(0, 5.4, -1.4);
+    cabin.castShadow = true;
     g.add(cabin);
-    const hoodPlate = L.plate(C.white, 7, 4, { height: 0.6 });
-    hoodPlate.position.set(0, 3.7, len / 2 - 2.4);
-    g.add(hoodPlate);
-    const roof = L.plate(C.white, 7, 8, { height: 0.7 });
-    roof.position.set(0, 6.6, -1.0);
-    g.add(roof);
-    const wind = new THREE.Mesh(L.box(w - 0.9, 2.4, 0.4), L.mat(0x1f3b4d, 'glass'));
-    wind.position.set(0, 5.1, len / 2 - 5.0);
+    const wind = new THREE.Mesh(L.box(w - 1.0, 3.1, 0.35), L.mat(0x1f3b4d, 'glass'));
+    wind.position.set(0, 5.4, len / 2 - 4.0);
+    wind.rotation.x = -0.44;
     g.add(wind);
-    const rear = wind.clone(); rear.position.z = -len / 2 + 2.4; g.add(rear);
     for (const sx of [-1, 1]) {
-      const side = new THREE.Mesh(L.box(0.3, 2.0, len - 7.0), L.mat(0x1f3b4d, 'glass'));
-      side.position.set(sx * (w / 2 - 0.3), 5.1, -1.0);
+      const side = new THREE.Mesh(L.box(0.3, 1.8, len - 7.2), L.mat(0x1f3b4d, 'glass'));
+      side.position.set(sx * (w / 2 - 0.35), 5.8, -1.4);
       g.add(side);
-      // 측면 POLICE 글자
-      const text = L.signPanel('POLICE', 5.2, 1.3, '#f4f4f2', '#0055bf');
+      // 측면 POLICE 인쇄 (파란 글자)
+      const text = L.signPanel('POLICE', 5.6, 1.4, '#f4f4f2', '#0055bf');
       text.rotation.y = sx * Math.PI / 2;
-      text.position.set(sx * (w / 2 + 0.12), 2.9, -1.0);
+      text.position.set(sx * (w / 2 + 0.1), 3.8, -1.0);
       g.add(text);
     }
-    // 경광등 바
-    const barBase = new THREE.Mesh(L.box(5.4, 0.5, 1.6), L.mat(C.black, 'matte'));
-    barBase.position.set(0, 7.2, 0.4);
+    const rear = new THREE.Mesh(L.box(w - 1.2, 1.9, 0.3), L.mat(0x1f3b4d, 'glass'));
+    rear.position.set(0, 5.8, -len / 2 + 2.6);
+    g.add(rear);
+    const roof = L.plate(C.white, 6, 6, { height: 0.6 });
+    roof.position.set(0, 7.0, -1.4);
+    g.add(roof);
+
+    // 경광등 바(검은 받침 + 파란 투명 램프 2개)
+    const barBase = new THREE.Mesh(L.box(5.0, 0.5, 1.5), L.mat(C.black, 'matte'));
+    barBase.position.set(0, 7.5, 0.2);
     g.add(barBase);
     const lights = [];
     for (const sx of [-1, 1]) {
-      const lamp = new THREE.Mesh(L.box(2.2, 1.0, 1.4), L.mat(sx < 0 ? 0x2f6fe0 : 0x2f6fe0, 'glow'));
-      lamp.position.set(sx * 1.4, 7.9, 0.4);
+      const lamp = new THREE.Mesh(L.box(2.0, 0.9, 1.3), L.mat(0x2f6fe0, 'glow'));
+      lamp.position.set(sx * 1.3, 8.15, 0.2);
       g.add(lamp);
       lights.push(lamp);
     }
-    const grille = new THREE.Mesh(L.box(w - 0.6, 1.1, 0.5), L.mat(C.darkGray, 'metal'));
-    grille.position.set(0, 3.2, len / 2 + 0.1);
+    // 앞: 푸시바 · 범퍼 · 전조등
+    const push = new THREE.Mesh(L.box(w - 1.4, 1.6, 0.3), L.mat(C.silver, 'metal'));
+    push.position.set(0, 3.2, len / 2 + 0.5);
+    g.add(push);
+    const grille = new THREE.Mesh(L.box(w - 1.2, 0.9, 0.4), L.mat(C.black, 'matte'));
+    grille.position.set(0, 4.4, len / 2 + 0.1);
     g.add(grille);
-    const bumper = new THREE.Mesh(L.box(w + 0.2, 1.0, 0.8), L.mat(C.lightGray, 'metal'));
-    bumper.position.set(0, 1.8, len / 2 + 0.2);
+    const bumper = new THREE.Mesh(L.box(w + 0.1, 1.0, 0.9), L.mat(C.lightGray, 'metal'));
+    bumper.position.set(0, 2.0, len / 2 + 0.25);
     g.add(bumper);
     for (const sx of [-1, 1]) {
-      const lamp = new THREE.Mesh(L.cyl(0.7, 0.7, 0.35, 12), L.mat(0xfff6d0, 'glow'));
+      const lamp = new THREE.Mesh(L.cyl(0.58, 0.58, 0.3, 14), L.mat(0xfff6d0, 'glow'));
       lamp.rotation.x = Math.PI / 2;
-      lamp.position.set(sx * 2.4, 3.3, len / 2 + 0.3);
+      lamp.position.set(sx * 2.3, 4.3, len / 2 + 0.28);
       g.add(lamp);
+      const tail = new THREE.Mesh(L.box(0.8, 0.6, 0.2), L.mat(0x8c1b0a, 'glow'));
+      tail.position.set(sx * 2.2, 3.6, -len / 2 - 0.12);
+      g.add(tail);
     }
-    carWheels(g, w, len);
-    add(scene, g, x, CURB_Y - 0.55, z, ry);
+    const plate = new THREE.Mesh(L.box(2.6, 0.9, 0.16), L.mat(C.white));
+    plate.position.set(0, 2.3, len / 2 + 0.75);
+    g.add(plate);
+
+    carWheels(g, w, len, 1.3);
+    add(scene, g, x, CURB_Y - 0.5, z, ry);
     if (colliders) colliders.push({ x, z, hx: w / 2 + 0.6, hz: len / 2 + 0.4 });
     return { group: g, lights };
   }
@@ -798,7 +970,8 @@
     const anim = {};
 
     scene.background = null;
-    scene.fog = new THREE.Fog(0xbcdff2, 90, 330);
+    // 거리감은 심도 흐림(postfx)이 대부분 만들어주니 안개는 옅게만
+    scene.fog = new THREE.Fog(0xb6d8ef, 120, 400);
 
     anim.sky = skyDome(scene);
     ground(scene);
@@ -808,41 +981,72 @@
 
     // 왼쪽 연립주택 줄 (사진: 빨강 → 살색 → 흰색 → 하늘색)
     const houses = [
-      { x: -30, z: 28, w: 20, d: 18, floors: 3, wall: C.red, trim: C.white, roof: C.darkRed, awning: C.green },
-      { x: -32, z: 6, w: 22, d: 22, floors: 3, wall: C.tan, trim: C.white, roof: C.reddishBrown, awning: C.azure },
-      { x: -30, z: -18, w: 20, d: 24, floors: 4, wall: C.white, trim: C.lightGray, roof: C.darkGray, glass: 0x3a749c },
-      { x: -33, z: -46, w: 24, d: 26, floors: 4, wall: C.sandBlue, trim: C.white, roof: C.darkBlue },
-      { x: -30, z: -74, w: 20, d: 24, floors: 3, wall: C.magenta, trim: C.white, roof: C.darkRed },
+      { x: -37, z: 28, w: 20, d: 18, floors: 3, wall: C.red, trim: C.white, roof: C.darkRed, awning: C.green },
+      { x: -38, z: 6, w: 22, d: 22, floors: 3, wall: C.tan, trim: C.white, roof: C.reddishBrown, awning: C.azure },
+      { x: -37, z: -18, w: 20, d: 24, floors: 4, wall: C.white, trim: C.lightGray, roof: C.darkGray, glass: 0x3a749c },
+      { x: -39, z: -46, w: 24, d: 26, floors: 4, wall: C.sandBlue, trim: C.white, roof: C.darkBlue },
+      { x: -37, z: -74, w: 20, d: 24, floors: 3, wall: C.magenta, trim: C.white, roof: C.darkRed },
     ];
     for (const h of houses) townhouse(scene, h, colliders);
 
     // 오른쪽: 경찰서 + 상가
     policeStation(scene, colliders);
-    townhouse(scene, { x: 32, z: -34, w: 22, d: 26, floors: 3, wall: C.tan, trim: C.white, roof: C.brown, awning: C.red, ry: Math.PI }, colliders);
-    townhouse(scene, { x: 34, z: -62, w: 24, d: 24, floors: 4, wall: C.white, trim: C.azure, roof: C.darkGray, ry: Math.PI }, colliders);
+    townhouse(scene, { x: 38, z: -34, w: 22, d: 26, floors: 3, wall: C.tan, trim: C.white, roof: C.brown, awning: C.red, ry: Math.PI }, colliders);
+    townhouse(scene, { x: 40, z: -62, w: 24, d: 24, floors: 4, wall: C.white, trim: C.azure, roof: C.darkGray, ry: Math.PI }, colliders);
 
     // 소품
     // 신호등 기둥·소화전은 사진처럼 화면 왼쪽 앞쪽에 보이는 자리로
     trafficPole(scene, -15, 6, colliders);
-    hydrant(scene, -20.5, 23);
+    hydrant(scene, -20.5, 14);
     streetLamp(scene, 16.5, 30, true);
     streetLamp(scene, -16.5, -6, false);
     streetLamp(scene, 16.5, -22, true);
-    picketFence(scene, -20.5, 34, 20, true);
-    picketFence(scene, 20.5, 34, 20, true);
-    picketFence(scene, -20.5, 14, -4, true);
-    picketFence(scene, 20.5, 0, -16, true);
-    tree(scene, -25, 34, 1.15, colliders);
-    tree(scene, -24, 18, 0.95, colliders);
-    tree(scene, -23, -6, 1.05, colliders);
-    tree(scene, 25, 30, 1.0, colliders);
-    tree(scene, 24, -14, 1.1, colliders);
-    tree(scene, 26, -40, 0.95, colliders);
-    tree(scene, -26, -34, 1.0, colliders);
+    picketFence(scene, -21, 34, 18, true);
+    picketFence(scene, 21, 34, 18, true);
+    picketFence(scene, -21, 12, -6, true);
+    picketFence(scene, 21, 0, -18, true);
+    tree(scene, -25.5, 33, 1.45, colliders);
+    tree(scene, -25, 16, 1.2, colliders);
+    tree(scene, -24.5, -6, 1.3, colliders);
+    tree(scene, 25.5, 28, 1.25, colliders);
+    tree(scene, 25, -14, 1.35, colliders);
+    tree(scene, 26, -40, 1.2, colliders);
+    tree(scene, -26, -34, 1.25, colliders);
 
     // 차량
-    redSuv(scene, -6.5, 2, Math.PI, colliders);
-    anim.police = policeCar(scene, 7, -4, Math.PI, colliders);
+    // 사진처럼 두 차 모두 카메라(플레이어) 쪽을 향해 서 있다
+    redSuv(scene, -6.5, 2, 0, colliders);
+    anim.police = policeCar(scene, 7.2, -5, 0.16, colliders);
+
+    // ---- 진짜 돌기(스터드) 심기: 실물 레고 사진의 질감은 여기서 나온다
+    const skipInside = (pad) => (x, z) => {
+      for (let i = 0; i < colliders.length; i++) {
+        const c = colliders[i];
+        if (Math.abs(x - c.x) < c.hx + pad && Math.abs(z - c.z) < c.hz + pad) return true;
+      }
+      return false;
+    };
+    const studZ0 = -56, studZ1 = 40;
+    for (const side of [-1, 1]) {
+      // 인도
+      const walk = L.studField(C.lightGray, {
+        x0: side < 0 ? -WALK_OUT : ROAD_HALF, x1: side < 0 ? -ROAD_HALF : WALK_OUT,
+        z0: studZ0, z1: studZ1,
+      }, CURB_Y, { skip: skipInside(0.6), max: 1000 });
+      if (walk) scene.add(walk);
+      // 도로 양쪽 회색 띠
+      const lane = L.studField(C.lightGray, {
+        x0: side < 0 ? -ROAD_HALF : ROAD_HALF - 3.2, x1: side < 0 ? -ROAD_HALF + 3.2 : ROAD_HALF,
+        z0: studZ0, z1: studZ1,
+      }, 0.52, { skip: (x, z) => (z > CROSS_Z0 - 1.5 && z < CROSS_Z1 + 1.5), max: 700 });
+      if (lane) scene.add(lane);
+      // 잔디띠(울타리 안쪽)
+      const grass = L.studField(C.brightGreen, {
+        x0: side < 0 ? -27 : WALK_OUT, x1: side < 0 ? -WALK_OUT : 27,
+        z0: studZ0, z1: studZ1,
+      }, CURB_Y - 0.02, { skip: skipInside(1.0), max: 1000 });
+      if (grass) scene.add(grass);
+    }
 
     const npcs = citizens(scene);
 

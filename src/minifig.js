@@ -45,21 +45,35 @@
     legL.castShadow = legR.castShadow = true;
     const hipL = new THREE.Group(); hipL.position.set(-0.45, 1.62, 0); legL.position.y = -0.82; hipL.add(legL);
     const hipR = new THREE.Group(); hipR.position.set(0.45, 1.62, 0); legR.position.y = -0.82; hipR.add(legR);
+    // 신발: 발끝이 살짝 앞으로 나온 검은 판
+    for (const [pivot, sx] of [[hipL, -1], [hipR, 1]]) {
+      const shoe = new THREE.Mesh(L.box(0.86, 0.34, 1.25), L.mat(C.black, 'matte'));
+      shoe.position.set(0, -1.5, 0.14);
+      shoe.castShadow = true;
+      pivot.add(shoe);
+      void sx;
+    }
     // 신발(살짝 어두운 색)
     body.add(hipL, hipR);
 
-    // ----- 몸통 (아래가 좁은 미니피그 실루엣을 두 단으로 흉내)
-    const torso = new THREE.Mesh(L.box(1.62, 1.5, 1.02), L.mat(o.torso));
-    torso.position.y = 2.85;
+    // ----- 몸통: 실물 미니피그처럼 위가 넓고 아래가 좁은 사다리꼴
+    const torso = new THREE.Mesh(L.cyl(1.32, 1.06, 1.95, 4), L.mat(o.torso));
+    torso.rotation.y = Math.PI / 4;
+    torso.scale.z = 0.6;
+    torso.position.y = 3.05;
     torso.castShadow = true;
     body.add(torso);
-    const shoulder = new THREE.Mesh(L.box(1.9, 0.42, 1.06), L.mat(o.torso));
-    shoulder.position.y = 3.5;
-    shoulder.castShadow = true;
-    body.add(shoulder);
+    // 목 스터드
+    const neck = new THREE.Mesh(L.cyl(0.3, 0.3, 0.3, 10), L.mat(o.torso));
+    neck.position.y = 4.05;
+    body.add(neck);
+    // 가슴 인쇄(지퍼·주머니 느낌의 얇은 판)
+    const print = new THREE.Mesh(L.box(0.9, 1.1, 0.03), L.mat(o.hair || C.black, 'matte'));
+    print.position.set(0, 3.0, 0.53);
+    body.add(print);
     if (o.stripes) { // 줄무늬 티셔츠 (한 줄로 충분히 티가 난다)
-      const s1 = new THREE.Mesh(L.box(1.66, 0.5, 1.06), L.mat(C.blue));
-      s1.position.y = 2.75; body.add(s1);
+      const s1 = new THREE.Mesh(L.box(1.72, 0.5, 1.1), L.mat(C.blue));
+      s1.position.y = 2.95; body.add(s1);
     }
     if (o.badge) { // 경찰 금색 배지
       const b = new THREE.Mesh(L.cyl(0.2, 0.2, 0.07, 8), L.mat(C.gold, 'metal'));
@@ -71,7 +85,7 @@
     // ----- 팔 + 손
     function arm(side) {
       const pivot = new THREE.Group();
-      pivot.position.set(side * 1.02, 3.42, 0);
+      pivot.position.set(side * 1.16, 3.62, 0);
       const upper = new THREE.Mesh(L.box(0.52, 1.25, 0.6), L.mat(o.torso));
       upper.position.y = -0.55;
       upper.rotation.z = -side * 0.16;

@@ -93,11 +93,20 @@ window.LEGO = window.LEGO || {};
   function tileCanvas(kind) {
     const S = 64, cv = canvas(S), g = cv.getContext('2d');
     const bump = kind === 'bump';
-    g.fillStyle = bump ? '#b0b0b0' : '#ffffff';
+    g.fillStyle = bump ? '#c0c0c0' : '#ffffff';
     g.fillRect(0, 0, S, S);
-    g.strokeStyle = bump ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.13)';
-    g.lineWidth = 3;
+    // 판 경계(홈): 색은 살짝, 요철은 뚜렷하게
+    g.strokeStyle = bump ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.20)';
+    g.lineWidth = 4;
     g.strokeRect(0, 0, S, S);
+    // 안쪽에 아주 옅은 하이라이트를 넣어 판이 평평해 보이지 않게
+    if (!bump) {
+      const gg = g.createLinearGradient(0, 0, S, S);
+      gg.addColorStop(0, 'rgba(255,255,255,0.10)');
+      gg.addColorStop(1, 'rgba(0,0,0,0.05)');
+      g.fillStyle = gg;
+      g.fillRect(3, 3, S - 6, S - 6);
+    }
     return cv;
   }
 
@@ -140,7 +149,7 @@ window.LEGO = window.LEGO || {};
     } else if (finish === 'matte') {
       m = new THREE.MeshPhongMaterial({ color, specular: 0x1a1a1a, shininess: 8 });
     } else {
-      m = new THREE.MeshPhongMaterial({ color, specular: 0x9a9a9a, shininess: 68 });
+      m = new THREE.MeshPhongMaterial({ color, specular: 0xa6a6a6, shininess: 84 });
     }
     matCache.set(key, m);
     return m;
@@ -153,11 +162,24 @@ window.LEGO = window.LEGO || {};
     const side = mat(color, finish);
     const { map, bump } = surfaceTextures(kind, repeatX, repeatY);
     const top = new THREE.MeshPhongMaterial({
-      color, map, bumpMap: bump, bumpScale: kind === 'tile' ? 0.06 : 0.16,
+      color, map, bumpMap: bump, bumpScale: kind === 'tile' ? 0.12 : 0.18,
       specular: 0x8f8f8f, shininess: finish === 'matte' ? 10 : 60,
     });
     // BoxGeometry 면 순서: +X, -X, +Y, -Y, +Z, -Z
     return [side, side, top, side, side, side];
+  }
+
+  /** 모든 면에 스터드 무늬가 들어간 단일 머티리얼 (InstancedMesh 는 머티리얼 배열을 못 쓴다) */
+  const studAllCache = new Map();
+  function studAllMaterial(color, repeat) {
+    const key = color + '|' + repeat;
+    if (studAllCache.has(key)) return studAllCache.get(key);
+    const { map, bump } = surfaceTextures('stud', repeat, repeat);
+    const m = new THREE.MeshPhongMaterial({
+      color, map, bumpMap: bump, bumpScale: 0.16, specular: 0x8a8a8a, shininess: 40,
+    });
+    studAllCache.set(key, m);
+    return m;
   }
 
   // ---------------------------------------------------------------- 지오메트리
@@ -230,6 +252,42 @@ window.LEGO = window.LEGO || {};
     mesh.receiveShadow = true;
     mesh.castShadow = false;
     return mesh;
+  }
+
+  /**
+   * 넓은 판 위에 "진짜" 돌기를 심는다. 실물 레고 사진의 질감은 여기서 나온다.
+   * area = {x0,x1,z0,z1}, y = 판 윗면 높이. 전부 합쳐 InstancedMesh 하나(드로우콜 1).
+   * opts.skip(x, z) 가 true 를 주면 그 자리는 비운다(건물 아래 등).
+   */
+  function studField(color, area, y, opts) {
+    opts = opts || {};
+    const step = opts.step || STUD;
+    const seg = opts.segments || 8;
+    const r = opts.radius || 0.31;
+    const h = opts.height || 0.2;
+    const max = opts.max || 4000;
+    const xs = [], zs = [];
+    for (let x = area.x0 + step * 0.5; x < area.x1; x += step) {
+      for (let z = area.z0 + step * 0.5; z < area.z1; z += step) {
+        if (opts.skip && opts.skip(x, z)) continue;
+        xs.push(x); zs.push(z);
+        if (xs.length >= max) break;
+      }
+      if (xs.length >= max) break;
+    }
+    const count = xs.length;
+    if (count === 0) return null;
+    const inst = new THREE.InstancedMesh(cyl(r, r, h, seg), mat(color, opts.finish), count);
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < count; i++) {
+      m.makeTranslation(xs[i], y + h * 0.5, zs[i]);
+      inst.setMatrixAt(i, m);
+    }
+    inst.instanceMatrix.needsUpdate = true;
+    inst.castShadow = false;
+    inst.receiveShadow = true;
+    inst.userData.count = count;
+    return inst;
   }
 
   /** 1x1 라운드 브릭(스터드 알맹이) — 몬스터가 떨어뜨리는 수집품 */
@@ -313,6 +371,8 @@ window.LEGO = window.LEGO || {};
   L.sph = sph;
   L.brick = brick;
   L.plate = plate;
+  L.studField = studField;
+  L.studAllMaterial = studAllMaterial;
   L.roundStud = roundStud;
   L.clawHand = clawHand;
   L.faceTexture = faceTexture;

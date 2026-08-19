@@ -18,12 +18,15 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
 
+// 포인터 락이 헤드리스에서 풀리면 일시정지로 넘어가므로, 스크린샷 전에 되돌린다
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 
 await page.goto('file://' + resolve(root, 'index.html'));
 await page.waitForFunction(() => !!window.LEGO_GAME, null, { timeout: 20000 });
+// 소프트웨어 렌더러는 항상 느리다 — 자동 품질 저하를 끄고 최고 품질로 확인한다
+await page.evaluate(() => { window.LEGO_GAME.autoQuality = false; });
 await page.waitForTimeout(1200);
 await page.screenshot({ path: resolve(outDir, '01-start.png') });
 
@@ -70,6 +73,7 @@ for (let i = 0; i < weapons.length; i++) {
 for (let i = 0; i < weapons.length; i++) {
   await page.evaluate((i) => {
     const g = window.LEGO_GAME;
+    if (g.state !== 'playing') { g.state = 'playing'; g.hud.screen(null); g.hud.show(true); }
     g.hands.setWeapon(i);
     g.player.pitch = 0.34;
   }, i);
@@ -128,20 +132,27 @@ if (play.weapon !== 'sword') throw new Error('1번 키로 검을 들지 못했�
 if (play.skill !== 'fireball') throw new Error('6번 키로 파이어볼을 들지 못했다: ' + play.skill);
 console.log('플레이 확인:', JSON.stringify(play));
 
-// 웨이브 클리어 → 다음 웨이브로 넘어가는지
+// 웨이브 클리어 → 다음 웨이브로 넘어가는지 (프레임 속도에 흔들리지 않게 상태를 기다린다)
 const waveFlow = await page.evaluate(async () => {
   const g = window.LEGO_GAME;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const before = g.wave;
   g.enemies.queue.length = 0;
   g.enemies.clear();
   g.enemies.waveActive = true;
-  await new Promise((r) => setTimeout(r, 200));
-  const cleared = g.wave;
-  g.waveBreak = 0.1;
-  await new Promise((r) => setTimeout(r, 600));
-  return { cleared, now: g.wave, active: g.enemies.waveActive };
+  let t0 = Date.now();
+  while (g.wave === before && Date.now() - t0 < 6000) await wait(100);
+  const advanced = g.wave;
+  g.waveBreak = 0.05;
+  t0 = Date.now();
+  while (!g.enemies.waveActive && Date.now() - t0 < 6000) await wait(100);
+  return { before, advanced, active: g.enemies.waveActive, queued: g.enemies.queue.length };
 });
-if (waveFlow.now !== waveFlow.cleared + 1) {
+if (waveFlow.advanced !== waveFlow.before + 1) {
   throw new Error('웨이브가 넘어가지 않았다: ' + JSON.stringify(waveFlow));
+}
+if (!waveFlow.active) {
+  throw new Error('다음 웨이브가 시작되지 않았다: ' + JSON.stringify(waveFlow));
 }
 console.log('웨이브 진행 확인:', JSON.stringify(waveFlow));
 
@@ -176,6 +187,7 @@ const fps = await page.evaluate(async () => {
 // 뒤돌아 경찰서 쪽 보기
 await page.evaluate(() => {
   const g = window.LEGO_GAME;
+  if (g.state !== 'playing') { g.state = 'playing'; g.hud.screen(null); g.hud.show(true); }
   g.player.yaw = -0.9;
   g.player.pos.set(-4, 5.15, 22);
 });
