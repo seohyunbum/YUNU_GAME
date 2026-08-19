@@ -18,12 +18,12 @@
     <div id="hurt-flash"></div>
 
     <div id="top-bar">
-      <div class="panel">
-        <div class="label">웨이브</div>
-        <div class="value" id="wave-value">1</div>
+      <div class="panel wide">
+        <div class="label">지금 있는 곳</div>
+        <div class="value" id="region-value">레고 시티</div>
       </div>
       <div class="panel">
-        <div class="label">남은 몬스터</div>
+        <div class="label">근처 몬스터</div>
         <div class="value" id="left-value">0</div>
       </div>
       <div class="panel">
@@ -42,6 +42,19 @@
     </div>
 
     <div id="toast"></div>
+
+    <!-- 지역에 들어설 때 크게 뜨는 배너 -->
+    <div id="region-banner">
+      <div class="rb-icon">🏙️</div>
+      <div class="rb-name">레고 시티</div>
+      <div class="rb-label">안전지대</div>
+    </div>
+
+    <!-- 도시(집)가 어느 쪽인지 알려주는 나침반 -->
+    <div id="compass">
+      <div class="c-arrow">▲</div>
+      <div class="c-text"><b>레고 시티</b><span id="compass-dist">0</span></div>
+    </div>
 
     <div id="vitals">
       <div id="hearts"></div>
@@ -69,7 +82,8 @@
     <div class="sheet">
       <h1><span class="brick red">레</span><span class="brick yellow">고</span>
           <span class="brick blue">시</span><span class="brick green">티</span></h1>
-      <p class="sub">브릭 몬스터가 도시로 몰려온다. 시민들을 지켜라!</p>
+      <p class="sub">레고 시티는 안전지대. 밖으로 나가 좀비 마을 · 늪지대 폐가 ·<br />
+        깊은 동굴 협곡 · 높은 산을 돌아다니며 브릭 몬스터를 사냥하자.</p>
 
       <div class="hands-help">
         <div class="hand-card right">
@@ -98,11 +112,13 @@
         <span><b>마우스</b> 둘러보기</span>
         <span><b>휠</b> 무기 바꾸기</span>
         <span><b>Q / E</b> 무기 · 두루마리 넘기기</span>
+        <span><b>Space</b> 점프</span>
         <span><b>Esc</b> 잠깐 멈춤</span>
       </div>
 
       <button id="start-btn">게임 시작</button>
       <p class="tip">스터드(노란 알맹이)를 주우면 마나가, 파란 알맹이는 총알과 폭탄이 채워진다.<br />
+        도시 안에서는 몬스터가 나오지 않고 체력이 천천히 찬다. 쓰러져도 도시에서 다시 깨어난다.<br />
         시민 미니피그는 공격 대상이 아니다 — 몬스터만 잡는다.</p>
     </div>
   </div>
@@ -110,9 +126,9 @@
   <!-- ================= 종료 화면 ================= -->
   <div id="over-screen" class="screen hidden">
     <div class="sheet small">
-      <h2 id="over-title">도시가 무너졌다…</h2>
+      <h2 id="over-title">사냥 기록</h2>
       <div class="result">
-        <div><span>도달 웨이브</span><b id="over-wave">1</b></div>
+        <div><span>가 본 곳</span><b id="over-wave">레고 시티</b></div>
         <div><span>점수</span><b id="over-score">0</b></div>
         <div><span>잡은 몬스터</span><b id="over-kills">0</b></div>
         <div><span>최고 점수</span><b id="over-best">0</b></div>
@@ -125,6 +141,12 @@
   <div id="pause-screen" class="screen hidden">
     <div class="sheet small">
       <h2>잠깐 멈춤</h2>
+      <div class="result">
+        <div><span>지금 있는 곳</span><b id="pause-region">레고 시티</b></div>
+        <div><span>점수</span><b id="pause-score">0</b></div>
+        <div><span>잡은 몬스터</span><b id="pause-kills">0</b></div>
+        <div><span>최고 점수</span><b id="pause-best">0</b></div>
+      </div>
       <p class="sub">화면을 클릭하면 다시 시작한다.</p>
       <button id="resume-btn">이어서 하기</button>
     </div>
@@ -135,6 +157,7 @@
     <div id="stick"><div id="stick-knob"></div></div>
     <div id="touch-buttons">
       <button id="btn-skill" class="tbtn">📜</button>
+      <button id="btn-jump" class="tbtn">⤴</button>
       <button id="btn-attack" class="tbtn big">✋</button>
     </div>
     <div id="touch-swap">
@@ -149,6 +172,10 @@
 <script src="./src/loadout.js"></script>
 <script src="./src/minifig.js"></script>
 <script src="./src/city.js"></script>
+<script src="./src/terrain.js"></script>
+<script src="./src/places.js"></script>
+<script src="./src/regions.js"></script>
+<script src="./src/world.js"></script>
 <script src="./src/hands.js"></script>
 <script src="./src/postfx.js"></script>
 <script src="./src/fx.js"></script>

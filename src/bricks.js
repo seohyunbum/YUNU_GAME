@@ -182,6 +182,75 @@ window.LEGO = window.LEGO || {};
     return m;
   }
 
+  /**
+   * 지형 브릭 전용 재질/지오메트리.
+   * InstancedMesh 는 면마다 다른 머티리얼을 못 쓰므로, 텍스처 한 장에
+   * [왼쪽 = 스터드가 4x4 박힌 윗면][오른쪽 = 매끈한 옆면] 을 나란히 굽고
+   * 박스의 UV 를 고쳐 윗면만 스터드 쪽을 보게 한다. (진짜 브릭처럼 옆면은 매끈)
+   */
+  function brickAtlasCanvas(kind) {
+    const S = 128;
+    const cv = canvas(S * 2);
+    cv.width = S * 2; cv.height = S;
+    const g = cv.getContext('2d');
+    const bump = kind === 'bump';
+    // --- 왼쪽: 스터드 4x4
+    g.fillStyle = bump ? '#7a7a7a' : '#ffffff';
+    g.fillRect(0, 0, S, S);
+    const cell = S / 4;
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++) {
+        const cx = i * cell + cell / 2, cy = j * cell + cell / 2;
+        const grd = g.createRadialGradient(cx - cell * 0.1, cy - cell * 0.12, 1, cx, cy, cell * 0.34);
+        if (bump) { grd.addColorStop(0, '#ffffff'); grd.addColorStop(1, '#9a9a9a'); }
+        else { grd.addColorStop(0, '#ffffff'); grd.addColorStop(1, '#d4d4d4'); }
+        g.fillStyle = grd;
+        g.beginPath(); g.arc(cx, cy, cell * 0.31, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = bump ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.16)';
+        g.lineWidth = bump ? 3 : 1.5;
+        g.stroke();
+      }
+    }
+    // --- 오른쪽: 매끈한 옆면 (아래쪽에 브릭 이음선만)
+    g.fillStyle = bump ? '#8a8a8a' : '#ffffff';
+    g.fillRect(S, 0, S, S);
+    g.fillStyle = bump ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.10)';
+    g.fillRect(S, S - 6, S, 6);
+    g.fillStyle = bump ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.10)';
+    g.fillRect(S, 0, S, 4);
+    return cv;
+  }
+
+  let terrainMat = null;
+  function terrainBrickMaterial() {
+    if (terrainMat) return terrainMat;
+    const map = finishTexture(brickAtlasCanvas('map'), 1, 1, true);
+    const bump = finishTexture(brickAtlasCanvas('bump'), 1, 1, false);
+    map.wrapS = map.wrapT = bump.wrapS = bump.wrapT = THREE.ClampToEdgeWrapping;
+    terrainMat = new THREE.MeshPhongMaterial({
+      color: 0xffffff, map, bumpMap: bump, bumpScale: 0.22,
+      specular: 0x7c7c7c, shininess: 42,
+    });
+    return terrainMat;
+  }
+
+  /** 윗면만 스터드를 보게 UV 를 고친 지형 브릭 박스 */
+  function terrainBrickGeometry(w, h, d) {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const uv = geo.attributes.uv;
+    // BoxGeometry 면 순서: +X, -X, +Y, -Y, +Z, -Z (면마다 정점 4개)
+    for (let face = 0; face < 6; face++) {
+      const studSide = (face === 2);          // 윗면만 스터드
+      for (let i = 0; i < 4; i++) {
+        const idx = face * 4 + i;
+        const u = uv.getX(idx);
+        uv.setX(idx, studSide ? u * 0.5 : 0.5 + u * 0.5);
+      }
+    }
+    uv.needsUpdate = true;
+    return geo;
+  }
+
   // ---------------------------------------------------------------- 지오메트리
   const boxCache = new Map();
   function box(w, h, d) {
@@ -286,6 +355,9 @@ window.LEGO = window.LEGO || {};
     inst.instanceMatrix.needsUpdate = true;
     inst.castShadow = false;
     inst.receiveShadow = true;
+    // r150 의 InstancedMesh 는 인스턴스를 고려한 바운딩 구가 없어서
+    // 절두체 컬링을 켜두면 통째로 사라진다(개수가 적으니 그냥 끈다).
+    inst.frustumCulled = false;
     inst.userData.count = count;
     return inst;
   }
@@ -373,6 +445,8 @@ window.LEGO = window.LEGO || {};
   L.plate = plate;
   L.studField = studField;
   L.studAllMaterial = studAllMaterial;
+  L.terrainBrickMaterial = terrainBrickMaterial;
+  L.terrainBrickGeometry = terrainBrickGeometry;
   L.roundStud = roundStud;
   L.clawHand = clawHand;
   L.faceTexture = faceTexture;

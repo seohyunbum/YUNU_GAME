@@ -1,13 +1,22 @@
 /* =========================================================================
- * game.js — 지휘자: 씬 부팅 · 입력 배선 · 전투 규칙 · 루프 · 렌더
+ * game.js — 지휘자: 씬 부팅 · 입력 배선 · 전투 규칙 · 오픈월드 루프 · 렌더
  *
- * 렌더는 2패스다.
- *   1) 도시(월드) 씬
- *   2) 깊이만 지우고 1인칭 두 팔(hands.scene)을 겹쳐 그린다  ← 팔이 벽에 안 잘린다
+ * 오픈월드 규칙
+ *   · 레고 시티는 안전지대 — 몬스터가 나오지 않고 체력이 천천히 찬다
+ *   · 흙길을 따라 사냥터(좀비 마을 · 동굴 협곡 · 높은 산 · 늪 폐가)로 간다
+ *   · 사냥터마다 정해진 수만큼 몬스터가 계속 돌아다니고, 안쪽에는 보스가 있다
+ *   · 쓰러지면 게임이 끝나는 게 아니라 도시에서 다시 깨어난다
+ *
+ * 렌더는 3단계: 도시/지형 → 심도 흐림 후처리 → 1인칭 두 팔(또렷하게)
  * ========================================================================= */
 (function (L) {
   'use strict';
   const P = L.PLAYER;
+
+  const GRAVITY = 62;
+  const JUMP_SPEED = 22;
+  const MAX_STEP = 2.9;          // 걸어서 올라갈 수 있는 턱(브릭 두 단 남짓)
+  const SPAWN = { x: 0, z: 30 }; // 도시 광장
 
   function Game() {
     const canvas = document.getElementById('scene');
@@ -20,7 +29,6 @@
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.autoClear = false;
-    // 그림자는 한 프레임 걸러 갱신한다(거의 안 움직이므로 눈에 안 띄고 비용은 절반)
     this.renderer.shadowMap.autoUpdate = false;
     this._shadowTick = 0;
 
@@ -29,9 +37,8 @@
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.4, 900);
     this.camera.rotation.order = 'YXZ';
 
-    const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x54703f, 0.70);
-    this.scene.add(hemi);
-    // 사진의 맑은 햇빛: 약간 따뜻하고, 그림자 경계는 살짝 부드럽게
+    this.hemi = new THREE.HemisphereLight(0xcfe8ff, 0x54703f, 0.70);
+    this.scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xffeec8, 1.5);
     sun.position.set(58, 96, 62);
     sun.castShadow = true;
@@ -42,46 +49,64 @@
     sun.shadow.bias = -0.0006;
     sun.shadow.radius = 4;
     this.scene.add(sun);
+    this.scene.add(sun.target);
     this.sun = sun;
-    this.scene.add(new THREE.AmbientLight(0xfff4e6, 0.13));
+    this.ambient = new THREE.AmbientLight(0xfff4e6, 0.13);
+    this.scene.add(this.ambient);
+    this.BASE = { sun: 1.5, hemi: 0.70, ambient: 0.13 };
 
-    // ---------------- 매크로 사진 느낌 후처리(심도 흐림·비네팅)
+    // 동굴용 횃불 (카메라에 붙어 다닌다)
+    this.torch = new THREE.PointLight(0xffb060, 0, 52, 1.5);
+    this.camera.add(this.torch);
+    this.scene.add(this.camera);
+
+    // ---------------- 후처리 · 도시 · 오픈월드
     this.post = new L.PostFX(this.renderer, this.camera);
-
-    // ---------------- 도시
     this.city = L.buildCity(this.scene);
+    this.world = new L.World(this.scene, this.city);
 
     // ---------------- 이펙트 · 몬스터 · 손 · HUD · 입력 · 소리
     this.fx = new L.FX(this.scene);
-    this.enemies = new L.Enemies(this.scene, this.fx, this.city);
+    // 발사체·파편이 지형 위에서 멈추도록 지면 높이를 알려준다
+    const world0 = this.world;
+    this.fx.groundAt = function (x, z) { return world0.heightAt(x, z); };
+    this.enemies = new L.Enemies(this.scene, this.fx, this.world);
     this.hands = new L.Hands(this.camera);
     this.hud = new L.HUD();
     this.input = new L.Input(canvas);
     this.sfx = new L.Sfx();
 
-    // ---------------- 플레이어 상태
+    // ---------------- 플레이어 (pos 는 발밑 좌표)
     this.player = {
-      pos: new THREE.Vector3(0, P.eyeHeight + this.city.curbY, 30),
+      pos: new THREE.Vector3(SPAWN.x, this.world.heightAt(SPAWN.x, SPAWN.z), SPAWN.z),
+      velY: 0, onGround: true,
       yaw: 0, pitch: -0.04,
       hearts: P.maxHearts, mana: P.maxMana,
       ammo: { blaster: 24, bomb: 4 },
-      score: 0, kills: 0, combo: 0, comboTimer: 0,
+      score: 0, kills: 0, deaths: 0, combo: 0, comboTimer: 0,
       invuln: 0, weaponCd: 0, channelTimer: 0, channelSkill: null,
-      bob: 0,
+      bob: 0, eyeY: 0, inWater: 0,
     };
     this.skillCd = { dragonfire: 0, meteor: 0, fireball: 0 };
-    this.state = 'start';        // start | playing | pause | over
-    this.wave = 1;
-    this.waveBreak = 0;
+    this.state = 'start';        // start | playing | pause | down
+    this.downTimer = 0;
     this.best = Number(localStorage.getItem('legocity-best') || 0);
     this.time = 0;
+    this.regionVisited = {};
 
-    // 스크래치 벡터 (핫패스 할당 금지)
+    // 스크래치(핫패스에서 새 객체 만들지 않기)
     this._dir = new THREE.Vector3();
     this._tmp = new THREE.Vector3();
     this._tmp2 = new THREE.Vector3();
     this._look = { yaw: 0, pitch: 0 };
     this._aim = new THREE.Vector3();
+    this._fogTarget = new THREE.Color(0xb6d8ef);
+    this._hemiSky = new THREE.Color(0xcfe8ff);
+    this._hemiGround = new THREE.Color(0x54703f);
+    this._skyTarget = new THREE.Color(0xffffff);
+
+    // 시작 전에 도시 주변 지형을 미리 깔아둔다(첫 프레임 끊김 방지)
+    this.world.update(this.player.pos.x, this.player.pos.z, 0, 200);
 
     this._wire();
     this.resize();
@@ -91,12 +116,12 @@
     this.hud.screen('start');
     if (this.input.touchMode) this.hud.showTouch(false);
 
-    // 느린 기기 자동 보호: 프레임이 낮으면 후처리 품질을 단계적으로 낮춘다
+    // 느린 기기 자동 보호
     this._fpsAccum = 0;
     this._fpsFrames = 0;
     this._qualityStep = 0;
     this._slowWindows = 0;
-    this.autoQuality = true;   // 테스트에서 끌 수 있게 열어둔다
+    this.autoQuality = true;
 
     this._lastT = 0;
     this._loop = this._loop.bind(this);
@@ -111,15 +136,18 @@
     h.selectSkill = (i) => { if (self.state === 'playing') { self.hands.setSkill(i); self.sfx.pop(); } };
     h.swapWeapon = (d) => { if (self.state === 'playing') { self.hands.nextWeapon(d); self.sfx.pop(); } };
     h.swapSkill = (d) => { if (self.state === 'playing') { self.hands.nextSkill(d); self.sfx.pop(); } };
-    h.pause = (fromUnlock) => {
+    h.jump = () => self.jump();
+    h.pause = () => {
       if (self.state === 'playing') {
         self.state = 'pause';
+        self.hud.pauseStats({
+          regionName: self.world.current ? self.world.current.name : '들판',
+          score: self.player.score, kills: self.player.kills, best: self.best,
+        });
         self.hud.screen('pause');
       }
-      void fromUnlock;
     };
 
-    // 이펙트 → 게임 규칙 연결
     this.fx.hooks.damageArea = (pos, radius, dmg) => {
       const hits = self.enemies.damageArea(pos, radius, dmg);
       if (hits) self.hud.hitMark();
@@ -129,7 +157,6 @@
 
     this.enemies.hooks.hitPlayer = (dmg) => self.hurtPlayer(dmg);
     this.enemies.hooks.onKill = (e) => self.onKill(e);
-    this.enemies.hooks.onWaveClear = (n) => self.onWaveClear(n);
 
     document.getElementById('start-btn').addEventListener('click', () => self.start());
     document.getElementById('again-btn').addEventListener('click', () => self.start());
@@ -144,7 +171,6 @@
     const w = window.innerWidth, h = window.innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    // 좁은 화면(폰 세로)에서는 시야를 넓혀 손이 화면을 덜 가리게
     this.camera.fov = w / h < 1 ? 82 : 70;
     this.camera.updateProjectionMatrix();
     this.hands.resize(w / h, this.camera.fov);
@@ -154,17 +180,16 @@
   // ------------------------------------------------------------------ 흐름
   Game.prototype.start = function () {
     const p = this.player;
-    p.pos.set(0, P.eyeHeight + this.city.curbY, 30);
+    p.pos.set(SPAWN.x, this.world.heightAt(SPAWN.x, SPAWN.z), SPAWN.z);
+    p.velY = 0; p.onGround = true;
     p.yaw = 0; p.pitch = -0.04;
     p.hearts = P.maxHearts;
     p.mana = P.maxMana;
     p.ammo.blaster = 24;
     p.ammo.bomb = 4;
-    p.score = 0; p.kills = 0; p.combo = 0; p.comboTimer = 0;
+    p.score = 0; p.kills = 0; p.deaths = 0; p.combo = 0; p.comboTimer = 0;
     p.invuln = 0; p.weaponCd = 0; p.channelTimer = 0; p.channelSkill = null;
     this.skillCd.dragonfire = this.skillCd.meteor = this.skillCd.fireball = 0;
-    this.wave = 1;
-    this.waveBreak = 0;
     this.enemies.clear();
     this.fx.clear();
     this.hands.setWeapon(0);
@@ -175,9 +200,7 @@
     if (this.input.touchMode) this.hud.showTouch(true);
     this.sfx.resume();
     this.input.requestLock();
-    this.enemies.startWave(this.wave);
-    this.hud.toast('웨이브 1\n브릭 몬스터가 온다!', 2.2);
-    this.sfx.wave();
+    this.hud.toast('레고 시티 · 안전지대\n흙길을 따라 사냥터로 가 보자', 3.0);
   };
 
   Game.prototype.resume = function () {
@@ -187,32 +210,27 @@
     this.input.requestLock();
   };
 
-  Game.prototype.onWaveClear = function (n) {
-    this.player.score += n * 120;
-    if (n >= 10) {
-      this.gameOver(true);
-      return;
-    }
-    this.wave = n + 1;
-    this.waveBreak = 4.2;
-    this.hud.toast('웨이브 ' + n + ' 클리어! 🎉\n다음 웨이브 준비', 2.6);
-    this.sfx.wave();
-    // 보상: 탄약·폭탄·마나 조금
-    this.player.ammo.blaster = Math.min(L.weaponById('blaster').ammoMax, this.player.ammo.blaster + 14);
-    this.player.ammo.bomb = Math.min(L.weaponById('bomb').ammoMax, this.player.ammo.bomb + 2);
-    this.player.mana = Math.min(P.maxMana, this.player.mana + 40);
+  Game.prototype.jump = function () {
+    const p = this.player;
+    if (this.state !== 'playing' || !p.onGround) return;
+    p.velY = JUMP_SPEED;
+    p.onGround = false;
   };
 
   Game.prototype.onKill = function (e) {
     const p = this.player;
     p.kills++;
     p.combo++;
-    p.comboTimer = 2.6;
+    p.comboTimer = 3.0;
     const mult = 1 + Math.min(1.5, (p.combo - 1) * 0.1);
     p.score += Math.round(e.def.score * mult);
+    if (p.score > this.best) {
+      this.best = p.score;
+      localStorage.setItem('legocity-best', String(this.best));
+    }
     this.hud.comboPop();
     this.sfx.pop();
-    if (e.def.boss) this.hud.toast('보스 격파! 🐲', 2.0);
+    if (e.isBoss) this.hud.toast((e.bossName || '보스') + ' 격파! 🎉', 2.4);
   };
 
   Game.prototype.hurtPlayer = function (dmg) {
@@ -225,29 +243,38 @@
     this.sfx.hurt();
     if (p.hearts <= 0) {
       p.hearts = 0;
-      this.gameOver(false);
+      this.knockOut();
     }
   };
 
-  Game.prototype.gameOver = function (win) {
-    this.state = 'over';
+  /** 쓰러짐 → 잠시 뒤 도시에서 다시 깨어난다(게임 오버 없음) */
+  Game.prototype.knockOut = function () {
+    this.state = 'down';
+    this.downTimer = 2.4;
+    this.player.deaths++;
     this.player.channelTimer = 0;
-    if (this.player.score > this.best) {
-      this.best = this.player.score;
-      localStorage.setItem('legocity-best', String(this.best));
-    }
-    if (document.exitPointerLock) document.exitPointerLock();
-    this.hud.show(false);
-    this.hud.showTouch(false);
-    this.hud.gameOver({
-      wave: this.wave, score: this.player.score, kills: this.player.kills,
-      best: this.best, win: !!win,
-    });
-    if (win) this.sfx.wave(); else this.sfx.gameOver();
+    this.input.attackHeld = false;
+    this.input.castHeld = false;
+    this.hud.toast('쓰러졌다…\n레고 시티에서 다시 깨어난다', 2.4);
+    this.sfx.gameOver();
+  };
+
+  Game.prototype.respawn = function () {
+    const p = this.player;
+    p.pos.set(SPAWN.x, this.world.heightAt(SPAWN.x, SPAWN.z), SPAWN.z);
+    p.velY = 0;
+    p.hearts = P.maxHearts;
+    p.mana = P.maxMana;
+    p.invuln = 3.0;
+    p.combo = 0;
+    this.enemies.clear();
+    this.fx.clear();
+    this.state = 'playing';
+    this.hud.toast('레고 시티에서 깨어났다', 1.6);
+    this.input.requestLock();
   };
 
   // ------------------------------------------------------------------ 전투
-  /** 카메라가 보는 방향 (정규화, 스크래치 재사용) */
   Game.prototype.aimDir = function () {
     return this.camera.getWorldDirection(this._dir);
   };
@@ -255,18 +282,25 @@
   /** 조준선이 땅에 닿는 지점(메테오 목표) */
   Game.prototype.aimGround = function (out) {
     const dir = this.aimDir();
-    const p = this.player.pos;
-    const groundY = this.city.curbY;
+    const eye = this.camera.position;
     if (dir.y < -0.06) {
-      const t = Math.min(150, (p.y - groundY) / -dir.y);
-      out.set(p.x + dir.x * t, groundY, p.z + dir.z * t);
-    } else {
-      out.set(p.x + dir.x * 60, groundY, p.z + dir.z * 60);
+      // 시선을 따라가며 지형과 만나는 지점을 찾는다(간단한 행진법)
+      let t = 4;
+      for (let i = 0; i < 40; i++) {
+        const x = eye.x + dir.x * t, y = eye.y + dir.y * t, z = eye.z + dir.z * t;
+        if (y <= this.world.heightAt(x, z)) {
+          out.set(x, this.world.heightAt(x, z), z);
+          return out;
+        }
+        t += 4;
+        if (t > 160) break;
+      }
     }
+    const x = eye.x + dir.x * 60, z = eye.z + dir.z * 60;
+    out.set(x, this.world.heightAt(x, z), z);
     return out;
   };
 
-  /** 오른손 공격 */
   Game.prototype.attack = function () {
     const p = this.player;
     const w = this.hands.currentWeapon();
@@ -279,22 +313,21 @@
     p.weaponCd = w.cooldown;
     this.hands.playAttack();
     const dir = this.aimDir();
+    const eye = this.camera.position;
 
     if (w.id === 'sword') {
       this.sfx.sword();
-      const hits = this.enemies.damageCone(p.pos, dir, w.reach, Math.cos(w.arc), w.damage);
+      const hits = this.enemies.damageCone(eye, dir, w.reach, Math.cos(w.arc), w.damage);
       if (hits) {
         this.hud.hitMark();
-        this._tmp.copy(p.pos).addScaledVector(dir, 6);
+        this._tmp.copy(eye).addScaledVector(dir, 6);
         this.fx.debrisBurst(this._tmp, L.COLORS.silver, 3, 8);
       }
     } else if (w.id === 'blaster') {
       p.ammo.blaster--;
       this.sfx.shoot();
       this.hands.getMuzzleWorld(this._tmp);
-      this.fx.shoot('stud', this._tmp, dir, {
-        speed: w.speed, dmg: w.damage, life: 1.8, spin: 6,
-      });
+      this.fx.shoot('stud', this._tmp, dir, { speed: w.speed, dmg: w.damage, life: 1.8, spin: 6 });
     } else if (w.id === 'bomb') {
       p.ammo.bomb--;
       this.sfx.throwBomb();
@@ -306,7 +339,6 @@
     }
   };
 
-  /** 왼손 두루마리 시전 */
   Game.prototype.cast = function () {
     const p = this.player;
     const s = this.hands.currentSkill();
@@ -340,7 +372,6 @@
     }
   };
 
-  /** 드래곤 파이어 유지 시전 처리 */
   Game.prototype.updateChannel = function (dt) {
     const p = this.player;
     if (p.channelTimer <= 0) return;
@@ -348,76 +379,165 @@
     p.channelTimer -= dt;
     const dir = this.aimDir();
     this.hands.getScrollWorld(this._tmp);
-    this._tmp.addScaledVector(dir, 3.5);   // 조금 앞에서 뿜어 시야를 덜 가린다
-    // 불꽃 분사
+    this._tmp.addScaledVector(dir, 3.5);
     for (let i = 0; i < 4; i++) this.fx.flame(this._tmp, dir, 0.22);
     if (Math.random() < 0.35) this.sfx.flame();
-    // 부채꼴 지속 피해
-    const hits = this.enemies.damageCone(p.pos, dir, s.range, Math.cos(s.cone), s.dps * dt);
+    const hits = this.enemies.damageCone(this.camera.position, dir, s.range, Math.cos(s.cone), s.dps * dt);
     if (hits) this.hud.hitMark();
     if (p.channelTimer <= 0) { p.channelTimer = 0; p.channelSkill = null; }
   };
 
-  // ------------------------------------------------------------------ 이동
+  // ------------------------------------------------------------------ 이동(지형 따라)
   Game.prototype.updatePlayer = function (dt) {
     const p = this.player;
     const inp = this.input;
+    const world = this.world;
     inp.sample();
     const look = inp.consumeLook(this._look);
     p.yaw += look.yaw;
     p.pitch = Math.max(-1.15, Math.min(0.95, p.pitch + look.pitch));
 
-    // 이동(카메라 기준)
     let mx = inp.moveX, mz = inp.moveZ;
     const len = Math.hypot(mx, mz);
     if (len > 1) { mx /= len; mz /= len; }
-    const speed = (inp.sprint ? P.sprintSpeed : P.walkSpeed) * (p.channelTimer > 0 ? 0.55 : 1);
+
+    // 물속(늪)에서는 느려진다
+    const waterDepth = world.waterDepthAt(p.pos.x, p.pos.z, p.pos.y);
+    p.inWater = waterDepth;
+    let speed = inp.sprint ? P.sprintSpeed : P.walkSpeed;
+    if (p.channelTimer > 0) speed *= 0.55;
+    if (waterDepth > 0.2) speed *= 0.62;
+
     const sin = Math.sin(p.yaw), cos = Math.cos(p.yaw);
-    // yaw 0 일 때 앞 = -Z  (앞 = (-sin, -cos), 오른쪽 = (cos, -sin))
     const vx = (mx * cos - mz * sin) * speed * dt;
     const vz = (-mz * cos - mx * sin) * speed * dt;
-    p.pos.x += vx;
-    p.pos.z += vz;
 
-    // 도시 충돌 + 경계
-    L.resolveCollision(p.pos, 2.0, this.city.colliders);
-    const b = this.city.bounds;
-    p.pos.x = Math.max(b.minX, Math.min(b.maxX, p.pos.x));
-    p.pos.z = Math.max(b.minZ, Math.min(b.maxZ, p.pos.z));
+    // 한 번에 못 가면 축을 나눠 시도한다(벽을 따라 미끄러지게)
+    this._tryMove(vx, vz);
 
-    // 걸을 때 시선 흔들림
-    const moving = len > 0.05;
+    // 소품·건물 충돌
+    L.resolveCollision(p.pos, 2.0, world.colliders);
+
+    // ---- 중력 · 점프 · 지면
+    const ground = world.heightAt(p.pos.x, p.pos.z);
+    if (!p.onGround || p.velY > 0) {
+      p.velY -= GRAVITY * dt;
+      p.pos.y += p.velY * dt;
+      if (p.pos.y <= ground) {
+        p.pos.y = ground;
+        p.velY = 0;
+        p.onGround = true;
+      }
+    } else {
+      // 걸어 다닐 땐 지형에 붙어 다닌다(작은 턱은 그냥 올라간다)
+      const drop = p.pos.y - ground;
+      if (drop > 1.6) {           // 낭떠러지 → 떨어진다
+        p.onGround = false;
+        p.velY = 0;
+      } else {
+        p.pos.y = ground;
+      }
+    }
+    if (p.pos.y < -140) {          // 세상 밖으로 떨어졌을 때 안전장치
+      p.pos.set(SPAWN.x, world.heightAt(SPAWN.x, SPAWN.z), SPAWN.z);
+      p.velY = 0;
+    }
+
+    // ---- 카메라 (걸음 흔들림 + 물속에서 살짝 낮게)
+    const moving = len > 0.05 && p.onGround;
     p.bob += dt * (moving ? (inp.sprint ? 13 : 9) : 2.2);
     const bobY = moving ? Math.sin(p.bob) * (inp.sprint ? 0.22 : 0.14) : Math.sin(p.bob) * 0.04;
-    p.pos.y = P.eyeHeight + this.city.curbY;
-
-    this.camera.position.set(p.pos.x, p.pos.y + bobY, p.pos.z);
+    const eyeTarget = p.pos.y + P.eyeHeight - Math.min(1.6, waterDepth * 0.5);
+    // 계단을 오를 때 눈높이가 튀지 않게 부드럽게 따라간다
+    p.eyeY += (eyeTarget - p.eyeY) * Math.min(1, dt * 14);
+    this.camera.position.set(p.pos.x, p.eyeY + bobY, p.pos.z);
     this.camera.rotation.set(p.pitch, p.yaw, Math.sin(p.bob * 0.5) * (moving ? 0.012 : 0.003));
 
-    // 쿨다운·마나·콤보
+    // ---- 쿨다운 · 마나 · 콤보 · 안전지대 회복
     if (p.weaponCd > 0) p.weaponCd -= dt;
     for (const k in this.skillCd) if (this.skillCd[k] > 0) this.skillCd[k] -= dt;
     if (p.invuln > 0) p.invuln -= dt;
-    p.mana = Math.min(P.maxMana, p.mana + P.manaRegen * dt);
+    const safe = world.isSafe();
+    p.mana = Math.min(P.maxMana, p.mana + P.manaRegen * (safe ? 3 : 1) * dt);
+    if (safe) {
+      this._healTimer = (this._healTimer || 0) + dt;
+      if (this._healTimer > 3.5 && p.hearts < P.maxHearts) {
+        this._healTimer = 0;
+        p.hearts++;
+        this.hud.toast('❤️ 도시에서 회복', 1.0);
+      }
+      // 도시에서는 탄약도 조금씩 채워진다
+      this._ammoTimer = (this._ammoTimer || 0) + dt;
+      if (this._ammoTimer > 2.5) {
+        this._ammoTimer = 0;
+        const bl = L.weaponById('blaster'), bm = L.weaponById('bomb');
+        p.ammo.blaster = Math.min(bl.ammoMax, p.ammo.blaster + 3);
+        if (Math.random() < 0.5) p.ammo.bomb = Math.min(bm.ammoMax, p.ammo.bomb + 1);
+      }
+    }
     if (p.comboTimer > 0) {
       p.comboTimer -= dt;
       if (p.comboTimer <= 0) p.combo = 0;
     }
 
-    // 공격 입력(누르고 있으면 연사)
     if (this.input.attackHeld) this.attack();
     if (this.input.castHeld) this.cast();
 
     return moving ? (inp.sprint ? 1 : 0.6) : 0;
   };
 
+  /** 이동 시도: 턱이 너무 높으면 막고, 축을 나눠 미끄러지게 한다 */
+  Game.prototype._tryMove = function (vx, vz) {
+    const p = this.player;
+    const world = this.world;
+    const y0 = p.pos.y;
+    const okX = world.heightAt(p.pos.x + vx, p.pos.z) - y0 <= MAX_STEP;
+    const okZ = world.heightAt(p.pos.x, p.pos.z + vz) - y0 <= MAX_STEP;
+    const okBoth = world.heightAt(p.pos.x + vx, p.pos.z + vz) - y0 <= MAX_STEP;
+    if (okBoth && okX && okZ) {
+      p.pos.x += vx;
+      p.pos.z += vz;
+      return;
+    }
+    if (okX) p.pos.x += vx;
+    if (okZ) p.pos.z += vz;
+  };
+
+  // ------------------------------------------------------------------ 분위기
+  Game.prototype.updateAmbience = function (dt) {
+    const amb = this.world.ambience();
+    const k = Math.min(1, dt * 1.6);
+    this._fogTarget.setHex(amb.fog);
+    this.scene.fog.color.lerp(this._fogTarget, k);
+    this.scene.fog.near += (amb.fogNear - this.scene.fog.near) * k;
+    this.scene.fog.far += (amb.fogFar - this.scene.fog.far) * k;
+    this.sun.intensity += (this.BASE.sun * (amb.sun === undefined ? 1 : amb.sun) - this.sun.intensity) * k;
+    this.hemi.intensity += (this.BASE.hemi * (amb.hemi === undefined ? 1 : amb.hemi) - this.hemi.intensity) * k;
+    // 반구광 색도 지역을 따라간다(동굴은 따뜻한 어둠, 늪은 초록기)
+    this._hemiSky.setHex(amb.hemiSky === undefined ? 0xcfe8ff : amb.hemiSky);
+    this._hemiGround.setHex(amb.hemiGround === undefined ? 0x54703f : amb.hemiGround);
+    this.hemi.color.lerp(this._hemiSky, k);
+    this.hemi.groundColor.lerp(this._hemiGround, k);
+
+    // 하늘 색조(동굴은 어둡게, 설산은 하얗게)
+    if (this.city.anim.sky) {
+      this._skyTarget.setHex(amb.sky === undefined ? 0xffffff : amb.sky);
+      this.city.anim.sky.material.color.lerp(this._skyTarget, k);
+    }
+
+    // 동굴 갱도 안이면 횃불을 켠다
+    const p = this.player.pos;
+    const dark = amb.dark || this.world.inTunnel(p.x, p.z, this.camera.position.y);
+    const want = dark ? 1.7 : 0;
+    this.torch.intensity += (want - this.torch.intensity) * Math.min(1, dt * 3);
+  };
+
   // ------------------------------------------------------------------ 도시 연출
   Game.prototype.updateCity = function (dt) {
     const a = this.city.anim;
-    this.time += dt;
     const t = this.time;
+    if (!this.city.group.visible) return;
 
-    // 헬리콥터: 도시 위를 크게 돈다
     if (a.heli) {
       const r = 78, sp = 0.12;
       a.heli.group.position.set(Math.cos(t * sp) * r, 58 + Math.sin(t * 0.4) * 3, -46 + Math.sin(t * sp) * r);
@@ -425,12 +545,10 @@
       a.heli.rotor.rotation.y += dt * 26;
       a.heli.tailRotor.rotation.x += dt * 30;
     }
-    // 크레인 훅: 천천히 흔들린다
     if (a.crane) {
       a.crane.hook.rotation.z = Math.sin(t * 0.5) * 0.05;
       a.crane.group.rotation.y = Math.sin(t * 0.07) * 0.12;
     }
-    // 경찰차 경광등 번쩍
     if (a.police) {
       const on = (t * 3) % 2 < 1;
       a.police.lights[0].material.color.setHex(on ? 0x63b3ff : 0x123a63);
@@ -446,7 +564,6 @@
       if (near) n.scared = 1.6;
       if (n.scared > 0) {
         n.scared -= dt;
-        // 몬스터 반대쪽으로 종종걸음
         this._tmp.set(n.fig.position.x - (near ? near.pos.x : 0), 0, n.fig.position.z - (near ? near.pos.z : -1));
         if (this._tmp.lengthSq() < 0.01) this._tmp.set(0, 0, 1);
         this._tmp.normalize();
@@ -455,7 +572,6 @@
         n.fig.rotation.y = Math.atan2(this._tmp.x, this._tmp.z);
         L.animateWalk(n.fig, n.phase * 2.2, 1);
       } else if (n.patrol) {
-        // 제자리 근처를 왕복
         n.fig.position.z += n.dir * 5.2 * dt;
         if (Math.abs(n.fig.position.z - n.home.y) > 7) n.dir *= -1;
         n.fig.position.x += (n.home.x - n.fig.position.x) * dt * 1.6;
@@ -464,7 +580,6 @@
       } else {
         L.animateWalk(n.fig, n.phase * 0.35, 0.06);
       }
-      // 인도 밖으로 너무 나가지 않게
       const px = n.fig.position.x;
       if (Math.abs(px) < 14) n.fig.position.x = px < 0 ? -14 : 14;
       if (Math.abs(px) > 30) n.fig.position.x = px < 0 ? -30 : 30;
@@ -473,16 +588,122 @@
     }
   };
 
-  /** 조준선 앞에 있는 몬스터까지의 거리(없으면 0) — 접사 초점을 맞추는 데 쓴다 */
+  // ------------------------------------------------------------------ 루프
+  Game.prototype._loop = function (nowMs) {
+    requestAnimationFrame(this._loop);
+    const now = nowMs * 0.001;
+    let dt = this._lastT ? now - this._lastT : 0.016;
+    this._lastT = now;
+    if (dt > 0.06) dt = 0.06;
+    this._checkQuality(dt);
+    this.time += dt;
+
+    const p = this.player;
+
+    if (this.state === 'playing' || this.state === 'down') {
+      let speed01 = 0;
+      if (this.state === 'playing') {
+        speed01 = this.updatePlayer(dt);
+        this.updateChannel(dt);
+      } else {
+        // 쓰러진 동안: 시야가 내려앉고 잠시 뒤 도시에서 깨어난다
+        this.downTimer -= dt;
+        p.eyeY += (p.pos.y + 1.2 - p.eyeY) * Math.min(1, dt * 4);
+        this.camera.position.set(p.pos.x, p.eyeY, p.pos.z);
+        this.camera.rotation.set(p.pitch - 0.5, p.yaw, 0.25);
+        if (this.downTimer <= 0) this.respawn();
+      }
+
+      // 오픈월드: 지형 청크 · 지역 소품 · 지역 전환
+      const changed = this.world.update(p.pos.x, p.pos.z, dt, 2);
+      if (changed) {
+        this.hud.regionBanner(changed);
+        this.sfx.wave();
+        // 사냥터에 들어서면 곧바로 몇 마리가 맞이한다
+        if (!changed.safe) this.enemies.seedRegion(p.pos, changed, 4);
+        if (!this.regionVisited[changed.id]) {
+          this.regionVisited[changed.id] = true;
+          if (!changed.safe) p.score += 150;
+        }
+      }
+      this.updateAmbience(dt);
+      this.updateCity(dt);
+
+      // 몬스터: 지역 정원 유지 + 보스
+      if (this.state === 'playing') {
+        const region = this.world.current;
+        this.enemies.updateSpawning(dt, p.pos, region);
+        this.enemies.updateBoss(dt, p.pos, region, region ? this.world.content[region.id] : null);
+      }
+      this.enemies.update(dt, p.pos, this.camera);
+
+      this.sun.position.set(p.pos.x + 58, p.pos.y + 96, p.pos.z + 62);
+      this.sun.target.position.set(p.pos.x, p.pos.y, p.pos.z - 10);
+      this.sun.target.updateMatrixWorld();
+
+      this.fx.update(dt, {
+        enemies: this.enemies,
+        playerPos: this.camera.position,
+        collectStud: (kind) => this.collectStud(kind),
+      });
+      this.hands.update(dt, speed01, false);
+
+      // HUD
+      const region = this.world.current;
+      const homeDx = 0 - p.pos.x, homeDz = -20 - p.pos.z;
+      const homeDist = Math.hypot(homeDx, homeDz);
+      // 화면 기준으로 도시가 어느 방향인지 (화살표 각도)
+      const bearing = Math.atan2(homeDx, -homeDz);
+      let rel = (bearing - p.yaw) * 180 / Math.PI;
+      while (rel > 180) rel -= 360;
+      while (rel < -180) rel += 360;
+      this.hud.update(dt, {
+        regionName: region ? region.name : '들판',
+        remaining: this.enemies.nearbyCount(p.pos, 120),
+        homeAngle: rel,
+        homeDist,
+        score: p.score,
+        combo: p.combo,
+        hearts: p.hearts,
+        mana: p.mana,
+        ammo: p.ammo,
+        weaponIndex: this.hands.weaponIndex,
+        skillIndex: this.hands.skillIndex,
+        weaponCd: p.weaponCd,
+        skillCd: this.skillCd,
+        boss: this.enemies.boss,
+      });
+    } else {
+      this.updateCity(dt * 0.6);
+      this.hands.update(dt, 0, false);
+      if (this.state === 'start') {
+        const t = this.time * 0.06;
+        const gy = this.world.heightAt(0, 30);
+        this.camera.position.set(Math.sin(t) * 4, gy + P.eyeHeight + 1.2, 30 + Math.cos(t) * 3);
+        this.camera.rotation.set(-0.05, Math.sin(t * 0.7) * 0.16, 0);
+      }
+    }
+
+    // ---- 렌더
+    this._shadowTick = (this._shadowTick + 1) % 2;
+    this.renderer.shadowMap.needsUpdate = this._shadowTick === 0;
+    const aimD = this.state === 'playing' ? this.aimDistance() : 0;
+    this.post.setFocus(aimD || 40, dt);
+    this.post.renderWorld(this.scene);
+    this.renderer.clearDepth();
+    this.renderer.render(this.hands.scene, this.hands.camera);
+  };
+
+  /** 조준선 앞 몬스터까지의 거리(접사 초점용) */
   Game.prototype.aimDistance = function () {
     const dir = this.aimDir();
-    const p = this.player.pos;
-    let best = 0, bestDot = 0.986;   // 화면 가운데 근처만
+    const eye = this.camera.position;
+    let best = 0, bestDot = 0.986;
     const list = this.enemies.list;
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
       if (!e.alive) continue;
-      this._tmp2.set(e.pos.x - p.x, (e.pos.y + e.radius * 0.6) - p.y, e.pos.z - p.z);
+      this._tmp2.set(e.pos.x - eye.x, (e.pos.y + e.radius * 0.6) - eye.y, e.pos.z - eye.z);
       const d = this._tmp2.length();
       if (d < 3) continue;
       this._tmp2.divideScalar(d);
@@ -492,81 +713,6 @@
     return best;
   };
 
-  // ------------------------------------------------------------------ 루프
-  Game.prototype._loop = function (nowMs) {
-    requestAnimationFrame(this._loop);
-    const now = nowMs * 0.001;
-    let dt = this._lastT ? now - this._lastT : 0.016;
-    this._lastT = now;
-    if (dt > 0.06) dt = 0.06;      // 탭 전환 후 튀는 것 방지
-    this._checkQuality(dt);
-
-    if (this.state === 'playing') {
-      const speed01 = this.updatePlayer(dt);
-      this.updateChannel(dt);
-      this.updateCity(dt);
-
-      // 그림자 카메라를 플레이어 주변으로 따라오게(멀리까지 2048 낭비 금지)
-      this.sun.position.set(this.player.pos.x + 58, 96, this.player.pos.z + 62);
-      this.sun.target.position.set(this.player.pos.x, 0, this.player.pos.z - 10);
-      this.sun.target.updateMatrixWorld();
-
-      this.enemies.update(dt, this.player.pos, this.camera);
-      this.fx.update(dt, {
-        enemies: this.enemies,
-        playerPos: this.player.pos,
-        collectStud: (kind) => this.collectStud(kind),
-      });
-      this.hands.update(dt, speed01, false);
-
-      // 웨이브 사이 쉬는 시간
-      if (!this.enemies.waveActive && this.waveBreak > 0) {
-        this.waveBreak -= dt;
-        if (this.waveBreak <= 0) {
-          this.enemies.startWave(this.wave);
-          this.hud.toast('웨이브 ' + this.wave + (this.wave % 5 === 0 ? '\n🐲 보스가 온다!' : ''), 2.0);
-          this.sfx.wave();
-        }
-      }
-
-      this.hud.update(dt, {
-        wave: this.wave,
-        remaining: this.enemies.remaining(),
-        score: this.player.score,
-        combo: this.player.combo,
-        hearts: this.player.hearts,
-        mana: this.player.mana,
-        ammo: this.player.ammo,
-        weaponIndex: this.hands.weaponIndex,
-        skillIndex: this.hands.skillIndex,
-        weaponCd: this.player.weaponCd,
-        skillCd: this.skillCd,
-        boss: this.enemies.boss,
-      });
-    } else {
-      // 멈춘 동안에도 도시는 살아있게(시작 화면 배경)
-      this.updateCity(dt * 0.6);
-      this.hands.update(dt, 0, false);
-      if (this.state === 'start') {
-        // 시작 화면: 도시를 천천히 둘러본다
-        const t = this.time * 0.06;
-        this.camera.position.set(Math.sin(t) * 4, P.eyeHeight + this.city.curbY + 1.2, 30 + Math.cos(t) * 3);
-        this.camera.rotation.set(-0.05, Math.sin(t * 0.7) * 0.16, 0);
-      }
-    }
-
-    // ---- 렌더: 도시(후처리) → 깊이만 지우고 두 팔(또렷하게)
-    this._shadowTick = (this._shadowTick + 1) % 2;
-    this.renderer.shadowMap.needsUpdate = this._shadowTick === 0;
-    // 접사 초점: 조준한 몬스터가 있으면 거기, 없으면 길 저편(34)
-    const aimD = this.state === 'playing' ? this.aimDistance() : 0;
-    this.post.setFocus(aimD || 34, dt);
-    this.post.renderWorld(this.scene);
-    this.renderer.clearDepth();
-    this.renderer.render(this.hands.scene, this.hands.camera);
-  };
-
-  /** 2초마다 평균 프레임을 보고 무거우면 품질을 내린다 */
   Game.prototype._checkQuality = function (dt) {
     if (!this.autoQuality || this._qualityStep >= 2 || dt <= 0) return;
     this._fpsAccum += dt;
@@ -576,13 +722,13 @@
     this._fpsAccum = 0;
     this._fpsFrames = 0;
     if (fps >= 42) { this._slowWindows = 0; return; }
-    // 두 번 연속 느릴 때만 내린다(로딩 직후 한 번 튀는 건 무시)
     this._slowWindows++;
     if (this._slowWindows < 2) return;
     this._slowWindows = 0;
     this._qualityStep++;
     if (this._qualityStep === 1) {
       this.post.setScale(0.7);
+      this.world.terrain.viewRadius = 250;
     } else {
       this.post.enabled = false;
       this.renderer.shadowMap.enabled = false;

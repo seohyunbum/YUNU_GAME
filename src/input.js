@@ -20,7 +20,7 @@
     this.hooks = {
       selectWeapon: null, selectSkill: null,
       swapWeapon: null, swapSkill: null,
-      pause: null, resume: null,
+      jump: null, pause: null, resume: null,
     };
     this._bindKeyboard();
     this._bindMouse();
@@ -41,7 +41,9 @@
       }
       if (e.code === 'KeyQ' && self.hooks.swapWeapon) self.hooks.swapWeapon(1);
       if (e.code === 'KeyE' && self.hooks.swapSkill) self.hooks.swapSkill(1);
-      if (e.code === 'Space') { self.castHeld = true; e.preventDefault(); }
+      // Space = 점프, F = 스킬 시전(마우스 오른쪽 클릭과 같음)
+      if (e.code === 'Space') { if (self.hooks.jump) self.hooks.jump(); e.preventDefault(); }
+      if (e.code === 'KeyF') self.castHeld = true;
       if (e.code === 'Escape' && self.hooks.pause) self.hooks.pause();
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.code) >= 0) {
         e.preventDefault();
@@ -49,7 +51,7 @@
     });
     window.addEventListener('keyup', (e) => {
       self.keys[e.code] = false;
-      if (e.code === 'Space') self.castHeld = false;
+      if (e.code === 'KeyF') self.castHeld = false;
     });
     window.addEventListener('blur', () => {
       self.keys = Object.create(null);
@@ -84,11 +86,13 @@
       e.preventDefault();
     }, { passive: false });
     document.addEventListener('pointerlockchange', () => {
-      self.locked = document.pointerLockElement === c;
-      if (!self.locked) {
-        self.attackHeld = self.castHeld = false;
-        if (self.hooks.pause) self.hooks.pause(true);
-      }
+      const locked = document.pointerLockElement === c;
+      // 잠긴 적이 있다가 풀렸을 때만 멈춘다.
+      // (요청이 실패해서 이벤트만 온 경우까지 멈추면 게임이 시작하자마자 멈춘다)
+      const lost = self.locked && !locked;
+      self.locked = locked;
+      if (!locked) self.attackHeld = self.castHeld = false;
+      if (lost && self.hooks.pause) self.hooks.pause(true);
     });
   };
 
@@ -176,6 +180,13 @@
     }
     holdButton('btn-attack', (v) => { self.attackHeld = v; });
     holdButton('btn-skill', (v) => { self.castHeld = v; });
+    const jb = document.getElementById('btn-jump');
+    if (jb) {
+      jb.addEventListener('touchstart', (e) => {
+        if (self.hooks.jump) self.hooks.jump();
+        e.preventDefault();
+      }, { passive: false });
+    }
 
     const bw = document.getElementById('btn-swap-weapon');
     const bs = document.getElementById('btn-swap-skill');

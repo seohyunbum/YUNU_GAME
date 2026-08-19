@@ -115,9 +115,9 @@
     const plaza = L.plate(C.lightGray, WALK_OUT * 2, 20, { height: CURB_Y, kind: 'tile', tileScale: 1 });
     add(scene, plaza, 0, CURB_Y / 2 + 0.01, Z_NEAR - 10);
 
-    // 아주 먼 곳까지 이어지는 바탕(초록 베이스플레이트)
-    const base = L.plate(C.green, 460, 460, { height: 0.4, kind: 'flat', finish: 'matte' });
-    add(scene, base, 0, -0.1, -80);
+    // 도시 바탕판 — 딱 도시 구역만. 바깥은 terrain.js 가 브릭으로 쌓는다.
+    const base = L.plate(C.green, 220, 320, { height: 0.5, kind: 'flat', finish: 'matte' });
+    add(scene, base, 0, 0.02, -90);
   }
 
   // --------------------------------------------------------------- 나무
@@ -183,6 +183,7 @@
     }
     inst.instanceMatrix.needsUpdate = true;
     if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    inst.frustumCulled = false;
     inst.castShadow = true;
     inst.receiveShadow = true;
     g.add(inst);
@@ -965,15 +966,20 @@
   }
 
   // --------------------------------------------------------------- 조립
-  function buildCity(scene) {
+  function buildCity(sceneRoot) {
     const colliders = [];
     const anim = {};
 
-    scene.background = null;
+    sceneRoot.background = null;
     // 거리감은 심도 흐림(postfx)이 대부분 만들어주니 안개는 옅게만
-    scene.fog = new THREE.Fog(0xb6d8ef, 120, 400);
+    sceneRoot.fog = new THREE.Fog(0xb6d8ef, 120, 400);
 
-    anim.sky = skyDome(scene);
+    // 하늘은 어디서나 보여야 하니 씬에 직접 붙이고,
+    // 도시 소품은 group 하나에 담아 멀어지면 통째로 끈다(오픈월드).
+    anim.sky = skyDome(sceneRoot);
+    const scene = new THREE.Group();
+    sceneRoot.add(scene);
+
     ground(scene);
     skyline(scene);
     anim.crane = crane(scene);
@@ -1055,12 +1061,13 @@
     for (let i = 0; i < npcs.length; i++) dynamic.push(npcs[i].fig);
     scene.updateMatrixWorld(true);
     scene.traverse((o) => { o.matrixAutoUpdate = false; });
+    scene.matrixAutoUpdate = false;
     for (let i = 0; i < dynamic.length; i++) {
       dynamic[i].traverse((o) => { o.matrixAutoUpdate = true; });
     }
 
     return {
-      colliders, anim, npcs,
+      group: scene, colliders, anim, npcs,
       bounds: { minX: -WALK_OUT - 8, maxX: WALK_OUT + 8, minZ: -110, maxZ: Z_NEAR - 2 },
       road: { half: ROAD_HALF, crossZ: (CROSS_Z0 + CROSS_Z1) / 2 },
       curbY: CURB_Y,

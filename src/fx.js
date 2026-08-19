@@ -11,6 +11,8 @@
 
   function FX(scene) {
     this.scene = scene;
+    // 지면 높이를 알려주는 함수(오픈월드에서 game.js 가 world.heightAt 로 바꿔 끼운다)
+    this.groundAt = function () { return 0.6; };
     this.hooks = {
       damageArea: null,     // (pos, radius, dmg) => void
       hitPlayer: null,      // (dmg, pos) => void
@@ -18,6 +20,7 @@
     };
     this._v = new THREE.Vector3();
     this._v2 = new THREE.Vector3();
+    this._v3 = new THREE.Vector3();
     this.time = 0;
 
     // ---------------- 발사체 풀
@@ -249,6 +252,7 @@
       if (!d) return;
       d.alive = true;
       d.t = 0;
+      d.groundY = this.groundAt(pos.x, pos.z) + 0.4;
       d.life = 0.9 + Math.random() * 0.8;
       d.mesh.material = L.mat(color);
       d.mesh.position.copy(pos);
@@ -288,6 +292,7 @@
     s.alive = true;
     s.t = 0;
     s.grounded = false;
+    s.groundY = this.groundAt(pos.x, pos.z) + 1.2;
     s.kind = kind || 'mana';
     const col = kind === 'ammo' ? C.azure : (kind === 'heart' ? C.red : C.yellow);
     s.group.traverse((o) => { if (o.isMesh) o.material = L.mat(col); });
@@ -310,6 +315,9 @@
       p.t += dt;
       if (p.gravity) p.vel.y -= p.gravity * dt;
       v.copy(p.vel).multiplyScalar(dt);
+      // 이번 프레임에 지나간 거리(빠른 탄이 몬스터를 뚫고 가지 않게 나중에 쪼개 검사한다)
+      const moved = v.length();
+      this._v3.copy(p.pos);          // 이전 위치
       p.pos.add(v);
       p.group.position.copy(p.pos);
       if (p.spin) {
@@ -323,14 +331,22 @@
 
       let boom = false;
       // 땅/시간 종료
-      if (p.pos.y <= 0.6) { p.pos.y = 0.6; boom = true; }
+      const gy = this.groundAt(p.pos.x, p.pos.z) + 0.4;
+      if (p.pos.y <= gy) { p.pos.y = gy; boom = true; }
       if (p.t >= p.life) boom = true;
       if (p.kind === 'bomb' && p.fuse && p.t >= p.fuse) boom = true;
 
-      // 명중 판정
+      // 명중 판정 — 지나온 경로를 잘게 나눠 확인(고속탄 관통 방지)
       if (!boom && ctx) {
         if (p.owner === 'player' && ctx.enemies) {
-          const hit = ctx.enemies.hitTest(p.pos, p.kind === 'meteor' ? 4 : 1.6);
+          const r = p.kind === 'meteor' ? 4 : 1.6;
+          let hit = null;
+          const steps = Math.min(10, Math.max(1, Math.ceil(moved / 1.6)));
+          for (let s = 1; s <= steps && !hit; s++) {
+            v2.copy(this._v3).lerp(p.pos, s / steps);
+            hit = ctx.enemies.hitTest(v2, r);
+            if (hit) p.pos.copy(v2);
+          }
           if (hit) {
             if (p.radius > 0) boom = true;
             else {
@@ -392,8 +408,8 @@
       d.vel.y -= GRAVITY * dt;
       v.copy(d.vel).multiplyScalar(dt);
       d.mesh.position.add(v);
-      if (d.mesh.position.y < 0.8) {   // 바닥에서 통통
-        d.mesh.position.y = 0.8;
+      if (d.mesh.position.y < d.groundY) {   // 바닥에서 통통
+        d.mesh.position.y = d.groundY;
         d.vel.y = Math.abs(d.vel.y) * 0.34;
         d.vel.x *= 0.6;
         d.vel.z *= 0.6;
@@ -426,12 +442,12 @@
         s.vel.y -= GRAVITY * dt;
         v.copy(s.vel).multiplyScalar(dt);
         s.group.position.add(v);
-        if (s.group.position.y <= 1.2) {
-          s.group.position.y = 1.2;
+        if (s.group.position.y <= s.groundY) {
+          s.group.position.y = s.groundY;
           s.grounded = true;
         }
       } else {
-        s.group.position.y = 1.2 + Math.sin(this.time * 4 + i) * 0.35;
+        s.group.position.y = s.groundY + Math.sin(this.time * 4 + i) * 0.35;
       }
       s.group.rotation.y += dt * 3;
       // 플레이어가 가까이 오면 빨려온다

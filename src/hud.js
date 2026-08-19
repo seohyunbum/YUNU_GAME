@@ -10,7 +10,14 @@
   function HUD() {
     this.dom = {
       hud: el('hud'),
-      wave: el('wave-value'),
+      region: el('region-value'),
+      banner: el('region-banner'),
+      bannerIcon: el('region-banner').querySelector('.rb-icon'),
+      bannerName: el('region-banner').querySelector('.rb-name'),
+      bannerLabel: el('region-banner').querySelector('.rb-label'),
+      compass: el('compass'),
+      compassArrow: el('compass').querySelector('.c-arrow'),
+      compassDist: el('compass-dist'),
       left: el('left-value'),
       score: el('score-value'),
       combo: el('combo-value'),
@@ -34,11 +41,16 @@
       overBest: el('over-best'),
       overTitle: el('over-title'),
       touch: el('touch'),
+      pauseRegion: el('pause-region'),
+      pauseScore: el('pause-score'),
+      pauseKills: el('pause-kills'),
+      pauseBest: el('pause-best'),
     };
     this.slots = { right: [], left: [] };
     this._buildSlots(this.dom.rightRow, L.WEAPONS, 'right');
     this._buildSlots(this.dom.leftRow, L.SKILLS, 'left');
     this._toastTimer = 0;
+    this._bannerTimer = 0;
     this._hitTimer = 0;
     this._comboTimer = 0;
     this._lastHearts = -1;
@@ -71,8 +83,11 @@
 
   /** 매 프레임 갱신 (state = game 이 넘겨주는 값 묶음) */
   HUD.prototype.update = function (dt, s) {
-    this.dom.wave.textContent = s.wave;
+    this.dom.region.textContent = s.regionName;
     this.dom.left.textContent = s.remaining;
+    // 나침반: 도시가 어느 쪽인지 화살표로
+    this.dom.compassArrow.style.transform = 'rotate(' + s.homeAngle.toFixed(1) + 'deg)';
+    this.dom.compassDist.textContent = Math.round(s.homeDist) + ' 스터드';
     this.dom.score.textContent = s.score;
     this.dom.combo.textContent = s.combo > 1 ? ('x' + s.combo) : '0';
 
@@ -132,6 +147,10 @@
     }
 
     // 타이머류
+    if (this._bannerTimer > 0) {
+      this._bannerTimer -= dt;
+      if (this._bannerTimer <= 0) this.dom.banner.classList.remove('on');
+    }
     if (this._toastTimer > 0) {
       this._toastTimer -= dt;
       if (this._toastTimer <= 0) this.dom.toast.classList.remove('on');
@@ -144,6 +163,15 @@
       this._comboTimer -= dt;
       if (this._comboTimer <= 0) this.dom.comboPanel.classList.remove('pop');
     }
+  };
+
+  /** 지역에 들어설 때 큼직하게 알려준다 */
+  HUD.prototype.regionBanner = function (region) {
+    this.dom.bannerIcon.textContent = region.icon || '📍';
+    this.dom.bannerName.textContent = region.name;
+    this.dom.bannerLabel.textContent = region.label || '';
+    this.dom.banner.classList.add('on');
+    this._bannerTimer = 2.6;
   };
 
   HUD.prototype.toast = function (text, seconds) {
@@ -166,6 +194,14 @@
     const h = this.dom.hurt;
     h.classList.add('on');
     setTimeout(() => h.classList.remove('on'), 90);
+  };
+
+  /** 일시정지 화면에 기록을 채운다 */
+  HUD.prototype.pauseStats = function (s) {
+    this.dom.pauseRegion.textContent = s.regionName;
+    this.dom.pauseScore.textContent = s.score;
+    this.dom.pauseKills.textContent = s.kills;
+    this.dom.pauseBest.textContent = s.best;
   };
 
   HUD.prototype.screen = function (name) {
