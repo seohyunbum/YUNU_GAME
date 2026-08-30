@@ -51,6 +51,28 @@
       name: '얼음 골렘', hp: 320, speed: 8.8, radius: 4.0, damage: 1, color: P.ice,
       attackRange: 6.8, attackCd: 1.8, flying: false, score: 320, studs: 3, pool: 8, bar: true,
     },
+    ghost: {
+      name: '브릭 유령', hp: 70, speed: 15, radius: 2.4, damage: 1, color: 0xdfe9ee,
+      attackRange: 5.0, attackCd: 1.5, flying: true, hover: 5, score: 150, studs: 1, pool: 14,
+    },
+    flameghost: {
+      name: '화염 귀신', hp: 120, speed: 14, radius: 2.6, damage: 1, color: 0xff5a10,
+      attackRange: 30, attackCd: 1.7, flying: true, hover: 6, score: 260, studs: 2, pool: 10,
+      ranged: true, projectile: 40, bar: true,
+    },
+    drone: {
+      name: '경비 드론', hp: 95, speed: 20, radius: 2.2, damage: 1, color: 0x8f989c,
+      attackRange: 34, attackCd: 1.4, flying: true, hover: 9, score: 200, studs: 1, pool: 14,
+      ranged: true, projectile: 58,
+    },
+    radslime: {
+      name: '방사능 슬라임', hp: 140, speed: 12, radius: 3.0, damage: 1, color: 0xa5ca18,
+      attackRange: 5.2, attackCd: 1.5, flying: false, score: 220, studs: 2, pool: 12, bar: true,
+    },
+    sandgolem: {
+      name: '모래 골렘', hp: 230, speed: 9, radius: 3.7, damage: 1, color: 0xd9c08a,
+      attackRange: 6.4, attackCd: 1.9, flying: false, score: 250, studs: 2, pool: 10, bar: true,
+    },
     dragon: {
       name: '브릭 드래곤', hp: 1400, speed: 12, radius: 6.5, damage: 2, color: C.red,
       attackRange: 46, attackCd: 1.25, flying: true, hover: 16, score: 2400, studs: 10,
@@ -313,6 +335,92 @@
     return { group: g, parts: { wings, wingL, wingR, head, maw, tail } };
   }
 
+  /** 브릭 유령 — 반투명 브릭 인형이 떠 있다(사람이 아니라 천을 씌운 브릭 덩어리) */
+  function buildGhost(fire) {
+    const g = new THREE.Group();
+    const shell = new THREE.MeshPhongMaterial({
+      color: fire ? 0xff7a3a : 0xeaf2f6, emissive: fire ? 0x8a2a08 : 0x2a3540,
+      transparent: true, opacity: 0.72, specular: 0xffffff, shininess: 120,
+    });
+    const head = new THREE.Mesh(L.sph(2.0, 14), shell);
+    head.position.y = 3.4;
+    const body = new THREE.Mesh(L.cyl(1.9, 2.4, 3.4, 12), shell);
+    body.position.y = 1.4;
+    const skirt = new THREE.Mesh(new THREE.ConeGeometry(2.6, 2.6, 10), shell);
+    skirt.position.y = -0.6;
+    skirt.rotation.x = Math.PI;
+    g.add(head, body, skirt);
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(L.box(0.9, 2.4, 0.9), shell);
+      arm.position.set(side * 2.3, 2.2, 0.4);
+      arm.rotation.z = side * 0.5;
+      g.add(arm);
+      const eye = new THREE.Mesh(L.sph(0.42, 8), new THREE.MeshBasicMaterial({
+        color: fire ? 0xffd166 : 0x63d7e6,
+      }));
+      eye.position.set(side * 0.66, 3.7, 1.7);
+      g.add(eye);
+    }
+    const mouth = new THREE.Mesh(L.box(1.0, 0.6, 0.2), new THREE.MeshBasicMaterial({
+      color: fire ? 0xffd166 : 0x63d7e6,
+    }));
+    mouth.position.set(0, 2.9, 1.85);
+    g.add(mouth);
+    const crown = new THREE.Group();
+    if (fire) {
+      for (let i = 0; i < 5; i++) {
+        const f = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.8 + (i % 2) * 0.8, 5),
+          new THREE.MeshBasicMaterial({ color: i % 2 ? 0xffc23a : 0xff5a10 }));
+        f.position.set(Math.cos(i * 1.3) * 1.2, 5.2, Math.sin(i * 1.3) * 1.2);
+        crown.add(f);
+      }
+      g.add(crown);
+    }
+    return { group: g, parts: { crown, body } };
+  }
+
+  /** 경비 드론 — 시설을 지키는 기계 (생물이 아니다) */
+  function buildDrone() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(L.box(3.0, 1.6, 3.0), L.mat(0x8f989c, 'metal'));
+    body.castShadow = true;
+    const dome = new THREE.Mesh(L.sph(1.5, 12), L.mat(0x2c5f86, 'glass'));
+    dome.position.y = 0.9;
+    const eye = new THREE.Mesh(L.cyl(0.6, 0.6, 0.4, 10), new THREE.MeshBasicMaterial({ color: 0xff3b1a }));
+    eye.rotation.x = Math.PI / 2;
+    eye.position.set(0, 0.1, 1.6);
+    const rotors = new THREE.Group();
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.78;
+      const arm = new THREE.Mesh(L.box(2.6, 0.4, 0.5), L.mat(0x6f7579, 'metal'));
+      arm.position.set(Math.cos(a) * 1.9, 0.4, Math.sin(a) * 1.9);
+      arm.rotation.y = -a;
+      g.add(arm);
+      const rotor = new THREE.Mesh(L.box(3.2, 0.12, 0.5), L.mat(0xa3a8ac, 'metal'));
+      rotor.position.set(Math.cos(a) * 3.1, 0.9, Math.sin(a) * 3.1);
+      rotors.add(rotor);
+      const hub = new THREE.Mesh(L.cyl(0.35, 0.35, 0.5, 8), L.mat(0x6f7579, 'metal'));
+      hub.position.set(Math.cos(a) * 3.1, 0.75, Math.sin(a) * 3.1);
+      g.add(hub);
+    }
+    const light = new THREE.Mesh(L.box(0.6, 0.3, 0.6), new THREE.MeshBasicMaterial({ color: 0xf2cd37 }));
+    light.position.set(0, -0.9, 0);
+    g.add(body, dome, eye, rotors, light);
+    return { group: g, parts: { rotors, eye } };
+  }
+
+  /** 모래 골렘 — 사막·피라미드의 파수꾼 */
+  function buildSandGolem() {
+    const built = golemBody(0xc9ad78, 0xe4cd9e, false, 0xffd166);
+    // 몸에 박힌 금빛 조각
+    for (let i = 0; i < 3; i++) {
+      const gem = new THREE.Mesh(L.box(0.8, 0.8, 0.4), L.mat(C.gold, 'metal'));
+      gem.position.set(-1.4 + i * 1.4, 6.6 + (i % 2) * 1.2, 2.6);
+      built.group.add(gem);
+    }
+    return built;
+  }
+
   const BUILDERS = {
     slime: () => buildSlime(false),
     toxic: () => buildSlime(true),
@@ -322,6 +430,11 @@
     golem: buildGolem,
     crystal: buildCrystal,
     ice: buildIce,
+    ghost: () => buildGhost(false),
+    flameghost: () => buildGhost(true),
+    drone: buildDrone,
+    radslime: () => buildSlime(true),
+    sandgolem: buildSandGolem,
     dragon: buildDragon,
   };
 
@@ -615,8 +728,17 @@
           e.parts.ring.rotation.y += dt * 2.4;
           e.parts.ring.rotation.x = Math.sin(e.phase) * 0.4;
         }
+        if (e.parts.rotors) e.parts.rotors.rotation.y += dt * 24;      // 드론 날개
+        if (e.parts.crown) e.parts.crown.rotation.y += dt * 3;         // 화염 귀신 불꽃
+        if (e.type === 'ghost' || e.type === 'flameghost') {
+          // 유령은 스르르 오르내리며 몸이 늘었다 줄었다 한다
+          e.group.scale.set(
+            e.baseScale * (1 + Math.sin(e.phase * 2.2) * 0.06),
+            e.baseScale * (1 - Math.sin(e.phase * 2.2) * 0.08),
+            e.baseScale * (1 + Math.sin(e.phase * 2.2) * 0.06));
+        }
         if (t.boss && e.parts.maw) e.parts.maw.scale.setScalar(1 + Math.sin(e.phase * 9) * 0.12);
-      } else if (e.type === 'slime' || e.type === 'toxic') {
+      } else if (e.type === 'slime' || e.type === 'toxic' || e.type === 'radslime') {
         const hop = Math.abs(Math.sin(e.phase * 4.6));
         e.pos.y = ground + hop * 2.1;
         e.group.scale.set(
@@ -634,7 +756,9 @@
 
       e.group.position.copy(e.pos);
       e.group.rotation.y = Math.atan2(playerPos.x - e.pos.x, playerPos.z - e.pos.z);
-      if (e.type !== 'slime' && e.type !== 'toxic') {
+      const selfScaled = (e.type === 'slime' || e.type === 'toxic' || e.type === 'radslime'
+        || e.type === 'ghost' || e.type === 'flameghost');
+      if (!selfScaled) {
         const hurtScale = e.hurt > 0 ? 1 + e.hurt * 1.2 : 1;
         e.group.scale.setScalar(e.baseScale * hurtScale);
       }

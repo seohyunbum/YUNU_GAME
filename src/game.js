@@ -149,7 +149,8 @@
         self.hud.pauseStats({
           regionName: self.world.current ? self.world.current.name : '들판',
           score: self.player.score, kills: self.player.kills, best: self.best,
-          bosses: self.bossCount(),
+          bosses: self.bossCount(), bossTotal: self.bossTotal(),
+          visited: Object.keys(self.regionVisited).length, regionTotal: self.world.regions.length,
         });
         self.hud.screen('pause');
       }
@@ -268,8 +269,8 @@
       this.hud.toast((e.bossName || '보스') + ' 격파! 🎉', 2.4);
       if (e.region) this.bossesDown[e.region] = true;
       p.score += 800;
-      if (this.bossCount() >= 4) {
-        this.hud.toast('사냥터 네 곳의 보스를 모두 잡았다! 🏆\n레고 시티의 영웅!', 4.0);
+      if (this.bossCount() >= this.bossTotal()) {
+        this.hud.toast('세상의 모든 보스를 잡았다! 🏆\n레고 시티의 영웅!', 4.0);
       }
     }
   };
@@ -279,6 +280,17 @@
     let n = 0;
     for (const k in this.bossesDown) if (this.bossesDown[k]) n++;
     return n;
+  };
+
+  /** 세상에 있는 보스 총 수 */
+  Game.prototype.bossTotal = function () {
+    if (this._bossTotal === undefined) {
+      let n = 0;
+      const rs = this.world.regions;
+      for (let i = 0; i < rs.length; i++) if (rs[i].boss) n++;
+      this._bossTotal = n;
+    }
+    return this._bossTotal;
   };
 
   Game.prototype.hurtPlayer = function (dmg) {

@@ -48,6 +48,7 @@
       pauseScore: el('pause-score'),
       pauseKills: el('pause-kills'),
       pauseBosses: el('pause-bosses'),
+      pauseVisited: el('pause-visited'),
       pauseBest: el('pause-best'),
     };
     this.slots = { right: [], left: [] };
@@ -213,7 +214,10 @@
     this.dom.pauseRegion.textContent = s.regionName;
     this.dom.pauseScore.textContent = s.score;
     this.dom.pauseKills.textContent = s.kills;
-    this.dom.pauseBosses.textContent = (s.bosses || 0) + ' / 4';
+    this.dom.pauseBosses.textContent = (s.bosses || 0) + ' / ' + (s.bossTotal || 0);
+    if (this.dom.pauseVisited) {
+      this.dom.pauseVisited.textContent = (s.visited || 0) + ' / ' + (s.regionTotal || 0);
+    }
     this.dom.pauseBest.textContent = s.best;
   };
 
