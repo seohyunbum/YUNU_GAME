@@ -104,27 +104,29 @@
 
     // 집 8채를 광장 둘레에 둘러 세운다
     const houses = [
-      [-34, -26, 16, 14, 2, 0.5], [10, -40, 18, 15, 2, -0.3], [42, -18, 15, 13, 1, 1.2],
-      [40, 24, 17, 15, 2, 2.4], [8, 44, 16, 14, 1, 3.3], [-30, 38, 18, 16, 2, 3.9],
-      [-52, 8, 15, 13, 1, 1.6], [-8, -66, 20, 16, 2, 0.15],
+      [-62, -48, 18, 15, 2, 0.5], [18, -74, 20, 16, 2, -0.3], [78, -34, 16, 14, 1, 1.2],
+      [74, 44, 18, 16, 2, 2.4], [14, 82, 17, 15, 1, 3.3], [-56, 70, 19, 17, 2, 3.9],
+      [-96, 14, 16, 14, 1, 1.6], [-14, -122, 21, 17, 2, 0.15],
+      [-120, -76, 17, 15, 2, 0.9], [112, -96, 19, 16, 1, -0.8], [128, 30, 18, 15, 2, 2.0],
+      [-40, 132, 20, 17, 2, 3.5], [56, 128, 16, 14, 1, 2.9],
     ];
     for (let i = 0; i < houses.length; i++) {
       const [ox, oz, w, d, f, ry] = houses[i];
       const x = cx + ox, z = cz + oz;
       const house = abandonedHouse(w, d, f, { wall: i % 3 === 0 ? P.rottenWood : P.plank });
       place(group, house, x, h(x, z) - 0.4, z, ry, colliders, w / 2 + 1, d / 2 + 1);
-      spawns.push({ x: x + Math.cos(ry) * (w + 6), z: z + Math.sin(ry) * (d + 6) });
+      spawns.push({ x: x + Math.cos(ry) * (w + 10), z: z + Math.sin(ry) * (d + 10) });
     }
 
     // 큰 헛간 — 이 앞이 좀비 두목이 나오는 자리
     const barn = abandonedHouse(26, 20, 2, { wall: 0x7a3b2c });
-    place(group, barn, cx + 62, h(cx + 62, cz - 52) - 0.4, cz - 52, -0.6, colliders, 14, 11);
-    spawns.push({ x: cx + 62, z: cz - 34, boss: true });
+    place(group, barn, cx + 118, h(cx + 118, cz - 96) - 0.4, cz - 96, -0.6, colliders, 14, 11);
+    spawns.push({ x: cx + 118, z: cz - 74, boss: true });
 
     // 삐뚤어진 울타리로 마을 경계를 두른다
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      const r = 86 + rnd(i, 5) * 10;
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2;
+      const r = 176 + rnd(i, 5) * 22;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       // 길목은 비워둔다
       if (Math.abs(a - Math.PI * 0.5) < 0.45) continue;
@@ -132,39 +134,40 @@
     }
 
     // 죽은 나무 · 호박밭 · 건초 · 상자 · 등불
-    for (let i = 0; i < 14; i++) {
-      const a = rnd(i, 7) * Math.PI * 2, r = 24 + rnd(i, 8) * 68;
+    for (let i = 0; i < 30; i++) {
+      const a = rnd(i, 7) * Math.PI * 2, r = 40 + rnd(i, 8) * 210;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       place(group, T.deadTree(0.9 + rnd(i, 9) * 0.7, i + 1), x, h(x, z), z, rnd(i, 2) * 6, colliders, 1.6);
     }
-    for (let i = 0; i < 18; i++) {
-      const x = cx - 46 + (i % 6) * 5.5 + rnd(i, 11) * 2;
-      const z = cz + 62 + Math.floor(i / 6) * 6;
+    for (let i = 0; i < 36; i++) {
+      const x = cx - 86 + (i % 9) * 6.5 + rnd(i, 11) * 2;
+      const z = cz + 116 + Math.floor(i / 9) * 7;
       place(group, T.pumpkin(0.8 + rnd(i, 12) * 0.5), x, h(x, z), z, rnd(i, 13) * 6);
     }
-    for (let i = 0; i < 5; i++) {
-      const x = cx + 30 + rnd(i, 14) * 26, z = cz - 12 + rnd(i, 15) * 30;
+    for (let i = 0; i < 9; i++) {
+      const x = cx + 56 + rnd(i, 14) * 60, z = cz - 24 + rnd(i, 15) * 70;
       place(group, T.hayBale(), x, h(x, z), z, rnd(i, 16) * 3, colliders, 2);
     }
-    for (let i = 0; i < 8; i++) {
-      const x = cx - 12 + rnd(i, 17) * 40, z = cz - 8 + rnd(i, 18) * 34;
+    for (let i = 0; i < 16; i++) {
+      const x = cx - 30 + rnd(i, 17) * 90, z = cz - 20 + rnd(i, 18) * 80;
       place(group, i % 2 ? T.crate(1) : T.barrel(1), x, h(x, z), z, rnd(i, 19) * 3, colliders, 1.2);
     }
     place(group, T.brokenCart(), cx + 18, h(cx + 18, cz + 14), cz + 14, 0.7, colliders, 3.5, 2);
 
     // 마을 광장 모닥불 (아직 누군가 불을 지피고 있다…)
     const fire = T.campfire();
-    place(group, fire, cx - 14, h(cx - 14, cz + 16), cz + 16, 0, colliders, 2.4);
-    // 호박밭을 지키는 허수아비 둘
-    place(group, T.scarecrow(), cx - 40, h(cx - 40, cz + 74), cz + 74, 0.4, colliders, 1);
-    place(group, T.scarecrow(), cx - 20, h(cx - 20, cz + 78), cz + 78, -0.8, colliders, 1);
+    place(group, fire, cx - 26, h(cx - 26, cz + 30), cz + 30, 0, colliders, 2.4);
+    // 호박밭을 지키는 허수아비 셋
+    place(group, T.scarecrow(), cx - 76, h(cx - 76, cz + 138), cz + 138, 0.4, colliders, 1);
+    place(group, T.scarecrow(), cx - 38, h(cx - 38, cz + 146), cz + 146, -0.8, colliders, 1);
+    place(group, T.scarecrow(), cx + 12, h(cx + 12, cz + 140), cz + 140, 1.2, colliders, 1);
     // 헛간 옆 종탑 — 종을 울려 좀비를 불러 모으던 자리
-    place(group, T.bell(), cx + 48, h(cx + 48, cz - 36), cz - 36, 0.6, colliders, 2);
+    place(group, T.bell(), cx + 96, h(cx + 96, cz - 70), cz - 70, 0.6, colliders, 2);
 
     // 초록 등불 — 으스스한 분위기
     const lanterns = [];
-    for (let i = 0; i < 9; i++) {
-      const a = (i / 9) * Math.PI * 2, r = 30 + (i % 3) * 16;
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2, r = 58 + (i % 3) * 34;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       const lt = T.lantern(0x9bd44b);
       place(group, lt, x, h(x, z), z, 0, colliders, 0.6);
@@ -172,7 +175,7 @@
     }
 
     // 마을 입구 표지판
-    const sx = cx, sz = cz + 96;
+    const sx = cx, sz = cz + 218;
     place(group, T.signPost('ZOMBIE VILLAGE', 16), sx, h(sx, sz), sz, Math.PI, colliders, 1);
 
     return {
@@ -258,7 +261,7 @@
     place(group, house, cx, h(cx, cz) - 0.5, cz, 0.35, colliders, 14, 12);
 
     // 널다리: 입구 쪽에서 폐가까지 물 위로
-    const bx = cx, bz0 = cz + 96, bz1 = cz + 22;
+    const bx = cx, bz0 = cz + 240, bz1 = cz + 40;
     const planks = Math.round((bz0 - bz1) / 3);
     for (let i = 0; i < planks; i++) {
       const z = bz1 + i * 3;
@@ -274,8 +277,8 @@
     }
 
     // 죽은 나무 숲 + 늘어진 이끼
-    for (let i = 0; i < 22; i++) {
-      const a = rnd(i, 31) * Math.PI * 2, r = 26 + rnd(i, 32) * 92;
+    for (let i = 0; i < 44; i++) {
+      const a = rnd(i, 31) * Math.PI * 2, r = 50 + rnd(i, 32) * 240;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       const tree = T.deadTree(1.0 + rnd(i, 33) * 0.8, i + 20);
       place(group, tree, x, h(x, z) - 0.3, z, rnd(i, 34) * 6, colliders, 1.6);
@@ -286,19 +289,19 @@
     }
 
     // 거대 버섯 무리
-    for (let i = 0; i < 16; i++) {
-      const a = rnd(i, 41) * Math.PI * 2, r = 18 + rnd(i, 42) * 86;
+    for (let i = 0; i < 30; i++) {
+      const a = rnd(i, 41) * Math.PI * 2, r = 40 + rnd(i, 42) * 230;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       place(group, T.mushroom(0.9 + rnd(i, 43) * 1.4, i % 3 ? C.red : C.purple), x, h(x, z) - 0.2, z, rnd(i, 44) * 6);
     }
 
     // 갈대 — InstancedMesh 한 개로 촘촘하게
-    const reedCount = 420;
+    const reedCount = 800;
     const reeds = new THREE.InstancedMesh(L.box(0.28, 4.5, 0.28), L.mat(P.mossGreen, 'matte'), reedCount);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
     const pv = new THREE.Vector3(), sv = new THREE.Vector3();
     for (let i = 0; i < reedCount; i++) {
-      const a = rnd(i, 51) * Math.PI * 2, r = 12 + rnd(i, 52) * 116;
+      const a = rnd(i, 51) * Math.PI * 2, r = 24 + rnd(i, 52) * 280;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       const y = Math.max(h(x, z), waterY - 0.5);
       e.set(rnd(i, 53) * 0.3 - 0.15, rnd(i, 54) * 6, rnd(i, 55) * 0.3 - 0.15);
@@ -315,10 +318,10 @@
     group.add(reeds);
 
     // 수련잎 — 물 위에 뜬 초록 원판
-    const padCount = 90;
+    const padCount = 170;
     const pads = new THREE.InstancedMesh(L.cyl(1.6, 1.6, 0.22, 10), L.mat(0x3f8f43, 'matte'), padCount);
     for (let i = 0; i < padCount; i++) {
-      const a = rnd(i, 61) * Math.PI * 2, r = 14 + rnd(i, 62) * 110;
+      const a = rnd(i, 61) * Math.PI * 2, r = 30 + rnd(i, 62) * 270;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       if (h(x, z) > waterY) continue;
       e.set(0, rnd(i, 63) * 6, 0);
@@ -346,19 +349,19 @@
     group.add(water);
 
     // 표지판 + 등불
-    place(group, T.signPost('SWAMP RUIN', 15), cx + 4, h(cx + 4, cz + 104), cz + 104, Math.PI, colliders, 1);
-    for (let i = 0; i < 6; i++) {
-      const z = cz + 30 + i * 12;
-      const x = cx + Math.sin(i * 0.9) * 6;
+    place(group, T.signPost('SWAMP RUIN', 15), cx + 4, h(cx + 4, cz + 252), cz + 252, Math.PI, colliders, 1);
+    for (let i = 0; i < 12; i++) {
+      const z = cz + 50 + i * 16;
+      const x = cx + Math.sin(i * 0.9) * 8;
       place(group, T.lantern(0x63d7e6), x, Math.max(h(x, z), waterY + 0.4), z, 0, colliders, 0.6);
     }
 
-    for (let i = 0; i < 10; i++) {
-      const a = rnd(i, 71) * Math.PI * 2, r = 30 + rnd(i, 72) * 80;
+    for (let i = 0; i < 18; i++) {
+      const a = rnd(i, 71) * Math.PI * 2, r = 60 + rnd(i, 72) * 200;
       spawns.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r });
     }
     // 폐가 뒤편이 늪의 왕 자리
-    spawns.push({ x: cx - 6, z: cz - 34, boss: true });
+    spawns.push({ x: cx - 12, z: cz - 60, boss: true });
 
     return {
       colliders, spawns, water,
@@ -374,7 +377,7 @@
     const floorY = ctx.region.floorY;
 
     // ---- 갱도 입구: 돌 아치 + 목재 지지대
-    const mouthZ = cz + 58;
+    const mouthZ = cz + 150;
     const mouth = new THREE.Group();
     for (let i = 0; i < 3; i++) {
       const sup = T.mineSupport(16, 13);
@@ -385,7 +388,7 @@
     // ---- 지붕 덮인 갱도: 천장 슬래브 + 기둥 + 종유석
     //     (지형은 위로만 쌓이니, 동굴은 이렇게 "덮어서" 만든다)
     const tunnel = new THREE.Group();
-    const segs = 12, segLen = 9, halfW = 13;
+    const segs = 22, segLen = 9, halfW = 13;
     const ceilY = floorY + 17;
     for (let i = 0; i < segs; i++) {
       const z = mouthZ - 14 - i * segLen;
@@ -487,8 +490,8 @@
     }
 
     // ---- 협곡 바닥의 바위들
-    for (let i = 0; i < 18; i++) {
-      const a = rnd(i, 111) * Math.PI * 2, r = 20 + rnd(i, 112) * 90;
+    for (let i = 0; i < 34; i++) {
+      const a = rnd(i, 111) * Math.PI * 2, r = 30 + rnd(i, 112) * 260;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       place(group, T.rock(0.8 + rnd(i, 113) * 1.4, P.caveStone), x, h(x, z), z, rnd(i, 114) * 6, colliders, 2);
       if (i % 3 === 0) {
@@ -498,7 +501,7 @@
       spawns.push({ x, z });
     }
 
-    place(group, T.signPost('CRYSTAL CAVE', 15), cx, h(cx, cz + 104), cz + 104, Math.PI, colliders, 1);
+    place(group, T.signPost('CRYSTAL CAVE', 15), cx, h(cx, cz + 262), cz + 262, Math.PI, colliders, 1);
 
     return {
       colliders, spawns,
@@ -515,35 +518,35 @@
     const cx = ctx.region.cx, cz = ctx.region.cz;
 
     // 아래쪽 침엽수림 → 위로 갈수록 눈 덮인 나무
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 130; i++) {
       const a = rnd(i, 121) * Math.PI * 2;
-      const r = 60 + rnd(i, 122) * 110;
+      const r = 110 + rnd(i, 122) * 250;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       const y = h(x, z);
-      if (y > 52) continue;
-      const tree = T.pineTree(0.9 + rnd(i, 123) * 0.8, y > 30);
+      if (y > 78) continue;
+      const tree = T.pineTree(0.9 + rnd(i, 123) * 0.9, y > 46);
       place(group, tree, x, y, z, rnd(i, 124) * 6, colliders, 1.8);
     }
     // 바위 · 눈바위
-    for (let i = 0; i < 26; i++) {
-      const a = rnd(i, 131) * Math.PI * 2, r = 24 + rnd(i, 132) * 130;
+    for (let i = 0; i < 48; i++) {
+      const a = rnd(i, 131) * Math.PI * 2, r = 40 + rnd(i, 132) * 300;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       const y = h(x, z);
-      place(group, y > 40 ? T.snowRock(1 + rnd(i, 133)) : T.rock(1 + rnd(i, 134), 0x77797a),
+      place(group, y > 62 ? T.snowRock(1 + rnd(i, 133)) : T.rock(1 + rnd(i, 134), 0x77797a),
         x, y, z, rnd(i, 135) * 6, colliders, 2.2);
       spawns.push({ x, z });
     }
     // 얼음 크리스탈
-    for (let i = 0; i < 14; i++) {
-      const a = rnd(i, 141) * Math.PI * 2, r = 20 + rnd(i, 142) * 90;
+    for (let i = 0; i < 24; i++) {
+      const a = rnd(i, 141) * Math.PI * 2, r = 30 + rnd(i, 142) * 210;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       place(group, T.crystal(1.1 + rnd(i, 143), P.ice), x, h(x, z), z, rnd(i, 144) * 6);
     }
     // 등산로 깃발 (길을 따라 꽂아둔다 — 길 잃지 않게)
-    for (let i = 0; i < 14; i++) {
-      const t = i / 13;
+    for (let i = 0; i < 22; i++) {
+      const t = i / 21;
       const a = -1.9 + t * 4.6;
-      const r = 120 - t * 96;
+      const r = 300 - t * 250;
       const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
       const pole = new THREE.Group();
       const stick = T.mesh(L.box(0.4, 7, 0.4), P.darkWood, 'matte');
@@ -566,15 +569,15 @@
         T.put(bridge, post, sx * 3.8, 1.3, (i - 2.5) * 7);
       }
     }
-    const bx = cx + 40, bz = cz + 46;
+    const bx = cx + 92, bz = cz + 108;
     place(group, bridge, bx, h(bx, bz) + 1.2, bz, 0.7);
 
     // 산길 중턱 망루 — 멀리서도 보이는 이정표
-    const twX = cx + 78, twZ = cz + 34;
+    const twX = cx + 168, twZ = cz + 92;
     place(group, T.watchtower(), twX, h(twX, twZ), twZ, 0.5, colliders, 5);
 
     // 야영지: 텐트 두 동 + 모닥불 + 짐
-    const campX = cx + 30, campZ = cz + 92;
+    const campX = cx + 60, campZ = cz + 232;
     place(group, T.tent(C.red), campX, h(campX, campZ), campZ, 0.3, colliders, 4, 5);
     place(group, T.tent(C.blue), campX + 12, h(campX + 12, campZ + 6), campZ + 6, -0.6, colliders, 4, 5);
     const camp = T.campfire();
@@ -587,9 +590,9 @@
     // 정상 얼음 사당
     const shrine = T.iceShrine();
     place(group, shrine, cx, h(cx, cz), cz, 0.4, colliders, 12);
-    spawns.push({ x: cx + 18, z: cz + 4, boss: true });
+    spawns.push({ x: cx + 26, z: cz + 8, boss: true });
 
-    place(group, T.signPost('FROST PEAK', 14), cx - 6, h(cx - 6, cz + 128), cz + 128, Math.PI, colliders, 1);
+    place(group, T.signPost('FROST PEAK', 14), cx - 10, h(cx - 10, cz + 320), cz + 320, Math.PI, colliders, 1);
 
     return {
       colliders, spawns, shrine, camp,

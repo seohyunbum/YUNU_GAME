@@ -34,7 +34,7 @@
 
     // ---------------- 씬 · 카메라 · 빛
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(70, 1, 0.4, 900);
+    this.camera = new THREE.PerspectiveCamera(70, 1, 0.4, 2600);
     this.camera.rotation.order = 'YXZ';
 
     this.hemi = new THREE.HemisphereLight(0xcfe8ff, 0x54703f, 0.70);
@@ -64,6 +64,8 @@
     this.post = new L.PostFX(this.renderer, this.camera);
     this.city = L.buildCity(this.scene);
     this.world = new L.World(this.scene, this.city);
+    // 사냥터 사이 들판을 채우는 나무·바위(플레이어 주변만 배치)
+    this.wilds = new L.Wilds(this.world, this.scene);
 
     // ---------------- 이펙트 · 몬스터 · 손 · HUD · 입력 · 소리
     this.fx = new L.FX(this.scene);
@@ -109,6 +111,7 @@
 
     // 시작 전에 도시 주변 지형을 미리 깔아둔다(첫 프레임 끊김 방지)
     this.world.update(this.player.pos.x, this.player.pos.z, 0, 200);
+    this.wilds.rebuild(this.player.pos.x, this.player.pos.z);
 
     this._wire();
     this.resize();
@@ -139,6 +142,7 @@
     h.swapWeapon = (d) => { if (self.state === 'playing') { self.hands.nextWeapon(d); self.sfx.pop(); } };
     h.swapSkill = (d) => { if (self.state === 'playing') { self.hands.nextSkill(d); self.sfx.pop(); } };
     h.jump = () => self.jump();
+    h.travel = () => self.fastTravel();
     h.pause = () => {
       if (self.state === 'playing') {
         self.state = 'pause';
@@ -220,6 +224,31 @@
     if (this.state !== 'playing' || !p.onGround) return;
     p.velY = JUMP_SPEED;
     p.onGround = false;
+  };
+
+  /**
+   * 표지판 앞에서 T — 이미 가 본 곳으로 빠르게 이동한다.
+   * (한 번은 반드시 걸어서 가 봐야 열린다)
+   */
+  Game.prototype.fastTravel = function () {
+    if (this.state !== 'playing') return;
+    const p = this.player.pos;
+    const t = this.world.travelNear(p.x, p.z, 16);
+    if (!t) return;
+    if (t.to !== 'city' && !this.regionVisited[t.to]) {
+      this.hud.toast('아직 가 본 적 없는 곳이다.\n한 번은 걸어서 가 보자', 1.8);
+      return;
+    }
+    const dest = this.world.entryOf(t.to);
+    if (!dest) return;
+    this.world.update(dest.x, dest.z, 0.016, 60);   // 도착지 지형을 미리 깐다
+    p.set(dest.x, this.world.heightAt(dest.x, dest.z), dest.z);
+    this.player.velY = 0;
+    this.player.eyeY = p.y + P.eyeHeight;
+    this.wilds.rebuild(p.x, p.z);
+    this.enemies.clear();
+    this.hud.toast(t.label + ' 도착!', 1.6);
+    this.sfx.wave();
   };
 
   Game.prototype.onKill = function (e) {
@@ -538,6 +567,8 @@
     this.hemi.color.lerp(this._hemiSky, k);
     this.hemi.groundColor.lerp(this._hemiGround, k);
 
+    // 하늘 돔은 카메라를 따라다닌다
+    if (this.city.anim.sky) this.city.anim.sky.position.copy(this.camera.position);
     // 하늘 색조(동굴은 어둡게, 설산은 하얗게)
     if (this.city.anim.sky) {
       this._skyTarget.setHex(amb.sky === undefined ? 0xffffff : amb.sky);
@@ -655,6 +686,7 @@
 
       // 오픈월드: 지형 청크 · 지역 소품 · 지역 전환
       const changed = this.world.update(p.pos.x, p.pos.z, dt, 2);
+      this.wilds.update(p.pos.x, p.pos.z);
       if (changed) {
         this.hud.regionBanner(changed);
         this.sfx.wave();
@@ -686,6 +718,15 @@
         collectStud: (kind) => this.collectStud(kind),
       });
       this.hands.update(dt, speed01, false);
+
+      // 표지판 앞이면 빠른 이동 안내를 띄운다
+      const near = this.world.travelNear(p.pos.x, p.pos.z, 16);
+      if (near) {
+        const known = near.to === 'city' || this.regionVisited[near.to];
+        this.hud.travelHint(known ? (near.label + ' 로 이동') : (near.label + ' — 먼저 걸어가 봐야 한다'));
+      } else {
+        this.hud.travelHint(null);
+      }
 
       // HUD
       const region = this.world.current;
@@ -767,10 +808,13 @@
     this._qualityStep++;
     if (this._qualityStep === 1) {
       this.post.setScale(0.7);
-      this.world.terrain.viewRadius = 250;
+      this.world.terrain.viewRadius = 300;
+      this.world.farTerrain.viewRadius = 1000;
     } else {
       this.post.enabled = false;
       this.renderer.shadowMap.enabled = false;
+      this.world.terrain.viewRadius = 240;
+      this.world.farTerrain.viewRadius = 800;
     }
   };
 

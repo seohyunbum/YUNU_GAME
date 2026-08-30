@@ -71,10 +71,10 @@ console.log('점프 확인:', JSON.stringify(jump));
 
 // ---------------------------------------------------------------- 지역 순회
 const spots = [
-  ['03-zombie', 'zombie', 0, -420, 0.4],
-  ['04-cave', 'cave', -380, -110, Math.PI],
-  ['05-mount', 'mount', 360, -240, 1.4],
-  ['06-swamp', 'swamp', 300, 300, 0],
+  ['03-zombie', 'zombie', 0, -1080, 0.4],
+  ['04-cave', 'cave', -1000, -240, Math.PI],
+  ['05-mount', 'mount', 990, -620, 1.4],
+  ['06-swamp', 'swamp', 800, 700, 0],
 ];
 for (const [file, id, x, z, yaw] of spots) {
   const info = await page.evaluate(([x, z, yaw]) => {
@@ -101,7 +101,7 @@ for (const [file, id, x, z, yaw] of spots) {
 // ---------------------------------------------------------------- 전투
 const combat = await page.evaluate(async () => {
   const g = window.LEGO_GAME;
-  const x = 0, z = -430;
+  const x = 0, z = -1100;
   g.player.pos.set(x, g.world.heightAt(x, z), z);
   g.player.yaw = 0;
   g.player.pitch = 0;
@@ -109,7 +109,7 @@ const combat = await page.evaluate(async () => {
   await new Promise((r) => setTimeout(r, 700));   // 카메라가 따라올 시간
   const tz = g.player.pos.z - 16;
   const target = g.enemies.spawnAt('zombie',
-    new THREE.Vector3(0, g.world.heightAt(0, tz), tz), { region: 'zombie' });
+    new THREE.Vector3(g.player.pos.x, g.world.heightAt(g.player.pos.x, tz), tz), { region: 'zombie' });
   await new Promise((r) => setTimeout(r, 500));
   const hp0 = target.hp;
   g.hands.setWeapon(1);                            // 총
@@ -127,7 +127,7 @@ await page.screenshot({ path: resolve(outDir, '07-combat.png') });
 // ---------------------------------------------------------------- 보스
 const boss = await page.evaluate(async () => {
   const g = window.LEGO_GAME;
-  const x = 410, z = -250;
+  const x = 1060, z = -690;
   g.player.pos.set(x, g.world.heightAt(x, z), z);
   g.player.yaw = -1.2;
   g.world.update(x, z, 0.016, 200);
@@ -159,6 +159,39 @@ if (revive.downState !== 'down' || revive.state !== 'playing' || !revive.atCity)
   throw new Error('쓰러짐/부활 흐름이 깨졌다: ' + JSON.stringify(revive));
 }
 console.log('부활 확인:', JSON.stringify(revive));
+
+// ---------------------------------------------------------------- 세상 크기 · 빠른 이동
+const size = await page.evaluate(() => {
+  const g = window.LEGO_GAME;
+  const d = (a, b) => Math.round(Math.hypot(a.cx - b.cx, a.cz - b.cz));
+  const R = g.world.byId;
+  return {
+    도시_좀비: d(R.city, R.zombie), 도시_동굴: d(R.city, R.cave),
+    도시_산: d(R.city, R.mount), 도시_늪: d(R.city, R.swamp),
+    가로: Math.round(Math.max(R.mount.cx + R.mount.r, R.swamp.cx + R.swamp.r) - (R.cave.cx - R.cave.r)),
+    세로: Math.round(Math.max(R.swamp.cz + R.swamp.r) - (R.zombie.cz - R.zombie.r)),
+  };
+});
+if (size.도시_좀비 < 900 || size.가로 < 2000) {
+  throw new Error('세상이 예상보다 좁다: ' + JSON.stringify(size));
+}
+console.log('세상 크기:', JSON.stringify(size));
+
+const travel = await page.evaluate(async () => {
+  const g = window.LEGO_GAME;
+  g.regionVisited.zombie = true;
+  // 북문 표지판 앞으로 가서 T
+  g.player.pos.set(0, g.world.heightAt(0, -244), -244);
+  await new Promise((r) => setTimeout(r, 300));
+  const hint = !!g.world.travelNear(g.player.pos.x, g.player.pos.z, 16);
+  g.fastTravel();
+  const p = g.player.pos;
+  return { hint, x: Math.round(p.x), z: Math.round(p.z), region: g.world.regionAt(p.x, p.z).id };
+});
+if (!travel.hint || travel.region !== 'zombie') {
+  throw new Error('표지판 빠른 이동이 동작하지 않는다: ' + JSON.stringify(travel));
+}
+console.log('빠른 이동 확인:', JSON.stringify(travel));
 
 // ---------------------------------------------------------------- 성능
 const fps = await page.evaluate(async () => {

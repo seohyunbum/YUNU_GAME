@@ -21,21 +21,22 @@
   /** 지역 정본 */
   const REGIONS = [
     {
-      id: 'city', name: '레고 시티', label: '안전지대', cx: 0, cz: -90, r: 190,
+      id: 'city', name: '레고 시티', label: '안전지대', cx: 0, cz: -90, r: 230,
       safe: true, icon: '🏙️',
-      ambience: { fog: 0xb6d8ef, fogNear: 120, fogFar: 420, sun: 1.0, hemi: 1.0 },
+      ambience: { fog: 0xb6d8ef, fogNear: 180, fogFar: 900, sun: 1.0, hemi: 1.0 },
     },
     {
-      id: 'zombie', name: '좀비 마을', label: '사냥터 · 쉬움', cx: 0, cz: -430, r: 155,
-      edge: 60, icon: '🧟', level: 1,
+      id: 'zombie', name: '좀비 마을', label: '사냥터 · 쉬움', cx: 0, cz: -1100, r: 300,
+      edge: 110, icon: '🧟', level: 1,
+      entry: { x: 0, z: -882 },
       boss: { type: 'zombie', name: '좀비 두목', scale: 2.4, hpMul: 6, speedMul: 0.8 },
       particles: 'none',
       spawn: { types: ['zombie', 'zombie', 'zombie', 'slime'], max: 11, near: 46, far: 96 },
       height: function (x, z, api, d) {
         const n = api.fbm(x, z, 3, 70) - 0.5;
-        let h = 3 + n * 9;
-        // 마을 안쪽은 평평한 흙바닥
-        const t = api.clamp(1 - d / 95, 0, 1);
+        let h = 3 + n * 11;
+        // 마을 안쪽(반경 190)은 평평한 흙바닥
+        const t = api.clamp(1 - d / 190, 0, 1);
         h = api.lerp(h, 1.2 + n * 2.4, api.smooth(t));
         return h;
       },
@@ -47,21 +48,22 @@
         return 0x6b5f42;                        // 흙
       },
       ambience: {
-        fog: 0x7c8767, fogNear: 44, fogFar: 210, sun: 0.66, hemi: 0.6, sky: 0x8a9376,
+        fog: 0x7c8767, fogNear: 60, fogFar: 420, sun: 0.66, hemi: 0.6, sky: 0x8a9376,
         hemiSky: 0xa8b28c, hemiGround: 0x4a4a33,
       },
     },
     {
-      id: 'cave', name: '깊은 동굴 협곡', label: '사냥터 · 보통', cx: -380, cz: -60, r: 175,
-      edge: 65, icon: '💎', level: 2, floorY: -24,
+      id: 'cave', name: '깊은 동굴 협곡', label: '사냥터 · 보통', cx: -1000, cz: -160, r: 330,
+      edge: 110, icon: '💎', level: 2, floorY: -24,
+      entry: { x: -1000, z: 102 },
       boss: { type: 'crystal', name: '크리스탈 골렘 왕', scale: 2.2, hpMul: 5, speedMul: 0.8 },
       particles: 'dust',
       spawn: { types: ['crystal', 'bat', 'bat', 'golem'], max: 10, near: 44, far: 92 },
       height: function (x, z, api, d) {
-        const rim = 20 + (api.fbm(x, z, 3, 55) - 0.5) * 16;
+        const rim = 24 + (api.fbm(x, z, 3, 62) - 0.5) * 20;
         // 협곡 폭이 들쭉날쭉해야 자연스럽다(좁아졌다 넓어졌다)
-        const gorgeHalf = 30 + (api.fbm(z * 0.6, 120, 2, 46) - 0.5) * 26;
-        const dx = Math.abs(x + 380);
+        const gorgeHalf = 36 + (api.fbm(z * 0.6, 120, 2, 60) - 0.5) * 34;
+        const dx = Math.abs(x + 1000);
         // 갱도가 놓이는 한가운데(±20)는 평평하게 유지한다
         const floor = -24 + (dx < 20 ? 0 : (api.fbm(x, z, 2, 22) - 0.5) * 4);
         if (dx < gorgeHalf) {
@@ -83,31 +85,33 @@
       },
     },
     {
-      id: 'mount', name: '높은 산', label: '사냥터 · 어려움', cx: 400, cz: -260, r: 200,
-      edge: 80, icon: '🏔️', level: 3,
+      id: 'mount', name: '높은 산', label: '사냥터 · 어려움', cx: 1050, cz: -700, r: 390,
+      edge: 150, icon: '🏔️', level: 3,
+      entry: { x: 1040, z: -380 },
       boss: { type: 'dragon', name: '브릭 드래곤', scale: 1, hpMul: 1, speedMul: 1 },
       particles: 'snow',
       spawn: { types: ['ice', 'ice', 'bat', 'golem'], max: 9, near: 48, far: 100 },
       height: function (x, z, api, d) {
-        const t = api.clamp(1 - d / 200, 0, 1);
-        let h = Math.pow(t, 1.8) * 76;
-        h += (api.fbm(x, z, 4, 42) - 0.5) * 15 * (0.35 + t);
+        const t = api.clamp(1 - d / 390, 0, 1);
+        let h = Math.pow(t, 1.9) * 118;      // 훨씬 높고 넓은 산
+        h += (api.fbm(x, z, 4, 52) - 0.5) * 20 * (0.35 + t);
         return h;
       },
       color: function (x, z, h, slope, api) {
-        if (h > 46) return api.valueNoise(x * 0.09, z * 0.09) > 0.35 ? 0xf2f6f8 : 0xdfe9ee;
-        if (h > 34) return api.valueNoise(x * 0.09, z * 0.09) > 0.6 ? 0xe6eef2 : 0x8f9296;
+        if (h > 70) return api.valueNoise(x * 0.09, z * 0.09) > 0.35 ? 0xf2f6f8 : 0xdfe9ee;
+        if (h > 52) return api.valueNoise(x * 0.09, z * 0.09) > 0.6 ? 0xe6eef2 : 0x8f9296;
         if (h > 16 || slope > 4) return api.valueNoise(x * 0.07, z * 0.07) > 0.5 ? 0x77797a : 0x6c6e68;
         return api.valueNoise(x * 0.07, z * 0.07) > 0.5 ? 0x3f8f43 : 0x2c6e3a;
       },
       ambience: {
-        fog: 0xd2e6f2, fogNear: 70, fogFar: 320, sun: 1.3, hemi: 0.9, sky: 0xbcd8ea, snow: true,
+        fog: 0xd2e6f2, fogNear: 120, fogFar: 900, sun: 1.3, hemi: 0.9, sky: 0xbcd8ea, snow: true,
         hemiSky: 0xdfeef7, hemiGround: 0x9fb0bc,
       },
     },
     {
-      id: 'swamp', name: '늪지대 폐가', label: '사냥터 · 보통', cx: 300, cz: 230, r: 165,
-      edge: 65, icon: '🪵', level: 2, waterY: -3.2,
+      id: 'swamp', name: '늪지대 폐가', label: '사냥터 · 보통', cx: 800, cz: 620, r: 320,
+      edge: 110, icon: '🪵', level: 2, waterY: -3.2,
+      entry: { x: 804, z: 872 },
       boss: { type: 'toxic', name: '늪의 왕', scale: 3.0, hpMul: 6, speedMul: 0.9 },
       particles: 'firefly',
       spawn: { types: ['toxic', 'toxic', 'wisp', 'zombie'], max: 11, near: 42, far: 92 },
@@ -118,7 +122,7 @@
         const hump = api.fbm(x + 700, z - 200, 2, 28);
         if (hump > 0.62) h += (hump - 0.62) * 22;    // 발 디딜 둔덕
         // 폐가가 선 가운데 언덕
-        const t = api.clamp(1 - d / 48, 0, 1);
+        const t = api.clamp(1 - d / 90, 0, 1);
         h = api.lerp(h, 2.4 + n * 2, api.smooth(t));
         return h;
       },
@@ -129,7 +133,7 @@
         return api.valueNoise(x * 0.08, z * 0.08) > 0.5 ? 0x44603a : 0x38512f;
       },
       ambience: {
-        fog: 0x60806a, fogNear: 30, fogFar: 165, sun: 0.55, hemi: 0.62, sky: 0x6d8a72,
+        fog: 0x60806a, fogNear: 40, fogFar: 300, sun: 0.55, hemi: 0.62, sky: 0x6d8a72,
         hemiSky: 0x9ec0a2, hemiGround: 0x2f3f2c,
       },
     },
@@ -137,22 +141,31 @@
 
   /** 도시 성문에서 각 사냥터로 이어지는 흙길 */
   const PATHS = [
-    // 북문 → 좀비 마을
-    { ax: 0, az: -248, ay: 0.55, bx: 0, bz: -340, by: 4, width: 9 },
-    { ax: 0, az: -340, ay: 4, bx: 0, bz: -430, by: 1.2, width: 9 },
-    // 서문 → 동굴 협곡 (협곡 바닥까지 내려가는 비탈)
-    { ax: -108, az: -50, ay: 0.55, bx: -250, bz: -58, by: 8, width: 9 },
-    { ax: -250, az: -58, ay: 8, bx: -330, bz: -60, by: -6, width: 10 },
-    { ax: -330, az: -60, ay: -6, bx: -380, bz: -62, by: -24, width: 11 },
-    // 동문 → 높은 산 (지그재그 등산로)
-    { ax: 108, az: -150, ay: 0.55, bx: 250, bz: -200, by: 10, width: 9 },
-    { ax: 250, az: -200, ay: 10, bx: 330, bz: -160, by: 26, width: 8 },
-    { ax: 330, az: -160, ay: 26, bx: 340, bz: -300, by: 46, width: 8 },
-    { ax: 340, az: -300, ay: 46, bx: 420, bz: -300, by: 62, width: 7 },
-    { ax: 420, az: -300, ay: 62, bx: 400, bz: -258, by: 76, width: 7 },
-    // 남문 → 늪지대
-    { ax: 20, az: 68, ay: 0.55, bx: 170, bz: 150, by: 2, width: 9 },
-    { ax: 170, az: 150, ay: 2, bx: 290, bz: 200, by: -1.5, width: 9 },
+    // 북문 → 좀비 마을 (긴 들판을 가로지른다)
+    { ax: 0, az: -248, ay: 0.55, bx: -40, bz: -430, by: 6, width: 9 },
+    { ax: -40, az: -430, ay: 6, bx: 30, bz: -640, by: 10, width: 9 },
+    { ax: 30, az: -640, ay: 10, bx: -20, bz: -860, by: 7, width: 9 },
+    { ax: -20, az: -860, ay: 7, bx: 0, bz: -1010, by: 3, width: 10 },
+    { ax: 0, az: -1010, ay: 3, bx: 0, bz: -1100, by: 1.2, width: 10 },
+    // 서문 → 동굴 협곡 (마지막에 협곡 바닥까지 내려가는 비탈)
+    { ax: -108, az: -50, ay: 0.55, bx: -320, bz: -80, by: 8, width: 9 },
+    { ax: -320, az: -80, ay: 8, bx: -560, bz: -120, by: 12, width: 9 },
+    { ax: -560, az: -120, ay: 12, bx: -790, bz: -150, by: 14, width: 9 },
+    { ax: -790, az: -150, ay: 14, bx: -910, bz: -158, by: -4, width: 11 },
+    { ax: -910, az: -158, ay: -4, bx: -1000, bz: -162, by: -24, width: 12 },
+    // 동문 → 높은 산 (들판 → 산기슭 → 지그재그 등산로 → 정상)
+    { ax: 108, az: -150, ay: 0.55, bx: 350, bz: -300, by: 10, width: 9 },
+    { ax: 350, az: -300, ay: 10, bx: 600, bz: -430, by: 18, width: 9 },
+    { ax: 600, az: -430, ay: 18, bx: 800, bz: -520, by: 32, width: 9 },
+    { ax: 800, az: -520, ay: 32, bx: 940, bz: -430, by: 54, width: 8 },
+    { ax: 940, az: -430, ay: 54, bx: 990, bz: -640, by: 78, width: 8 },
+    { ax: 990, az: -640, ay: 78, bx: 1140, bz: -700, by: 98, width: 7 },
+    { ax: 1140, az: -700, ay: 98, bx: 1050, bz: -700, by: 118, width: 7 },
+    // 남문 → 늪지대 (호숫가를 따라 돌아 들어간다)
+    { ax: 20, az: 68, ay: 0.55, bx: 260, bz: 240, by: 6, width: 9 },
+    { ax: 260, az: 240, ay: 6, bx: 520, bz: 400, by: 4, width: 9 },
+    { ax: 520, az: 400, ay: 4, bx: 720, bz: 540, by: 1, width: 9 },
+    { ax: 720, az: 540, ay: 1, bx: 800, bz: 620, by: -1.5, width: 10 },
   ];
 
   function World(scene, city) {
@@ -162,12 +175,28 @@
     this.byId = {};
     for (let i = 0; i < REGIONS.length; i++) this.byId[REGIONS[i].id] = REGIONS[i];
 
+    const heightRegions = REGIONS.filter((r) => !!r.height);
+    // 가까운 지형: 4x4 스터드 브릭, 걸어 다니는 바닥
     this.terrain = new L.Terrain({
       scene,
-      regions: REGIONS.filter((r) => !!r.height),
+      regions: heightRegions,
       flatZones: [CITY_ZONE],
       paths: PATHS,
-      viewRadius: 330,
+      viewRadius: 420,
+    });
+    // 먼 지형: 24x24 스터드 큰 판으로 지평선까지. 산이 멀리서도 보이게 하는 층.
+    // (살짝 낮게 깔아서 가까운 지형이 항상 이긴다)
+    this.farTerrain = new L.Terrain({
+      scene,
+      regions: heightRegions,
+      flatZones: [CITY_ZONE],
+      paths: PATHS,
+      viewRadius: 1600,
+      pitch: 24,
+      chunkSize: 480,
+      yOffset: -4,
+      hideRadius: 560,
+      maxChunks: 90,
     });
 
     this.gates = this._buildGates();
@@ -182,11 +211,12 @@
   World.prototype._buildGates = function () {
     const g = new THREE.Group();
     const signs = [
-      { x: 0, z: -244, ry: 0, text: 'ZOMBIE VILLAGE ^', label: '좀비 마을' },
-      { x: -104, z: -50, ry: Math.PI / 2, text: '< CRYSTAL CAVE', label: '동굴 협곡' },
-      { x: 104, z: -150, ry: -Math.PI / 2, text: 'FROST PEAK >', label: '높은 산' },
-      { x: 24, z: 64, ry: Math.PI, text: 'SWAMP RUIN v', label: '늪지대 폐가' },
+      { x: 0, z: -244, ry: 0, text: 'ZOMBIE VILLAGE', label: '좀비 마을', to: 'zombie' },
+      { x: -104, z: -50, ry: Math.PI / 2, text: 'CRYSTAL CAVE', label: '동굴 협곡', to: 'cave' },
+      { x: 104, z: -150, ry: -Math.PI / 2, text: 'FROST PEAK', label: '높은 산', to: 'mount' },
+      { x: 24, z: 64, ry: Math.PI, text: 'SWAMP RUIN', label: '늪지대 폐가', to: 'swamp' },
     ];
+    this.travelPoints = [];
     for (let i = 0; i < signs.length; i++) {
       const s = signs[i];
       const post = L.parts.signPost(s.text, 17);
@@ -197,11 +227,35 @@
       const lamp = L.parts.lantern(0xffd166);
       lamp.position.set(s.x + 5, 0.55, s.z);
       g.add(lamp);
+      this.travelPoints.push({ x: s.x, z: s.z, to: s.to, label: s.label });
+    }
+    // 각 사냥터 입구 표지판 → 도시로 돌아가는 지점
+    for (let i = 0; i < this.regions.length; i++) {
+      const r = this.regions[i];
+      if (!r.entry) continue;
+      this.travelPoints.push({ x: r.entry.x, z: r.entry.z, to: 'city', label: '레고 시티' });
     }
     g.updateMatrixWorld(true);
     g.traverse((o) => { o.matrixAutoUpdate = false; });
     this.scene.add(g);
     return g;
+  };
+
+  /** 빠른 이동: 가까운 표지판 하나 (없으면 null) */
+  World.prototype.travelNear = function (x, z, range) {
+    const R = range || 15;
+    for (let i = 0; i < this.travelPoints.length; i++) {
+      const t = this.travelPoints[i];
+      if (Math.hypot(x - t.x, z - t.z) < R) return t;
+    }
+    return null;
+  };
+
+  /** 지역 id 의 도착 지점 (도시는 광장) */
+  World.prototype.entryOf = function (id) {
+    if (id === 'city') return { x: 0, z: 40 };
+    const r = this.byId[id];
+    return r && r.entry ? r.entry : null;
   };
 
   World.prototype.heightAt = function (x, z) {
@@ -254,6 +308,7 @@
    */
   World.prototype.update = function (px, pz, dt, chunkBudget) {
     this.terrain.update(px, pz, chunkBudget);
+    this.farTerrain.update(px, pz, Math.max(1, Math.round((chunkBudget || 2) / 2)));
 
     // 가까운 지역의 소품을 준비/표시
     for (let i = 0; i < this.regions.length; i++) {
@@ -287,7 +342,7 @@
   World.prototype.ambience = function () {
     const r = this.current;
     if (r && r.ambience) return r.ambience;
-    return { fog: 0xb6d8ef, fogNear: 110, fogFar: 400, sun: 1.0, hemi: 1.0 };
+    return { fog: 0xb6d8ef, fogNear: 180, fogFar: 900, sun: 1.0, hemi: 1.0 };
   };
 
   World.prototype.isSafe = function () {

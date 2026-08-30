@@ -294,3 +294,15 @@ button:active { transform: translateY(3px); box-shadow: inset 0 -3px 0 rgba(0, 0
   #region-banner .rb-name { font-size: 28px; }
   #compass { padding: 6px 10px; }
 }
+
+/* ------------------------------------------------------------- 빠른 이동 안내 */
+#travel-hint {
+  position: fixed; left: 50%; bottom: 27%; transform: translateX(-50%);
+  background: var(--panel); border: 2px solid var(--lego-yellow); border-radius: 12px;
+  padding: 8px 16px; font-size: 14px; pointer-events: none; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+#travel-hint b {
+  display: inline-block; background: var(--lego-yellow); color: #17222b;
+  border-radius: 6px; padding: 1px 7px; margin-right: 6px; font-weight: 800;
+}

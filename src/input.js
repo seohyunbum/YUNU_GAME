@@ -20,7 +20,7 @@
     this.hooks = {
       selectWeapon: null, selectSkill: null,
       swapWeapon: null, swapSkill: null,
-      jump: null, pause: null, resume: null,
+      jump: null, travel: null, pause: null, resume: null,
     };
     this._bindKeyboard();
     this._bindMouse();
@@ -44,6 +44,7 @@
       // Space = 점프, F = 스킬 시전(마우스 오른쪽 클릭과 같음)
       if (e.code === 'Space') { if (self.hooks.jump) self.hooks.jump(); e.preventDefault(); }
       if (e.code === 'KeyF') self.castHeld = true;
+      if (e.code === 'KeyT' && self.hooks.travel) self.hooks.travel();
       if (e.code === 'Escape' && self.hooks.pause) self.hooks.pause();
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.code) >= 0) {
         e.preventDefault();

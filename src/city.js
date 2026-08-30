@@ -60,13 +60,24 @@
       [850, 224, 44], [896, 234, 30], [60, 232, 34], [1000, 220, 36],
       [230, 120, 34], [640, 112, 30],
     ];
-    for (let i = 0; i < clouds.length; i++) puff(clouds[i][0], clouds[i][1], clouds[i][2], 0.95);
+    for (let i = 0; i < clouds.length; i++) puff(clouds[i][0], clouds[i][1], clouds[i][2] * 0.5, 0.95);
+    // 하늘 돔이 커진 만큼 구름을 더 많이, 더 잘게
+    for (let i = 0; i < 26; i++) {
+      const cx = (i * 137.5) % 1024;
+      const cy = 120 + ((i * 61) % 130);
+      puff(cx, cy, 14 + ((i * 37) % 22), 0.85);
+      puff(cx + 22, cy + 8, 10 + ((i * 19) % 16), 0.8);
+    }
     const tex = new THREE.CanvasTexture(cv);
     tex.encoding = THREE.sRGBEncoding;
+    // 하늘 돔은 카메라를 따라다닌다(세상이 넓어서 원점 고정이면 밖으로 나가 버린다).
+    // 반지름은 먼 지형(1600)보다 커야 지형이 돔 뒤에 가려지지 않는다.
     const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(600, 32, 20),
-      new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false })
+      new THREE.SphereGeometry(2400, 32, 20),
+      new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false })
     );
+    dome.frustumCulled = false;
+    dome.renderOrder = -1;
     scene.add(dome);
     return dome;
   }

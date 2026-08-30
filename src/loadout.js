@@ -59,7 +59,7 @@
     manaRegen: 7.5,        // 초당
     manaPerStud: 9,
     walkSpeed: 22,
-    sprintSpeed: 34,
+    sprintSpeed: 42,
     eyeHeight: 4.6,
     hurtInvuln: 1.1,       // 피격 후 무적 시간
     pickupRange: 4.2,

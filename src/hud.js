@@ -41,6 +41,8 @@
       overBest: el('over-best'),
       overTitle: el('over-title'),
       touch: el('touch'),
+      travelHint: el('travel-hint'),
+      travelText: el('travel-text'),
       pauseRegion: el('pause-region'),
       pauseScore: el('pause-score'),
       pauseKills: el('pause-kills'),
@@ -173,6 +175,13 @@
     this.dom.bannerLabel.textContent = region.label || '';
     this.dom.banner.classList.add('on');
     this._bannerTimer = 2.6;
+  };
+
+  /** 표지판 앞 빠른 이동 안내 (text 가 없으면 숨긴다) */
+  HUD.prototype.travelHint = function (text) {
+    if (!text) { this.dom.travelHint.classList.add('hidden'); return; }
+    this.dom.travelText.textContent = text;
+    this.dom.travelHint.classList.remove('hidden');
   };
 
   HUD.prototype.toast = function (text, seconds) {
