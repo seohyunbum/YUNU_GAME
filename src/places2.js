@@ -503,6 +503,54 @@
     return g;
   }
 
+  /** 브릭 카트 — 넓어진 세상을 빠르게 달리는 탈것 */
+  function kart(color) {
+    const g = new THREE.Group();
+    const body = mesh(L.box(7, 2.2, 12), color === undefined ? C.red : color);
+    put(g, body, 0, 2.2, 0);
+    const nose = mesh(new THREE.ConeGeometry(3.2, 4.5, 4), color === undefined ? C.red : color);
+    put(g, nose, 0, 2.2, 7.2, Math.PI / 2, Math.PI / 4, 0);
+    const floorPlate = L.plate(C.darkGray, 6, 10, { height: 0.5 });
+    put(g, floorPlate, 0, 3.3, -0.5);
+    // 좌석 · 등받이 · 핸들
+    const seat = mesh(L.box(4.4, 1.2, 4), C.black, 'matte');
+    put(g, seat, 0, 4.2, -2.4);
+    const backRest = mesh(L.box(4.6, 4.2, 1.0), C.black, 'matte');
+    put(g, backRest, 0, 6.0, -4.4);
+    const column = mesh(L.cyl(0.32, 0.32, 2.6, 8), P2.steel, 'metal');
+    put(g, column, 0, 4.9, 1.4, 0.5, 0, 0);
+    const wheelRim = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.26, 8, 16), L.mat(C.black, 'matte'));
+    put(g, wheelRim, 0, 5.7, 2.0, 0.5, 0, 0);
+    // 바퀴 넷
+    const wheels = new THREE.Group();
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const tyre = mesh(L.cyl(2.0, 2.0, 1.4, 14), C.black, 'matte');
+        tyre.rotation.z = Math.PI / 2;
+        tyre.position.set(sx * 4.0, 2.0, sz * 4.2);
+        wheels.add(tyre);
+        const hub = mesh(L.cyl(0.9, 0.9, 1.5, 10), C.yellow, 'metal');
+        hub.rotation.z = Math.PI / 2;
+        hub.position.set(sx * 4.05, 2.0, sz * 4.2);
+        wheels.add(hub);
+      }
+    }
+    g.add(wheels);
+    // 배기구 · 전조등 · 스포일러
+    for (const sx of [-1, 1]) {
+      const pipe2 = mesh(L.cyl(0.5, 0.5, 3.4, 8), P2.steel, 'metal');
+      put(g, pipe2, sx * 3.2, 4.6, -6.2, Math.PI / 2, 0, 0);
+      const lamp = new THREE.Mesh(L.cyl(0.8, 0.8, 0.3, 10), new THREE.MeshBasicMaterial({ color: 0xfff6d0 }));
+      put(g, lamp, sx * 2.2, 3.2, 6.4, Math.PI / 2, 0, 0);
+    }
+    const spoilerPost = mesh(L.box(0.6, 2.4, 0.6), C.darkGray, 'metal');
+    put(g, spoilerPost, 0, 6.4, -5.6);
+    const spoiler = mesh(L.box(7.5, 0.5, 2), C.yellow);
+    put(g, spoiler, 0, 7.6, -5.8);
+    g.userData.wheels = wheels;
+    return g;
+  }
+
   L.P2 = P2;
   L.parts2 = {
     palmTree, cactus, snowman, logCabin,
@@ -510,6 +558,6 @@
     concreteWall, blastDoor, console: console_, mapScreen, pipe, tank,
     hazardSign, chainFence, searchlight, locker, radBarrel,
     lavaPool, oreRock, mineHead,
-    painting, statue, ropeStand,
+    painting, statue, ropeStand, kart,
   };
 })(window.LEGO);

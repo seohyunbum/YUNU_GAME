@@ -71,14 +71,17 @@
     const season = (ctx.opt && ctx.opt.season) || 'spring';
     const pal = season === 'autumn' ? [0xb06a24, 0xc98a2e, 0x8a5a2a, 0xc9502e]
       : (season === 'winter' ? [0xf2f6f8, 0xdfe9ee, 0x2c6e3a]
-        : [0x57a34a, 0x76c25c, 0x9ad46f, 0xf0a8d0]);
+        : (season === 'mushroom' ? [0x4a6b3a, 0x3f5c33, 0x6b4a72]
+          : [0x57a34a, 0x76c25c, 0x9ad46f, 0xf0a8d0]));
 
     for (let i = 0; i < 26; i++) {
       const s = spot(cx, cz, i, 201, 40, R.r * 0.85);
       const y = h(s.x, s.z);
       const tree = season === 'winter'
         ? T.pineTree(1.1 + rnd(i, 202) * 0.8, true)
-        : leafTree(1.0 + rnd(i, 203) * 0.8, pal);
+        : (season === 'mushroom'
+          ? T.mushroom(2.2 + rnd(i, 205) * 2.2, i % 3 === 0 ? C.purple : (i % 3 === 1 ? C.red : 0xd9b23c))
+          : leafTree(1.0 + rnd(i, 203) * 0.8, pal));
       place(group, tree, s.x, y, s.z, rnd(i, 204) * 6, colliders, 2);
       if (i % 3 === 0) spawns.push({ x: s.x, z: s.z });
     }
@@ -94,6 +97,9 @@
       const y = h(s.x, s.z);
       if (season === 'winter') {
         place(group, T2.snowman(0.8 + rnd(i, 212) * 0.5), s.x, y, s.z, rnd(i, 213) * 6, colliders, 2);
+      } else if (season === 'mushroom') {
+        place(group, T.mushroom(0.9 + rnd(i, 215) * 1.2, i % 2 ? C.magenta : 0x9a63e6),
+          s.x, y, s.z, rnd(i, 216) * 6, colliders, 1.5);
       } else if (season === 'autumn') {
         const pile = T.mesh(L.box(5, 1.2, 5), 0xb06a24, 'matte');
         place(group, pile, s.x, y + 0.6, s.z, rnd(i, 214) * 6);
@@ -111,7 +117,8 @@
     }
     if (R.entry) {
       place(group, T.signPost(season === 'winter' ? 'WINTER PLAIN'
-        : (season === 'autumn' ? 'AUTUMN WOODS' : 'SPRING FIELD'), 15),
+        : (season === 'autumn' ? 'AUTUMN WOODS'
+          : (season === 'mushroom' ? 'MUSHROOM WOOD' : 'SPRING FIELD')), 15),
         R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
     }
     return { colliders, spawns, fire };
@@ -190,14 +197,20 @@
     const h = ctx.heightAt, R = ctx.region;
     const cx = R.cx, cz = R.cz;
 
+    const salt = !!(ctx.opt && ctx.opt.salt);
     for (let i = 0; i < 26; i++) {
       const s = spot(cx, cz, i, 301, 30, R.r * 0.9);
-      place(group, T2.cactus(0.8 + rnd(i, 302) * 0.7), s.x, h(s.x, s.z), s.z, rnd(i, 303) * 6, colliders, 1.4);
+      // 소금 사막에는 선인장 대신 소금 결정이 솟아 있다
+      const piece = salt
+        ? T.crystal(0.9 + rnd(i, 304) * 0.9, 0xf2f2ec)
+        : T2.cactus(0.8 + rnd(i, 302) * 0.7);
+      place(group, piece, s.x, h(s.x, s.z), s.z, rnd(i, 303) * 6, colliders, 1.4);
       if (i % 3 === 0) spawns.push({ x: s.x, z: s.z });
     }
     for (let i = 0; i < 14; i++) {
       const s = spot(cx, cz, i, 311, 40, R.r * 0.9);
-      place(group, T.rock(1.1 + rnd(i, 312) * 1.4, P2.sandDark), s.x, h(s.x, s.z), s.z, rnd(i, 313) * 6, colliders, 2.4);
+      place(group, T.rock(1.1 + rnd(i, 312) * 1.4, salt ? 0xdcdcd2 : P2.sandDark),
+        s.x, h(s.x, s.z), s.z, rnd(i, 313) * 6, colliders, 2.4);
     }
     // 오아시스
     const oy = h(cx + 40, cz + 30);
@@ -227,7 +240,7 @@
       T.put(ob, cap, 0, 14 - i * 2 + 1.5, 0);
       place(group, ob, s.x, h(s.x, s.z), s.z, rnd(i, 342) * 6, colliders, 2.2);
     }
-    if (R.entry) place(group, T.signPost('DESERT', 13), R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
+    if (R.entry) place(group, T.signPost(salt ? 'SALT FLAT' : 'DESERT', 13), R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
     return { colliders, spawns, fire };
   }
 
@@ -307,6 +320,22 @@
     const top = T.mesh(L.box(22, 5, 6), 0x8f8676, 'matte');
     T.put(arch, top, 0, 17, 0);
     place(group, arch, cx - R.r * 0.34, h(cx - R.r * 0.34, cz + R.r * 0.2), cz + R.r * 0.2, 0.6, colliders, 11, 4);
+    if (ctx.opt && ctx.opt.volcano) {
+      // 섬 한가운데가 화산이다
+      const cone = new THREE.Group();
+      for (let i = 0; i < 7; i++) {
+        const ring = T.mesh(L.cyl(18 - i * 2.2, 20 - i * 2.2, 4.5, 12), i % 2 ? P2.obsidian : 0x3a2b28, 'matte');
+        T.put(cone, ring, 0, 2.2 + i * 4.5, 0);
+      }
+      const mouth = new THREE.Mesh(new THREE.CircleGeometry(5, 16), new THREE.MeshBasicMaterial({ color: P2.lavaDeep }));
+      mouth.rotation.x = -Math.PI / 2;
+      T.put(cone, mouth, 0, 33.6, 0);
+      place(group, cone, cx, h(cx, cz), cz, 0, colliders, 16);
+      for (let i = 0; i < 5; i++) {
+        const s = spot(cx, cz, i, 521, 30, R.r * 0.45);
+        place(group, T2.lavaPool(7 + rnd(i, 522) * 8), s.x, h(s.x, s.z) - 0.5, s.z, 0);
+      }
+    }
     for (let i = 0; i < 10; i++) {
       const s = spot(cx, cz, i, 511, 20, R.r * 0.5);
       spawns.push({ x: s.x, z: s.z });
@@ -889,6 +918,150 @@
     return { colliders, spawns };
   }
 
+  // ================================================================= 전초기지 (야영지·농장·운석 구덩이)
+  function buildOutpost(group, ctx) {
+    const colliders = [], spawns = [];
+    const h = ctx.heightAt, R = ctx.region;
+    const theme = (ctx.opt && ctx.opt.theme) || 'camp';
+    const cx = R.cx, cz = R.cz;
+
+    // 공통: 망루 + 텐트 + 모닥불 + 짐 + 울타리
+    place(group, T.watchtower(), cx + 26, h(cx + 26, cz - 18), cz - 18, 0.4, colliders, 5);
+    place(group, T.tent(C.red), cx - 8, h(cx - 8, cz + 10), cz + 10, 0.5, colliders, 4, 5);
+    place(group, T.tent(C.blue), cx + 6, h(cx + 6, cz + 18), cz + 18, -0.6, colliders, 4, 5);
+    const fire = T.campfire();
+    place(group, fire, cx, h(cx, cz + 2), cz + 2, 0, colliders, 2.4);
+    for (let i = 0; i < 8; i++) {
+      const s = spot(cx, cz, i, 1401, 12, 40);
+      place(group, i % 2 ? T.crate(1) : T.barrel(1), s.x, h(s.x, s.z), s.z, rnd(i, 1402) * 3, colliders, 1.2);
+    }
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      if (Math.abs(a - Math.PI / 2) < 0.5) continue;
+      const x = cx + Math.cos(a) * 60, z = cz + Math.sin(a) * 60;
+      place(group, T.crookedFence(16, i % 2 ? 1 : -1), x, h(x, z), z, a + Math.PI / 2, colliders, 8, 1);
+    }
+
+    if (theme === 'farm') {
+      // 풍차 — 언덕 위 이정표
+      const mill = new THREE.Group();
+      for (let i = 0; i < 6; i++) {
+        const ring = T.mesh(L.cyl(4.6 - i * 0.45, 5.2 - i * 0.45, 4.5, 10), i % 2 ? C.white : C.tan, 'matte');
+        T.put(mill, ring, 0, 2.2 + i * 4.5, 0);
+      }
+      const cap = T.mesh(new THREE.ConeGeometry(5.4, 5, 10), C.red);
+      T.put(mill, cap, 0, 31, 0);
+      const blades = new THREE.Group();
+      for (let i = 0; i < 4; i++) {
+        const blade = T.mesh(L.box(2.6, 20, 0.5), i % 2 ? C.white : P.plank, 'matte');
+        blade.rotation.z = i * Math.PI / 2;
+        blade.position.set(Math.sin(i * Math.PI / 2) * 10, Math.cos(i * Math.PI / 2) * 10, 0);
+        blades.add(blade);
+      }
+      blades.position.set(0, 27, 6.5);
+      mill.add(blades);
+      mill.userData.blades = blades;
+      place(group, mill, cx - 30, h(cx - 30, cz - 24), cz - 24, 0, colliders, 6);
+      for (let i = 0; i < 10; i++) {
+        const s = spot(cx, cz, i, 1411, 30, R.r * 0.7);
+        place(group, T.hayBale(), s.x, h(s.x, s.z), s.z, rnd(i, 1412) * 3, colliders, 2);
+        spawns.push({ x: s.x, z: s.z });
+      }
+      place(group, T.scarecrow(), cx + 18, h(cx + 18, cz + 40), cz + 40, 0.3, colliders, 1);
+      if (R.entry) place(group, T.signPost('WINDMILL HILL', 15), R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
+      return { colliders, spawns, fire, mill };
+    }
+
+    if (theme === 'meteor') {
+      // 구덩이 한가운데 박힌 커다란 운석
+      const rock = new THREE.Group();
+      for (let i = 0; i < 6; i++) {
+        const chunk = T.mesh(L.box(9 - i, 7 - i * 0.8, 8 - i), i % 2 ? 0x3a3a42 : 0x4a4a52, 'matte');
+        T.put(rock, chunk, (i % 3 - 1) * 2.5, 3 + i * 2.2, (i % 2) * 2 - 1, i * 0.3, i, 0.2);
+      }
+      for (let i = 0; i < 5; i++) {
+        const glow = new THREE.Mesh(L.box(1.4, 1.4, 1.4), new THREE.MeshBasicMaterial({ color: 0x63d7e6 }));
+        T.put(rock, glow, Math.cos(i * 1.3) * 4, 4 + i * 2, Math.sin(i * 1.3) * 3);
+      }
+      place(group, rock, cx, h(cx, cz), cz, 0, colliders, 7);
+      spawns.push({ x: cx + 16, z: cz + 10, boss: true });
+      for (let i = 0; i < 16; i++) {
+        const s = spot(cx, cz, i, 1421, 30, R.r * 0.85);
+        place(group, T2.oreRock(1.0 + rnd(i, 1422) * 0.9, 0x63d7e6), s.x, h(s.x, s.z), s.z, rnd(i, 1423) * 6, colliders, 2);
+        spawns.push({ x: s.x, z: s.z });
+      }
+      if (R.entry) place(group, T2.hazardSign('METEOR PIT', C.black), R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
+      return { colliders, spawns, fire };
+    }
+
+    for (let i = 0; i < 12; i++) {
+      const s = spot(cx, cz, i, 1431, 30, R.r * 0.8);
+      spawns.push({ x: s.x, z: s.z });
+    }
+    if (R.entry) place(group, T.signPost('OUTPOST', 14), R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
+    return { colliders, spawns, fire };
+  }
+
+  // ================================================================= 유적 도시
+  function buildRuins(group, ctx) {
+    const colliders = [], spawns = [];
+    const h = ctx.heightAt, R = ctx.region;
+    const cx = R.cx, cz = R.cz;
+    const baseY = h(cx, cz);
+
+    // 무너진 신전 — 기둥 줄과 반쯤 남은 벽
+    const temple = new THREE.Group();
+    const floor = T.mesh(L.box(56, 1.6, 40), 0xc9c4b4, 'matte');
+    T.put(temple, floor, 0, 0.8, 0);
+    for (let i = 0; i < 8; i++) {
+      for (const sz of [-1, 1]) {
+        const broken = (i * 3 + (sz + 1)) % 5 === 0;
+        const hgt = broken ? 6 + (i % 3) * 3 : 18;
+        const col2 = T.mesh(L.cyl(1.7, 2.0, hgt, 12), 0xdcd8c8, 'matte');
+        T.put(temple, col2, -24 + i * 7, 1.6 + hgt / 2, sz * 15);
+        if (!broken) {
+          const cap = T.mesh(L.box(4.6, 1.4, 4.6), 0xc9c4b4, 'matte');
+          T.put(temple, cap, -24 + i * 7, 1.6 + hgt + 0.7, sz * 15);
+        }
+      }
+    }
+    const arch = T.mesh(L.box(56, 2.2, 6), 0xc9c4b4, 'matte');
+    T.put(temple, arch, 0, 21, -15);
+    place(group, temple, cx, baseY, cz, 0.2, colliders, 28, 20);
+
+    // 무너진 집터 · 부러진 조각상 · 흩어진 블록
+    for (let i = 0; i < 14; i++) {
+      const s = spot(cx, cz, i, 1501, 46, R.r * 0.85);
+      const hut = new THREE.Group();
+      const w = 10 + (i % 3) * 4, d = 8 + (i % 2) * 5;
+      for (let side = 0; side < 4; side++) {
+        if ((i + side) % 3 === 0) continue;          // 한쪽 벽은 무너졌다
+        const along = side % 2 === 0 ? w : d;
+        const wall = T2.concreteWall(along, 5 + (i % 3), 1.6, 0xc9c4b4);
+        const ang = side * Math.PI / 2;
+        wall.position.set(Math.sin(ang) * (side % 2 === 0 ? d / 2 : w / 2), 2.5 + (i % 3) / 2,
+          Math.cos(ang) * (side % 2 === 0 ? d / 2 : w / 2));
+        wall.rotation.y = ang;
+        hut.add(wall);
+      }
+      place(group, hut, s.x, h(s.x, s.z), s.z, rnd(i, 1502) * 6, colliders, w / 2, d / 2);
+      spawns.push({ x: s.x + 8, z: s.z + 6 });
+    }
+    for (let i = 0; i < 8; i++) {
+      const s = spot(cx, cz, i, 1511, 40, R.r * 0.7);
+      const st = T2.statue(0xdcd8c8);
+      st.rotation.z = (rnd(i, 1512) - 0.5) * 0.6;
+      place(group, st, s.x, h(s.x, s.z), s.z, rnd(i, 1513) * 6, colliders, 2.4);
+    }
+    for (let i = 0; i < 16; i++) {
+      const s = spot(cx, cz, i, 1521, 30, R.r * 0.9);
+      place(group, T.rock(0.9 + rnd(i, 1522) * 1.0, 0xc9c4b4), s.x, h(s.x, s.z), s.z, rnd(i, 1523) * 6, colliders, 2);
+    }
+    spawns.push({ x: cx, z: cz + 30, boss: true });
+    if (R.entry) place(group, T.signPost('RUINED CITY', 15), R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
+    return { colliders, spawns };
+  }
+
   L.REGION_BUILDERS = L.REGION_BUILDERS || {};
   Object.assign(L.REGION_BUILDERS, {
     forest: buildForest,
@@ -904,5 +1077,7 @@
     arena: buildArena,
     museum: buildMuseum,
     haunted: buildHaunted,
+    outpost: buildOutpost,
+    ruins: buildRuins,
   });
 })(window.LEGO);

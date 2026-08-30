@@ -116,6 +116,9 @@
         <span><b>휠</b> 무기 바꾸기</span>
         <span><b>Q / E</b> 무기 · 두루마리 넘기기</span>
         <span><b>Space</b> 점프</span>
+        <span><b>V</b> 브릭 카트 타기</span>
+        <span><b>M</b> 지도</span>
+        <span><b>T</b> 표지판에서 빠른 이동</span>
         <span><b>Esc</b> 잠깐 멈춤</span>
       </div>
 
@@ -137,6 +140,16 @@
         <div><span>최고 점수</span><b id="over-best">0</b></div>
       </div>
       <button id="again-btn">다시 하기</button>
+    </div>
+  </div>
+
+  <!-- ================= 지도 ================= -->
+  <div id="map-screen" class="screen hidden">
+    <div class="sheet">
+      <h2>세상 지도</h2>
+      <p class="sub">가 본 곳은 또렷하게, 아직 안 가 본 곳은 흐리게 보인다. 표지판에서 <b>T</b> 로 이동.</p>
+      <canvas id="map-canvas" width="900" height="900"></canvas>
+      <button id="map-close">닫기 (M)</button>
     </div>
   </div>
 
@@ -162,6 +175,7 @@
     <div id="stick"><div id="stick-knob"></div></div>
     <div id="touch-buttons">
       <button id="btn-skill" class="tbtn">📜</button>
+      <button id="btn-kart" class="tbtn">🏎️</button>
       <button id="btn-jump" class="tbtn">⤴</button>
       <button id="btn-attack" class="tbtn big">✋</button>
     </div>

@@ -74,6 +74,11 @@
     this.fx.groundAt = function (x, z) { return world0.heightAt(x, z); };
     this.enemies = new L.Enemies(this.scene, this.fx, this.world);
     this.weather = new L.Weather(this.scene);
+
+    // 브릭 카트 — 넓은 세상을 달리는 탈것 (V 로 타고 내린다)
+    this.kart = { on: false, group: L.parts2.kart(L.COLORS.red), spin: 0 };
+    this.kart.group.visible = false;
+    this.scene.add(this.kart.group);
     this.hands = new L.Hands(this.camera);
     this.hud = new L.HUD();
     this.input = new L.Input(canvas);
@@ -143,6 +148,8 @@
     h.swapSkill = (d) => { if (self.state === 'playing') { self.hands.nextSkill(d); self.sfx.pop(); } };
     h.jump = () => self.jump();
     h.travel = () => self.fastTravel();
+    h.kart = () => self.toggleKart();
+    h.map = () => self.toggleMap();
     h.pause = () => {
       if (self.state === 'playing') {
         self.state = 'pause';
@@ -169,6 +176,7 @@
     document.getElementById('start-btn').addEventListener('click', () => self.start());
     document.getElementById('again-btn').addEventListener('click', () => self.start());
     document.getElementById('resume-btn').addEventListener('click', () => self.resume());
+    document.getElementById('map-close').addEventListener('click', () => self.toggleMap());
     this.canvas.addEventListener('click', () => {
       if (self.state === 'pause') self.resume();
       else if (self.state === 'playing') self.input.requestLock();
@@ -202,6 +210,8 @@
     this.skillCd.dragonfire = this.skillCd.meteor = this.skillCd.fireball = 0;
     this.enemies.clear();
     this.fx.clear();
+    this.kart.on = false;
+    this.kart.group.visible = false;
     this.hands.setWeapon(0);
     this.hands.setSkill(2);
     this.state = 'playing';
@@ -223,7 +233,7 @@
   Game.prototype.jump = function () {
     const p = this.player;
     if (this.state !== 'playing' || !p.onGround) return;
-    p.velY = JUMP_SPEED;
+    p.velY = this.kart.on ? JUMP_SPEED * 0.6 : JUMP_SPEED;
     p.onGround = false;
   };
 
@@ -250,6 +260,32 @@
     this.enemies.clear();
     this.hud.toast(t.label + ' 도착!', 1.6);
     this.sfx.wave();
+  };
+
+  /** 브릭 카트 타기/내리기 */
+  Game.prototype.toggleKart = function () {
+    if (this.state !== 'playing') return;
+    this.kart.on = !this.kart.on;
+    this.kart.group.visible = this.kart.on;
+    this.hud.toast(this.kart.on ? '🏎️ 브릭 카트를 탔다' : '카트에서 내렸다', 1.2);
+    this.sfx.pop();
+  };
+
+  /** 세상 지도 열고 닫기 */
+  Game.prototype.toggleMap = function () {
+    if (this.state === 'map') {
+      this.state = 'playing';
+      this.hud.screen(null);
+      this.input.requestLock();
+      return;
+    }
+    if (this.state !== 'playing') return;
+    this.state = 'map';
+    this.hud.drawMap(this.world, {
+      x: this.player.pos.x, z: this.player.pos.z, yaw: this.player.yaw,
+    }, this.regionVisited);
+    this.hud.screen('map');
+    if (document.exitPointerLock) document.exitPointerLock();
   };
 
   Game.prototype.onKill = function (e) {
@@ -467,6 +503,7 @@
     let speed = inp.sprint ? P.sprintSpeed : P.walkSpeed;
     if (p.channelTimer > 0) speed *= 0.55;
     if (waterDepth > 0.2) speed *= 0.62;
+    if (this.kart.on) speed *= 3.2;                 // 카트는 훨씬 빠르다
 
     const sin = Math.sin(p.yaw), cos = Math.cos(p.yaw);
     const vx = (mx * cos - mz * sin) * speed * dt;
@@ -507,11 +544,24 @@
     const moving = len > 0.05 && p.onGround;
     p.bob += dt * (moving ? (inp.sprint ? 13 : 9) : 2.2);
     const bobY = moving ? Math.sin(p.bob) * (inp.sprint ? 0.22 : 0.14) : Math.sin(p.bob) * 0.04;
-    const eyeTarget = p.pos.y + P.eyeHeight - Math.min(1.6, waterDepth * 0.5);
+    const eyeTarget = p.pos.y + P.eyeHeight + (this.kart.on ? 2.5 : 0) - Math.min(1.6, waterDepth * 0.5);
     // 계단을 오를 때 눈높이가 튀지 않게 부드럽게 따라간다
     p.eyeY += (eyeTarget - p.eyeY) * Math.min(1, dt * 14);
-    this.camera.position.set(p.pos.x, p.eyeY + bobY, p.pos.z);
+    this.camera.position.set(p.pos.x, p.eyeY + (this.kart.on ? bobY * 0.25 : bobY), p.pos.z);
     this.camera.rotation.set(p.pitch, p.yaw, Math.sin(p.bob * 0.5) * (moving ? 0.012 : 0.003));
+
+    // 카트 모델을 플레이어 아래에 두고 바퀴를 굴린다
+    if (this.kart.on) {
+      const k = this.kart;
+      // 좌석이 카메라 바로 아래 오도록 앞쪽으로 조금 밀어 둔다(핸들이 얼굴을 가리지 않게)
+      k.group.position.set(
+        p.pos.x - Math.sin(p.yaw) * 2.8,
+        p.pos.y,
+        p.pos.z - Math.cos(p.yaw) * 2.8);
+      k.group.rotation.y = p.yaw + Math.PI;
+      k.spin += (len > 0.05 ? speed : 0) * dt * 0.5;
+      if (k.group.userData.wheels) k.group.userData.wheels.rotation.x = k.spin;
+    }
 
     // ---- 쿨다운 · 마나 · 콤보 · 안전지대 회복
     if (p.weaponCd > 0) p.weaponCd -= dt;

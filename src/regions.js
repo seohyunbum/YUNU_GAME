@@ -174,9 +174,11 @@
       lanterns.push(lt);
     }
 
-    // 마을 입구 표지판
-    const sx = cx, sz = cz + 218;
-    place(group, T.signPost('ZOMBIE VILLAGE', 16), sx, h(sx, sz), sz, Math.PI, colliders, 1);
+    // 마을 입구 표지판 (입구 좌표는 지역 표가 정한다)
+    if (ctx.region.entry) {
+      const sx = ctx.region.entry.x, sz = ctx.region.entry.z;
+      place(group, T.signPost('ZOMBIE VILLAGE', 16), sx, h(sx, sz), sz, Math.PI, colliders, 1);
+    }
 
     return {
       colliders, spawns, lanterns, fire,
@@ -349,7 +351,10 @@
     group.add(water);
 
     // 표지판 + 등불
-    place(group, T.signPost('SWAMP RUIN', 15), cx + 4, h(cx + 4, cz + 252), cz + 252, Math.PI, colliders, 1);
+    if (ctx.region.entry) {
+      place(group, T.signPost('SWAMP RUIN', 15), ctx.region.entry.x, h(ctx.region.entry.x, ctx.region.entry.z),
+        ctx.region.entry.z, Math.PI, colliders, 1);
+    }
     for (let i = 0; i < 12; i++) {
       const z = cz + 50 + i * 16;
       const x = cx + Math.sin(i * 0.9) * 8;
@@ -501,7 +506,10 @@
       spawns.push({ x, z });
     }
 
-    place(group, T.signPost('CRYSTAL CAVE', 15), cx, h(cx, cz + 262), cz + 262, Math.PI, colliders, 1);
+    if (ctx.region.entry) {
+      place(group, T.signPost('CRYSTAL CAVE', 15), ctx.region.entry.x, h(ctx.region.entry.x, ctx.region.entry.z),
+        ctx.region.entry.z, Math.PI, colliders, 1);
+    }
 
     return {
       colliders, spawns,
@@ -592,7 +600,10 @@
     place(group, shrine, cx, h(cx, cz), cz, 0.4, colliders, 12);
     spawns.push({ x: cx + 26, z: cz + 8, boss: true });
 
-    place(group, T.signPost('FROST PEAK', 14), cx - 10, h(cx - 10, cz + 320), cz + 320, Math.PI, colliders, 1);
+    if (ctx.region.entry) {
+      place(group, T.signPost('FROST PEAK', 14), ctx.region.entry.x, h(ctx.region.entry.x, ctx.region.entry.z),
+        ctx.region.entry.z, Math.PI, colliders, 1);
+    }
 
     return {
       colliders, spawns, shrine, camp,

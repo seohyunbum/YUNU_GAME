@@ -209,6 +209,25 @@ if (!travel.hint || travel.region !== 'zombie') {
 }
 console.log('빠른 이동 확인:', JSON.stringify(travel));
 
+// ---------------------------------------------------------------- 카트 · 지도
+const gear = await page.evaluate(async () => {
+  const g = window.LEGO_GAME;
+  g.toggleKart();
+  const kartOn = g.kart.on && g.kart.group.visible;
+  await new Promise((r) => setTimeout(r, 200));
+  g.toggleMap();
+  const mapOpen = g.state === 'map'
+    && !document.getElementById('map-screen').classList.contains('hidden');
+  const drawn = document.getElementById('map-canvas').width > 0;
+  g.toggleMap();
+  g.toggleKart();
+  return { kartOn, mapOpen, drawn, back: g.state, kartOff: !g.kart.on };
+});
+if (!gear.kartOn || !gear.mapOpen || !gear.drawn || gear.back !== 'playing' || !gear.kartOff) {
+  throw new Error('카트/지도가 제대로 동작하지 않는다: ' + JSON.stringify(gear));
+}
+console.log('카트·지도 확인:', JSON.stringify(gear));
+
 // ---------------------------------------------------------------- 성능
 const fps = await page.evaluate(async () => {
   let frames = 0;
@@ -225,6 +244,12 @@ const fps = await page.evaluate(async () => {
 });
 const info = await page.evaluate(() => {
   const g = window.LEGO_GAME;
+  // 측정은 항상 같은 자리에서 (도시 광장에서 큰길을 내려다본다)
+  g.player.pos.set(0, g.world.heightAt(0, 30), 30);
+  g.player.yaw = 0;
+  g.player.pitch = -0.06;
+  g.world.update(0, 30, 0.016, 200);
+  g.wilds.rebuild(0, 30);
   const r = g.renderer;
   r.info.autoReset = false;
   r.info.reset();

@@ -20,7 +20,7 @@
     this.hooks = {
       selectWeapon: null, selectSkill: null,
       swapWeapon: null, swapSkill: null,
-      jump: null, travel: null, pause: null, resume: null,
+      jump: null, travel: null, kart: null, map: null, pause: null, resume: null,
     };
     this._bindKeyboard();
     this._bindMouse();
@@ -45,6 +45,8 @@
       if (e.code === 'Space') { if (self.hooks.jump) self.hooks.jump(); e.preventDefault(); }
       if (e.code === 'KeyF') self.castHeld = true;
       if (e.code === 'KeyT' && self.hooks.travel) self.hooks.travel();
+      if (e.code === 'KeyV' && self.hooks.kart) self.hooks.kart();
+      if (e.code === 'KeyM' && self.hooks.map) self.hooks.map();
       if (e.code === 'Escape' && self.hooks.pause) self.hooks.pause();
       if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].indexOf(e.code) >= 0) {
         e.preventDefault();
@@ -181,6 +183,13 @@
     }
     holdButton('btn-attack', (v) => { self.attackHeld = v; });
     holdButton('btn-skill', (v) => { self.castHeld = v; });
+    const kb = document.getElementById('btn-kart');
+    if (kb) {
+      kb.addEventListener('touchstart', (e) => {
+        if (self.hooks.kart) self.hooks.kart();
+        e.preventDefault();
+      }, { passive: false });
+    }
     const jb = document.getElementById('btn-jump');
     if (jb) {
       jb.addEventListener('touchstart', (e) => {

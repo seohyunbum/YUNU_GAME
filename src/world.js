@@ -110,7 +110,9 @@
       boss: { type: 'crystal', name: '크리스탈 골렘 왕', scale: 2.2, hpMul: 5, speedMul: 0.8 },
       particles: 'dust',
       spawn: { types: ['crystal', 'bat', 'bat', 'golem'], max: 10, near: 44, far: 92 },
-      height: B.canyon({ axisX: -900, floor: -24, rim: 24, half: 36, flatHalf: 20 }),
+      heightFactory: function (r) {
+        return B.canyon({ axisX: r.cx, floor: -24, rim: 24, half: 36, flatHalf: 20 });
+      },
       color: B.paint(PAL.DARKROCK, { high: { y: 6, pal: PAL.ROCK } }),
       ambience: B.AMB.underground,
     }),
@@ -360,6 +362,148 @@
       ambience: B.AMB.toxic,
     }),
 
+    // ================================================================ 사이 고리 (1300) — 가는 길에 만나는 곳들
+    region({
+      id: 'mushroom', name: '버섯 숲', label: '사냥터 · 보통', cx: 497, cz: -1200, r: 260,
+      icon: '🍄', level: 2,
+      build: { kind: 'forest', season: 'mushroom' },
+      particles: 'firefly',
+      spawn: { types: ['toxic', 'slime', 'wisp'], max: 10, near: 46, far: 96 },
+      height: B.plains({ base: 3, amp: 12, scale: 60 }),
+      color: B.paint([0x4a6b3a, 0x3f5c33, 0x5c7a42], { slope: PAL.MUD }),
+      ambience: B.amb({ fog: 0x86a878, fogNear: 60, fogFar: 420, sun: 0.8, hemi: 0.85, sky: 0xa8c49a }),
+    }),
+    region({
+      id: 'crystallake', name: '수정 호수', label: '사냥터 · 보통', cx: 1200, cz: -497, r: 270,
+      icon: '💧', level: 2, waterY: -3,
+      build: { kind: 'sea' },
+      spawn: { types: ['crystal', 'wisp', 'slime'], max: 10, near: 46, far: 96 },
+      height: B.basin({ floor: -11, rim: 6, r: 270, humps: 0.7 }),
+      color: B.paintWater([0x8fb0a8, 0xa8c4bc, 0x77968f], [0x3f6b74, 0x2f5560], -3),
+      ambience: B.amb({ fog: 0xbfe0ea, fogNear: 140, fogFar: 800, sun: 1.05, hemi: 1.0, sky: 0xd8f0ff }),
+    }),
+    region({
+      id: 'saltflat', name: '소금 사막', label: '사냥터 · 어려움', cx: 1200, cz: 497, r: 270,
+      icon: '🧂', level: 3,
+      build: { kind: 'desert', salt: true },
+      spawn: { types: ['sandgolem', 'ghost', 'slime'], max: 10, near: 48, far: 100 },
+      height: B.plains({ base: 2, amp: 4, scale: 120 }),
+      color: B.paint([0xe8e8e0, 0xdcdcd2, 0xf2f2ec], { slope: PAL.SAND }),
+      ambience: B.amb({ fog: 0xf0eede, fogNear: 200, fogFar: 1000, sun: 1.35, hemi: 1.1, sky: 0xfaf6e8 }),
+    }),
+    region({
+      id: 'redcanyon', name: '붉은 협곡', label: '사냥터 · 어려움', cx: 497, cz: 1200, r: 280,
+      icon: '🏜️', level: 3,
+      build: { kind: 'mine', ore: 0xc9502e, oreName: 'RED CANYON', depth: -18 },
+      spawn: { types: ['sandgolem', 'bat', 'golem'], max: 10, near: 46, far: 96 },
+      heightFactory: function (r) {
+        return B.canyon({ axisX: r.cx, floor: -18, rim: 26, half: 40, flatHalf: 22 });
+      },
+      color: B.paint([0x8a4a2a, 0xa05c34, 0x6b3a22], { slope: [0x5c3020] }),
+      ambience: B.amb({ fog: 0xd8a882, fogNear: 90, fogFar: 560, sun: 1.1, hemi: 0.9, sky: 0xe8bb92 }),
+    }),
+    region({
+      id: 'icecave', name: '얼음 동굴', label: '사냥터 · 어려움', cx: -497, cz: 1200, r: 260,
+      icon: '🧊', level: 3,
+      build: { kind: 'mine', ore: 0xb8e4f0, oreName: 'ICE CAVE', depth: -20, crystals: true, drips: true },
+      particles: 'snow',
+      spawn: { types: ['ice', 'ice', 'bat', 'ghost'], max: 10, near: 44, far: 92 },
+      height: B.crater({ depth: -20, rim: 16, r: 260 }),
+      color: B.paint([0x9fc8d8, 0xb8e4f0, 0x87a8bc], { slope: PAL.ROCK }),
+      ambience: B.amb({ fog: 0xcfe8f2, fogNear: 60, fogFar: 320, sun: 0.7, hemi: 0.8, sky: 0xc8e6f4,
+        hemiSky: 0xd8f0ff, hemiGround: 0x7f9fb0 }),
+    }),
+    region({
+      id: 'station', name: '폐 기차역', label: '시설 · 보통', cx: -1200, cz: 497, r: 250,
+      icon: '🚉', level: 2,
+      build: { kind: 'facility', code: 'STATION', theme: 'zone', accent: 0x7c503a, broken: true },
+      spawn: { types: ['zombie', 'ghost', 'drone'], max: 11, near: 44, far: 92 },
+      height: B.mesa({ top: 6, r: 250, pad: 140 }),
+      color: B.paint([0x8a8378, 0x9a9288, 0x6f6a62], { slope: PAL.ROCK }),
+      ambience: B.AMB.facility,
+    }),
+    region({
+      id: 'meteorpit', name: '별똥별 구덩이', label: '사냥터 · 어려움', cx: -1200, cz: -497, r: 270,
+      icon: '☄️', level: 3,
+      build: { kind: 'outpost', theme: 'meteor' },
+      boss: { type: 'crystal', name: '운석 골렘', scale: 2.5, hpMul: 6, speedMul: 0.85 },
+      particles: 'dust',
+      spawn: { types: ['crystal', 'golem', 'bat'], max: 10, near: 46, far: 96 },
+      height: B.crater({ depth: -22, rim: 20, r: 270 }),
+      color: B.paint([0x4a4a52, 0x5a5a62, 0x3a3a42], { slope: PAL.DARKROCK }),
+      ambience: B.amb({ fog: 0x8a8a96, fogNear: 70, fogFar: 420, sun: 0.85, hemi: 0.8, sky: 0x9aa0ac }),
+    }),
+    region({
+      id: 'windmill', name: '풍차 언덕', label: '사냥터 · 쉬움', cx: -497, cz: -1200, r: 260,
+      icon: '🌾', level: 1,
+      build: { kind: 'outpost', theme: 'farm' },
+      spawn: { types: ['slime', 'zombie', 'bat'], max: 9, near: 46, far: 96 },
+      height: B.plains({ base: 6, amp: 20, scale: 90 }),
+      color: B.paint([0x8fa84a, 0xa8bc5a, 0x77913f], { slope: PAL.MUD }),
+      ambience: B.AMB.spring,
+    }),
+
+    // ================================================================ 사이 고리 (2100)
+    region({
+      id: 'volcanoisle', name: '화산섬', label: '사냥터 · 매우 어려움', cx: 1941, cz: -804, r: 280,
+      icon: '🌋', level: 4, waterY: -6,
+      build: { kind: 'island', volcano: true },
+      boss: { type: 'flameghost', name: '화산의 주인', scale: 3.0, hpMul: 7, speedMul: 0.9 },
+      spawn: { types: ['flameghost', 'golem', 'crystal'], max: 10, near: 46, far: 96 },
+      height: B.island({ top: 46, r: 280, sea: -12 }),
+      color: B.paintWater([0x4a332c, 0x3a2b28, 0x5c4238], [0x2a2020, 0x241f1c], -6),
+      ambience: B.AMB.lava,
+    }),
+    region({
+      id: 'ruincity', name: '유적 도시', label: '사냥터 · 어려움', cx: 1941, cz: 804, r: 300,
+      icon: '🏛️', level: 3,
+      build: { kind: 'ruins' },
+      boss: { type: 'sandgolem', name: '유적의 수호자', scale: 2.6, hpMul: 6, speedMul: 0.85 },
+      spawn: { types: ['ghost', 'sandgolem', 'zombie'], max: 12, near: 46, far: 96 },
+      height: B.mesa({ top: 8, r: 300, pad: 180 }),
+      color: B.paint([0xc9c4b4, 0xdcd8c8, 0xa8a294], { slope: PAL.SAND }),
+      ambience: B.amb({ fog: 0xe0d8b8, fogNear: 140, fogFar: 700, sun: 1.15, hemi: 1.0, sky: 0xf0e6c8 }),
+    }),
+    region({
+      id: 'cape', name: '등대곶', label: '사냥터 · 보통', cx: 804, cz: 1941, r: 280,
+      icon: '🗼', level: 2, waterY: -4,
+      build: { kind: 'sea' },
+      spawn: { types: ['wisp', 'toxic', 'ghost'], max: 10, near: 46, far: 96 },
+      height: B.basin({ floor: -12, rim: 12, r: 280, humps: 0.8 }),
+      color: B.paintWater([0x6f8a6a, 0x86a07c, 0x5c7458], [0x2f5560, 0x3f6b74], -4),
+      ambience: B.AMB.sea,
+    }),
+    region({
+      id: 'observatory', name: '관측소', label: '시설 · 어려움', cx: -804, cz: 1941, r: 260,
+      icon: '🔭', level: 3,
+      build: { kind: 'facility', code: 'OBSERVATORY', theme: 'radio', antenna: true, rooms: 2 },
+      spawn: { types: ['drone', 'ghost', 'crystal'], max: 11, near: 44, far: 92 },
+      height: B.peak({ top: 40, r: 260, rough: 12, power: 1.4 }),
+      color: B.paint(PAL.ROCK, { high: { y: 30, pal: PAL.CONCRETE } }),
+      ambience: B.amb({ fog: 0x9ab0c4, fogNear: 120, fogFar: 700, sun: 1.0, hemi: 0.95, sky: 0xb8d0e4 }),
+    }),
+    region({
+      id: 'airport', name: '공항 폐허', label: '시설 · 어려움', cx: -1941, cz: 804, r: 300,
+      icon: '✈️', level: 3,
+      build: { kind: 'facility', code: 'AIRPORT', theme: 'zone', accent: 0xa3a8ac, broken: true, rooms: 2 },
+      spawn: { types: ['drone', 'drone', 'zombie', 'ghost'], max: 12, near: 46, far: 96 },
+      height: B.mesa({ top: 5, r: 300, pad: 210 }),
+      color: B.paint([0x77797a, 0x8f9296, 0x6a6c6e], { slope: PAL.ROCK }),
+      ambience: B.AMB.facility,
+    }),
+    region({
+      id: 'bigswamp', name: '거대 버섯 늪', label: '사냥터 · 어려움', cx: -1941, cz: -804, r: 290,
+      icon: '🐸', level: 3, waterY: -3.2,
+      build: { kind: 'swamp' },
+      boss: { type: 'toxic', name: '늪의 큰 왕', scale: 3.4, hpMul: 7, speedMul: 0.85 },
+      particles: 'firefly',
+      spawn: { types: ['toxic', 'radslime', 'wisp', 'ghost'], max: 12, near: 44, far: 92 },
+      height: B.basin({ floor: -10, rim: 3, r: 290, humps: 1 }),
+      color: B.paintWater([0x44603a, 0x38512f, 0x4a4030], [0x2d3f2c, 0x3a4b32], -4.4),
+      ambience: B.amb({ fog: 0x60806a, fogNear: 40, fogFar: 300, sun: 0.55, hemi: 0.62,
+        sky: 0x6d8a72, hemiSky: 0x9ec0a2, hemiGround: 0x2f3f2c }),
+    }),
+
     // ================================================================ 넷째 고리 — 번호 구역 (3300)
     region({
       id: 'zone1', name: '1구역', label: '구역 · 어려움', cx: 0, cz: -3300, r: 240,
@@ -438,6 +582,25 @@
   ];
 
   /**
+   * 세상 배율 — 지역 표는 읽기 쉬운 작은 좌표로 쓰고, 여기서 한 번에 키운다.
+   * SCALE 을 올리면 사냥터 사이가 멀어지고, R_SCALE 은 지역 자체의 크기다.
+   * (도시는 손으로 지은 곳이라 그대로 둔다)
+   */
+  const SCALE = 2.6;
+  const R_SCALE = 1.35;
+  for (let i = 0; i < REGIONS.length; i++) {
+    const r = REGIONS[i];
+    if (r.id === 'city') continue;
+    r.cx = Math.round(r.cx * SCALE);
+    r.cz = Math.round(r.cz * SCALE);
+    r.r = Math.round(r.r * R_SCALE);
+    r.edge = Math.round(r.edge * R_SCALE);
+    // 입구(표지판·빠른 이동 도착지)는 지역 크기에 맞춰 다시 잡는다
+    r.entry = { x: r.cx, z: r.cz + Math.round(r.r * 0.8) };
+    if (r.heightFactory) r.height = r.heightFactory(r);
+  }
+
+  /**
    * 흙길 — 좌표만 적으면 terrain 이 지형 높이에 맞춰 깔아 준다.
    * 도시 여덟 성문에서 첫째 고리로, 거기서 다시 바깥 고리로 이어진다.
    */
@@ -460,18 +623,62 @@
     { w: 8, pts: [[-1050, 200], [-1350, 560], [-1570, 890]] },     // 동굴 → 자수정
     { w: 8, pts: [[-1050, -160], [-1350, -300], [-1570, -410]] },  // 동굴 → 금광
     { w: 8, pts: [[-660, -840], [-660, -1100], [-650, -1300]] },   // 겨울 → 점적석
+    // 첫째 고리를 잇는 순환로 (한 바퀴 돌 수 있다)
+    { w: 7, pts: [[0, -900], [380, -820], [640, -640]] },
+    { w: 7, pts: [[640, -640], [820, -380], [900, 0]] },
+    { w: 7, pts: [[900, 0], [820, 380], [640, 640]] },
+    { w: 7, pts: [[640, 640], [380, 820], [0, 900]] },
+    { w: 7, pts: [[0, 900], [-380, 820], [-640, 640]] },
+    { w: 7, pts: [[-640, 640], [-820, 380], [-900, 0]] },
+    { w: 7, pts: [[-900, 0], [-820, -380], [-640, -640]] },
+    { w: 7, pts: [[-640, -640], [-380, -820], [0, -900]] },
+    // 순환로 → 사이 고리(1300)
+    { w: 6, pts: [[380, -820], [497, -1000], [497, -1140]] },      // 버섯 숲
+    { w: 6, pts: [[820, -380], [1050, -497], [1140, -497]] },      // 수정 호수
+    { w: 6, pts: [[820, 380], [1050, 497], [1140, 497]] },         // 소금 사막
+    { w: 6, pts: [[380, 820], [497, 1000], [497, 1140]] },         // 붉은 협곡
+    { w: 6, pts: [[-380, 820], [-497, 1000], [-497, 1140]] },      // 얼음 동굴
+    { w: 6, pts: [[-820, 380], [-1050, 497], [-1140, 497]] },      // 폐 기차역
+    { w: 6, pts: [[-820, -380], [-1050, -497], [-1140, -497]] },   // 별똥별 구덩이
+    { w: 6, pts: [[-380, -820], [-497, -1000], [-497, -1140]] },   // 풍차 언덕
     // 둘째 고리 → 셋째 고리
     { w: 7, pts: [[400, -1800], [200, -2000], [0, -2230]] },       // 산 → 전파 관제소
     { w: 7, pts: [[1800, -700], [2100, -600], [2380, -490]] },     // 사막 → 피라미드
     { w: 7, pts: [[1800, 700], [2100, 860], [2380, 1020]] },       // 바다 → 무인도
     { w: 7, pts: [[0, 1240], [0, 1800], [0, 2260]] },              // 여름 해변 → 공연장
+    { w: 6, pts: [[-1570, 890], [-2000, 820], [-2380, 1020]] },    // 자수정 → 귀신의 집
+    { w: 6, pts: [[-1570, -410], [-2000, -600], [-2380, -500]] },  // 금광 → 방사능 연구소
+    { w: 6, pts: [[-650, -1300], [-1000, -1700], [-1470, -1760]] },// 점적석 → 좀비 연구소
+    { w: 6, pts: [[-650, 1300], [-1000, 1700], [-1470, 2270]] },   // 하수도 → 미술관
+    { w: 6, pts: [[1280, -650], [1700, -1100], [1941, -1080]] },   // 사막 → 화산섬
+    { w: 6, pts: [[1280, 650], [1700, 900], [1941, 1104]] },       // 바다 → 유적 도시
+    { w: 6, pts: [[650, 1280], [700, 1700], [804, 2221]] },        // 오염 지대 → 등대곶
+    { w: 6, pts: [[-650, 1300], [-750, 1700], [-804, 2191]] },     // 하수도 → 관측소
+    { w: 6, pts: [[-1570, 890], [-1800, 800], [-1941, 1104]] },    // 자수정 → 공항 폐허
+    { w: 6, pts: [[-1570, -650], [-1800, -700], [-1941, -1084]] }, // 금광 → 거대 버섯 늪
+    // 셋째 고리 → 번호 구역(넷째 고리)
+    { w: 5, pts: [[0, -2780], [0, -3070]] },                       // 전파 관제소 → 1구역
+    { w: 5, pts: [[2380, -1070], [2900, -2000], [2330, -2100]] },  // 피라미드 → 3구역
+    { w: 5, pts: [[2680, -770], [3070, -400], [3070, 0]] },        // 피라미드 → 13구역
+    { w: 5, pts: [[2380, 1070], [2600, 2000], [2330, 2560]] },     // 무인도 → 75구역
+    { w: 5, pts: [[0, 2760], [0, 3070]] },                         // 공연장 → 81구역
+    { w: 5, pts: [[-1470, 2270], [-2000, 2400], [-2330, 2560]] },  // 미술관 → 92구역
+    { w: 5, pts: [[-2380, 1020], [-2900, 600], [-3070, 0]] },      // 귀신의 집 → 98구역
+    { w: 5, pts: [[-2380, -1000], [-2600, -1800], [-2330, -2100]] },// 방사능 → 103구역
   ];
+
+  /** 도시 안(성문 언저리) 좌표인가 — 여기는 배율을 적용하지 않는다 */
+  function inCity(p) {
+    return p[0] > CITY_ZONE.x0 - 20 && p[0] < CITY_ZONE.x1 + 20
+      && p[1] > CITY_ZONE.z0 - 20 && p[1] < CITY_ZONE.z1 + 20;
+  }
 
   const PATHS = [];
   for (let i = 0; i < ROADS.length; i++) {
     const r = ROADS[i];
-    for (let k = 0; k < r.pts.length - 1; k++) {
-      const a = r.pts[k], b = r.pts[k + 1];
+    const pts = r.pts.map((p) => (inCity(p) ? p : [Math.round(p[0] * SCALE), Math.round(p[1] * SCALE)]));
+    for (let k = 0; k < pts.length - 1; k++) {
+      const a = pts[k], b = pts[k + 1];
       PATHS.push({ ax: a[0], az: a[1], ay: 0, bx: b[0], bz: b[1], by: 0, width: r.w });
     }
   }

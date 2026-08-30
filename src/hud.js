@@ -42,6 +42,8 @@
       overBest: el('over-best'),
       overTitle: el('over-title'),
       touch: el('touch'),
+      mapScreen: el('map-screen'),
+      mapCanvas: el('map-canvas'),
       travelHint: el('travel-hint'),
       travelText: el('travel-text'),
       pauseRegion: el('pause-region'),
@@ -221,10 +223,84 @@
     this.dom.pauseBest.textContent = s.best;
   };
 
+  /**
+   * 세상 지도 — 지역·길·플레이어를 위에서 내려다본 그림으로 그린다.
+   * 가 본 곳은 또렷하게, 아직 안 가 본 곳은 흐리게.
+   */
+  HUD.prototype.drawMap = function (world, player, visited) {
+    const cv = this.dom.mapCanvas;
+    const g = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    // 세상 크기 재기
+    let maxR = 500;
+    const rs = world.regions;
+    for (let i = 0; i < rs.length; i++) {
+      maxR = Math.max(maxR, Math.hypot(rs[i].cx, rs[i].cz) + rs[i].r);
+    }
+    maxR = Math.max(maxR, Math.hypot(player.x, player.z) + 200) * 1.06;
+    const sc = (W / 2 - 24) / maxR;
+    const toX = (x) => W / 2 + x * sc;
+    const toY = (z) => H / 2 + z * sc;
+
+    g.fillStyle = '#0d1a24';
+    g.fillRect(0, 0, W, H);
+    // 격자
+    g.strokeStyle = 'rgba(255,255,255,0.06)';
+    g.lineWidth = 1;
+    for (let i = -10; i <= 10; i++) {
+      const p = W / 2 + (i / 10) * (W / 2 - 24);
+      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, H); g.stroke();
+      g.beginPath(); g.moveTo(0, p); g.lineTo(W, p); g.stroke();
+    }
+    // 흙길
+    g.strokeStyle = 'rgba(200,170,110,0.55)';
+    g.lineWidth = 2;
+    const paths = world.terrain.paths;
+    for (let i = 0; i < paths.length; i++) {
+      const p = paths[i];
+      g.beginPath();
+      g.moveTo(toX(p.ax), toY(p.az));
+      g.lineTo(toX(p.bx), toY(p.bz));
+      g.stroke();
+    }
+    // 지역
+    for (let i = 0; i < rs.length; i++) {
+      const r = rs[i];
+      const seen = r.safe || (visited && visited[r.id]);
+      const x = toX(r.cx), y = toY(r.cz), rr = Math.max(4, r.r * sc);
+      g.globalAlpha = seen ? 0.9 : 0.32;
+      g.fillStyle = r.safe ? 'rgba(242,205,55,0.30)' : 'rgba(99,215,230,0.16)';
+      g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = r.safe ? '#f2cd37' : (seen ? '#63d7e6' : '#5f7a86');
+      g.lineWidth = seen ? 2 : 1;
+      g.beginPath(); g.arc(x, y, rr, 0, Math.PI * 2); g.stroke();
+      if (seen) {
+        g.fillStyle = '#ffffff';
+        g.font = 'bold 15px "Malgun Gothic", system-ui, sans-serif';
+        g.textAlign = 'center';
+        g.fillText((r.icon || '') + ' ' + r.name, x, y + 5);
+      }
+      g.globalAlpha = 1;
+    }
+    // 플레이어
+    const px = toX(player.x), py = toY(player.z);
+    g.fillStyle = '#c91a09';
+    g.beginPath(); g.arc(px, py, 7, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(px, py, 7, 0, Math.PI * 2); g.stroke();
+    // 바라보는 방향
+    g.beginPath();
+    g.moveTo(px, py);
+    g.lineTo(px - Math.sin(player.yaw) * 22, py - Math.cos(player.yaw) * 22);
+    g.stroke();
+  };
+
   HUD.prototype.screen = function (name) {
     this.dom.startScreen.classList.toggle('hidden', name !== 'start');
     this.dom.overScreen.classList.toggle('hidden', name !== 'over');
     this.dom.pauseScreen.classList.toggle('hidden', name !== 'pause');
+    this.dom.mapScreen.classList.toggle('hidden', name !== 'map');
   };
 
   HUD.prototype.gameOver = function (s) {
