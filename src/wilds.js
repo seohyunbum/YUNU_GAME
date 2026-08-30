@@ -54,17 +54,51 @@
   };
 
   /** 이 자리에 무엇을 심을까 — 지형과 지역이 정한다 */
+  // 지역 성격 → 무엇을 심을지 / 잎 색
+  const KIND = {
+    mount: ['pine', 'rock', 'bush'],
+    winter: ['pine', 'rock', 'bush'],
+    autumn: ['tree', 'tree', 'rock'],
+    spring: ['tree', 'bush', 'bush'],
+    summer: ['bush', 'rock', 'rock'],
+    desert: ['rock', 'bush', 'rock'],
+    pyramid: ['rock', 'rock', 'bush'],
+    lava: ['rock', 'rock', 'dead'],
+    sea: ['rock', 'bush', null],
+    deadsea: ['dead', 'rock', null],
+    island: ['bush', 'rock', null],
+    cave: ['rock', 'rock', 'bush'],
+    oldmine: ['rock', 'dead', 'bush'],
+    goldmine: ['rock', 'rock', 'dead'],
+    coalmine: ['rock', 'rock', 'dead'],
+    diamondmine: ['rock', 'rock', 'bush'],
+    amethyst: ['rock', 'rock', 'bush'],
+    dripstone: ['rock', 'rock', 'dead'],
+    zombie: ['dead', 'bush', 'rock'],
+    swamp: ['dead', 'bush', 'dead'],
+    hauntedhouse: ['dead', 'dead', 'rock'],
+    museum: ['dead', 'bush', 'rock'],
+    arena: ['rock', 'bush', 'dead'],
+    sewer: ['rock', 'dead', 'bush'],
+    toxicland: ['dead', 'rock', 'bush'],
+  };
+  // 잎 색: 계절과 지역에 따라
+  const LEAF = {
+    autumn: [0xb06a24, 0xc98a2e, 0x8a5a2a, 0xc9502e],
+    spring: [0x76c25c, 0x9ad46f, 0x57a34a, 0xf0a8d0],
+    winter: [0xdfe9ee, 0x2c6e3a, 0xf2f6f8],
+  };
+
   Wilds.prototype._pick = function (x, z, h, region) {
     const r = N.hash2(Math.round(x * 3.1), Math.round(z * 3.7));
     if (region) {
-      if (region.id === 'mount') {
-        if (h > 74) return null;                       // 설선 위는 비워 둔다
-        if (h > 34) return r < 0.55 ? 'pine' : 'rock';
-        return r < 0.6 ? 'pine' : (r < 0.8 ? 'rock' : 'bush');
+      if (region.id === 'mount' && h > 74) return null;      // 설선 위는 비워 둔다
+      const table = KIND[region.id];
+      if (table) return table[Math.min(2, Math.floor(r * 3))];
+      // 시설·구역은 휑하게: 바위와 죽은 나무만
+      if (region.build && region.build.kind === 'facility') {
+        return r < 0.6 ? 'rock' : (r < 0.85 ? 'dead' : 'bush');
       }
-      if (region.id === 'cave') return r < 0.75 ? 'rock' : 'bush';
-      if (region.id === 'zombie') return r < 0.5 ? 'dead' : (r < 0.75 ? 'bush' : 'rock');
-      if (region.id === 'swamp') return r < 0.6 ? 'dead' : 'bush';
     }
     if (h > 26) return r < 0.6 ? 'rock' : 'pine';
     return r < 0.52 ? 'tree' : (r < 0.78 ? 'bush' : 'rock');
@@ -97,6 +131,7 @@
         if (region && region.waterY !== undefined && h < region.waterY + 0.3) continue;
         const kind = this._pick(x, z, h, region);
         if (!kind) continue;
+        const leafPal = (region && LEAF[region.id]) || null;
         const rot = N.hash2(ci + 31, cj + 17) * 6.28;
         const scale = 0.75 + N.hash2(ci + 91, cj + 3) * 0.75;
 
@@ -123,8 +158,10 @@
           s.set(2.6 * scale, 1.8 * scale, 2.6 * scale);
           m.compose(p, q, s);
           this.bush.setMatrixAt(nBush, m);
-          const dry = region && (region.id === 'zombie' || region.id === 'swamp');
-          c.setHex(dry ? 0x5c6b40 : (N.hash2(ci, cj + 9) > 0.5 ? 0x3f8f43 : 0x2c6e3a));
+          const dry = region && ['zombie', 'swamp', 'toxicland', 'desert', 'pyramid',
+            'hauntedhouse', 'deadsea'].indexOf(region.id) >= 0;
+          const sandy = region && (region.id === 'desert' || region.id === 'pyramid' || region.id === 'summer');
+          c.setHex(sandy ? 0xa89a5e : (dry ? 0x5c6b40 : (N.hash2(ci, cj + 9) > 0.5 ? 0x3f8f43 : 0x2c6e3a)));
           this.bush.setColorAt(nBush, c);
           nBush++;
           continue;
@@ -157,9 +194,9 @@
           s.set(rr * 1.7, (pine ? 1.5 : 1.9) * scale, rr * 1.7);
           m.compose(p, q, s);
           this.leaf.setMatrixAt(nLeaf, m);
-          c.setHex(pine
-            ? (k % 2 ? 0x1f5b34 : 0x17452a)
-            : (k % 3 === 0 ? 0x2c6e3a : (k % 3 === 1 ? 0x3f8f43 : 0x57a34a)));
+          if (leafPal) c.setHex(leafPal[k % leafPal.length]);
+          else if (pine) c.setHex(k % 2 ? 0x1f5b34 : 0x17452a);
+          else c.setHex(k % 3 === 0 ? 0x2c6e3a : (k % 3 === 1 ? 0x3f8f43 : 0x57a34a));
           this.leaf.setColorAt(nLeaf, c);
           nLeaf++;
         }

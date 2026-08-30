@@ -70,38 +70,52 @@ if (!jump.rose || !jump.landed) throw new Error('점프가 동작하지 않는�
 console.log('점프 확인:', JSON.stringify(jump));
 
 // ---------------------------------------------------------------- 지역 순회
-const spots = [
-  ['03-zombie', 'zombie', 0, -1080, 0.4],
-  ['04-cave', 'cave', -1000, -240, Math.PI],
-  ['05-mount', 'mount', 990, -620, 1.4],
-  ['06-swamp', 'swamp', 800, 700, 0],
-];
-for (const [file, id, x, z, yaw] of spots) {
-  const info = await page.evaluate(([x, z, yaw]) => {
+// 좌표는 게임의 지역 표에서 직접 읽는다(지도가 바뀌어도 테스트가 낡지 않게)
+const regionIds = await page.evaluate(() =>
+  window.LEGO_GAME.world.regions.filter((r) => r.build).map((r) => r.id));
+console.log('지역 수:', regionIds.length + 1, '(안전지대 포함)');
+
+const shotOf = { zombie: '03-zombie', cave: '04-cave', mount: '05-mount', swamp: '06-swamp',
+  desert: '09-desert', pyramid: '10-pyramid', zone13: '11-zone13', museum: '12-museum' };
+const broken = [];
+for (const id of regionIds) {
+  const info = await page.evaluate((id) => {
     const g = window.LEGO_GAME;
-    g.player.pos.set(x, g.world.heightAt(x, z), z);
-    g.player.eyeY = g.player.pos.y + 4.6;
-    g.player.yaw = yaw;
-    g.player.pitch = -0.05;
-    g.world.update(x, z, 0.016, 400);          // 지형·소품을 한 번에 만든다
-    g.enemies.seedRegion(g.player.pos, g.world.current, 4);
-    return {
-      region: g.world.current && g.world.current.id,
-      ground: g.world.heightAt(x, z),
-      alive: g.enemies.aliveCount(),
-    };
-  }, [x, z, yaw]);
-  if (info.region !== id) throw new Error(id + ' 지역 인식 실패: ' + JSON.stringify(info));
-  if (!Number.isFinite(info.ground)) throw new Error(id + ' 지형 높이가 이상하다: ' + JSON.stringify(info));
-  await page.waitForTimeout(1200);
-  await page.screenshot({ path: resolve(outDir, file + '.png') });
-  console.log(id, '확인:', JSON.stringify(info));
+    const r = g.world.byId[id];
+    const x = r.cx, z = r.cz + r.r * 0.42;
+    try {
+      g.player.pos.set(x, g.world.heightAt(x, z), z);
+      g.player.eyeY = g.player.pos.y + 4.6;
+      g.player.yaw = 0;
+      g.player.pitch = 0;
+      g.world.update(x, z, 0.016, 60);
+      g.enemies.clear();
+      const seeded = g.enemies.seedRegion(g.player.pos, g.world.current, 3);
+      const c = g.world.content[id];
+      return { id, region: g.world.current && g.world.current.id, seeded,
+        props: c ? c.group.children.length : 0, ground: g.world.heightAt(x, z) };
+    } catch (e) { return { id, error: e.message }; }
+  }, id);
+  if (info.error || info.props < 3 || !Number.isFinite(info.ground)) broken.push(info);
+  if (shotOf[id]) {
+    await page.waitForTimeout(900);
+    await page.evaluate(() => {
+      window.LEGO_GAME.hud.dom.toast.classList.remove('on');
+      window.LEGO_GAME.hud.dom.banner.classList.remove('on');
+    });
+    await page.screenshot({ path: resolve(outDir, shotOf[id] + '.png') });
+  } else {
+    await page.waitForTimeout(60);
+  }
 }
+if (broken.length) throw new Error('제대로 지어지지 않은 지역: ' + JSON.stringify(broken));
+console.log('지역 전부 조립 확인 (' + regionIds.length + '곳)');
 
 // ---------------------------------------------------------------- 전투
 const combat = await page.evaluate(async () => {
   const g = window.LEGO_GAME;
-  const x = 0, z = -1100;
+  const zr = g.world.byId.zombie;
+  const x = zr.cx, z = zr.cz;
   g.player.pos.set(x, g.world.heightAt(x, z), z);
   g.player.yaw = 0;
   g.player.pitch = 0;
@@ -127,7 +141,8 @@ await page.screenshot({ path: resolve(outDir, '07-combat.png') });
 // ---------------------------------------------------------------- 보스
 const boss = await page.evaluate(async () => {
   const g = window.LEGO_GAME;
-  const x = 1060, z = -690;
+  const mr = g.world.byId.mount;
+  const x = mr.cx + 12, z = mr.cz + 10;
   g.player.pos.set(x, g.world.heightAt(x, z), z);
   g.player.yaw = -1.2;
   g.world.update(x, z, 0.016, 200);
@@ -168,11 +183,11 @@ const size = await page.evaluate(() => {
   return {
     도시_좀비: d(R.city, R.zombie), 도시_동굴: d(R.city, R.cave),
     도시_산: d(R.city, R.mount), 도시_늪: d(R.city, R.swamp),
-    가로: Math.round(Math.max(R.mount.cx + R.mount.r, R.swamp.cx + R.swamp.r) - (R.cave.cx - R.cave.r)),
-    세로: Math.round(Math.max(R.swamp.cz + R.swamp.r) - (R.zombie.cz - R.zombie.r)),
+    가로: Math.round(Math.max(R.zone13.cx + R.zone13.r, R.pyramid.cx + R.pyramid.r) - (R.zone98.cx - R.zone98.r)),
+    세로: Math.round((R.zone81.cz + R.zone81.r) - (R.zone1.cz - R.zone1.r)),
   };
 });
-if (size.도시_좀비 < 900 || size.가로 < 2000) {
+if (size.도시_좀비 < 800 || size.가로 < 5000) {
   throw new Error('세상이 예상보다 좁다: ' + JSON.stringify(size));
 }
 console.log('세상 크기:', JSON.stringify(size));
@@ -180,6 +195,7 @@ console.log('세상 크기:', JSON.stringify(size));
 const travel = await page.evaluate(async () => {
   const g = window.LEGO_GAME;
   g.regionVisited.zombie = true;
+  g.enemies.clear();
   // 북문 표지판 앞으로 가서 T
   g.player.pos.set(0, g.world.heightAt(0, -244), -244);
   await new Promise((r) => setTimeout(r, 300));

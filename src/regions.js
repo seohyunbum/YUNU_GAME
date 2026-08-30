@@ -600,10 +600,9 @@
     };
   }
 
-  L.REGION_BUILDERS = {
-    zombie: buildZombieVillage,
-    swamp: buildSwamp,
-    cave: buildCave,
-    mount: buildMountain,
-  };
+  L.REGION_BUILDERS = L.REGION_BUILDERS || {};
+  L.REGION_BUILDERS.zombie = buildZombieVillage;
+  L.REGION_BUILDERS.swamp = buildSwamp;
+  L.REGION_BUILDERS.cave = buildCave;
+  L.REGION_BUILDERS.mount = buildMountain;
 })(window.LEGO);

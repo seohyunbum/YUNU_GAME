@@ -25,6 +25,8 @@
     return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
   }
 
+  const EMPTY = [];
+
   function smooth(t) { return t * t * (3 - 2 * t); }
 
   function valueNoise(x, z) {
@@ -95,7 +97,39 @@
     this.stats = { built: 0, visible: 0 };
     this._noPaths = false;
     this._prepPaths();
+    this._prepRegionGrid();
   }
+
+  /**
+   * 지역이 수십 개가 되면 높이를 물을 때마다 전부 훑을 수 없다.
+   * 지역을 공간 격자에 담아 근처 것만 검사한다(heightAt 은 가장 뜨거운 함수).
+   */
+  Terrain.prototype._prepRegionGrid = function () {
+    const G = 400;
+    this._regionGridSize = G;
+    this._regionGrid = new Map();
+    for (let i = 0; i < this.regions.length; i++) {
+      const r = this.regions[i];
+      const reach = r.r + (r.edge || 0) + G;
+      const x0 = Math.floor((r.cx - reach) / G), x1 = Math.floor((r.cx + reach) / G);
+      const z0 = Math.floor((r.cz - reach) / G), z1 = Math.floor((r.cz + reach) / G);
+      for (let gx = x0; gx <= x1; gx++) {
+        for (let gz = z0; gz <= z1; gz++) {
+          const key = gx + ',' + gz;
+          let list = this._regionGrid.get(key);
+          if (!list) { list = []; this._regionGrid.set(key, list); }
+          list.push(r);
+        }
+      }
+    }
+  };
+
+  /** 이 좌표 근처의 지역 목록 (격자에서 꺼낸다) */
+  Terrain.prototype.regionsNear = function (x, z) {
+    if (!this._regionGrid) return this.regions;
+    const G = this._regionGridSize;
+    return this._regionGrid.get(Math.floor(x / G) + ',' + Math.floor(z / G)) || EMPTY;
+  };
 
   /**
    * 길을 50 스터드 마디로 쪼개고, 각 마디의 높이를 그 자리의 "자연 지형 높이"로 맞춘다.
@@ -189,9 +223,10 @@
 
   /** 지역 찾기(가장 가까운, 반경 안) */
   Terrain.prototype.regionAt = function (x, z) {
+    const list = this.regionsNear(x, z);
     let best = null, bestD = Infinity;
-    for (let i = 0; i < this.regions.length; i++) {
-      const r = this.regions[i];
+    for (let i = 0; i < list.length; i++) {
+      const r = list[i];
       const d = Math.hypot(x - r.cx, z - r.cz);
       if (d < r.r && d < bestD) { best = r; bestD = d; }
     }
@@ -203,8 +238,9 @@
     // 기본 들판: 완만한 구릉
     let h = (fbm(x, z, 3, 90) - 0.5) * 9;
     h += (fbm(x + 500, z - 300, 2, 240) - 0.5) * 7;
-    for (let i = 0; i < this.regions.length; i++) {
-      const rg = this.regions[i];
+    const near = this.regionsNear(x, z);
+    for (let i = 0; i < near.length; i++) {
+      const rg = near[i];
       if (!rg.height) continue;
       const d = Math.hypot(x - rg.cx, z - rg.cz);
       const w = falloff(d, rg.r, rg.edge);

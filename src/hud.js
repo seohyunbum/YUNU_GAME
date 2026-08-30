@@ -32,6 +32,7 @@
       hurt: el('hurt-flash'),
       bossBar: el('boss-bar'),
       bossFill: el('boss-fill'),
+      bossName: el('boss-bar').querySelector('.boss-name'),
       startScreen: el('start-screen'),
       overScreen: el('over-screen'),
       pauseScreen: el('pause-screen'),
@@ -144,6 +145,7 @@
     // 보스 체력
     if (s.boss) {
       this.dom.bossBar.classList.remove('hidden');
+      this.dom.bossName.textContent = '👑 ' + (s.boss.bossName || '보스');
       this.dom.bossFill.style.width = (Math.max(0, s.boss.hp / s.boss.maxHp) * 100).toFixed(1) + '%';
     } else {
       this.dom.bossBar.classList.add('hidden');
