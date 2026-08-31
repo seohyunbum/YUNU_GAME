@@ -639,9 +639,18 @@
 
     // 동굴 갱도 안이면 횃불을 켠다
     const p = this.player.pos;
-    const dark = amb.dark || this.world.inTunnel(p.x, p.z, this.camera.position.y);
-    const want = dark ? 1.7 : 0;
+    const indoors = this.world.indoors(p.x, p.z, this.camera.position.y);
+    const dark = amb.dark || indoors;
+    const want = dark ? (indoors && !amb.dark ? 1.4 : 1.7) : 0;
     this.torch.intensity += (want - this.torch.intensity) * Math.min(1, dt * 3);
+    // 실내에서는 하늘빛을 실내등 색으로 바꿔 방 안이 캄캄해지지 않게 한다
+    if (indoors && !amb.dark) {
+      this._hemiSky.setHex(0xffe4bc);
+      this._hemiGround.setHex(0x5a4a3c);
+      this.hemi.color.lerp(this._hemiSky, k);
+      this.hemi.groundColor.lerp(this._hemiGround, k);
+      this.hemi.intensity += (0.95 - this.hemi.intensity) * k;
+    }
 
     // 모닥불 불꽃 흔들기 (지역 소품 중 userData.flames 를 가진 것)
     const cur = this.world.current;

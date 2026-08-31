@@ -534,6 +534,202 @@
   }
 
   // ================================================================= 시설 · 구역
+  /**
+   * 시설 실내 — 진짜로 걸어 들어갈 수 있는 건물.
+   * 벽은 문 자리를 비운 채 세우고, 벽마다 충돌 상자를 따로 넣는다.
+   * (건물 하나를 통짜 충돌 상자로 막으면 안으로 들어갈 수가 없다)
+   *
+   *        뒷방(중앙 제어실 · 보스)
+   *   실험실 | 복도 | 격리실
+   *   제어실 | 복도 | 창고
+   *            현관
+   */
+  function facilityInterior(group, colliders, spawns, screens, o, cx, cz, baseY) {
+    const accent = o.accent === undefined ? 0x0055bf : o.accent;
+    const wallColor = o.burnt ? 0x4a3a34 : (o.theme === 'toxic' ? 0x8f9a86 : P2.concrete);
+    const W = 70, D = 54, H = 15, TH = 2;
+    const x0 = cx - W / 2, x1 = cx + W / 2, z0 = cz - D / 2, z1 = cz + D / 2;
+    const lights = [];
+
+    /** z 방향으로 뻗는 벽 (gapW > 0 이면 그 자리에 문을 낸다) */
+    function wallAlongZ(x, za, zb, gapC, gapW, color) {
+      const parts = [];
+      if (gapW > 0) {
+        if (gapC - gapW / 2 > za) parts.push([za, gapC - gapW / 2]);
+        if (gapC + gapW / 2 < zb) parts.push([gapC + gapW / 2, zb]);
+      } else parts.push([za, zb]);
+      for (let i = 0; i < parts.length; i++) {
+        const a = parts[i][0], b = parts[i][1];
+        if (b - a < 0.5) continue;
+        const m = T.mesh(L.box(TH, H, b - a), color || wallColor, 'matte');
+        T.put(group, m, x, baseY + H / 2, (a + b) / 2);
+        colliders.push({ x, z: (a + b) / 2, hx: TH / 2 + 0.4, hz: (b - a) / 2 });
+      }
+      if (gapW > 0) {
+        const lintel = T.mesh(L.box(TH + 0.4, 3, gapW), P2.concreteDark, 'matte');
+        T.put(group, lintel, x, baseY + H - 1.5, gapC);
+      }
+    }
+
+    /** x 방향으로 뻗는 벽 */
+    function wallAlongX(z, xa, xb, gapC, gapW, color) {
+      const parts = [];
+      if (gapW > 0) {
+        if (gapC - gapW / 2 > xa) parts.push([xa, gapC - gapW / 2]);
+        if (gapC + gapW / 2 < xb) parts.push([gapC + gapW / 2, xb]);
+      } else parts.push([xa, xb]);
+      for (let i = 0; i < parts.length; i++) {
+        const a = parts[i][0], b = parts[i][1];
+        if (b - a < 0.5) continue;
+        const m = T.mesh(L.box(b - a, H, TH), color || wallColor, 'matte');
+        T.put(group, m, (a + b) / 2, baseY + H / 2, z);
+        colliders.push({ x: (a + b) / 2, z, hx: (b - a) / 2, hz: TH / 2 + 0.4 });
+      }
+      if (gapW > 0) {
+        const lintel = T.mesh(L.box(gapW, 3, TH + 0.4), P2.concreteDark, 'matte');
+        T.put(group, lintel, gapC, baseY + H - 1.5, z);
+      }
+    }
+
+    /**
+     * 천장 등 — 발광 판 + (lamp 가 참이면) 실제 광원 하나.
+     * 실제 광원은 방마다 하나면 충분하다(지역이 꺼지면 같이 꺼진다).
+     */
+    function ceilLight(x, z, lamp) {
+      const panel = new THREE.Mesh(L.box(5, 0.4, 2.4), new THREE.MeshBasicMaterial({
+        color: o.burnt ? 0x6a5a4a : 0xfff3c4,
+      }));
+      T.put(group, panel, x, baseY + H - 1.2, z);
+      const box = T.mesh(L.box(5.6, 0.6, 3), P2.concreteDark, 'matte', { shadow: false });
+      T.put(group, box, x, baseY + H - 0.7, z);
+      lights.push(panel);
+      if (lamp && !o.burnt) {
+        const light = new THREE.PointLight(0xffe9c0, 1.5, 60, 1.4);
+        light.position.set(x, baseY + H - 2, z);
+        group.add(light);
+      }
+    }
+
+    // 바닥 · 천장
+    const floor = T.mesh(L.box(W, 1.2, D), P2.concreteDark, 'matte');
+    T.put(group, floor, cx, baseY - 0.6, cz);
+    const ceil = T.mesh(L.box(W + 2, 1.6, D + 2), P2.concrete, 'matte');
+    T.put(group, ceil, cx, baseY + H + 0.8, cz);
+
+    // 바깥 벽 (정면에 현관문 구멍)
+    wallAlongX(z1, x0, x1, cx, 9);
+    wallAlongX(z0, x0, x1, 0, 0);
+    wallAlongZ(x0, z0, z1, 0, 0);
+    wallAlongZ(x1, z0, z1, 0, 0);
+
+    // 복도 벽 — 방으로 들어가는 문 넷
+    const CH = 7;                       // 복도 반폭
+    const backZ = z0 + 18;              // 뒷방 경계
+    wallAlongZ(cx - CH, backZ, z1 - TH, cz + 12, 8);
+    wallAlongZ(cx - CH, backZ, z1 - TH, cz - 10, 8);
+    wallAlongZ(cx + CH, backZ, z1 - TH, cz + 12, 8);
+    wallAlongZ(cx + CH, backZ, z1 - TH, cz - 10, 8);
+    // 좌우 방을 앞뒤로 나누는 벽
+    wallAlongX(cz + 2, x0, cx - CH, cx - 20, 7);
+    wallAlongX(cz + 2, cx + CH, x1, cx + 20, 7);
+    // 뒷방으로 들어가는 큰 문
+    wallAlongX(backZ, x0, x1, cx, 12);
+
+    // 현관 방폭문 틀 + 시설 코드
+    T.put(group, T2.blastDoor(9, 12, accent), cx, baseY + 6, z1 + 0.4);
+    const plate = L.signPanel(o.code || 'FACILITY', 14, 3, '#17222b',
+      '#' + ('000000' + accent.toString(16)).slice(-6));
+    T.put(group, plate, cx, baseY + 13.4, z1 + 1.3);
+
+    // 천장 등
+    for (let i = 0; i < 5; i++) ceilLight(cx, z1 - 6 - i * 9, i === 2);
+    ceilLight(cx - 22, cz + 12, true); ceilLight(cx - 22, cz - 12, true);
+    ceilLight(cx + 22, cz + 12, true); ceilLight(cx + 22, cz - 12, true);
+    ceilLight(cx - 14, backZ - 8, true); ceilLight(cx + 14, backZ - 8, false);
+
+    // ---- 왼앞: 제어실
+    const con1 = T2.console(P2.screen);
+    T.put(group, con1, cx - 22, baseY, cz + 20);
+    screens.push(con1);
+    const con2 = T2.console(accent);
+    T.put(group, con2, cx - 30, baseY, cz + 12, 0, Math.PI / 2, 0);
+    screens.push(con2);
+    T.put(group, T2.mapScreen(14, 8, accent), cx - 22, baseY + 8, cz + 24.4);
+    T.put(group, T2.locker(0x3f5f7a), cx - 32, baseY, cz + 22);
+    T.put(group, T2.locker(0x3f5f7a), cx - 32, baseY, cz + 18);
+    spawns.push({ x: cx - 22, z: cz + 16 });
+
+    // ---- 왼뒤: 실험실 (탱크 · 배관 · 표본 캡슐)
+    T.put(group, T2.tank(0.7, o.theme === 'toxic' ? 0x9ab08a : P2.steel), cx - 28, baseY, cz - 8);
+    T.put(group, T2.tank(0.7, P2.steel), cx - 28, baseY, cz - 18);
+    T.put(group, T2.pipe(16, 0.9, P2.steel), cx - 18, baseY + 9, cz - 13, 0, Math.PI / 2, 0);
+    for (let i = 0; i < 3; i++) {
+      const pod = new THREE.Mesh(L.cyl(2, 2, 8, 12), new THREE.MeshPhongMaterial({
+        color: o.theme === 'zombie' ? 0x7fbf3f : P2.screen, transparent: true, opacity: 0.45,
+        specular: 0xffffff, shininess: 140,
+      }));
+      T.put(group, pod, cx - 12, baseY + 4.6, cz - 6 - i * 7);
+      const cap = T.mesh(L.cyl(2.3, 2.3, 1, 12), P2.steel, 'metal');
+      T.put(group, cap, cx - 12, baseY + 9.1, cz - 6 - i * 7);
+      const podBase = T.mesh(L.cyl(2.3, 2.3, 1.2, 12), P2.concreteDark, 'matte');
+      T.put(group, podBase, cx - 12, baseY + 0.6, cz - 6 - i * 7);
+    }
+    spawns.push({ x: cx - 24, z: cz - 12 });
+
+    // ---- 오른앞: 창고
+    for (let i = 0; i < 8; i++) {
+      const bx = cx + 14 + (i % 4) * 5, bz = cz + 8 + Math.floor(i / 4) * 6;
+      T.put(group, i % 3 === 0 ? T.barrel(1, o.theme === 'toxic' ? 0x4b9f4a : undefined) : T.crate(1),
+        bx, baseY, bz);
+      if (i % 4 === 1) T.put(group, T.crate(0.9), bx, baseY + 2.4, bz);
+    }
+    for (let i = 0; i < 2; i++) {
+      const shelf = T.mesh(L.box(14, 0.5, 3), P2.steel, 'metal');
+      T.put(group, shelf, cx + 24, baseY + 3 + i * 4, cz + 20);
+    }
+    for (const sx of [-1, 1]) {
+      const leg = T.mesh(L.box(0.5, 8, 3), P2.steel, 'metal');
+      T.put(group, leg, cx + 24 + sx * 6.8, baseY + 4, cz + 20);
+    }
+    spawns.push({ x: cx + 20, z: cz + 14 });
+
+    // ---- 오른뒤: 격리실 (유리벽 안의 표본)
+    const glass = new THREE.Mesh(L.box(24, 11, 0.5), new THREE.MeshPhongMaterial({
+      color: P2.glassBlue, transparent: true, opacity: 0.32, specular: 0xffffff, shininess: 160,
+    }));
+    T.put(group, glass, cx + 21, baseY + 5.5, cz - 4);
+    for (let i = 0; i < 2; i++) {
+      const frame = T.mesh(L.box(0.6, 11, 0.8), P2.steel, 'metal');
+      T.put(group, frame, cx + 9 + i * 24, baseY + 5.5, cz - 4);
+    }
+    T.put(group, T2.hazardSign('DO NOT ENTER', C.black), cx + 21, baseY, cz - 1);
+    const specimen = new THREE.Mesh(L.cyl(3, 3, 11, 14), new THREE.MeshPhongMaterial({
+      color: o.theme === 'fire' ? 0xff7a18 : 0x7fbf3f, transparent: true, opacity: 0.4,
+      specular: 0xffffff, shininess: 140,
+    }));
+    T.put(group, specimen, cx + 21, baseY + 6, cz - 14);
+    const specBase = T.mesh(L.cyl(3.4, 3.4, 1.2, 14), P2.concreteDark, 'matte');
+    T.put(group, specBase, cx + 21, baseY + 0.6, cz - 14);
+    spawns.push({ x: cx + 20, z: cz - 12 });
+
+    // ---- 뒷방: 중앙 제어실 겸 보스 자리
+    const dais = T.mesh(L.box(26, 1.6, 12), P2.concrete, 'matte');
+    T.put(group, dais, cx, baseY + 0.8, backZ - 9);
+    T.put(group, T2.mapScreen(26, 12, accent), cx, baseY + 9, z0 + 2.2);
+    for (let i = 0; i < 3; i++) {
+      const con = T2.console(i === 1 ? P2.screen : accent);
+      T.put(group, con, cx - 12 + i * 12, baseY + 1.6, backZ - 12);
+      screens.push(con);
+    }
+    for (const sx of [-1, 1]) T.put(group, T2.locker(0x3f5f7a), cx + sx * 30, baseY, backZ - 6);
+    spawns.push({ x: cx, z: backZ - 8, boss: true });
+
+    return {
+      indoor: { x0: x0 - 1, x1: x1 + 1, z0: z0 - 1, z1: z1 + 1, y0: baseY - 2, y1: baseY + H + 3 },
+      lights,
+    };
+  }
+
   function buildFacility(group, ctx) {
     const colliders = [], spawns = [];
     const h = ctx.heightAt, R = ctx.region;
@@ -544,64 +740,41 @@
     const baseY = h(cx, cz);
     const screens = [];
 
-    // ---- 본관: 콘크리트 상자 + 방폭문 + 창
-    const W = 44, D = 30, H = 16;
-    const main = new THREE.Group();
-    for (let side = 0; side < 4; side++) {
-      const along = side % 2 === 0 ? W : D;
-      const wall = T2.concreteWall(along, H, 2, wallColor);
-      const ang = side * Math.PI / 2;
-      wall.position.set(Math.sin(ang) * (side % 2 === 0 ? D / 2 : W / 2), H / 2,
-        Math.cos(ang) * (side % 2 === 0 ? D / 2 : W / 2));
-      wall.rotation.y = ang;
-      main.add(wall);
-    }
-    const roof = L.plate(P2.concreteDark, Math.round(W / 4), Math.round(D / 4), { height: 1.6 });
-    roof.scale.set(4, 1, 4);
-    T.put(main, roof, 0, H + 0.8, 0);
-    // 정면 방폭문
-    T.put(main, T2.blastDoor(8, 11, accent), 0, 5.6, D / 2 + 1.2);
-    // 창문 띠
-    for (let i = 0; i < 5; i++) {
-      const win = T.mesh(L.box(5, 3, 0.5), P2.glassBlue, 'glass');
-      T.put(main, win, -16 + i * 8, 11, D / 2 + 1.1);
-    }
-    // 지붕 위 코드 간판
-    const sign = L.signPanel(o.code || 'FACILITY', 26, 5, '#' + ('000000' + accent.toString(16)).slice(-6), '#f4f4f2');
-    T.put(main, sign, 0, H + 4, D / 2 + 0.6);
-    const signBack = T.mesh(L.box(27, 6, 0.6), P2.concreteDark, 'matte');
-    T.put(main, signBack, 0, H + 4, D / 2 + 0.2);
-    if (o.broken) {
-      main.rotation.z = 0.05;
-      const hole = T.mesh(L.box(9, 7, 3), 0x14181c, 'matte');
-      T.put(main, hole, 12, 8, D / 2 + 1.0);
-    }
-    place(group, main, cx, baseY, cz, 0, colliders, W / 2 + 1, D / 2 + 1);
+    // ---- 본관 실내 (걸어 들어갈 수 있다)
+    const inside = facilityInterior(group, colliders, spawns, screens, o, cx, cz, baseY);
+    const W = 70, D = 54, H = 15;
 
-    // ---- 내부 제어실 (앞이 뚫린 방으로 만들어 밖에서 보인다)
-    const rooms = o.rooms || 1;
-    for (let r = 0; r < rooms; r++) {
-      const rx = cx - 40 - r * 34, rz = cz - 26;
-      const room = new THREE.Group();
-      for (let side = 0; side < 3; side++) {
-        const wall = T2.concreteWall(22, 12, 2, wallColor);
-        const ang = side * Math.PI / 2 + Math.PI / 2;
-        wall.position.set(Math.sin(ang) * 11, 6, Math.cos(ang) * 11);
-        wall.rotation.y = ang;
-        room.add(wall);
-      }
-      const rroof = T.mesh(L.box(24, 1.4, 24), P2.concreteDark, 'matte');
-      T.put(room, rroof, 0, 12.7, 0);
-      const con = T2.console(r === 0 ? P2.screen : accent);
-      T.put(room, con, 0, 0, -6);
-      screens.push(con);
-      const map = T2.mapScreen(12, 7, accent);
-      T.put(room, map, 0, 7, -10.4);
-      T.put(room, T2.locker(0x3f5f7a), -8, 0, -8);
-      T.put(room, T2.locker(0x3f5f7a), -8, 0, -4.4);
-      place(group, room, rx, h(rx, rz), rz, 0.4 + r * 0.3, colliders, 12);
-      spawns.push({ x: rx + 14, z: rz + 10 });
+    // ---- 바깥 꾸미기: 창문 띠 · 지붕 간판 · 현관 계단과 차양
+    for (let i = 0; i < 4; i++) {
+      const win = T.mesh(L.box(6, 3, 0.5), P2.glassBlue, 'glass');
+      T.put(group, win, cx - 26 + i * 17.5, baseY + 11, cz + D / 2 + 1.1);
     }
+    const sign = L.signPanel(o.code || 'FACILITY', 30, 5.5,
+      '#' + ('000000' + accent.toString(16)).slice(-6), '#f4f4f2');
+    T.put(group, sign, cx, baseY + H + 4, cz + D / 2 + 0.9);
+    const signBack = T.mesh(L.box(31, 6.5, 0.8), P2.concreteDark, 'matte');
+    T.put(group, signBack, cx, baseY + H + 4, cz + D / 2 + 0.4);
+    for (let i = 0; i < 3; i++) {
+      const step = T.mesh(L.box(16 - i * 2, 0.7, 2.2), P2.concrete, 'matte');
+      T.put(group, step, cx, baseY - 0.3 - i * 0.7, cz + D / 2 + 3 + i * 2.2);
+    }
+    const canopy = T.mesh(L.box(20, 1, 8), P2.concreteDark, 'matte');
+    T.put(group, canopy, cx, baseY + 13.5, cz + D / 2 + 5);
+    for (const sx of [-1, 1]) {
+      const post = T.mesh(L.box(1.2, 13, 1.2), P2.steel, 'metal');
+      T.put(group, post, cx + sx * 8.5, baseY + 6.5, cz + D / 2 + 8.4);
+      colliders.push({ x: cx + sx * 8.5, z: cz + D / 2 + 8.4, hx: 1, hz: 1 });
+    }
+    if (o.broken) {
+      const hole = T.mesh(L.box(12, 2, 10), 0x14181c, 'matte');
+      T.put(group, hole, cx + 18, baseY + H + 1, cz - 8);
+      for (let i = 0; i < 6; i++) {
+        T.put(group, T.rock(0.7 + rnd(i, 951) * 0.6, P2.concrete),
+          cx + 12 + rnd(i, 952) * 14, baseY, cz - 4 - rnd(i, 953) * 14);
+      }
+    }
+    void W;
+    void wallColor;
 
     // ---- 울타리 + 경고판 + 탐조등
     const fenceR = R.r * 0.55;
@@ -666,9 +839,8 @@
         place(group, T2.chainFence(8, 11, 0xc9a03a), x, h(x, z), z, 0, colliders, 4, 1);
       }
     }
-    spawns.push({ x: cx, z: cz - D / 2 - 16, boss: true });
     if (R.entry) place(group, T2.hazardSign(o.code || 'RESTRICTED', C.black), R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
-    return { colliders, spawns, screens };
+    return { colliders, spawns, screens, indoor: inside.indoor };
   }
 
   // ================================================================= 하수도

@@ -877,12 +877,24 @@
     return Math.max(0, r.waterY - y);
   };
 
-  /** 동굴 갱도 안인가(횃불을 켠다) */
-  World.prototype.inTunnel = function (x, z, y) {
-    const c = this.content.cave;
-    if (!c || !c.data || !c.data.tunnel) return false;
+  /**
+   * 실내인가 — 동굴 갱도, 광산 굴, 시설 건물 안이면 참.
+   * (게임은 이때 손전등을 켜고 하늘빛을 줄인다)
+   */
+  World.prototype.indoors = function (x, z, y) {
+    const r = this.current;
+    const c = r ? this.content[r.id] : null;
+    if (!c || !c.data) return false;
     const t = c.data.tunnel;
-    return Math.abs(x - t.x) < t.halfW && z > t.z0 && z < t.z1 && y < t.ceilY;
+    if (t && Math.abs(x - t.x) < t.halfW && z > t.z0 && z < t.z1 && y < t.ceilY) return true;
+    const b = c.data.indoor;
+    if (b && x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1 && y > b.y0 && y < b.y1) return true;
+    return false;
+  };
+
+  /** 예전 이름(동굴 전용) — 호환용 */
+  World.prototype.inTunnel = function (x, z, y) {
+    return this.indoors(x, z, y);
   };
 
   /**

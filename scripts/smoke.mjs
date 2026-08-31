@@ -209,6 +209,33 @@ if (!travel.hint || travel.region !== 'zombie') {
 }
 console.log('빠른 이동 확인:', JSON.stringify(travel));
 
+// ---------------------------------------------------------------- 시설 실내
+const indoor = await page.evaluate(async () => {
+  const g = window.LEGO_GAME;
+  const r = g.world.byId.zone13;
+  // 정문 앞에서 안으로 들어가 본다
+  g.player.pos.set(r.cx, g.world.heightAt(r.cx, r.cz + 40), r.cz + 40);
+  g.world.update(r.cx, r.cz, 0.016, 200);
+  await new Promise((res) => setTimeout(res, 200));
+  const outside = g.world.indoors(g.player.pos.x, g.player.pos.z, g.player.pos.y + 4.6);
+  // 복도 한가운데로
+  g.player.pos.set(r.cx, g.world.heightAt(r.cx, r.cz + 10), r.cz + 10);
+  const inside = g.world.indoors(g.player.pos.x, g.player.pos.z, g.player.pos.y + 4.6);
+  // 복도 벽을 밀어 본다(뚫고 나가면 안 된다)
+  g.player.pos.set(r.cx - 3, g.world.heightAt(r.cx - 3, r.cz), r.cz);
+  const x0 = g.player.pos.x;
+  for (let i = 0; i < 40; i++) {
+    g._tryMove(-1.2, 0);
+    window.LEGO.resolveCollision(g.player.pos, 2.0, g.world.colliders);
+  }
+  const pushed = Math.abs(g.player.pos.x - x0);
+  return { outside, inside, pushed: Math.round(pushed) };
+});
+if (indoor.outside || !indoor.inside || indoor.pushed > 6) {
+  throw new Error('시설 실내가 제대로 동작하지 않는다: ' + JSON.stringify(indoor));
+}
+console.log('시설 실내 확인:', JSON.stringify(indoor));
+
 // ---------------------------------------------------------------- 카트 · 지도
 const gear = await page.evaluate(async () => {
   const g = window.LEGO_GAME;
@@ -250,6 +277,10 @@ const info = await page.evaluate(() => {
   g.player.pitch = -0.06;
   g.world.update(0, 30, 0.016, 200);
   g.wilds.rebuild(0, 30);
+  // 카메라는 루프에서만 움직이므로 직접 맞춰 준다(안 그러면 엉뚱한 곳을 잰다)
+  g.camera.position.set(0, g.world.heightAt(0, 30) + 4.6, 30);
+  g.camera.rotation.set(-0.06, 0, 0);
+  g.camera.updateMatrixWorld(true);
   const r = g.renderer;
   r.info.autoReset = false;
   r.info.reset();
