@@ -65,6 +65,29 @@
       g.add(rock, rock2, rock3, fire, trail);
       return g;
     });
+    // 레이저 — 얇고 길게 늘어난 빛 (관통)
+    this._makeProjectilePool('laser', 24, () => {
+      const g = new THREE.Group();
+      const core = new THREE.Mesh(L.box(0.28, 0.28, 7), new THREE.MeshBasicMaterial({ color: 0xd8fbff }));
+      const halo = new THREE.Mesh(L.box(0.7, 0.7, 7.6), new THREE.MeshBasicMaterial({
+        color: 0x63d7e6, transparent: true, opacity: 0.45,
+      }));
+      g.add(core, halo);
+      return g;
+    });
+    // 마법탄 — 몬스터를 따라가는 보라 구슬
+    this._makeProjectilePool('magicbolt', 18, () => {
+      const g = new THREE.Group();
+      const core = new THREE.Mesh(L.sph(0.55, 12), new THREE.MeshBasicMaterial({ color: 0xf0e0ff }));
+      const shell = new THREE.Mesh(L.sph(1.05, 12), new THREE.MeshBasicMaterial({
+        color: 0x9a63e6, transparent: true, opacity: 0.55,
+      }));
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.1, 6, 16),
+        new THREE.MeshBasicMaterial({ color: 0xc79bff, transparent: true, opacity: 0.7 }));
+      g.add(core, shell, ring);
+      g.userData.ring = ring;
+      return g;
+    });
     this._makeProjectilePool('enemyfire', 24, () => {
       const g = new THREE.Group();
       const core = new THREE.Mesh(L.sph(0.8, 10), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
@@ -131,6 +154,44 @@
       });
     }
 
+    // ---------------- 번개 줄기 (몬스터에서 몬스터로 튄다)
+    this.beams = [];
+    for (let i = 0; i < 12; i++) {
+      const m = new THREE.Mesh(L.box(0.5, 0.5, 1), new THREE.MeshBasicMaterial({
+        color: 0xd8f4ff, transparent: true, opacity: 0.95,
+      }));
+      m.visible = false;
+      scene.add(m);
+      this.beams.push({ alive: false, mesh: m, t: 0, life: 0.22 });
+    }
+
+    // ---------------- 회오리 (앞으로 나아가며 몬스터를 끌어당긴다)
+    this.tornados = [];
+    for (let i = 0; i < 3; i++) {
+      const g = new THREE.Group();
+      const rings = [];
+      for (let k = 0; k < 7; k++) {
+        const r = 2 + k * 1.9;
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.5 + k * 0.08, 7, 18),
+          new THREE.MeshBasicMaterial({ color: 0xdfeef7, transparent: true, opacity: 0.42 }));
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 2 + k * 4.2;
+        g.add(ring);
+        rings.push(ring);
+      }
+      const core = new THREE.Mesh(L.cyl(1.4, 4.4, 30, 12), new THREE.MeshBasicMaterial({
+        color: 0xcfe3ef, transparent: true, opacity: 0.22,
+      }));
+      core.position.y = 15;
+      g.add(core);
+      g.visible = false;
+      scene.add(g);
+      this.tornados.push({
+        alive: false, group: g, rings, t: 0, life: 4, dps: 0, radius: 16, pull: 8,
+        pos: new THREE.Vector3(), vel: new THREE.Vector3(),
+      });
+    }
+
     // ---------------- 메테오 예고 표식
     this.marks = [];
     for (let i = 0; i < 4; i++) {
@@ -191,6 +252,22 @@
     p.group.visible = true;
     p.group.scale.setScalar(o.scale === undefined ? 1 : o.scale);
     return p;
+  };
+
+  /** 바닥 예고 표식 (아이스 스톰·메테오가 떨어질 자리) */
+  FX.prototype.mark = function (pos, radius, seconds, color) {
+    const m = this._freeSlot(this.marks);
+    if (!m) return null;
+    m.alive = true;
+    m.t = 0;
+    m.dur = seconds;
+    m.radius = radius;
+    m.group.position.set(pos.x, pos.y + 0.35, pos.z);
+    m.group.visible = true;
+    m.group.scale.setScalar(radius * 0.5);
+    m.ring.material.color.setHex(color === undefined ? 0xff5a10 : color);
+    m.ring2.material.color.setHex(color === undefined ? 0xffd166 : 0xffffff);
+    return m;
   };
 
   /** 메테오: 하늘에서 목표점으로 떨어뜨린다 */
@@ -285,6 +362,44 @@
     f.vel.z += (Math.random() - 0.5) * 52 * s;
   };
 
+  /** 번개 줄기 하나 (두 점을 잇는 빛) */
+  FX.prototype.beam = function (from, to, color, life) {
+    const b = this._freeSlot(this.beams);
+    if (!b) return;
+    b.alive = true;
+    b.t = 0;
+    b.life = life || 0.22;
+    const m = b.mesh;
+    m.visible = true;
+    m.material.color.setHex(color === undefined ? 0xd8f4ff : color);
+    m.material.opacity = 0.95;
+    // 두 점 사이에 놓고 길이만큼 늘린다
+    this._v.copy(to).sub(from);
+    const len = this._v.length() || 0.01;
+    m.position.copy(from).addScaledVector(this._v, 0.5);
+    m.scale.set(1, 1, len);
+    m.lookAt(to);
+  };
+
+  /** 회오리 소환 */
+  FX.prototype.tornado = function (pos, dir, skill) {
+    const t = this._freeSlot(this.tornados);
+    if (!t) return null;
+    t.alive = true;
+    t.t = 0;
+    t.life = skill.duration;
+    t.dps = skill.dps;
+    t.radius = skill.radius;
+    t.pull = skill.pull;
+    t.pos.copy(pos);
+    t.vel.copy(dir);
+    t.vel.y = 0;
+    t.vel.normalize().multiplyScalar(skill.speed || 40);
+    t.group.position.copy(pos);
+    t.group.visible = true;
+    return t;
+  };
+
   /** 몬스터가 떨어뜨리는 스터드(마나/탄약 보충) */
   FX.prototype.dropStud = function (pos, kind) {
     const s = this._freeSlot(this.studs);
@@ -327,6 +442,27 @@
       if (p.kind === 'fireball') {
         const s = 1 + Math.sin(this.time * 24) * 0.12;
         p.group.userData.shell.scale.setScalar(s);
+      } else if (p.kind === 'laser') {
+        p.group.lookAt(p.pos.x + p.vel.x, p.pos.y + p.vel.y, p.pos.z + p.vel.z);
+      } else if (p.kind === 'magicbolt') {
+        p.group.userData.ring.rotation.x += dt * 5;
+        p.group.userData.ring.rotation.y += dt * 3;
+        // 유도: 가까운 몬스터로 조금씩 방향을 꺾는다
+        if (p.homing && ctx && ctx.enemies) {
+          let best = null, bestD = 70;
+          const list = ctx.enemies.list;
+          for (let k = 0; k < list.length; k++) {
+            const e = list[k];
+            if (!e.alive) continue;
+            const d = e.pos.distanceTo(p.pos);
+            if (d < bestD) { bestD = d; best = e; }
+          }
+          if (best) {
+            v2.set(best.pos.x - p.pos.x, (best.pos.y + best.radius * 0.6) - p.pos.y, best.pos.z - p.pos.z)
+              .normalize().multiplyScalar(p.vel.length());
+            p.vel.lerp(v2, Math.min(1, p.homing * dt * 3));
+          }
+        }
       }
 
       let boom = false;
@@ -348,8 +484,16 @@
             if (hit) p.pos.copy(v2);
           }
           if (hit) {
-            if (p.radius > 0) boom = true;
-            else {
+            if (p.radius > 0) {
+              boom = true;
+            } else if (p.pierce) {
+              // 관통탄: 같은 놈을 연달아 때리지 않게만 하고 계속 날아간다
+              if (hit !== p.lastHit) {
+                ctx.enemies.damage(hit, p.dmg, p.pos);
+                this.debrisBurst(p.pos, hit.color, 3, 8);
+                p.lastHit = hit;
+              }
+            } else {
               ctx.enemies.damage(hit, p.dmg, p.pos);
               this.debrisBurst(p.pos, hit.color, 4, 10);
               p.alive = false;
@@ -380,6 +524,53 @@
         } else if (p.kind === 'stud') {
           this.debrisBurst(p.pos, C.yellow, 2, 6);
         }
+      }
+    }
+
+    // ---- 번개 줄기
+    for (let i = 0; i < this.beams.length; i++) {
+      const b = this.beams[i];
+      if (!b.alive) continue;
+      b.t += dt;
+      const k = b.t / b.life;
+      if (k >= 1) { b.alive = false; b.mesh.visible = false; continue; }
+      b.mesh.material.opacity = 0.95 * (1 - k);
+      const w = 1 + Math.sin(this.time * 60) * 0.3;
+      b.mesh.scale.x = w;
+      b.mesh.scale.y = w;
+    }
+
+    // ---- 회오리
+    for (let i = 0; i < this.tornados.length; i++) {
+      const t = this.tornados[i];
+      if (!t.alive) continue;
+      t.t += dt;
+      if (t.t >= t.life) { t.alive = false; t.group.visible = false; continue; }
+      v.copy(t.vel).multiplyScalar(dt);
+      t.pos.add(v);
+      t.pos.y = this.groundAt(t.pos.x, t.pos.z);
+      t.group.position.copy(t.pos);
+      for (let k = 0; k < t.rings.length; k++) {
+        t.rings[k].rotation.z += dt * (3 + k * 1.4);
+        t.rings[k].position.x = Math.sin(this.time * 4 + k) * (0.6 + k * 0.3);
+      }
+      if (ctx && ctx.enemies) {
+        const list = ctx.enemies.list;
+        for (let k = 0; k < list.length; k++) {
+          const e = list[k];
+          if (!e.alive) continue;
+          const dx = e.pos.x - t.pos.x, dz = e.pos.z - t.pos.z;
+          const d = Math.hypot(dx, dz);
+          if (d > t.radius) continue;
+          // 끌어당기고 계속 깎는다
+          const pull = t.pull * dt * (1 - d / t.radius);
+          e.pos.x -= (dx / (d || 1)) * pull;
+          e.pos.z -= (dz / (d || 1)) * pull;
+          ctx.enemies.damage(e, t.dps * dt, null);
+        }
+      }
+      if (Math.random() < 0.5) {
+        this.debrisBurst(t.pos, 0xdfeef7, 1, 8);
       }
     }
 
@@ -483,7 +674,8 @@
 
   /** 라운드/게임 리셋 시 전부 치운다 */
   FX.prototype.clear = function () {
-    const lists = [this.projectiles, this.explosions, this.debris, this.flames, this.studs, this.marks];
+    const lists = [this.projectiles, this.explosions, this.debris, this.flames, this.studs,
+      this.marks, this.beams, this.tornados];
     for (let i = 0; i < lists.length; i++) {
       const arr = lists[i];
       for (let j = 0; j < arr.length; j++) {

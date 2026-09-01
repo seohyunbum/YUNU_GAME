@@ -60,10 +60,14 @@
     this.camera.add(this.torch);
     this.scene.add(this.camera);
 
+    // ---------------- 찾은 무기·스킬 (브라우저에 저장된다)
+    this.unlocked = this.loadUnlocks();
+
     // ---------------- 후처리 · 도시 · 오픈월드
     this.post = new L.PostFX(this.renderer, this.camera);
     this.city = L.buildCity(this.scene);
     this.world = new L.World(this.scene, this.city);
+    this.world.taken = Object.assign({}, this.unlocked);   // 이미 가진 건 받침대에 안 올린다
     // 사냥터 사이 들판을 채우는 나무·바위(플레이어 주변만 배치)
     this.wilds = new L.Wilds(this.world, this.scene);
 
@@ -80,6 +84,7 @@
     this.kart.group.visible = false;
     this.scene.add(this.kart.group);
     this.hands = new L.Hands(this.camera);
+    this.hands.canUse = (item) => !!this.unlocked[item.id];
     this.hud = new L.HUD();
     this.input = new L.Input(canvas);
     this.sfx = new L.Sfx();
@@ -90,7 +95,7 @@
       velY: 0, onGround: true,
       yaw: 0, pitch: -0.04,
       hearts: P.maxHearts, mana: P.maxMana,
-      ammo: { blaster: 24, bomb: 4 },
+      ammo: { blaster: 24, bomb: 4, flamer: 60, laser: 40 },
       score: 0, kills: 0, deaths: 0, combo: 0, comboTimer: 0,
       invuln: 0, weaponCd: 0, channelTimer: 0, channelSkill: null,
       bob: 0, eyeY: 0, inWater: 0,
@@ -108,6 +113,7 @@
     this._tmp = new THREE.Vector3();
     this._tmp2 = new THREE.Vector3();
     this._look = { yaw: 0, pitch: 0 };
+    this._pending = [];              // 늦게 터지는 스킬 예약
     this._aim = new THREE.Vector3();
     this._fogTarget = new THREE.Color(0xb6d8ef);
     this._hemiSky = new THREE.Color(0xcfe8ff);
@@ -122,6 +128,7 @@
     this.resize();
     window.addEventListener('resize', () => this.resize());
 
+    this.hud.setUnlocks(this.unlocked);
     this.hud.show(false);
     this.hud.screen('start');
     if (this.input.touchMode) this.hud.showTouch(false);
@@ -137,6 +144,56 @@
     this._loop = this._loop.bind(this);
     requestAnimationFrame(this._loop);
   }
+
+  /** 한국어 목적격 조사 붙이기 (받침이 있으면 '을', 없으면 '를') */
+  function withObj(name) {
+    const c = name.charCodeAt(name.length - 1);
+    const hasJong = c >= 0xac00 && c <= 0xd7a3 && ((c - 0xac00) % 28) !== 0;
+    return name + (hasJong ? '을' : '를');
+  }
+
+  /** 저장된 잠금 해제 목록 (없으면 기본 넷) */
+  Game.prototype.loadUnlocks = function () {
+    const base = L.STARTERS();
+    try {
+      const raw = localStorage.getItem('legocity-unlocks');
+      if (raw) {
+        const saved = JSON.parse(raw);
+        for (const k in saved) if (saved[k]) base[k] = true;
+      }
+    } catch (err) { /* 저장이 막혀 있어도 게임은 돈다 */ }
+    return base;
+  };
+
+  Game.prototype.saveUnlocks = function () {
+    try {
+      localStorage.setItem('legocity-unlocks', JSON.stringify(this.unlocked));
+    } catch (err) { /* 무시 */ }
+  };
+
+  /** 받침대에서 무기·스킬을 얻는다 */
+  Game.prototype.takeFind = function (find) {
+    if (!find || this.unlocked[find.id]) return;
+    this.unlocked[find.id] = true;
+    this.saveUnlocks();
+    this.world.markTaken(find.id);
+    const isWeapon = find.kind === 'weapon';
+    this.hud.toast(find.def.emoji + ' ' + withObj(find.def.name) + ' 얻었다!\n'
+      + (isWeapon ? '오른손 ' + find.def.key + '번으로' : '왼손 E 로 넘겨서') + ' 쓸 수 있다', 3.2);
+    this.hud.setUnlocks(this.unlocked);
+    this.sfx.wave();
+    this.player.score += 400;
+    // 얻은 걸 바로 손에 들어 준다
+    if (isWeapon) {
+      for (let i = 0; i < L.WEAPONS.length; i++) {
+        if (L.WEAPONS[i].id === find.id) this.hands.setWeapon(i);
+      }
+    } else {
+      for (let i = 0; i < L.SKILLS.length; i++) {
+        if (L.SKILLS[i].id === find.id) this.hands.setSkill(i);
+      }
+    }
+  };
 
   // ------------------------------------------------------------------ 배선
   Game.prototype._wire = function () {
@@ -203,6 +260,8 @@
     p.mana = P.maxMana;
     p.ammo.blaster = 24;
     p.ammo.bomb = 4;
+    p.ammo.flamer = 60;
+    p.ammo.laser = 40;
     p.score = 0; p.kills = 0; p.deaths = 0; p.combo = 0; p.comboTimer = 0;
     this.bossesDown = {};
     this.regionVisited = {};
@@ -419,6 +478,37 @@
         this._tmp.copy(eye).addScaledVector(dir, 6);
         this.fx.debrisBurst(this._tmp, L.COLORS.silver, 3, 8);
       }
+    } else if (w.id === 'hammer') {
+      // 망치: 앞을 후려친 뒤 땅을 찍어 둘레를 통째로 밀어낸다
+      this.sfx.sword();
+      const hits = this.enemies.damageCone(eye, dir, w.reach, Math.cos(w.arc), w.damage);
+      this._tmp.copy(eye).addScaledVector(dir, w.reach * 0.6);
+      this._tmp.y = this.world.heightAt(this._tmp.x, this._tmp.z);
+      this.enemies.damageArea(this._tmp, w.radius, w.damage * 0.7);
+      this.fx.explode(this._tmp, w.radius * 0.55, 0xd8d8d8, 0);
+      this.fx.debrisBurst(this._tmp, L.COLORS.lightGray, 10, 22);
+      this.sfx.boom();
+      if (hits) this.hud.hitMark();
+    } else if (w.id === 'laser') {
+      p.ammo.laser--;
+      this.sfx.shoot();
+      this.hands.getMuzzleWorld(this._tmp);
+      this.fx.shoot('laser', this._tmp, dir, {
+        speed: w.speed, dmg: w.damage, life: 0.85, pierce: true,
+      });
+    } else if (w.id === 'wand') {
+      // 완드: 탄약 대신 마나를 조금 쓴다
+      if (p.mana < w.manaCost) {
+        this.hud.toast('마나가 부족하다', 0.9);
+        p.weaponCd = 0.4;
+        return;
+      }
+      p.mana -= w.manaCost;
+      this.sfx.cast();
+      this.hands.getMuzzleWorld(this._tmp);
+      this.fx.shoot('magicbolt', this._tmp, dir, {
+        speed: w.speed, dmg: w.damage, life: 3.0, homing: w.homing,
+      });
     } else if (w.id === 'blaster') {
       p.ammo.blaster--;
       this.sfx.shoot();
@@ -465,7 +555,125 @@
       p.channelTimer = s.duration;
       p.channelSkill = s;
       this.hud.toast('🐲 드래곤 파이어!', 0.9);
+    } else if (s.id === 'icestorm') {
+      // 조준한 곳이 잠시 뒤 얼어붙는다
+      this.hands.playCast(0);
+      this.aimGround(this._aim);
+      const at = this._aim.clone();
+      this.fx.mark(at, s.radius, s.delay, 0x9fe8ff);
+      this.after(s.delay, () => {
+        this.enemies.damageArea(at, s.radius, s.damage);
+        this.enemies.slowArea(at, s.radius, s.slow);
+        this.fx.explode(at, s.radius * 0.7, 0x9fe8ff, 0);
+        for (let i = 0; i < 14; i++) {
+          this._tmp2.set(at.x + (Math.random() - 0.5) * s.radius * 1.6, at.y + 2,
+            at.z + (Math.random() - 0.5) * s.radius * 1.6);
+          this.fx.debrisBurst(this._tmp2, 0xd8f4ff, 2, 12);
+        }
+        this.sfx.boom();
+      });
+      this.hud.toast('❄️ 아이스 스톰!', 0.9);
+    } else if (s.id === 'lightning') {
+      // 조준한 몬스터에서 시작해 가까운 놈으로 다섯 번 튄다
+      this.hands.playCast(0);
+      let from = this.camera.position;
+      let target = this.enemies.hitTest(this.aimGround(this._aim), 26)
+        || this.pickAimEnemy(s.range);
+      let jumps = 0;
+      const hitList = [];
+      while (target && jumps < s.chain) {
+        this.fx.beam(from, this._tmp2.copy(target.pos).setY(target.pos.y + target.radius * 0.8), s.color, 0.24);
+        this.enemies.damage(target, s.damage, from);
+        hitList.push(target);
+        from = target.pos.clone();
+        from.y += target.radius * 0.8;
+        target = this.nearestEnemyExcept(from, s.chainRange, hitList);
+        jumps++;
+      }
+      if (jumps) { this.hud.hitMark(); this.sfx.shoot(); }
+      else this.hud.toast('맞출 몬스터가 없다', 0.8);
+    } else if (s.id === 'tornado') {
+      this.hands.playCast(0);
+      this._tmp.copy(this.camera.position).addScaledVector(dir, 14);
+      this._tmp.y = this.world.heightAt(this._tmp.x, this._tmp.z);
+      this.fx.tornado(this._tmp, dir, s);
+      this.hud.toast('🌪️ 회오리!', 0.9);
+    } else if (s.id === 'heal') {
+      this.hands.playCast(0);
+      p.hearts = Math.min(P.maxHearts, p.hearts + s.hearts);
+      this.hud.toast('💚 치유의 빛 — 하트 ' + s.hearts + '칸 회복', 1.6);
+      for (let i = 0; i < 10; i++) {
+        this._tmp2.set(p.pos.x + (Math.random() - 0.5) * 8, p.pos.y + 2 + Math.random() * 6,
+          p.pos.z + (Math.random() - 0.5) * 8);
+        this.fx.debrisBurst(this._tmp2, 0x7fe08a, 1, 6);
+      }
+      this.sfx.pickup();
     }
+  };
+
+  /** 잠시 뒤에 실행할 일 예약(아이스 스톰처럼 늦게 터지는 것) */
+  Game.prototype.after = function (seconds, fn) {
+    this._pending.push({ t: seconds, fn });
+  };
+
+  /** 조준선 앞의 몬스터 하나 */
+  Game.prototype.pickAimEnemy = function (range) {
+    const dir = this.aimDir();
+    const eye = this.camera.position;
+    let best = null, bestDot = 0.93;
+    const list = this.enemies.list;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (!e.alive) continue;
+      this._tmp2.set(e.pos.x - eye.x, (e.pos.y + e.radius * 0.6) - eye.y, e.pos.z - eye.z);
+      const d = this._tmp2.length();
+      if (d > range) continue;
+      this._tmp2.divideScalar(d || 1);
+      const dot = this._tmp2.dot(dir);
+      if (dot > bestDot) { bestDot = dot; best = e; }
+    }
+    return best;
+  };
+
+  /** 이미 맞은 놈을 빼고 가장 가까운 몬스터 */
+  Game.prototype.nearestEnemyExcept = function (pos, range, exclude) {
+    let best = null, bestD = range;
+    const list = this.enemies.list;
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (!e.alive || exclude.indexOf(e) >= 0) continue;
+      const d = e.pos.distanceTo(pos);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    return best;
+  };
+
+  /**
+   * 화염 방사기 — 누르고 있는 동안 계속 불을 뿜는다.
+   * (한 번씩 때리는 무기와 달리 매 프레임 조금씩 깎는다)
+   */
+  Game.prototype.updateFlamer = function (dt) {
+    const p = this.player;
+    const w = this.hands.currentWeapon();
+    if (w.id !== 'flamer' || !this.input.attackHeld || this.state !== 'playing') return false;
+    if ((p.ammo.flamer || 0) <= 0) {
+      this.hud.toast('연료 없음! 파란 스터드를 주워라', 1.0);
+      return false;
+    }
+    p.flamerFuel = (p.flamerFuel || 0) + dt;
+    while (p.flamerFuel > 0.06 && p.ammo.flamer > 0) {   // 초당 약 16
+      p.flamerFuel -= 0.06;
+      p.ammo.flamer--;
+    }
+    const dir = this.aimDir();
+    this.hands.getMuzzleWorld(this._tmp);
+    this._tmp.addScaledVector(dir, 2.5);
+    for (let i = 0; i < 3; i++) this.fx.flame(this._tmp, dir, 0.18);
+    if (Math.random() < 0.3) this.sfx.flame();
+    const hits = this.enemies.damageCone(this.camera.position, dir, w.range, Math.cos(w.cone), w.dps * dt);
+    if (hits) this.hud.hitMark();
+    this.hands.playAttack();
+    return true;
   };
 
   Game.prototype.updateChannel = function (dt) {
@@ -580,9 +788,12 @@
       this._ammoTimer = (this._ammoTimer || 0) + dt;
       if (this._ammoTimer > 2.5) {
         this._ammoTimer = 0;
-        const bl = L.weaponById('blaster'), bm = L.weaponById('bomb');
-        p.ammo.blaster = Math.min(bl.ammoMax, p.ammo.blaster + 3);
-        if (Math.random() < 0.5) p.ammo.bomb = Math.min(bm.ammoMax, p.ammo.bomb + 1);
+        for (let i = 0; i < L.WEAPONS.length; i++) {
+          const w = L.WEAPONS[i];
+          if (w.ammoMax === undefined || !this.unlocked[w.id]) continue;
+          const step = w.id === 'bomb' ? (Math.random() < 0.5 ? 1 : 0) : Math.max(2, Math.round(w.ammoMax * 0.06));
+          p.ammo[w.id] = Math.min(w.ammoMax, (p.ammo[w.id] || 0) + step);
+        }
       }
     }
     if (p.comboTimer > 0) {
@@ -590,7 +801,7 @@
       if (p.comboTimer <= 0) p.combo = 0;
     }
 
-    if (this.input.attackHeld) this.attack();
+    if (this.input.attackHeld && this.hands.currentWeapon().id !== 'flamer') this.attack();
     if (this.input.castHeld) this.cast();
 
     return moving ? (inp.sprint ? 1 : 0.6) : 0;
@@ -746,6 +957,19 @@
       if (this.state === 'playing') {
         speed01 = this.updatePlayer(dt);
         this.updateChannel(dt);
+        this.updateFlamer(dt);
+        // 예약된 일(아이스 스톰 낙하 등)
+        for (let i = this._pending.length - 1; i >= 0; i--) {
+          const job = this._pending[i];
+          job.t -= dt;
+          if (job.t <= 0) {
+            this._pending.splice(i, 1);
+            job.fn();
+          }
+        }
+        // 받침대에 다가가면 무기·스킬을 얻는다
+        const found = this.world.findNear(p.pos.x, p.pos.z, P.findRange);
+        if (found) this.takeFind(found);
       } else {
         // 쓰러진 동안: 시야가 내려앉고 잠시 뒤 도시에서 깨어난다
         this.downTimer -= dt;
@@ -892,8 +1116,12 @@
   Game.prototype.collectStud = function (kind) {
     const p = this.player;
     if (kind === 'ammo') {
-      p.ammo.blaster = Math.min(L.weaponById('blaster').ammoMax, p.ammo.blaster + L.weaponById('blaster').ammoPerPickup);
-      p.ammo.bomb = Math.min(L.weaponById('bomb').ammoMax, p.ammo.bomb + L.weaponById('bomb').ammoPerPickup);
+      // 파란 스터드는 가진 무기의 탄약·연료를 채운다
+      for (let i = 0; i < L.WEAPONS.length; i++) {
+        const w = L.WEAPONS[i];
+        if (w.ammoMax === undefined || !this.unlocked[w.id]) continue;
+        p.ammo[w.id] = Math.min(w.ammoMax, (p.ammo[w.id] || 0) + (w.ammoPerPickup || 4));
+      }
     } else if (kind === 'heart') {
       p.hearts = Math.min(P.maxHearts, p.hearts + 1);
       this.hud.toast('❤️ 하트 회복!', 0.9);

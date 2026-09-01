@@ -551,6 +551,55 @@
     return g;
   }
 
+  /**
+   * 무기·스킬 받침대 — 세상에 놓여 있어서 찾아가야 얻는 것들.
+   * 돌 받침 + 빛기둥 + 위에 떠서 도는 물건 + 이름표.
+   */
+  function pedestal(itemGroup, color, label) {
+    const g = new THREE.Group();
+    const col = color === undefined ? 0xffd166 : color;
+    // 돌 받침 두 단
+    const base1 = mesh(L.box(7, 1.4, 7), P2.concrete, 'matte');
+    put(g, base1, 0, 0.7, 0);
+    const base2 = mesh(L.box(5.4, 1.2, 5.4), P2.concreteDark, 'matte');
+    put(g, base2, 0, 2, 0);
+    const pillar = mesh(L.cyl(1.9, 2.3, 4.5, 8), P2.concrete, 'matte');
+    put(g, pillar, 0, 4.6, 0);
+    const top = L.plate(C.lightGray, 2, 2, { height: 0.6 });
+    put(g, top, 0, 7.1, 0);
+    // 빛기둥
+    const beam = new THREE.Mesh(L.cyl(1.6, 2.4, 16, 12), new THREE.MeshBasicMaterial({
+      color: col, transparent: true, opacity: 0.22,
+    }));
+    put(g, beam, 0, 15, 0);
+    const glow = new THREE.Mesh(L.cyl(2.6, 2.6, 0.3, 14), new THREE.MeshBasicMaterial({
+      color: col, transparent: true, opacity: 0.5,
+    }));
+    put(g, glow, 0, 7.5, 0);
+    // 떠 있는 물건
+    const hold = new THREE.Group();
+    hold.position.set(0, 10.5, 0);
+    if (itemGroup) {
+      itemGroup.scale.setScalar(1.5);
+      hold.add(itemGroup);
+    }
+    g.add(hold);
+    // 이름표
+    if (label) {
+      const board = L.signPanel(label, 11, 2.6, '#17222b',
+        '#' + ('000000' + col.toString(16)).slice(-6));
+      put(g, board, 0, 4.8, 2.6);
+    }
+    const light = new THREE.PointLight(col, 1.1, 34, 1.6);
+    light.position.set(0, 9, 0);
+    g.add(light);
+    g.userData.hold = hold;
+    g.userData.beam = beam;
+    g.userData.glow = glow;
+    g.userData.light = light;
+    return g;
+  }
+
   L.P2 = P2;
   L.parts2 = {
     palmTree, cactus, snowman, logCabin,
@@ -558,6 +607,6 @@
     concreteWall, blastDoor, console: console_, mapScreen, pipe, tank,
     hazardSign, chainFence, searchlight, locker, radBarrel,
     lavaPool, oreRock, mineHead,
-    painting, statue, ropeStand, kart,
+    painting, statue, ropeStand, kart, pedestal,
   };
 })(window.LEGO);

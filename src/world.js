@@ -97,6 +97,7 @@
       id: 'oldmine', name: '폐광', label: '사냥터 · 보통', cx: -640, cz: 640, r: 250,
       icon: '⛏️', level: 2, entry: { x: -470, z: 470 },
       build: { kind: 'mine', ore: 0x6c6e68, oreName: 'ABANDONED MINE', depth: -16 },
+      boss: { type: 'golem', name: '폐광 감독관', scale: 2.3, hpMul: 5, speedMul: 0.85 },
       particles: 'dust',
       spawn: { types: ['bat', 'bat', 'golem', 'zombie'], max: 10, near: 44, far: 92 },
       height: B.crater({ depth: -16, rim: 14, r: 250 }),
@@ -184,6 +185,7 @@
       id: 'amethyst', name: '자수정 동굴', label: '사냥터 · 보통', cx: -1570, cz: 650, r: 270,
       icon: '🔮', level: 2, entry: { x: -1570, z: 890 },
       build: { kind: 'mine', ore: 0x9a63e6, oreName: 'AMETHYST CAVE', depth: -20, crystals: true },
+      boss: { type: 'crystal', name: '자수정 골렘', scale: 2.4, hpMul: 5, speedMul: 0.85 },
       particles: 'dust',
       spawn: { types: ['crystal', 'bat', 'golem'], max: 10, near: 44, far: 92 },
       height: B.crater({ depth: -20, rim: 16, r: 270 }),
@@ -194,6 +196,7 @@
       id: 'goldmine', name: '금광', label: '사냥터 · 어려움', cx: -1570, cz: -650, r: 270,
       icon: '🪙', level: 3, entry: { x: -1570, z: -410 },
       build: { kind: 'mine', ore: 0xdcbe61, oreName: 'GOLD MINE', depth: -18 },
+      boss: { type: 'sandgolem', name: '금광 파수꾼', scale: 2.5, hpMul: 6, speedMul: 0.85 },
       particles: 'dust',
       spawn: { types: ['golem', 'crystal', 'bat'], max: 10, near: 44, far: 92 },
       height: B.crater({ depth: -18, rim: 15, r: 270 }),
@@ -335,6 +338,7 @@
       id: 'coalmine', name: '석탄광', label: '사냥터 · 어려움', cx: -2000, cz: 2900, r: 280,
       icon: '🪨', level: 3, entry: { x: -2000, z: 3160 },
       build: { kind: 'mine', ore: 0x2a2d30, oreName: 'COAL MINE', depth: -20 },
+      boss: { type: 'golem', name: '석탄 거인', scale: 2.6, hpMul: 6, speedMul: 0.8 },
       particles: 'dust',
       spawn: { types: ['golem', 'bat', 'zombie'], max: 11, near: 44, far: 92 },
       height: B.crater({ depth: -20, rim: 16, r: 280 }),
@@ -395,6 +399,7 @@
       id: 'redcanyon', name: '붉은 협곡', label: '사냥터 · 어려움', cx: 497, cz: 1200, r: 280,
       icon: '🏜️', level: 3,
       build: { kind: 'mine', ore: 0xc9502e, oreName: 'RED CANYON', depth: -18 },
+      boss: { type: 'sandgolem', name: '붉은 협곡 파수꾼', scale: 2.4, hpMul: 5, speedMul: 0.9 },
       spawn: { types: ['sandgolem', 'bat', 'golem'], max: 10, near: 46, far: 96 },
       heightFactory: function (r) {
         return B.canyon({ axisX: r.cx, floor: -18, rim: 26, half: 40, flatHalf: 22 });
@@ -406,6 +411,7 @@
       id: 'icecave', name: '얼음 동굴', label: '사냥터 · 어려움', cx: -497, cz: 1200, r: 260,
       icon: '🧊', level: 3,
       build: { kind: 'mine', ore: 0xb8e4f0, oreName: 'ICE CAVE', depth: -20, crystals: true, drips: true },
+      boss: { type: 'ice', name: '얼음 동굴 왕', scale: 2.5, hpMul: 6, speedMul: 0.85 },
       particles: 'snow',
       spawn: { types: ['ice', 'ice', 'bat', 'ghost'], max: 10, near: 44, far: 92 },
       height: B.crater({ depth: -20, rim: 16, r: 260 }),
@@ -716,6 +722,8 @@
 
     this.gates = this._buildGates();
     this.content = {};       // regionId → {group, data, built}
+    this.finds = [];         // 세상에 놓인 무기·스킬 받침대
+    this.taken = {};         // 이미 찾은 것 (game.js 가 채워 준다)
     this.current = this.byId.city;
     this.previous = null;
     this.colliders = city ? city.colliders : [];
@@ -758,6 +766,32 @@
     g.traverse((o) => { o.matrixAutoUpdate = false; });
     this.scene.add(g);
     return g;
+  };
+
+  /** 가까운 받침대 하나 (아직 안 가진 것만) */
+  World.prototype.findNear = function (x, z, range) {
+    const R = range || 7;
+    for (let i = 0; i < this.finds.length; i++) {
+      const f = this.finds[i];
+      if (f.taken) continue;
+      if (Math.hypot(x - f.x, z - f.z) < R) return f;
+    }
+    return null;
+  };
+
+  /** 받침대에서 물건을 치운다(주웠을 때) */
+  World.prototype.markTaken = function (id) {
+    this.taken[id] = true;
+    for (let i = 0; i < this.finds.length; i++) {
+      const f = this.finds[i];
+      if (f.id !== id) continue;
+      f.taken = true;
+      const u = f.group.userData;
+      if (u.hold) u.hold.visible = false;
+      if (u.beam) u.beam.visible = false;
+      if (u.glow) u.glow.visible = false;
+      if (u.light) u.light.intensity = 0;
+    }
   };
 
   /** 빠른 이동: 가까운 표지판 하나 (없으면 null) */
@@ -813,6 +847,9 @@
     for (let i = 0; i < moving.length; i++) {
       if (moving[i]) moving[i].traverse((o) => { o.matrixAutoUpdate = true; });
     }
+    // 이 지역에서 찾을 수 있는 무기·스킬 받침대를 세운다
+    this._addFinds(region, group);
+
     this.scene.add(group);
     c = { group, data };
     this.content[region.id] = c;
@@ -821,6 +858,47 @@
       for (let i = 0; i < data.colliders.length; i++) this.colliders.push(data.colliders[i]);
     }
     return c;
+  };
+
+  /**
+   * 무기·스킬 받침대 세우기 — loadout.js 의 find 정보가 정본이다.
+   * 이미 찾은 것은 받침대만 남기고 물건은 올려두지 않는다.
+   */
+  World.prototype._addFinds = function (region, group) {
+    const list = L.FINDABLES();
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      const f = it.def.find;
+      if (!f || f.region !== region.id) continue;
+      // 소품 충돌 상자와 겹치지 않는 자리를 찾는다(겹치면 플레이어가 밀려나 못 줍는다)
+      let x = region.cx + (f.dx || 0), z = region.cz + (f.dz || 0);
+      for (let tries = 0; tries < 12; tries++) {
+        let hit = false;
+        for (let k = 0; k < this.colliders.length; k++) {
+          const c = this.colliders[k];
+          if (Math.abs(x - c.x) < c.hx + 4 && Math.abs(z - c.z) < c.hz + 4) { hit = true; break; }
+        }
+        if (!hit) break;
+        const a = tries * 1.05;
+        x = region.cx + (f.dx || 0) + Math.cos(a) * (7 + tries * 2.5);
+        z = region.cz + (f.dz || 0) + Math.sin(a) * (7 + tries * 2.5);
+      }
+      const y = this.terrain.heightAt(x, z);
+      const taken = !!(this.taken && this.taken[it.def.id]);
+      let model = null;
+      if (!taken) {
+        model = it.kind === 'weapon'
+          ? (L.WEAPON_MODELS[it.def.id] ? L.WEAPON_MODELS[it.def.id]() : null)
+          : L.buildScrollModel();
+      }
+      const ped = L.parts2.pedestal(model, it.def.color, it.def.name);
+      ped.position.set(x, y, z);
+      group.add(ped);
+      this.finds.push({
+        id: it.def.id, kind: it.kind, def: it.def,
+        x, z, y, group: ped, taken,
+      });
+    }
   };
 
   /**

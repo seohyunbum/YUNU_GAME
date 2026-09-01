@@ -54,17 +54,17 @@ if (!walk.onGround) throw new Error('지면에 붙어 있지 않다: ' + JSON.st
 console.log('걷기 확인:', JSON.stringify(walk));
 
 // ---------------------------------------------------------------- 점프
-const jump = await page.evaluate(async () => {
+// 프레임이 느린 환경에서도 결과가 같도록 물리를 직접 돌린다(게임 시간 2초 분량)
+const jump = await page.evaluate(() => {
   const g = window.LEGO_GAME;
   const y0 = g.player.pos.y;
   g.jump();
-  await new Promise((r) => setTimeout(r, 120));
-  const rose = g.player.velY > 0 || g.player.pos.y > y0 + 0.2;
-  // 다시 땅에 닿을 때까지
-  const t0 = Date.now();
-  // 소프트웨어 렌더러에서는 프레임이 느려 게임 시간도 느리게 흐른다 → 넉넉히 기다린다
-  while (!g.player.onGround && Date.now() - t0 < 15000) await new Promise((r) => setTimeout(r, 50));
-  return { rose, landed: g.player.onGround };
+  let rose = g.player.velY > 0;
+  for (let i = 0; i < 130; i++) {
+    g.updatePlayer(0.016);
+    if (g.player.pos.y > y0 + 0.2) rose = true;
+  }
+  return { rose, landed: g.player.onGround, y0: Math.round(y0), y1: Math.round(g.player.pos.y) };
 });
 if (!jump.rose || !jump.landed) throw new Error('점프가 동작하지 않는다: ' + JSON.stringify(jump));
 console.log('점프 확인:', JSON.stringify(jump));
@@ -208,6 +208,65 @@ if (!travel.hint || travel.region !== 'zombie') {
   throw new Error('표지판 빠른 이동이 동작하지 않는다: ' + JSON.stringify(travel));
 }
 console.log('빠른 이동 확인:', JSON.stringify(travel));
+
+// ---------------------------------------------------------------- 무기·스킬 · 받침대
+const arsenal = await page.evaluate(async () => {
+  const g = window.LEGO_GAME;
+  const out = { weapons: window.LEGO.WEAPONS.length, skills: window.LEGO.SKILLS.length };
+  // 잠긴 무기는 들 수 없다
+  g.unlocked = window.LEGO.STARTERS();
+  g.hud.setUnlocks(g.unlocked);
+  g.hands.setWeapon(0);
+  g.hands.setWeapon(3);
+  out.lockedBlocked = g.hands.currentWeapon().id === 'sword';
+  // 받침대까지 가면 얻는다 (폐광의 망치)
+  const rg = g.world.byId.oldmine;
+  const f = window.LEGO.weaponById('hammer').find;
+  const x = rg.cx + f.dx, z = rg.cz + f.dz;
+  g.player.pos.set(x, g.world.heightAt(x, z), z);
+  g.world.update(x, z, 0.016, 200);
+  const fnd = g.world.findNear(g.player.pos.x, g.player.pos.z, window.LEGO.PLAYER.findRange);
+  out.pedestal = !!fnd;
+  if (fnd) g.takeFind(fnd);
+  out.gotHammer = !!g.unlocked.hammer;
+  // 모두 열고 한 번씩 써 본다
+  window.LEGO.WEAPONS.forEach((w) => { g.unlocked[w.id] = true; });
+  window.LEGO.SKILLS.forEach((k) => { g.unlocked[k.id] = true; });
+  g.hud.setUnlocks(g.unlocked);
+  await new Promise((res) => setTimeout(res, 300));
+  const used = [];
+  for (let i = 0; i < window.LEGO.WEAPONS.length; i++) {
+    g.hands.setWeapon(i);
+    g.player.weaponCd = 0;
+    g.player.mana = 100;
+    const id = g.hands.currentWeapon().id;
+    if (id === 'flamer') { g.input.attackHeld = true; g.updateFlamer(0.1); g.input.attackHeld = false; }
+    else g.attack();
+    used.push(id);
+    await new Promise((res) => setTimeout(res, 120));
+  }
+  const cast = [];
+  for (let i = 0; i < window.LEGO.SKILLS.length; i++) {
+    g.hands.setSkill(i);
+    g.player.mana = 100;
+    g.player.channelTimer = 0;
+    const id = g.hands.currentSkill().id;
+    g.skillCd[id] = 0;
+    g.cast();
+    cast.push(id);
+    await new Promise((res) => setTimeout(res, 150));
+  }
+  out.used = used.join(',');
+  out.cast = cast.join(',');
+  return out;
+});
+if (arsenal.weapons !== 7 || arsenal.skills !== 7) throw new Error('무기·스킬 수가 다르다: ' + JSON.stringify(arsenal));
+if (!arsenal.lockedBlocked) throw new Error('못 찾은 무기를 들 수 있다: ' + JSON.stringify(arsenal));
+if (!arsenal.pedestal || !arsenal.gotHammer) throw new Error('받침대에서 못 얻었다: ' + JSON.stringify(arsenal));
+if (arsenal.used.split(',').length !== 7 || arsenal.cast.split(',').length !== 7) {
+  throw new Error('무기·스킬을 다 못 썼다: ' + JSON.stringify(arsenal));
+}
+console.log('무기·스킬 확인:', JSON.stringify(arsenal));
 
 // ---------------------------------------------------------------- 시설 실내
 const indoor = await page.evaluate(async () => {

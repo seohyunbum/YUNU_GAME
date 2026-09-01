@@ -483,7 +483,7 @@
         this.list.push({
           alive: false, type: id, def: t, group: built.group, parts: built.parts, bar,
           hp: t.hp, maxHp: t.hp, pos: new THREE.Vector3(), speed: t.speed, radius: t.radius,
-          color: t.color, phase: Math.random() * 6.28, attackTimer: 0, hurt: 0, stagger: 0,
+          color: t.color, phase: Math.random() * 6.28, attackTimer: 0, hurt: 0, stagger: 0, slow: 0,
           y0: 0, isBoss: false, region: null,
         });
       }
@@ -522,6 +522,7 @@
     e.attackTimer = 0.8;
     e.hurt = 0;
     e.stagger = 0;
+    e.slow = 0;
     e.phase = Math.random() * 6.28;
     e.pos.copy(pos);
     e.y0 = t.flying ? (t.hover || 10) : 0;
@@ -647,6 +648,20 @@
     return hits;
   };
 
+  /** 범위 안 몬스터를 한동안 느리게 (아이스 스톰) */
+  Enemies.prototype.slowArea = function (pos, radius, seconds) {
+    let n = 0;
+    for (let i = 0; i < this.list.length; i++) {
+      const e = this.list[i];
+      if (!e.alive) continue;
+      if (e.pos.distanceTo(pos) < radius + e.radius) {
+        e.slow = Math.max(e.slow, seconds);
+        n++;
+      }
+    }
+    return n;
+  };
+
   Enemies.prototype.damage = function (e, dmg, from) {
     if (!e.alive) return;
     e.hp -= dmg;
@@ -693,6 +708,7 @@
       e.phase += dt;
       if (e.hurt > 0) e.hurt -= dt;
       if (e.stagger > 0) e.stagger -= dt;
+      if (e.slow > 0) e.slow -= dt;
 
       v.set(playerPos.x - e.pos.x, 0, playerPos.z - e.pos.z);
       const dist = v.length();
@@ -703,7 +719,8 @@
 
       const inRange = dist < t.attackRange + 1;
       if (!inRange && e.stagger <= 0) {
-        const sp = e.speed * (t.boss ? (0.7 + Math.sin(e.phase * 0.6) * 0.25) : 1);
+        const chill = e.slow > 0 ? 0.35 : 1;          // 얼어붙으면 느려진다
+        const sp = e.speed * chill * (t.boss ? (0.7 + Math.sin(e.phase * 0.6) * 0.25) : 1);
         e.pos.x += v.x * sp * dt;
         e.pos.z += v.z * sp * dt;
       }
@@ -756,6 +773,16 @@
 
       e.group.position.copy(e.pos);
       e.group.rotation.y = Math.atan2(playerPos.x - e.pos.x, playerPos.z - e.pos.z);
+      if (e.slow > 0 && !e.chilled) {
+        e.chilled = true;
+        e.group.traverse((o) => {
+          if (o.isMesh && o.material && o.material.color && !o.userData._c0) {
+            o.userData._c0 = o.material.color.getHex();
+            o.material = o.material.clone();
+            o.material.color.lerp(new THREE.Color(0x9fe8ff), 0.55);
+          }
+        });
+      }
       const selfScaled = (e.type === 'slime' || e.type === 'toxic' || e.type === 'radslime'
         || e.type === 'ghost' || e.type === 'flameghost');
       if (!selfScaled) {

@@ -58,6 +58,7 @@
     this._buildSlots(this.dom.leftRow, L.SKILLS, 'left');
     this._toastTimer = 0;
     this._bannerTimer = 0;
+    this.unlocks = {};
     this._hitTimer = 0;
     this._comboTimer = 0;
     this._lastHearts = -1;
@@ -76,7 +77,32 @@
         '<div class="meta"></div>' +
         '<div class="cd"></div>';
       row.appendChild(d);
-      this.slots[side].push({ root: d, meta: d.querySelector('.meta'), cd: d.querySelector('.cd'), def: it });
+      this.slots[side].push({
+        root: d, meta: d.querySelector('.meta'), cd: d.querySelector('.cd'),
+        emoji: d.querySelector('.emoji'), name: d.querySelector('.name'), def: it,
+      });
+    }
+  };
+
+  /** 찾은 무기·스킬 목록을 받아 슬롯 표시를 갱신한다 */
+  HUD.prototype.setUnlocks = function (unlocked) {
+    this.unlocks = unlocked || {};
+    for (const side in this.slots) {
+      const list = this.slots[side];
+      for (let i = 0; i < list.length; i++) {
+        const slot = list[i];
+        const has = !!this.unlocks[slot.def.id];
+        slot.root.classList.toggle('locked', !has);
+        slot.emoji.textContent = has ? slot.def.emoji : '🔒';
+        slot.name.textContent = has ? slot.def.name : '??';
+        if (!has) {
+          const f = slot.def.find;
+          slot.meta.textContent = f ? f.where : '어딘가';
+          slot.root.title = f ? (slot.def.name + ' — ' + f.where + ' 에서 찾을 수 있다') : '';
+        } else {
+          slot.root.title = slot.def.name + ' — ' + (slot.def.hint || '');
+        }
+      }
     }
   };
 
@@ -121,10 +147,14 @@
       const active = i === s.weaponIndex;
       slot.root.classList.toggle('active', active);
       const def = slot.def;
+      if (!this.unlocks[def.id]) continue;              // 못 찾은 건 위치만 보여준다
       if (def.ammoMax !== undefined) {
         const ammo = s.ammo[def.id] || 0;
         slot.meta.textContent = ammo + ' / ' + def.ammoMax;
         slot.root.classList.toggle('empty', ammo <= 0);
+      } else if (def.manaCost) {
+        slot.meta.textContent = '마나 ' + def.manaCost;
+        slot.root.classList.remove('empty');
       } else {
         slot.meta.textContent = '무한';
         slot.root.classList.remove('empty');
@@ -139,6 +169,7 @@
       const active = i === s.skillIndex;
       slot.root.classList.toggle('active', active);
       const def = slot.def;
+      if (!this.unlocks[def.id]) continue;
       slot.meta.textContent = '마나 ' + def.mana;
       const cdLeft = s.skillCd[def.id] || 0;
       slot.cd.style.height = ((cdLeft / def.cooldown) * 100).toFixed(0) + '%';
