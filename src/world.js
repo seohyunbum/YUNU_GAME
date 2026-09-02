@@ -510,6 +510,77 @@
         sky: 0x6d8a72, hemiSky: 0x9ec0a2, hemiGround: 0x2f3f2c }),
     }),
 
+    // ================================================================ 마법 지대 (판타지)
+    region({
+      id: 'wizardtower', name: '마법사 탑', label: '마법 지대 · 어려움', cx: 1400, cz: 1400, r: 260,
+      icon: '🧙', level: 3,
+      build: { kind: 'tower' },
+      boss: { type: 'crystal', name: '탑의 수호 골렘', scale: 2.5, hpMul: 6, speedMul: 0.85 },
+      particles: 'sparkle',
+      spawn: { types: ['goblin', 'skeleton', 'wisp', 'crystal'], max: 12, near: 44, far: 92 },
+      height: B.mesa({ top: 12, r: 260, pad: 120 }),
+      color: B.paint([0x8f9a86, 0x7c8a76, 0x9aa892], { slope: PAL.ROCK }),
+      ambience: B.amb({ fog: 0x9a86c0, fogNear: 70, fogFar: 460, sun: 0.85, hemi: 0.9,
+        sky: 0xb8a0e0, hemiSky: 0xd8c0ff, hemiGround: 0x4a3a5e }),
+    }),
+    region({
+      id: 'castle', name: '수정 성', label: '마법 지대 · 매우 어려움', cx: -1400, cz: 1400, r: 280,
+      icon: '🏰', level: 4,
+      build: { kind: 'castle' },
+      boss: { type: 'skeleton', name: '수정 성 기사대장', scale: 2.6, hpMul: 7, speedMul: 0.9 },
+      particles: 'sparkle',
+      spawn: { types: ['skeleton', 'skeleton', 'goblin', 'ghost'], max: 13, near: 44, far: 92 },
+      height: B.mesa({ top: 10, r: 280, pad: 150 }),
+      color: B.paint([0xa8b0bc, 0x96a0ac, 0xb8c0cc], { slope: PAL.ROCK }),
+      ambience: B.amb({ fog: 0xbfd8ea, fogNear: 110, fogFar: 700, sun: 1.1, hemi: 1.0,
+        sky: 0xd8ecff, hemiSky: 0xe0f0ff, hemiGround: 0x7f8fa0 }),
+    }),
+    region({
+      id: 'dragonnest', name: '용의 둥지', label: '마법 지대 · 매우 어려움', cx: 1400, cz: -1400, r: 280,
+      icon: '🥚', level: 4,
+      build: { kind: 'nest' },
+      boss: { type: 'dragon', name: '둥지의 어미 드래곤', scale: 1.3, hpMul: 1.6, speedMul: 1 },
+      spawn: { types: ['flameghost', 'goblin', 'skeleton'], max: 11, near: 46, far: 96 },
+      height: B.crater({ depth: -12, rim: 20, r: 280 }),
+      color: B.paint([0x4a332c, 0x5c4238, 0x3a2b28], { slope: [0x241f1c] }),
+      ambience: B.amb({ fog: 0x6a3a2a, fogNear: 50, fogFar: 320, sun: 0.7, hemi: 0.6,
+        sky: 0x8a4a28, hemiSky: 0xff9a5a, hemiGround: 0x3a1f14 }),
+    }),
+    region({
+      id: 'fairywood', name: '요정 숲', label: '마법 지대 · 보통', cx: -1400, cz: -1400, r: 270,
+      icon: '🧚', level: 2,
+      build: { kind: 'fairy' },
+      particles: 'sparkle',
+      spawn: { types: ['goblin', 'wisp', 'slime', 'toxic'], max: 11, near: 44, far: 92 },
+      height: B.plains({ base: 4, amp: 13, scale: 62 }),
+      color: B.paint([0x3f7a4a, 0x4f8f52, 0x6ba05c], { slope: PAL.MUD }),
+      ambience: B.amb({ fog: 0x7fb08a, fogNear: 60, fogFar: 420, sun: 0.8, hemi: 0.95,
+        sky: 0xa8e0b8, hemiSky: 0xd0ffd8, hemiGround: 0x2f4a34 }),
+    }),
+    region({
+      id: 'isles', name: '부유섬', label: '마법 지대 · 어려움', cx: 600, cz: -2900, r: 260,
+      icon: '☁️', level: 3,
+      build: { kind: 'isles' },
+      boss: { type: 'ghost', name: '하늘섬의 파수꾼', scale: 3.0, hpMul: 7, speedMul: 0.85 },
+      particles: 'sparkle',
+      spawn: { types: ['wisp', 'ghost', 'skeleton', 'crystal'], max: 11, near: 44, far: 92 },
+      height: B.peak({ top: 58, r: 260, rough: 12, power: 1.5 }),
+      color: B.paint([0x9aa8b4, 0xaab8c4, 0x8a98a4], { high: { y: 40, pal: [0x9ad46f, 0x76c25c] } }),
+      ambience: B.amb({ fog: 0xcfe8f8, fogNear: 140, fogFar: 900, sun: 1.15, hemi: 1.05,
+        sky: 0xdcf0ff, hemiSky: 0xeaf6ff, hemiGround: 0x8fa0b0 }),
+    }),
+    region({
+      id: 'dungeon', name: '지하 던전', label: '마법 지대 · 어려움', cx: 2600, cz: 0, r: 250,
+      icon: '🗝️', level: 3,
+      build: { kind: 'facility', code: 'DUNGEON', theme: 'dungeon', accent: 0xdcbe61, rooms: 2 },
+      boss: { type: 'skeleton', name: '던전 문지기', scale: 2.7, hpMul: 7, speedMul: 0.9 },
+      spawn: { types: ['skeleton', 'skeleton', 'goblin', 'ghost'], max: 13, near: 42, far: 88 },
+      height: B.mesa({ top: 6, r: 250, pad: 140 }),
+      color: B.paint([0x8a8378, 0x9a9288, 0x6f6a62], { slope: PAL.ROCK }),
+      ambience: B.amb({ fog: 0x4a4438, fogNear: 34, fogFar: 220, sun: 0.5, hemi: 0.5,
+        sky: 0x5f5a4a, hemiSky: 0xffd9a0, hemiGround: 0x2f2a20 }),
+    }),
+
     // ================================================================ 넷째 고리 — 번호 구역 (3300)
     region({
       id: 'zone1', name: '1구역', label: '구역 · 어려움', cx: 0, cz: -3300, r: 240,
@@ -843,7 +914,9 @@
     group.updateMatrixWorld(true);
     group.traverse((o) => { o.matrixAutoUpdate = false; });
     // 움직이는 소품(모닥불 불꽃 등)은 행렬 갱신을 다시 켜준다
-    const moving = [data && data.fire, data && data.camp].concat((data && data.animated) || []);
+    let moving = [data && data.fire, data && data.camp].concat((data && data.animated) || []);
+    if (data && data.spins) moving = moving.concat(data.spins);
+    if (data && data.floaters) moving = moving.concat(data.floaters.map((f) => f.obj));
     for (let i = 0; i < moving.length; i++) {
       if (moving[i]) moving[i].traverse((o) => { o.matrixAutoUpdate = true; });
     }

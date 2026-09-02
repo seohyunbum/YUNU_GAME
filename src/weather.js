@@ -39,12 +39,17 @@
     this.dust = makeField(120, L.sph(0.22, 5), new THREE.MeshBasicMaterial({
       color: 0xffd9a0, transparent: true, opacity: 0.45,
     }));
-    scene.add(this.snow, this.fire, this.dust);
+    // 마법 가루: 위로 흩날리는 보랏빛 알갱이(판타지 지역)
+    this.sparkle = makeField(140, L.box(0.34, 0.34, 0.34), new THREE.MeshBasicMaterial({
+      color: 0xd8b8ff, transparent: true, opacity: 0.9,
+    }));
+    scene.add(this.snow, this.fire, this.dust, this.sparkle);
 
     this.fields = {
       snow: { mesh: this.snow, data: this._seed(300, 1) },
       firefly: { mesh: this.fire, data: this._seed(90, 2) },
       dust: { mesh: this.dust, data: this._seed(120, 3) },
+      sparkle: { mesh: this.sparkle, data: this._seed(140, 4) },
     };
   }
 
@@ -63,6 +68,10 @@
         d[o + 3] = (Math.random() - 0.5) * 2.2;
         d[o + 4] = (Math.random() - 0.5) * 1.2;
         d[o + 5] = (Math.random() - 0.5) * 2.2;
+      } else if (kind === 4) {   // 마법 가루: 위로 흩날린다
+        d[o + 3] = (Math.random() - 0.5) * 3.2;
+        d[o + 4] = 1.6 + Math.random() * 2.6;
+        d[o + 5] = (Math.random() - 0.5) * 3.2;
       } else {                   // 먼지: 아주 천천히 위로
         d[o + 3] = (Math.random() - 0.5) * 0.8;
         d[o + 4] = 0.4 + Math.random() * 0.8;
@@ -94,7 +103,7 @@
       d[o + 1] += d[o + 4] * dt;
       d[o + 2] += d[o + 5] * dt;
       // 반딧불은 방향을 살랑살랑 바꾼다
-      if (this.kind === 'firefly') {
+      if (this.kind === 'firefly' || this.kind === 'sparkle') {
         d[o + 3] += Math.sin(this.time * 1.3 + i) * dt * 1.4;
         d[o + 5] += Math.cos(this.time * 1.1 + i * 0.7) * dt * 1.4;
       }
@@ -104,8 +113,8 @@
       if (d[o + 1] > BOX) d[o + 1] -= BOX; else if (d[o + 1] < -6) d[o + 1] += BOX;
 
       p.set(playerPos.x + d[o], playerPos.y + d[o + 1], playerPos.z + d[o + 2]);
-      const twinkle = this.kind === 'firefly'
-        ? 0.6 + Math.abs(Math.sin(this.time * 3 + i)) * 0.9
+      const twinkle = (this.kind === 'firefly' || this.kind === 'sparkle')
+        ? 0.5 + Math.abs(Math.sin(this.time * (this.kind === 'sparkle' ? 5 : 3) + i)) * 1.1
         : 1;
       s.set(twinkle, twinkle, twinkle);
       m.compose(p, q, s);

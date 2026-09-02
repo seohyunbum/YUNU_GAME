@@ -878,7 +878,41 @@
       shake(content.data.camp);
     }
 
-    // 지역 분위기 입자(눈 · 반딧불 · 동굴 먼지)
+    // 판타지 소품 움직이기: 마법진이 돌고, 관문이 소용돌이치고, 바위가 떠다닌다
+    if (content && content.data) {
+      const t3 = this.time;
+      const sp = content.data.spins;
+      if (sp) {
+        for (let i = 0; i < sp.length; i++) {
+          const u = sp[i].userData;
+          if (u.disc) u.disc.rotation.z += dt * 0.5;
+          if (u.swirl) {
+            u.swirl.rotation.z += dt * 1.1;
+            u.swirl.scale.setScalar(1 + Math.sin(t3 * 2 + i) * 0.06);
+          }
+          if (u.ring) u.ring.rotation.z -= dt * 0.8;
+          if (u.flames) {
+            u.flames.rotation.y = t3 * 2.4 + i;
+            u.flames.scale.set(1 + Math.sin(t3 * 9 + i) * 0.15, 1 + Math.sin(t3 * 7 + i) * 0.2,
+              1 + Math.cos(t3 * 8 + i) * 0.15);
+          }
+        }
+      }
+      const fl = content.data.floaters;
+      if (fl && cur) {
+        for (let i = 0; i < fl.length; i++) {
+          const f = fl[i];
+          f.a += dt * f.spd;
+          f.obj.position.set(
+            cur.cx + Math.cos(f.a) * f.r,
+            f.y + Math.sin(t3 * 0.7 + i) * 1.8,
+            cur.cz + Math.sin(f.a) * f.r);
+          f.obj.rotation.y = f.a * 0.6;
+        }
+      }
+    }
+
+    // 지역 분위기 입자(눈 · 반딧불 · 동굴 먼지 · 마법 가루)
     const region = this.world.current;
     this.weather.set(region && region.particles ? region.particles : 'none');
     this.weather.update(dt, this.camera.position);

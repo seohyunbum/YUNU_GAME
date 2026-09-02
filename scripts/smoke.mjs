@@ -295,6 +295,33 @@ if (indoor.outside || !indoor.inside || indoor.pushed > 6) {
 }
 console.log('시설 실내 확인:', JSON.stringify(indoor));
 
+// ---------------------------------------------------------------- 판타지 지역 · 몬스터
+const fantasy = await page.evaluate(async () => {
+  const g = window.LEGO_GAME;
+  const out = { built: {}, mobs: {} };
+  for (const id of ['wizardtower', 'castle', 'dragonnest', 'fairywood', 'isles', 'dungeon']) {
+    const r = g.world.byId[id];
+    if (!r) { out.built[id] = -1; continue; }
+    const x = r.cx, z = r.cz + r.r * 0.4;
+    g.player.pos.set(x, g.world.heightAt(x, z), z);
+    g.world.update(x, z, 0.016, 80);
+    const c = g.world.content[id];
+    out.built[id] = c ? c.group.children.length : 0;
+  }
+  g.enemies.clear();
+  for (const t of ['goblin', 'skeleton']) {
+    const e = g.enemies.spawnAt(t, new THREE.Vector3(g.player.pos.x + 6, g.player.pos.y, g.player.pos.z - 10), {});
+    out.mobs[t] = !!e;
+  }
+  await new Promise((res) => setTimeout(res, 200));
+  return out;
+});
+for (const id in fantasy.built) {
+  if (fantasy.built[id] < 5) throw new Error('판타지 지역이 안 지어졌다: ' + id + ' ' + JSON.stringify(fantasy));
+}
+if (!fantasy.mobs.goblin || !fantasy.mobs.skeleton) throw new Error('새 몬스터가 안 나온다: ' + JSON.stringify(fantasy));
+console.log('판타지 확인:', JSON.stringify(fantasy));
+
 // ---------------------------------------------------------------- 카트 · 지도
 const gear = await page.evaluate(async () => {
   const g = window.LEGO_GAME;

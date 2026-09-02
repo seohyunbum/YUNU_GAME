@@ -73,6 +73,14 @@
       name: '모래 골렘', hp: 230, speed: 9, radius: 3.7, damage: 1, color: 0xd9c08a,
       attackRange: 6.4, attackCd: 1.9, flying: false, score: 250, studs: 2, pool: 10, bar: true,
     },
+    goblin: {
+      name: '브릭 고블린', hp: 64, speed: 16.5, radius: 2.2, damage: 1, color: 0x6ba05c,
+      attackRange: 4.8, attackCd: 1.2, flying: false, score: 110, studs: 1, pool: 16,
+    },
+    skeleton: {
+      name: '브릭 해골 병사', hp: 115, speed: 12.5, radius: 2.6, damage: 1, color: 0xe8e0c8,
+      attackRange: 5.6, attackCd: 1.5, flying: false, score: 190, studs: 2, pool: 14, bar: true,
+    },
     dragon: {
       name: '브릭 드래곤', hp: 1400, speed: 12, radius: 6.5, damage: 2, color: C.red,
       attackRange: 46, attackCd: 1.25, flying: true, hover: 16, score: 2400, studs: 10,
@@ -421,6 +429,114 @@
     return built;
   }
 
+  /** 브릭 고블린 — 작고 빠른 초록 브릭 인형 (몽둥이를 들었다) */
+  function buildGoblin() {
+    const g = new THREE.Group();
+    const skin = 0x6ba05c;
+    const legs = new THREE.Group();
+    for (const sx of [-1, 1]) {
+      const leg = new THREE.Mesh(L.box(1.1, 2.0, 1.2), L.mat(0x4a5a3a));
+      leg.position.set(sx * 0.8, 1.0, 0);
+      leg.castShadow = true;
+      legs.add(leg);
+      const foot = new THREE.Mesh(L.box(1.3, 0.5, 1.7), L.mat(0x2f3a26, 'matte'));
+      foot.position.set(sx * 0.8, 0.25, 0.25);
+      legs.add(foot);
+    }
+    const torso = new THREE.Mesh(L.cyl(1.5, 1.2, 2.2, 4), L.mat(skin));
+    torso.rotation.y = Math.PI / 4;
+    torso.scale.z = 0.7;
+    torso.position.y = 3.1;
+    torso.castShadow = true;
+    const belt = new THREE.Mesh(L.box(2.4, 0.5, 1.7), L.mat(C.brown, 'matte'));
+    belt.position.y = 2.2;
+    // 큰 머리와 뾰족한 귀
+    const head = new THREE.Mesh(L.box(2.4, 1.9, 2.1), L.mat(skin));
+    head.position.y = 5.0;
+    head.castShadow = true;
+    for (const sx of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.0, 5), L.mat(skin));
+      ear.position.set(sx * 1.5, 5.4, -0.2);
+      ear.rotation.z = sx * 1.1;
+      g.add(ear);
+      const eye = new THREE.Mesh(L.sph(0.28, 8), new THREE.MeshBasicMaterial({ color: 0xffd166 }));
+      eye.position.set(sx * 0.55, 5.2, 1.05);
+      g.add(eye);
+    }
+    const grin = new THREE.Mesh(L.box(1.2, 0.25, 0.2), L.mat(0x2a1c10, 'matte'));
+    grin.position.set(0, 4.5, 1.08);
+    // 팔과 몽둥이
+    const arms = new THREE.Group();
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Mesh(L.box(0.8, 2.0, 0.8), L.mat(skin));
+      arm.position.set(sx * 1.7, 3.2, 0.3);
+      arm.rotation.x = -0.5;
+      arms.add(arm);
+    }
+    const club = new THREE.Mesh(L.cyl(0.4, 0.7, 3.2, 7), L.mat(P.rottenWood, 'matte'));
+    club.position.set(1.9, 4.2, 1.4);
+    club.rotation.set(-0.9, 0, 0.3);
+    arms.add(club);
+    g.add(legs, torso, belt, head, grin, arms);
+    return { group: g, parts: { legs, arms, head } };
+  }
+
+  /** 브릭 해골 병사 — 흰 브릭 뼈대에 검과 방패 */
+  function buildSkeleton() {
+    const g = new THREE.Group();
+    const bone = 0xe8e0c8;
+    const legs = new THREE.Group();
+    for (const sx of [-1, 1]) {
+      const leg = new THREE.Mesh(L.box(0.8, 3.2, 0.8), L.mat(bone, 'matte'));
+      leg.position.set(sx * 0.9, 1.7, 0);
+      leg.castShadow = true;
+      legs.add(leg);
+    }
+    const hip = new THREE.Mesh(L.box(2.4, 0.9, 1.4), L.mat(bone, 'matte'));
+    hip.position.y = 3.6;
+    // 갈비뼈
+    const chest = new THREE.Group();
+    for (let i = 0; i < 4; i++) {
+      const rib = new THREE.Mesh(L.box(2.6 - i * 0.2, 0.35, 1.5), L.mat(bone, 'matte'));
+      rib.position.y = 4.4 + i * 0.8;
+      chest.add(rib);
+    }
+    const spine = new THREE.Mesh(L.box(0.6, 3.6, 0.6), L.mat(bone, 'matte'));
+    spine.position.y = 5.6;
+    chest.add(spine);
+    // 두개골
+    const skull = new THREE.Mesh(L.box(2.0, 1.8, 1.9), L.mat(bone, 'matte'));
+    skull.position.y = 8.3;
+    skull.castShadow = true;
+    const jaw = new THREE.Mesh(L.box(1.6, 0.5, 1.5), L.mat(0xd8d0b4, 'matte'));
+    jaw.position.y = 7.3;
+    for (const sx of [-1, 1]) {
+      const eye = new THREE.Mesh(L.box(0.5, 0.5, 0.2), new THREE.MeshBasicMaterial({ color: 0x63d7e6 }));
+      eye.position.set(sx * 0.5, 8.4, 0.98);
+      g.add(eye);
+    }
+    // 팔 · 검 · 방패
+    const arms = new THREE.Group();
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Mesh(L.box(0.65, 3.0, 0.65), L.mat(bone, 'matte'));
+      arm.position.set(sx * 1.8, 5.6, 0.2);
+      arm.rotation.x = -0.35;
+      arms.add(arm);
+    }
+    const blade = new THREE.Mesh(L.box(0.3, 4.4, 0.14), L.mat(C.silver, 'metal'));
+    blade.position.set(1.9, 6.4, 1.6);
+    blade.rotation.x = -0.5;
+    const guard = new THREE.Mesh(L.box(1.3, 0.25, 0.4), L.mat(C.gold, 'metal'));
+    guard.position.set(1.9, 4.6, 1.0);
+    const shield = new THREE.Mesh(L.box(3.0, 3.6, 0.4), L.mat(0x6f7579, 'metal'));
+    shield.position.set(-2.2, 5.4, 1.1);
+    const emblem = new THREE.Mesh(L.box(1.2, 1.2, 0.2), L.mat(C.gold, 'metal'));
+    emblem.position.set(-2.2, 5.4, 1.35);
+    arms.add(blade, guard, shield, emblem);
+    g.add(legs, hip, chest, skull, jaw, arms);
+    return { group: g, parts: { legs, arms, head: skull } };
+  }
+
   const BUILDERS = {
     slime: () => buildSlime(false),
     toxic: () => buildSlime(true),
@@ -435,6 +551,8 @@
     drone: buildDrone,
     radslime: () => buildSlime(true),
     sandgolem: buildSandGolem,
+    goblin: buildGoblin,
+    skeleton: buildSkeleton,
     dragon: buildDragon,
   };
 

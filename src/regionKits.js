@@ -546,7 +546,9 @@
    */
   function facilityInterior(group, colliders, spawns, screens, o, cx, cz, baseY) {
     const accent = o.accent === undefined ? 0x0055bf : o.accent;
-    const wallColor = o.burnt ? 0x4a3a34 : (o.theme === 'toxic' ? 0x8f9a86 : P2.concrete);
+    const dungeon = o.theme === 'dungeon';
+    const wallColor = dungeon ? 0x9a958a
+      : (o.burnt ? 0x4a3a34 : (o.theme === 'toxic' ? 0x8f9a86 : P2.concrete));
     const W = 70, D = 54, H = 15, TH = 2;
     const x0 = cx - W / 2, x1 = cx + W / 2, z0 = cz - D / 2, z1 = cz + D / 2;
     const lights = [];
@@ -591,11 +593,28 @@
       }
     }
 
+    let torchN = 0;
     /**
      * 천장 등 — 발광 판 + (lamp 가 참이면) 실제 광원 하나.
      * 실제 광원은 방마다 하나면 충분하다(지역이 꺼지면 같이 꺼진다).
      */
     function ceilLight(x, z, lamp) {
+      // 던전은 천장등 대신 바닥 횃불
+      if (dungeon) {
+        // 복도 가운데를 막지 않도록 벽 쪽으로 붙여 세운다
+        const inCorridor = Math.abs(x - cx) < 7;
+        const side = (torchN++ % 2) ? 1 : -1;
+        const tx = inCorridor ? cx + side * 5.6 : x + (x > cx ? -6 : 6);
+        const torch = L.fantasy.torchPost(0xffb03a);
+        T.put(group, torch, tx, baseY, z);
+        lights.push(torch);
+        if (lamp) {
+          const fire = new THREE.PointLight(0xffb060, 1.6, 56, 1.5);
+          fire.position.set(tx, baseY + 8, z);
+          group.add(fire);
+        }
+        return;
+      }
       const panel = new THREE.Mesh(L.box(5, 0.4, 2.4), new THREE.MeshBasicMaterial({
         color: o.burnt ? 0x6a5a4a : 0xfff3c4,
       }));
@@ -611,9 +630,9 @@
     }
 
     // 바닥 · 천장
-    const floor = T.mesh(L.box(W, 1.2, D), P2.concreteDark, 'matte');
+    const floor = T.mesh(L.box(W, 1.2, D), dungeon ? 0x6f6a62 : P2.concreteDark, 'matte');
     T.put(group, floor, cx, baseY - 0.6, cz);
-    const ceil = T.mesh(L.box(W + 2, 1.6, D + 2), P2.concrete, 'matte');
+    const ceil = T.mesh(L.box(W + 2, 1.6, D + 2), dungeon ? 0x8a8378 : P2.concrete, 'matte');
     T.put(group, ceil, cx, baseY + H + 0.8, cz);
 
     // 바깥 벽 (정면에 현관문 구멍)
@@ -722,6 +741,13 @@
       screens.push(con);
     }
     for (const sx of [-1, 1]) T.put(group, T2.locker(0x3f5f7a), cx + sx * 30, baseY, backZ - 6);
+    if (dungeon) {
+      // 던전 보물방
+      for (const sx of [-1, 1]) {
+        T.put(group, L.fantasy.treasureChest(), cx + sx * 18, baseY + 1.6, backZ - 14);
+      }
+      T.put(group, L.fantasy.crystalSpire(9, 0xdcbe61), cx, baseY + 1.6, backZ - 16);
+    }
     spawns.push({ x: cx, z: backZ - 8, boss: true });
 
     return {
