@@ -920,16 +920,17 @@
     for (let i = 0; i < moving.length; i++) {
       if (moving[i]) moving[i].traverse((o) => { o.matrixAutoUpdate = true; });
     }
+    // 지역 소품의 충돌 상자를 전역 목록에 먼저 더한다
+    // (받침대는 이 상자들을 피해 세워야 하므로 순서가 중요하다)
+    if (data && data.colliders) {
+      for (let i = 0; i < data.colliders.length; i++) this.colliders.push(data.colliders[i]);
+    }
     // 이 지역에서 찾을 수 있는 무기·스킬 받침대를 세운다
     this._addFinds(region, group);
 
     this.scene.add(group);
     c = { group, data };
     this.content[region.id] = c;
-    // 지역 소품의 충돌 상자를 전역 목록에 더한다
-    if (data && data.colliders) {
-      for (let i = 0; i < data.colliders.length; i++) this.colliders.push(data.colliders[i]);
-    }
     return c;
   };
 

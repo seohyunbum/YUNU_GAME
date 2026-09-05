@@ -225,9 +225,19 @@ const arsenal = await page.evaluate(async () => {
   const x = rg.cx + f.dx, z = rg.cz + f.dz;
   g.player.pos.set(x, g.world.heightAt(x, z), z);
   g.world.update(x, z, 0.016, 200);
-  const fnd = g.world.findNear(g.player.pos.x, g.player.pos.z, window.LEGO.PLAYER.findRange);
-  out.pedestal = !!fnd;
-  if (fnd) g.takeFind(fnd);
+  // 받침대는 소품을 피해 조금 비껴 설 수 있다 — 실제로 선 자리로 걸어간다
+  let ped = null;
+  for (let i = 0; i < g.world.finds.length; i++) {
+    if (g.world.finds[i].id === 'hammer') { ped = g.world.finds[i]; break; }
+  }
+  out.pedestal = !!ped;
+  out.drift = ped ? Math.round(Math.hypot(ped.x - x, ped.z - z)) : -1;
+  if (ped) {
+    g.player.pos.set(ped.x, g.world.heightAt(ped.x, ped.z), ped.z);
+    const fnd = g.world.findNear(g.player.pos.x, g.player.pos.z, window.LEGO.PLAYER.findRange);
+    out.reached = !!fnd;
+    if (fnd) g.takeFind(fnd);
+  }
   out.gotHammer = !!g.unlocked.hammer;
   // 모두 열고 한 번씩 써 본다
   window.LEGO.WEAPONS.forEach((w) => { g.unlocked[w.id] = true; });
@@ -260,10 +270,13 @@ const arsenal = await page.evaluate(async () => {
   out.cast = cast.join(',');
   return out;
 });
-if (arsenal.weapons !== 7 || arsenal.skills !== 7) throw new Error('무기·스킬 수가 다르다: ' + JSON.stringify(arsenal));
+if (arsenal.weapons !== 9 || arsenal.skills !== 7) throw new Error('무기·스킬 수가 다르다: ' + JSON.stringify(arsenal));
 if (!arsenal.lockedBlocked) throw new Error('못 찾은 무기를 들 수 있다: ' + JSON.stringify(arsenal));
-if (!arsenal.pedestal || !arsenal.gotHammer) throw new Error('받침대에서 못 얻었다: ' + JSON.stringify(arsenal));
-if (arsenal.used.split(',').length !== 7 || arsenal.cast.split(',').length !== 7) {
+if (!arsenal.pedestal || !arsenal.reached || !arsenal.gotHammer) {
+  throw new Error('받침대에서 못 얻었다: ' + JSON.stringify(arsenal));
+}
+if (arsenal.drift > 40) throw new Error('받침대가 적힌 자리에서 너무 멀다: ' + JSON.stringify(arsenal));
+if (arsenal.used.split(',').length !== 9 || arsenal.cast.split(',').length !== 7) {
   throw new Error('무기·스킬을 다 못 썼다: ' + JSON.stringify(arsenal));
 }
 console.log('무기·스킬 확인:', JSON.stringify(arsenal));
@@ -321,6 +334,87 @@ for (const id in fantasy.built) {
 }
 if (!fantasy.mobs.goblin || !fantasy.mobs.skeleton) throw new Error('새 몬스터가 안 나온다: ' + JSON.stringify(fantasy));
 console.log('판타지 확인:', JSON.stringify(fantasy));
+
+// ---------------------------------------------------------------- 성 본채 실내
+const keep = await page.evaluate(async () => {
+  const g = window.LEGO_GAME;
+  const r = g.world.byId.castle;
+  // 안뜰(본채 밖)
+  g.player.pos.set(r.cx, g.world.heightAt(r.cx, r.cz + 30), r.cz + 30);
+  g.world.update(r.cx, r.cz, 0.016, 200);
+  await new Promise((res) => setTimeout(res, 200));
+  const outside = g.world.indoors(g.player.pos.x, g.player.pos.z, g.player.pos.y + 4.6);
+  // 현관 홀 안
+  const iz = r.cz - 12;
+  g.player.pos.set(r.cx, g.world.heightAt(r.cx, iz), iz);
+  const inside = g.world.indoors(g.player.pos.x, g.player.pos.z, g.player.pos.y + 4.6);
+  // 바깥 벽을 밀어 본다(뚫고 나가면 안 된다)
+  g.player.pos.set(r.cx - 28, g.world.heightAt(r.cx - 28, iz), iz);
+  const x0 = g.player.pos.x;
+  for (let i = 0; i < 40; i++) {
+    g._tryMove(-1.2, 0);
+    window.LEGO.resolveCollision(g.player.pos, 2.0, g.world.colliders);
+  }
+  const pushed = Math.abs(g.player.pos.x - x0);
+  // 옥좌의 방까지 걸어 들어갈 수 있나 (문을 지나 안쪽으로)
+  const tz = r.cz - 40;
+  g.player.pos.set(r.cx, g.world.heightAt(r.cx, tz), tz);
+  const throne = g.world.indoors(g.player.pos.x, g.player.pos.z, g.player.pos.y + 4.6);
+  return { outside, inside, throne, pushed: Math.round(pushed) };
+});
+if (keep.outside || !keep.inside || !keep.throne || keep.pushed > 6) {
+  throw new Error('성 본채 실내가 제대로 동작하지 않는다: ' + JSON.stringify(keep));
+}
+console.log('성 본채 확인:', JSON.stringify(keep));
+
+// ---------------------------------------------------------------- 밤낮 · 달빛
+const daynight = await page.evaluate(async () => {
+  const g = window.LEGO_GAME;
+  const dn = g.dayNight;
+  // 실내에서 재면 손전등이 섞이니 바깥 들판으로 나가서 잰다
+  g.player.pos.set(0, g.world.heightAt(0, 400), 400);
+  g.world.update(0, 400, 0.016, 200);
+  dn.frozen = true;                     // 재는 동안 시간을 세워 둔다
+  const read = (t) => {
+    dn.setTime(t);
+    for (let i = 0; i < 90; i++) g.updateAmbience(0.05);   // 색이 목표까지 따라붙게
+    return {
+      phase: dn.phase().name,
+      day: Math.round(dn.day * 100) / 100,
+      sun: Math.round(g.sun.intensity * 100) / 100,
+      stars: Math.round(dn.stars.material.opacity * 100) / 100,
+      moon: dn.moon.visible,
+      sunDisc: dn.sunDisc.visible,
+      torch: Math.round(g.torch.intensity * 100) / 100,
+    };
+  };
+  const noon = read(0.5);
+  const night = read(0.0);
+  const dusk = read(0.76);      // 노을 — 낮도 밤도 아닌 사이여야 한다
+  dn.frozen = false;
+  dn.setTime(0.32);
+  for (let i = 0; i < 40; i++) g.updateAmbience(0.05);
+  return { noon, night, dusk, clock: dn.clock() };
+});
+if (daynight.noon.day !== 1 || daynight.night.day !== 0) {
+  throw new Error('낮/밤 값이 이상하다: ' + JSON.stringify(daynight));
+}
+if (!(daynight.night.sun < daynight.noon.sun * 0.5)) {
+  throw new Error('밤이 낮보다 어둡지 않다: ' + JSON.stringify(daynight));
+}
+if (!(daynight.night.stars > 0.5) || !daynight.night.moon || daynight.night.sunDisc) {
+  throw new Error('밤 하늘에 별·달이 없다: ' + JSON.stringify(daynight));
+}
+if (daynight.noon.stars > 0.05 || !daynight.noon.sunDisc) {
+  throw new Error('낮인데 별이 보인다: ' + JSON.stringify(daynight));
+}
+if (!(daynight.dusk.day > 0.05 && daynight.dusk.day < 0.95)) {
+  throw new Error('노을이 낮/밤 사이가 아니다: ' + JSON.stringify(daynight));
+}
+if (!(daynight.night.torch > 0.6)) {
+  throw new Error('밤에 등불이 안 켜진다: ' + JSON.stringify(daynight));
+}
+console.log('밤낮 확인:', JSON.stringify(daynight));
 
 // ---------------------------------------------------------------- 카트 · 지도
 const gear = await page.evaluate(async () => {

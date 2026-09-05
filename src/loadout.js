@@ -1,7 +1,7 @@
 /* =========================================================================
  * loadout.js — 장착 정본(single source of truth)
  *
- *  오른손(hand: 'right') = 무기 7종   → 키 1~7
+ *  오른손(hand: 'right') = 무기 9종   → 키 1~9
  *  왼손(hand: 'left')   = 두루마리 스킬 7종 → 키 E 로 넘기기
  *
  * 처음부터 쓰는 건 검·총·폭탄·파이어볼 넷뿐이다.
@@ -52,6 +52,18 @@
       damage: 34, cooldown: 0.12, speed: 320, ammoMax: 90, ammoPerPickup: 14, pierce: true,
       color: 0x63d7e6, hint: '아주 빠른 광선. 줄지어 선 몬스터를 꿰뚫는다',
       find: { region: 'radio', dx: 0, dz: -18, where: '전파 관제소 중앙 제어실' },
+    },
+    {
+      id: 'runeaxe', name: '룬 도끼', emoji: '🪓', key: '8', hand: 'right',
+      damage: 130, cooldown: 0.72, reach: 13, arc: 1.05, waveDamage: 55, waveSpeed: 84,
+      color: 0x9a63e6, hint: '크게 후려치면 룬 물결이 앞으로 날아가 줄지어 선 몬스터를 벤다',
+      find: { region: 'castle', dx: 0, dz: 46, where: '수정 성 안뜰' },
+    },
+    {
+      id: 'magicbow', name: '마법 활', emoji: '🏹', key: '9', hand: 'right',
+      damage: 78, cooldown: 0.46, speed: 200, manaCost: 5, pierce: true,
+      color: 0x9ad46f, hint: '마나로 빛의 화살을 메긴다. 멀리, 그리고 꿰뚫는다',
+      find: { region: 'fairywood', dx: 0, dz: -34, where: '요정 숲 빛나는 버섯 사이' },
     },
   ];
 

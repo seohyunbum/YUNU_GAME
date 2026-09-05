@@ -579,6 +579,7 @@
     this.list = [];
     this.hooks = { hitPlayer: null, onKill: null };
     this.spawnTimer = 1.5;
+    this.night = 0;              // 0 = 낮, 1 = 한밤 (game.js 가 채운다)
     this.boss = null;
     this.bossCooldown = {};
     this._v = new THREE.Vector3();
@@ -633,7 +634,8 @@
     e.alive = true;
     e.isBoss = !!o.boss;
     e.region = o.region || null;
-    e.maxHp = Math.round(t.hp * (1 + (lvl - 1) * 0.45) * (o.hpMul || 1));
+    // 밤에 나온 놈은 조금 더 단단하다
+    e.maxHp = Math.round(t.hp * (1 + (lvl - 1) * 0.45) * (o.hpMul || 1) * (1 + this.night * 0.2));
     e.hp = e.maxHp;
     e.radius = t.radius * scale;
     e.speed = t.speed * (o.speedMul || 1);
@@ -668,7 +670,8 @@
       const e = this.list[i];
       if (e.alive && !e.isBoss && e.region === region.id) inRegion++;
     }
-    if (inRegion >= region.spawn.max) return;
+    // 밤에는 정원이 조금 늘어난다
+    if (inRegion >= region.spawn.max + Math.round(this.night * 3)) return;
     const pos = this.world.pickSpawn(playerPos.x, playerPos.z, region, this._spawnPos);
     if (!pos) return;
     const type = this.world.pickType(region);

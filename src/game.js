@@ -78,6 +78,8 @@
     this.fx.groundAt = function (x, z) { return world0.heightAt(x, z); };
     this.enemies = new L.Enemies(this.scene, this.fx, this.world);
     this.weather = new L.Weather(this.scene);
+    // 하루가 흐른다 — 해·노을·밤·달빛·별 (지역 분위기 위에 곱해진다)
+    this.dayNight = new L.DayNight(this.scene);
 
     // 브릭 카트 — 넓은 세상을 달리는 탈것 (V 로 타고 내린다)
     this.kart = { on: false, group: L.parts2.kart(L.COLORS.red), spin: 0 };
@@ -489,6 +491,29 @@
       this.fx.debrisBurst(this._tmp, L.COLORS.lightGray, 10, 22);
       this.sfx.boom();
       if (hits) this.hud.hitMark();
+    } else if (w.id === 'runeaxe') {
+      // 룬 도끼: 크게 후려치고, 그 자리에서 룬 물결이 앞으로 뻗어 나간다
+      this.sfx.sword();
+      const hits = this.enemies.damageCone(eye, dir, w.reach, Math.cos(w.arc), w.damage);
+      this._tmp.copy(eye).addScaledVector(dir, 5);
+      this.fx.shoot('runewave', this._tmp, dir, {
+        speed: w.waveSpeed, dmg: w.waveDamage, life: 1.1, pierce: true, hitRadius: 5,
+      });
+      this.fx.debrisBurst(this._tmp, 0x9a63e6, 4, 10);
+      if (hits) this.hud.hitMark();
+    } else if (w.id === 'magicbow') {
+      // 마법 활: 마나로 빛의 화살을 메긴다
+      if (p.mana < w.manaCost) {
+        this.hud.toast('마나가 부족하다', 0.9);
+        p.weaponCd = 0.4;
+        return;
+      }
+      p.mana -= w.manaCost;
+      this.sfx.shoot();
+      this.hands.getMuzzleWorld(this._tmp);
+      this.fx.shoot('arrow', this._tmp, dir, {
+        speed: w.speed, dmg: w.damage, life: 2.2, pierce: true,
+      });
     } else if (w.id === 'laser') {
       p.ammo.laser--;
       this.sfx.shoot();
@@ -828,23 +853,31 @@
   Game.prototype.updateAmbience = function (dt) {
     const amb = this.world.ambience();
     const k = Math.min(1, dt * 1.6);
-    this._fogTarget.setHex(amb.fog);
+    // 하루 시간 — 지역 분위기 위에 곱한다(밤이면 어둡고 푸르게, 노을이면 주황빛)
+    const dn = this.dayNight;
+    dn.update(dt);
+    dn.follow(this.camera.position);
+    this._fogTarget.setHex(amb.fog).multiply(dn.fogTint);
     this.scene.fog.color.lerp(this._fogTarget, k);
     this.scene.fog.near += (amb.fogNear - this.scene.fog.near) * k;
-    this.scene.fog.far += (amb.fogFar - this.scene.fog.far) * k;
-    this.sun.intensity += (this.BASE.sun * (amb.sun === undefined ? 1 : amb.sun) - this.sun.intensity) * k;
-    this.hemi.intensity += (this.BASE.hemi * (amb.hemi === undefined ? 1 : amb.hemi) - this.hemi.intensity) * k;
+    this.scene.fog.far += ((amb.fogFar * (0.55 + 0.45 * dn.day)) - this.scene.fog.far) * k;
+    this.sun.intensity +=
+      (this.BASE.sun * (amb.sun === undefined ? 1 : amb.sun) * dn.sunMul - this.sun.intensity) * k;
+    this.hemi.intensity +=
+      (this.BASE.hemi * (amb.hemi === undefined ? 1 : amb.hemi) * dn.hemiMul - this.hemi.intensity) * k;
+    this.ambient.intensity += (this.BASE.ambient * dn.ambientMul - this.ambient.intensity) * k;
+    this.sun.color.lerp(dn.lightColor, k);
     // 반구광 색도 지역을 따라간다(동굴은 따뜻한 어둠, 늪은 초록기)
-    this._hemiSky.setHex(amb.hemiSky === undefined ? 0xcfe8ff : amb.hemiSky);
-    this._hemiGround.setHex(amb.hemiGround === undefined ? 0x54703f : amb.hemiGround);
+    this._hemiSky.setHex(amb.hemiSky === undefined ? 0xcfe8ff : amb.hemiSky).multiply(dn.tint);
+    this._hemiGround.setHex(amb.hemiGround === undefined ? 0x54703f : amb.hemiGround).multiply(dn.tint);
     this.hemi.color.lerp(this._hemiSky, k);
     this.hemi.groundColor.lerp(this._hemiGround, k);
 
     // 하늘 돔은 카메라를 따라다닌다
     if (this.city.anim.sky) this.city.anim.sky.position.copy(this.camera.position);
-    // 하늘 색조(동굴은 어둡게, 설산은 하얗게)
+    // 하늘 색조(동굴은 어둡게, 설산은 하얗게, 밤이면 남색)
     if (this.city.anim.sky) {
-      this._skyTarget.setHex(amb.sky === undefined ? 0xffffff : amb.sky);
+      this._skyTarget.setHex(amb.sky === undefined ? 0xffffff : amb.sky).multiply(dn.tint);
       this.city.anim.sky.material.color.lerp(this._skyTarget, k);
     }
 
@@ -852,7 +885,8 @@
     const p = this.player.pos;
     const indoors = this.world.indoors(p.x, p.z, this.camera.position.y);
     const dark = amb.dark || indoors;
-    const want = dark ? (indoors && !amb.dark ? 1.4 : 1.7) : 0;
+    // 밤이면 바깥에서도 머리 위 등불이 은은하게 켜진다(아이가 앞을 볼 수 있게)
+    const want = dark ? (indoors && !amb.dark ? 1.4 : 1.7) : dn.night * 1.15;
     this.torch.intensity += (want - this.torch.intensity) * Math.min(1, dt * 3);
     // 실내에서는 하늘빛을 실내등 색으로 바꿔 방 안이 캄캄해지지 않게 한다
     if (indoors && !amb.dark) {
@@ -1032,12 +1066,14 @@
       // 몬스터: 지역 정원 유지 + 보스
       if (this.state === 'playing') {
         const region = this.world.current;
+        this.enemies.night = this.dayNight.night;   // 밤이면 몬스터가 더 나온다
         this.enemies.updateSpawning(dt, p.pos, region);
         this.enemies.updateBoss(dt, p.pos, region, region ? this.world.content[region.id] : null);
       }
       this.enemies.update(dt, p.pos, this.camera);
 
-      this.sun.position.set(p.pos.x + 58, p.pos.y + 96, p.pos.z + 62);
+      const d = this.dayNight.dir;
+      this.sun.position.set(p.pos.x + d.x * 112, p.pos.y + d.y * 112 + 8, p.pos.z + d.z * 112);
       this.sun.target.position.set(p.pos.x, p.pos.y, p.pos.z - 10);
       this.sun.target.updateMatrixWorld();
 
@@ -1081,6 +1117,8 @@
         weaponCd: p.weaponCd,
         skillCd: this.skillCd,
         boss: this.enemies.boss,
+        phase: this.dayNight.phase(),
+        clock: this.dayNight.clock(),
       });
     } else {
       this.updateCity(dt * 0.6);

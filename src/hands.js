@@ -335,6 +335,100 @@
     return g;
   }
 
+  /** 룬 도끼 — 보라 룬이 새겨진 커다란 양날 도끼 */
+  function buildRuneAxe() {
+    const g = new THREE.Group();
+    const haft = new THREE.Mesh(L.cyl(0.19, 0.23, 3.6, 10), L.mat(C.darkTan, 'matte'));
+    haft.position.y = 1.6;
+    const pommel = new THREE.Mesh(L.sph(0.28, 10), L.mat(C.gold, 'metal'));
+    // 자루에 감은 가죽끈
+    for (let i = 0; i < 3; i++) {
+      const wrap = new THREE.Mesh(L.cyl(0.25, 0.25, 0.22, 8), L.mat(C.reddishBrown, 'matte'));
+      wrap.position.y = 0.7 + i * 0.45;
+      g.add(wrap);
+    }
+    // 양날 — 사다리꼴 판 두 장
+    const bladeMat = L.mat(C.silver, 'metal');
+    for (const sx of [-1, 1]) {
+      const blade = new THREE.Mesh(L.box(1.5, 2.2, 0.22), bladeMat);
+      blade.position.set(sx * 1.05, 3.5, 0);
+      blade.rotation.z = sx * 0.12;
+      g.add(blade);
+      const edge = new THREE.Mesh(L.box(0.34, 2.6, 0.3), L.mat(C.white, 'metal'));
+      edge.position.set(sx * 1.72, 3.5, 0);
+      g.add(edge);
+    }
+    const core = new THREE.Mesh(L.box(0.72, 2.0, 0.44), L.mat(0x4a3f5e, 'metal'));
+    core.position.y = 3.5;
+    // 도끼머리에 박힌 룬 수정 — 휘두를 때 밝아진다
+    const rune = new THREE.Mesh(L.sph(0.42, 12), new THREE.MeshBasicMaterial({ color: 0xc79bff }));
+    rune.position.set(0, 3.5, 0.3);
+    const rune2 = rune.clone();
+    rune2.position.z = -0.3;
+    const glow = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.1, 6, 18),
+      new THREE.MeshBasicMaterial({ color: 0x9a63e6, transparent: true, opacity: 0.7 }));
+    glow.position.y = 3.5;
+    const cap = new THREE.Mesh(L.cyl(0.3, 0.3, 0.5, 8), L.mat(C.gold, 'metal'));
+    cap.position.y = 2.6;
+    g.add(haft, pommel, core, rune, rune2, glow, cap);
+    g.userData.rune = rune;
+    g.userData.rune2 = rune2;
+    g.userData.glow = glow;
+    g.userData.tip = new THREE.Vector3(0, 3.9, 0);
+    return g;
+  }
+
+  /** 마법 활 — 나뭇가지 활대에 빛의 시위 */
+  function buildBow() {
+    const g = new THREE.Group();
+    // 활대(위·아래로 휘어진 두 팔)
+    for (const sy of [-1, 1]) {
+      const limb = new THREE.Mesh(L.box(0.34, 2.2, 0.34), L.mat(C.brown, 'matte'));
+      limb.position.set(0, sy * 1.3, 0.15);
+      limb.rotation.x = sy * 0.22;
+      g.add(limb);
+      const tipArm = new THREE.Mesh(L.box(0.3, 1.4, 0.3), L.mat(C.reddishBrown, 'matte'));
+      tipArm.position.set(0, sy * 2.9, -0.25);
+      tipArm.rotation.x = sy * 0.62;
+      g.add(tipArm);
+      const leaf = new THREE.Mesh(L.box(0.7, 0.5, 0.12), L.mat(0x9ad46f, 'matte'));
+      leaf.position.set(0, sy * 3.5, -0.5);
+      g.add(leaf);
+    }
+    const grip = new THREE.Mesh(L.box(0.5, 1.5, 0.6), L.mat(C.darkTan, 'matte'));
+    const gold = new THREE.Mesh(L.box(0.56, 0.3, 0.66), L.mat(C.gold, 'metal'));
+    gold.position.y = 0.85;
+    const gold2 = gold.clone();
+    gold2.position.y = -0.85;
+    // 빛의 시위
+    const string = new THREE.Mesh(L.box(0.09, 7.2, 0.09), new THREE.MeshBasicMaterial({
+      color: 0xd8ffb0, transparent: true, opacity: 0.9,
+    }));
+    string.position.z = -0.55;
+    // 메긴 화살(쏘는 순간만 보인다)
+    const arrow = new THREE.Group();
+    const shaft = new THREE.Mesh(L.cyl(0.09, 0.09, 3.2, 6),
+      new THREE.MeshBasicMaterial({ color: 0xeaffd0 }));
+    shaft.rotation.x = Math.PI / 2;
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.7, 6),
+      new THREE.MeshBasicMaterial({ color: 0x9ad46f }));
+    head.rotation.x = -Math.PI / 2;
+    head.position.z = -1.9;
+    arrow.add(shaft, head);
+    arrow.position.set(0, 0, -0.2);
+    const flash = new THREE.Mesh(L.sph(0.6, 10), new THREE.MeshBasicMaterial({
+      color: 0xd8ffb0, transparent: true, opacity: 0.9,
+    }));
+    flash.position.set(0, 0, -2.6);
+    flash.visible = false;
+    g.add(grip, gold, gold2, string, arrow, flash);
+    g.userData.flash = flash;
+    g.userData.arrow = arrow;
+    g.userData.string = string;
+    g.userData.muzzle = new THREE.Vector3(0, 0, -2.4);
+    return g;
+  }
+
   function buildBomb() {
     const g = new THREE.Group();
     const ball = new THREE.Mesh(L.sph(0.78, 16), L.mat(0x22303a));
@@ -478,6 +572,8 @@
       flamer: buildFlamer(),
       wand: buildWand(),
       laser: buildLaser(),
+      runeaxe: buildRuneAxe(),
+      magicbow: buildBow(),
     };
     this.weapons.sword.position.set(0.0, 0.15, 0.1);
     orient(this.weapons.sword, RIGHT_BASE, -0.30, 0.18, -0.16);
@@ -493,6 +589,10 @@
     orient(this.weapons.wand, RIGHT_BASE, -0.28, 0.18, -0.12);
     this.weapons.laser.position.set(0.05, 0.2, -0.45);
     orient(this.weapons.laser, RIGHT_BASE, 0.05, 0.03, 0);
+    this.weapons.runeaxe.position.set(0.0, 0.15, 0.1);
+    orient(this.weapons.runeaxe, RIGHT_BASE, -0.36, 0.2, -0.18);
+    this.weapons.magicbow.position.set(0.1, 0.55, -0.5);
+    orient(this.weapons.magicbow, RIGHT_BASE, 0.02, 1.35, 0.1);
     for (const id in this.weapons) this.right.userData.mount.add(this.weapons[id]);
 
     // ---- 두루마리를 왼손 mount 에
@@ -592,10 +692,11 @@
   /** 오른손 공격 모션 시작 */
   Hands.prototype.playAttack = function () {
     const w = this.currentWeapon();
-    const melee = (w.id === 'sword' || w.id === 'hammer');
+    const melee = (w.id === 'sword' || w.id === 'hammer' || w.id === 'runeaxe');
     this.rightAnim.name = melee ? 'slash' : (w.id === 'bomb' ? 'throw' : 'shoot');
     this.rightAnim.t = 0;
-    this.rightAnim.dur = w.id === 'hammer' ? 0.5 : (melee ? 0.36 : (w.id === 'bomb' ? 0.42 : 0.16));
+    this.rightAnim.dur = (w.id === 'hammer' || w.id === 'runeaxe') ? 0.5
+      : (melee ? 0.36 : (w.id === 'bomb' ? 0.42 : 0.16));
     const model = this.weapons[w.id];
     if (model && model.userData.flash) {
       model.userData.flash.visible = true;
@@ -704,6 +805,19 @@
       gem.scale.setScalar(1 + Math.sin(t * 5) * 0.12);
     } else if (wid === 'laser') {
       this.weapons.laser.userData.coil.rotation.x += dt * 6;
+    } else if (wid === 'runeaxe') {
+      const u = this.weapons.runeaxe.userData;
+      const k = 0.8 + Math.sin(this.time * 5) * 0.2;
+      u.rune.scale.setScalar(k);
+      u.rune2.scale.setScalar(k);
+      u.glow.rotation.y += dt * 1.6;
+      u.glow.material.opacity = 0.45 + Math.sin(this.time * 4) * 0.25;
+    } else if (wid === 'magicbow') {
+      const u = this.weapons.magicbow.userData;
+      u.string.material.opacity = 0.6 + Math.sin(this.time * 6) * 0.3;
+      // 쏘고 나면 화살이 잠깐 사라졌다가 다시 메겨진다
+      const busy = this.rightAnim.name === 'shoot' && this.rightAnim.t < 0.1;
+      u.arrow.visible = !busy;
     } else if (wid === 'flamer') {
       const pl = this.weapons.flamer.userData.pilot;
       pl.scale.setScalar(0.7 + Math.abs(Math.sin(t * 22)) * 0.6);
@@ -781,6 +895,7 @@
   L.WEAPON_MODELS = {
     sword: buildSword, blaster: buildBlaster, bomb: buildBomb,
     hammer: buildHammer, flamer: buildFlamer, wand: buildWand, laser: buildLaser,
+    runeaxe: buildRuneAxe, magicbow: buildBow,
   };
   L.buildScrollModel = buildScroll;
   L.buildRuneTexture = runeTexture;

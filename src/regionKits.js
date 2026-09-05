@@ -866,7 +866,11 @@
       }
     }
     if (R.entry) place(group, T2.hazardSign(o.code || 'RESTRICTED', C.black), R.entry.x, h(R.entry.x, R.entry.z), R.entry.z, Math.PI, colliders, 1);
-    return { colliders, spawns, screens, indoor: inside.indoor };
+    // 던전 횃불만 흔들리게 한다(시설 천장등은 움직이지 않으니 얼려 둔다)
+    return {
+      colliders, spawns, screens, indoor: inside.indoor,
+      spins: o.theme === 'dungeon' ? inside.lights : null,
+    };
   }
 
   // ================================================================= 하수도

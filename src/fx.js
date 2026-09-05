@@ -88,6 +88,35 @@
       g.userData.ring = ring;
       return g;
     });
+    // 룬 물결 — 도끼가 뿌리는 보라 초승달(관통)
+    this._makeProjectilePool('runewave', 8, () => {
+      const g = new THREE.Group();
+      const arc = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.55, 6, 20, Math.PI * 1.1),
+        new THREE.MeshBasicMaterial({ color: 0x9a63e6, transparent: true, opacity: 0.9 }));
+      arc.rotation.z = Math.PI * 0.45;
+      const inner = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.3, 6, 18, Math.PI * 1.1),
+        new THREE.MeshBasicMaterial({ color: 0xe0ccff, transparent: true, opacity: 0.8 }));
+      inner.rotation.z = Math.PI * 0.45;
+      g.add(arc, inner);
+      return g;
+    });
+    // 빛의 화살 — 마법 활 (관통)
+    this._makeProjectilePool('arrow', 16, () => {
+      const g = new THREE.Group();
+      const shaft = new THREE.Mesh(L.cyl(0.16, 0.16, 4.2, 6),
+        new THREE.MeshBasicMaterial({ color: 0xeaffd0 }));
+      shaft.rotation.x = Math.PI / 2;
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.2, 6),
+        new THREE.MeshBasicMaterial({ color: 0x9ad46f }));
+      head.rotation.x = -Math.PI / 2;
+      head.position.z = -2.5;
+      const halo = new THREE.Mesh(L.cyl(0.5, 0.5, 4.6, 8), new THREE.MeshBasicMaterial({
+        color: 0xd8ffb0, transparent: true, opacity: 0.35,
+      }));
+      halo.rotation.x = Math.PI / 2;
+      g.add(shaft, head, halo);
+      return g;
+    });
     this._makeProjectilePool('enemyfire', 24, () => {
       const g = new THREE.Group();
       const core = new THREE.Mesh(L.sph(0.8, 10), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
@@ -245,6 +274,10 @@
     p.owner = o.owner || 'player';
     p.fuse = o.fuse || 0;
     p.spin = o.spin || 0;
+    p.pierce = !!o.pierce;       // 관통탄인가 (레이저 · 화살 · 룬 물결)
+    p.lastHit = null;
+    p.homing = o.homing || 0;    // 유도 세기 (마법탄)
+    p.hitR = o.hitRadius || 0;   // 명중 판정 반경(넓은 물결용)
     p.pos.copy(pos);
     p.vel.copy(dir).multiplyScalar(o.speed || 100);
     if (o.up) p.vel.y += o.up;
@@ -442,7 +475,7 @@
       if (p.kind === 'fireball') {
         const s = 1 + Math.sin(this.time * 24) * 0.12;
         p.group.userData.shell.scale.setScalar(s);
-      } else if (p.kind === 'laser') {
+      } else if (p.kind === 'laser' || p.kind === 'arrow' || p.kind === 'runewave') {
         p.group.lookAt(p.pos.x + p.vel.x, p.pos.y + p.vel.y, p.pos.z + p.vel.z);
       } else if (p.kind === 'magicbolt') {
         p.group.userData.ring.rotation.x += dt * 5;
@@ -475,7 +508,7 @@
       // 명중 판정 — 지나온 경로를 잘게 나눠 확인(고속탄 관통 방지)
       if (!boom && ctx) {
         if (p.owner === 'player' && ctx.enemies) {
-          const r = p.kind === 'meteor' ? 4 : 1.6;
+          const r = p.hitR || (p.kind === 'meteor' ? 4 : 1.6);
           let hit = null;
           const steps = Math.min(10, Math.max(1, Math.ceil(moved / 1.6)));
           for (let s = 1; s <= steps && !hit; s++) {

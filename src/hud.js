@@ -19,6 +19,7 @@
       compassArrow: el('compass').querySelector('.c-arrow'),
       compassDist: el('compass-dist'),
       left: el('left-value'),
+      time: el('time-value'),
       score: el('score-value'),
       combo: el('combo-value'),
       comboPanel: el('combo-panel'),
@@ -62,6 +63,7 @@
     this._hitTimer = 0;
     this._comboTimer = 0;
     this._lastHearts = -1;
+    this._lastPhase = '';
   }
 
   HUD.prototype._buildSlots = function (row, items, side) {
@@ -118,6 +120,13 @@
   HUD.prototype.update = function (dt, s) {
     this.dom.region.textContent = s.regionName;
     this.dom.left.textContent = s.remaining;
+    // 하루 시간 (🌞 낮 07:30)
+    if (s.phase) {
+      const txt = s.phase.icon + ' ' + s.phase.name;
+      if (txt !== this._lastPhase) { this._lastPhase = txt; this.dom.time.textContent = txt; }
+      this.dom.time.title = '지금 ' + (s.clock || '');
+      this.dom.time.classList.toggle('night', s.phase.name === '밤');
+    }
     // 나침반: 도시가 어느 쪽인지 화살표로
     this.dom.compassArrow.style.transform = 'rotate(' + s.homeAngle.toFixed(1) + 'deg)';
     this.dom.compassDist.textContent = Math.round(s.homeDist) + ' 스터드';

@@ -1,6 +1,6 @@
 /* =========================================================================
  * fantasyKits.js — 판타지 지역 빌더
- *   tower(마법사 탑) · castle(수정 성) · nest(용의 둥지) ·
+ *   tower(마법사 탑) · castle(수정 성 — 본채에 들어갈 수 있다) · nest(용의 둥지) ·
  *   fairy(요정 숲) · isles(부유섬)
  * (지하 던전은 facility 빌더의 dungeon 테마를 쓴다)
  * ========================================================================= */
@@ -84,6 +84,196 @@
     return { colliders, spawns, spins, floaters };
   }
 
+  // ================================================================= 성의 본채(들어갈 수 있다)
+  /**
+   * 수정 성 본채 — 현관 홀 · 옥좌의 방 · 감옥 · 보물고.
+   * 벽은 조각마다 충돌 상자를 넣고 문 자리는 비운다(통짜로 막으면 못 들어간다).
+   * 반환값의 indoor 상자를 world.indoors() 가 읽어 실내등을 켠다.
+   */
+  function castleKeep(group, colliders, spawns, spins, kx, kz, baseY) {
+    const W = 64, D = 44, H = 18, TH = 2;
+    const x0 = kx - W / 2, x1 = kx + W / 2, z0 = kz - D / 2, z1 = kz + D / 2;
+    const HALL = kz + 6;          // 현관 홀과 안쪽 방들의 경계
+    const WING = 14;              // 옥좌의 방 반폭
+
+    function wallX(z, xa, xb, gapC, gapW, color) {
+      const parts = [];
+      if (gapW > 0) {
+        if (gapC - gapW / 2 > xa) parts.push([xa, gapC - gapW / 2]);
+        if (gapC + gapW / 2 < xb) parts.push([gapC + gapW / 2, xb]);
+      } else parts.push([xa, xb]);
+      for (let i = 0; i < parts.length; i++) {
+        const a = parts[i][0], b = parts[i][1];
+        if (b - a < 0.5) continue;
+        const m = T.mesh(L.box(b - a, H, TH), color || F.stone, 'matte');
+        T.put(group, m, (a + b) / 2, baseY + H / 2, z);
+        colliders.push({ x: (a + b) / 2, z, hx: (b - a) / 2, hz: TH / 2 + 0.4 });
+      }
+      if (gapW > 0) {
+        const arch = T.mesh(L.box(gapW, 3, TH + 0.4), F.stoneDark, 'matte');
+        T.put(group, arch, gapC, baseY + H - 1.5, z);
+      }
+    }
+    function wallZ(x, za, zb, gapC, gapW, color) {
+      const parts = [];
+      if (gapW > 0) {
+        if (gapC - gapW / 2 > za) parts.push([za, gapC - gapW / 2]);
+        if (gapC + gapW / 2 < zb) parts.push([gapC + gapW / 2, zb]);
+      } else parts.push([za, zb]);
+      for (let i = 0; i < parts.length; i++) {
+        const a = parts[i][0], b = parts[i][1];
+        if (b - a < 0.5) continue;
+        const m = T.mesh(L.box(TH, H, b - a), color || F.stone, 'matte');
+        T.put(group, m, x, baseY + H / 2, (a + b) / 2);
+        colliders.push({ x, z: (a + b) / 2, hx: TH / 2 + 0.4, hz: (b - a) / 2 });
+      }
+      if (gapW > 0) {
+        const arch = T.mesh(L.box(TH + 0.4, 3, gapW), F.stoneDark, 'matte');
+        T.put(group, arch, x, baseY + H - 1.5, gapC);
+      }
+    }
+    /** 벽에 붙인 횃불 (복도를 막지 않게 벽 쪽으로) */
+    function torch(x, z, lamp, color) {
+      const t = FA.torchPost(color === undefined ? 0xffb03a : color);
+      T.put(group, t, x, baseY, z);
+      spins.push(t);
+      if (lamp) {
+        const fire = new THREE.PointLight(0xffc07a, 1.5, 54, 1.5);
+        fire.position.set(x, baseY + 9, z);
+        group.add(fire);
+      }
+    }
+
+    // 바닥 · 천장
+    T.put(group, T.mesh(L.box(W, 1.2, D), F.stoneDark, 'matte'), kx, baseY - 0.6, kz);
+    T.put(group, T.mesh(L.box(W + 3, 1.8, D + 3), F.stone, 'matte'), kx, baseY + H + 0.9, kz);
+
+    // 바깥 벽 (앞면에 큰 문)
+    wallX(z1, x0, x1, kx, 11);
+    wallX(z0, x0, x1, 0, 0);
+    wallZ(x0, z0, z1, 0, 0);
+    wallZ(x1, z0, z1, 0, 0);
+    // 안쪽 벽 — 홀에서 옥좌의 방으로, 옥좌의 방에서 감옥·보물고로
+    wallX(HALL, x0, x1, kx, 12);
+    wallZ(kx - WING, z0, HALL, kz - 8, 9);
+    wallZ(kx + WING, z0, HALL, kz - 8, 9);
+
+    // 지붕 위 총안 + 깃발
+    for (let i = 0; i < 16; i++) {
+      const t2 = i / 15;
+      T.put(group, T.mesh(L.box(3, 3, 3), F.stone, 'matte'), x0 + 2 + t2 * (W - 4), baseY + H + 3.2, z1 - 1);
+      T.put(group, T.mesh(L.box(3, 3, 3), F.stone, 'matte'), x0 + 2 + t2 * (W - 4), baseY + H + 3.2, z0 + 1);
+    }
+    for (const sx of [-1, 1]) {
+      const pole = T.mesh(L.cyl(0.4, 0.4, 12, 8), F.gold, 'metal');
+      T.put(group, pole, kx + sx * 20, baseY + H + 7, kz);
+      const flag = T.mesh(L.box(7, 4.5, 0.3), F.banner, 'matte');
+      T.put(group, flag, kx + sx * 23.6, baseY + H + 10, kz);
+    }
+
+    // ---- 현관 홀: 붉은 융단 · 기둥 · 무기 걸이
+    for (let i = 0; i < 5; i++) {
+      const rug = T.mesh(L.box(9, 0.24, 6), F.banner, 'matte');
+      T.put(group, rug, kx, baseY + 0.14, z1 - 4 - i * 6.4);
+    }
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 2; i++) {
+        const col = T.mesh(L.cyl(1.7, 1.9, H - 1, 10), F.stone, 'matte');
+        T.put(group, col, kx + sx * 12, baseY + (H - 1) / 2, z1 - 6 - i * 7);
+        colliders.push({ x: kx + sx * 12, z: z1 - 6 - i * 7, hx: 2, hz: 2 });
+      }
+      torch(kx + sx * 23, z1 - 7, true);
+      const banner = T.mesh(L.box(5, 10, 0.3), F.banner, 'matte');
+      T.put(group, banner, kx + sx * 27, baseY + 11, z1 - 12);
+    }
+    spawns.push({ x: kx + 20, z: z1 - 12 });
+
+    // ---- 옥좌의 방 (가운데 안쪽)
+    const tz = z0 + 8;
+    const dais = T.mesh(L.box(20, 1.6, 10), F.stone, 'matte');
+    T.put(group, dais, kx, baseY + 0.8, tz + 1);
+    const step = T.mesh(L.box(24, 0.8, 3), F.stoneDark, 'matte');
+    T.put(group, step, kx, baseY + 0.4, tz + 7);
+    // 옥좌 — 등받이가 높은 수정 의자
+    T.put(group, T.mesh(L.box(7, 12, 1.4), F.magic, 'plastic'), kx, baseY + 7.6, tz - 2);
+    T.put(group, T.mesh(L.box(7, 1.6, 5), F.stone, 'matte'), kx, baseY + 4, tz + 0.6);
+    for (const sx of [-1, 1]) {
+      T.put(group, T.mesh(L.box(1.2, 4, 5), F.gold, 'metal'), kx + sx * 3.1, baseY + 5.6, tz + 0.6);
+    }
+    T.put(group, T.mesh(L.box(8.4, 1.6, 2), F.gold, 'metal'), kx, baseY + 14, tz - 2);
+    // 옥좌 뒤 벽걸이와 수정
+    for (const sx of [-1, 1]) {
+      const drape = T.mesh(L.box(6, 13, 0.3), F.banner, 'matte');
+      T.put(group, drape, kx + sx * 9, baseY + 9.5, z0 + 1.4);
+      T.put(group, FA.crystalSpire(9, F.magic), kx + sx * 11, baseY, tz + 2);
+      torch(kx + sx * 11.5, tz + 12, sx > 0);
+    }
+    // 천장 샹들리에 (수정 고리)
+    const chand = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.4, 6, 20),
+      new THREE.MeshBasicMaterial({ color: 0xdcbe61 }));
+    chand.rotation.x = Math.PI / 2;
+    T.put(group, chand, kx, baseY + H - 4, kz - 12);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const candle = new THREE.Mesh(L.sph(0.8, 8), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
+      T.put(group, candle, kx + Math.cos(a) * 4.5, baseY + H - 3.2, kz - 12 + Math.sin(a) * 4.5);
+    }
+    const chandLight = new THREE.PointLight(0xffd9a0, 1.4, 50, 1.5);
+    chandLight.position.set(kx, baseY + H - 5, kz - 12);
+    group.add(chandLight);
+    // 보물 상자와 보스 자리
+    place(group, FA.treasureChest(), kx - 7, baseY + 1.6, tz + 2, 0.4, colliders, 2.4);
+    place(group, FA.treasureChest(), kx + 7, baseY + 1.6, tz + 2, -0.4, colliders, 2.4);
+    spawns.push({ x: kx, z: kz - 10 });
+
+    // ---- 감옥 (왼쪽 날개): 쇠창살 방 셋
+    const cellX = x0 + 9;
+    for (let i = 0; i < 3; i++) {
+      const cz2 = z0 + 5 + i * 8;
+      // 창살 — 얇은 기둥을 세우고 사이는 지나갈 수 있게 비운다
+      for (let k = 0; k < 5; k++) {
+        const bar = T.mesh(L.cyl(0.28, 0.28, 11, 6), C.silver, 'metal');
+        T.put(group, bar, cellX + 5.5, baseY + 5.5, cz2 - 4.5 + k * 2.2);
+      }
+      const lintel2 = T.mesh(L.box(1, 1.6, 11), F.stoneDark, 'matte');
+      T.put(group, lintel2, cellX + 5.5, baseY + 11.6, cz2);
+      colliders.push({ x: cellX + 5.5, z: cz2 + 4.4, hx: 0.8, hz: 1.4 });
+      // 짚더미 · 뼈 브릭 · 사슬
+      T.put(group, T.mesh(L.box(6, 0.8, 4), C.tan, 'matte'), cellX - 1, baseY + 0.4, cz2);
+      const bone = T.mesh(L.cyl(0.5, 0.6, 5, 6), P.bone, 'matte');
+      bone.rotation.z = Math.PI / 2;
+      T.put(group, bone, cellX + 2, baseY + 0.6, cz2 + 3);
+      const chain = T.mesh(L.cyl(0.2, 0.2, 6, 6), C.darkGray, 'metal');
+      T.put(group, chain, x0 + 2.6, baseY + 12, cz2 - 2);
+      if (i === 1) torch(cellX + 8.5, cz2, true);
+      spawns.push({ x: cellX, z: cz2 });
+    }
+    const jailSign = T.mesh(L.box(7, 2.4, 0.3), F.stoneDark, 'matte');
+    T.put(group, jailSign, kx - WING - 1.6, baseY + 13, kz - 8);
+
+    // ---- 보물고 (오른쪽 날개): 금화 더미 · 금괴 · 상자
+    const trX = x1 - 10;
+    for (let i = 0; i < 5; i++) {
+      const gz = z0 + 4 + i * 5.5;
+      const pile = T.mesh(L.cyl(3.4 - (i % 2) * 0.8, 4.4, 1.6, 12), F.gold, 'metal');
+      T.put(group, pile, trX - (i % 2) * 5, baseY + 0.8, gz);
+      const pile2 = T.mesh(L.cyl(1.6, 2.6, 1.2, 12), C.yellow, 'metal');
+      T.put(group, pile2, trX - (i % 2) * 5, baseY + 2, gz);
+    }
+    for (let i = 0; i < 4; i++) {
+      const bar2 = T.mesh(L.box(3.4, 1.2, 1.8), F.gold, 'metal');
+      T.put(group, bar2, trX + 4, baseY + 0.6 + i * 1.25, z0 + 24 - (i % 2) * 2);
+    }
+    place(group, FA.treasureChest(), trX, baseY, z0 + 21, -0.3, colliders, 2.4);
+    place(group, FA.treasureChest(), trX - 6, baseY, z0 + 21, 0.3, colliders, 2.4);
+    T.put(group, FA.crystalSpire(11, F.arcane), trX + 3, baseY, z0 + 4);
+    torch(kx + WING + 3.5, kz - 8, true);
+    torch(x1 - 3, z0 + 20, false);
+    spawns.push({ x: trX, z: z0 + 20 });
+
+    return { x0: x0 - 1, x1: x1 + 1, z0: z0 - 1, z1: z1 + 1, y0: baseY - 2, y1: baseY + H + 3 };
+  }
+
   // ================================================================= 수정 성
   function buildCastle(group, ctx) {
     const colliders = [], spawns = [], spins = [];
@@ -131,30 +321,27 @@
       }
     }
 
-    // 안뜰: 옥좌 단상 · 수정 첨탑 · 횃불 · 마법진
-    const dais = T.mesh(L.box(26, 2.4, 20), F.stone, 'matte');
-    T.put(group, dais, cx, baseY + 1.2, cz - 26);
-    const throne = T.mesh(L.box(6, 10, 4), F.magic, 'plastic');
-    T.put(group, throne, cx, baseY + 7.4, cz - 32);
-    const crown = T.mesh(L.box(7, 1.4, 5), F.gold, 'metal');
-    T.put(group, crown, cx, baseY + 12.8, cz - 32);
+    // 안뜰 안쪽에 본채가 선다(걸어 들어가면 옥좌의 방 · 감옥 · 보물고)
+    const indoor = castleKeep(group, colliders, spawns, spins, cx, cz - 26, baseY);
+
+    // 안뜰 앞마당: 마법진 · 수정 첨탑 · 횃불 (본채 자리는 비운다)
+    const circle = FA.magicCircle(14, F.arcane);
+    place(group, circle, cx, baseY, cz + 20, 0);
+    spins.push(circle);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      place(group, FA.crystalSpire(16 + (i % 3) * 7, i % 2 ? F.arcane : F.magic),
-        cx + Math.cos(a) * 30, baseY, cz + Math.sin(a) * 30, 0, colliders, 2.4);
+      const sx2 = cx + Math.cos(a) * 34, sz2 = cz + 22 + Math.sin(a) * 20;
+      place(group, FA.crystalSpire(14 + (i % 3) * 7, i % 2 ? F.arcane : F.magic),
+        sx2, baseY, sz2, 0, colliders, 2.4);
     }
-    const circle = FA.magicCircle(14, F.arcane);
-    place(group, circle, cx, baseY, cz, 0);
-    spins.push(circle);
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2 + 0.4;
-      const x = cx + Math.cos(a) * 46, z = cz + Math.sin(a) * 46;
-      const torch = FA.torchPost(0xffd166);
-      place(group, torch, x, baseY, z, 0, colliders, 0.8);
-      spins.push(torch);
+    // 정문에서 본채 문까지 이어지는 횃불 길
+    for (let i = 0; i < 4; i++) {
+      for (const sx2 of [-1, 1]) {
+        const torch = FA.torchPost(0xffd9a0);
+        place(group, torch, cx + sx2 * 9, baseY, cz + 52 - i * 14, 0, colliders, 0.8);
+        spins.push(torch);
+      }
     }
-    place(group, FA.treasureChest(), cx - 10, baseY + 2.4, cz - 24, 0.4, colliders, 2.6);
-    place(group, FA.treasureChest(), cx + 10, baseY + 2.4, cz - 24, -0.4, colliders, 2.6);
 
     // 성 밖
     for (let i = 0; i < 16; i++) {
@@ -163,9 +350,9 @@
         s.x, h(s.x, s.z), s.z, rnd(i, 43) * 6, colliders, 2);
       spawns.push({ x: s.x, z: s.z });
     }
-    spawns.push({ x: cx, z: cz - 14, boss: true });
+    spawns.push({ x: cx, z: cz + 34, boss: true });
     entryPortal(group, ctx, colliders, F.arcane, spins);
-    return { colliders, spawns, spins };
+    return { colliders, spawns, spins, indoor };
   }
 
   // ================================================================= 용의 둥지
