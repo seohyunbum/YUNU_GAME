@@ -157,11 +157,11 @@
 
     // 하늘·안개에 곱할 색
     this._c1.setHex(0x2b3766);                  // 밤 하늘
-    this.tint.set(1, 1, 1).lerp(this._c1, this.night * 0.86);
+    this.tint.setRGB(1, 1, 1).lerp(this._c1, this.night * 0.86);
     this._c2.setHex(0xffb07a);
     this.tint.lerp(this._c2, this.dusk * 0.55);
     this._c1.setHex(0x353f5e);
-    this.fogTint.set(1, 1, 1).lerp(this._c1, this.night * 0.8);
+    this.fogTint.setRGB(1, 1, 1).lerp(this._c1, this.night * 0.8);
     this._c2.setHex(0xffa878);
     this.fogTint.lerp(this._c2, this.dusk * 0.45);
 

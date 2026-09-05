@@ -386,6 +386,9 @@ const daynight = await page.evaluate(async () => {
       moon: dn.moon.visible,
       sunDisc: dn.sunDisc.visible,
       torch: Math.round(g.torch.intensity * 100) / 100,
+      // 하늘·안개에 곱하는 색 — 낮에는 반드시 흰색이어야 한다(어두우면 낮 하늘이 죽는다)
+      tint: [dn.tint.r, dn.tint.g, dn.tint.b].map((v) => Math.round(v * 100) / 100),
+      sky: Math.round(g.city.anim.sky.material.color.b * 100) / 100,
     };
   };
   const noon = read(0.5);
@@ -407,6 +410,12 @@ if (!(daynight.night.stars > 0.5) || !daynight.night.moon || daynight.night.sunD
 }
 if (daynight.noon.stars > 0.05 || !daynight.noon.sunDisc) {
   throw new Error('낮인데 별이 보인다: ' + JSON.stringify(daynight));
+}
+if (daynight.noon.tint.some((v) => v < 0.95)) {
+  throw new Error('낮인데 하늘 색조가 흰색이 아니다: ' + JSON.stringify(daynight));
+}
+if (!(daynight.noon.sky > 0.5) || !(daynight.night.sky < daynight.noon.sky * 0.6)) {
+  throw new Error('하늘 돔이 낮/밤을 따라가지 않는다: ' + JSON.stringify(daynight));
 }
 if (!(daynight.dusk.day > 0.05 && daynight.dusk.day < 0.95)) {
   throw new Error('노을이 낮/밤 사이가 아니다: ' + JSON.stringify(daynight));

@@ -138,7 +138,8 @@
       T.put(group, t, x, baseY, z);
       spins.push(t);
       if (lamp) {
-        const fire = new THREE.PointLight(0xffc07a, 1.5, 54, 1.5);
+        // 실제 광원은 방마다 하나면 충분하다(여럿 겹치면 벽이 하얗게 날아간다)
+        const fire = new THREE.PointLight(0xffc07a, 0.85, 42, 1.7);
         fire.position.set(x, baseY + 9, z);
         group.add(fire);
       }
@@ -182,7 +183,7 @@
         T.put(group, col, kx + sx * 12, baseY + (H - 1) / 2, z1 - 6 - i * 7);
         colliders.push({ x: kx + sx * 12, z: z1 - 6 - i * 7, hx: 2, hz: 2 });
       }
-      torch(kx + sx * 23, z1 - 7, true);
+      torch(kx + sx * 23, z1 - 7, sx > 0);
       const banner = T.mesh(L.box(5, 10, 0.3), F.banner, 'matte');
       T.put(group, banner, kx + sx * 27, baseY + 11, z1 - 12);
     }
@@ -218,7 +219,7 @@
       const candle = new THREE.Mesh(L.sph(0.8, 8), new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
       T.put(group, candle, kx + Math.cos(a) * 4.5, baseY + H - 3.2, kz - 12 + Math.sin(a) * 4.5);
     }
-    const chandLight = new THREE.PointLight(0xffd9a0, 1.4, 50, 1.5);
+    const chandLight = new THREE.PointLight(0xffd9a0, 1.0, 42, 1.6);
     chandLight.position.set(kx, baseY + H - 5, kz - 12);
     group.add(chandLight);
     // 보물 상자와 보스 자리
@@ -227,17 +228,17 @@
     spawns.push({ x: kx, z: kz - 10 });
 
     // ---- 감옥 (왼쪽 날개): 쇠창살 방 셋
-    const cellX = x0 + 9;
+    const cellX = x0 + 5;          // 감방 한가운데 (창살은 그 바깥, 통로는 9 스터드)
     for (let i = 0; i < 3; i++) {
       const cz2 = z0 + 5 + i * 8;
       // 창살 — 얇은 기둥을 세우고 사이는 지나갈 수 있게 비운다
       for (let k = 0; k < 5; k++) {
         const bar = T.mesh(L.cyl(0.28, 0.28, 11, 6), C.silver, 'metal');
-        T.put(group, bar, cellX + 5.5, baseY + 5.5, cz2 - 4.5 + k * 2.2);
+        T.put(group, bar, cellX + 4.5, baseY + 5.5, cz2 - 4.5 + k * 2.2);
       }
       const lintel2 = T.mesh(L.box(1, 1.6, 11), F.stoneDark, 'matte');
-      T.put(group, lintel2, cellX + 5.5, baseY + 11.6, cz2);
-      colliders.push({ x: cellX + 5.5, z: cz2 + 4.4, hx: 0.8, hz: 1.4 });
+      T.put(group, lintel2, cellX + 4.5, baseY + 11.6, cz2);
+      colliders.push({ x: cellX + 4.5, z: cz2 + 4.4, hx: 0.8, hz: 1.4 });
       // 짚더미 · 뼈 브릭 · 사슬
       T.put(group, T.mesh(L.box(6, 0.8, 4), C.tan, 'matte'), cellX - 1, baseY + 0.4, cz2);
       const bone = T.mesh(L.cyl(0.5, 0.6, 5, 6), P.bone, 'matte');
@@ -245,7 +246,7 @@
       T.put(group, bone, cellX + 2, baseY + 0.6, cz2 + 3);
       const chain = T.mesh(L.cyl(0.2, 0.2, 6, 6), C.darkGray, 'metal');
       T.put(group, chain, x0 + 2.6, baseY + 12, cz2 - 2);
-      if (i === 1) torch(cellX + 8.5, cz2, true);
+      if (i === 1) torch(kx - WING - 2.5, cz2, true);
       spawns.push({ x: cellX, z: cz2 });
     }
     const jailSign = T.mesh(L.box(7, 2.4, 0.3), F.stoneDark, 'matte');
