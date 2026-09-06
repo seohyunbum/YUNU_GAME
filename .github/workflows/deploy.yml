@@ -27,6 +27,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # 이 저장소의 검사 28종은 지금까지 CI 에서 한 번도 돌지 않았다 — 빌드만 돌았다.
+      # 브라우저가 필요한 것은 save-roundtrip 하나뿐이고 ubuntu 러너의 Chrome 으로 충분하다
+      # (brick-city 가 같은 방식으로 검증된다).
+      - run: npm run verify
+        env:
+          PLAYWRIGHT_CHROMIUM_PATH: /usr/bin/google-chrome
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

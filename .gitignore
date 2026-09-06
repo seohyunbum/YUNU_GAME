@@ -11,3 +11,6 @@ _save-recovery/
 
 # 운영자 리포트 출력 (플레이어 데이터)
 admin-reports/
+
+# Claude Code 로컬 실행 설정(이 PC 절대경로) — 공유 대상 아님
+.claude/

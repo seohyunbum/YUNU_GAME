@@ -136,7 +136,10 @@ try {
   });
 
   await page.goto(url, { waitUntil: "networkidle" });
-  await page.waitForFunction(() => Boolean(window.__wildernessGame), null, { timeout: 10_000 });
+  // 같은 객체를 기다리는 다른 스크립트는 30초를 준다. 여기만 10초여서, vite 콜드 스타트가
+  // 겹치면 제품이 멀쩡한데도 실패했다 — 그리고 verify 는 && 사슬이라 뒤의 20여 개가
+  // 조용히 실행되지 않았다. 느린 것과 깨진 것은 다르다.
+  await page.waitForFunction(() => Boolean(window.__wildernessGame), null, { timeout: 30_000 });
   await page.click('[data-class-choice="mage"]');
   await page.click("[data-title-new]");
   await page.waitForTimeout(500);
