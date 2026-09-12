@@ -42,7 +42,10 @@
     "test:rune-stones": "node scripts/rune-stones-test.mjs",
     "test:gun-reload": "node scripts/gun-reload-test.mjs",
     "test:monster-motion": "node scripts/monster-motion-test.mjs",
-    "test:guard-motion": "node scripts/guard-motion-test.mjs"
+    "test:guard-motion": "node scripts/guard-motion-test.mjs",
+    "postbuild": "node scripts/hbsy-release.mjs seal",
+    "hbsy:seal": "node scripts/hbsy-release.mjs seal",
+    "hbsy:verify": "node scripts/hbsy-release.mjs verify"
   },
   "dependencies": {
     "firebase": "^12.14.0",
