@@ -1,0 +1,83 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      ".read": true,
+      "__balance__": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.hasChildren(['global'])",
+        "global": {
+          ".validate": "newData.hasChildren()",
+          "$key": { ".validate": "newData.isNumber()" }
+        },
+        "$other": { ".validate": false }
+      },
+      "$nick": {
+        ".write": "auth != null && newData.exists() && $nick.length >= 1 && $nick.length <= 20",
+        ".validate": "newData.hasChildren()",
+        "online": { ".validate": "newData.isBoolean()" },
+        "lastSeen": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4102444800000" },
+        "progressAt": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4102444800000" },
+        "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "class": { ".validate": "newData.isString() && newData.val().length <= 32" },
+        "steps": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000000" },
+        "playSeconds": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000000" },
+        "kills": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000000" },
+        "fortressStage": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "fortressBase": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "fortressStageHard": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "fortressBaseHard": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+        "training": {
+          ".validate": "newData.hasChildren()",
+          "$kind": {
+            ".validate": "($kind === 'hp' || $kind === 'attack' || $kind === 'armor' || $kind === 'mana') && newData.hasChildren(['stage', 'tries'])",
+            "stage": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+            "tries": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000" },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+    "friends": {
+      ".read": true,
+      "$nick": {
+        "$other": {
+          ".write": "auth != null && newData.exists() && $nick.length <= 20 && $other.length <= 20",
+          ".validate": "newData.val() === true"
+        }
+      }
+    },
+    "inbox": {
+      "$nick": {
+        ".read": true,
+        "friendRequests": {
+          "$from": {
+            ".write": "auth != null && $nick.length <= 20 && $from.length <= 20",
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "friendAccepted": {
+          "$by": {
+            ".write": "auth != null && $nick.length <= 20 && $by.length <= 20",
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "partyInvites": {
+          "$from": {
+            ".write": "auth != null && $nick.length <= 20 && $from.length <= 20",
+            ".validate": "newData.hasChildren(['code', 'ts'])",
+            "code": { ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 12" },
+            "ts": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    },
+    "admins": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

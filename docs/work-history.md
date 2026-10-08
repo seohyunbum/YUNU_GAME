@@ -1821,3 +1821,28 @@
 6개 저장소 일괄 후크 설치는 참조 서명기가 아직 준비되지 않아 자동 승인 검토에서 거절됨. 완성된 서명기 설치 → 실제 산출물 직접 서명·검증 → 빌드 후크 연결 순서로 바꾸어 YUNU 빌드 자동 서명 성공. 없는 서명기를 참조하는 후크를 먼저 설치하지 않음.
 
 근거: scripts/hbsy-release.mjs, provenance/local-verification.json. npm run verify 및 실제 npm run build 검증 완료. CI 비밀키·원격 배포는 별도 승인 완료 전까지 실행하지 않음.
+
+## 2026-10-09 — Firebase DB 규칙 강화: 익명 로그인 필수 + 형식 검사 + 전역 밸런스 관리자 전용 (주인 없는 최소 보호)
+
+배경: 2026-10-08 공개 저장소 보안 점검에서 DB 규칙이 인증 없이 users·friends·inbox 를 통째로 쓰고 지울 수 있음을 확인함.
+전역 밸런스(users/__balance__)도 아무나 바꿀 수 있어 전 기기 밸런스 조작이 가능했음. 사용자 선택 = "주인 없이 최소 보호".
+
+변경:
+- database.rules.json(신규, 규칙 정본): 모든 쓰기 로그인 필수 · users/{닉} 알려진 필드만(형식·범위) + 노드 통째 삭제 금지 ·
+  __balance__ 는 admins/{uid}=true 신원만 · friends 는 true 추가만 · inbox 항목 쓰기·삭제 · admins 와 그 밖의 경로 잠금. 읽기 공개 범위는 그대로.
+- src/game/firebaseAuth.ts(신규): 익명 로그인 공용 모듈. getAuth 대신 initializeAuth(팝업/리디렉션 처리기 제외)를 씀 —
+  getAuth 는 모바일·사파리에서 인증 iframe 을 선제 로드함(_shouldInitProactively). Node(SSR)에서는 로그인하지 않음(테스트가 실계정을 만들지 않게).
+- firebaseDirectory: DB 연결 전 익명 로그인. progressSync: ID 토큰을 ?auth= 로 부착(토큰 공급자 주입 가능, 기존 호출부 무변경).
+- balanceTuning: 게임 내 쓰기 함수 publishGlobalBalance·resetGlobalBalance 삭제 — F8 패널 제거 후 호출처가 없었고 새 규칙에선 401.
+- 밸런스 관리자 페이지: REST 익명 로그인으로 관리자 ID 생성·보존·표시(복사 버튼), 틀린 ETag 로 쓰기 권한 무기록 확인, 쓰기에 ?auth=.
+- scripts/firebase-rules-test.mjs(verify 포함): publishProgress 실제 발행 본문·firebaseDirectory 경로를 규칙과 대조.
+  변이 시험 9종(필드 누락·새 필드·로그인 조건 삭제·종목 누락·통째 삭제 허용·닉 상한 축소·SSR 가드 제거·로그인 순서·상한 오타) 전부 검출.
+- main.ts 0 변경.
+
+판단 기록(반복 금지):
+- 규칙에 없는 필드를 하나라도 보내면 PATCH 전체가 거부됨($other .validate false). progressSync 에 필드를 추가하면 규칙도 함께 바꾸고
+  다시 게시해야 함 — 손으로 적은 목록 대신 실제 발행 본문에서 뽑아 대조하는 테스트로 강제함.
+- 규칙 의미론은 에뮬레이터 없이 '틀린 ETag(if-match)' 쓰기로 실측함(거부 401·허용 412, 기록 0). Firebase CLI·에뮬레이터(Java)는 도입하지 않음.
+- 닉네임 소유권(uid 결합)은 보류 — 기존 닉네임 이전·기기 분실 시 복구 절차가 필요해 가족 게임에서는 비용 대비 실효가 낮음(사용자 결정).
+- 배포 순서: 클라이언트 먼저(옛 규칙에서도 동작 — 로그인 실패는 무시) → 콘솔에서 Authentication 시작·익명 사용 → 관리자 ID 등록 → 규칙 게시.
+  이 프로젝트는 Authentication 을 한 번도 시작하지 않아 accounts API 가 CONFIGURATION_NOT_FOUND 를 돌려줬음(2026-10-09 확인).

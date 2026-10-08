@@ -13,6 +13,13 @@
   .status { padding: 10px 14px; border-radius: 8px; background: rgba(255,255,255,0.06); margin-bottom: 14px; font-size: 13px; }
   .status.ok { background: rgba(90, 200, 120, 0.15); }
   .status.err { background: rgba(220, 90, 90, 0.18); }
+  .auth { padding: 10px 14px; border-radius: 8px; background: rgba(255,255,255,0.06); margin-bottom: 10px; font-size: 13px; line-height: 1.5; }
+  .auth.ok { background: rgba(90, 200, 120, 0.15); }
+  .auth.err { background: rgba(220, 160, 60, 0.2); }
+  .uid-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+  .uid-row[hidden] { display: none; }
+  .uid-row input { flex: 1 1 260px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; color: #f3ead6; padding: 5px 8px; font-family: Consolas, monospace; font-size: 12px; }
+  .uid-row button { padding: 5px 12px; }
   section { margin-bottom: 18px; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 10px 14px; }
   h3 { margin: 4px 0 8px; font-size: 14px; color: #f4d488; border-bottom: 1px solid rgba(255,255,255,0.14); padding-bottom: 4px; }
   .row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(160px, 1.3fr) 90px 34px; gap: 10px; align-items: center; padding: 4px 6px; border-radius: 6px; font-size: 13px; }
@@ -34,6 +41,14 @@
 <div class="wrap">
   <h1>🛠 YUNU 밸런스 관리자</h1>
   <div class="sub">게임과 별개로 동작하는 관리자 페이지입니다. 값을 조정하고 <strong>전체 적용</strong>을 누르면 모든 기기가 <strong>다음 접속(새로고침)</strong>부터 반영됩니다. 노란색 = 기본값과 다른 항목.</div>
+  <div class="auth" id="auth">
+    <div id="authText">관리자 신원을 확인하는 중…</div>
+    <div class="uid-row" id="uidRow" hidden>
+      <input id="uid" readonly aria-label="관리자 ID" />
+      <button type="button" id="copyUid">ID 복사</button>
+      <button type="button" id="recheck">권한 다시 확인</button>
+    </div>
+  </div>
   <div class="status" id="status">전역 밸런스를 불러오는 중…</div>
   <div id="groups"></div>
   <div class="actions">
@@ -47,6 +62,8 @@
 <script>
 const DB_URL = "https://yunu-game-default-rtdb.asia-southeast1.firebasedatabase.app";
 const BAL_PATH = DB_URL + "/users/__balance__/global.json";
+const API_KEY = "AIzaSyCXZExNPvC7CE59E2IYaciCiYkfaWGIgjM";
+const AUTH_STORE = "yunu-balance-admin-auth-v1";
 const TUNABLES = [
  {
   "key": "samurai_swing",
@@ -501,6 +518,61 @@ const TUNABLES = [
 ];
 const byKey = new Map(TUNABLES.map((t) => [t.key, t]));
 const values = new Map(TUNABLES.map((t) => [t.key, t.def]));
+const DENIED_MSG = "❌ 권한 없음 — 이 기기의 관리자 ID 가 admins 에 등록되지 않았습니다(위 안내 참고).";
+const AUTH_OFF_MSG = "⚠ Firebase 익명 로그인이 꺼져 있습니다 — Firebase 콘솔 → Authentication → 로그인 방법에서 '익명'을 사용 설정한 뒤 새로고침하세요.";
+
+// ── 관리자 신원(익명 로그인, REST) ── 이 브라우저에 보존해 같은 관리자 ID 를 계속 쓴다.
+// 새 신원이 만들어지면(저장소 삭제 등) ID 가 바뀌므로 admins 에 다시 등록해야 한다.
+let authSession = null;
+function readSession() { try { return JSON.parse(localStorage.getItem(AUTH_STORE) || "null"); } catch (e) { return null; } }
+function writeSession(s) { authSession = s; try { localStorage.setItem(AUTH_STORE, JSON.stringify(s)); } catch (e) { /* 저장 차단 — 이 창에서만 유지 */ } }
+async function authError(res) {
+  let code = String(res.status);
+  try { const body = await res.json(); code = (body && body.error && body.error.message) || code; } catch (e) { /* 본문 없음 */ }
+  const err = new Error(code); err.code = code; return err;
+}
+function isAuthDisabled(e) { return /CONFIGURATION_NOT_FOUND|ADMIN_ONLY_OPERATION|OPERATION_NOT_ALLOWED/.test(String(e && e.code)); }
+async function adminToken() {
+  const s = authSession || readSession();
+  if (s && s.idToken && Date.now() < s.expiresAt - 60000) { authSession = s; return s.idToken; }
+  if (s && s.refreshToken) {
+    const res = await fetch("https://securetoken.googleapis.com/v1/token?key=" + API_KEY, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(s.refreshToken) });
+    if (res.ok) {
+      const d = await res.json();
+      writeSession({ uid: d.user_id, idToken: d.id_token, refreshToken: d.refresh_token, expiresAt: Date.now() + Number(d.expires_in) * 1000 });
+      return authSession.idToken;
+    }
+    if (res.status !== 400) throw await authError(res); // 네트워크·서버 문제면 기존 신원을 버리지 않는다(400 = 신원 무효)
+  }
+  const res = await fetch("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + API_KEY, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ returnSecureToken: true }) });
+  if (!res.ok) throw await authError(res);
+  const d = await res.json();
+  writeSession({ uid: d.localId, idToken: d.idToken, refreshToken: d.refreshToken, expiresAt: Date.now() + Number(d.expiresIn) * 1000 });
+  return authSession.idToken;
+}
+function authedUrl(token) { return BAL_PATH + "?auth=" + encodeURIComponent(token); }
+// 쓰기 권한 확인 — 틀린 ETag(if-match)로 PUT: 규칙이 막으면 401, 허용하면 412(전제조건 불일치)라 아무것도 기록되지 않는다.
+async function checkWriteAccess() {
+  const res = await fetch(authedUrl(await adminToken()), { method: "PUT", headers: { "Content-Type": "application/json", "if-match": "permission-probe-never-matches" }, body: "{}" });
+  return res.status === 412 ? "ok" : res.status === 401 ? "denied" : "응답 " + res.status;
+}
+function showAuth(text, cls, showUid) {
+  document.getElementById("auth").className = "auth" + (cls ? " " + cls : "");
+  document.getElementById("authText").textContent = text;
+  document.getElementById("uidRow").hidden = !showUid;
+  if (showUid && authSession) document.getElementById("uid").value = authSession.uid;
+}
+async function refreshAdminStatus() {
+  showAuth("관리자 신원을 확인하는 중…", "", false);
+  try {
+    const access = await checkWriteAccess();
+    if (access === "ok") showAuth("✅ 이 기기는 전역 밸런스를 바꿀 수 있습니다. 아래는 이 기기의 관리자 ID 입니다.", "ok", true);
+    else if (access === "denied") showAuth("⚠ 이 기기의 관리자 ID 가 아직 등록되지 않았습니다. Firebase 콘솔 → Realtime Database → 데이터 탭에서 admins 아래에 아래 ID 를 키로, 값 true 로 추가한 뒤 '권한 다시 확인'을 누르세요.", "err", true);
+    else showAuth("관리자 권한을 확인하지 못했습니다(" + access + ") — 전체 적용 때 다시 확인합니다.", "", true);
+  } catch (e) {
+    showAuth(isAuthDisabled(e) ? AUTH_OFF_MSG : "⚠ 관리자 신원 확인 실패 — 인터넷 연결을 확인해 주세요.", "err", false);
+  }
+}
 
 function clampVal(t, v) { return Math.min(t.max, Math.max(t.min, v)); }
 function setStatus(text, cls) {
@@ -568,11 +640,12 @@ document.getElementById("publish").addEventListener("click", async () => {
   setStatus("전체 적용 중…");
   setBusy(true);
   try {
-    const res = await fetch(BAL_PATH, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const res = await fetch(authedUrl(await adminToken()), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (res.status === 401) { setStatus(DENIED_MSG, "err"); void refreshAdminStatus(); return; }
     if (!res.ok) throw new Error(String(res.status));
     setStatus(`✅ 전체 적용 완료 — 오버라이드 ${Object.keys(payload).length}개 저장. 모든 기기가 다음 접속(새로고침)부터 이 밸런스를 사용합니다.`, "ok");
   } catch (e) {
-    setStatus("❌ 전체 적용 실패 — 인터넷 연결을 확인해 주세요.", "err");
+    setStatus(isAuthDisabled(e) ? AUTH_OFF_MSG : "❌ 전체 적용 실패 — 인터넷 연결을 확인해 주세요.", "err");
   } finally { setBusy(false); }
 });
 document.getElementById("wipe").addEventListener("click", async () => {
@@ -580,17 +653,28 @@ document.getElementById("wipe").addEventListener("click", async () => {
   setStatus("전역 초기화 중…");
   setBusy(true);
   try {
-    const res = await fetch(BAL_PATH, { method: "DELETE" });
+    const res = await fetch(authedUrl(await adminToken()), { method: "DELETE" });
+    if (res.status === 401) { setStatus(DENIED_MSG, "err"); void refreshAdminStatus(); return; }
     if (!res.ok) throw new Error(String(res.status));
     for (const t of TUNABLES) { values.set(t.key, t.def); syncRow(t.key); }
     setStatus("✅ 전역 초기화 완료 — 모든 기기가 코드 기본값으로 복귀합니다.", "ok");
   } catch (e) {
-    setStatus("❌ 전역 초기화 실패 — 인터넷 연결을 확인해 주세요.", "err");
+    setStatus(isAuthDisabled(e) ? AUTH_OFF_MSG : "❌ 전역 초기화 실패 — 인터넷 연결을 확인해 주세요.", "err");
   } finally { setBusy(false); }
+});
+document.getElementById("recheck").addEventListener("click", () => { void refreshAdminStatus(); });
+document.getElementById("copyUid").addEventListener("click", async () => {
+  const input = document.getElementById("uid");
+  const button = document.getElementById("copyUid");
+  input.select();
+  try { await navigator.clipboard.writeText(input.value); } catch (e) { try { document.execCommand("copy"); } catch (e2) { /* 수동 복사 */ } }
+  button.textContent = "복사됨";
+  setTimeout(() => { button.textContent = "ID 복사"; }, 1500);
 });
 
 render();
 loadGlobal();
+refreshAdminStatus();
 </script>
 </body>
 </html>

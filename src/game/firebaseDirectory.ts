@@ -1,5 +1,6 @@
 import type { FirebaseConfigShape } from "../onlineConfig";
 import type { DirectoryUser, FriendRequestResult, PartyDirectory, PartyDirectoryEvents } from "./directory";
+import { ensureAnonymousAuth } from "./firebaseAuth";
 
 // Firebase Realtime Database 디렉터리 — 실서비스(서로 다른 PC/집) 백엔드.
 // 경로 구조:
@@ -9,6 +10,7 @@ import type { DirectoryUser, FriendRequestResult, PartyDirectory, PartyDirectory
 //   inbox/{nick}/friendAccepted/{by}   = ts
 //   inbox/{nick}/partyInvites/{from}   = { code, ts }
 // 수신자는 자기 inbox 를 구독해 팝업을 띄우고, 처리한 항목은 지운다.
+// 쓰기 허용 범위·형식은 database.rules.json(정본) — 경로·필드를 바꾸면 규칙도 함께 바꾼다(test:firebase-rules 가 대조).
 
 type FirebaseDatabase = typeof import("firebase/database");
 
@@ -31,6 +33,9 @@ export class FirebaseDirectory implements PartyDirectory {
     const { initializeApp, getApps } = await import("firebase/app");
     const fdb = await import("firebase/database");
     this.fdb = fdb;
+    // 규칙상 쓰기는 로그인 필수 — DB 연결 전에 익명 로그인해 첫 요청부터 토큰을 싣는다.
+    // 실패해도 진행: 로그인 없이 쓰기가 거부되면 아래 update 가 실패해 초대 코드 폴백으로 넘어간다(partyPanel).
+    await ensureAnonymousAuth(this.config);
     const app = getApps()[0] ?? initializeApp(this.config);
     const db = fdb.getDatabase(app);
     this.db = db;

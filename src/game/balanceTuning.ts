@@ -3,8 +3,8 @@ import { FIREBASE_CONFIG } from "../onlineConfig";
 // 어드민 밸런스 튜닝 — 바탕화면 관리자 페이지(admin/balance-admin.html, build:admin 으로 생성)에서 조정해 전 기기에 배포한다.
 // 게임 내 진입점은 없다(F8 패널은 유저 요청으로 제거). leaf(main.ts import 금지).
 // 우선순위: 로컬 오버라이드(내 기기 실험, localStorage) > 전역 오버라이드(Firebase, 전체 적용) > 코드 기본값.
-// 방어: 레지스트리 화이트리스트 키만 수용 + [min,max] 클램프 — Firebase 가 공개 쓰기라도 게임을 망가뜨릴 수 없다
-// (범위 밖/비유한 값은 폐기. spirits/samurai NaN 하드닝과 같은 원칙). 읽기는 bal() 한 곳 — 조회만이라 핫패스 안전.
+// 방어: 전역값 쓰기는 DB 규칙상 관리자(admins/{uid})만 가능하지만, 게임 쪽도 레지스트리 화이트리스트 키만 수용 + [min,max] 클램프
+// (범위 밖/비유한 값은 폐기 — 이중 방어. spirits/samurai NaN 하드닝과 같은 원칙). 읽기는 bal() 한 곳 — 조회만이라 핫패스 안전.
 
 export interface BalanceTunable {
   key: string;
@@ -114,7 +114,8 @@ export function clearLocalOverrides(): void {
 }
 
 // 부팅 시 전역 오버라이드 fetch — 3초 타임아웃, 실패는 조용히 기본값 유지(오프라인/차단 안전).
-// 경로는 users/ 서브트리(__balance__ 예약 닉네임) — 기존 Firebase 공개 규칙(users read/write)을 그대로 사용(별도 규칙 변경 불필요).
+// 경로는 users/ 서브트리(__balance__ 예약 키) — 읽기는 users 공개 규칙. 쓰기(전체 적용·전역 초기화)는 바탕화면 관리자 페이지만 하며,
+// database.rules.json 상 admins/{uid} 에 등록된 익명 신원만 허용된다(게임 클라이언트에는 쓰기 경로가 없다).
 export async function loadGlobalBalance(fetchImpl: typeof fetch = typeof fetch !== "undefined" ? fetch : (undefined as unknown as typeof fetch)): Promise<boolean> {
   const dbUrl = FIREBASE_CONFIG?.databaseURL;
   if (!dbUrl || !fetchImpl) return false;
@@ -125,37 +126,6 @@ export async function loadGlobalBalance(fetchImpl: typeof fetch = typeof fetch !
     if (timer) clearTimeout(timer);
     if (!response.ok) return false;
     globalOverrides = sanitizeOverrides(await response.json());
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// "전체 적용" — 현재 로컬 실험값(+기존 전역 유지분)을 Firebase 에 저장 → 모든 기기가 부팅 시 반영.
-// 로컬 오버라이드는 전역으로 승격 후 비운다(이후 이 기기도 전역값을 따라 일관).
-export async function publishGlobalBalance(fetchImpl: typeof fetch = typeof fetch !== "undefined" ? fetch : (undefined as unknown as typeof fetch)): Promise<boolean> {
-  const dbUrl = FIREBASE_CONFIG?.databaseURL;
-  if (!dbUrl || !fetchImpl) return false;
-  const merged = sanitizeOverrides({ ...globalOverrides, ...localOverrides });
-  try {
-    const response = await fetchImpl(`${dbUrl}/users/__balance__/global.json`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(merged) });
-    if (!response.ok) return false;
-    globalOverrides = merged;
-    clearLocalOverrides();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// 전역 초기화 — Firebase 오버라이드 삭제(전 기기 기본값 복귀).
-export async function resetGlobalBalance(fetchImpl: typeof fetch = typeof fetch !== "undefined" ? fetch : (undefined as unknown as typeof fetch)): Promise<boolean> {
-  const dbUrl = FIREBASE_CONFIG?.databaseURL;
-  if (!dbUrl || !fetchImpl) return false;
-  try {
-    const response = await fetchImpl(`${dbUrl}/users/__balance__/global.json`, { method: "DELETE" });
-    if (!response.ok) return false;
-    globalOverrides = {};
     return true;
   } catch {
     return false;

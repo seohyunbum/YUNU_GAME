@@ -1,10 +1,17 @@
 import { FIREBASE_CONFIG } from "../onlineConfig";
+import { firebaseIdToken } from "./firebaseAuth";
 import type { TrainingKind } from "./types";
 
 // 저장 시 플레이어 진행도를 Firebase 중앙 디렉터리(users/{닉네임})에 발행한다.
 // 운영자 리포트(admin-report)가 원격 유저의 최고 레벨·플레이타임까지 한곳에서 집계할 수 있게 한다.
 // leaf: main.ts 를 import 하지 않는다. REST PATCH(merge) 라 디렉터리(SDK)가 쓴
 // online/lastSeen 은 보존되고, 디렉터리 연결 상태와 무관하게 동작한다. 부가 기능 — 실패해도 저장은 막지 않는다.
+// 쓰기는 DB 규칙상 로그인 필수 — 익명 로그인 ID 토큰을 ?auth= 로 붙인다(firebaseAuth.ts). 발행 필드는 database.rules.json 의
+// users/$nick 허용 필드와 같아야 한다(모르는 필드가 하나라도 있으면 발행 전체가 거부됨 — test:firebase-rules 가 대조).
+
+// ID 토큰 공급자 — 테스트는 주입, 기본값은 익명 로그인 토큰(Node 에서는 null = 토큰 없이 요청).
+export type AuthTokenProvider = () => Promise<string | null>;
+const defaultAuthToken: AuthTokenProvider = () => (FIREBASE_CONFIG ? firebaseIdToken(FIREBASE_CONFIG) : Promise.resolve(null));
 
 export interface ProgressUpdate {
   level: number;
@@ -56,10 +63,11 @@ export async function publishProgress(
   nickname: string,
   progress: ProgressUpdate,
   fetchImpl: typeof fetch = typeof fetch !== "undefined" ? fetch : (undefined as unknown as typeof fetch),
+  authToken: AuthTokenProvider = defaultAuthToken,
 ): Promise<boolean> {
   const dbUrl = FIREBASE_CONFIG?.databaseURL;
   if (!dbUrl || !nickname || typeof fetchImpl !== "function") return false;
-  const url = `${dbUrl.replace(/\/$/, "")}/users/${encodeURIComponent(nickname)}.json`;
+  const path = `${dbUrl.replace(/\/$/, "")}/users/${encodeURIComponent(nickname)}.json`;
   const body = JSON.stringify({
     level: Math.max(1, Math.floor(progress.level)),
     class: progress.cls,
@@ -76,6 +84,8 @@ export async function publishProgress(
     progressAt: Date.now(),
   });
   try {
+    const token = await authToken().catch(() => null);
+    const url = token ? `${path}?auth=${encodeURIComponent(token)}` : path;
     const res = await fetchImpl(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
     return Boolean(res?.ok);
   } catch {
