@@ -28,6 +28,7 @@
     "test:damage-variance": "node scripts/damage-variance-test.mjs",
     "test:nickname": "node scripts/nickname-test.mjs",
     "test:firebase-rules": "node scripts/firebase-rules-test.mjs",
+    "check:firebase-live": "node scripts/firebase-rules-live-check.mjs",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:size": "node scripts/check-main-size.mjs",
     "check:methods": "node scripts/check-method-count.mjs",

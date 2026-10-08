@@ -1,7 +1,7 @@
 // Firebase DB 규칙 ↔ 클라이언트 계약 검사 — database.rules.json(정본)이 실제 쓰기 경로·필드와 맞물리는지 정적으로 대조한다.
 // 규칙에 없는 필드를 하나라도 보내면 새 규칙에서 진행도 발행 전체가 조용히 거부되므로(부가 기능이라 오류 표시 없음),
 // 필드·경로 목록은 손으로 적지 않고 publishProgress 가 실제로 보내는 본문과 firebaseDirectory.ts 의 경로 문자열에서 뽑는다.
-// 규칙 의미론(허용/거부) 실측은 게시 후 '틀린 ETag(if-match)' 무기록 시험으로 한다 — docs/party-system.md §9 DB 규칙.
+// 규칙 의미론(허용/거부) 실측은 게시 후 npm run check:firebase-live(라이브 DB, 무변경 요청만)로 한다 — docs/party-system.md §9 DB 규칙.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createServer } from "vite";
@@ -141,6 +141,11 @@ try {
   assert.match(adminHtml, /accounts:signUp/, "관리자 페이지는 익명 로그인으로 관리자 ID 를 만든다");
   assert.equal((adminHtml.match(/fetch\(authedUrl\(/g) ?? []).length, 3, "관리자 페이지 쓰기 3곳(권한 확인·전체 적용·초기화)은 ID 토큰을 붙인다");
   assert.doesNotMatch(adminHtml, /fetch\(BAL_PATH,\s*\{\s*method:/, "토큰 없는 관리자 쓰기 금지");
+  // 권한 확인은 '없는 키 삭제'(관리자 200·아니면 401). 틀린 ETag 는 읽기 공개 경로에서 규칙보다 먼저 검사돼 누구나 412 → 오판.
+  assert.match(adminHtml, /fetch\(authedUrl\(await adminToken\(\), PROBE_PATH\), \{ method: "DELETE" \}\)/, "관리자 권한 확인 = 없는 키 삭제");
+  assert.match(adminHtml, /PROBE_PATH = DB_URL \+ "\/users\/__balance__\/global\/__permission_probe__\.json"/);
+  assert.ok(!BALANCE_TUNABLES.some((tunable) => tunable.key === "__permission_probe__"), "권한 확인 키가 실제 튜너블과 겹치면 안 된다");
+  assert.doesNotMatch(adminHtml, /["']if-match["']\s*:/i, "관리자 페이지는 틀린 ETag 로 권한을 판정하지 않는다");
 
   // 8. Node(테스트·빌드)에서는 익명 로그인을 시도하지 않는다 — window 가 있어도 네트워크 호출 0(실계정 생성 방지)
   const { ensureAnonymousAuth, firebaseIdToken } = await server.ssrLoadModule("/src/game/firebaseAuth.ts");
