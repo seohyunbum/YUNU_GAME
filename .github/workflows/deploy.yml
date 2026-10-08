@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 # 하나의 배포만 동시 진행. 단, 진행 중 배포는 취소하지 않는다(취소 시 Pages 환경이
-# 잠긴 채로 남아 다음 deploy-pages 가 즉시 실패함 — 실제로 100b7a7→d4dc93c 근접 push 에서 발생).
+# 잠긴 채로 남아 다음 deploy-pages 가 즉시 실패함 — 실제로 43809c9→cff6ed8 근접 push 에서 발생).
 # GitHub 공식 Pages 템플릿 권장값과 동일: cancel-in-progress: false.
 concurrency:
   group: pages

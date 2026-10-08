@@ -229,11 +229,11 @@
 - 구현: ①items.ts — repairMaterialFor 가 방패(SHIELD_DURABILITY 보유)면 SHIELD_REPAIR_MATERIAL(iron→제련철, sharp_obsidian_shield→날카로운 흑요석) 반환, toolMaxDurability 가 SHIELD_DURABILITY 반영. ②main.ts — 수리 패널 repairSlots 에 착용 방패(닳았을 때) 추가 + onRepair 라우팅 + repairEquippedShield(shieldDurabilityUsed 를 재료당 50% 회복). ratchet 10211→10220.
 - 검증: typecheck·build·verify 그린. content-test 방패 수리 불변식 단언 추가(재료 유효·최대내구도 일치·2개로 완전회복·흑요석방패→sharp_obsidian). E2E: 착용 흑요석방패(50/300) 수리→내구도 사용 250→100(+150)·재료 5→4, 재료 없으면 버튼 disabled. repair-system.md P2 완료 표기.
 
-## 2026-06-28 — 검색/채팅 중 한글 입력이 단축키를 발동시키던 회귀 수정 (f403d21 되돌림)
+## 2026-06-28 — 검색/채팅 중 한글 입력이 단축키를 발동시키던 회귀 수정 (d8766d7 되돌림)
 
 - 신고: 제작대에서 '용의' 검색 시 지도(m)가 열림. 채팅·검색 중 단축키가 먹으면 안 됨.
-- 원인(내 회귀): 직전 f403d21 에서 '검색창 포커스 중 I/K/M/B 는 단축키로 동작'하게 했는데, 한글 두벌식은 M=ㅡ, I=ㅑ, K=ㅏ, B=ㅠ. "용의"의 '의'(ㅇ+ㅡ+ㅣ)의 ㅡ가 물리 M 키 → 지도 열림. 키 탈취가 잘못된 접근이었음.
-- 수정: 입력창(input/textarea) 포커스 또는 IME 조합(event.isComposing) 중이면 게임 단축키를 무조건 차단(원복). 포커스 갇힘 탈출은 f403d21 에서 넣은 '게임 화면 클릭 시 입력 blur' + ESC 로 유지(이 escape hatch 는 그대로 둠).
+- 원인(내 회귀): 직전 d8766d7 에서 '검색창 포커스 중 I/K/M/B 는 단축키로 동작'하게 했는데, 한글 두벌식은 M=ㅡ, I=ㅑ, K=ㅏ, B=ㅠ. "용의"의 '의'(ㅇ+ㅡ+ㅣ)의 ㅡ가 물리 M 키 → 지도 열림. 키 탈취가 잘못된 접근이었음.
+- 수정: 입력창(input/textarea) 포커스 또는 IME 조합(event.isComposing) 중이면 게임 단축키를 무조건 차단(원복). 포커스 갇힘 탈출은 d8766d7 에서 넣은 '게임 화면 클릭 시 입력 blur' + ESC 로 유지(이 escape hatch 는 그대로 둠).
 - 검증: typecheck·build·verify 그린. E2E: 제작대/인벤 검색 포커스 중 m/i/k/b → 패널 불변·검색창에 입력만("mikb"), blur 후 m → 지도 정상. Codex 커밋(boss·hotpath) 위에 클린 적용.
 
 ## 2026-06-28 — 단축키(i/k/m) 안 먹는 트랩 수정 (레시피 검색창 포커스)
@@ -460,7 +460,7 @@
 
 ## 2026-06-23 — 파티 버프(심판의 빛·불굴) 미전파 수정 + 몬스터 요새 맵별 이어하기
 
-- ① 힐러 '심판의 빛'(empower)·탱커 '불굴의 함성'(rally) 버프가 파티원에게 안 걸림(시전자 본인만). 원인: party.ts 메시지 라우팅 2곳(호스트 중계 ~284, 게스트 수신 ~349)에 partyHeal 만 있고 partyEmpower/partyRally 누락 → 메시지가 핸들러까지 도달 못 함. 스킬 추가 커밋(1dcbefc) 때부터의 버그(전파 배선 누락). 수정: 두 라우팅 리스트에 partyEmpower·partyRally 추가(partyHeal 와 동일 경로). partyEmpowerNearby/수신 핸들러(empowerLocalPlayer)는 원래 정상.
+- ① 힐러 '심판의 빛'(empower)·탱커 '불굴의 함성'(rally) 버프가 파티원에게 안 걸림(시전자 본인만). 원인: party.ts 메시지 라우팅 2곳(호스트 중계 ~284, 게스트 수신 ~349)에 partyHeal 만 있고 partyEmpower/partyRally 누락 → 메시지가 핸들러까지 도달 못 함. 스킬 추가 커밋(c9ae55d) 때부터의 버그(전파 배선 누락). 수정: 두 라우팅 리스트에 partyEmpower·partyRally 추가(partyHeal 와 동일 경로). partyEmpowerNearby/수신 핸들러(empowerLocalPlayer)는 원래 정상.
 - ② 몬스터 요새가 재입장 시 1단계부터 시작 → 맵별 최고 클리어 단계부터 이어서 시작. fortressSiege.ts: createSiegeState(baseLevel, startStage) 파라미터화 + loadFortressStageByMap/saveFortressStageByMap(localStorage, 세이브 스키마 무관). main: fortressStageByMap 필드, enter 시 그 맵 기록부터 시작·재입성 메시지, grantStageReward 에서 맵별 갱신, 새 게임 리셋. main +5 → ratchet 10049→10054.
 - 검증: typecheck+build, 요새 E2E(dragon_plains 6단계 재개·기록없는맵 1단계·7클리어→기록7·localStorage 저장). empower 는 partyHeal 미러라 코드추론+build. ⚠️ verify 의 save-roundtrip(tanker maxHealth 28≠40)·content(dragon gear 퀘XP·레전더리셋)은 동시 Codex 세션의 미완 작업 — 내 변경 무관(touch 안 함), Codex 확인 필요.
 
@@ -556,7 +556,7 @@
 ## 2026-06-21 — 흑요석 광맥 시각 강화 + 흑요석 획득 퀘스트
 
 - 시도: 동굴 흑요석 타일이 석탄(무광 검정)과 헷갈린다는 피드백 → 귀한 재료답게 눈에 띄게 강화 + 획득 가이드 퀘스트 추가.
-- 결과(시각, `oreVisual.ts` leaf): 흑요석 base 색 #24152f→#3d1f66(선명한 보라), base/accent emissive 강화(보라 자가발광), 파편 위에 '빛나는 보라 결정 스파이크' 1개 추가(공유 cone[3] 재사용 → dispose-skip 동일). **블룸/post-processing 이 OFF(6452b0c)라 emissive 헤일로가 안 생김 → 머티리얼 색 자체를 밝게 해야 띄움**(이 점이 핵심 교훈). 실 렌더 확인: 석탄=거의 안 보이는 무광 검정, 흑요석=선명한 보라로 확연히 구분.
+- 결과(시각, `oreVisual.ts` leaf): 흑요석 base 색 #24152f→#3d1f66(선명한 보라), base/accent emissive 강화(보라 자가발광), 파편 위에 '빛나는 보라 결정 스파이크' 1개 추가(공유 cone[3] 재사용 → dispose-skip 동일). **블룸/post-processing 이 OFF(8de1314)라 emissive 헤일로가 안 생김 → 머티리얼 색 자체를 밝게 해야 띄움**(이 점이 핵심 교훈). 실 렌더 확인: 석탄=거의 안 보이는 무광 검정, 흑요석=선명한 보라로 확연히 구분.
 - 결과(퀘스트, `objectives.ts`): `gather_obsidian`(흑요석 2개) 추가 — craft_advanced_medkit 다음·craft_necklace 앞(목걸이 재료라 자연스러운 선행). 조건 countItem("obsidian")≥2 → 스냅샷/메인 변경 0, id-set 라 옛 세이브 자동 소급. 가이드: 다이아 곡괭이로 동굴 채굴(power≥5 게이트, main.ts:4728), 몬스터 요새 클리어 보상(fortressSiege +obsidian), 흑요석 상자, 고레벨 필드보스. 보상=특수 제련대(다음 단계 sharp_obsidian 정제용).
 - 다음 판단: post-processing 복구되면 흑요석 emissive 헤일로가 더 살아남 → 그때 base 보라를 다시 약간 어둡게 조정 여지. 동굴 실채굴 스폰은 oreVisual 공유본이라 자동 반영.
 - 관련 파일/검증: `src/game/oreVisual.ts`·`src/objectives.ts`, 테스트 mock `scripts/gameplay-systems-test.mjs`(동시세션이 classSkills 에 skillSound 추가했으나 mock 미반영 → verify 적색이던 것 동반 수정). verify+build 통과, 퀘스트 module 검증(index 34, 2개 완료), 실 WebGL 렌더 스크린샷 확인.
@@ -570,13 +570,13 @@
 
 ## 2026-06-21 — ⚠️ 비주얼 post-processing 반영 후 OFF (과노출 회귀) [동시 세션]
 
-- 시도: selective bloom(발광체 글로우) + GTAO(앰비언트 오클루전) + 금속 HDRI 반사를 PC high 전용으로 추가(커밋 12a9c77 → 6cfde7a → 54bbb89).
-- 결과/원복: 직후 "화면이 하얗게(과노출)" 회귀 발생 → **post-processing 컴포저를 일시 OFF**(6452b0c). bloom/GTAO/HDRI 코드는 남아 있으나 컴포저가 꺼져 효과 비활성.
+- 시도: selective bloom(발광체 글로우) + GTAO(앰비언트 오클루전) + 금속 HDRI 반사를 PC high 전용으로 추가(커밋 3e34bb6 → e1430c5 → d8f25c7).
+- 결과/원복: 직후 "화면이 하얗게(과노출)" 회귀 발생 → **post-processing 컴포저를 일시 OFF**(8de1314). bloom/GTAO/HDRI 코드는 남아 있으나 컴포저가 꺼져 효과 비활성.
 - 이유: 톤매핑/노출이 겹치며 과노출. 노출·톤매핑 기준을 먼저 잡지 않은 채 후처리를 합성한 게 원인으로 추정.
 - 다음 판단(★재발 방지): **post-processing/bloom 을 다시 켜려면 노출·톤매핑 보정이 선행돼야 함.** 모르고 재활성하면 같은 과노출이 재발하므로 재시도 전 반드시 이 항목 확인. git revert 가 아니라 fix 커밋으로 껐기 때문에 `git log --grep revert` 로는 안 잡힘.
-- 관련 파일/검증: git 6452b0c ← 54bbb89 ← 6cfde7a ← 12a9c77, 렌더 비주얼 컴포저.
+- 관련 파일/검증: git 8de1314 ← d8f25c7 ← e1430c5 ← 3e34bb6, 렌더 비주얼 컴포저.
 
-## 2026-06-21 — 모바일 진입 자동 가로+전체화면 + 세로 차단 회전 오버레이 (de096d2)
+## 2026-06-21 — 모바일 진입 자동 가로+전체화면 + 세로 차단 회전 오버레이 (3041276)
 
 - 시도: 직업 선택 후 진입 클릭(사용자 제스처)에서 전체화면 요청 → (실모바일) `screen.orientation.lock('landscape')`. 세로일 때 화면을 가리는 회전 오버레이(`body.touch-mode.in-game::after`).
 - 결과/결정: ① 오버레이는 차단형 ② 새 게임+불러오기 진입 모두 적용 ③ 데스크톱 `?touch=1` 강제모드는 전체화면만(lock 생략) ④ orientationchange→resize 추가.
@@ -584,7 +584,7 @@
 - 다음 판단/검증: 실제 API 무스텁 E2E(미처리 rejection·콘솔에러 0) + **6관점 적대적 감사 확정 버그 0건** → 재감사 불필요.
 - 관련 파일/검증: `src/game/platform.ts`(enterLandscapeFullscreen)·`main.ts`(진입 훅·in-game 클래스)·`style.css`. 설계 `docs/mobile-landscape-fullscreen.md`.
 
-## 2026-06-21 — 직업별 패시브 개편 (a1c5b40)
+## 2026-06-21 — 직업별 패시브 개편 (2a4d884)
 
 - 시도: 무기조건 데미지(전사 근접 +10% / 힐러 지팡이 +10%(힐량 포함) / 마법사 +15% / 소환사 +10%), 방어 레벨스케일(전사 base 4 +0.2/lv·탱커 base 8 +0.4/lv), 힐러 마나 +0.25/s, 탱커 방패 장착 시 체력 +(0.25+레벨/50)/s, 거너 쿨감 총기 전용화 + 이동속도 +10%.
 - 결과/결정/함정(★): ① 데미지 배수는 기존 `empowerMultiplier` 와 동일 패턴으로 **1회만** 적용 — currentDamage 파생 스킬(불타는공격·대지가르기 = currentDamage×2)은 자동 포함이라 **이중적용 금지**, 플랫 즉발 스킬(무거운공격·TNT·파이어볼·메테오·바람정령)만 명시 곱. ② **DoT/HoT(정령폭풍·화상·불타는방패·치유의비)·펫·빙의는 배수 제외(결정)** — 틱 시점 무기정보 없음. ③ 방어/회복 레벨스케일은 `levelStatBonus`(전직 보너스 포함) 아닌 **순수 캐릭터 레벨**. ④ 목걸이 제작 퀘스트는 상자드랍 소유가 아니라 `craftedNecklace` 신호로만 완료.
@@ -781,13 +781,13 @@
 
 ## 2026-06-19 — 모바일 터치 지원 적대적 점검 (확정 버그 4건 + 게이트 위반 1건)
 
-다른 PC 에서 들어온 모바일 터치 지원(76594d9·9c98861)을 적대적으로 검증. 코어 플레이 루프를 막는 도달성(reachability) 버그 다수 발견 — 데스크톱은 좌클릭/우클릭/숫자키로 하던 동작이 터치엔 경로가 없었다.
+다른 PC 에서 들어온 모바일 터치 지원(fe0d9a9·24020c5)을 적대적으로 검증. 코어 플레이 루프를 막는 도달성(reachability) 버그 다수 발견 — 데스크톱은 좌클릭/우클릭/숫자키로 하던 동작이 터치엔 경로가 없었다.
 
 - **B1 (퍼포먼스 회귀)**: 새 게임 리셋이 `qualityMode="high"` 로 고정 → 모바일이 시작 시 정한 `performance` 프리셋을 새 게임마다 잃음. 수정: `isTouchDevice() ? "performance" : "high"`.
 - **B2 (먹기·회복·소비 불가)**: 핫바 탭은 *선택*만 하고 *사용*은 데스크톱 숫자키에만 있었음 → 모바일은 고기 먹기·구급상자·경험치병·전직 인장 사용 불가(굶어 죽음). 수정: 터치 컨트롤에 "사용" 버튼 추가 → `useSelectedHotbarItem`.
 - **B3 (설치 불가 — 튜토리얼 하드블록)**: 설치물(제작대·침대 등) 설치는 우클릭(contextmenu)·HTML5 드래그뿐 → 터치 불가. "제작대 설치" 튜토리얼에서 진행 불가. 수정: `hotbarUse.placeSelected()` 훅 추가, 터치면 정면 설치.
 - **B4 (제작대/제련대/분쇄기 열기 불가)**: 스테이션 *열기*는 우클릭 전용, `interact()`(좌클릭=탭)은 *회수*만 함 → 모바일은 3x3 제작·제련·분쇄 불가. 수정: 터치면 `interact()` 가 스테이션을 *열도록*(회수는 데스크톱 전용).
-- **게이트 위반**: master(c590227)의 `src/main.ts` 가 이미 `check:size` +1 초과(9669/9668) 상태로 푸시돼 있었음(커밋 전 verify 미실행 추정). 새 게임 리셋 블록의 중복 performance 리셋 5줄을 제거해 9664 로 내리고 예산도 9664 로 조임.
+- **게이트 위반**: master(cb5b9a4)의 `src/main.ts` 가 이미 `check:size` +1 초과(9669/9668) 상태로 푸시돼 있었음(커밋 전 verify 미실행 추정). 새 게임 리셋 블록의 중복 performance 리셋 5줄을 제거해 9664 로 내리고 예산도 9664 로 조임.
 - **회귀 가드 추가**: `scripts/mobile-test.mjs`(`test:mobile`, verify 포함) — `isTouchDevice()` SSR 안전성 + 조이스틱→키 매핑(데드존·4방향·전후 상호배타·대각선·달리기 임계·NaN 안전정지·경계 strict). 이를 위해 `joystickKeyState` 순수 함수로 추출.
 - 남은 가벼운 갭(미수정, 보고): 캐릭터창(K) 터치 진입 없음 → 목걸이 착용(엔드게임 퀘) 불가 / 아이템 버리기(우클릭) 터치 경로 없음 / 쌓기블록 설치(우클릭) 터치 경로 없음. 모두 비핵심·후반 요소라 별도 결정 필요.
 - 모든 수정은 `isTouchDevice()` 게이트라 **데스크톱 동작 불변**. 관련: `src/ui/touchControls.ts`, `src/game/hotbarUse.ts`, `src/main.ts`, `src/style.css`.
@@ -802,7 +802,7 @@
 
 ## 🔴 미해결 TODO — 속도(성능) 검증 필요: 몬스터 밀도 상향분
 
-- **무엇**: 2026-06-20 야생 몬스터 마릿수 상향(기본맵 36→60, 그 외 48→78) + 전맵 균등 분포(commit 3dbf4f7).
+- **무엇**: 2026-06-20 야생 몬스터 마릿수 상향(기본맵 36→60, 그 외 48→78) + 전맵 균등 분포(commit c2ddaac).
 - **왜 미검증**: 이 원격 환경엔 브라우저(Chrome)가 없어 `npm run perf-check` / `verify:full` 을 돌릴 수 없음. typecheck·단위테스트·build 만 통과.
 - **해야 할 일** (브라우저 있는 PC 에서):
   1. `npm run perf-check` 실행 → `PERF_BUDGET`(scripts/performance-smoke.mjs) 초과 여부 확인.
@@ -859,9 +859,9 @@
 - 요청: 가챠 아이템으로 등급별 정령 확률 획득 → 목걸이처럼 장착해 공·방 버프, 소환수식 레벨업 + 먹이.
 - 설계: 로직은 leaf(game/spirits.ts), 연출/표현은 ui(gachaScreen.ts·spiritBadge.ts), main 은 배선만(신규 메서드 0 — 컨텍스트 콜백·필드로만). 등급/배율은 데이터(SPIRIT_GRADES)로 표현.
 - 등급: 5단계(일반/고급/희귀/영웅/전설), 가챠 48/30/15/5.5/1.5%, 공·방 각각 0-5/3-8/6-11/9-14/12-17 독립 롤. 레벨당 버프 = 초기치 ×(1+2%×(Lv-1)).
-- 1단계(e7d8743): spirits.ts + 타입 + 아이템(정령 소환권, 전설 tier + 황금 눈 외형) + spirits-test.
-- 2단계(530c72d): 세이브 스키마(SAVE_VERSION 13→14, 마이그레이션 빈 컬렉션) + 드랍(상자 12%/4%·사냥 1.2%×난이도) + 사용(인벤 더블클릭·핫바 → 전체화면 가챠 연출: 이집트 눈 빌드업→등급색 공개, 건너뛰기, 신디사이즈 효과음).
-- 3단계(dad3e4f): 캐릭터창 장착 섹션 + 공/방 적용(목걸이와 동일 합산 위치) + 좌하단 버프 칩(상시 value) + 좌상단 미니 뱃지(등급↑ 발광/반짝 차등).
+- 1단계(b9fd0c5): spirits.ts + 타입 + 아이템(정령 소환권, 전설 tier + 황금 눈 외형) + spirits-test.
+- 2단계(78945f9): 세이브 스키마(SAVE_VERSION 13→14, 마이그레이션 빈 컬렉션) + 드랍(상자 12%/4%·사냥 1.2%×난이도) + 사용(인벤 더블클릭·핫바 → 전체화면 가챠 연출: 이집트 눈 빌드업→등급색 공개, 건너뛰기, 신디사이즈 효과음).
+- 3단계(757547a): 캐릭터창 장착 섹션 + 공/방 적용(목걸이와 동일 합산 위치) + 좌하단 버프 칩(상시 value) + 좌상단 미니 뱃지(등급↑ 발광/반짝 차등).
 - 4단계(이 커밋): 장착 정령이 처치 시 소환수와 동일 경험치로 레벨업 + 미착용 정령 먹이기(등급·레벨 비례 경험치).
 - 결정/기본값(사용자 질문 도구가 권한오류로 실패 → 권장값으로 진행, 사용자 정정 가능): 5등급/위 배율, 공·방 독립 롤, BGM=엔진 신디사이즈(외부 파일 없음 — 이 환경서 바이너리 추가 불가), 단일 장착, 사냥·상자 드랍.
 - ⚠ 미검증(환경 제약): 브라우저 부재로 visual-check 미실행 — 가챠 연출(눈 애니메이션)·뱃지·패널 레이아웃은 실기기 확인 권장. 로직은 spirits-test 로 커버.
@@ -967,7 +967,7 @@
 - ① 근본 원인: predatorAi 추격 이동이 매 프레임 clampPointToRegion 으로 스폰 리전(원형 서식지, 반경 68~78)에 클램프됨.
   리전 안에서는 따라오다 플레이어가 리전 밖(지도 끝 방향)으로 나가면 보스가 원 경계에 고정 — 증상과 정확히 일치.
   월드 가장자리 마진(몬스터 −6 vs 플레이어 −5, 1유닛 차)은 reach(3.3+) 이내라 원인 아님. 용(dragonAi)은 리전 클램프가 없어 무관.
-- ① 수정: 리전 클램프를 **fieldBossId 없는 일반 몬스터에만** 적용. 필드 보스는 홈 리시(BOSS_LEASH_RADIUS=6, Codex dd0748f)가
+- ① 수정: 리전 클램프를 **fieldBossId 없는 일반 몬스터에만** 적용. 필드 보스는 홈 리시(BOSS_LEASH_RADIUS=6, Codex 36cbe5e)가
   어그로 해제 시 스폰 홈 복귀를 보장하므로 클램프 불필요 → 어디까지든 추격. 부가 효과: 리전 밖으로 나간 보스가 다음 프레임
   clampPointToRegion 의 거리 클램프로 경계까지 순간이동하던 잠재 버그도 제거.
 - ② 보스 방어 +30% (현재대비 ×1.3):
@@ -1066,7 +1066,7 @@
 ## 2026-07-03 — 사무라이 직업 구현 완료 (wip/samurai 재개 → 완주)
 
 - 배경: 두 차례 세션 한도 중단으로 남아있던 wip/samurai(32 타입에러)를 master 에 병합해 완성. 카타나 2종(리치 2배)은
-  선행 커밋(c2078af)으로 이미 반영돼 있었음.
+  선행 커밋(e9f1de4)으로 이미 반영돼 있었음.
 - 확정 수치:
   - 패시브: 방어 +3(레벨당 +0.15) — 전사(4/0.2) 미만. 한방 배수 0.8 — 전사(0.95) 미만. 스윙 시간 ×0.8(=공속 +25%,
     쾌속 목걸이와 같은 스윙 축소 메커니즘) → DPS ≈ 전사(무기 없이 +5.3%, 근접무기 전사 대비 −4.3%).
@@ -1095,7 +1095,7 @@
   터치 UI 스킬 버튼은 buildSkillSlots 데이터 주도라 자동 지원(별도 작업 불요).
 
 ## 2026-07-04 — 로드-리셋 패턴 전수 감사: 상점 카운터·개미굴 뱅크 세이브화 + 스테일 신호 리셋
-- 요새 단계 버그(5452de8)와 같은 패턴 잔여 후보 전수 점검(resetGameState × restoreSaveData 교차 대조).
+- 요새 단계 버그(28a7a8a)와 같은 패턴 잔여 후보 전수 점검(resetGameState × restoreSaveData 교차 대조).
 - 수정: ①materialsSold·shopPurchases 세이브 필드화(로드 복원+완료 퀘스트 임계 백필) — "재료 3번 팔기" 중간 진행이
   로드마다 0 리셋되던 유실 해소. ②antStepBank 세이브화(chest/cave 뱅크와 동일 취급). ③resetGameState 에
   recoveredWorkbench·ateMeat 리셋 누락 → 이전 플레이스루 신호가 새 게임 퀘스트를 자동 완료시키던 버그 수정.
@@ -1191,9 +1191,9 @@
 
 ## 2026-07-04 — 사무라이 적대적 QA 전수 감사: 오염 수치 방어 하드닝 + 전용 테스트 스위트
 
-- 배경: 사무라이+카타나(c2078af..a31e202 + 밸런스 후속 ffd55e0·a0e1827)를 치터·QA 관점으로 전수 공격
+- 배경: 사무라이+카타나(e9f1de4..7dc20c3 + 밸런스 후속 98e977d·2a4e246)를 치터·QA 관점으로 전수 공격
   (도약 탈출·충돌 우회, 연격 수명주기, 카타나 리치 악용, 퍼징, 세이브/파티, 타 직업 회귀, 핫패스 예산).
-- **CONFIRMED-FIXED** (76b203b, 전부 game/samurai.ts 리프 한정·정상 입력 골든 불변):
+- **CONFIRMED-FIXED** (55f31de, 전부 game/samurai.ts 리프 한정·정상 입력 골든 불변):
   ① 피해 헬퍼 4종(난도/도약/무한 찌르기/월광베기) — 비유한 currentDamage → NaN 피해 → target.hp NaN
      → `hp <= 0` 영원히 false = **불사 몬스터** (samurai.ts finiteOr1 가드).
   ② registerSamuraiFlurry — NaN 간격은 `now < nextHitAt` 전부 false = **매 프레임 타격**, NaN/∞ 타수는
@@ -1538,7 +1538,7 @@
   ②텔레그래프 수축 링+색 램프+스트로브, 폭발 빛기둥+볼리 폭음+피격 비네트 ③컷씬 화면 진동·균열
   발광(내부 광원+광선+크리스탈 emissive)·파열 파편 비산·섬광 + 시네마 모드(HUD/1인칭 손 숨김).
   illia-test 결계·기둥 수명 회귀 추가, E2E(연출·결계·회귀)·실화면 스샷 검증, verify 녹색(라쳇 9436).
-- 난이도 배율 확충(사용자 요청, Codex 텔레그래프 리팩터 55b5217 위 재적용): ①일리아 4항목 쉬움→어려움
+- 난이도 배율 확충(사용자 요청, Codex 텔레그래프 리팩터 9e7b173 위 재적용): ①일리아 4항목 쉬움→어려움
   자동 배율(armor×monsterDefense, hit_pct·hit_flat×monsterAttack, telegraph_scale×bossTelegraph 0.85
   [신설 필드]). 기존 HP만 ×1.5였음. ②드래곤 공격 난이도 미반영 死코드 수정 — AI/반격 발톱·브레스 전
   지점 ×monsterAttack(불멸 포함). 실측 E2E: 일리아 HP 3000→4500·방어 90→117·피격 212→280, 드래곤
@@ -1680,7 +1680,7 @@
   판단: applyAttackMotion 시그니처를 body 객체로 바꾸면 samurai/systems 테스트가 rotation 객체를 넘겨 깨짐 →
   별도 함수 추가가 정답(기존 상체 모션 + 신규 팔 모션 합성).
 
-- 방금 모션 극대화 작업(efe353f·fc34f28·36338c4)에 대한 적대적 테스트 → 확정 결함 수정:
+- 방금 모션 극대화 작업(05cbf80·ee0d733·17486d4)에 대한 적대적 테스트 → 확정 결함 수정:
   워크플로우 어드버서리 리뷰가 세션 한도로 중단(9/11 에이전트 실패)돼 완료된 2개 finder 결과를 수동 재판정.
   확정 4건(전부 코스메틱/기능, 크래시·성능·정합 회귀 아님) 중 3건 수정, 1건은 의도적 보류:
   ▪#1(medium) 시즈 보스 "머리 물기"가 무동작 — caveMonsters 가 attackArms 만 root 로 승계하고 headMesh 는

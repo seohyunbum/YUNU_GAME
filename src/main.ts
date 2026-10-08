@@ -6735,7 +6735,7 @@ class WildernessGame {
 
   // 로드 시 마을 건물 보강 — 구세이브에 빠진 상점·판매대, 그리고 큰 마을(special) 대장간을 소급 스폰한다.
   // (메서드명은 호환 위해 유지. foodStorage 좌표를 VILLAGE_CENTERS 와 대조해 큰 마을을 식별, spawnVillage 와 동일 배치·idempotent.)
-  // 몬스터 요새 입구는 맵당 1개여야 한다. seedOverworld 는 새 맵에 1개를 심지만, 요새 기능(f972355) 이전에 시드·저장된 맵은 worldState 복원만 하면 게이트가 없다 → 복원 분기에서 보강해 모든 맵에 소급 적용한다.
+  // 몬스터 요새 입구는 맵당 1개여야 한다. seedOverworld 는 새 맵에 1개를 심지만, 요새 기능(5648738) 이전에 시드·저장된 맵은 worldState 복원만 하면 게이트가 없다 → 복원 분기에서 보강해 모든 맵에 소급 적용한다.
   private ensureFortressGate() {
     if (this.locationMode !== "overworld") return;
     if ([...this.objectsOfType("fortressGate")].length > 0) return;

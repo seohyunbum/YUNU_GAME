@@ -97,5 +97,5 @@
 | `illia_hit_pct`·`illia_hit_flat` | ×1.3 | `monsterAttack` (applyPlayerHit — pct·flat 둘 다) |
 | `illia_telegraph_scale` | ×0.85 | `bossTelegraph`(신설 필드, 예고 15%↓ → 반응시간 단축). illiaBoss `setIlliaTelegraphDifficultyMul` 로 주입 |
 
-- 드래곤류(불멸의 존재 포함) **공격력도 어려움에서 ×1.3**(`monsterAttack`). 기존엔 AI(`dragonAi.castDragonAttack`)·반격(`dragonCounterAttack`)이 raw `BOSS_STATS.clawDamage/fireDamage`를 읽어 난이도 미반영이었음(스폰 시 scaled `attackDamage` 필드는 死코드). 발톱·브레스 전 지점에 `monsterAttack` 곱함(이중 스케일링 없음). ※ 브레스는 Codex 텔레그래프 전환(55b5217) 후 `TELEGRAPH_DAMAGE_MULT`(×2, 회피가능)와 별개로 난이도 배율을 추가 곱.
+- 드래곤류(불멸의 존재 포함) **공격력도 어려움에서 ×1.3**(`monsterAttack`). 기존엔 AI(`dragonAi.castDragonAttack`)·반격(`dragonCounterAttack`)이 raw `BOSS_STATS.clawDamage/fireDamage`를 읽어 난이도 미반영이었음(스폰 시 scaled `attackDamage` 필드는 死코드). 발톱·브레스 전 지점에 `monsterAttack` 곱함(이중 스케일링 없음). ※ 브레스는 Codex 텔레그래프 전환(9e7b173) 후 `TELEGRAPH_DAMAGE_MULT`(×2, 회피가능)와 별개로 난이도 배율을 추가 곱.
 - ★주의: `illia_hit_pct` 관리자값을 크게(예: 0.8) 두면 어려움 ×1.3=1.04 → 최대체력 초과(원샷) 가능 — 관리자 재량.
